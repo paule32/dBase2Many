@@ -7,9 +7,10 @@ def main():
     rt.SET_NAME('Y', 12)
     rt.WRITE(rt.BINOP("Hello", '+', "World"))
     rt.SET_NAME('X', 23)
+    rt.WRITE(rt.GET('X', []))
     rt.SET_NAME('X', rt.BINOP(rt.PRIMARY('X'), '+', 1))
     if rt.TRUE(rt.BINOP(rt.PRIMARY('X'), '==', 22)):
-        rt.WRITE(rt.BINOP("X := ", '+', rt.GET(x, [])))
+        rt.WRITE(rt.BINOP("X := ", '+', rt.GET('X', [])))
     if rt.TRUE(rt.BINOP(2, '==', rt.BINOP(rt.PRIMARY('x'), '+', 1))):
         rt.WRITE("falsch")
     else:
@@ -38,15 +39,15 @@ def main():
             rt.WRITE("ParentForm.Init()")
             rt.WRITE(rt.BINOP(rt.PRIMARY('a'), '+', 10))
             rt.WRITE(rt.BINOP(rt.PRIMARY('a'), '+', 2))
-            rt.WRITE(rt.GET(pushbutton1, []))
+            rt.WRITE(rt.GET('PUSHBUTTON1', []))
             rt.SET_NAME('I', 1)
             rt.SET_NAME('E', 42)
             for i in rt.RANGE_INCL(1, 3, 1):
-                rt.WRITE(rt.BINOP("I = ", '+', rt.GET(i, [])))
+                rt.WRITE(rt.BINOP("I = ", '+', rt.GET('I', [])))
                 rt.SET_NAME('E', rt.BINOP(rt.PRIMARY('E'), '+', 1))
-                rt.WRITE(rt.GET(e, []))
+                rt.WRITE(rt.GET('E', []))
                 rt.WRITE(rt.BINOP("x= ", '+', rt.CALL_ANY(rt.PRIMARY('THIS.TestProc'), [rt.PRIMARY('THIS'), "text 1"])))
-                rt.WRITE(rt.BINOP(rt.BINOP("--> ", '+', rt.GET(width, [])), '+', " okay."))
+                rt.WRITE(rt.BINOP(rt.BINOP("--> ", '+', rt.GET('WIDTH', [])), '+', " okay."))
                 if rt.TRUE(rt.BINOP(rt.PRIMARY('I'), '==', 3)):
                     return
                 break
@@ -54,16 +55,16 @@ def main():
         
         def testproc(self, sender):
             this = self
-            rt.WRITE(rt.GET(sender, []))
+            rt.WRITE(rt.GET('SENDER', []))
             return 324
         
         def parentform_onclick(self, sender):
             this = self
             rt.WRITE("on form clicked")
             rt.SET_NAME('x', 5)
-            rt.WRITE(rt.GET(x, []))
+            rt.WRITE(rt.GET('X', []))
             while rt.TRUE(rt.BINOP(rt.PRIMARY('x'), '>=', 2)):
-                rt.WRITE(rt.GET(x, []))
+                rt.WRITE(rt.GET('X', []))
                 rt.SET_NAME('x', rt.BINOP(rt.PRIMARY('x'), '-', 1))
                 if rt.TRUE(rt.BINOP(rt.PRIMARY('x'), '==', 3)):
                     break
@@ -73,11 +74,11 @@ def main():
         def pushbutton1_onclick_1(self, sender):
             this = self
             rt.WRITE("clicked button A: handler 1")
-            rt.WRITE(rt.GET(sender, ['Text']))
-            _t1 = rt.GET(sender, [])
+            rt.WRITE(rt.GET('SENDER', ['Text']))
+            _t1 = rt.GET('SENDER', [])
             rt.PUSH_WITH(_t1)
-            rt.WRITE(rt.GET(text, []))
-            _t2 = rt.GET(font, [])
+            rt.WRITE(rt.GET('TEXT', []))
+            _t2 = rt.GET('FONT', [])
             rt.PUSH_WITH(_t2)
             rt.WITH_SET(['bold'], .T.)
             rt.WITH_SET(['size'], 14)
@@ -86,7 +87,7 @@ def main():
             if rt.TRUE(rt.BINOP(rt.PRIMARY('THIS.PushButton1.Text'), '==', "Click Me")):
                 rt.SET_NAME('THIS.PushButton2.Text', "Click Me")
                 rt.WRITE("okk")
-                _t3 = rt.GET(sender, [])
+                _t3 = rt.GET('SENDER', [])
                 rt.PUSH_WITH(_t3)
                 rt.WITH_SET(['Text'], "Click Me, too")
                 rt.POP_WITH()
@@ -115,7 +116,7 @@ def main():
         def pushbutton2_onclick(self, sender):
             this = self
             rt.WRITE("clicked button 2")
-            rt.WRITE(rt.GET(sender, ['Text']))
+            rt.WRITE(rt.GET('SENDER', ['Text']))
             if rt.TRUE(rt.BINOP(rt.PRIMARY('THIS.PushButton2.Text'), '==', "Click Me, too")):
                 rt.SET_NAME('THIS.PushButton1.Text', "Click Me")
                 rt.SET_NAME('Sender.Text', "Click Me")
