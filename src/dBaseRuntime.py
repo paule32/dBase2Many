@@ -1,8 +1,10 @@
+# ----------------------------------------------------------------------------
 """!
 \file  dBaseRuntime.py
 \note  (c) 2025, 2026 by Jens Kallup - paule32
        all rights reserved.
 """
+# ----------------------------------------------------------------------------
 import os       ##! Python operating system module
 import re       ##! Python regular expression module
 import sys      ##! Python system module
@@ -42,19 +44,23 @@ BG_16 = {
     104: "#5555ff", 105: "#ff55ff", 106: "#55ffff", 107: "#ffffff",
 }
 # ----------------------------------------------------------------------------
-"""!
-@brief  This Python dictionary holds the variables, classes, and methods that
-        are used by the given application.
-@since  version 0.0.1
-@author paule32
-"""
 var_registry = {
-    "info":  {          # source informations
-        "var"   : 0,    # count variabl's
-        "class" : 0,    # count class's
-        "method": 0,    # count method's
+    """!
+    @brief   This Python dictionary to hold meta information's.
+    
+    @details This dictionary variable hold the internal handled variables,
+             classes, and methods that are used by the given application.
+             It give definition functions that can be used to get the count
+             of variables, classes, and methods
+    @since   version 0.0.1
+    @author  paule32
+    """
+    "info":  {          """! source informations """
+        "var"   : 0,    """! count variables     """
+        "class" : 0,    """! count classes       """
+        "method": 0,    """! count methods       """
     },
-    "var": [            # table dictionary for variables
+    "var": [            """! table dictionary for variables """
         [{
             "name"  : "_app",   # dbase default application variable
             "type"  : None,
@@ -101,12 +107,18 @@ var_registry = {
 # ----------------------------------------------------------------------------
 class AnsiState:
     """!
-    @brief  This is class AnsiState. They will be used to apply the text colors
-            for a given string sequence.
-    @since  version 0.0.1
-    @author paule32
+    @brief   This is class AnsiState.
+    @details They will be used to apply the text colors for a given
+             string sequence.
+    @since   version 0.0.1
+    @author  paule32
     """
     def __init__(self):
+        """!
+        @brief  This is the default constructor of class AnsiState.
+        @since  version 0.0.1
+        @author paule32
+        """
         self.reset()
 
     def reset(self):
