@@ -1,0 +1,13 @@
+/** @defgroup pascal Pascal API
+ *  @brief Documentation fot the Pascal Units.
+ */
+
+/** @page pas_overview Pascal (FPC) Übersicht
+ *
+ *  @section pas_start Einstieg
+ *  Hier kommt dein Pascal-Intro rein.
+ *
+ *  @section pas_nav Navigation
+ *  - @ref cpp_overview
+ *  - @ref py_overview
+ */

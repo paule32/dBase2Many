@@ -1,0 +1,13 @@
+/** @defgroup python Python API
+ *  @brief Documentation fot the Python Units.
+ */
+
+/** @page py_overview Python Übersicht
+ *
+ *  @section py_start Einstieg
+ *  Hier kommt dein Python-Intro rein.
+ *
+ *  @section py_nav Navigation
+ *  - @ref cpp_overview
+ *  - @ref pas_overview
+ */
