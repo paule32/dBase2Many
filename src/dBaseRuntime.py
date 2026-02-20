@@ -33,8 +33,7 @@ FG_16 = {
 }
 # ----------------------------------------------------------------------------
 BG_16 = {
-"""!
-@brief  16 background ANSI terminal color values.
+"""! @brief  16 background ANSI terminal color values.
 @since  version 0.0.1
 @author paule32
 """
