@@ -7,3 +7,12 @@ dBaseRunner.exe
 /doc/out/de
 /doc/out/en
 *.chm
+*.zip
+src/1
+doc/lib/drsktheme.jpg
+doc/lib/lighthteme.jpg
+doc/lib/dbase6.jpg
+doc/lib/dbase5.jpg
+doc/lib/dbase4.jpg
+doc/lib/dbase3.jpg
+doc/lib/dbase.jpg

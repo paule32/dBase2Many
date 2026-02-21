@@ -26,6 +26,17 @@ if errorlevel 1 exit /b 1
 ::python utf8tocp1252.py
 
 :: ==========================================
+:: HelpNDoc.com Dateien kopieren
+:: ==========================================
+xcopy /E /I /Y lib out\de\html\lib
+xcopy /E /I /Y css out\de\html\css
+xcopy /E /I /Y js  out\de\html\js
+
+xcopy /E /I /Y lib out\en\html\lib
+xcopy /E /I /Y css out\en\html\css
+xcopy /E /I /Y js  out\en\html\js
+
+:: ==========================================
 :: CHM-Verzeichnis vorbereiten
 :: ==========================================
 if not exist out\chm mkdir out\chm

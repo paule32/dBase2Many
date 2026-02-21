@@ -11,7 +11,7 @@ OUTPUT_DIRECTORY       = out/de
 
 ENABLED_SECTIONS       = de
 
-INPUT                  = ../dBaseRuntime.py .
+INPUT                  = .
 RECURSIVE              = YES
 
 INPUT_ENCODING         = UTF-8
@@ -227,10 +227,19 @@ GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
 HTML_HEADER            = ./header.html
-HTML_FOOTER            =
+HTML_FOOTER            = ./footer.html
 HTML_STYLESHEET        =
 #HTML_EXTRA_STYLESHEET  += ./customdoxygen.css
-HTML_EXTRA_FILES       += ./dynsections.js svg.min.js svg-darkmode.js
+
+HTML_EXTRA_FILES       += \
+    ./dynsections.js svg.min.js svg-darkmode.js \
+    js/chmRelative.js \
+    lib/mathe.png
+    
+    #css/reset.css \
+    #css/ielte8.css \
+    #css/base.css \
+
 HTML_COLORSTYLE        = DARK
 
 HTML_COLORSTYLE_HUE    = 220
