@@ -4,3 +4,6 @@ dBaseRunner.exe
 /src/__pycache__
 *.bak
 *.exe
+/doc/out/de
+/doc/out/en
+*.chm

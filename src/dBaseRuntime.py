@@ -22,9 +22,16 @@ _SGR_RE = re.compile(r"\x1b\[([0-9;]*)m")
 # ----------------------------------------------------------------------------
 FG_16 = {
 """!
+\if en
 @brief  16 foreground ANSI terminal color values.
 @since  version 0.0.1
 @author paule32
+\endif
+\if de
+@brief  16 Vordergrund-Farben für die ANSI Eingabekonsole.
+@since  version 0.0.1
+@author paule32
+\endif
 """
      30: "#000000",  31: "#cc0000",  32: "#00aa00",  33: "#aa8800",
      34: "#0000cc",  35: "#aa00aa",  36: "#00aaaa",  37: "#cccccc",

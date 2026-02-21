@@ -3,17 +3,20 @@ DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "dBase 2 Many"
 PROJECT_NUMBER         = 1.0.0
 PROJECT_BRIEF          = Transpile dBase source code to many other DSL
-PROJECT_LOGO           =
+PROJECT_LOGO           = logo.png
 PROJECT_ICON           =
 
 OUTPUT_LANGUAGE        = English
-OUTPUT_DIRECTORY       = html
+OUTPUT_DIRECTORY       = out/en
+
+ENABLED_SECTIONS       = en
 
 INPUT                  = ../dBaseRuntime.py .
 RECURSIVE              = YES
 
 INPUT_ENCODING         = UTF-8
 INPUT_FILE_ENCODING    =
+CHM_INDEX_ENCODING     = windows-1252
 
 FILE_PATTERNS          = *.h *.hpp *.c *.cpp *.cc *.cxx *.py *.pas *.inc *.dox
 
@@ -144,8 +147,6 @@ GENERATE_REQUIREMENTS  = YES
 
 REQ_TRACEABILITY_INFO  = YES
 
-ENABLED_SECTIONS       =
-
 MAX_INITIALIZER_LINES  = 128
 
 SHOW_USED_FILES        = YES
@@ -225,11 +226,11 @@ GENERATE_HTML          = YES
 
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            =
+HTML_HEADER            = ./header.html
 HTML_FOOTER            =
 HTML_STYLESHEET        =
-HTML_EXTRA_STYLESHEET  += ./customdoxygen.css
-HTML_EXTRA_FILES       += ./dynsections.js svg-darkmode.js
+#HTML_EXTRA_STYLESHEET  += ./customdoxygen.css
+HTML_EXTRA_FILES       += ./dynsections.js svg.min.js svg-darkmode.js
 HTML_COLORSTYLE        = DARK
 
 HTML_COLORSTYLE_HUE    = 220
@@ -246,13 +247,12 @@ HTML_INDEX_NUM_ENTRIES = 100
 
 GENERATE_HTMLHELP      = YES
 
-CHM_FILE               = ./dbase.dark.chm
+CHM_FILE               = ./dBaseHelp_en.chm
 HHC_LOCATION           = "C:/Program Files (x86)/HTML Help Workshop/hhc.exe"
 
 CLASS_DIAGRAMS         = YES
 
 GENERATE_CHI           = NO
-CHM_INDEX_ENCODING     = UTF-8
 
 BINARY_TOC             = NO
 TOC_EXPAND             = NO
@@ -303,6 +303,7 @@ EXTRA_PACKAGES         =
 PDF_HYPERLINKS         = YES
 USE_PDFLATEX           = YES
 
+GENERATE_LATEX         = NO
 GENERATE_XML           = NO
 XML_OUTPUT             = xml
 XML_PROGRAMLISTING     = YES
@@ -372,8 +373,8 @@ GRAPHICAL_HIERARCHY    = YES
 DIRECTORY_GRAPH        = YES
 DIR_GRAPH_MAX_DEPTH    = 2
 
-DOT_IMAGE_FORMAT       = svg
-INTERACTIVE_SVG        = YES
+DOT_IMAGE_FORMAT       = PNG
+INTERACTIVE_SVG        = NO
 
 DOT_PATH               = C:/Program Files/Graphviz/bin
 DOTFILE_DIRS           = 

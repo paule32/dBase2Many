@@ -1,0 +1,15 @@
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=dBaseHelp.chm
+Contents file=master.hhc
+Index file=master.hhk
+Default topic=T:\a\HelpNDocTools\dBase2Many\doc\out\en\html\index.html
+Display compile progress=Yes
+Full-text search=Yes
+
+[MERGE FILES]
+dBaseHelp_de.chm
+dBaseHelp_en.chm
+
+[FILES]
+T:\a\HelpNDocTools\dBase2Many\doc\out\en\html\index.html
