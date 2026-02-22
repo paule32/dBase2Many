@@ -120,7 +120,7 @@ HIDE_SCOPE_NAMES       = NO
 
 HIDE_COMPOUND_REFERENCE= NO
 
-SHOW_HEADERFILE        = YES
+SHOW_HEADERFILE        = NO
 SHOW_INCLUDE_FILES     = YES
 SHOW_GROUPED_MEMB_INC  = NO
 
@@ -216,7 +216,7 @@ SOURCE_TOOLTIPS        = YES
 
 
 USE_HTAGS              = NO
-VERBATIM_HEADERS       = YES
+VERBATIM_HEADERS       = NO
 
 ALPHABETICAL_INDEX     = YES
 
@@ -226,7 +226,8 @@ GENERATE_HTML          = YES
 
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            = ./header.html
+HTML_HEADER            = 
+#./header.html
 HTML_FOOTER            = ./footer.html
 HTML_STYLESHEET        =
 #HTML_EXTRA_STYLESHEET  += ./customdoxygen.css

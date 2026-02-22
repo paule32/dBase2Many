@@ -96,6 +96,36 @@ CLASS ParentForm OF FORM
         Width = 128
         Text = "Click Me, too"
     ENDWITH
+
+    THIS.Container1 = NEW CONTAINER(THIS)
+    WITH (THIS.Container1)
+        Left = 20
+        Top = 190
+        Width = 300
+        Height = 180
+        BackColor = "#202225"
+        BorderColor = "#7a1c1c"
+        BorderWidth = 2
+        Radius = 10
+    ENDWITH
+
+    THIS.Container1.PushButton1 = NEW PUSHBUTTON(THIS.Container1)
+    WITH (THIS.Container1.PushButton1)
+        Left = 20
+        Top = 20
+        Width = 120
+        Height = 28
+        Text = "OK"
+    ENDWITH
+
+    THIS.Container1.ComboBox1 = NEW COMBOBOX(THIS.Container1)
+    WITH (THIS.Container1.ComboBox1)
+        Left = 150
+        Top = 20
+        Width = 120
+        Height = 28
+        Items = "Apfel,Birne,Bananne"
+    ENDWITH
     
     WRITE "===> " + THIS.width
     METHOD Init(a,c)        
@@ -146,6 +176,7 @@ CLASS ParentForm OF FORM
     //        when you mouse click the left button on the form.
     // --------------------------------------------------------------
     METHOD PushButton1_onClick_1(Sender)
+        THIS.Width = THIS.Width + 10
         WRITE "clicked button A: handler 1"
         WRITE Sender.Text
         WITH (Sender)           ** you can have nested WITH
@@ -195,7 +226,7 @@ CLASS ParentForm OF FORM
     ENDMETHOD
 ENDCLASS
 
-/*
+
 CLASS Form1 OF ParentForm
     THIS.PushButton1 = NEW PUSHBUTTON(THIS)
     
@@ -213,6 +244,6 @@ ENDCLASS
 
 CLASS Form2 OF FORM1
 ENDCLASS
-*/
+
 // CALL Form1.Init("Ooops",2,3,4,5,6)
 #endif  // __DBASE_PRG__
