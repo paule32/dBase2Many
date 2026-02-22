@@ -262,6 +262,61 @@ class RuntimeReturn(Exception):
     def __init__(self, value=None):
         self.value = value
 
+class FontTriangleArrowsStyle(QProxyStyle):
+    def __init__(self, base_style=None, color="#d7b300", font_family=None):
+        super().__init__(base_style)
+        self.col = QColor(color)
+        self.font_family = "Arial" #font_family  # z.B. "Segoe UI Symbol" (Windows), sonst None
+
+    def _draw_triangle(self, painter: QPainter, rect, direction: Qt.ArrowType):
+        glyph = {
+            Qt.UpArrow: "▲",
+            Qt.DownArrow: "▼",
+            Qt.LeftArrow: "◀",
+            Qt.RightArrow: "▶",
+        }[direction]
+
+        painter.save()
+        painter.setRenderHint(QPainter.TextAntialiasing, True)
+        painter.setPen(self.col)
+
+        size = max(8, min(rect.width(), rect.height()) - 2)
+        f = QFont()
+        if self.font_family:
+            f.setFamily(self.font_family)
+        f.setPixelSize(size)
+        f.setBold(True)
+        painter.setFont(f)
+
+        painter.drawText(rect, Qt.AlignCenter, glyph)
+        painter.restore()
+
+    def drawComplexControl(self, cc, option, painter, widget=None):
+        # erst normal zeichnen (Track, Handle, Rahmen etc.)
+        super().drawComplexControl(cc, option, painter, widget)
+
+        # danach unsere Pfeile "drüber" malen
+        if cc == QStyle.CC_ScrollBar:
+            # sub-line (oben/links) und add-line (unten/rechts)
+            sub_rect = self.subControlRect(cc, option, QStyle.SC_ScrollBarSubLine, widget)
+            add_rect = self.subControlRect(cc, option, QStyle.SC_ScrollBarAddLine, widget)
+
+            if option.orientation == Qt.Vertical:
+                if sub_rect.isValid() and not sub_rect.isEmpty():
+                    self._draw_triangle(painter, sub_rect, Qt.UpArrow)
+                if add_rect.isValid() and not add_rect.isEmpty():
+                    self._draw_triangle(painter, add_rect, Qt.DownArrow)
+            else:
+                if sub_rect.isValid() and not sub_rect.isEmpty():
+                    self._draw_triangle(painter, sub_rect, Qt.LeftArrow)
+                if add_rect.isValid() and not add_rect.isEmpty():
+                    self._draw_triangle(painter, add_rect, Qt.RightArrow)
+
+        elif cc == QStyle.CC_ComboBox:
+            arrow_rect = self.subControlRect(cc, option, QStyle.SC_ComboBoxArrow, widget)
+            if arrow_rect.isValid() and not arrow_rect.isEmpty():
+                self._draw_triangle(painter, arrow_rect, Qt.DownArrow)
+        
 class HtmlHelpParser(HTMLParser):
     """
     Parser für htmlhelp .hhc (Contents) und .hhk (Index).
@@ -6594,7 +6649,7 @@ class FileEditorWindow(QDialog):
         ed = self.current_editor()
         if ed is None:
             return
-
+        
         text = self._strip_comments_preserve_positions(ed.toPlainText())
         doc  = ed.document()
 
@@ -10357,7 +10412,7 @@ class IconTab(QListWidget):
             self.takeItem(row)
         except Exception as e:
             QMessageBox.warning(self, "Löschen", f"Konnte nicht löschen:\n{e}")
-            
+
 class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -10387,16 +10442,16 @@ class RegieCenter(QDialog):
         self.tabs = QTabWidget()
         self.icon_lists = []
 
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Alle Typen")
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Projekte"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Formulare" )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Berichte"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Programme" )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Tabellen"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "SQL"       )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Grafiken"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Internet"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Sonstiges" )
+        self.lw1 = IconTab(); self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, "Alle Typen")
+        self.lw2 = IconTab(); self.icon_lists.append(self.lw2); self.tabs.addTab(self.lw2, "Projekte"  )
+        self.lw3 = IconTab(); self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, "Formulare" )
+        self.lw4 = IconTab(); self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, "Berichte"  )
+        self.lw5 = IconTab(); self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, "Programme" )
+        self.lw6 = IconTab(); self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, "Tabellen"  )
+        self.lw7 = IconTab(); self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, "SQL"       )
+        self.lw8 = IconTab(); self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, "Grafiken"  )
+        self.lw9 = IconTab(); self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, "Internet"  )
+        self.lwA = IconTab(); self.icon_lists.append(self.lwA); self.tabs.addTab(self.lwA, "Sonstiges" )
 
         # --- Layout ---
         root = QVBoxLayout(self)
@@ -12292,13 +12347,11 @@ def main():
     if app is not None:
         f1filter = F1Filter()
         app.installEventFilter(f1filter)
-        
+        app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
         global MAINAPP
         MAINAPP = MainWindow()
         MAINAPP.show()
-        
         center_on_screen(MAINAPP)
-        
         sys.exit(app.exec_())
     else:
         print("Qt5 kann nicht gestartet werden.")

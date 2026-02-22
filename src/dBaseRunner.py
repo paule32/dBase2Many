@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing      import Dict, List, Optional, Union, Any, TextIO
 from pathlib     import Path
 from copy        import deepcopy
+from html.parser import HTMLParser
 
 from gen.dBaseLexer         import dBaseLexer
 from gen.dBaseParser        import dBaseParser
@@ -31,26 +32,32 @@ import pprint
 from PyQt5.QtCore    import (
     QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
     QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
-    QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion
+    QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
+    QSortFilterProxyModel, QByteArray, QUrl, QTimer
 )
 from PyQt5.QtGui     import (
-    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat,
-    QColor, QStandardItemModel, QStandardItem, QIcon, QFontInfo,
+    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
+    QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
     QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
-    QLinearGradient, QRadialGradient, QPen, QKeySequence, QPalette,
-    QTextFormat
+    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat,
+    QGuiApplication
 )
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QDialog, QPushButton, QVBoxLayout,
+    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
     QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
-    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QTreeView, QSplitter,
-    QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem,
-    QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget,
+    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QTreeView, QSplitter, QTabBar,
+    QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
+    QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
     QTableWidgetItem, QHeaderView, QStyledItemDelegate, QGroupBox, QLabel,
     QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
     QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
-    QStyleOptionComplex, QProxyStyle
+    QStyleOptionComplex, QProxyStyle, QToolButton
 )
+from PyQt5.QtWebEngineWidgets import (
+    QWebEngineView, QWebEngineScript
+)
+from PyQt5.QtSvg import QSvgRenderer
+
 # ---------------------------------------------------------------------------
 # resources suff like icons, ...
 # ---------------------------------------------------------------------------
@@ -71,7 +78,60 @@ NATIVE_BASES = {
     "FORM": QDialog,          # oder QDialog, wenn FORM per default Dialog sein soll
     "DIALOG": QDialog,
     "PUSHBUTTON": QPushButton,
+    "CONTAINER": QFrame,
+    "ENTRYFIELD": QLineEdit,
+    "RADIOBUTTON": QRadioButton,
+    "COMBOBOX": QComboBox,
+    "EDITOR": QPlainTextEdit,
+    "CHECKBOX": QCheckBox,
+    "LISTBOX": QListWidget,
+    "CHECKLISTBOX": QListWidget,
+    "IMAGE": QLabel,
+    "GRID": QTableWidget,
+    "PROGRESS": QProgressBar,
+    "PAINTBOX": QWidget,
+    "VSCROLLBAR": QScrollBar,
+    "HSCROLLBAR": QScrollBar,
+    "TEXT": QLabel,
+    "TREEVIEW": QTreeView,
+    "SPINBOX": QSpinBox,
+    "BROWSE": QTableView,
 }
+
+SVG_BOOK = r"""
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <rect x="2" y="2" width="11" height="12" rx="2" fill="#3b82f6"/>
+  <rect x="4" y="3" width="1.5" height="10" fill="#1e3a8a" opacity="0.7"/>
+  <rect x="6" y="4" width="6" height="1" fill="#ffffff" opacity="0.92"/>
+  <rect x="6" y="6" width="6" height="1" fill="#ffffff" opacity="0.92"/>
+  <rect x="6" y="8" width="5" height="1" fill="#ffffff" opacity="0.92"/>
+</svg>
+"""
+
+SVG_PAGE = r"""
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <path d="M4 2h6l2 2v10H4z" fill="#e5e7eb"/>
+  <path d="M10 2v2h2" fill="#cbd5e1"/>
+  <rect x="5" y="6" width="7" height="1" fill="#64748b"/>
+  <rect x="5" y="8" width="6" height="1" fill="#64748b"/>
+  <rect x="5" y="10" width="5" height="1" fill="#64748b"/>
+</svg>
+"""
+
+def icon_from_svg(svg: str, size: int = 16) -> QIcon:
+    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+    pix = QPixmap(size, size)
+    pix.fill(Qt.transparent)
+    p = QPainter(pix)
+    renderer.render(p)
+    p.end()
+    return QIcon(pix)
+
+@dataclass
+class TocNode:
+    title: str
+    local: Optional[str] = None
+    children: List["TocNode"] = field(default_factory=list)
 
 @dataclass
 class FontValue:
@@ -129,6 +189,7 @@ class Macro:
 class Instance:
     class_name: str
     backend: Any = None   # Qt Object
+    parent: Optional["Instance"] = None
     props: Dict[str, object] = field(default_factory=dict)
     children: Dict[str, "Instance"] = field(default_factory=dict)
     
@@ -201,6 +262,1239 @@ class RuntimeReturn(Exception):
     def __init__(self, value=None):
         self.value = value
 
+class FontTriangleArrowsStyle(QProxyStyle):
+    def __init__(self, base_style=None, color="#d7b300", font_family=None):
+        super().__init__(base_style)
+        self.col = QColor(color)
+        self.font_family = "Arial" #font_family  # z.B. "Segoe UI Symbol" (Windows), sonst None
+
+    def _draw_triangle(self, painter: QPainter, rect, direction: Qt.ArrowType):
+        glyph = {
+            Qt.UpArrow: "▲",
+            Qt.DownArrow: "▼",
+            Qt.LeftArrow: "◀",
+            Qt.RightArrow: "▶",
+        }[direction]
+
+        painter.save()
+        painter.setRenderHint(QPainter.TextAntialiasing, True)
+        painter.setPen(self.col)
+
+        size = max(8, min(rect.width(), rect.height()) - 2)
+        f = QFont()
+        if self.font_family:
+            f.setFamily(self.font_family)
+        f.setPixelSize(size)
+        f.setBold(True)
+        painter.setFont(f)
+
+        painter.drawText(rect, Qt.AlignCenter, glyph)
+        painter.restore()
+
+    def drawComplexControl(self, cc, option, painter, widget=None):
+        # erst normal zeichnen (Track, Handle, Rahmen etc.)
+        super().drawComplexControl(cc, option, painter, widget)
+
+        # danach unsere Pfeile "drüber" malen
+        if cc == QStyle.CC_ScrollBar:
+            # sub-line (oben/links) und add-line (unten/rechts)
+            sub_rect = self.subControlRect(cc, option, QStyle.SC_ScrollBarSubLine, widget)
+            add_rect = self.subControlRect(cc, option, QStyle.SC_ScrollBarAddLine, widget)
+
+            if option.orientation == Qt.Vertical:
+                if sub_rect.isValid() and not sub_rect.isEmpty():
+                    self._draw_triangle(painter, sub_rect, Qt.UpArrow)
+                if add_rect.isValid() and not add_rect.isEmpty():
+                    self._draw_triangle(painter, add_rect, Qt.DownArrow)
+            else:
+                if sub_rect.isValid() and not sub_rect.isEmpty():
+                    self._draw_triangle(painter, sub_rect, Qt.LeftArrow)
+                if add_rect.isValid() and not add_rect.isEmpty():
+                    self._draw_triangle(painter, add_rect, Qt.RightArrow)
+
+        elif cc == QStyle.CC_ComboBox:
+            arrow_rect = self.subControlRect(cc, option, QStyle.SC_ComboBoxArrow, widget)
+            if arrow_rect.isValid() and not arrow_rect.isEmpty():
+                self._draw_triangle(painter, arrow_rect, Qt.DownArrow)
+        
+class HtmlHelpParser(HTMLParser):
+    """
+    Parser für htmlhelp .hhc (Contents) und .hhk (Index).
+    Beide nutzen:
+      <OBJECT type="text/sitemap">
+         <param name="Name" value="...">
+         <param name="Local" value="...">
+      </OBJECT>
+      <UL> ... </UL> (optional)
+    """
+    def __init__(self):
+        super().__init__()
+        self.root = TocNode("ROOT")
+        self._stack: List[TocNode] = [self.root]
+
+        self._in_object = False
+        self._cur_name: Optional[str] = None
+        self._cur_local: Optional[str] = None
+
+        self._last_created: Optional[TocNode] = None
+        self._pending_push_on_ul = False
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        attrs = {k.lower(): v for k, v in attrs}
+
+        if tag == "object":
+            t = (attrs.get("type") or "").lower()
+            if "text/sitemap" in t:
+                self._in_object = True
+                self._cur_name = None
+                self._cur_local = None
+
+        elif tag == "param" and self._in_object:
+            name = (attrs.get("name") or "").lower()
+            value = (attrs.get("value") or "").strip()
+            if name == "name":
+                self._cur_name = value
+            elif name == "local":
+                self._cur_local = value
+
+        elif tag == "ul":
+            if self._pending_push_on_ul and self._last_created is not None:
+                self._stack.append(self._last_created)
+                self._pending_push_on_ul = False
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+
+        if tag == "object" and self._in_object:
+            self._in_object = False
+            title = (self._cur_name or "Untitled").strip()
+            local = (self._cur_local or "").strip() or None
+
+            node = TocNode(title=title, local=local)
+            self._stack[-1].children.append(node)
+
+            self._last_created = node
+            self._pending_push_on_ul = True
+
+        elif tag == "ul":
+            if len(self._stack) > 1:
+                self._stack.pop()
+
+    def unknown_decl(self, data):
+        pass
+
+
+def _read_text_fallback(path: str) -> str:
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            with open(path, "r", encoding=enc, errors="strict") as f:
+                return f.read()
+        except Exception:
+            pass
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read()
+
+
+def parse_hh_file(path: str) -> TocNode:
+    raw = _read_text_fallback(path)
+    p = HtmlHelpParser()
+    p.feed(raw)
+    return p.root
+
+
+class RecursiveFilterProxy(QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+        self._text = ""
+        self.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        if hasattr(self, "setRecursiveFilteringEnabled"):
+            self.setRecursiveFilteringEnabled(True)
+
+    def setFilterText(self, text: str):
+        self._text = (text or "").strip()
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        if not self._text:
+            return True
+
+        model = self.sourceModel()
+        idx = model.index(source_row, 0, source_parent)
+        if not idx.isValid():
+            return False
+
+        title = model.data(idx, Qt.DisplayRole) or ""
+        if self._text.lower() in title.lower():
+            return True
+
+        for r in range(model.rowCount(idx)):
+            if self.filterAcceptsRow(r, idx):
+                return True
+        return False
+
+
+def decompile_chm_windows(chm_path: str, out_dir: str) -> bool:
+    """
+    Windows-only: uses hh.exe -decompile OUTDIR file.chm
+    """
+    hh = shutil.which("hh.exe") or shutil.which("hh")
+    if not hh:
+        return False
+    try:
+        subprocess.run(
+            [hh, "-decompile", out_dir, chm_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        return True
+    except Exception:
+        return False
+
+class F1Filter(QObject):
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F1:
+            print("F1 global abgefangen")
+            return True  # Event stoppt hier
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F2:
+            pass
+            #if EDIT_OBJECT
+        return False
+
+class HelpTitleBar(QWidget):
+    def __init__(self, window: QMainWindow):
+        super().__init__(window)
+        self.window = window
+        self.setObjectName("TitleBar")
+
+        self._drag_pos: Optional[QPoint] = None
+        self._dragging = False
+        self._was_maximized = False
+        self._press_offset_ratio = 0.5  # Position innerhalb der Titlebar beim Restore aus Maximized
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 6, 10, 6)
+        lay.setSpacing(8)
+
+        self.title_label = QLabel(window.windowTitle())
+        self.title_label.setObjectName("TitleLabel")
+        lay.addWidget(self.title_label, 1)
+
+        self.btn_min = QPushButton("–")
+        self.btn_min.setObjectName("TitleBtnMin")
+        self.btn_min.setFixedSize(36, 28)
+        self.btn_min.clicked.connect(self.window.showMinimized)
+
+        self.btn_max = QPushButton("▢")
+        self.btn_max.setObjectName("TitleBtnMax")
+        self.btn_max.setFixedSize(36, 28)
+        self.btn_max.clicked.connect(self.toggle_max_restore)
+
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setObjectName("TitleBtnClose")
+        self.btn_close.setFixedSize(36, 28)
+        self.btn_close.clicked.connect(self.window.close)
+
+        lay.addWidget(self.btn_min)
+        lay.addWidget(self.btn_max)
+        lay.addWidget(self.btn_close)
+
+        self.window.windowTitleChanged.connect(self.title_label.setText)
+
+    def toggle_max_restore(self):
+        if self.window.isMaximized():
+            self.window.showNormal()
+        else:
+            self.window.showMaximized()
+
+    def _is_on_buttons(self, pos) -> bool:
+        child = self.childAt(pos)
+        return child in (self.btn_min, self.btn_max, self.btn_close)
+
+    def _snap_geometry(self, gp: QPoint):
+        """
+        Returns QRect or None. gp = global mouse pos on release.
+        """
+        screen = QGuiApplication.screenAt(gp)
+        if not screen:
+            return None
+
+        area = screen.availableGeometry()  # ohne Taskbar
+        margin = 10  # "Snap-Zone" in px
+
+        x, y = gp.x(), gp.y()
+
+        left = x <= area.left() + margin
+        right = x >= area.right() - margin
+        top = y <= area.top() + margin
+
+        # Optional: Viertel bei Ecken
+        if top and left:
+            return QRect(area.left(), area.top(), area.width() // 2, area.height() // 2)
+        if top and right:
+            return QRect(area.left() + area.width() // 2, area.top(), area.width() // 2, area.height() // 2)
+
+        # Halber Screen links/rechts
+        if left:
+            return QRect(area.left(), area.top(), area.width() // 2, area.height())
+        if right:
+            return QRect(area.left() + area.width() // 2, area.top(), area.width() // 2, area.height())
+
+        # Maximieren oben
+        if top:
+            return area
+
+        return None
+    
+    def show_help(self):
+        print("hhh")
+        hlp = HelpMainWindow()
+        hlp.open_from_args("dBaseHelp_de.chm","index.html")
+        hlp.show()
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and not self._is_on_buttons(event.pos()):
+            self._dragging = True
+            self._was_maximized = self.window.isMaximized()
+
+            # Merken, wo innerhalb der Titlebar geklickt wurde (für Restore aus Maximized)
+            if self.width() > 0:
+                self._press_offset_ratio = max(0.05, min(0.95, event.pos().x() / self.width()))
+
+            self._drag_pos = event.globalPos() - self.window.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if (event.buttons() & Qt.LeftButton) and self._dragging and self._drag_pos is not None:
+            # Wenn maximiert und man zieht, erst restore (wie Windows)
+            if self._was_maximized and self.window.isMaximized():
+                self.window.showNormal()
+
+                # Fenster so positionieren, dass die Maus "am selben relativen Punkt" bleibt
+                gp = event.globalPos()
+                w = self.window.width()
+                new_x = gp.x() - int(w * self._press_offset_ratio)
+                new_y = gp.y() - 12  # kleiner Offset nach oben
+                self.window.move(new_x, new_y)
+
+                self._drag_pos = gp - self.window.frameGeometry().topLeft()
+
+            # Normales Dragging
+            if not self.window.isMaximized():
+                self.window.move(event.globalPos() - self._drag_pos)
+
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if self._dragging and event.button() == Qt.LeftButton:
+            self._dragging = False
+
+            snap = self._snap_geometry(event.globalPos())
+            if snap is not None:
+                # area == maximize
+                screen = QGuiApplication.screenAt(event.globalPos())
+                area = screen.availableGeometry() if screen else None
+                if area is not None and snap == area:
+                    self.window.showMaximized()
+                else:
+                    self.window.showNormal()
+                    self.window.setGeometry(snap)
+
+            self._drag_pos = None
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton and not self._is_on_buttons(event.pos()):
+            self.toggle_max_restore()
+            event.accept()
+
+class HelpMainWindow(QMainWindow):
+    ROLE_LOCAL = Qt.UserRole + 1
+    ROLE_BREAD = Qt.UserRole + 2
+
+    def __init__(self):
+        super().__init__()
+        
+        self._pending_page: Optional[str] = None
+        
+        self._resize_margin = 8  # Pixel "Griffbreite" am Rand
+        self._resizing      = False
+        self._resize_edge   = None
+        self._drag_pos      = None
+        self._start_geom    = None
+        
+        self.setWindowTitle("CHM-Viewer - (c) 2026 Dimitri Haesch & Co.")
+        self.resize(800, 600)
+        
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        
+        self.titlebar = HelpTitleBar(self)
+        
+        top = QWidget()
+        top.setObjectName("TopContainer")
+        top_lay = QVBoxLayout(top)
+        top_lay.setContentsMargins(0, 0, 0, 0)
+        top_lay.setSpacing(0)
+        top_lay.addWidget(self.titlebar)
+
+        # Optional: dünne Trennlinie unter der Titelleiste
+        sep = QWidget()
+        sep.setObjectName("TitleSeparator")
+        sep.setFixedHeight(1)
+        top_lay.addWidget(sep)
+
+        self.setMenuWidget(top)
+        
+        
+        self.base_dir: Optional[str] = None
+        self.dark_mode = False
+
+        # Icons
+        try:
+            self.icon_book = icon_from_svg(SVG_BOOK, 16)
+            self.icon_page = icon_from_svg(SVG_PAGE, 16)
+        except Exception:
+            self.icon_book = self.style().standardIcon(QStyle.SP_DirIcon)
+            self.icon_page = self.style().standardIcon(QStyle.SP_FileIcon)
+
+        # Web
+        self.web = QWebEngineView()
+        self.web.urlChanged.connect(self._on_url_changed)
+
+        # Tabs left
+        self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
+        self.tabs.setUsesScrollButtons(True)
+        self.tabs.tabBar().setUsesScrollButtons(True)
+
+        # Contents model/view
+        self.contents_model = QStandardItemModel()
+        self.contents_model.setHorizontalHeaderLabels(["Contents"])
+        self.contents_proxy = RecursiveFilterProxy()
+        self.contents_proxy.setSourceModel(self.contents_model)
+
+        self.contents_filter = QLineEdit()
+        self.contents_filter.setPlaceholderText("Filter (Contents)…")
+        self.contents_filter.textChanged.connect(self.contents_proxy.setFilterText)
+
+        self.contents_tree = QTreeView()
+        self.contents_tree.setModel(self.contents_proxy)
+        self.contents_tree.setUniformRowHeights(True)
+        self.contents_tree.clicked.connect(self.on_contents_clicked)
+
+        tab_contents = QWidget()
+        vc = QVBoxLayout(tab_contents)
+        vc.setContentsMargins(8, 8, 8, 8)
+        vc.setSpacing(8)
+        vc.addWidget(self.contents_filter)
+        vc.addWidget(self.contents_tree)
+        self.tabs.addTab(tab_contents, "Contents")
+
+        # Index model/view
+        self.index_model = QStandardItemModel()
+        self.index_model.setHorizontalHeaderLabels(["Index"])
+        self.index_proxy = RecursiveFilterProxy()
+        self.index_proxy.setSourceModel(self.index_model)
+
+        self.index_filter = QLineEdit()
+        self.index_filter.setPlaceholderText("Filter (Index)…")
+        self.index_filter.textChanged.connect(self.index_proxy.setFilterText)
+
+        self.index_view = QTreeView()
+        self.index_view.setModel(self.index_proxy)
+        self.index_view.setUniformRowHeights(True)
+        self.index_view.clicked.connect(self.on_index_clicked)
+
+        tab_index = QWidget()
+        vi = QVBoxLayout(tab_index)
+        vi.setContentsMargins(8, 8, 8, 8)
+        vi.setSpacing(8)
+        vi.addWidget(self.index_filter)
+        vi.addWidget(self.index_view)
+        self.tabs.addTab(tab_index, "Index")
+
+        # Search tab (Sphinx search.html)
+        tab_search = QWidget()
+        vs = QVBoxLayout(tab_search)
+        vs.setContentsMargins(8, 8, 8, 8)
+        vs.setSpacing(8)
+
+        row = QHBoxLayout()
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("Search (Sphinx)…")
+        self.search_edit.returnPressed.connect(self.open_sphinx_search)
+        btn = QPushButton("Search")
+        btn.clicked.connect(self.open_sphinx_search)
+        row.addWidget(self.search_edit, 1)
+        row.addWidget(btn, 0)
+
+        hint = QLabel("Sucht in Sphinx über search.html – Ergebnisse erscheinen rechts.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("opacity: 0.8;")
+
+        vs.addLayout(row)
+        vs.addWidget(hint)
+        vs.addStretch(1)
+        self.tabs.addTab(tab_search, "Search")
+
+        # Splitter
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.tabs)
+        splitter.addWidget(self.web)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([380, 820])
+
+        self.status = QStatusBar(self)
+        self.setStatusBar(self.status)
+        self.status.showMessage("Ready", 2000)
+        
+        central = QWidget()
+        lay = QVBoxLayout(central)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(splitter)
+        self.setCentralWidget(central)
+
+        self._make_toolbar()
+        self._apply_theme()
+
+    # -------- Toolbar --------
+    def _make_toolbar(self):
+        tb = QToolBar("Main")
+        tb.setMovable(False)
+        self.addToolBar(tb)
+
+        act_open = QAction(self.style().standardIcon(QStyle.SP_DialogOpenButton), "Open…", self)
+        act_open.triggered.connect(self.open_chm_single_dialog)
+        tb.addAction(act_open)
+
+        tb.addSeparator()
+
+        act_home = QAction(self.style().standardIcon(QStyle.SP_ArrowUp), "Home", self)
+        act_home.triggered.connect(self.go_home)
+        tb.addAction(act_home)
+
+        act_back = QAction(self.style().standardIcon(QStyle.SP_ArrowBack), "Back", self)
+        act_back.triggered.connect(self.web.back)
+        tb.addAction(act_back)
+
+        act_fwd = QAction(self.style().standardIcon(QStyle.SP_ArrowForward), "Forward", self)
+        act_fwd.triggered.connect(self.web.forward)
+        tb.addAction(act_fwd)
+
+        act_reload = QAction(self.style().standardIcon(QStyle.SP_BrowserReload), "Reload", self)
+        act_reload.triggered.connect(self.web.reload)
+        tb.addAction(act_reload)
+
+        tb.addSeparator()
+
+        self.breadcrumb = QLabel("—")
+        self.breadcrumb.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        tb.addWidget(self.breadcrumb)
+
+        tb.addSeparator()
+
+        self.act_theme = QAction("🌙 Dark", self)
+        self.act_theme.triggered.connect(self.toggle_theme)
+        tb.addAction(self.act_theme)
+
+    # -------- Open (single dialog) --------
+    def open_chm_single_dialog(self):
+        chm_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open CHM",
+            "",
+            "CHM Help (*.chm);;All Files (*)"
+        )
+        if not chm_path:
+            return
+
+        self.load_from_chm_path(chm_path)
+
+    # -------- Load from CHM path --------
+    def load_from_chm_path(self, chm_path: str):
+        """
+        1) Try: side-by-side .hhc/.hhk in same folder as CHM
+        2) Else: Windows hh.exe -decompile to temp -> load .hhc/.hhk from there
+        """
+        folder = os.path.dirname(chm_path)
+        stem = os.path.splitext(os.path.basename(chm_path))[0]
+
+        hhc = os.path.join(folder, f"{stem}.hhc")
+        hhk = os.path.join(folder, f"{stem}.hhk")
+
+        if os.path.exists(hhc):
+            self.base_dir = folder
+            self.load_contents(hhc)
+            if os.path.exists(hhk):
+                self.load_index(hhk)
+            else:
+                self.index_model.removeRows(0, self.index_model.rowCount())
+            self.open_start_page()
+            return
+
+        # fallback: decompile CHM
+        tmp = tempfile.mkdtemp(prefix="chm_decompile_")
+        ok = decompile_chm_windows(chm_path, tmp)
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "TOC nicht verfügbar",
+                "Keine passende .hhc neben der CHM gefunden und CHM konnte nicht dekompiliert werden.\n\n"
+                "Windows: stelle sicher, dass 'hh.exe' verfügbar ist.\n"
+                "Alternative: CHM manuell dekompilieren und dann die entpackten Dateien anzeigen."
+            )
+            return
+
+        # pick first .hhc/.hhk in temp
+        hhc_found = self._find_first(tmp, (".hhc",))
+        hhk_found = self._find_first(tmp, (".hhk",))
+
+        if not hhc_found:
+            QMessageBox.warning(self, "Keine .hhc gefunden", "Nach Dekomplilierung wurde keine .hhc gefunden.")
+            return
+
+        self.base_dir = tmp
+        self.load_contents(hhc_found)
+        if hhk_found:
+            self.load_index(hhk_found)
+        else:
+            self.index_model.removeRows(0, self.index_model.rowCount())
+
+        self.open_start_page()
+        
+    def open_from_args(self, chm_path: Optional[str], page: Optional[str]):
+        """
+        Wird einmal beim Start aufgerufen.
+        - chm_path: Pfad zur .chm
+        - page: relative Seite, z.B. "index.html" oder "api/mod.html#func"
+        """
+        if page:
+            self._pending_page = page
+
+        if chm_path:
+            self.load_from_chm_path(chm_path)
+
+            # nach dem Laden ggf. die Seite öffnen
+            if self._pending_page:
+                self.open_local(self._pending_page)
+                self._pending_page = None
+                
+    def open_start_page(self):
+        if not self.base_dir:
+            return
+        index_html = os.path.join(self.base_dir, "index.html")
+        if os.path.exists(index_html):
+            self.web.setUrl(QUrl.fromLocalFile(index_html))
+        else:
+            first = self._first_local_item(self.contents_model)
+            if first:
+                self.open_local(first)
+
+    # -------- Contents / Index load --------
+
+    def load_contents(self, hhc_path: str):
+        self.contents_model.removeRows(0, self.contents_model.rowCount())
+        toc_root = parse_hh_file(hhc_path)
+        for child in toc_root.children:
+            self.contents_model.appendRow(self._node_to_item(child, parent_path=[]))
+        self.contents_tree.expandToDepth(1)
+
+    def load_index(self, hhk_path: str):
+        self.index_model.removeRows(0, self.index_model.rowCount())
+        idx_root = parse_hh_file(hhk_path)
+
+        # flatten index entries
+        items: List[Tuple[str, str]] = []
+
+        def walk(n: TocNode):
+            if n.local:
+                items.append((n.title.strip(), n.local.strip()))
+            for c in n.children:
+                walk(c)
+
+        for c in idx_root.children:
+            walk(c)
+
+        # Dedup:
+        # 1) bevorzugt nach Local (Ziel) deduplizieren
+        # 2) falls Local leer/komisch wäre: nach (title, local)
+        seen_local = set()
+        seen_pair = set()
+        deduped: List[Tuple[str, str]] = []
+
+        for title, local in items:
+            key_local = (local or "").lower()
+            key_pair = (title.lower(), key_local)
+
+            if key_local:
+                if key_local in seen_local:
+                    continue
+                seen_local.add(key_local)
+            else:
+                if key_pair in seen_pair:
+                    continue
+                seen_pair.add(key_pair)
+
+            deduped.append((title, local))
+
+        # sort by title
+        deduped.sort(key=lambda x: x[0].lower())
+
+        for title, local in deduped:
+            it = QStandardItem(title)
+            it.setEditable(False)
+            it.setIcon(self.icon_page)
+            it.setData(local, self.ROLE_LOCAL)
+            it.setData(title, self.ROLE_BREAD)
+            self.index_model.appendRow(it)
+
+
+    def _node_to_item(self, node: TocNode, parent_path: List[str]) -> QStandardItem:
+        item = QStandardItem(node.title)
+        item.setEditable(False)
+        item.setIcon(self.icon_book if node.children else self.icon_page)
+
+        bread = " › ".join(parent_path + [node.title])
+        item.setData(node.local or "", self.ROLE_LOCAL)
+        item.setData(bread, self.ROLE_BREAD)
+
+        for c in node.children:
+            item.appendRow(self._node_to_item(c, parent_path + [node.title]))
+        return item
+
+    def _find_first(self, folder: str, exts: Tuple[str, ...]) -> Optional[str]:
+        for fn in os.listdir(folder):
+            if fn.lower().endswith(exts):
+                return os.path.join(folder, fn)
+        return None
+
+    def _first_local_item(self, model: QStandardItemModel) -> Optional[str]:
+        def walk(it: QStandardItem) -> Optional[str]:
+            loc = it.data(self.ROLE_LOCAL)
+            if loc:
+                return loc
+            for r in range(it.rowCount()):
+                v = walk(it.child(r))
+                if v:
+                    return v
+            return None
+
+        for r in range(model.rowCount()):
+            v = walk(model.item(r))
+            if v:
+                return v
+        return None
+
+    # -------- Click handlers --------
+    def on_contents_clicked(self, proxy_idx: QModelIndex):
+        src_idx = self.contents_proxy.mapToSource(proxy_idx)
+        item = self.contents_model.itemFromIndex(src_idx)
+        if item:
+            self._open_item(item)
+
+    def on_index_clicked(self, proxy_idx: QModelIndex):
+        src_idx = self.index_proxy.mapToSource(proxy_idx)
+        item = self.index_model.itemFromIndex(src_idx)
+        if item:
+            self._open_item(item)
+
+    def _open_item(self, item: QStandardItem):
+        local = (item.data(self.ROLE_LOCAL) or "").strip()
+        bread = (item.data(self.ROLE_BREAD) or "—").strip()
+        self.breadcrumb.setText(bread)
+        if local:
+            self.open_local(local)
+
+    def _hit_test_edge(self, pos):
+        """
+        Ermittelt, ob Maus in Resize-Zone ist.
+        Rückgabe: string aus {L,R,T,B,LT,RT,LB,RB} oder None
+        """
+        m = self._resize_margin
+        x, y = pos.x(), pos.y()
+        w, h = self.width(), self.height()
+
+        left = x <= m
+        right = x >= w - m
+        top = y <= m
+        bottom = y >= h - m
+
+        if top and left:
+            return "LT"
+        if top and right:
+            return "RT"
+        if bottom and left:
+            return "LB"
+        if bottom and right:
+            return "RB"
+        if left:
+            return "L"
+        if right:
+            return "R"
+        if top:
+            return "T"
+        if bottom:
+            return "B"
+        return None
+
+
+    def _set_cursor_for_edge(self, edge):
+        pass
+        #"""if edge in ("L", "R"):
+        #    self.setCursor(Qt.SizeHorCursor)
+        #elif edge in ("T", "B"):
+        #    self.setCursor(Qt.SizeVerCursor)
+        #elif edge in ("LT", "RB"):
+        #    self.setCursor(Qt.SizeFDiagCursor)
+        #elif edge in ("RT", "LB"):
+        #    self.setCursor(Qt.SizeBDiagCursor)
+        #else:
+        #    self.setCursor(Qt.ArrowCursor)"""
+
+
+    def mouseMoveEvent(self, event):
+        if self.isMaximized():
+            self._set_cursor_for_edge(None)
+            return super().mouseMoveEvent(event)
+
+        if self._resizing and self._resize_edge and self._start_geom and self._drag_pos:
+            delta = event.globalPos() - self._drag_pos
+            g = QRect(self._start_geom)
+
+            min_w, min_h = 400, 300  # Mindestgröße, anpassen wenn du willst
+
+            if "L" in self._resize_edge:
+                new_left = g.left() + delta.x()
+                if g.right() - new_left + 1 >= min_w:
+                    g.setLeft(new_left)
+            if "R" in self._resize_edge:
+                new_right = g.right() + delta.x()
+                if new_right - g.left() + 1 >= min_w:
+                    g.setRight(new_right)
+            if "T" in self._resize_edge:
+                new_top = g.top() + delta.y()
+                if g.bottom() - new_top + 1 >= min_h:
+                    g.setTop(new_top)
+            if "B" in self._resize_edge:
+                new_bottom = g.bottom() + delta.y()
+                if new_bottom - g.top() + 1 >= min_h:
+                    g.setBottom(new_bottom)
+
+            self.setGeometry(g)
+            return
+
+        # nicht resizing: nur Cursor setzen
+        edge = self._hit_test_edge(event.pos())
+        self._set_cursor_for_edge(edge)
+        super().mouseMoveEvent(event)
+
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and not self.isMaximized():
+            edge = self._hit_test_edge(event.pos())
+            if edge:
+                self._resizing = True
+                self._resize_edge = edge
+                self._drag_pos = event.globalPos()
+                self._start_geom = self.geometry()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+
+    def mouseReleaseEvent(self, event):
+        self._resizing = False
+        self._resize_edge = None
+        self._drag_pos = None
+        self._start_geom = None
+        super().mouseReleaseEvent(event)
+
+    # -------- Robust open_local --------
+    def open_local(self, local: str):
+        if not self.base_dir:
+            return
+
+        local = unescape((local or "").strip())
+        if not local:
+            return
+
+        # already URL?
+        if re.match(r"^[a-zA-Z]+://", local):
+            self.web.setUrl(QUrl(local))
+            return
+
+        # split fragment
+        path_part, frag = (local.split("#", 1) + [""])[:2]
+        path_part = path_part.replace("\\", "/").lstrip("/")
+
+        abs_path = os.path.normpath(os.path.join(self.base_dir, path_part))
+
+        # safety: stay inside base_dir
+        base_norm = os.path.normpath(self.base_dir)
+        if not os.path.normpath(abs_path).startswith(base_norm):
+            QMessageBox.warning(self, "Ungültiger Pfad", f"Pfad außerhalb Basisordner:\n{abs_path}")
+            return
+
+        if not os.path.exists(abs_path):
+            QMessageBox.warning(self, "Nicht gefunden", f"Datei nicht gefunden:\n{abs_path}")
+            return
+
+        url = QUrl.fromLocalFile(abs_path)
+        if frag:
+            url.setFragment(frag)
+        self.web.setUrl(url)
+
+    # -------- Search (Sphinx) --------
+    def open_sphinx_search(self):
+        if not self.base_dir:
+            return
+        q = (self.search_edit.text() or "").strip()
+        if not q:
+            return
+
+        search_html = os.path.join(self.base_dir, "search.html")
+        if not os.path.exists(search_html):
+            QMessageBox.warning(self, "search.html fehlt", "Im htmlhelp-Ordner gibt es keine search.html.")
+            return
+
+        url = QUrl.fromLocalFile(search_html)
+        q_enc = re.sub(r"\s+", "+", q)
+        url.setQuery(f"q={q_enc}")
+        self.web.setUrl(url)
+
+    # -------- Navigation --------
+    def go_home(self):
+        if not self.base_dir:
+            return
+        home = os.path.join(self.base_dir, "index.html")
+        if os.path.exists(home):
+            self.web.setUrl(QUrl.fromLocalFile(home))
+
+    # -------- Theme --------
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+        self.act_theme.setText("☀️ Light" if self.dark_mode else "🌙 Dark")
+        self._apply_theme()
+        self._inject_web_css()
+    
+    from PyQt5.QtWebEngineWidgets import QWebEngineScript  # oder PyQt6 entsprechend
+
+    def _apply_webview_theme(self):
+        """
+        Injiziert CSS + toggelt .dark auf <html>.
+        Call bei Theme-Wechsel UND idealerweise nach jeder Navigation.
+        """
+        view = self.web  # <- passe an deinen Namen an (QWebEngineView)
+        css = self._webview_scrollbar_css()
+
+        # Wichtig: CSS in JS sicher einbetten
+        css_js = css.replace("\\", "\\\\").replace("`", "\\`")
+
+        js = f"""
+(function() {{
+  const STYLE_ID = "win95-scrollbars-style";
+
+  // dark togglen auf <html>
+  const root = document.documentElement;
+  root.classList.toggle("dark", {str(bool(self.dark_mode)).lower()});
+
+  // Style-Tag erstellen/ersetzen
+  let tag = document.getElementById(STYLE_ID);
+  if (!tag) {{
+    tag = document.createElement("style");
+    tag.id = STYLE_ID;
+    document.head.appendChild(tag);
+  }}
+  tag.textContent = `{css_js}`;
+}})();"""
+
+        # 1) sofort auf aktueller Seite anwenden
+        view.page().runJavaScript(js)
+
+        # 2) zusätzlich als QWebEngineScript setzen, damit es bei Navigation automatisch wirkt
+        script = QWebEngineScript()
+        script.setName("win95-scrollbars")
+        script.setInjectionPoint(QWebEngineScript.DocumentReady)
+        script.setWorldId(QWebEngineScript.MainWorld)
+        script.setRunsOnSubFrames(True)  # auch iframes
+        script.setSourceCode(js)
+
+        # vorhandenes Script gleichen Namens entfernen (sonst stapelt es)
+        scripts = view.page().scripts()
+        for s in scripts.toList():
+            if s.name() == "win95-scrollbars":
+                scripts.remove(s)
+                break
+        scripts.insert(script)
+
+    def _apply_theme(self):
+        app = QApplication.instance()
+        pal = QPalette()
+        
+        if self.dark_mode:
+            pal.setColor(QPalette.Window, QColor(30, 30, 30))
+            pal.setColor(QPalette.WindowText, Qt.white)
+            pal.setColor(QPalette.Base, QColor(24, 24, 24))
+            pal.setColor(QPalette.AlternateBase, QColor(35, 35, 35))
+            pal.setColor(QPalette.Text, Qt.white)
+            pal.setColor(QPalette.Button, QColor(45, 45, 45))
+            pal.setColor(QPalette.ButtonText, Qt.white)
+            pal.setColor(QPalette.Highlight, QColor(80, 120, 200))
+            pal.setColor(QPalette.HighlightedText, Qt.white)
+        else:
+            pal = app.style().standardPalette()
+        
+        app.setPalette(pal)
+        
+        if self.dark_mode:
+            header_bg               = "#222222"
+            header_fg               = "#ffd866"
+            tree_bg                 = "#181818"
+            tree_fg                 = "#ffffff"
+            sel_bg                  = "#2b4c7e"
+            sel_fg                  = "#ffffff"
+            border                  = "#333333"
+            
+            tab_bg                  = "#1c1c1c"
+            tab_bar_bg              = "#161616"
+            tab_fg                  = "#eaeaea"
+            tab_fg_active           = "#ffd866"
+            tab_sel_bg              = "#242424"
+            tab_hover_bg            = "#202020"
+            
+            toolbar_bg              = "#1a1a1a"
+            toolbtn_bg              = "#222222"
+            toolbtn_fg              = "#ffd866"
+            toolbtn_hover           = "#2a2a2a"
+            toolbtn_pressed         = "#303030"
+            
+            title_bg                = "#121212"  # Hintergrund Titelleiste
+            title_fg                = "#ffd866"  # Text/Farbe Buttons (oder "#ffffff")
+            title_btn_bg            = "#1f1f1f"  # Buttons normal
+            title_btn_hover         = "#2a2a2a"  # Buttons hover
+            title_btn_close_hover   = "#8a1f1f"  # Close hover
+            
+            status_bg               = "#121212"
+            status_fg               = "#ffd866"  # oder "#ffffff"
+            status_border           = "#333333"
+            
+            # Scrollbar dark-blue
+            scroll_track            = "#141414"
+            scroll_handle           = "#0b2a4a"
+            scroll_handle_hover     = "#0f3a66"
+        else:
+            header_bg               = "#f0f0f0"
+            header_fg               = "#000000"
+            tree_bg                 = "#ffffff"
+            tree_fg                 = "#000000"
+            sel_bg                  = "#cfe3ff"
+            sel_fg                  = "#000000"
+            border                  = "#d0d0d0"
+            
+            tab_bg                  = "#f4f4f4"
+            tab_bar_bg              = "#ededed"
+            tab_fg                  = "#000000"
+            tab_fg_active           = "#000000"
+            tab_sel_bg              = "#ffffff"
+            tab_hover_bg            = "#f9f9f9"
+            
+            toolbar_bg              = "#f2f2f2"
+            toolbtn_bg              = "#e9e9e9"
+            toolbtn_fg              = "#000000"
+            toolbtn_hover           = "#dedede"
+            toolbtn_pressed         = "#d2d2d2"
+            
+            title_bg                = "#eaeaea"
+            title_fg                = "#000000"
+            title_btn_bg            = "#f3f3f3"
+            title_btn_hover         = "#dedede"
+            title_btn_close_hover   = "#e06c75"
+            
+            status_bg               = "#ededed"
+            status_fg               = "#000000"
+            status_border           = "#d0d0d0"
+            
+            # Scrollbar light-gray
+            scroll_track            = "#f2f2f2"
+            scroll_handle           = "#c8c8c8"
+            scroll_handle_hover     = "#b0b0b0"
+        
+        self.setStyleSheet(f"""
+QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
+QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
+QLineEdit {{padding: 6px 10px;border-radius: 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
+QLabel {{color: {tab_fg};}}
+QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 6px 10px;}}
+QToolButton:hover {{background: {toolbtn_hover};}}
+QToolButton:pressed {{background: {toolbtn_pressed};}}
+QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
+QTabBar {{background: {tab_bar_bg};}}
+QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;border-top-left-radius: 12px;border-top-right-radius: 12px;min-width: 90px;}}
+QTabBar::tab:hover {{background: {tab_hover_bg};}}
+QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
+QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
+QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
+QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
+QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
+QPushButton:hover {{background: {toolbtn_hover};}}
+QPushButton:pressed {{background: {toolbtn_pressed};}}
+/* Scrollbars (TreeView etc.) */
+QScrollBar:vertical {{background: {scroll_track};width: 12px;margin: 0px;border: none;border-radius: 6px;}}
+QScrollBar::handle:vertical {{background: {scroll_handle};min-height: 28px;border-radius: 6px;}}
+QScrollBar::handle:vertical:hover {{background: {scroll_handle_hover};}}
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {{height: 0px;}}
+QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {{background: transparent;}}
+QScrollBar:horizontal {{background: {scroll_track};height: 12px;margin: 0px;border: none;border-radius: 6px;}}
+QScrollBar::handle:horizontal {{background: {scroll_handle};min-width: 28px;border-radius: 6px;}}
+QScrollBar::handle:horizontal:hover {{background: {scroll_handle_hover};}}
+QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {{width: 0px;}}
+QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal {{background: transparent;}}
+/* Custom Title Bar */
+#TopContainer {{ background: transparent; }}
+#TitleBar {{background: {title_bg};}}
+#TitleLabel {{color: {title_fg};font-weight: 600;}}
+#TitleSeparator {{background: {border};}}
+QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
+QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
+QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
+QStatusBar {{background: {status_bg};color: {status_fg};border-top: 1px solid {status_border};}}
+QStatusBar QLabel {{color: {status_fg};}}
+/* Tab scrollers (left/right arrows) */
+QTabBar::scroller {{width: 22px;height: 22px;background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;margin: 2px;}}
+QTabBar::scroller:hover {{background: {tab_hover_bg};}}
+/* Arrow icons color via "color" + qproperty (works in many styles) */
+QTabBar QToolButton {{background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;padding: 2px;color: {tab_fg_active};}}
+QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
+QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
+QSplitter {{background: {tree_bg};}}
+QSplitter::handle {{background: {border};}}
+QWebEngineView {{background: {tree_bg};}}""")
+
+        if self.dark_mode:
+            self.web.setStyleSheet("background: #000000;")
+        else:
+            self.web.setStyleSheet("background: white;")
+            
+        self._apply_webview_theme()
+
+    def _webview_scrollbar_css(self) -> str:
+        # Wir toggeln im HTML einfach "dark" auf <html> (document.documentElement)
+        return r"""
+/* === Win95 Scrollbars nur im rechten WebView-Dokument === */
+
+/* Default (Light) */
+:root {
+  --sb-size: 16px;
+
+  --sb-face:  #c0c0c0;
+  --sb-track: #e6e6e6;
+  --sb-thumb: #c0c0c0;
+  --sb-hi:    #ffffff;
+  --sb-mid:   #808080;
+  --sb-dark:  #000000;
+}
+
+/* Dark Mode: Win95-Stil, aber navy (Balken) */
+:root.dark {
+  --sb-face:  #001f4d;   /* navy */
+  --sb-track: #001a40;   /* etwas dunkler */
+  --sb-thumb: #002b66;   /* thumb leicht heller */
+  --sb-hi:    #2d5aa0;   /* “highlight” blau */
+  --sb-mid:   #000b1a;   /* tiefer schatten */
+  --sb-dark:  #000000;
+}
+
+/* Grundform */
+::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+  background: var(--sb-face);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  box-shadow:
+    inset 1px 1px 0 var(--sb-mid),
+    inset -1px -1px 0 var(--sb-hi);
+  border: 1px solid var(--sb-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-top: 1px solid var(--sb-hi);
+  border-left: 1px solid var(--sb-hi);
+  border-right: 1px solid var(--sb-mid);
+  border-bottom: 1px solid var(--sb-mid);
+  outline: 1px solid var(--sb-dark);
+}
+
+/* Ecke */
+::-webkit-scrollbar-corner {
+  background: var(--sb-face);
+  border-top: 1px solid var(--sb-mid);
+  border-left: 1px solid var(--sb-mid);
+}
+
+/* Buttons */
+::-webkit-scrollbar-button {
+  width: var(--sb-size);
+  height: var(--sb-size);
+  background: var(--sb-face);
+  border-top: 1px solid var(--sb-hi);
+  border-left: 1px solid var(--sb-hi);
+  border-right: 1px solid var(--sb-mid);
+  border-bottom: 1px solid var(--sb-mid);
+  outline: 1px solid var(--sb-dark);
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
+}
+
+::-webkit-scrollbar-button:active {
+  border-top: 1px solid var(--sb-mid);
+  border-left: 1px solid var(--sb-mid);
+  border-right: 1px solid var(--sb-hi);
+  border-bottom: 1px solid var(--sb-hi);
+}
+
+/* ===== Pfeile LIGHT: schwarz ===== */
+html:not(.dark) ::-webkit-scrollbar-button:single-button:vertical:decrement { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23000' d='M5 2 L9 7 H1 Z'/></svg>") !important;}
+html:not(.dark) ::-webkit-scrollbar-button:single-button:vertical:increment { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23000' d='M1 3 H9 L5 8 Z'/></svg>") !important;}
+html:not(.dark) ::-webkit-scrollbar-button:single-button:horizontal:decrement {background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23000' d='M2 5 L7 1 V9 Z'/></svg>") !important;}
+html:not(.dark) ::-webkit-scrollbar-button:single-button:horizontal:increment {background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23000' d='M8 5 L3 1 V9 Z'/></svg>") !important;}
+
+/* ===== Pfeile DARK: gelb ===== */
+html.dark ::-webkit-scrollbar-button:single-button:vertical:decrement { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23FFD400' d='M5 2 L9 7 H1 Z'/></svg>") !important;}
+html.dark ::-webkit-scrollbar-button:single-button:vertical:increment { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23FFD400' d='M1 3 H9 L5 8 Z'/></svg>") !important;}
+html.dark ::-webkit-scrollbar-button:single-button:horizontal:decrement {background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23FFD400' d='M2 5 L7 1 V9 Z'/></svg>") !important;}
+html.dark ::-webkit-scrollbar-button:single-button:horizontal:increment {background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23FFD400' d='M8 5 L3 1 V9 Z'/></svg>") !important;}
+"""
+
+    def _inject_web_css(self):
+        if self.dark_mode:
+            js = """
+(function(){const id='__qt_dark_css__';let s=document.getElementById(id);if(!s){s=document.createElement('style');
+s.id=id;s.innerHTML=`html, body { background-color:#040404 !important;color:#eaeaea !important;}
+a { color:#8ab4ff !important;}pre, code { background:#1e1e1e !important;}
+`;document.head.appendChild(s);}})();"""
+        else:
+            js = """(function(){const s=document.getElementById('__qt_dark_css__');if(s) s.remove();})();"""
+        self.web.page().runJavaScript(js)
+
+    def _on_url_changed(self, url: QUrl):
+        self._inject_web_css()
+        
+    def _style_theme_button(self):
+        # sorgt dafür, dass der Button im Dark Mode wirklich "dark" aussieht
+        # (QAction selbst ist kein Widget, aber wir können die Toolbar/Button-Styles über QSS steuern)
+        pass
+
 # ---- Resources (icons, ...) -------------------------------------------------
 #[:: resources_rc.py ::]
 # ---- Parser/Lexer -----------------------------------------------------------
@@ -213,7 +1507,82 @@ def create_backend_for_base(base_name: str, parent_backend=None):
     QtClass = NATIVE_BASES.get(base_name.upper())
     if QtClass is None:
         raise RuntimeError(f"Unbekannte native Basisklasse: {base_name}")
+    bn = base_name.upper()
+    # Spezialfälle: Scrollbars brauchen Orientation
+    if bn == "VSCROLLBAR":
+        return QScrollBar(Qt.Vertical, parent_backend) if parent_backend is not None else QScrollBar(Qt.Vertical)
+    if bn == "HSCROLLBAR":
+        return QScrollBar(Qt.Horizontal, parent_backend) if parent_backend is not None else QScrollBar(Qt.Horizontal)
+
     return QtClass(parent_backend) if parent_backend is not None else QtClass()
+
+
+def _find_mdi_subwindow(widget: Any):
+    """Walk up parent widgets to find a QMdiSubWindow wrapper (if any)."""
+    try:
+        w = widget
+        while w is not None:
+            if isinstance(w, QMdiSubWindow):
+                return w
+            # QWidget has parentWidget(); fallback to QObject.parent()
+            if hasattr(w, "parentWidget"):
+                w = w.parentWidget()
+            else:
+                w = w.parent()
+        return None
+    except Exception:
+        return None
+
+
+def _qss_color(v: Any) -> Optional[str]:
+    """Accepts '#RRGGBB', 'red', 'rgb(...)'. Returns None if empty."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        s = v.strip()
+        return s if s else None
+    return str(v)
+
+def build_container_qss(inst: "Instance") -> str:
+    """Build QSS for CONTAINER (QFrame) from instance properties."""
+    props = inst.props
+    bg = _qss_color(props.get("BACKCOLOR"))
+    bc = _qss_color(props.get("BORDERCOLOR"))
+    bw = props.get("BORDERWIDTH")
+    radius = props.get("RADIUS")
+    extra = props.get("STYLE")
+
+    rules: List[str] = []
+
+    if bg is not None:
+        rules.append(f"background-color: {bg};")
+
+    if bc is not None or bw is not None:
+        if bw is None:
+            bw = 1
+        try:
+            bw_i = int(bw)
+        except Exception:
+            bw_i = 1
+        if bc is None:
+            bc = "#404040"
+        rules.append(f"border: {bw_i}px solid {bc};")
+
+    if radius is not None:
+        try:
+            r_i = int(radius)
+        except Exception:
+            r_i = 0
+        if r_i > 0:
+            rules.append(f"border-radius: {r_i}px;")
+
+    if isinstance(extra, str) and extra.strip():
+        rules.append(extra.strip().rstrip(";") + ";")
+
+    if not rules:
+        return ""
+    return "QFrame { " + " ".join(rules) + " }"
+
 
 def apply_property_to_qt(inst: Instance, prop: str, value: Any):
     if inst.backend is None:
@@ -225,29 +1594,192 @@ def apply_property_to_qt(inst: Instance, prop: str, value: Any):
     # normalisiere Zahlen (dein Interpreter nutzt evtl. float)
     if isinstance(value, float) and value.is_integer():
         value = int(value)
-    
-    # Geometry: Qt braucht Left/Top/Width/Height gemeinsam
-    if p in ("LEFT", "TOP", "WIDTH", "HEIGHT"):
-        left   = int(inst.props.get("LEFT",    0) or   0)
-        top    = int(inst.props.get("TOP",     0) or   0)
-        width  = int(inst.props.get("WIDTH", 100) or 100)
-        height = int(inst.props.get("HEIGHT",100) or 100)
 
-        # update den einen Wert
+    # CONTAINER (QFrame) Stylesheet-Properties
+    if inst.class_name.upper() == "CONTAINER" and p in ("BACKCOLOR", "BORDERCOLOR", "BORDERWIDTH", "RADIUS", "STYLE"):
+        qss = build_container_qss(inst)
+        inst.backend.setStyleSheet(qss)
+        return
+
+    # VALUE/STATE/ITEMS Mappings (Entryfield, Checkbox, Radiobutton, Combobox, Editor, Listbox, Progress, Scrollbar, Spinbox, Image, Text)
+    if p in ("VALUE", "CHECKED"):
+        b = inst.backend
+        # QLineEdit
+        if isinstance(b, QLineEdit):
+            if p == "VALUE":
+                b.setText(str(value))
+            return
+        # QPlainTextEdit (EDITOR)
+        if isinstance(b, QPlainTextEdit):
+            if p == "VALUE":
+                b.setPlainText(str(value))
+            return
+        # QCheckBox / QRadioButton
+        if isinstance(b, (QCheckBox, QRadioButton)):
+            if p in ("VALUE", "CHECKED"):
+                b.setChecked(bool(value))
+            return
+        # QComboBox
+        if isinstance(b, QComboBox):
+            if p == "VALUE":
+                # akzeptiert Index (int) oder Text
+                if isinstance(value, (int, float)) and float(value).is_integer():
+                    idx = int(value)
+                    if 0 <= idx < b.count():
+                        b.setCurrentIndex(idx)
+                else:
+                    txt = str(value)
+                    i = b.findText(txt)
+                    if i >= 0:
+                        b.setCurrentIndex(i)
+            return
+        # QListWidget (LISTBOX/CHECKLISTBOX)
+        if isinstance(b, QListWidget):
+            if p == "VALUE":
+                # setzt Auswahl nach Index oder Text
+                if isinstance(value, (int, float)) and float(value).is_integer():
+                    idx = int(value)
+                    if 0 <= idx < b.count():
+                        b.setCurrentRow(idx)
+                else:
+                    txt = str(value)
+                    for i in range(b.count()):
+                        it = b.item(i)
+                        if it and it.text() == txt:
+                            b.setCurrentRow(i)
+                            break
+            return
+        # QProgressBar / QScrollBar / QSpinBox
+        if isinstance(b, (QProgressBar, QScrollBar, QSpinBox)):
+            if p == "VALUE":
+                try:
+                    b.setValue(int(value))
+                except Exception:
+                    pass
+            return
+        # QLabel as TEXT
+        if isinstance(b, QLabel) and p == "VALUE":
+            # VALUE synonym zu TEXT
+            b.setText(str(value))
+            return
+
+    # ITEMS: füllt ComboBox/ListBox/CheckListBox
+    if p in ("ITEMS", "LIST"):
+        b = inst.backend
+        # value kann list/tuple oder string "a,b,c" sein
+        items = None
+        if isinstance(value, (list, tuple)):
+            items = [str(x) for x in value]
+        else:
+            sitems = str(value)
+            # split an ',' or ';'
+            if "," in sitems:
+                items = [x.strip() for x in sitems.split(",") if x.strip() != ""]
+            elif ";" in sitems:
+                items = [x.strip() for x in sitems.split(";") if x.strip() != ""]
+            else:
+                items = [sitems] if sitems.strip() else []
+        if isinstance(b, QComboBox):
+            b.clear()
+            b.addItems(items)
+            return
+        if isinstance(b, QListWidget):
+            b.clear()
+            for t in items:
+                it = QListWidgetItem(t)
+                # CHECKLISTBOX: Items checkable
+                if inst.class_name.upper() == "CHECKLISTBOX":
+                    it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
+                    it.setCheckState(Qt.Unchecked)
+                b.addItem(it)
+            return
+
+    # IMAGE: lädt Bilddatei in QLabel
+    if p in ("PICTURE", "IMAGEFILE", "FILENAME") and isinstance(inst.backend, QLabel):
+        try:
+            pm = QPixmap(str(value))
+            if not pm.isNull():
+                inst.backend.setPixmap(pm)
+        except Exception:
+            pass
+        return
+    # Geometry: Qt braucht Left/Top/Width/Height gemeinsam
+    # Besonderheit: Wenn das Widget in einem QMdiSubWindow steckt, müssen wir
+    # sowohl das SubWindow (Position/Größe im MDI) als auch das eigentliche Widget anpassen.
+    if p in ("LEFT", "TOP", "WIDTH", "HEIGHT"):
+        # Ausgangswerte aus den gespeicherten Properties
+        left   = int(inst.props.get("LEFT",    0)   or 0)
+        top    = int(inst.props.get("TOP",     0)   or 0)
+        width  = int(inst.props.get("WIDTH", 100)   or 100)
+        height = int(inst.props.get("HEIGHT",100)   or 100)
+
+        mdi = _find_mdi_subwindow(inst.backend)
+
+        if mdi is not None:
+            # Für MDI: wenn der User das SubWindow verschoben hat, sind LEFT/TOP in props evtl. veraltet.
+            # Damit WIDTH/HEIGHT nicht auf alte Position zurückspringen, nehmen wir die aktuelle Position
+            # aus dem QMdiSubWindow, wenn nur die Größe geändert wird (und umgekehrt).
+            try:
+                g = mdi.geometry()
+                cur_left, cur_top, cur_w, cur_h = g.x(), g.y(), g.width(), g.height()
+            except Exception:
+                cur_left, cur_top, cur_w, cur_h = left, top, width, height
+
+            if p in ("WIDTH", "HEIGHT"):
+                left, top = cur_left, cur_top
+            if p in ("LEFT", "TOP"):
+                width, height = cur_w, cur_h
+
+        # jetzt den einen Wert aktualisieren
         if p == "LEFT":   left   = int(value)
         if p == "TOP":    top    = int(value)
         if p == "WIDTH":  width  = int(value)
         if p == "HEIGHT": height = int(value)
 
-        inst.props["LEFT"] = left
-        inst.props["TOP"] = top
-        inst.props["WIDTH"] = width
+        # Properties spiegeln
+        inst.props["LEFT"]   = left
+        inst.props["TOP"]    = top
+        inst.props["WIDTH"]  = width
         inst.props["HEIGHT"] = height
 
-        inst.backend.setGeometry(left, top, width, height)
+        if mdi is not None:
+            # SubWindow anpassen
+            try:
+                if p in ("LEFT", "TOP"):
+                    mdi.move(left, top)
+                elif p in ("WIDTH", "HEIGHT"):
+                    mdi.resize(width, height)
+                else:
+                    mdi.setGeometry(left, top, width, height)
+            except Exception:
+                try:
+                    mdi.setGeometry(left, top, width, height)
+                except Exception:
+                    pass
+
+            # Client-Widget im SubWindow auf die gleiche Größe bringen
+            try:
+                if hasattr(inst.backend, "move"):
+                    inst.backend.move(0, 0)
+                if hasattr(inst.backend, "resize"):
+                    inst.backend.resize(width, height)
+            except Exception:
+                pass
+        else:
+            # Normale Widgets/Fenster
+            try:
+                inst.backend.setGeometry(left, top, width, height)
+            except Exception:
+                try:
+                    if hasattr(inst.backend, "move"):
+                        inst.backend.move(left, top)
+                    if hasattr(inst.backend, "resize"):
+                        inst.backend.resize(width, height)
+                except Exception:
+                    pass
         return
-    
-    # Text / Caption für Buttons
+
+        # Text / Caption für Buttons
     if p in ("TEXT", "CAPTION"):
         if hasattr(inst.backend, "setText"):
             inst.backend.setText(s)
@@ -4788,9 +6320,12 @@ class IconScrollBarStyle(QProxyStyle):
         return rect
         
 class CodeEditor(QPlainTextEdit):
+    runRequested = pyqtSignal()
+    hlpRequested = pyqtSignal()
+    
     def __init__(self, parent=None):
         super().__init__(parent)
-        #self._line_number_area = LineNumberArea(self)
+        self._line_number_area = LineNumberArea(self)
 
         self._breakpoints = set()  # speichert blockNumber() (0-basiert)
         
@@ -4811,6 +6346,29 @@ class CodeEditor(QPlainTextEdit):
 
         self._update_gutter_widths()
         self._highlight_current_line()
+
+        # --- Run (F2) ---
+        self.act_run = QAction("Run2", self)
+        self.act_run.setShortcut(QKeySequence(Qt.Key_F2))
+        self.act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.act_run.triggered.connect(self._emit_run_requested)
+        self.addAction(self.act_run)
+    
+    def focusInEvent(self, e):
+        print("FileEditorWindow Fokus IN")
+        super().focusInEvent(e)
+        
+    def _emit_run_requested(self):
+        self.runRequested.emit()
+    
+    def contextMenuEvent(self, event):
+        std_menu = QPlainTextEdit.createStandardContextMenu(self, event.pos())
+        menu = QMenu(self)
+        menu.addAction(self.act_run)
+        menu.addSeparator()
+        for act in std_menu.actions():
+            menu.addAction(act)
+        menu.exec_(event.globalPos())
 
     # ---------- API / State ----------
     def breakpoints(self):
@@ -4954,185 +6512,296 @@ class CodeEditor(QPlainTextEdit):
 
         self.setExtraSelections(selections)
 
+
+
+class ModifiedTabBar(QTabBar):
+    """TabBar, der bei 'modified' (tabData == True) eine 2px Linie unter dem Tab-Text zeichnet."""
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        try:
+            # Farbe: gleiche wie Scrollbar-Handle (wir nehmen die Highlight-Farbe als sinnvollen Default)
+            pen = QPen(self.palette().highlight().color())
+            pen.setWidth(2)
+            painter.setPen(pen)
+            for i in range(self.count()):
+                if bool(self.tabData(i)):
+                    r = self.tabRect(i)
+                    # 2px Linie unten im Tab
+                    y = r.bottom() - 1
+                    painter.drawLine(r.left()+6, y, r.right()-6, y)
+        finally:
+            painter.end()
+
 class FileEditorWindow(QDialog):
     def __init__(self, parent, initial_path: str = "", initial_text: str = ""):
         super().__init__(parent)
         self.parent = parent
-        
+
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
-        
+        self.setMinimumWidth(640)
+        self.setMinimumHeight(480)
+
         self.setWindowTitle("CodeEditor")
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
         
+        self.CLASS_START_RE = re.compile(r"(?im)^\s*CLASS\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+        self.ENDCLASS_RE    = re.compile(r"(?im)^\s*ENDCLASS\b")
+        self.METHOD_RE      = re.compile(r"(?im)^\s*METHOD\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+
         # Optional: eigenes Icon setzen
         icon = self.windowIcon()  # oder QIcon("dein_icon.png")
 
-        self.titlebar = TitleBar(self, "CodeEditor", icon)
+        # --- Custom TitleBar (frameless window) ---
+        #self.titlebar = TitleBar(self, "CodeEditor", icon)
 
         # Content Frame (Rahmen + Hintergrund)
-        self.frame = QFrame()
+        self.frame = QFrame(self)
         self.frame.setObjectName("WindowFrame")
 
+        # ---- Outer layout: TitleBar + Frame ----
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        #outer.addWidget(self.titlebar)
+        outer.addWidget(self.frame, 1)
+
+        # ---- Inside frame ----
         content_layout = QVBoxLayout(self.frame)
         content_layout.setContentsMargins(10, 10, 10, 10)
-        content_layout.setSpacing(10)
-        
-        
+        content_layout.setSpacing(8)
+
+        # Filename / path display (optional)
+        self.fname = QLabel("")
+        self.fname.setObjectName("FileNameLabel")
+        self.fname.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.fname.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        content_layout.addWidget(self.fname)
+
+        # Menubar / Toolbar / Statusbar are normal widgets in this QDialog
+        self._create_actions()
+        self.mb = self._create_menus()
+        self.tb = self._create_toolbar()
+        self.sb = self._create_statusbar()
+
+        content_layout.addWidget(self.mb)
+        content_layout.addWidget(self.tb)
+
         # Splitter: links Tree, rechts Editor
-        self.splitter = QSplitter(Qt.Horizontal, self)
-        
+        self.splitter = QSplitter(Qt.Horizontal, self.frame)
+        self.splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
-        
+        self.tree.clicked.connect(self._on_tree_clicked)
+
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
-        model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["Struktur"])
+        self.tree_model = QStandardItemModel()
+        self.tree_model.setHorizontalHeaderLabels(["Struktur"])
         
-        root = model.invisibleRootItem()
+        root = self.tree_model.invisibleRootItem()
         
-        root.appendRow(QStandardItem("CLASS ParentForm"))
-        root.appendRow(QStandardItem("METHOD Init"))
+        self.node_classes = QStandardItem("CLASSES")
+        self.node_methods = QStandardItem("METHODS")
         
-        self.tree.setModel(model)
+        root.appendRow(self.node_classes)
+        root.appendRow(self.node_methods)
+        
+        self.tree.setModel(self.tree_model)
         self.tree.expandAll()
         
-        vlayout = QVBoxLayout(self)
+        self._parse_timer = QTimer(self)
+        self._parse_timer.setSingleShot(True)
+        self._parse_timer.timeout.connect(self._refresh_structure_tree)
 
-        self.ed = self._create_editor()
-        self.ed.setFont(QFont("Consolas", 10))
+        # --- Editor Tabs (jede Datei ein Tab) ---
+        self.editor_tabs = QTabWidget(self.splitter)
+        self.editor_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.editor_tabs.setTabBar(ModifiedTabBar())
+        self.editor_tabs.setTabsClosable(True)
+        self.editor_tabs.tabCloseRequested.connect(self._on_tab_close_requested)
+        self.editor_tabs.currentChanged.connect(self._on_current_tab_changed)
 
-        if initial_path:
-            try:
-                with open(initial_path, "r", encoding="utf-8") as f:
-                    initial_text = f.read()
-                    f.close()
-            except Exception as e:
-                raise Exception(e)
-                
-        self.highlighter = DBaseHighlighter(self.ed.document())
-        
         # Splitter-Verhältnisse
         self.splitter.setStretchFactor(0, 0)  # Tree
         self.splitter.setStretchFactor(1, 1)  # Editor
         self.splitter.setSizes([220, 800])
-        
-        self._path = initial_path or ""
-        self._set_text(initial_text or "")
-        self._update_title()
-        
-        self._create_actions()
-        
-        self.mb = self._create_menus()
-        self.tb = self._create_toolbar()
-        self.sb = self._create_statusbar()
-        
-        vlayout.addWidget(self.titlebar)
-        vlayout.addWidget(self.fname)
-        
-        vlayout.addWidget(self.mb)
-        vlayout.addWidget(self.tb)
-        vlayout.addWidget(self.splitter)
-        vlayout.addWidget(self.sb)
 
-        vlayout.setContentsMargins(0, 0, 0, 0)
-        
-        content_layout.addLayout(vlayout)
-        self.setLayout(vlayout)
-        
-        self.ed.cursorPositionChanged.connect(self._update_cursor_status)
-        self.ed.document().modificationChanged.connect(lambda _: self._update_title())
+        # Splitter soll beim Resize wachsen
+        content_layout.addWidget(self.splitter, 1)
+        content_layout.addWidget(self.sb)
+
+        # Default: ein neuer Tab (oder initial_path laden)
+        if initial_path:
+            self.open_path_in_tab(initial_path)
+        else:
+            self.new_tab(title="(neu)", path="", text=initial_text or "")
+
         self._update_cursor_status()
 
-    # ---------- UI building ----------
+    def _schedule_tree_refresh(self):
+        # 180ms nach letzter Änderung neu parsen
+        self._parse_timer.start(180)
+        
+    def _refresh_structure_tree(self):
+        ed = self.current_editor()
+        if ed is None:
+            return
+        
+        text = self._strip_comments_preserve_positions(ed.toPlainText())
+        doc  = ed.document()
+
+        # CLASSES-Node leeren
+        self.node_classes.removeRows(0, self.node_classes.rowCount())
+
+        # Alle CLASS-Starts finden
+        starts = list(self.CLASS_START_RE.finditer(text))
+        if not starts:
+            self.tree.expand(self.tree_model.indexFromItem(self.node_classes))
+            return
+
+        # Für jede CLASS den passenden ENDCLASS suchen (von Start an)
+        for i, m in enumerate(starts):
+            cls_name = m.group(1)
+            cls_start = m.start()
+
+            end_m = self.ENDCLASS_RE.search(text, pos=m.end())
+            if not end_m:
+                cls_end = len(text)  # unvollständig: bis EOF
+            else:
+                cls_end = end_m.end()
+
+            # Klassen-Item + Position (für Sprung)
+            block = doc.findBlock(cls_start)
+            if not block.isValid():
+                continue
+            cls_line = block.blockNumber()
+            cls_col  = cls_start - block.position()
+
+            cls_item = QStandardItem(cls_name)
+            cls_item.setData(cls_line, Qt.UserRole)
+            cls_item.setData(cls_col,  Qt.UserRole + 1)
+
+            # Unterknoten "METHODS" für diese Klasse
+            methods_node = QStandardItem("METHODS")
+            cls_item.appendRow(methods_node)
+
+            # Methoden nur im Klassenbereich sammeln
+            seen = set()
+            for mm in self.METHOD_RE.finditer(text, cls_start, cls_end):
+                meth = mm.group(1)
+                key = meth.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                mpos = mm.start()
+                mblock = doc.findBlock(mpos)
+                if not mblock.isValid():
+                    continue
+                line = mblock.blockNumber()
+                col  = mpos - mblock.position()
+
+                it = QStandardItem(meth)
+                it.setData(line, Qt.UserRole)
+                it.setData(col,  Qt.UserRole + 1)
+                methods_node.appendRow(it)
+
+            self.node_classes.appendRow(cls_item)
+
+        self.tree.expand(self.tree_model.indexFromItem(self.node_classes))
+
+    def _on_tree_clicked(self, index):
+        item = self.tree_model.itemFromIndex(index)
+        if not item:
+            return
+            
+        if item in (self.node_classes, self.node_methods) or item.text() == "METHODS":
+            return
+
+        line = item.data(Qt.UserRole)
+        col  = item.data(Qt.UserRole + 1) or 0
+        if not isinstance(line, int):
+            return
+
+        ed = self.current_editor()
+        if ed is None:
+            return
+
+        block = ed.document().findBlockByNumber(line)
+        if not block.isValid():
+            return
+
+        pos = block.position() + int(col)
+
+        cursor = ed.textCursor()
+        cursor.setPosition(pos)
+        ed.setTextCursor(cursor)
+        ed.setFocus()
+        ed.centerCursor()
+    
+    def _strip_comments_preserve_positions(self, text: str) -> str:
+        # Block-Kommentare /* ... */
+        def repl_block(m):
+            return " " * (m.end() - m.start())
+
+        text = re.sub(r"/\*.*?\*/", repl_block, text, flags=re.S)
+
+        # Einzeilige Kommentare: //, &&, **
+        def repl_line(m):
+            return " " * (m.end() - m.start())
+
+        text = re.sub(r"//.*?$", repl_line, text, flags=re.M)
+        text = re.sub(r"&&.*?$", repl_line, text, flags=re.M)
+        text = re.sub(r"\*\*.*?$", repl_line, text, flags=re.M)
+
+        return text
+    
+    def run_current_text(self):
+        """Führt den aktuellen Tab-Text aus (Run / F2)."""
+        ed = self.current_editor()
+        content = ed.toPlainText() if ed is not None else ""
+        if not content.strip():
+            QMessageBox.information(self, "Info", "Bitte erst Text eingeben.")
+            return
+        path = getattr(ed, "_path", "") or ""
+        if not path:
+            # temp file
+            path = os.path.join(os.getcwd(), "dbase_run.prg")
+            setattr(ed, "_path", path)
+            self._update_tab_visuals(self.current_tab_index())
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            parse(path)
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            dlg = showException(self, "Run-Fehler " + type(e).__name__, tb_str)
+            dlg.exec_()
+
     def _create_editor(self):
-        editor = CodeEditor(self.splitter)
+        # Parent bewusst None: QTabWidget übernimmt Ownership und Resize korrekt
+        editor = CodeEditor(None)
+        editor.setPlaceholderText("Schreib hier was rein…")
+        editor.setLineWrapMode(editor.NoWrap)
+        editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        editor.setLineWrapMode(editor.NoWrap)
+        editor.setFont(QFont("Consolas", 10))
+        
+        self.highlighter = DBaseHighlighter(editor.document())
         return editor
         
     def _create_actions(self):
-        # File
-        self.act_new = QAction("Neu", self)
-        self.act_new.setShortcut("Ctrl+N")
-        self.act_new.triggered.connect(self.file_new)
-
-        self.act_save = QAction("Speichern", self)
-        self.act_save.setShortcut("Ctrl+S")
-        self.act_save.triggered.connect(self.file_save)
-
-        self.act_save_as = QAction("Speichern unter…", self)
-        self.act_save_as.setShortcut("Ctrl+Shift+S")
-        self.act_save_as.triggered.connect(self.file_save_as)
-
-        self.act_exit = QAction("Beenden", self)
-        self.act_exit.setShortcut("Alt+F4")
-        self.act_exit.triggered.connect(self.close)
-
-        # Edit
-        self.act_undo = QAction("Undo", self)
-        self.act_undo.setShortcut("Ctrl+Z")
-        self.act_undo.triggered.connect(self.ed.undo)
-
-        self.act_redo = QAction("Redo", self)
-        self.act_redo.setShortcut("Ctrl+Y")
-        self.act_redo.triggered.connect(self.ed.redo)
-
-        self.act_cut = QAction("Cut", self)
-        self.act_cut.setShortcut("Ctrl+X")
-        self.act_cut.triggered.connect(self.ed.cut)
-
-        self.act_copy = QAction("Copy", self)
-        self.act_copy.setShortcut("Ctrl+C")
-        self.act_copy.triggered.connect(self.ed.copy)
-
-        self.act_paste = QAction("Paste", self)
-        self.act_paste.setShortcut("Ctrl+V")
-        self.act_paste.triggered.connect(self.ed.paste)
-
-        self.act_select_all = QAction("Select All", self)
-        self.act_select_all.setShortcut("Ctrl+A")
-        self.act_select_all.triggered.connect(self.ed.selectAll)
-
-        # Help
-        self.act_about = QAction("Über", self)
-        self.act_about.triggered.connect(self.help_about)
+        pass
 
     def _create_menus(self):
-        mb = QMenuBar(self)
-
-        m_file = mb.addMenu("Datei")
-        m_file.addAction(self.act_new)
-        m_file.addSeparator()
-        m_file.addAction(self.act_save)
-        m_file.addAction(self.act_save_as)
-        m_file.addSeparator()
-        m_file.addAction(self.act_exit)
-
-        m_edit = mb.addMenu("Bearbeiten")
-        m_edit.addAction(self.act_undo)
-        m_edit.addAction(self.act_redo)
-        m_edit.addSeparator()
-        m_edit.addAction(self.act_cut)
-        m_edit.addAction(self.act_copy)
-        m_edit.addAction(self.act_paste)
-        m_edit.addSeparator()
-        m_edit.addAction(self.act_select_all)
-
-        m_help = mb.addMenu("Hilfe")
-        m_help.addAction(self.act_about)
-        
-        return mb
+        pass
 
     def _create_toolbar(self):
-        tb = QToolBar("Datei", self)
-        tb.setMovable(False)
-        tb.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        
-        tb.addAction(self.act_new)
-        tb.addAction(self.act_save)
-        tb.addAction(self.act_save_as)
-        
-        return tb
+        pass
 
     def _create_statusbar(self):
         sb = QStatusBar(self)
@@ -5140,74 +6809,211 @@ class FileEditorWindow(QDialog):
         return sb
 
     # ---------- File operations ----------
-    def maybe_save(self) -> bool:
-        if not self.ed.document().isModified():
+    # ---------- Tab / Editor Helpers ----------
+    def current_editor(self) -> CodeEditor:
+        w = self.editor_tabs.currentWidget()
+        return w  # type: ignore
+
+    def current_tab_index(self) -> int:
+        return int(self.editor_tabs.currentIndex())
+
+    def tab_path(self, idx: int) -> str:
+        ed = self.editor_tabs.widget(idx)
+        return getattr(ed, "_path", "") if ed is not None else ""
+
+    def set_tab_path(self, idx: int, path: str) -> None:
+        ed = self.editor_tabs.widget(idx)
+        if ed is not None:
+            setattr(ed, "_path", path)
+
+    def tab_display_name(self, path: str) -> str:
+        return os.path.basename(path) if path else "Unbenannt"
+
+    def _update_tab_visuals(self, idx: int) -> None:
+        ed = self.editor_tabs.widget(idx)
+        if ed is None:
+            return
+        modified = bool(ed.document().isModified())
+        # TabText: nur Dateiname (ohne Pfad)
+        title = self.tab_display_name(getattr(ed, "_path", ""))
+        self.editor_tabs.setTabText(idx, title)
+        # 2px Linie via TabBar.tabData
+        self.editor_tabs.tabBar().setTabData(idx, modified)
+        self._update_title()
+
+    def _on_current_tab_changed(self, idx: int) -> None:
+        self._update_title()
+        # Cursor-Status neu
+        try:
+            self._update_cursor_status()
+        except Exception:
+            pass
+
+    def new_tab(self, title: str = "Unbenannt", path: str = "", text: str = "") -> int:
+        ed = self._create_editor()
+        ed.setFont(QFont("Consolas", 10))
+        ed.setLineWrapMode(ed.NoWrap)
+        ed.setPlainText(text or "")
+        
+        ed.document().setModified(False)
+        ed.runRequested.connect(self.run_current_text)
+        ed.cursorPositionChanged.connect(self._update_cursor_status)
+        setattr(ed, "_path", path or "")
+
+        # Syntax Highlighter pro Editor
+        try:
+            self._highlighter = DBaseHighlighter(ed.document())
+        except Exception as e:
+            print(e)
+
+        idx = self.editor_tabs.addTab(ed, title)
+        self.editor_tabs.setCurrentIndex(idx)
+
+        # Modified Tracking
+        ed.document().contentsChanged.connect(self._schedule_tree_refresh)
+        ed.document().modificationChanged.connect(lambda _m, i=idx: self._update_tab_visuals(i))
+
+        self._update_tab_visuals(idx)
+        return idx
+
+    def open_path_in_tab(self, path: str) -> int:
+        path = os.path.normpath(path)
+        # bereits offen?
+        for i in range(self.editor_tabs.count()):
+            if os.path.normpath(self.tab_path(i)) == path:
+                self.editor_tabs.setCurrentIndex(i)
+                return i
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                txt = f.read()
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Konnte Datei nicht öffnen:\n{e}")
+            txt = ""
+        idx = self.new_tab(title=self.tab_display_name(path), path=path, text=txt)
+        return idx
+
+    def _on_tab_close_requested(self, idx: int) -> None:
+        if not self.maybe_save(idx):
+            return
+        w = self.editor_tabs.widget(idx)
+        self.editor_tabs.removeTab(idx)
+        if w is not None:
+            w.deleteLater()
+        if self.editor_tabs.count() == 0:
+            self.close()
+
+
+    def maybe_save(self, idx: Optional[int] = None) -> bool:
+        if idx is None:
+            idx = self.current_tab_index()
+        ed = self.editor_tabs.widget(idx)
+        if ed is None:
             return True
+        if not ed.document().isModified():
+            return True
+        title = self.tab_display_name(getattr(ed, "_path", ""))
         res = QMessageBox.question(
             self,
             "Ungespeicherte Änderungen",
-            "Du hast ungespeicherte Änderungen. Speichern?",
+            f"'{title}' hat ungespeicherte Änderungen. Speichern?",
             QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
         )
         if res == QMessageBox.Yes:
-            return self.file_save()
+            return self.file_save(idx)
         if res == QMessageBox.No:
             return True
         return False
 
     def file_new(self):
-        if not self.maybe_save():
-            return
-        self._path = ""
-        self._set_text("")
-        self.ed.document().setModified(False)
-        self._update_title()
+        self.new_tab(title="Unbenannt", path="", text="")
 
-    def file_save(self) -> bool:
-        if not self._path:
-            return self.file_save_as()
+    def file_save(self, idx: Optional[int] = None) -> bool:
+        if idx is None:
+            idx = self.current_tab_index()
+        ed = self.editor_tabs.widget(idx)
+        if ed is None:
+            return False
+        path = getattr(ed, "_path", "") or ""
+        if not path:
+            return self.file_save_as(idx)
         try:
-            with open(self._path, "w", encoding="utf-8") as f:
-                f.write(self.ed.toPlainText())
-            self.ed.document().setModified(False)
-            self.sb.showMessage(f"Gespeichert: {self._path}", 3000)
-            self._update_title()
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(ed.toPlainText())
+            ed.document().setModified(False)
+            try:
+                self.sb.showMessage(f"Gespeichert: {path}", 3000)
+            except Exception:
+                pass
+            self._update_tab_visuals(idx)
             return True
         except Exception as e:
             QMessageBox.critical(self, "Fehler", f"Konnte nicht speichern:\n{e}")
             return False
 
-    def file_save_as(self) -> bool:
-        path, _ = QFileDialog.getSaveFileName(self, "Speichern unter", self._path or "", "Alle Dateien (*.*)")
-        if not path:
+    def file_save_as(self, idx: Optional[int] = None) -> bool:
+        if idx is None:
+            idx = self.current_tab_index()
+        ed = self.editor_tabs.widget(idx)
+        if ed is None:
             return False
-        self._path = path
-        return self.file_save()
+        cur_path = getattr(ed, "_path", "") or ""
+        dlg = QFileDialog(self, "Speichern unter")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        dlg.setFileMode(QFileDialog.AnyFile)
+        dlg.setDefaultSuffix("prg")
+        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+        if cur_path:
+            dlg.selectFile(cur_path)
+        if not dlg.exec_():
+            return False
+        files = dlg.selectedFiles()
+        if not files:
+            return False
+        path = files[0]
+        setattr(ed, "_path", path)
+        self._update_tab_visuals(idx)
+        return self.file_save(idx)
 
     def closeEvent(self, event):
-        if self.maybe_save():
-            event.accept()
-        else:
-            event.ignore()
+        for i in range(self.editor_tabs.count()):
+            if not self.maybe_save(i):
+                event.ignore()
+                return
+        event.accept()
 
-    # ---------- Helpers ----------
     def _set_text(self, text: str):
-        self.ed.setPlainText(text)
+        # legacy helper: set current editor text
+        ed = self.current_editor()
+        ed.setPlainText(text)
+        ed.document().setModified(False)
+        self._update_tab_visuals(self.current_tab_index())
 
     def _update_title(self):
-        name = self._path if self._path else "Unbenannt"
-        star = " *" if self.ed.document().isModified() else ""
+        idx = self.current_tab_index() if hasattr(self, "editor_tabs") else -1
+        name = "Unbenannt"
+        star = ""
+        if idx >= 0:
+            ed = self.editor_tabs.widget(idx)
+            if ed is not None:
+                name = getattr(ed, "_path", "") or "Unbenannt"
+                star = " *" if ed.document().isModified() else ""
+
+        if hasattr(self, "fname"):
+            self.fname.setText(name)
         self.setWindowTitle(f"{name}{star} - Editor")
 
     def _update_cursor_status(self):
-        tc = self.ed.textCursor()
+        ed = self.current_editor()
+        if ed is None:
+            return
+        tc = ed.textCursor()
         line = tc.blockNumber() + 1
         col = tc.positionInBlock() + 1
-        self.sb.showMessage(f"Zeile {line}, Spalte {col}")
+        try:
+            self.sb.showMessage(f"Zeile {line}, Spalte {col}")
+        except Exception:
+            pass
 
-    def help_about(self):
-        QMessageBox.information(self, "Über", "Einfacher QPlainTextEdit-Editor mit Zeilennummern.\n(Generiert im dBaseRunner)")
-        
 # ---------------------------------------------------------------------------
 # ExecVisitor - Interpreter for dBase DSL ...
 # ---------------------------------------------------------------------------
@@ -5280,6 +7086,43 @@ class ExecVisitor(dBaseParserVisitor):
             raise RuntimeError("THIS ist nicht gesetzt")
         return self.this_stack[-1]
 
+    
+    def reparent_instance(self, child: Instance, new_parent: Optional[Instance]) -> None:
+        """Re-parent a runtime instance (and its Qt backend) to a new parent instance.
+
+        This makes `child.parent`, `child.parent.parent`, ... work and also updates Qt parenting,
+        so property updates (like this.parent.text=...) hit the correct widget tree.
+        """
+        old_parent = child.parent
+        if old_parent is new_parent:
+            return
+
+        # 1) detach from old parent's child map (best-effort)
+        if old_parent is not None:
+            try:
+                # remove any aliases pointing to this child
+                for k, v in list(old_parent.children.items()):
+                    if v is child:
+                        old_parent.children.pop(k, None)
+                for k, v in list(old_parent.props.items()):
+                    if v is child:
+                        old_parent.props.pop(k, None)
+            except Exception:
+                pass
+
+        # 2) update runtime parent
+        child.parent = new_parent
+
+        # 3) update Qt backend parent (best-effort; not every backend supports parenting)
+        try:
+            cb = getattr(child, "backend", None)
+            pb = getattr(new_parent, "backend", None) if new_parent is not None else None
+            if cb is not None and hasattr(cb, "setParent"):
+                cb.setParent(pb)
+        except Exception:
+            # ignore backend parenting issues; runtime parenting still works
+            pass
+
     def bind_child(self, owner: Instance, name: str, child: Instance):
         key = name.upper()
         
@@ -5287,6 +7130,10 @@ class ExecVisitor(dBaseParserVisitor):
         if "FONT" in owner.props and "FONT" not in child.props:
             self.set_prop(child, "FONT", owner.props["FONT"], None)
             
+
+        # runtime parenting + Qt parenting
+        self.reparent_instance(child, owner)
+
         owner.children[key] = child
         owner.props[key] = child   # THIS.PushButton1 soll wie Property funktionieren
 
@@ -5739,7 +7586,12 @@ class ExecVisitor(dBaseParserVisitor):
                 return int(obj.size)
             
         if isinstance(obj, Instance):
+            # 0) Parent chain
+            if key == "PARENT":
+                return obj.parent
+
             # 1) Property?
+
             if key in obj.props:
                 return obj.props[key]
             
@@ -5755,6 +7607,51 @@ class ExecVisitor(dBaseParserVisitor):
                 )
                 obj.props["FONT"] = fv
                 return fv
+
+
+
+            # 1b) Fallback: Geometry-Eigenschaften direkt vom Backend lesen,
+            #     falls sie nicht im props-Dict liegen (damit Ausdrücke wie THIS.WIDTH = THIS.WIDTH + 10 gehen).
+            if key in ("LEFT", "TOP", "WIDTH", "HEIGHT"):
+                b = getattr(obj, "backend", None)
+                if b is not None:
+                    try:
+                        # In MDI-Kontext beziehen wir uns auf das QMdiSubWindow (falls vorhanden),
+                        # weil LEFT/TOP dort die Position im MDI-Bereich bedeutet.
+                        mdi = _find_mdi_subwindow(b)
+                        gb = mdi.geometry() if mdi is not None else b.geometry()
+                        if key == "LEFT":
+                            return int(gb.x())
+                        if key == "TOP":
+                            return int(gb.y())
+                        if key == "WIDTH":
+                            return int(gb.width())
+                        if key == "HEIGHT":
+                            return int(gb.height())
+                    except Exception:
+                        pass
+                # Default, wenn kein Backend vorhanden
+                return int(obj.props.get(key, 0) or 0)
+
+            # 1b) Fallback: gängige Text-Eigenschaften direkt vom Backend lesen,
+            #     falls sie nicht im props-Dict liegen (z.B. initialer Fenstertitel/Button-Text).
+            if key in ("TEXT", "CAPTION", "TITLE"):
+                b = getattr(obj, "backend", None)
+                if b is not None:
+                    # Form/Dialog
+                    if hasattr(b, "windowTitle") and callable(getattr(b, "windowTitle")):
+                        try:
+                            return b.windowTitle()
+                        except Exception:
+                            pass
+                    # Buttons/Labels etc.
+                    if hasattr(b, "text") and callable(getattr(b, "text")):
+                        try:
+                            return b.text()
+                        except Exception:
+                            pass
+                # Kein Backend oder nicht lesbar
+                return ""
 
             cls_name = getattr(obj, "class_name", None)
 
@@ -5887,21 +7784,34 @@ class ExecVisitor(dBaseParserVisitor):
             
             # Delegate zurückgeben -> visitPostfixExpr ruft das dann auf
             return Delegate(target=this_obj, method_name=mname, runner=self)
-            
-        if parts[0].upper() == "THIS":
-            cur = self.get_var("THIS", ctx)
+
+        head = parts[0].upper()
+        if head == "THIS":
+            # bevorzugt this_obj (sicher in Methoden), fallback auf Variable THIS
+            cur = self.this_obj
+            if cur is None:
+                cur = self.get_var("THIS", ctx)
         else:
             cur = self.get_var(parts[0], ctx)
-        
+
         if cur is None:
             raise RuntimeError(f"{ctx.start.line}:{ctx.start.column}: '{parts[0]}' ist None")
         
+        prev_path = parts[0].upper()
+
         for name in parts[1:]:
+            # Wenn ein Zwischenergebnis None ist (z.B. Parent nicht gesetzt), sauber abbrechen
+            if cur is None:
+                raise RuntimeError(f"{ctx.start.line}:{ctx.start.column}: '{prev_path}' ist None (z.B. Parent nicht gesetzt)")
             key = name.upper()
+            prev_path = prev_path + "." + key
+
 
             if isinstance(cur, Instance):
                 if hasattr(cur, "props") and key in cur.props:
                     cur = cur.props[key]
+                    if cur is None and name != parts[-1]:
+                        raise RuntimeError(f"{ctx.start.line}:{ctx.start.column}: '{prev_path}' ist None (z.B. Parent nicht gesetzt)")
                     continue
 
                 if self.resolve_method_silent(cur.class_name.upper(), key) is not None:
@@ -5912,6 +7822,8 @@ class ExecVisitor(dBaseParserVisitor):
                 val = cur.props.get(name.upper())
                 if val is not None:
                     cur = val
+                    if cur is None and name != parts[-1]:
+                        raise RuntimeError(f"{ctx.start.line}:{ctx.start.column}: '{prev_path}' ist None (z.B. Parent nicht gesetzt)")
                     continue
 
                 # 2) Methode?
@@ -5922,6 +7834,8 @@ class ExecVisitor(dBaseParserVisitor):
                 # 3) Fallback: zentrale Member-Logik benutzen (inkl. native OPEN)
                 try:
                     cur = self.get_member(cur, name, ctx)   # <-- name ist "Open" im Original
+                    if cur is None and name != parts[-1]:
+                        raise RuntimeError(f"{ctx.start.line}:{ctx.start.column}: '{prev_path}' ist None (z.B. Parent nicht gesetzt)")
                     continue
                 except RuntimeError:
                     pass
@@ -5994,6 +7908,8 @@ class ExecVisitor(dBaseParserVisitor):
             parent_backend = parent_inst.backend if isinstance(parent_inst, Instance) else None
 
             inst = Instance(class_name=cn)
+            if isinstance(parent_inst, Instance):
+                inst.parent = parent_inst
             inst.backend = create_backend_for_base(cn, parent_backend)
             return inst
 
@@ -6008,10 +7924,14 @@ class ExecVisitor(dBaseParserVisitor):
         
         classdef = cdef
         inst = Instance(class_name=classdef.name)
+        parent_inst = args[0] if args else None
+        if isinstance(parent_inst, Instance):
+            inst.parent = parent_inst
+        parent_backend = parent_inst.backend if isinstance(parent_inst, Instance) else None
         
         # base backend (FORM etc.)
         if classdef.parent:
-            inst.backend = create_backend_for_base(classdef.parent, None)
+            inst.backend = create_backend_for_base(classdef.parent, parent_backend)
         
         # defaults apply
         #for k,v in getattr(classdef, "default_props", {}).items():
@@ -6040,6 +7960,14 @@ class ExecVisitor(dBaseParserVisitor):
         
         # 1) normal speichern
         inst.props[key] = value
+
+        # 1b) Reparenting: `obj.parent = otherObj` (or `obj.parent = null`)
+        if key == "PARENT":
+            new_parent = value if isinstance(value, Instance) else None
+            self.reparent_instance(inst, new_parent)
+            # keep the property value as-is for scripts that inspect it
+            inst.props[key] = new_parent
+            return
         
         # 2) MouseMove/Focus (Events => EventFilter)
         # MouseMove nur zuverlässig mit MouseTracking
@@ -7547,8 +9475,8 @@ class ExecVisitor(dBaseParserVisitor):
                 pass
         try:
             win = FileEditorWindow(parent=MAINAPP, initial_path=path, initial_text=text)
+            win.resize(600, 500)
             sub = MAINAPP.mdi.addSubWindow(win)
-            win.resize(500, 450)
             
             # 1) immer sichtbar + Vordergrund
             win.show()
@@ -7563,7 +9491,7 @@ class ExecVisitor(dBaseParserVisitor):
             win.show()  # nach setWindowFlag nochmal show()!
             win.raise_()
             win.activateWindow()
-    
+            
             # Referenz halten (gegen GC)
             self._open_windows = getattr(self, "_open_windows", [])
             self._open_windows.append(win)
@@ -8001,7 +9929,7 @@ class TableDesignerDialog(QDialog):
         self.table.setColumnWidth(5, 120)
 
         layout.addWidget(self.table)
-        self.resize(520, 320)
+        self.resize(620, 320)
 
         self._fill_demo_data()
 
@@ -8077,6 +10005,7 @@ class EditorWidget(QDialog):
         
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
+
         self.tree.setStyleSheet("""
 QTreeView {
     background: #061226;              /* etwas dunkler als Editor */
@@ -8144,6 +10073,14 @@ QHeaderView::section {
         # Button
         self.btn_run = GlossyPillButtonGreen("Ausführen" , self)
         self.btn_run.clicked.connect(self.on_button_run_clicked)
+
+        # Run per F2 (auch ohne Kontextmenü)
+        self.text.runRequested.connect(self.on_button_run_clicked)
+        self.act_run_f2 = QAction("Run1", self)
+        self.act_run_f2.setShortcut(QKeySequence(Qt.Key_F2))
+        self.act_run_f2.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.act_run_f2.triggered.connect(self.on_button_run_clicked)
+        self.addAction(self.act_run_f2)
         
         vlayout.addWidget(self.btn_run)
         
@@ -8240,6 +10177,9 @@ QHeaderView::section {
         codegen.generate(parser.tree, "dbase.pas")
         print("gen pas ok.")
     
+    def on_button_hlp_clicked(self):
+        print("hhhhh")
+        
     def on_button_run_clicked(self):
         # Das ist die Funktion, die beim Klick ausgeführt wird
         content = self.text.toPlainText().strip()
@@ -8319,106 +10259,209 @@ QHeaderView::section {
             dlg.exec_()
 
 class IconTab(QListWidget):
-    def __init__(self, parent=None):
+    """
+    IconView je Tab. Zeigt je nach Filter andere Dateiarten.
+    Meta-Info pro Item:
+      - Qt.UserRole: voller Pfad
+    Meta-Info am Widget:
+      - self.base_dir (und Qt Property 'directory')
+    """
+
+    def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None):
         super().__init__(parent)
 
+        self.include_exts = [e.lower() for e in (include_exts or [])]
+        self.exclude_exts = [e.lower() for e in (exclude_exts or [])]
+        self.base_dir = ""
+        self.icon_provider = icon_provider or QFileIconProvider()
+
+        # IconView-Layout
         self.setViewMode(QListWidget.IconMode)
         self.setResizeMode(QListWidget.Adjust)
         self.setMovement(QListWidget.Static)
         self.setWrapping(True)
         self.setWordWrap(True)
         self.setTextElideMode(Qt.ElideRight)
+        self.setSelectionMode(QListWidget.SingleSelection)
+        self.setIconSize(QSize(48, 48))
+        self.setGridSize(QSize(120, 92))
+        self.setSpacing(8)
 
+        # Kontextmenü
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
 
-    def _is_binary_file(self, path: str) -> bool:
-        # simple + schnell: NUL-Byte oder sehr viele "komische" bytes
-        try:
-            with open(path, "rb") as f:
-                data = f.read(2048)
-            if b"\x00" in data:
-                return True
-            # Heuristik: Anteil nicht-printbarer Bytes
-            # (tab/newline/CR zulassen)
-            allowed = set(b"\t\r\n") | set(range(32, 127))
-            non = sum(1 for b in data if b not in allowed)
-            return len(data) > 0 and (non / max(1, len(data))) > 0.30
-        except Exception:
-            # wenn wir nicht lesen können → lieber "binär/unknown"
-            return True
+        # F2 = Ausführen
+        self._act_run = QAction("Ausführen - F2", self)
+        self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
+        self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self._act_run.triggered.connect(self._run_selected)
+        self.addAction(self._act_run)
 
-    def _file_policy(self, path: str):
-        # gibt (full_menu: bool) zurück
-        ext = os.path.splitext(path)[1].lower()
-        if ext in (".txt", ".prg"):
-            return True
-        # unbekannt oder binär => nur Info
-        return False
+        # Doppelklick: *.prg ausführen
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
+
+    def set_directory(self, directory: str):
+        directory = (directory or "").strip()
+        self.base_dir = directory
+        self.setProperty("directory", directory)
+        self.refresh()
+
+    def refresh(self):
+        self.setUpdatesEnabled(False)
+        try:
+            self.clear()
+            if not self.base_dir or not os.path.isdir(self.base_dir):
+                return
+
+            entries = []
+            try:
+                for name in os.listdir(self.base_dir):
+                    full = os.path.join(self.base_dir, name)
+                    if os.path.isfile(full):
+                        entries.append((name, full))
+            except Exception:
+                entries = []
+
+            entries.sort(key=lambda t: t[0].lower())
+
+            for name, full in entries:
+                ext = os.path.splitext(name)[1].lower()
+
+                if self.include_exts and ext not in self.include_exts:
+                    continue
+                if self.exclude_exts and ext in self.exclude_exts:
+                    continue
+
+                info = QFileInfo(full)
+                icon = self.icon_provider.icon(info)
+                item = QListWidgetItem(icon, name)
+                item.setToolTip(full)
+                item.setData(Qt.UserRole, full)
+                self.addItem(item)
+        finally:
+            self.setUpdatesEnabled(True)
+
+    def _selected_path(self) -> str:
+        it = self.currentItem()
+        if not it:
+            return ""
+        return it.data(Qt.UserRole) or ""
+
+    def _run_selected(self):
+        path = self._selected_path()
+        if path:
+            self._run_file(path)
+
+    def _on_item_double_clicked(self, item: QListWidgetItem):
+        """Bei Doppelklick auf *.prg -> ausführen."""
+        try:
+            path = item.data(Qt.UserRole) or ""
+            if not path:
+                return
+            if os.path.splitext(path)[1].lower() == ".prg":
+                self._run_file(path)
+        except Exception:
+            # keine harte Fehlermeldung bei UI-Events
+            pass
 
     def _on_context_menu(self, pos: QPoint):
         item = self.itemAt(pos)
         if not item:
             return
 
+        self.setCurrentItem(item)
         path = item.data(Qt.UserRole) or ""
-        name = item.text()  # Name unter dem Icon
+        if not path:
+            return
 
-        full_menu = self._file_policy(path)
+        ext = os.path.splitext(path)[1].lower()
 
         menu = QMenu(self)
 
-        act_run   = menu.addAction("Starten / Ausführen")
-        act_edit  = menu.addAction("Editieren")
+        act_run = QAction("Ausführen - F2", self)
+        act_run.triggered.connect(lambda: self._run_file(path))
+        menu.addAction(act_run)
+
+
+        act_edit = QAction("Bearbeiten", self)
+        act_edit.setEnabled(ext == ".prg")
+        act_edit.triggered.connect(lambda: self._edit_in_code_editor(path))
+        menu.addAction(act_edit)
+
         menu.addSeparator()
-        act_ren   = menu.addAction("Umbenennen")
-        act_copy  = menu.addAction("Kopieren")
-        act_del   = menu.addAction("Löschen")
+
+        m_compile = menu.addMenu("Compilieren")
+        act_c_py = QAction("Python", self)
+        act_c_cpp = QAction("CPP", self)
+        act_c_py.setEnabled(ext == ".prg")
+        act_c_cpp.setEnabled(ext == ".prg")
+        act_c_py.triggered.connect(lambda: self._compile_to_python(path))
+        act_c_cpp.triggered.connect(lambda: self._compile_to_cpp(path))
+        m_compile.addAction(act_c_py)
+        m_compile.addAction(act_c_cpp)
+
         menu.addSeparator()
-        act_info  = menu.addAction("Dateiinfo")
 
-        # Aktivierung je nach Policy
-        act_run.setEnabled(full_menu)
-        act_edit.setEnabled(full_menu)
-        act_ren.setEnabled(full_menu)
-        act_copy.setEnabled(full_menu)
-        act_del.setEnabled(full_menu)
-        act_info.setEnabled(True)
+        act_copy = QAction("Kopieren", self)
+        act_copy.triggered.connect(lambda: self._copy_path(path))
+        menu.addAction(act_copy)
 
-        chosen = menu.exec_(self.mapToGlobal(pos))
-        if not chosen:
-            return
+        act_ren = QAction("Umbenennen", self)
+        act_ren.triggered.connect(lambda: self._rename_file(item, path))
+        menu.addAction(act_ren)
 
-        # Aktionen dispatchen:
-        if chosen is act_info:
-            self._show_file_info(path)
-        elif chosen is act_run:
-            self._run_file(path)
-        elif chosen is act_edit:
-            self._edit_file(name, path)
-        elif chosen is act_ren:
-            self._rename_item(item, path)
-        elif chosen is act_copy:
-            self._copy_file(path)
-        elif chosen is act_del:
-            self._delete_file(item, path)
+        act_del = QAction("Löschen", self)
+        act_del.triggered.connect(lambda: self._delete_file(item, path))
+        menu.addAction(act_del)
 
-    def _show_file_info(self, path: str):
+        menu.exec_(self.viewport().mapToGlobal(pos))
+
+
+    def _edit_in_code_editor(self, path: str) -> None:
+        """Öffnet die Datei im CodeEditor (Hook am RegieCenter/Host)."""
         try:
-            st = os.stat(path)
-            QMessageBox.information(
-                self,
-                "Dateiinfo",
-                f"{path}\n\n"
-                f"Größe: {st.st_size} Bytes\n"
-                f"Ext: {os.path.splitext(path)[1]}\n"
-            )
+            ext = os.path.splitext(path)[1].lower()
+            if ext != ".prg":
+                return
+
+            display_name = os.path.basename(path)
+
+            # Host/RegieCenter finden (parent-chain)
+            host = self.parent()
+            while host is not None and not hasattr(host, "open_in_code_editor"):
+                host = host.parent()
+
+            if host is not None and hasattr(host, "open_in_code_editor"):
+                host.open_in_code_editor(display_name=display_name, path=path)
+            else:
+                QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
         except Exception as e:
-            QMessageBox.warning(self, "Dateiinfo", f"Konnte Info nicht lesen:\n{e}")
+            QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
+
+    def _copy_path(self, path: str) -> None:
+        try:
+            QApplication.clipboard().setText(path)
+        except Exception as e:
+            QMessageBox.warning(self, "Kopieren", f"Konnte Pfad nicht kopieren:\n{e}")
+
 
     def _run_file(self, path: str):
-        # Windows: os.startfile, sonst xdg-open/open
+        """Ausführen:
+        - .prg -> parse(path) (dein Runner)
+        - .py  -> Python
+        - sonst -> OS öffnen (startfile/xdg-open/open)
+        """
         try:
+            ext = os.path.splitext(path)[1].lower()
+            if ext == ".prg":
+                parse(path)
+                return
+            if ext == ".py":
+                subprocess.Popen([sys.executable, path], cwd=str(Path(path).parent))
+                return
+
             if os.name == "nt":
                 os.startfile(path)  # noqa
             elif sys.platform == "darwin":
@@ -8428,51 +10471,14 @@ class IconTab(QListWidget):
         except Exception as e:
             QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
 
-    def _edit_file(self, name: str, path: str):
-        win = FileEditorWindow(parent=MAINAPP, initial_path=path, initial_text="")
-        sub = MAINAPP.mdi.addSubWindow(win)
-        win.resize(500, 450)
-        
-        # 1) immer sichtbar + Vordergrund
-        win.show()
-        win.raise_()
-        win.activateWindow()
+    def _compile_to_python(self, path: str):
+        # Platzhalter: an deinen Generator anbinden
+        QMessageBox.information(self, "Compilieren → Python", "TODO: dBase → Python Generator anbinden.")
 
-        # 2) falls minimiert: wieder herstellen
-        win.setWindowState(win.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+    def _compile_to_cpp(self, path: str):
+        # Platzhalter: an deinen Generator anbinden
+        QMessageBox.information(self, "Compilieren → CPP", "TODO: dBase → CPP Generator anbinden.")
 
-        # 3) optional: "Always on top"
-        win.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        win.show()  # nach setWindowFlag nochmal show()!
-        win.raise_()
-        win.activateWindow()
-
-        # Referenz halten (gegen GC)
-        self._open_windows = getattr(self, "_open_windows", [])
-        self._open_windows.append(win)
-        #if hasattr(dlg, "open_in_code_editor"):
-        #   dlg.open_in_code_editor(name, path)
-        #else:
-        #    QMessageBox.warning(self, "Editieren", "open_in_code_editor(...) ist nicht implementiert.")
-
-    def _rename_item(self, item, path: str):
-        # minimal: du kannst hier später eine Eingabebox bauen
-        QMessageBox.information(self, "Umbenennen", "TODO: Umbenennen implementieren")
-
-    def _copy_file(self, path: str):
-        QMessageBox.information(self, "Kopieren", "TODO: Kopieren implementieren")
-
-    def _delete_file(self, item, path: str):
-        res = QMessageBox.question(self, "Löschen?", f"Wirklich löschen?\n{path}")
-        if res != QMessageBox.Yes:
-            return
-        try:
-            os.remove(path)
-            row = self.row(item)
-            self.takeItem(row)
-        except Exception as e:
-            QMessageBox.warning(self, "Löschen", f"Konnte nicht löschen:\n{e}")
-            
 class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -8498,21 +10504,44 @@ class RegieCenter(QDialog):
         top.addWidget(self.combo, 1)
         top.addWidget(self.btn_pick, 0)
 
-        # --- Tabs ---
+                # --- Tabs ---
         self.tabs = QTabWidget()
         self.icon_lists = []
 
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Alle Typen")
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Projekte"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Formulare" )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Berichte"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Programme" )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Tabellen"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "SQL"       )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Grafiken"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Internet"  )
-        lw = IconTab(); self.icon_lists.append(lw); self.tabs.addTab(lw, "Sonstiges" )
+        # Dateityp-Filter pro Tab (kannst du jederzeit anpassen)
+        ext_programme = ['.prg']
+        ext_projekte  = ['.dpr', '.prj', '.proj', '.project']
+        ext_formulare = ['.frm', '.form', '.ui']
+        ext_berichte  = ['.rep', '.rpt', '.report']
+        ext_tabellen  = ['.dbf', '.csv', '.xlsx', '.xls']
+        ext_sql       = ['.sql']
+        ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
+        ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
 
+        self.lw1 = IconTab(parent=self, icon_provider=self.icon_provider)  # Alle Typen
+        self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, 'Alle Typen')
+        self.lw2 = IconTab(ext_projekte,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw2); self.tabs.addTab(self.lw2, 'Projekte')
+        self.lw3 = IconTab(ext_formulare, parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, 'Formulare')
+        self.lw4 = IconTab(ext_berichte,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, 'Berichte')
+        self.lw5 = IconTab(ext_programme, parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, 'Programme')
+        self.lw6 = IconTab(ext_tabellen,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, 'Tabellen')
+        self.lw7 = IconTab(ext_sql,       parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, 'SQL')
+        self.lw8 = IconTab(ext_grafiken,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, 'Grafiken')
+        self.lw9 = IconTab(ext_internet,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, 'Internet')
+
+        # Sonstiges = alles, was in keinem der anderen Filter steckt
+        ext_all_known = (ext_projekte + ext_formulare + ext_berichte + ext_programme +
+                        ext_tabellen + ext_sql + ext_grafiken + ext_internet)
+        self.lwA = IconTab(exclude_exts=ext_all_known, parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lwA); self.tabs.addTab(self.lwA, 'Sonstiges')
         # --- Layout ---
         root = QVBoxLayout(self)
         root.addLayout(top)
@@ -8521,18 +10550,53 @@ class RegieCenter(QDialog):
         self.resize(980, 640)
 
     def open_in_code_editor(self, display_name: str, path: str):
-        # display_name ist der Text unter dem Icon (z.B. "foo.prg")
-        # path ist der volle Pfad -> den solltest du wirklich öffnen
-        # Beispiel: MDI-Variante
-        if hasattr(self, "mdi_open_editor"):
-            self.mdi_open_editor(title=display_name, text=open(path, "r", encoding="utf-8", errors="replace").read())
-            return
+        """Öffnet *path* im FileEditorWindow (CodeEditor) als Tab."""
+        try:
+            path = os.path.normpath(path)
+            # erst versuchen: aktives Editor-Fenster wiederverwenden
+            sub = None
+            win = None
+            try:
+                sub = MAINAPP.mdi.activeSubWindow() if hasattr(MAINAPP, "mdi") else None
+                win = sub.widget() if sub else None
+            except Exception:
+                sub = None
+                win = None
 
-        # oder normale Fenster-Variante:
-        if hasattr(self, "open_file_editor"):
-            self.open_file_editor(path=path, text="")
-            return
-            
+            if isinstance(win, FileEditorWindow):
+                win.open_path_in_tab(path)
+                win.raise_()
+                try:
+                    win.activateWindow()
+                except Exception:
+                    pass
+                return
+
+            # sonst: neues Editor-Fenster im MDI anlegen
+            text = ""
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except Exception:
+                text = ""
+
+            win = FileEditorWindow(parent=MAINAPP, initial_path=path, initial_text=text)
+            win.resize(900, 650)
+            if hasattr(MAINAPP, "mdi"):
+                sub = MAINAPP.mdi.addSubWindow(win)
+                try:
+                    sub.setWindowTitle(display_name or os.path.basename(path))
+                except Exception:
+                    pass
+            win.show()
+            win.raise_()
+            try:
+                win.activateWindow()
+            except Exception:
+                pass
+        except Exception as e:
+            QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
+
     def pick_directory_non_native(self):
         dlg = QFileDialog(self, "Verzeichnis auswählen")
         dlg.setFileMode(QFileDialog.Directory)
@@ -8557,40 +10621,18 @@ class RegieCenter(QDialog):
         self.combo.setCurrentIndex(idx)  # markiert/selektiert
         # _on_dir_changed() wird automatisch ausgelöst
 
+    
     def _on_dir_changed(self, path: str):
-        path = path.strip()
+        path = (path or "").strip()
         if not path or not os.path.isdir(path):
-            # Tabs ggf. leeren
             for lw in self.icon_lists:
+                lw.set_directory("")
                 lw.clear()
             return
-        
-        self._fill_all_tabs(path)
 
-    def _fill_all_tabs(self, directory: str):
-        # gleiche Anzeige in allen 7 Tabs (kannst du später tab-spezifisch filtern)
-        entries = []
-        try:
-            for name in os.listdir(directory):
-                full = os.path.join(directory, name)
-                entries.append((name, full))
-        except Exception:
-            entries = []
-        
+        # Jede IconView rendert ihren eigenen Filter
         for lw in self.icon_lists:
-            lw.setUpdatesEnabled(False)
-            lw.clear()
-            
-            for name, full in entries:
-                info = QFileInfo(full)
-                icon = self.icon_provider.icon(info)
-                item = QListWidgetItem(icon, name)
-                item.setToolTip(full)
-                item.setData(Qt.UserRole, full)
-                lw.addItem(item)
-            
-            lw.setUpdatesEnabled(True)
-            
+            lw.set_directory(path)
 class UserBdeAliasesTab(QWidget):
     """
     Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-native Dialoge.
@@ -9924,13 +11966,25 @@ class MainWindow(QMainWindow):
         
         dlg = RegieCenter()
         sub = self.mdi.addSubWindow(dlg)
+        sub.resize(520,300)
+        sub.move(30,30)
         sub.show()
         
-        self.mdi_open_editor()
+        #self.mdi_open_editor()
         self.mdi_open_table_designer()
 
     def on_action_file_close(self):
-        print("file close")
+        # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen
+        sub = self.mdi.activeSubWindow()
+        if not sub:
+            return
+        w = sub.widget()
+        if isinstance(w, FileEditorWindow):
+            idx = w.current_tab_index()
+            w._on_tab_close_requested(idx)
+            return
+        sub.close()
+
     def on_action_file_database(self):
         print("file data base")
     def on_action_file_exit(self):
@@ -9939,7 +11993,40 @@ class MainWindow(QMainWindow):
     def on_action_file_new_project(self):
         print("file new project")
     def on_action_file_open(self):
-        print("file open")
+        # Datei -> Öffnen: in CodeEditor-Tabs öffnen
+        dlg = QFileDialog(self, "Datei öffnen")
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+        dlg.setDefaultSuffix("prg")
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if not dlg.exec_():
+            return
+        files = dlg.selectedFiles()
+        if not files:
+            return
+        path = files[0]
+
+        # aktives SubWindow prüfen
+        sub = self.mdi.activeSubWindow()
+        win = sub.widget() if sub else None
+
+        if isinstance(win, FileEditorWindow):
+            win.open_path_in_tab(path)
+            win.raise_()
+            win.activateWindow()
+            return
+
+        # sonst: neues Editor-Fenster öffnen und Tab hinzufügen
+        try:
+            new_win = FileEditorWindow(parent=self, initial_path="", initial_text="")
+            subw = self.mdi.addSubWindow(new_win)
+            new_win.resize(700, 500)
+            new_win.show()
+            new_win.open_path_in_tab(path)
+            self.mdi.setActiveSubWindow(subw)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Konnte Editor nicht öffnen:\n{e}")
+
     def on_action_file_open_project(self):
         print("file open project")
     def on_action_file_print(self):
@@ -10016,6 +12103,8 @@ class MainWindow(QMainWindow):
     def mdi_open_table_designer(self):
         dlg = TableDesignerDialog()
         sub = self.mdi.addSubWindow(dlg)
+        sub.resize(600,250)
+        sub.move(56,320)
         sub.show()
     
     def open_workplace_properties(self):
@@ -10240,6 +12329,50 @@ QTableCornerButton::section {{
     border-bottom: 1px solid #333333;
 }}
 
+QMessageBox {{
+    background-color: #2b2b2b;
+    color: #e8e8e8;
+    font-size: 10pt;
+}}
+QMessageBox QLabel {{
+    color: #e8e8e8;
+}}
+QMessageBox QLabel#qt_msgbox_label {{
+    color: #e8e8e8;
+}}
+QMessageBox QLabel#qt_msgboxex_icon_label {{
+    /* Icon-Label */
+    padding-right: 10px;
+}}
+QMessageBox QTextEdit {{
+    background-color: #232323;
+    color: #e8e8e8;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+}}
+QMessageBox QAbstractButton, QMessageBox QPushButton {{
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-width: 90px;
+}}
+QMessageBox QPushButton:hover {{
+    background-color: #444;
+    border-color: #777;
+}}
+QMessageBox QPushButton:pressed {{
+    background-color: #2f2f2f;
+}}
+QMessageBox QPushButton:default {{
+    border: 1px solid #a33;   /* dezenter roter Akzent */
+}}
+QMessageBox QPushButton:focus {{
+    outline: none;
+    border: 1px solid #888;
+}}
+
 /* Optional: falls Qt dort eine Ecke der ScrollArea malt */
 QAbstractScrollArea::corner {{
     background: #222222;
@@ -10263,10 +12396,10 @@ QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;b
 QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
 QPushButton:hover {{background: {toolbtn_hover};}}
 QPushButton:pressed {{background: {toolbtn_pressed};}}
-#TopContainer {{ background: transparent; }}
-#TitleBar {{background: {title_bg};}}
-#TitleLabel {{color: {title_fg};font-weight: 600;}}
-#TitleSeparator {{background: {border};}}
+TopContainer {{ background: transparent; }}
+TitleBar {{background: {title_bg};}}
+TitleLabel {{color: {title_fg};font-weight: 600;}}
+TitleSeparator {{background: {border};}}
 QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
 QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
 QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
@@ -10314,6 +12447,9 @@ def center_on_screen(widget):
 def main():
     app = ensure_qt_app()
     if app is not None:
+        f1filter = F1Filter()
+        app.installEventFilter(f1filter)
+        app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
         global MAINAPP
         MAINAPP = MainWindow()
         MAINAPP.show()
