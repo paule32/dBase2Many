@@ -39,19 +39,20 @@ from PyQt5.QtGui     import (
     QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
     QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
     QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
-    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat,
+    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat, QBrush,
     QGuiApplication
 )
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
     QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
-    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QTreeView, QSplitter, QTabBar,
+    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
     QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
     QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
     QTableWidgetItem, QHeaderView, QStyledItemDelegate, QGroupBox, QLabel,
     QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
     QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
-    QStyleOptionComplex, QProxyStyle, QToolButton
+    QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
+    QTreeView, QSplitter, QTabBar, QRubberBand,
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEngineScript
@@ -6323,8 +6324,9 @@ class CodeEditor(QPlainTextEdit):
     runRequested = pyqtSignal()
     hlpRequested = pyqtSignal()
     
-    def __init__(self, parent=None):
+    def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
+        self.main_window = main_window
         self._line_number_area = LineNumberArea(self)
 
         self._breakpoints = set()  # speichert blockNumber() (0-basiert)
@@ -7087,6 +7089,61 @@ class ExecVisitor(dBaseParserVisitor):
         return self.this_stack[-1]
 
     
+
+    # ----------------- MENU / POPUPMENU helpers -----------------
+    def _detach_menu(self, inst: Instance) -> None:
+        """Entfernt ein bereits angehängtes Menü aus MenuBar oder Parent-Menu (wenn möglich)."""
+        try:
+            container = inst.props.get("_QT_MENU_CONTAINER")  # QMenuBar oder QMenu
+            action = inst.props.get("_QT_MENU_ACTION")        # QAction
+            if container is not None and action is not None and hasattr(container, "removeAction"):
+                container.removeAction(action)
+        except Exception:
+            pass
+        inst.props["_QT_MENU_CONTAINER"] = None
+        inst.props["_QT_MENU_ACTION"] = None
+
+    def _attach_menu(self, inst: Instance, parent_inst: Any) -> None:
+        """Hängt MENU/POPUPMENU an parent_inst (MENU => Submenu; MainWindow => Menübar)."""
+        if inst is None or inst.backend is None:
+            return
+        if inst.class_name.upper() not in ("MENU", "POPUPMENU"):
+            return
+
+        self._detach_menu(inst)
+
+        # Parent kann None sein (dann nur "lose" QMenu-Instanz)
+        if not isinstance(parent_inst, Instance) or parent_inst.backend is None:
+            return
+
+        pb = parent_inst.backend
+
+        # 1) Parent ist MENU/POPUPMENU => submenu
+        if parent_inst.class_name.upper() in ("MENU", "POPUPMENU") and hasattr(pb, "addMenu"):
+            act = pb.addMenu(inst.backend)  # returns QAction
+            inst.props["_QT_MENU_CONTAINER"] = pb
+            inst.props["_QT_MENU_ACTION"] = act
+            inst.parent = parent_inst
+            return
+
+        # 2) Parent ist ein Qt-MainWindow (oder kompatibel) => MenuBar
+        if hasattr(pb, "menuBar"):
+            mb = pb.menuBar()
+            if mb is not None and hasattr(mb, "addMenu"):
+                act = mb.addMenu(inst.backend)  # returns QAction
+                inst.props["_QT_MENU_CONTAINER"] = mb
+                inst.props["_QT_MENU_ACTION"] = act
+                inst.parent = parent_inst
+                return
+
+        # 3) Fallback: wenn Parent selbst eine MenuBar ist
+        if hasattr(pb, "addMenu"):
+            act = pb.addMenu(inst.backend)
+            inst.props["_QT_MENU_CONTAINER"] = pb
+            inst.props["_QT_MENU_ACTION"] = act
+            inst.parent = parent_inst
+            return
+
     def reparent_instance(self, child: Instance, new_parent: Optional[Instance]) -> None:
         """Re-parent a runtime instance (and its Qt backend) to a new parent instance.
 
@@ -7902,6 +7959,29 @@ class ExecVisitor(dBaseParserVisitor):
                 italic      = italic,
                 underline   = underline)
 
+
+        # 1b) MENU / POPUPMENU (Qt: QMenu)
+        # dBase-Semantik: NEW MENU(THIS) => Menu an Parent (MainWindow-Menubar oder Parent-Menu) anhängen.
+        if cn in ("MENU", "POPUPMENU"):
+            parent_inst = args[0] if args else None
+            parent_backend = parent_inst.backend if isinstance(parent_inst, Instance) else None
+
+            inst = Instance(class_name=cn)
+            if isinstance(parent_inst, Instance):
+                inst.parent = parent_inst
+
+            # Backend ist immer ein QMenu
+            inst.backend = QMenu(parent_backend) if parent_backend is not None else QMenu()
+
+            # Anhängen (wenn Parent mitgegeben)
+            try:
+                self._attach_menu(inst, parent_inst)
+            except Exception:
+                # absichtlich leise: Parent kann später per Property gesetzt werden
+                pass
+
+            return inst
+
         # 2) native Qt-Klassen (FORM, PUSHBUTTON, ...)
         if cn in NATIVE_BASES:
             parent_inst = args[0] if args else None
@@ -7961,9 +8041,48 @@ class ExecVisitor(dBaseParserVisitor):
         # 1) normal speichern
         inst.props[key] = value
 
+        # MENU/POPUPMENU: Text => Menü-Titel
+        if inst.class_name.upper() in ("MENU", "POPUPMENU") and key in ("TEXT", "CAPTION", "TITLE"):
+            try:
+                if hasattr(inst.backend, "setTitle"):
+                    inst.backend.setTitle(str(value))
+                elif hasattr(inst.backend, "setWindowTitle"):
+                    inst.backend.setWindowTitle(str(value))
+            except Exception:
+                pass
+            return
+
+        # MENU/POPUPMENU: SubMenu anhängen (THIS.MenuDatei.SubMenu = NEW MENU(...))
+        if inst.class_name.upper() in ("MENU", "POPUPMENU") and key == "SUBMENU":
+            if isinstance(value, Instance) and value.backend is not None:
+                # Falls der SubMenu noch keinen Parent hat: automatisch hier einhängen
+                try:
+                    self._attach_menu(value, inst)
+                except Exception:
+                    try:
+                        if hasattr(inst.backend, "addMenu"):
+                            inst.backend.addMenu(value.backend)
+                    except Exception:
+                        pass
+            return
+
+
         # 1b) Reparenting: `obj.parent = otherObj` (or `obj.parent = null`)
+
         if key == "PARENT":
             new_parent = value if isinstance(value, Instance) else None
+
+            # MENU/POPUPMENU: nicht QWidget-reparenting, sondern im Menübaum umhängen
+            if inst.class_name.upper() in ("MENU", "POPUPMENU"):
+                inst.parent = new_parent
+                inst.props[key] = new_parent
+                try:
+                    self._attach_menu(inst, new_parent)
+                except Exception:
+                    pass
+                return
+
+            # normale Widgets
             self.reparent_instance(inst, new_parent)
             # keep the property value as-is for scripts that inspect it
             inst.props[key] = new_parent
@@ -9877,8 +9996,9 @@ class TypeComboDelegate(QStyledItemDelegate):
         editor.setGeometry(option.rect)
 
 class TableDesignerDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
+        self.main_window = main_window
 
         self.setWindowTitle("Phonebook.dbf - Table Designer")
         self.setModal(False)
@@ -10509,29 +10629,39 @@ class RegieCenter(QDialog):
         self.icon_lists = []
 
         # Dateityp-Filter pro Tab (kannst du jederzeit anpassen)
+        ext_alltypes  = [
+            '.htm', '.html', '.css'   , '.js', '.url',
+            '.png', '.jpg' , '.jpeg'  , '.gif', '.bmp', '.svg', '.webp', '.ico',
+            '.sql',
+            '.dbf', '.csv' , '.xlsx'  , '.xls',
+            '.rep', '.rpt' , '.report',
+            '.frm', '.form', ".wfm"   ,
+            '.dpr', '.prj' , '.proj'  , '.project',
+            ".prg"
+        ]
         ext_programme = ['.prg']
         ext_projekte  = ['.dpr', '.prj', '.proj', '.project']
-        ext_formulare = ['.frm', '.form', '.ui']
+        ext_formulare = ['.frm', '.form', '.wfm']
         ext_berichte  = ['.rep', '.rpt', '.report']
         ext_tabellen  = ['.dbf', '.csv', '.xlsx', '.xls']
         ext_sql       = ['.sql']
         ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
         ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
 
-        self.lw1 = IconTab(parent=self, icon_provider=self.icon_provider)  # Alle Typen
+        self.lw1 = IconTab(ext_alltypes,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, 'Alle Typen')
         self.lw2 = IconTab(ext_projekte,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw2); self.tabs.addTab(self.lw2, 'Projekte')
-        self.lw3 = IconTab(ext_formulare, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, 'Formulare')
-        self.lw4 = IconTab(ext_berichte,  parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, 'Berichte')
-        self.lw5 = IconTab(ext_programme, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, 'Programme')
-        self.lw6 = IconTab(ext_tabellen,  parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, 'Tabellen')
-        self.lw7 = IconTab(ext_sql,       parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, 'SQL')
+        self.lw3 = IconTab(ext_programme, parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, 'Programme')
+        self.lw4 = IconTab(ext_formulare, parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, 'Formulare')        
+        self.lw5 = IconTab(ext_tabellen,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, 'Tabellen')
+        self.lw6 = IconTab(ext_sql,       parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, 'SQL')
+        self.lw7 = IconTab(ext_berichte,  parent=self, icon_provider=self.icon_provider)
+        self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, 'Berichte')
         self.lw8 = IconTab(ext_grafiken,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, 'Grafiken')
         self.lw9 = IconTab(ext_internet,  parent=self, icon_provider=self.icon_provider)
@@ -11849,13 +11979,680 @@ class DesktopPropertiesDialog(QDialog):
     def reject(self):
         super().reject()
         
+# ---------------------------------------------------------------------------
+# Formular-Designer Dock (Objektinspector + Werkzeugpalette)
+# ---------------------------------------------------------------------------
+
+class _KeyValueTree(QTreeWidget):
+    """Ein einfacher Key-Value Editor (2 Spalten)."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setColumnCount(2)
+        self.setHeaderLabels(["Name", "Wert"])
+        self.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        self.setRootIsDecorated(True)
+
+
+
+class _ToolPalette(QTabWidget):
+    """
+    Werkzeug-Palette (links unten):
+    - 3 Tabs (Standard/Datenzugriff/Individuell)
+    - pro Tab ein IconView (QListWidget)
+    - bei Auswahl wird toolSelected(tool_name) emittiert
+    """
+    toolSelected = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTabPosition(QTabWidget.North)
+
+        self.std = self._make_icon_view()
+        self.data = self._make_icon_view()
+        self.custom = self._make_icon_view()
+
+        self.addTab(self.std, "Standard")
+        self.addTab(self.data, "Datenzugriff")
+        self.addTab(self.custom, "Individuell")
+
+        self._fill_defaults()
+
+        # Click -> Werkzeug setzen
+        for view in (self.std, self.data, self.custom):
+            view.itemClicked.connect(self._on_item_clicked)
+
+        self._current_tool = ""
+
+    def current_tool(self) -> str:
+        return self._current_tool or ""
+
+    def clear_selection(self) -> None:
+        for view in (self.std, self.data, self.custom):
+            view.clearSelection()
+        self._current_tool = ""
+        self.toolSelected.emit("")
+
+    def _on_item_clicked(self, item: QListWidgetItem):
+        name = (item.text() or "").strip()
+        self._current_tool = name
+        self.toolSelected.emit(name)
+
+    def _make_icon_view(self) -> QListWidget:
+        lw = QListWidget(self)
+        lw.setViewMode(QListWidget.IconMode)
+        lw.setResizeMode(QListWidget.Adjust)
+        lw.setMovement(QListWidget.Static)
+        lw.setWrapping(True)
+        lw.setWordWrap(True)
+        lw.setSelectionMode(QListWidget.SingleSelection)
+        lw.setIconSize(QSize(32, 32))
+        lw.setGridSize(QSize(110, 70))
+        lw.setSpacing(8)
+        return lw
+
+    def _add(self, lw: QListWidget, text: str, icon: QIcon | None = None):
+        it = QListWidgetItem(text)
+        if icon is not None and not icon.isNull():
+            it.setIcon(icon)
+        lw.addItem(it)
+
+    def _fill_defaults(self):
+        ip = QFileIconProvider()
+
+        # Standard Controls
+        self._add(self.std, "Label", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "Button", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "LineEdit", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "TextEdit", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "CheckBox", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "ComboBox", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "ListBox", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "GroupBox", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "TabWidget", ip.icon(QFileIconProvider.File))
+
+        # Datenzugriff (Platzhalter/Start)
+        self._add(self.data, "TableView", ip.icon(QFileIconProvider.File))
+        self._add(self.data, "TreeView", ip.icon(QFileIconProvider.File))
+        self._add(self.data, "DataSource", ip.icon(QFileIconProvider.File))
+
+        # Individuell (Platzhalter)
+        self._add(self.custom, "CustomControl", ip.icon(QFileIconProvider.File))
+
+
+
+
+
+class ObjectInspectorDock(QDockWidget):
+    """Dock: Objekt-Inspector (oben links)."""
+    def __init__(self, main_window: "MainWindow", parent=None):
+        super().__init__("Objektinspektor", parent)
+        self.main_window = main_window
+        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
+
+        # Reuse vorhandenen ObjectInspector (falls vorhanden), sonst minimaler Stub
+        try:
+            inspector = ObjectInspector(main_window, self)
+        except Exception:
+            inspector = QWidget(self)
+            lay = QVBoxLayout(inspector)
+            lay.addWidget(QLabel("ObjectInspector nicht verfügbar", inspector))
+
+        self.setWidget(inspector)
+
+
+class ObjectPaletteDock(QDockWidget):
+    """Dock: Objektpalette (unten links)."""
+    def __init__(self, main_window: "MainWindow", parent=None):
+        super().__init__("Objektpalette", parent)
+        self.main_window = main_window
+        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
+
+        # Reuse vorhandene _ToolPalette, sonst minimaler Stub
+        try:
+            palette = _ToolPalette(self)
+            try:
+                palette.toolSelected.connect(self.main_window.set_designer_tool)
+            except Exception:
+                pass
+        except Exception:
+            palette = QWidget(self)
+            lay = QVBoxLayout(palette)
+            lay.addWidget(QLabel("ToolPalette nicht verfügbar", palette))
+
+        self.setWidget(palette)
+
+
+
+class DesignerControl(QWidget):
+    """
+    Design-Time Wrapper:
+    - enthält ein echtes Qt-Control (inner)
+    - zeichnet Auswahlrahmen + 8 Resize-Handles (außen am Rand)
+    - Move + Resize mit Grid-Snap
+    - inner ist mouse-transparent, damit Klicks immer den Wrapper selektieren
+    """
+    HANDLE_SIZE = 7
+    MARGIN = HANDLE_SIZE  # Platz für "außenliegende" Handles
+
+    def __init__(self, tool_name: str, parent_canvas: "PixelGridCanvas", rect: QRect):
+        super().__init__(parent_canvas)
+        self.tool_name = (tool_name or "").strip() or "Control"
+        self._selected = False
+
+        self.setMouseTracking(True)
+        # Opaque Hintergrund, damit überlappende Controls das darunterliegende NICHT durchscheinen lassen:
+        self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet("background: rgb(55,55,55);")
+
+        # echtes Control als Kind
+        self.inner = self._create_inner(self.tool_name)
+        self.inner.setParent(self)
+        # Proxy: inner bekommt keine Mouse-Events, der Wrapper fängt alles ab
+        self.inner.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+        # initiale Geometrie:
+        # rect ist die "Content"-Geometrie (das sichtbare Control), Wrapper wird um MARGIN erweitert.
+        m = int(self.MARGIN)
+        outer = QRect(rect.x() - m, rect.y() - m, rect.width() + 2 * m, rect.height() + 2 * m).normalized()
+        if outer.x() < 0:
+            outer.moveLeft(0)
+        if outer.y() < 0:
+            outer.moveTop(0)
+        self.setGeometry(outer)
+
+        self._content_w = max(16, rect.width())
+        self._content_h = max(16, rect.height())
+        self._sync_inner()
+
+        # Drag state
+        self._drag_mode = ""     # "", "move", "resize"
+        self._resize_handle = -1
+        self._press_pos = QPoint()
+        self._press_global = QPoint()
+        self._start_outer = QRect()
+        self._start_content_global = QRect()
+
+    def _content_rect(self) -> QRect:
+        m = int(self.MARGIN)
+        return QRect(m, m, int(self._content_w), int(self._content_h))
+
+    def _content_rect_global(self) -> QRect:
+        g = self.geometry()
+        m = int(self.MARGIN)
+        return QRect(g.x() + m, g.y() + m, int(self._content_w), int(self._content_h))
+
+    def _sync_inner(self):
+        r = self._content_rect()
+        self.inner.setGeometry(r)
+
+    def set_selected(self, sel: bool):
+        self._selected = bool(sel)
+        self.update()
+
+    def _create_inner(self, name: str) -> QWidget:
+        n = (name or "").strip().lower()
+        if n in ("button", "pushbutton"):
+            w = QPushButton("Button")
+        elif n in ("label",):
+            w = QLabel("Label")
+            w.setAlignment(Qt.AlignCenter)
+        elif n in ("lineedit", "edit", "textbox"):
+            w = QLineEdit("")
+        elif n in ("checkbox",):
+            w = QCheckBox("CheckBox")
+        elif n in ("combobox",):
+            w = QComboBox()
+            w.addItems(["Item 1", "Item 2"])
+        elif n in ("listbox", "listwidget"):
+            w = QListWidget()
+            w.addItem("Item")
+        else:
+            w = QLabel(name or "Control")
+            w.setAlignment(Qt.AlignCenter)
+
+        # Inner selbst soll nicht transparent sein (sonst schimmert es):
+        try:
+            w.setStyleSheet("background: rgb(75,75,75);")
+        except Exception:
+            pass
+        return w
+
+    def _snap(self, v: int) -> int:
+        try:
+            g = int(getattr(self.parent(), "grid", 8))
+        except Exception:
+            g = 8
+        g = max(2, g)
+        return int(round(v / g) * g)
+
+    def _handle_rects(self):
+        s = int(self.HANDLE_SIZE)
+        half = s // 2
+        r = self._content_rect()
+        cx = r.center().x()
+        cy = r.center().y()
+        # 0..7: TL, T, TR, R, BR, B, BL, L (Uhrzeigersinn)
+        return [
+            QRect(r.left() - half,  r.top() - half, s, s),
+            QRect(cx - half,        r.top() - half, s, s),
+            QRect(r.right() - half, r.top() - half, s, s),
+            QRect(r.right() - half, cy - half, s, s),
+            QRect(r.right() - half, r.bottom() - half, s, s),
+            QRect(cx - half,        r.bottom() - half, s, s),
+            QRect(r.left() - half,  r.bottom() - half, s, s),
+            QRect(r.left() - half,  cy - half, s, s),
+        ]
+
+    def _hit_handle(self, pos: QPoint) -> int:
+        for i, hr in enumerate(self._handle_rects()):
+            if hr.contains(pos):
+                return i
+        return -1
+
+    def _cursor_for_handle(self, h: int):
+        # TL/BR -> diag1, TR/BL -> diag2, T/B -> vert, L/R -> horiz
+        if h in (0, 4):
+            return Qt.SizeFDiagCursor
+        if h in (2, 6):
+            return Qt.SizeBDiagCursor
+        if h in (1, 5):
+            return Qt.SizeVerCursor
+        if h in (3, 7):
+            return Qt.SizeHorCursor
+        return Qt.ArrowCursor
+
+    def paintEvent(self, ev):
+        # Opaque Hintergrund (überdeckt darunterliegende Controls bei Überlappung)
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(55, 55, 55))
+        p.end()
+
+        super().paintEvent(ev)
+
+        if not self._selected:
+            return
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, False)
+
+        cr = self._content_rect()
+
+        # Auswahlrahmen (um das Content-Rect)
+        pen = QPen(QColor(255, 216, 102))
+        pen.setStyle(Qt.DashLine)
+        pen.setWidth(1)
+        p.setPen(pen)
+        p.drawRect(cr.adjusted(0, 0, -1, -1))
+
+        # Handles (außen am Rand)
+        p.setPen(QPen(QColor(255, 216, 102)))
+        for hr in self._handle_rects():
+            p.fillRect(hr, QColor(255, 216, 102))
+            p.drawRect(hr.adjusted(0, 0, -1, -1))
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            # aktivieren
+            try:
+                self.parent().set_active(self)
+            except Exception:
+                pass
+
+            self._press_pos = ev.pos()
+            self._press_global = ev.globalPos()
+            self._start_outer = self.geometry()
+            self._start_content_global = self._content_rect_global()
+
+            h = self._hit_handle(ev.pos())
+            if h >= 0 and self._selected:
+                self._drag_mode = "resize"
+                self._resize_handle = h
+            else:
+                # Click im Content => Move
+                if self._content_rect().contains(ev.pos()):
+                    self._drag_mode = "move"
+                else:
+                    self._drag_mode = ""
+                self._resize_handle = -1
+
+            ev.accept()
+            return
+        super().mousePressEvent(ev)
+
+    def mouseMoveEvent(self, ev):
+        # Hover-Cursor (wenn nicht drag)
+        if not self._drag_mode:
+            if self._selected:
+                h = self._hit_handle(ev.pos())
+                if h >= 0:
+                    self.setCursor(self._cursor_for_handle(h))
+                elif self._content_rect().contains(ev.pos()):
+                    self.setCursor(Qt.SizeAllCursor)
+                else:
+                    self.unsetCursor()
+            else:
+                self.unsetCursor()
+            super().mouseMoveEvent(ev)
+            return
+
+        delta = ev.globalPos() - self._press_global
+
+        # Move (snap am Content-Rect)
+        if self._drag_mode == "move":
+            cg = QRect(self._start_content_global)
+            nx = cg.x() + delta.x()
+            ny = cg.y() + delta.y()
+            m = int(self.MARGIN)
+            self.setGeometry(nx - m, ny - m, self.width(), self.height())
+            self.update()
+            ev.accept()
+            return
+
+        # Resize (snap an Content-Rect)
+        if self._drag_mode == "resize":
+            minw, minh = 16, 16
+            g = QRect(self._start_content_global)
+
+            x, y, w, h = g.x(), g.y(), g.width(), g.height()
+            dx, dy = delta.x(), delta.y()
+
+            # TL
+            if self._resize_handle == 0:
+                x = g.x() + dx
+                y = g.y() + dy
+                w = g.right() - x + 1
+                h = g.bottom() - y + 1
+            # T
+            elif self._resize_handle == 1:
+                y = g.y() + dy
+                h = g.bottom() - y + 1
+            # TR
+            elif self._resize_handle == 2:
+                y = g.y() + dy
+                w = g.width() + dx
+                h = g.bottom() - y + 1
+            # R
+            elif self._resize_handle == 3:
+                w = g.width() + dx
+            # BR
+            elif self._resize_handle == 4:
+                w = g.width() + dx
+                h = g.height() + dy
+            # B
+            elif self._resize_handle == 5:
+                h = g.height() + dy
+            # BL
+            elif self._resize_handle == 6:
+                x = g.x() + dx
+                w = g.right() - x + 1
+                h = g.height() + dy
+            # L
+            elif self._resize_handle == 7:
+                x = g.x() + dx
+                w = g.right() - x + 1
+
+            w = max(minw, int(w))
+            h = max(minh, int(h))
+
+            m = int(self.MARGIN)
+            self._content_w = w
+            self._content_h = h
+            self.setGeometry(int(x) - m, int(y) - m, w + 2 * m, h + 2 * m)
+            self._sync_inner()
+            self.update()
+            ev.accept()
+            return
+
+        super().mouseMoveEvent(ev)
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.LeftButton and self._drag_mode:
+            # Sanfter Drag: erst beim Loslassen auf Grid snappen
+            try:
+                cg = self._content_rect_global()
+                sx = self._snap(cg.x())
+                sy = self._snap(cg.y())
+                sw = max(16, self._snap(cg.width()))
+                sh = max(16, self._snap(cg.height()))
+                m = int(self.MARGIN)
+                self._content_w = sw
+                self._content_h = sh
+                self.setGeometry(int(sx) - m, int(sy) - m, int(sw) + 2*m, int(sh) + 2*m)
+                self._sync_inner()
+                self.update()
+            except Exception:
+                pass
+            self._drag_mode = ""
+            self._resize_handle = -1
+            self.unsetCursor()
+            ev.accept()
+            return
+        super().mouseReleaseEvent(ev)
+
+class PixelGridCanvas(QWidget):
+    """
+    Designer-Fläche mit Pixelgrid + Platzieren von DesignerControl.
+
+    Workflow:
+    - In der Palette ein Tool anklicken (z.B. 'Button')
+    - Im Canvas: LMB drücken/ziehen -> Rahmen (RubberBand)
+    - LMB loslassen -> Control wird erzeugt
+    - Control: klicken = aktiv, ziehen = verschieben, Handles = resize
+    """
+    def __init__(self, main_window: "MainWindow", parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+
+        self.grid = 8
+        self.show_origin = True
+        self.setMinimumSize(400, 300)
+        self.setAutoFillBackground(True)
+        self.setMouseTracking(True)
+
+        self._rubber = QRubberBand(QRubberBand.Rectangle, self)
+        self._rubber.hide()
+        self._drag_start = QPoint()
+
+        self._active: DesignerControl | None = None
+
+    def set_active(self, ctrl: DesignerControl | None) -> None:
+        if self._active is ctrl:
+            return
+        # alte Selection aus
+        if self._active is not None:
+            self._active.set_selected(False)
+        self._active = ctrl
+        if self._active is not None:
+            self._active.set_selected(True)
+            self._active.raise_()
+        self.update()
+
+    def _snap_point(self, p: QPoint) -> QPoint:
+        g = max(2, int(self.grid))
+        x = int(round(p.x() / g) * g)
+        y = int(round(p.y() / g) * g)
+        return QPoint(x, y)
+
+    def _snap_rect(self, r: QRect) -> QRect:
+        tl = self._snap_point(r.topLeft())
+        br = self._snap_point(r.bottomRight())
+        rr = QRect(tl, br).normalized()
+        # Mindestgröße
+        if rr.width() < 16:
+            rr.setWidth(16)
+        if rr.height() < 16:
+            rr.setHeight(16)
+        return rr
+
+    def _current_tool(self) -> str:
+        try:
+            return (getattr(self.main_window, "designer_current_tool", "") or "").strip()
+        except Exception:
+            return ""
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            # Klick auf bestehendes Control? (dann macht das Control selbst Selection)
+            if self.childAt(ev.pos()) is not None:
+                super().mousePressEvent(ev)
+                return
+
+            tool = self._current_tool()
+            if tool:
+                self._drag_start = self._snap_point(ev.pos())
+                self._rubber.setGeometry(QRect(self._drag_start, QSize()))
+                self._rubber.show()
+                ev.accept()
+                return
+
+            # kein Tool: Klick in freie Fläche -> deselect
+            self.set_active(None)
+            ev.accept()
+            return
+
+        super().mousePressEvent(ev)
+
+    def mouseMoveEvent(self, ev):
+        if self._rubber.isVisible():
+            cur = self._snap_point(ev.pos())
+            self._rubber.setGeometry(QRect(self._drag_start, cur).normalized())
+            ev.accept()
+            return
+        super().mouseMoveEvent(ev)
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.LeftButton and self._rubber.isVisible():
+            self._rubber.hide()
+            r = self._snap_rect(self._rubber.geometry())
+
+            tool = self._current_tool()
+            if tool and r.width() >= 16 and r.height() >= 16:
+                ctrl = DesignerControl(tool, self, r)
+                ctrl.show()
+                self.set_active(ctrl)
+            ev.accept()
+            return
+        super().mouseReleaseEvent(ev)
+
+    def paintEvent(self, ev):
+        super().paintEvent(ev)
+        p = QPainter(self)
+        r = self.rect()
+
+        # Hintergrund (Palette Window)
+        bg = self.palette().color(QPalette.Window)
+        p.fillRect(r, bg)
+
+        # Grid
+        pen = QPen(QColor(55, 55, 55))
+        pen.setWidth(1)
+        p.setPen(pen)
+
+        g = max(2, int(self.grid))
+        left, top, right, bottom = r.left(), r.top(), r.right(), r.bottom()
+
+        x = left - (left % g)
+        while x <= right:
+            p.drawLine(x, top, x, bottom)
+            x += g
+
+        y = top - (top % g)
+        while y <= bottom:
+            p.drawLine(left, y, right, y)
+            y += g
+
+        # Origin Crosshair
+        if self.show_origin:
+            pen2 = QPen(QColor(90, 90, 90))
+            pen2.setWidth(1)
+            p.setPen(pen2)
+            p.drawLine(0, 0, min(60, right), 0)
+            p.drawLine(0, 0, 0, min(60, bottom))
+class FormDesignerWindow(QWidget):
+    """Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid."""
+    def __init__(self, main_window: "MainWindow", parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+
+        self.canvas = PixelGridCanvas(self.main_window, self)
+        lay.addWidget(self.canvas, 1)
+
+
+def _init_designer_panels(main_window: "MainWindow") -> None:
+    """
+    Ersetzt das alte 'FormDesignerDock':
+    - Objektinspektor (Dock links oben)
+    - Objektpalette (Dock links unten)
+    - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
+    """
+    # 1) Docks links
+    try:
+        main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
+        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
+    except Exception:
+        pass
+
+    try:
+        main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
+        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
+    except Exception:
+        pass
+
+    # Docks untereinander anordnen (Palette unter Inspector)
+    try:
+        main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
+    except Exception:
+        pass
+
+    # 2) Formular-Designer als extra MDI SubWindow
+    try:
+        designer = FormDesignerWindow(main_window)
+        main_window.form_designer_window = designer
+        main_window.designer_canvas = getattr(designer, 'canvas', None)
+        sub = main_window.mdi.addSubWindow(designer)
+        sub.setWindowTitle("Formular-Designer")
+        sub.resize(700, 520)
+        sub.move(220, 40)
+        designer.show()
+    except Exception:
+        pass
+
+
 class MainWindow(QMainWindow):
+    def set_designer_tool(self, tool_name: str) -> None:
+        """Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...)."""
+        self.designer_current_tool = (tool_name or "").strip()
+        # optional: Statusbar
+        try:
+            if self.designer_current_tool:
+                self.statusBar().showMessage(f"Designer-Tool: {self.designer_current_tool}")
+            else:
+                self.statusBar().clearMessage()
+        except Exception:
+            pass
+
     def __init__(self):
         super().__init__()
         
         self.mdi = QMdiArea(self)
-        self.setCentralWidget(self.mdi)
         
+        pal = self.mdi.palette()
+        pal.setColor(QPalette.Window, QColor(18, 18, 18))
+        self.mdi.setPalette(pal)
+        self.mdi.setAutoFillBackground(True)
+        
+        self.mdi.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
+        
+        self.setCentralWidget(self.mdi)
+        _init_designer_panels(self)
         self.dark_mode = True
 
         # Beispiel-Menü "Fenster"
@@ -11965,6 +12762,7 @@ class MainWindow(QMainWindow):
         self._apply_theme()
         
         dlg = RegieCenter()
+        self.regie_center = dlg
         sub = self.mdi.addSubWindow(dlg)
         sub.resize(520,300)
         sub.move(30,30)
@@ -11973,6 +12771,23 @@ class MainWindow(QMainWindow):
         #self.mdi_open_editor()
         self.mdi_open_table_designer()
 
+    def on_action_file_open_project(self):
+        pass
+        
+    def on_action_file_print(self):
+        pass
+    def on_action_file_print_preview(self):
+        pass
+    def on_action_file_window_app(self):
+        pass
+    def on_action_file_web_wizard(self):
+        pass
+    def open_workplace_properties(self):
+        pass
+    def _create_toolbar(self):
+        pass
+    def _create_statusbar(self):
+        pass
     def on_action_file_close(self):
         # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen
         sub = self.mdi.activeSubWindow()
@@ -11985,6 +12800,81 @@ class MainWindow(QMainWindow):
             return
         sub.close()
 
+    def on_action_file_open(self):
+        """Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen."""
+        try:
+            dlg = QFileDialog(self, "Datei öffnen")
+            dlg.setFileMode(QFileDialog.ExistingFiles)
+            dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+            dlg.selectNameFilter("dBase Quellcode (*.prg)")
+            try:
+                dlg.setDefaultSuffix("prg")
+            except Exception:
+                pass
+
+            if not dlg.exec_():
+                return
+
+            paths = dlg.selectedFiles() or []
+            if not paths:
+                return
+
+            # Ziel-Editor-Fenster bestimmen: aktives FileEditorWindow oder erstes vorhandenes
+            target_win = None
+            sub = self.mdi.activeSubWindow() if hasattr(self, "mdi") else None
+            if sub:
+                w = sub.widget()
+                if isinstance(w, FileEditorWindow):
+                    target_win = w
+
+            if target_win is None and hasattr(self, "mdi"):
+                for sw in self.mdi.subWindowList():
+                    w = sw.widget()
+                    if isinstance(w, FileEditorWindow):
+                        target_win = w
+                        break
+
+            # Wenn keins da: neu erstellen
+            if target_win is None:
+                first = paths[0]
+                text = ""
+                try:
+                    with open(first, "r", encoding="utf-8", errors="replace") as f:
+                        text = f.read()
+                except Exception:
+                    text = ""
+                target_win = FileEditorWindow(parent=self, initial_path=first, initial_text=text)
+                target_win.resize(900, 650)
+                if hasattr(self, "mdi"):
+                    sw = self.mdi.addSubWindow(target_win)
+                    try:
+                        sw.setWindowTitle(os.path.basename(first))
+                    except Exception:
+                        pass
+                target_win.show()
+
+                # restliche Dateien als Tabs
+                for fp in paths[1:]:
+                    try:
+                        target_win.open_path_in_tab(os.path.normpath(fp))
+                    except Exception:
+                        pass
+            else:
+                # alle gewählten Dateien als Tabs öffnen
+                for fp in paths:
+                    try:
+                        target_win.open_path_in_tab(os.path.normpath(fp))
+                    except Exception:
+                        pass
+
+            target_win.raise_()
+            try:
+                target_win.activateWindow()
+            except Exception:
+                pass
+        except Exception as e:
+            QMessageBox.warning(self, "Datei öffnen", f"Konnte Datei nicht öffnen:\n{e}")
+
     def on_action_file_database(self):
         print("file data base")
     def on_action_file_exit(self):
@@ -11992,6 +12882,80 @@ class MainWindow(QMainWindow):
         self.close()
     def on_action_file_new_project(self):
         print("file new project")
+
+    def _init_form_designer_dock(self):
+        # Dock links anheften
+        self.form_designer_dock = FormDesignerDock(self, self)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.form_designer_dock)
+
+    def _active_file_editor_window(self):
+        try:
+            sub = self.mdi.activeSubWindow()
+            w = sub.widget() if sub else None
+            if isinstance(w, FileEditorWindow):
+                return w
+        except Exception:
+            pass
+        return None
+
+    def _get_or_create_file_editor_window(self) -> "FileEditorWindow":
+        win = self._active_file_editor_window()
+        if win is not None:
+            return win
+
+        # wenn es einen FileEditorWindow irgendwo im MDI gibt: wiederverwenden
+        try:
+            for sub in self.mdi.subWindowList():
+                w = sub.widget()
+                if isinstance(w, FileEditorWindow):
+                    sub.setFocus()
+                    w.raise_()
+                    return w
+        except Exception:
+            pass
+
+        # sonst: neuen leeren Editor erzeugen
+        win = FileEditorWindow(parent=self, initial_path="", initial_text="")
+        sub = self.mdi.addSubWindow(win)
+        sub.setWindowTitle("Editor")
+        win.show()
+        return win
+
+    def insert_event_handler(self, handler_name: str):
+        """Erzeugt (falls nicht vorhanden) einen Eventhandler als Code."""
+        handler_name = (handler_name or "").strip()
+        if not handler_name:
+            return
+
+        win = self._get_or_create_file_editor_window()
+        ed = win.current_editor()
+        txt = ed.toPlainText()
+
+        needle = f"PROCEDURE {handler_name}".lower()
+        if needle in txt.lower():
+            return
+
+        stub = f"\n\nPROCEDURE {handler_name}\n    * TODO: Handler Code\nRETURN\n"
+        ed.appendPlainText(stub)
+
+
+    def insert_override_method(self, method_name: str):
+        """Erzeugt einen überschreibbaren Methoden-Stub."""
+        method_name = (method_name or "").strip()
+        if not method_name:
+            return
+
+        win = self._get_or_create_file_editor_window()
+        ed = win.current_editor()
+        txt = ed.toPlainText()
+
+        needle = f"PROCEDURE {method_name}".lower()
+        if needle in txt.lower():
+            return
+
+        stub = f"\n\nPROCEDURE {method_name}\n    * TODO: Override\nRETURN\n"
+        ed.appendPlainText(stub)
+
     def on_action_file_open(self):
         # Datei -> Öffnen: in CodeEditor-Tabs öffnen
         dlg = QFileDialog(self, "Datei öffnen")
@@ -12028,7 +12992,48 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Fehler", f"Konnte Editor nicht öffnen:\n{e}")
 
     def on_action_file_open_project(self):
-        print("file open project")
+        """
+        Projekt/Ordner öffnen und im RegieCenter (Programme) als aktuelles Verzeichnis setzen.
+        """
+        from PyQt5.QtWidgets import QFileDialog
+        directory = QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd())
+        if not directory:
+            return
+
+        # RegieCenter existiert?
+        rc = getattr(self, "regie_center", None)
+
+        # Falls nicht vorhanden, versuche ein vorhandenes RegieCenter im MDI zu finden
+        if rc is None:
+            for sub in self.mdi.subWindowList():
+                w = sub.widget()
+                if w is None:
+                    continue
+                if w.__class__.__name__ == "RegieCenter":
+                    rc = w
+                    self.regie_center = w
+                    break
+
+        if rc is None:
+            QMessageBox.information(self, "Hinweis", "RegieCenter ist nicht geöffnet.")
+            return
+
+        # Falls RegieCenter eine Pfad-Combo hat, setzen wir sie (und triggern Refresh)
+        if hasattr(rc, "path_combo"):
+            # optional: Duplikate vermeiden
+            if rc.path_combo.findText(directory) < 0:
+                rc.path_combo.insertItem(0, directory)
+            rc.path_combo.setCurrentText(directory)
+        elif hasattr(rc, "set_project_directory"):
+            rc.set_project_directory(directory)
+        else:
+            # Fallback: direkt an die IconTabs geben, wenn vorhanden
+            if hasattr(rc, "icon_tabs"):
+                try:
+                    rc.icon_tabs.set_directory_for_all(directory)
+                except Exception:
+                    pass
+            QMessageBox.information(self, "Hinweis", "Projektpfad gesetzt, aber UI-Bindung unbekannt.")
     def on_action_file_print(self):
         print("file print")
     def on_action_file_print_preview(self):
@@ -12101,7 +13106,7 @@ class MainWindow(QMainWindow):
         return sub
 
     def mdi_open_table_designer(self):
-        dlg = TableDesignerDialog()
+        dlg = TableDesignerDialog(self)
         sub = self.mdi.addSubWindow(dlg)
         sub.resize(600,250)
         sub.move(56,320)
@@ -12237,11 +13242,11 @@ QMenu::separator {{
 }}
 QMenu::item:selected {{ background: #2b4c7e; color: #ffffff; }}
 QMdiArea {{
-    background: #2e2e2e;           /* noch dunkler */
+    background: #1e1e1e;           /* noch dunkler */
     border: 2px solid #333333;
 }}
 QMdiArea::viewport {{
-    background: #2b2b2b;           /* viewport ist oft entscheidend */
+    background: #1b1b0b;
 }}
 /* optional: Subwindows im Dark Mode passend */
 QMdiSubWindow {{
@@ -12435,6 +13440,24 @@ QScrollBar::add-line:vertical {{ subcontrol-position: bottom; subcontrol-origin:
 QScrollBar::sub-line:horizontal {{ subcontrol-position: left;  subcontrol-origin: margin; }}
 QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin: margin; }}
 """)
+        self.mdi.setBackground(QBrush(QColor("#373737")))
+
+
+# ---------------------------------------------------------------------------
+# Fixup: globale Helper als MainWindow-Methoden (falls sie durch Einrückung global gelandet sind)
+# ---------------------------------------------------------------------------
+try:
+    if not hasattr(MainWindow, "insert_event_handler") and "insert_event_handler" in globals():
+        MainWindow.insert_event_handler = globals()["insert_event_handler"]
+    if not hasattr(MainWindow, "insert_override_method") and "insert_override_method" in globals():
+        MainWindow.insert_override_method = globals()["insert_override_method"]
+    if not hasattr(MainWindow, "_active_file_editor_window") and "_active_file_editor_window" in globals():
+        MainWindow._active_file_editor_window = globals()["_active_file_editor_window"]
+    if not hasattr(MainWindow, "_get_or_create_file_editor_window") and "_get_or_create_file_editor_window" in globals():
+        MainWindow._get_or_create_file_editor_window = globals()["_get_or_create_file_editor_window"]
+except Exception:
+    pass
+
 
 def center_on_screen(widget):
     widget.adjustSize()
