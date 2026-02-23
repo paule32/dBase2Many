@@ -15,6 +15,9 @@ from typing      import Dict, List, Optional, Union, Any, TextIO
 from pathlib     import Path
 from copy        import deepcopy
 from html.parser import HTMLParser
+import json
+import sqlite3
+
 
 from gen.dBaseLexer         import dBaseLexer
 from gen.dBaseParser        import dBaseParser
@@ -43,6 +46,8 @@ from PyQt5.QtGui     import (
     QGuiApplication
 )
 from PyQt5.QtWidgets import (
+    QScrollArea,
+    QFrame,
     QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
     QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
     QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
@@ -53,6 +58,10 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
     QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
     QTreeView, QSplitter, QTabBar, QRubberBand,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QHeaderView,
+    QDockWidget
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEngineScript
@@ -12084,6 +12093,7 @@ class _ToolPalette(QTabWidget):
 
 
 
+
 class ObjectInspectorDock(QDockWidget):
     """Dock: Objekt-Inspector (oben links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
@@ -12092,16 +12102,9 @@ class ObjectInspectorDock(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
 
-        # Reuse vorhandenen ObjectInspector (falls vorhanden), sonst minimaler Stub
-        try:
-            inspector = ObjectInspector(main_window, self)
-        except Exception:
-            inspector = QWidget(self)
-            lay = QVBoxLayout(inspector)
-            lay.addWidget(QLabel("ObjectInspector nicht verfügbar", inspector))
-
+        inspector = ObjectInspectorPanel(main_window)
+        main_window.object_inspector = inspector
         self.setWidget(inspector)
-
 
 class ObjectPaletteDock(QDockWidget):
     """Dock: Objektpalette (unten links)."""
@@ -12141,6 +12144,8 @@ class DesignerControl(QWidget):
     def __init__(self, tool_name: str, parent_canvas: "PixelGridCanvas", rect: QRect):
         super().__init__(parent_canvas)
         self.tool_name = (tool_name or "").strip() or "Control"
+
+        self.instance_name = ''  # z.B. Label1
         self._selected = False
 
         self.setMouseTracking(True)
@@ -12177,6 +12182,14 @@ class DesignerControl(QWidget):
         self._start_outer = QRect()
         self._start_content_global = QRect()
 
+    def _snap(self, v: int) -> int:
+        try:
+            g = int(getattr(self.parent(), "grid", 8))
+        except Exception:
+            g = 8
+        g = max(2, g)
+        return int(round(v / g) * g)
+        
     def _content_rect(self) -> QRect:
         m = int(self.MARGIN)
         return QRect(m, m, int(self._content_w), int(self._content_h))
@@ -12273,6 +12286,7 @@ class DesignerControl(QWidget):
         p.end()
 
         super().paintEvent(ev)
+        self._draw_instance_name()
 
         if not self._selected:
             return
@@ -12425,6 +12439,19 @@ class DesignerControl(QWidget):
                 self.setGeometry(int(sx) - m, int(sy) - m, int(sw) + 2*m, int(sh) + 2*m)
                 self._sync_inner()
                 self.update()
+                # Canvas + Objektinspektor aktualisieren
+                try:
+                    if hasattr(self.parent(), 'update_canvas_size'):
+                        self.parent().update_canvas_size()
+                except Exception:
+                    pass
+                try:
+                    mw = getattr(self.parent(), 'main_window', None) or self.window()
+                    oi = getattr(mw, 'object_inspector', None) if mw is not None else None
+                    if oi is not None and getattr(oi, '_current_ctrl', None) is self:
+                        oi._refresh_properties()
+                except Exception:
+                    pass
             except Exception:
                 pass
             self._drag_mode = ""
@@ -12433,6 +12460,126 @@ class DesignerControl(QWidget):
             ev.accept()
             return
         super().mouseReleaseEvent(ev)
+
+
+
+    def _draw_instance_name(self):
+        name = getattr(self, "instance_name", "")
+        if not name:
+            return
+        try:
+            p = QPainter(self)
+            p.setPen(QPen(QColor(230, 230, 230)))
+            p.drawText(self._content_rect(), Qt.AlignCenter, name)
+        except Exception:
+            pass
+
+
+
+    def contextMenuEvent(self, ev):
+        # Komponenten-Kontextmenü
+        try:
+            self.parent().set_active(self)
+        except Exception:
+            pass
+
+        menu = QMenu(self)
+
+        act_help = QAction("Hilfe\tF1", self)
+        act_help.setShortcut("F1")
+        act_help.triggered.connect(lambda: QMessageBox.information(self, "Hilfe", f"Komponente: {self.tool_name}"))
+        menu.addAction(act_help)
+
+        menu.addSeparator()
+
+        act_edit = QAction("Bearbeiten", self)
+        act_edit.triggered.connect(self._action_edit)
+        menu.addAction(act_edit)
+
+        act_rename = QAction("Umbenennen", self)
+        act_rename.triggered.connect(self._action_rename)
+        menu.addAction(act_rename)
+
+        menu.addSeparator()
+
+        act_copy = QAction("Kopieren", self)
+        act_copy.triggered.connect(lambda: self._clipboard_copy(cut=False))
+        menu.addAction(act_copy)
+
+        act_cut = QAction("Ausschneiden", self)
+        act_cut.triggered.connect(lambda: self._clipboard_copy(cut=True))
+        menu.addAction(act_cut)
+
+        act_del = QAction("Entfernen/Löschen", self)
+        act_del.triggered.connect(self._action_delete)
+        menu.addAction(act_del)
+
+        menu.addSeparator()
+
+        act_paste = QAction("Einfügen", self)
+        act_paste.setEnabled(bool(getattr(self.parent(), "_designer_clip", None)))
+        act_paste.triggered.connect(lambda: self.parent().paste_from_clipboard(ev.globalPos()))
+        menu.addAction(act_paste)
+
+        menu.exec_(ev.globalPos())
+
+
+
+    def _action_edit(self):
+        # Öffnet den CodeEditor + springt zur Komponente/Handler-Stelle (best-effort)
+        try:
+            mw = getattr(self.parent(), "main_window", None) or self.window()
+            w = None
+
+            # MainWindow-API: bevorzugt ensure_code_editor_window (öffnet FileEditorWindow)
+            if hasattr(mw, "ensure_code_editor_window"):
+                w = mw.ensure_code_editor_window(focus=True)
+            # ältere/alternative Helper
+            if w is None and hasattr(mw, "_get_or_create_file_editor_window"):
+                w = mw._get_or_create_file_editor_window()
+            # Fallbacks (falls noch irgendwo vorhanden)
+            if w is None and hasattr(mw, "mdi_open_code_editor"):
+                w = mw.mdi_open_code_editor()
+            if w is None and hasattr(mw, "mdi_open_editor"):
+                w = mw.mdi_open_editor()
+            if w is not None and hasattr(mw, "jump_to_symbol"):
+                mw.jump_to_symbol(self.instance_name or self.tool_name)
+        except Exception as e:
+            QMessageBox.warning(self, "Bearbeiten", str(e))
+
+    def _action_rename(self):
+        base = (self.tool_name or "Control").strip() or "Control"
+        new_name, ok = QInputDialog.getText(self, "Umbenennen", "Neuer Name:", text=(self.instance_name or base))
+        if not ok:
+            return
+        new_name = (new_name or "").strip()
+        if not new_name:
+            return
+        try:
+            if hasattr(self.parent(), "is_name_used") and self.parent().is_name_used(new_name, except_ctrl=self):
+                QMessageBox.warning(self, "Umbenennen", "Name wird bereits verwendet.")
+                return
+        except Exception:
+            pass
+        self.instance_name = new_name
+        self.update()
+
+
+
+    def _action_delete(self):
+        try:
+            self.parent().delete_control(self)
+        except Exception:
+            self.deleteLater()
+
+
+
+    def _clipboard_copy(self, cut: bool = False):
+        try:
+            self.parent().copy_to_clipboard(self, cut=cut)
+        except Exception as e:
+            QMessageBox.warning(self, "Clipboard", str(e))
+
 
 class PixelGridCanvas(QWidget):
     """
@@ -12446,13 +12593,28 @@ class PixelGridCanvas(QWidget):
     """
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
+        # Referenz auf MainWindow (für Objektinspektor-Sync)
+        self.main_window = getattr(parent, "main_window", None) if 'parent' in locals() else None
+        if self.main_window is None:
+            try:
+                self.main_window = self.window()
+            except Exception:
+                self.main_window = None
         self.main_window = main_window
 
         self.grid = 8
         self.show_origin = True
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(2400, 2300)
         self.setAutoFillBackground(True)
         self.setMouseTracking(True)
+
+        self.setFocusPolicy(Qt.StrongFocus)
+        self._tool_counters = {}
+        self._controls = []
+        self._active = None
+        self._designer_clip = None
+        self._base_design_size = QSize(2048, 2048)
+        self._scroll_area = None
 
         self._rubber = QRubberBand(QRubberBand.Rectangle, self)
         self._rubber.hide()
@@ -12460,17 +12622,60 @@ class PixelGridCanvas(QWidget):
 
         self._active: DesignerControl | None = None
 
-    def set_active(self, ctrl: DesignerControl | None) -> None:
+    def set_active(self, ctrl: 'DesignerControl | None') -> None:
         if self._active is ctrl:
             return
-        # alte Selection aus
+
         if self._active is not None:
-            self._active.set_selected(False)
+            try:
+                self._active.set_selected(False)
+            except Exception:
+                pass
+
         self._active = ctrl
-        if self._active is not None:
-            self._active.set_selected(True)
-            self._active.raise_()
+
+        if ctrl is not None:
+            try:
+                ctrl.set_selected(True)
+                ctrl.raise_()
+                ctrl.setFocus()
+            except Exception:
+                pass
+
+        # Objektinspektor synchronisieren
+        try:
+            mw = getattr(self, "main_window", None) or self.window()
+            if mw is not None and hasattr(mw, "on_designer_selection_changed"):
+                mw.on_designer_selection_changed(ctrl)
+        except Exception:
+            pass
+
         self.update()
+
+    def on_designer_selection_changed(self, ctrl):
+        try:
+            oi = getattr(self, "object_inspector", None)
+            if oi is not None:
+                oi.set_current(ctrl)
+        except Exception:
+            pass
+
+
+    def on_designer_controls_changed(self, controls):
+        try:
+            oi = getattr(self, "object_inspector", None)
+            if oi is not None:
+                oi.set_controls_list(controls)
+        except Exception:
+            pass
+
+    def _snap(self, v: int) -> int:
+        try:
+            g = int(getattr(self.parent(), "grid", 8))
+        except Exception:
+            g = 8
+        g = max(2, g)
+        return int(round(v / g) * g)
 
     def _snap_point(self, p: QPoint) -> QPoint:
         g = max(2, int(self.grid))
@@ -12573,6 +12778,144 @@ class PixelGridCanvas(QWidget):
             p.setPen(pen2)
             p.drawLine(0, 0, min(60, right), 0)
             p.drawLine(0, 0, 0, min(60, bottom))
+
+    def set_scroll_area(self, scroll_area):
+        self._scroll_area = scroll_area
+
+    def delete_control(self, ctrl):
+        if ctrl is None:
+            return
+        try:
+            if ctrl in self._controls:
+                self._controls.remove(ctrl)
+        except Exception:
+            pass
+        if self._active is ctrl:
+            self._active = None
+        ctrl.deleteLater()
+        self.update()
+        self.update_canvas_size()
+
+    def is_name_used(self, name: str, except_ctrl=None) -> bool:
+        name = (name or "").strip()
+        if not name:
+            return False
+        for c in self._controls:
+            if c is except_ctrl:
+                continue
+            if getattr(c, "instance_name", "") == name:
+                return True
+        return False
+
+
+
+    def copy_to_clipboard(self, ctrl, cut: bool = False):
+        if ctrl is None:
+            return
+        cr = ctrl._content_rect_global()
+        self._designer_clip = {
+            "tool": getattr(ctrl, "tool_name", "Control"),
+            "w": int(cr.width()),
+            "h": int(cr.height()),
+            "name": getattr(ctrl, "instance_name", ""),
+        }
+        if cut:
+            self.delete_control(ctrl)
+
+
+
+    def paste_from_clipboard(self, global_pos=None):
+        clip = self._designer_clip
+        if not clip:
+            return
+        tool = clip.get("tool", "Control")
+        w = int(clip.get("w", 80))
+        h = int(clip.get("h", 28))
+
+        if global_pos is not None:
+            p = self.mapFromGlobal(global_pos)
+            x, y = p.x(), p.y()
+        else:
+            x, y = 20, 20
+
+        x = self._snap(x)
+        y = self._snap(y)
+
+        rect = QRect(x, y, max(16, w), max(16, h))
+        ctrl = DesignerControl(tool, self, rect)
+
+        key = (tool or "Control").strip() or "Control"
+        self._tool_counters[key] = self._tool_counters.get(key, 0) + 1
+        ctrl.instance_name = f"{key}{self._tool_counters[key]}"
+
+        ctrl.show()
+        self._controls.append(ctrl)
+        try:
+            mw = getattr(self, "main_window", None) or self.window()
+            if mw is not None and hasattr(mw, "on_designer_controls_changed"):
+                mw.on_designer_controls_changed(self._controls)
+        except Exception:
+            pass
+        try:
+            mw = getattr(self, 'main_window', None) or self.window()
+            if mw is not None and hasattr(mw, 'object_inspector') and mw.object_inspector is not None:
+                mw.object_inspector.set_controls_list(self._controls)
+        except Exception:
+            pass
+        self.set_active(ctrl)
+        self.update_canvas_size()
+        self.ensure_visible_control(ctrl)
+
+
+
+    def ensure_visible_control(self, ctrl):
+        sa = self._scroll_area
+        if sa is not None and ctrl is not None:
+            try:
+                sa.ensureWidgetVisible(ctrl, 40, 40)
+            except Exception:
+                pass
+
+
+
+    def update_canvas_size(self):
+        w = int(self._base_design_size.width())
+        h = int(self._base_design_size.height())
+        margin = 80
+        for c in list(self._controls):
+            try:
+                g = c.geometry()
+                w = max(w, g.right() + margin)
+                h = max(h, g.bottom() + margin)
+            except Exception:
+                pass
+        self.setMinimumSize(QSize(w, h))
+
+
+
+    def keyPressEvent(self, ev):
+        if ev.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+            if self._active is not None:
+                self.delete_control(self._active)
+                ev.accept()
+                return
+        super().keyPressEvent(ev)
+
+
+
+    def contextMenuEvent(self, ev):
+        # Rechtsklick auf leere Fläche: Einfügen anbieten
+        if self.childAt(ev.pos()) is not None:
+            super().contextMenuEvent(ev)
+            return
+
+        menu = QMenu(self)
+        act_paste = QAction("Einfügen", self)
+        act_paste.setEnabled(bool(self._designer_clip))
+        act_paste.triggered.connect(lambda: self.paste_from_clipboard(ev.globalPos()))
+        menu.addAction(act_paste)
+        menu.exec_(ev.globalPos())
+        
 class FormDesignerWindow(QWidget):
     """Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid."""
     def __init__(self, main_window: "MainWindow", parent=None):
@@ -12582,8 +12925,31 @@ class FormDesignerWindow(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
 
         self.canvas = PixelGridCanvas(self.main_window, self)
-        lay.addWidget(self.canvas, 1)
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
+        self.scroll_area.setWidget(self.canvas)
+        self.canvas.set_scroll_area(self.scroll_area)
 
+        lay.addWidget(self.scroll_area, 1)
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        # Bei Fenster-Resize: Canvas-MinSize neu berechnen und Objektinspektor updaten
+        try:
+            if hasattr(self.canvas, "update_canvas_size"):
+                self.canvas.update_canvas_size()
+        except Exception:
+            pass
+        try:
+            mw = getattr(self, "main_window", None)
+            oi = getattr(mw, "object_inspector", None) if mw is not None else None
+            if oi is not None and getattr(oi, "_current_ctrl", None) is not None:
+                oi._refresh_properties()
+        except Exception:
+            pass
 
 def _init_designer_panels(main_window: "MainWindow") -> None:
     """
@@ -12624,7 +12990,315 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
+class ObjectInspectorPanel(QWidget):
+    """Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden."""
 
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main_window = main_window
+        self._current_ctrl = None
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(6)
+
+        self.obj_combo = QComboBox(self)
+        self.obj_combo.setEditable(False)
+        self.obj_combo.currentIndexChanged.connect(self._on_combo_changed)
+        lay.addWidget(self.obj_combo)
+
+        self.tabs = QTabWidget(self)
+        lay.addWidget(self.tabs, 1)
+
+        # Properties (Name/Wert)
+        self.tree_props = QTreeWidget(self)
+        self.tree_props.setColumnCount(2)
+        self.tree_props.setHeaderLabels(["Key", "Value"])
+        self.tree_props.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tree_props.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabs.addTab(self.tree_props, "Properties")
+        self.tree_props.itemChanged.connect(self._on_prop_changed)
+
+        # Events (Event/Handler)
+        self.tree_events = QTreeWidget(self)
+        self.tree_events.setColumnCount(2)
+        self.tree_events.setHeaderLabels(["Event", "Handler"])
+        self.tree_events.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tree_events.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tree_events.itemDoubleClicked.connect(self._on_event_double_clicked)
+        self.tabs.addTab(self.tree_events, "Events")
+
+        # Methoden (Methode/Override)
+        self.tree_methods = QTreeWidget(self)
+        self.tree_methods.setColumnCount(2)
+        self.tree_methods.setHeaderLabels(["Methode", "Override"])
+        self.tree_methods.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.tree_methods.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tree_methods.itemDoubleClicked.connect(self._on_method_double_clicked)
+        self.tabs.addTab(self.tree_methods, "Methoden")
+
+        self._fill_static_events_methods()
+
+    def _fill_static_events_methods(self):
+        self.tree_events.clear()
+        for ev in ["OnClick", "OnDblClick", "OnKeyDown", "OnKeyUp", "OnCreate", "OnDestroy"]:
+            it = QTreeWidgetItem([ev, ""])
+            it.setFlags(it.flags() | Qt.ItemIsEditable)
+            self.tree_events.addTopLevelItem(it)
+
+        self.tree_methods.clear()
+        for m in ["Init", "Show", "Hide", "Enable", "Disable", "Resize", "Move"]:
+            it = QTreeWidgetItem([m, ""])
+            it.setFlags(it.flags() | Qt.ItemIsEditable)
+            self.tree_methods.addTopLevelItem(it)
+
+    def set_controls_list(self, controls):
+        # Combo füllen
+        self.obj_combo.blockSignals(True)
+        self.obj_combo.clear()
+        self.obj_combo.addItem("(Form)", None)
+        for c in controls or []:
+            name = getattr(c, "instance_name", "") or getattr(c, "tool_name", "Control")
+            self.obj_combo.addItem(name, c)
+        self.obj_combo.blockSignals(False)
+
+    def set_current(self, ctrl):
+        self._current_ctrl = ctrl
+        # Combo sync
+        if ctrl is None:
+            self.obj_combo.setCurrentIndex(0)
+        else:
+            name = getattr(ctrl, "instance_name", "")
+            idx = self.obj_combo.findText(name)
+            if idx >= 0:
+                self.obj_combo.setCurrentIndex(idx)
+        self._refresh_properties()
+
+
+    def _get_ctrl_text(self, c) -> str:
+        try:
+            w = getattr(c, "inner", None)
+            if w is None:
+                return ""
+            if hasattr(w, "text"):
+                t = w.text()
+                return "" if t is None else str(t)
+            if hasattr(w, "windowTitle"):
+                t = w.windowTitle()
+                return "" if t is None else str(t)
+        except Exception:
+            pass
+        return ""
+
+    def _refresh_properties(self):
+        # Rebuild property tree with categories (ähnlich dBase IDE)
+        self.tree_props.blockSignals(True)
+        self.tree_props.setUpdatesEnabled(False)
+        try:
+            self.tree_props.clear()
+            c = self._current_ctrl
+            if c is None:
+                return
+            cr = c._content_rect_global()
+            groups = {
+                "Name": [
+                    ("Name", getattr(c, "instance_name", "")),
+                    ("Type", getattr(c, "tool_name", "")),
+                ],
+                "Anzeige": [
+                    ("Left", str(cr.x())),
+                    ("Top", str(cr.y())),
+                    ("Width", str(cr.width())),
+                    ("Height", str(cr.height())),
+                ],
+                "Beschriftung": [
+                    ("Text", self._get_ctrl_text(c)),
+                ],
+            }
+
+            self.tree_props.setRootIsDecorated(True)
+            for gname, rows in groups.items():
+                top = QTreeWidgetItem([gname, ""])
+                top.setFirstColumnSpanned(True)
+                top.setFlags(top.flags() & ~Qt.ItemIsEditable)
+                self.tree_props.addTopLevelItem(top)
+
+                for k, v in rows:
+                    it = QTreeWidgetItem([k, str(v)])
+                    it.setFlags(it.flags() | Qt.ItemIsEditable)
+                    top.addChild(it)
+                top.setExpanded(True)
+        except Exception:
+            pass
+        finally:
+            self.tree_props.setUpdatesEnabled(True)
+            self.tree_props.blockSignals(False)
+
+    def _on_prop_changed(self, item: QTreeWidgetItem, col: int):
+        # nur Value-Spalte behandeln
+        if col != 1:
+            return
+        c = self._current_ctrl
+        if c is None:
+            return
+        # Kategorien (Top-Level) sind nicht editierbar
+        try:
+            if item.parent() is None and item.childCount() > 0:
+                return
+        except Exception:
+            pass
+        key = (item.text(0) or "").strip()
+        val = item.text(1)
+
+        try:
+            if key.lower() == "name":
+                # Instance-Name ändern
+                c.instance_name = val.strip()
+                # Repaint damit Name im Control neu gerendert wird
+                try:
+                    c.update()
+                except Exception:
+                    pass
+                # ComboBox aktualisieren
+                try:
+                    self.set_controls_list(getattr(self.main_window, "designer_controls", []) or getattr(getattr(self.main_window, "designer_canvas", None), "_controls", []))
+                    self.set_current(c)
+                except Exception:
+                    pass
+                return
+
+            # Geometrie
+            if key.lower() in ("left", "top", "width", "height"):
+                try:
+                    n = int(float(val))
+                except Exception:
+                    return
+                g = c.geometry()
+                if key.lower() == "left":
+                    g.moveLeft(n)
+                elif key.lower() == "top":
+                    g.moveTop(n)
+                elif key.lower() == "width":
+                    g.setWidth(max(1, n))
+                elif key.lower() == "height":
+                    g.setHeight(max(1, n))
+                c.setGeometry(g)
+                # Wrapper ggf. neu synchronisieren
+                try:
+                    if hasattr(c, '_sync_inner'):
+                        c._sync_inner()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(c.parent(), 'update_canvas_size'):
+                        c.parent().update_canvas_size()
+                except Exception:
+                    pass
+                try:
+                    c.update()
+                except Exception:
+                    pass
+                # UI sofort aktualisieren
+                try:
+                    self._refresh_properties()
+                except Exception:
+                    pass
+                return
+
+            # Inner-Widget: Text
+            if key.lower() in ("text", "caption", "title"):
+                w = getattr(c, "inner", None)
+                if w is not None:
+                    if hasattr(w, "setText"):
+                        w.setText(val)
+                    elif hasattr(w, "setWindowTitle"):
+                        w.setWindowTitle(val)
+                    c.update()
+                return
+        except Exception:
+            pass
+
+    def _on_combo_changed(self, idx):
+        ctrl = self.obj_combo.itemData(idx)
+        if ctrl is None:
+            # Form gewählt
+            try:
+                self.main_window.activate_form()
+            except Exception:
+                pass
+            self.set_current(None)
+            return
+        try:
+            canvas = getattr(self.main_window, "designer_canvas", None)
+            if canvas is not None:
+                canvas.set_active(ctrl)
+        except Exception:
+            pass
+
+    def _on_event_double_clicked(self, item, col):
+        # Doppelklick auf Handler: Stub erzeugen und hinspringen
+        if col != 1:
+            return
+        handler = (item.text(1) or "").strip()
+        if not handler:
+            # Vorschlag generieren
+            base = getattr(self._current_ctrl, "instance_name", "Control") or "Control"
+            handler = f"{base}_{item.text(0)}"
+            item.setText(1, handler)
+        try:
+            self.main_window.ensure_code_editor_window(focus=True)
+            # best-effort: springe/marker
+            self.main_window.jump_to_symbol(handler)
+        except Exception:
+            pass
+
+    def _on_method_double_clicked(self, item, col):
+        if col != 1:
+            return
+        name = (item.text(1) or "").strip()
+        if not name:
+            base = getattr(self._current_ctrl, "instance_name", "Control") or "Control"
+            name = f"{base}_{item.text(0)}"
+            item.setText(1, name)
+        try:
+            self.main_window.ensure_code_editor_window(focus=True)
+            self.main_window.jump_to_symbol(name)
+        except Exception:
+            pass
+
+class ArrowFontProxyStyle(QProxyStyle):
+    def __init__(self, base=None, font_family="Segoe UI Symbol"):
+        super().__init__(base)
+        self.font_family = font_family
+
+    def drawPrimitive(self, elem, opt, painter, widget=None):
+        # ComboBox Pfeil
+        if elem == QStyle.PE_IndicatorArrowDown:
+            self._draw_glyph(painter, opt.rect, "▼")
+            return
+        if elem == QStyle.PE_IndicatorArrowUp:
+            self._draw_glyph(painter, opt.rect, "▲")
+            return
+        if elem == QStyle.PE_IndicatorArrowLeft:
+            self._draw_glyph(painter, opt.rect, "◀")
+            return
+        if elem == QStyle.PE_IndicatorArrowRight:
+            self._draw_glyph(painter, opt.rect, "▶")
+            return
+        super().drawPrimitive(elem, opt, painter, widget)
+
+    def _draw_glyph(self, painter: QPainter, rect, glyph: str):
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(QPen(QColor(255, 220, 0)))
+        f = QFont(self.font_family)
+        f.setBold(True)
+        # Größe an Rect koppeln
+        f.setPixelSize(max(10, min(rect.width(), rect.height()) - 2))
+        painter.setFont(f)
+        painter.drawText(rect, Qt.AlignCenter, glyph)
+        painter.restore()
+        
 class MainWindow(QMainWindow):
     def set_designer_tool(self, tool_name: str) -> None:
         """Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...)."""
@@ -12638,9 +13312,30 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+
+    # --- Designer -> Objektinspektor Sync ---------------------------------
+    def on_designer_selection_changed(self, ctrl):
+        """Wird vom PixelGridCanvas gerufen, wenn sich die Auswahl ändert."""
+        try:
+            oi = getattr(self, "object_inspector", None)
+            if oi is not None:
+                oi.set_current(ctrl)
+        except Exception:
+            pass
+
+    def on_designer_controls_changed(self, controls):
+        """Wird vom PixelGridCanvas gerufen, wenn Controls hinzugefügt/entfernt werden."""
+        try:
+            oi = getattr(self, "object_inspector", None)
+            if oi is not None:
+                oi.set_controls_list(controls)
+        except Exception:
+            pass
+
+
     def __init__(self):
         super().__init__()
-        
+
         self.mdi = QMdiArea(self)
         
         pal = self.mdi.palette()
@@ -12663,12 +13358,53 @@ class MainWindow(QMainWindow):
         menubar = self.menuBar()
         menubar.setFont(f1)
         menubar.font().setBold(True)
+
+        # Build custom chrome (TitleBar + MenuBar) at the very top
+        try:
+            top = QWidget()
+            top_lay = QVBoxLayout(top)
+            top_lay.setContentsMargins(0, 0, 0, 0)
+            top_lay.setSpacing(0)
+            top_lay.addWidget(menubar)
+            self.setMenuWidget(top)
+        except Exception:
+            self._main_titlebar = None
+
+        # Keep "MDI child buttons" in sync with the active subwindow (maximize/restore)
+        try:
+            self.mdi.subWindowActivated.connect(self._on_mdi_subwindow_activated)
+        except Exception:
+            pass
+
         
         menu_file       = menubar.addMenu("Datei")
         menu_file.setFont(f2)
         
         menu_edit       = menubar.addMenu("Editieren")
         menu_display    = menubar.addMenu("Anzeige")
+        menu_display.setFont(f2)
+
+        # Ansicht/Anzeige: mindestens eine Action hinzufügen, sonst öffnet Qt das Menü nicht (leeres Menü => unsichtbar)
+        act_view_regie = QAction("Regiezentrum", self)
+        act_view_designer = QAction("Designer", self)
+        act_view_editor = QAction("Editor", self)
+        act_view_table = QAction("Tabellen-Designer", self)
+
+        act_view_sql = QAction("SQL Builder", self)
+        act_view_regie.triggered.connect(self.on_action_view_regiecenter)
+        act_view_designer.triggered.connect(self.on_action_view_designer)
+        act_view_editor.triggered.connect(self.on_action_view_editor)
+        act_view_table.triggered.connect(self.on_action_view_table_designer)
+
+
+        act_view_sql.triggered.connect(self.on_action_view_sql_builder)
+        menu_display.addAction(act_view_regie)
+        menu_display.addAction(act_view_designer)
+        menu_display.addAction(act_view_editor)
+        menu_display.addSeparator()
+        menu_display.addAction(act_view_table)
+        menu_display.addSeparator()
+        menu_display.addAction(act_view_sql)
         menu_properties = menubar.addMenu("Eigenschaften")
         menu_windows    = menubar.addMenu("Fenster")
         menu_help       = menubar.addMenu("Hilfe")
@@ -12770,6 +13506,220 @@ class MainWindow(QMainWindow):
         
         #self.mdi_open_editor()
         self.mdi_open_table_designer()
+
+    def ensure_code_editor_window(self, focus: bool = True):
+        """Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
+
+        Hintergrund: im Projekt existieren mehrere Editor-Typen (EditorWidget vs. FileEditorWindow).
+        Für „Ansicht -> Editor“ und „Bearbeiten“ wollen wir IMMER den FileEditorWindow (Tabs).
+        """
+        # 1) aktives SubWindow
+        try:
+            sub = self.mdi.activeSubWindow() if hasattr(self, "mdi") else None
+            w = sub.widget() if sub else None
+            if isinstance(w, FileEditorWindow):
+                if focus and hasattr(self, "mdi"):
+                    self.mdi.setActiveSubWindow(sub)
+                    try:
+                        w.setFocus()
+                    except Exception:
+                        pass
+                return w
+        except Exception:
+            pass
+
+        # 2) irgendein vorhandenes FileEditorWindow wiederverwenden
+        try:
+            if hasattr(self, "mdi"):
+                for sub in self.mdi.subWindowList():
+                    w = sub.widget()
+                    if isinstance(w, FileEditorWindow):
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                            try:
+                                w.setFocus()
+                            except Exception:
+                                pass
+                        w.raise_()
+                        try:
+                            w.activateWindow()
+                        except Exception:
+                            pass
+                        return w
+        except Exception:
+            pass
+
+        # 3) Fallback: vorhandenen Helper benutzen, falls vorhanden
+        try:
+            if hasattr(self, "_get_or_create_file_editor_window"):
+                w = self._get_or_create_file_editor_window()
+                if focus and hasattr(self, "mdi"):
+                    try:
+                        # _get_or_create_file_editor_window liefert Widget; aktives Subwindow setzen
+                        for sub in self.mdi.subWindowList():
+                            if sub.widget() is w:
+                                self.mdi.setActiveSubWindow(sub)
+                                break
+                    except Exception:
+                        pass
+                    try:
+                        w.setFocus()
+                    except Exception:
+                        pass
+                return w
+        except Exception:
+            pass
+
+        # 4) Notnagel: neu erzeugen
+        try:
+            w = FileEditorWindow(parent=self, initial_path="", initial_text="")
+            if hasattr(self, "mdi"):
+                sub = self.mdi.addSubWindow(w)
+                try:
+                    sub.setWindowTitle("Editor")
+                except Exception:
+                    pass
+                if focus:
+                    self.mdi.setActiveSubWindow(sub)
+            w.show()
+            w.raise_()
+            try:
+                w.activateWindow()
+            except Exception:
+                pass
+            return w
+        except Exception:
+            return None
+        return None
+
+    def jump_to_symbol(self, symbol: str):
+        """Best-effort: springt im aktiven Editor zu 'symbol' (oder legt Marker an)."""
+        symbol = (symbol or "").strip()
+        if not symbol:
+            return
+        w = self.ensure_code_editor_window(focus=True)
+        if w is None:
+            return
+
+        ed = None
+        for attr in ("current_editor", "editor", "code_editor", "text_edit"):
+            if hasattr(w, attr):
+                try:
+                    ed = getattr(w, attr)()
+                except TypeError:
+                    ed = getattr(w, attr)
+                if ed is not None:
+                    break
+        if ed is None:
+            return
+
+        try:
+            txt = ed.document().toPlainText()
+            idx = txt.lower().find(symbol.lower())
+            cur = ed.textCursor()
+            if idx >= 0:
+                cur.setPosition(idx)
+                cur.movePosition(cur.EndOfLine, cur.KeepAnchor)
+                ed.setTextCursor(cur)
+                ed.setFocus()
+                return
+
+            cur.movePosition(cur.End)
+            cur.insertText(f"\n\n* --- designer jump: {symbol} ---\n")
+            ed.setTextCursor(cur)
+            ed.setFocus()
+        except Exception:
+            pass
+
+    def ensure_regie_center(self, focus: bool = True):
+        # vorhandenes RegieCenter suchen
+        try:
+            for sub in self.mdi.subWindowList():
+                w = sub.widget()
+                if w and w.__class__.__name__ == "RegieCenter":
+                    self.regie_center = w
+                    if focus:
+                        self.mdi.setActiveSubWindow(sub)
+                        w.show()
+                        w.raise_()
+                    return w
+        except Exception:
+            pass
+
+        try:
+            dlg = RegieCenter()
+            self.regie_center = dlg
+            sub = self.mdi.addSubWindow(dlg)
+            sub.resize(520, 300)
+            sub.move(30, 30)
+            sub.setWindowTitle("Regiezentrum")
+            dlg.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            return dlg
+        except Exception:
+            return None
+
+    
+    def ensure_designer(self, focus: bool = True):
+        # DockWindows + Form-Designer sicherstellen
+        try:
+            if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
+                _init_designer_panels(self)
+            try:
+                self.obj_inspector_dock.show()
+                self.obj_palette_dock.show()
+            except Exception:
+                pass
+        except Exception as e:
+            QMessageBox.warning(self, "Designer", f"Designer-Docks konnten nicht erstellt werden:\n{e}")
+
+        # FormDesignerWindow im MDI suchen/erzeugen
+        try:
+            fw = getattr(self, "form_designer_window", None)
+            if fw is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is fw:
+                        fw.show()
+                        fw.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return fw
+
+            fw = FormDesignerWindow(self)
+            self.form_designer_window = fw
+            # Canvas referenz merken
+            try:
+                self.designer_canvas = fw.canvas
+            except Exception:
+                pass
+
+            sub = self.mdi.addSubWindow(fw)
+            sub.resize(720, 560)
+            sub.setWindowTitle("Formular-Designer")
+            fw.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            return fw
+        except Exception as e:
+            QMessageBox.warning(self, "Designer", f"Formular-Designer konnte nicht geöffnet werden:\n{e}")
+            return None
+
+    def on_action_view_regiecenter(self):
+        self.ensure_regie_center(focus=True)
+
+    def on_action_view_designer(self):
+        self.ensure_designer(focus=True)
+
+    def on_action_view_editor(self):
+        self.ensure_code_editor_window(focus=True)
+
+    def on_action_view_table_designer(self):
+        self.mdi_open_table_designer()
+
+
+    def on_action_view_sql_builder(self):
+        self.mdi_open_sql_builder()
 
     def on_action_file_open_project(self):
         pass
@@ -13090,6 +14040,38 @@ class MainWindow(QMainWindow):
         status.addWidget(self.status_left, 1)        # Stretch
         status.addPermanentWidget(self.status_mid, 0)
         status.addPermanentWidget(self.status_right, 0)
+    def _on_mdi_subwindow_activated(self, sub: 'QMdiSubWindow') -> None:
+        """Update main titlebar when active MDI subwindow changes/maximizes."""
+        tb = getattr(self, "_main_titlebar", None)
+        if tb is None:
+            return
+        try:
+            active = self.mdi.activeSubWindow()
+        except Exception:
+            active = None
+
+        if active is None:
+            tb.set_child_controls_visible(False)
+            tb.set_child_restore_state(False)
+            return
+
+        try:
+            maximized = active.isMaximized()
+        except Exception:
+            maximized = False
+
+        tb.set_child_controls_visible(maximized)
+        tb.set_child_restore_state(maximized)
+
+        # Keep main window title informative when a child is maximized
+        try:
+            if maximized:
+                self.setWindowTitle(f"{active.windowTitle()} - dBase Runner")
+            else:
+                self.setWindowTitle("dBase Runner")
+        except Exception:
+            pass
+
         
     def mdi_open_editor(self, title="Unbenannt", text=""):
         w = EditorWidget(text)
@@ -13110,6 +14092,14 @@ class MainWindow(QMainWindow):
         sub = self.mdi.addSubWindow(dlg)
         sub.resize(600,250)
         sub.move(56,320)
+        sub.show()
+
+
+    def mdi_open_sql_builder(self):
+        dlg = SqlBuilderWindow(self)
+        sub = self.mdi.addSubWindow(dlg)
+        sub.resize(900, 520)
+        sub.move(40, 60)
         sub.show()
     
     def open_workplace_properties(self):
@@ -13254,7 +14244,7 @@ QMdiSubWindow {{
     border: 2px solid #333333;
 }}
 QMdiSubWindow:title {{
-    background: #0;
+    background: 0;
     color: #ffffff;
 }}
 QComboBox {{
@@ -13459,6 +14449,775 @@ except Exception:
     pass
 
 
+
+# ---------------------------------------------------------------------------
+# SQL Builder (Canvas + Table)
+# ---------------------------------------------------------------------------
+
+def _read_dbf_fields(dbf_path: str) -> List[str]:
+    """Read field names from a DBF header (dBASE III/IV style).
+    Best-effort: returns [] on errors.
+    """
+    try:
+        with open(dbf_path, "rb") as f:
+            hdr = f.read(32)
+            if len(hdr) < 32:
+                return []
+            header_len = int.from_bytes(hdr[8:10], "little", signed=False)
+            f.seek(32)
+            fields = []
+            # field descriptors until 0x0D
+            while True:
+                b = f.read(1)
+                if not b:
+                    break
+                if b == b"\x0d":
+                    break
+                rest = f.read(31)
+                if len(rest) < 31:
+                    break
+                desc = b + rest
+                name_raw = desc[0:11]
+                name = name_raw.split(b"\x00", 1)[0].decode("ascii", errors="ignore").strip()
+                if name:
+                    fields.append(name)
+            return fields
+    except Exception:
+        return []
+
+
+def _read_sqlite_fields(db_path: str) -> (str, List[str]):
+    """Return (table_name, [fields]) for a SQLite database file.
+    If multiple tables exist, asks user to pick later (handled by caller).
+    """
+    # This helper only returns all tables; caller selects.
+    con = sqlite3.connect(db_path)
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        tables = [r[0] for r in cur.fetchall()]
+        return ("", tables)
+    finally:
+        con.close()
+
+
+class SqlConnection:
+    __slots__ = ("src_proxy", "src_field", "dst_proxy", "dst_field")
+
+    def __init__(self, src_proxy, src_field: str, dst_proxy, dst_field: str):
+        self.src_proxy = src_proxy
+        self.src_field = src_field
+        self.dst_proxy = dst_proxy
+        self.dst_field = dst_field
+
+
+class SqlTableProxy(QFrame):
+    """A draggable proxy widget representing a table (DBF or SQLite table)."""
+
+    request_delete = pyqtSignal(object)             # self
+    request_connection = pyqtSignal(object, str, object, str)  # src_proxy, src_field, dst_proxy, dst_field
+
+    def __init__(self, canvas, table_name: str, fields: List[str], source_path: str = "", source_kind: str = "dbf"):
+        super().__init__(canvas)
+        self.canvas = canvas
+        self.table_name = table_name
+        self.source_path = source_path
+        self.source_kind = source_kind  # 'dbf' | 'sqlite'
+        self._dragging = False
+        self._drag_off = QPoint(0, 0)
+
+        self.setFrameShape(QFrame.StyledPanel)
+        self.setLineWidth(1)
+        self.setStyleSheet("""
+            SqlTableProxy { background: #2a2a2a; border: 1px solid rgba(0,0,0,140); }
+            QLabel { color: #ffd800; }
+            QCheckBox { color: #eaeaea; }
+            QListWidget { background: #1f1f1f; color: #eaeaea; border: 1px solid rgba(0,0,0,120); }
+        """)
+        self.setFixedSize(230, 240)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(6)
+
+        hdr = QHBoxLayout()
+        hdr.setContentsMargins(0, 0, 0, 0)
+
+        self.lbl_title = QLabel(table_name)
+        self.lbl_title.setStyleSheet("font-weight: bold; color: #ffd800;")
+        hdr.addWidget(self.lbl_title, 1)
+
+        self.btn_close = QToolButton()
+        self.btn_close.setText("×")
+        self.btn_close.setAutoRaise(True)
+        self.btn_close.setToolTip("Tabelle entfernen")
+        self.btn_close.clicked.connect(lambda: self.request_delete.emit(self))
+        hdr.addWidget(self.btn_close, 0)
+
+        lay.addLayout(hdr)
+
+        self.chk_all = QCheckBox("Alle wählen")
+        self.chk_all.stateChanged.connect(self._on_all_changed)
+        lay.addWidget(self.chk_all)
+
+        self.listw = QListWidget()
+        self.listw.setSelectionMode(QListWidget.SingleSelection)
+        self.listw.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.listw.customContextMenuRequested.connect(self._on_list_context_menu)
+        lay.addWidget(self.listw, 1)
+
+        for fn in fields:
+            # Ensure list shows ONLY the field name (no table prefix, no type hints)
+            fn_clean = str(fn).strip()
+            if not fn_clean:
+                continue
+            # drop possible "table.field"
+            if "." in fn_clean:
+                fn_clean = fn_clean.split(".")[-1].strip()
+            # drop possible "FIELD (type)" or "FIELD type"
+            if "(" in fn_clean:
+                fn_clean = fn_clean.split("(", 1)[0].strip()
+            if " " in fn_clean:
+                fn_clean = fn_clean.split(" ", 1)[0].strip()
+
+            it = QListWidgetItem(fn_clean)
+            it.setFlags(it.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            it.setCheckState(Qt.Unchecked)
+            self.listw.addItem(it)
+
+        # Drag to connect
+        self.listw.viewport().installEventFilter(self)
+
+    def _on_all_changed(self, _state: int):
+        checked = self.chk_all.isChecked()
+        for i in range(self.listw.count()):
+            it = self.listw.item(i)
+            it.setCheckState(Qt.Checked if checked else Qt.Unchecked)
+
+    def checked_fields(self) -> List[str]:
+        res = []
+        for i in range(self.listw.count()):
+            it = self.listw.item(i)
+            if it.checkState() == Qt.Checked:
+                res.append(it.text())
+        return res
+
+    def _on_list_context_menu(self, pos):
+        m = QMenu(self)
+        act_all = m.addAction("Alle wählen" if not self.chk_all.isChecked() else "Alle abwählen")
+        act_all.triggered.connect(lambda: self.chk_all.setChecked(not self.chk_all.isChecked()))
+        m.addSeparator()
+        act_del = m.addAction("Tabelle löschen")
+        act_del.triggered.connect(lambda: self.request_delete.emit(self))
+        m.exec_(self.listw.mapToGlobal(pos))
+
+    def contextMenuEvent(self, ev):
+        m = QMenu(self)
+        act_del = m.addAction("Tabelle löschen")
+        act_del.triggered.connect(lambda: self.request_delete.emit(self))
+        m.exec_(ev.globalPos())
+
+    # --- drag proxy itself (move) ---
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self._dragging = True
+            self._drag_off = ev.pos()
+            ev.accept()
+            return
+        super().mousePressEvent(ev)
+
+    def mouseMoveEvent(self, ev):
+        if self._dragging and (ev.buttons() & Qt.LeftButton):
+            new_pos = self.mapToParent(ev.pos() - self._drag_off)
+            self.move(new_pos)
+            self.canvas.update()
+            self.canvas.proxy_moved_or_resized()
+            ev.accept()
+            return
+        super().mouseMoveEvent(ev)
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self._dragging = False
+            self.canvas.update()
+            self.canvas.proxy_moved_or_resized()
+        super().mouseReleaseEvent(ev)
+
+    # --- drag connections from list item to list item ---
+    def eventFilter(self, obj, ev):
+        if obj is self.listw.viewport():
+            if ev.type() == QEvent.MouseButtonPress and ev.button() == Qt.LeftButton:
+                it = self.listw.itemAt(ev.pos())
+                if it is not None:
+                    self.canvas._drag_src_proxy = self
+                    self.canvas._drag_src_field = it.text()
+                    self.canvas._dragging_link = True
+                    self.canvas._drag_pos = self.listw.viewport().mapToGlobal(ev.pos())
+                return False
+            if ev.type() == QEvent.MouseMove and self.canvas._dragging_link and (ev.buttons() & Qt.LeftButton):
+                self.canvas._drag_pos = self.listw.viewport().mapToGlobal(ev.pos())
+                self.canvas.update()
+                return False
+            if ev.type() == QEvent.MouseButtonRelease and self.canvas._dragging_link and ev.button() == Qt.LeftButton:
+                # drop target
+                gpos = self.listw.viewport().mapToGlobal(ev.pos())
+                w = QApplication.widgetAt(gpos)
+                target_proxy = None
+                target_field = None
+                if w is not None:
+                    # walk up to find a SqlTableProxy
+                    p = w
+                    while p is not None and not isinstance(p, SqlTableProxy):
+                        p = p.parentWidget()
+                    if isinstance(p, SqlTableProxy):
+                        target_proxy = p
+                        # if released on list viewport, determine field
+                        vp = None
+                        try:
+                            vp = target_proxy.listw.viewport()
+                        except Exception:
+                            vp = None
+                        if vp is not None and (w is vp or vp.isAncestorOf(w)):
+                            local = vp.mapFromGlobal(gpos)
+                            it = target_proxy.listw.itemAt(local)
+                            if it is not None:
+                                target_field = it.text()
+
+                if target_proxy is not None and target_field is not None and target_proxy is not self:
+                    self.request_connection.emit(self, self.canvas._drag_src_field, target_proxy, target_field)
+
+                self.canvas._dragging_link = False
+                self.canvas._drag_src_proxy = None
+                self.canvas._drag_src_field = None
+                self.canvas.update()
+                return False
+        return super().eventFilter(obj, ev)
+
+
+class SqlCanvas(QFrame):
+    """A scrollable canvas that hosts SqlTableProxy widgets and draws connections."""
+
+    selection_changed = pyqtSignal(object)  # reserved (future)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.setMinimumSize(1400, 900)
+        self.setStyleSheet("SqlCanvas { background: #1b1b1b; }")
+        self.proxies: List[SqlTableProxy] = []
+        self.connections: List[SqlConnection] = []
+
+        # drag-link state
+        self._dragging_link = False
+        self._drag_src_proxy = None
+        self._drag_src_field = None
+        self._drag_pos = None
+
+        self.setContextMenuPolicy(Qt.DefaultContextMenu)
+
+    def proxy_moved_or_resized(self):
+        # expand canvas if needed (simple: ensure all proxies fit)
+        try:
+            max_r = 0
+            max_b = 0
+            for p in self.proxies:
+                g = p.geometry()
+                max_r = max(max_r, g.right() + 80)
+                max_b = max(max_b, g.bottom() + 80)
+            self.setMinimumSize(max(1200, max_r), max(800, max_b))
+        except Exception:
+            pass
+
+    def add_table_proxy(self, table_name: str, fields: List[str], source_path: str = "", source_kind: str = "dbf", pos: QPoint = None):
+        pr = SqlTableProxy(self, table_name, fields, source_path=source_path, source_kind=source_kind)
+        pr.request_delete.connect(self.remove_proxy)
+        pr.request_connection.connect(self.add_connection)
+        self.proxies.append(pr)
+        if pos is None:
+            pos = QPoint(40 + 40*len(self.proxies), 40 + 30*len(self.proxies))
+        pr.move(pos)
+        pr.show()
+        self.proxy_moved_or_resized()
+        self.update()
+        return pr
+
+    def remove_proxy(self, proxy: SqlTableProxy):
+        # remove connections
+        self.connections = [c for c in self.connections if c.src_proxy is not proxy and c.dst_proxy is not proxy]
+        try:
+            self.proxies.remove(proxy)
+        except Exception:
+            pass
+        proxy.setParent(None)
+        proxy.deleteLater()
+        self.proxy_moved_or_resized()
+        self.update()
+
+    def add_connection(self, src_proxy, src_field: str, dst_proxy, dst_field: str):
+        # avoid duplicates
+        for c in self.connections:
+            if c.src_proxy is src_proxy and c.dst_proxy is dst_proxy and c.src_field == src_field and c.dst_field == dst_field:
+                return
+            if c.src_proxy is dst_proxy and c.dst_proxy is src_proxy and c.src_field == dst_field and c.dst_field == src_field:
+                return
+        self.connections.append(SqlConnection(src_proxy, src_field, dst_proxy, dst_field))
+        self.update()
+
+    def _connection_segments(self, c: SqlConnection):
+        # compute polyline segments in canvas coordinates
+        sp = c.src_proxy
+        dp = c.dst_proxy
+        sg = sp.geometry()
+        dg = dp.geometry()
+        sy = sg.top() + 58 + self._field_index_y(sp, c.src_field)
+        dy = dg.top() + 58 + self._field_index_y(dp, c.dst_field)
+
+        # decide which side (left/right) based on relative x
+        if sg.center().x() <= dg.center().x():
+            sx_edge = sg.right()
+            dx_edge = dg.left()
+            dir_out = +1
+        else:
+            sx_edge = sg.left()
+            dx_edge = dg.right()
+            dir_out = -1
+
+        sx = sx_edge
+        dx = dx_edge
+
+        s0 = QPoint(sx, sy)
+        s1 = QPoint(sx + dir_out*12, sy)
+        e1 = QPoint(dx - dir_out*12, dy)
+        e0 = QPoint(dx, dy)
+
+        midx = int((s1.x() + e1.x())/2)
+        p2 = QPoint(midx, s1.y())
+        p3 = QPoint(midx, e1.y())
+
+        pts = [s0, s1, p2, p3, e1, e0]
+        return pts
+
+    def _field_index_y(self, proxy: SqlTableProxy, field: str) -> int:
+        # return y offset inside list widget item, best-effort
+        try:
+            for i in range(proxy.listw.count()):
+                it = proxy.listw.item(i)
+                if it.text() == field:
+                    r = proxy.listw.visualItemRect(it)
+                    return r.center().y()
+        except Exception:
+            pass
+        return 10
+
+    def _hit_test_connection(self, pos: QPoint, tol: int = 6):
+        # simple distance to polyline segments
+        def dist_point_to_seg(p, a, b):
+            ax, ay = a.x(), a.y()
+            bx, by = b.x(), b.y()
+            px, py = p.x(), p.y()
+            vx, vy = bx-ax, by-ay
+            wx, wy = px-ax, py-ay
+            vv = vx*vx + vy*vy
+            if vv == 0:
+                return ((px-ax)**2 + (py-ay)**2) ** 0.5
+            t = (wx*vx + wy*vy)/vv
+            t = 0 if t < 0 else 1 if t > 1 else t
+            cx, cy = ax + t*vx, ay + t*vy
+            return ((px-cx)**2 + (py-cy)**2) ** 0.5
+
+        for c in self.connections:
+            pts = self._connection_segments(c)
+            for a, b in zip(pts, pts[1:]):
+                if dist_point_to_seg(pos, a, b) <= tol:
+                    return c
+        return None
+
+
+    def _find_builder_host(self):
+        """Walk up the parent chain to find the SqlBuilderWindow (or wrapper) that owns this canvas."""
+        w = self
+        # parentWidget() is more reliable than window() here because the canvas lives inside a QScrollArea viewport
+        while w is not None:
+            if hasattr(w, "add_table_dialog") and hasattr(w, "preview_sql"):
+                return w
+            try:
+                w = w.parentWidget()
+            except Exception:
+                break
+        # fallback: try window(), then its parents (covers QMdiSubWindow cases)
+        try:
+            w = self._find_builder_host()
+        except Exception:
+            w = None
+        while w is not None:
+            if hasattr(w, "add_table_dialog") and hasattr(w, "preview_sql"):
+                return w
+            try:
+                w = w.parentWidget()
+            except Exception:
+                break
+        return None
+
+    def contextMenuEvent(self, ev):
+        # if right-click on a connection -> connection menu
+        c = self._hit_test_connection(ev.pos())
+        if c is not None:
+            m = QMenu(self)
+            act_help = m.addAction("Hilfe")
+            act_help.setShortcut(QKeySequence("F1"))
+            act_preview = m.addAction("Vorschau")
+            m.addSeparator()
+            act_save = m.addAction("Speichern")
+            act_save_as = m.addAction("Speichern unter...")
+            m.addSeparator()
+            act_del = m.addAction("Löschen")
+
+            chosen = m.exec_(ev.globalPos())
+            if chosen is act_del:
+                try:
+                    self.connections.remove(c)
+                except Exception:
+                    pass
+                self.update()
+            elif chosen is act_help:
+                self._show_help()
+            elif chosen is act_preview:
+                # bubble to window if possible
+                w = self._find_builder_host()
+                if hasattr(w, "preview_sql"):
+                    w.preview_sql()
+            return
+
+        # canvas menu
+        m = QMenu(self)
+        act_new = m.addAction("Neu")
+        act_load = m.addAction("Laden")
+        m.addSeparator()
+        act_add = m.addAction("Hinzufügen")
+        m.addSeparator()
+        act_save = m.addAction("Speichern")
+        act_save_as = m.addAction("Speichern unter...")
+        m.addSeparator()
+        act_help = m.addAction("Hilfe")
+        act_help.setShortcut(QKeySequence("F1"))
+        act_preview = m.addAction("Vorschau")
+
+        chosen = m.exec_(ev.globalPos())
+        w = self._find_builder_host()
+        if chosen is act_add and hasattr(w, "add_table_dialog"):
+            w.add_table_dialog(ev.globalPos())
+        elif chosen is act_new and hasattr(w, "new_builder"):
+            w.new_builder()
+        elif chosen is act_load and hasattr(w, "load_builder"):
+            w.load_builder()
+        elif chosen is act_save and hasattr(w, "save_builder"):
+            w.save_builder()
+        elif chosen is act_save_as and hasattr(w, "save_builder_as"):
+            w.save_builder_as()
+        elif chosen is act_help:
+            self._show_help()
+        elif chosen is act_preview and hasattr(w, "preview_sql"):
+            w.preview_sql()
+
+    def _show_help(self):
+        QMessageBox.information(self, "SQL Builder – Hilfe",
+            """Drag & Drop:\n"
+            "- Feld in einer Liste anklicken, linke Maustaste halten und auf ein Feld in einer anderen Tabelle ziehen.\n"
+            "- Es wird eine Verbindung (Join) gezeichnet.\n\n"
+            "Auswahl:\n"
+            "- 'Alle wählen' selektiert/entfernt alle Felder.\n"
+            "- Sonst werden nur angehakte Felder im SELECT verwendet.\n\n"
+            "Kontextmenü:\n"
+            "- Rechtsklick auf Canvas: Neu/Laden/Speichern/Hinzufügen/Vorschau.\n"
+            "- Rechtsklick auf Linie: Löschen.\n""")
+
+    def paintEvent(self, ev):
+        super().paintEvent(ev)
+
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+
+        # draw connections
+        pen = QPen(QColor(255, 216, 0, 210))
+        pen.setWidth(2)
+        p.setPen(pen)
+
+        for c in self.connections:
+            pts = self._connection_segments(c)
+            for a, b in zip(pts, pts[1:]):
+                p.drawLine(a, b)
+
+        # draw currently dragging preview line
+        if self._dragging_link and self._drag_src_proxy is not None and self._drag_pos is not None:
+            sp = self._drag_src_proxy
+            sg = sp.geometry()
+            sy = sg.top() + 70
+            if self._drag_src_field:
+                sy = sg.top() + 58 + self._field_index_y(sp, self._drag_src_field)
+
+            gpos = self._drag_pos
+            end = self.mapFromGlobal(gpos)
+            if sg.center().x() <= end.x():
+                sx = sg.right()
+                dir_out = +1
+            else:
+                sx = sg.left()
+                dir_out = -1
+            s0 = QPoint(sx, sy)
+            s1 = QPoint(sx + dir_out*12, sy)
+            e1 = QPoint(end.x() - dir_out*12, end.y())
+            e0 = QPoint(end.x(), end.y())
+            midx = int((s1.x()+e1.x())/2)
+            pts = [s0, s1, QPoint(midx, s1.y()), QPoint(midx, e1.y()), e1, e0]
+            for a,b in zip(pts, pts[1:]):
+                p.drawLine(a,b)
+
+
+class SqlBuilderWindow(QWidget):
+    """SQL Builder window: scrollable canvas on top, QTableWidget below."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._project_path = None
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(6, 6, 6, 6)
+        root.setSpacing(6)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self.canvas = SqlCanvas()
+        self.scroll.setWidget(self.canvas)
+
+        root.addWidget(self.scroll, 3)
+
+        self.table = QTableWidget(0, 2)
+        self.table.setHorizontalHeaderLabels(["SQL", "Info"])
+        try:
+            self.table.horizontalHeader().setStretchLastSection(True)
+            self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        except Exception:
+            pass
+        root.addWidget(self.table, 2)
+
+        # F1 help
+        act_help = QAction(self)
+        act_help.setShortcut(QKeySequence("F1"))
+        act_help.triggered.connect(lambda: self.canvas._show_help())
+        self.addAction(act_help)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    # ---- canvas menu actions ----
+    def new_builder(self):
+        # clear canvas
+        for pxy in list(self.canvas.proxies):
+            self.canvas.remove_proxy(pxy)
+        self.canvas.connections.clear()
+        self.canvas.update()
+        self._project_path = None
+        self._set_table_preview("")
+
+    def add_table_dialog(self, _global_pos=None):
+        # choose DBF or SQLite file
+        fn, _ = QFileDialog.getOpenFileName(self, "Tabelle hinzufügen", "", "DBF Dateien (*.dbf);;SQLite DB (*.db *.sqlite *.sqlite3);;Alle Dateien (*.*)")
+        if not fn:
+            return
+        path = fn
+        lower = fn.lower()
+
+        if lower.endswith(".dbf"):
+            fields = _read_dbf_fields(path)
+            table_name = Path(path).stem
+            self.canvas.add_table_proxy(table_name, fields, source_path=path, source_kind="dbf")
+            return
+
+        # sqlite
+        try:
+            _dummy, tables = _read_sqlite_fields(path)
+        except Exception as e:
+            QMessageBox.warning(self, "SQLite", f"Konnte DB nicht öffnen:\n{e}")
+            return
+        if not tables:
+            QMessageBox.information(self, "SQLite", "Keine Tabellen gefunden.")
+            return
+        if len(tables) == 1:
+            table = tables[0]
+        else:
+            table, ok = QInputDialog.getItem(self, "Tabelle wählen", "SQLite Tabelle:", tables, 0, False)
+            if not ok or not table:
+                return
+        # read fields
+        try:
+            con = sqlite3.connect(path)
+            cur = con.cursor()
+            cur.execute(f"PRAGMA table_info('{table}')")
+            fields = [r[1] for r in cur.fetchall()]
+        except Exception as e:
+            QMessageBox.warning(self, "SQLite", f"Konnte Felder nicht lesen:\n{e}")
+            return
+        finally:
+            try:
+                con.close()
+            except Exception:
+                pass
+        self.canvas.add_table_proxy(table, fields, source_path=path, source_kind="sqlite")
+
+    def save_builder(self):
+        if not self._project_path:
+            return self.save_builder_as()
+        self._save_to_path(self._project_path)
+
+    def save_builder_as(self):
+        fn, _ = QFileDialog.getSaveFileName(self, "SQL Builder speichern", "", "SQL Builder Projekt (*.sqlb.json);;Alle Dateien (*.*)")
+        if not fn:
+            return
+        if not fn.lower().endswith(".json"):
+            fn = fn + ".sqlb.json"
+        self._project_path = fn
+        self._save_to_path(fn)
+
+    def load_builder(self):
+        fn, _ = QFileDialog.getOpenFileName(self, "SQL Builder laden", "", "SQL Builder Projekt (*.sqlb.json *.json);;Alle Dateien (*.*)")
+        if not fn:
+            return
+        try:
+            data = json.loads(Path(fn).read_text(encoding="utf-8"))
+        except Exception as e:
+            QMessageBox.warning(self, "Laden", f"Konnte Projekt nicht laden:\n{e}")
+            return
+        self.new_builder()
+        self._project_path = fn
+
+        # proxies
+        idmap = {}
+        for rec in data.get("tables", []):
+            name = rec.get("name", "")
+            fields = rec.get("fields", [])
+            spath = rec.get("source_path", "")
+            skind = rec.get("source_kind", "dbf")
+            pos = QPoint(int(rec.get("x", 40)), int(rec.get("y", 40)))
+            pr = self.canvas.add_table_proxy(name, fields, source_path=spath, source_kind=skind, pos=pos)
+            pr.chk_all.setChecked(bool(rec.get("all", False)))
+            checks = set(rec.get("checked", []))
+            for i in range(pr.listw.count()):
+                it = pr.listw.item(i)
+                if it.text() in checks:
+                    it.setCheckState(Qt.Checked)
+            idmap[rec.get("id")] = pr
+
+        # connections
+        for c in data.get("connections", []):
+            sp = idmap.get(c.get("src_id"))
+            dp = idmap.get(c.get("dst_id"))
+            if sp and dp:
+                self.canvas.add_connection(sp, c.get("src_field", ""), dp, c.get("dst_field", ""))
+
+        self.canvas.proxy_moved_or_resized()
+        self.canvas.update()
+
+    def _save_to_path(self, fn: str):
+        try:
+            tables = []
+            # stable ids
+            ids = {p: f"t{idx}" for idx, p in enumerate(self.canvas.proxies)}
+            for pxy in self.canvas.proxies:
+                g = pxy.geometry()
+                tables.append({
+                    "id": ids[pxy],
+                    "name": pxy.table_name,
+                    "source_path": pxy.source_path,
+                    "source_kind": pxy.source_kind,
+                    "x": g.x(),
+                    "y": g.y(),
+                    "fields": [pxy.listw.item(i).text() for i in range(pxy.listw.count())],
+                    "all": bool(pxy.chk_all.isChecked()),
+                    "checked": pxy.checked_fields(),
+                })
+            conns = []
+            for c in self.canvas.connections:
+                conns.append({
+                    "src_id": ids.get(c.src_proxy),
+                    "src_field": c.src_field,
+                    "dst_id": ids.get(c.dst_proxy),
+                    "dst_field": c.dst_field,
+                })
+            data = {"tables": tables, "connections": conns}
+            Path(fn).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception as e:
+            QMessageBox.warning(self, "Speichern", f"Konnte Projekt nicht speichern:\n{e}")
+
+    # ---- preview SQL ----
+    def preview_sql(self):
+        sql = self.build_sql()
+        self._set_table_preview(sql)
+
+    def _set_table_preview(self, sql: str):
+        self.table.setRowCount(0)
+        if not sql:
+            return
+        self.table.setRowCount(1)
+        self.table.setItem(0, 0, QTableWidgetItem(sql))
+        self.table.setItem(0, 1, QTableWidgetItem("Vorschau"))
+
+    def build_sql(self) -> str:
+        if not self.canvas.proxies:
+            return ""
+
+        proxies = self.canvas.proxies
+        conns = self.canvas.connections
+
+        # field list
+        selected = []
+        any_checked = False
+        for pxy in proxies:
+            if pxy.chk_all.isChecked():
+                fs = [pxy.listw.item(i).text() for i in range(pxy.listw.count())]
+                any_checked = True
+                for f in fs:
+                    selected.append(f"{pxy.table_name}.{f}")
+            else:
+                fs = pxy.checked_fields()
+                if fs:
+                    any_checked = True
+                    for f in fs:
+                        selected.append(f"{pxy.table_name}.{f}")
+
+        if not any_checked:
+            select_part = "*"
+        else:
+            # if only one table, de-qualify for nicer output
+            if len(proxies) == 1:
+                select_part = ", ".join([s.split(".", 1)[1] for s in selected]) if selected else "*"
+            else:
+                select_part = ", ".join(selected) if selected else "*"
+
+        base = proxies[0].table_name
+        sql = f"SELECT {select_part} FROM {base}"
+
+        # naive joins from connections
+        used_tables = {base}
+        pending = True
+        # Build adjacency for easier chaining
+        edges = []
+        for c in conns:
+            edges.append((c.src_proxy.table_name, c.src_field, c.dst_proxy.table_name, c.dst_field))
+            edges.append((c.dst_proxy.table_name, c.dst_field, c.src_proxy.table_name, c.src_field))
+
+        # keep joining until no progress
+        while pending:
+            pending = False
+            for a, af, b, bf in edges:
+                if a in used_tables and b not in used_tables:
+                    sql += f" JOIN {b} ON {a}.{af} = {b}.{bf}"
+                    used_tables.add(b)
+                    pending = True
+
+        return sql
+
+
 def center_on_screen(widget):
     widget.adjustSize()
     screen = QApplication.primaryScreen()
@@ -13472,7 +15231,8 @@ def main():
     if app is not None:
         f1filter = F1Filter()
         app.installEventFilter(f1filter)
-        app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
+        #app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
+        app.setStyle(ArrowFontProxyStyle(app.style()))
         global MAINAPP
         MAINAPP = MainWindow()
         MAINAPP.show()
