@@ -69,3 +69,5 @@ src/dBaseRunner_patched48.py
 src/dBaseRunner_patched49.py
 src/dBaseRunner_patched50.py
 src/dBaseRunner_patched53.py
+*.mo
+src/resources_rc.py

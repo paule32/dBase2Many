@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# File:   dbase.po - English translation for dBaseRunner.py
+# Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+#         all rights reserved
+# ---------------------------------------------------------------------------
+msgid ""
+msgstr ""
+"Project-Id-Version: dbase 2026 1.0\n"
+"Report-Msgid-Bugs-To: paule32.jk@gmail.com\n"
+"POT-Creation-Date: 2026-02-24 00:00+0100\n"
+"PO-Revision-Date: 2026-02-24 00:00+0100\n"
+"Last-Translator: paule32\n"
+"Language-Team: paule32\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# --- Menü / Aktionen (Beispiele) ---
+
+msgid "View"
+msgstr "View"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "English"
+msgstr "English"
+
+msgid "German"
+msgstr "German"
+
+msgid "File"
+msgstr "File"
+
+msgid "Open"
+msgstr "Open"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Exit"
+msgstr "Exit"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "OK"
+msgstr "OK"

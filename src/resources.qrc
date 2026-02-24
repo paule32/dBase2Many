@@ -1,7 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>icons/help.png</file>
-        <file>icons/inser.png</file>
+        <file>icons/insert.png</file>
         <file>icons/new.png</file>
         <file>icons/open.png</file>
         <file>icons/save.png</file>
