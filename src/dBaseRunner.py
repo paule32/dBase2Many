@@ -14,11 +14,13 @@ from dataclasses import dataclass, field
 from typing      import Dict, List, Optional, Union, Any, TextIO
 from pathlib     import Path
 from copy        import deepcopy
+
+from html        import unescape
 from html.parser import HTMLParser
-import json
-import sqlite3
 
-
+# ---------------------------------------------------------------------------
+# dbase interpreter lexer + parser ...
+# ---------------------------------------------------------------------------
 from gen.dBaseLexer         import dBaseLexer
 from gen.dBaseParser        import dBaseParser
 from gen.dBaseParserVisitor import dBaseParserVisitor
@@ -28,6 +30,19 @@ import sys
 import os
 import re
 import pprint
+
+# ---------------------------------------------------------------------------
+# needed module imports for chm help viewer ...
+# ---------------------------------------------------------------------------
+import shutil
+import tempfile
+import subprocess
+
+# ---------------------------------------------------------------------------
+# database module imports ....
+# ---------------------------------------------------------------------------
+import json
+import sqlite3
 
 # ---------------------------------------------------------------------------
 # Qt Backend Factory + Property Mapping
@@ -46,8 +61,6 @@ from PyQt5.QtGui     import (
     QGuiApplication
 )
 from PyQt5.QtWidgets import (
-    QScrollArea,
-    QFrame,
     QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
     QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
     QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
@@ -57,11 +70,8 @@ from PyQt5.QtWidgets import (
     QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
     QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
     QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
-    QTreeView, QSplitter, QTabBar, QRubberBand,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QHeaderView,
-    QDockWidget
+    QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem,
+    QHeaderView, QDockWidget, QScrollArea
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEngineScript
@@ -462,165 +472,38 @@ def decompile_chm_windows(chm_path: str, out_dir: str) -> bool:
     except Exception:
         return False
 
+def open_helpwindow(mdi_area, mw: 'QMainWindow'):
+    # wichtig: nicht als eigenes Top-Level laufen
+    mw.setWindowFlags(Qt.Widget)
+    mw.setParent(mdi_area)
+
+    sub = QMdiSubWindow()
+    sub.setWidget(mw)
+    sub.setAttribute(Qt.WA_DeleteOnClose, True)
+
+    mdi_area.addSubWindow(sub)
+    sub.resize(mw.sizeHint())
+    sub.show()
+    return sub
+
 class F1Filter(QObject):
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F1:
             print("F1 global abgefangen")
+            help_window = HelpMainWindow()
+            open_helpwindow(MAINAPP.mdi, help_window)
+            
+            help_window.dark_mode = False
+            help_window._apply_theme()
+            help_window.dark_mode = True
+            help_window._apply_theme()
+            
+            help_window.open_from_args("dBaseHelp_de.chm", "index.html")
             return True  # Event stoppt hier
         if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F2:
             pass
             #if EDIT_OBJECT
         return False
-
-class HelpTitleBar(QWidget):
-    def __init__(self, window: QMainWindow):
-        super().__init__(window)
-        self.window = window
-        self.setObjectName("TitleBar")
-
-        self._drag_pos: Optional[QPoint] = None
-        self._dragging = False
-        self._was_maximized = False
-        self._press_offset_ratio = 0.5  # Position innerhalb der Titlebar beim Restore aus Maximized
-
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 6, 10, 6)
-        lay.setSpacing(8)
-
-        self.title_label = QLabel(window.windowTitle())
-        self.title_label.setObjectName("TitleLabel")
-        lay.addWidget(self.title_label, 1)
-
-        self.btn_min = QPushButton("–")
-        self.btn_min.setObjectName("TitleBtnMin")
-        self.btn_min.setFixedSize(36, 28)
-        self.btn_min.clicked.connect(self.window.showMinimized)
-
-        self.btn_max = QPushButton("▢")
-        self.btn_max.setObjectName("TitleBtnMax")
-        self.btn_max.setFixedSize(36, 28)
-        self.btn_max.clicked.connect(self.toggle_max_restore)
-
-        self.btn_close = QPushButton("✕")
-        self.btn_close.setObjectName("TitleBtnClose")
-        self.btn_close.setFixedSize(36, 28)
-        self.btn_close.clicked.connect(self.window.close)
-
-        lay.addWidget(self.btn_min)
-        lay.addWidget(self.btn_max)
-        lay.addWidget(self.btn_close)
-
-        self.window.windowTitleChanged.connect(self.title_label.setText)
-
-    def toggle_max_restore(self):
-        if self.window.isMaximized():
-            self.window.showNormal()
-        else:
-            self.window.showMaximized()
-
-    def _is_on_buttons(self, pos) -> bool:
-        child = self.childAt(pos)
-        return child in (self.btn_min, self.btn_max, self.btn_close)
-
-    def _snap_geometry(self, gp: QPoint):
-        """
-        Returns QRect or None. gp = global mouse pos on release.
-        """
-        screen = QGuiApplication.screenAt(gp)
-        if not screen:
-            return None
-
-        area = screen.availableGeometry()  # ohne Taskbar
-        margin = 10  # "Snap-Zone" in px
-
-        x, y = gp.x(), gp.y()
-
-        left = x <= area.left() + margin
-        right = x >= area.right() - margin
-        top = y <= area.top() + margin
-
-        # Optional: Viertel bei Ecken
-        if top and left:
-            return QRect(area.left(), area.top(), area.width() // 2, area.height() // 2)
-        if top and right:
-            return QRect(area.left() + area.width() // 2, area.top(), area.width() // 2, area.height() // 2)
-
-        # Halber Screen links/rechts
-        if left:
-            return QRect(area.left(), area.top(), area.width() // 2, area.height())
-        if right:
-            return QRect(area.left() + area.width() // 2, area.top(), area.width() // 2, area.height())
-
-        # Maximieren oben
-        if top:
-            return area
-
-        return None
-    
-    def show_help(self):
-        print("hhh")
-        hlp = HelpMainWindow()
-        hlp.open_from_args("dBaseHelp_de.chm","index.html")
-        hlp.show()
-        
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton and not self._is_on_buttons(event.pos()):
-            self._dragging = True
-            self._was_maximized = self.window.isMaximized()
-
-            # Merken, wo innerhalb der Titlebar geklickt wurde (für Restore aus Maximized)
-            if self.width() > 0:
-                self._press_offset_ratio = max(0.05, min(0.95, event.pos().x() / self.width()))
-
-            self._drag_pos = event.globalPos() - self.window.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if (event.buttons() & Qt.LeftButton) and self._dragging and self._drag_pos is not None:
-            # Wenn maximiert und man zieht, erst restore (wie Windows)
-            if self._was_maximized and self.window.isMaximized():
-                self.window.showNormal()
-
-                # Fenster so positionieren, dass die Maus "am selben relativen Punkt" bleibt
-                gp = event.globalPos()
-                w = self.window.width()
-                new_x = gp.x() - int(w * self._press_offset_ratio)
-                new_y = gp.y() - 12  # kleiner Offset nach oben
-                self.window.move(new_x, new_y)
-
-                self._drag_pos = gp - self.window.frameGeometry().topLeft()
-
-            # Normales Dragging
-            if not self.window.isMaximized():
-                self.window.move(event.globalPos() - self._drag_pos)
-
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        if self._dragging and event.button() == Qt.LeftButton:
-            self._dragging = False
-
-            snap = self._snap_geometry(event.globalPos())
-            if snap is not None:
-                # area == maximize
-                screen = QGuiApplication.screenAt(event.globalPos())
-                area = screen.availableGeometry() if screen else None
-                if area is not None and snap == area:
-                    self.window.showMaximized()
-                else:
-                    self.window.showNormal()
-                    self.window.setGeometry(snap)
-
-            self._drag_pos = None
-            event.accept()
-            return
-
-        super().mouseReleaseEvent(event)
-
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton and not self._is_on_buttons(event.pos()):
-            self.toggle_max_restore()
-            event.accept()
 
 class HelpMainWindow(QMainWindow):
     ROLE_LOCAL = Qt.UserRole + 1
@@ -637,19 +520,16 @@ class HelpMainWindow(QMainWindow):
         self._drag_pos      = None
         self._start_geom    = None
         
-        self.setWindowTitle("CHM-Viewer - (c) 2026 Dimitri Haesch & Co.")
+        self.setWindowTitle("CHM-Viewer - (c) 2026 Jens Kallup - paule32")
         self.resize(800, 600)
         
         self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
-        
-        self.titlebar = HelpTitleBar(self)
         
         top = QWidget()
         top.setObjectName("TopContainer")
         top_lay = QVBoxLayout(top)
         top_lay.setContentsMargins(0, 0, 0, 0)
         top_lay.setSpacing(0)
-        top_lay.addWidget(self.titlebar)
 
         # Optional: dünne Trennlinie unter der Titelleiste
         sep = QWidget()
@@ -661,7 +541,7 @@ class HelpMainWindow(QMainWindow):
         
         
         self.base_dir: Optional[str] = None
-        self.dark_mode = False
+        self.dark_mode = True
 
         # Icons
         try:
@@ -1366,7 +1246,6 @@ QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {{width: 0px;}}
 QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal {{background: transparent;}}
 /* Custom Title Bar */
 #TopContainer {{ background: transparent; }}
-#TitleBar {{background: {title_bg};}}
 #TitleLabel {{color: {title_fg};font-weight: 600;}}
 #TitleSeparator {{background: {border};}}
 QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
@@ -6113,122 +5992,6 @@ class LineNumberArea(QWidget):
     def paintEvent(self, event):
         self.editor.paint_line_number_area(event)
 
-class TitleBar(QWidget):
-    def __init__(self, parent_dialog: QDialog, title: str, icon: QIcon = None):
-        super().__init__(parent_dialog)
-        self.dlg = parent_dialog
-        self._drag_pos = None
-        self.setFixedHeight(34)
-
-        # --- left icon + title ---
-        self.iconLabel = QLabel()
-        self.iconLabel.setFixedSize(22, 22)
-        if icon is not None:
-            self.iconLabel.setPixmap(icon.pixmap(18, 18))
-        self.iconLabel.setCursor(Qt.PointingHandCursor)
-
-        self.titleLabel = QLabel(title)
-        self.titleLabel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-
-        # --- window buttons ---
-        self.btnMin   = QToolButton()
-        self.btnMax   = QToolButton()
-        self.btnClose = QToolButton()
-
-        # Standard-Icons (plattformabhängig, aber okay). Alternativ eigene SVGs setzen.
-        style = self.style()
-        self.btnMin.setIcon  (style.standardIcon(style.SP_TitleBarMinButton))
-        self.btnMax.setIcon  (style.standardIcon(style.SP_TitleBarMaxButton))
-        self.btnClose.setIcon(style.standardIcon(style.SP_TitleBarCloseButton))
-
-        self.btnMin  .clicked.connect(self.dlg.showMinimized)
-        self.btnMax  .clicked.connect(self._toggle_max_restore)
-        self.btnClose.clicked.connect(self.dlg.close)
-
-        # Layout
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 0, 8, 0)
-        lay.setSpacing(8)
-        lay.addWidget(self.iconLabel)
-        lay.addWidget(self.titleLabel)
-        lay.addWidget(self.btnMin)
-        lay.addWidget(self.btnMax)
-        lay.addWidget(self.btnClose)
-
-        # Styling: Verlauf blau->weiß + dunkler Rahmen
-        self.setStyleSheet(r"""
-TitleBar {
-    border: 1px solid #3a3a3a;
-    border-bottom: 1px solid #2a2a2a;
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:0,
-        stop:0 #1a4fa3,
-        stop:1 #f2f6ff
-    );
-}
-QLabel {
-    color: #0b0f18;
-    font-weight: 600;
-}
-QToolButton {
-    border: 0px;
-    padding: 6px;
-    border-radius: 6px;
-    background: transparent;
-}
-QToolButton:hover {
-    background: rgba(0,0,0,0.10);
-}
-QToolButton:pressed {
-    background: rgba(0,0,0,0.18);
-}
-""")
-
-    def _toggle_max_restore(self):
-        if self.dlg.isMaximized():
-            self.dlg.showNormal()
-        else:
-            self.dlg.showMaximized()
-
-    # --- close on double click icon ---
-    def mouseDoubleClickEvent(self, event):
-        # optional: Doppelklick auf TitleBar toggelt maximieren
-        if event.button() == Qt.LeftButton:
-            self._toggle_max_restore()
-            event.accept()
-            return
-        super().mouseDoubleClickEvent(event)
-
-    def eventFilter(self, obj, event):
-        return super().eventFilter(obj, event)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            # Drag starten (global Position merken)
-            self._drag_pos = event.globalPos() - self.dlg.frameGeometry().topLeft()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self._drag_pos is not None and (event.buttons() & Qt.LeftButton):
-            if not self.dlg.isMaximized():
-                self.dlg.move(event.globalPos() - self._drag_pos)
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
-        super().mouseReleaseEvent(event)
-
-    def _icon_double_clicked(self):
-        self.dlg.close()
-
-    def showEvent(self, event):
-        # Doppelklick auf IconLabel => schließen
-        self.iconLabel.mouseDoubleClickEvent = lambda e: (self.dlg.close(), e.accept())
-        super().showEvent(event)
 
 class IconScrollBarStyle(QProxyStyle):
     def __init__(self, base_style=None):
@@ -13346,6 +13109,7 @@ class MainWindow(QMainWindow):
         self.mdi.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
         
+        self.setWindowTitle("dBase 2026 - (c) Jens Kallup - paule32")
         self.setCentralWidget(self.mdi)
         _init_designer_panels(self)
         self.dark_mode = True
