@@ -71,3 +71,7 @@ src/dBaseRunner_patched50.py
 src/dBaseRunner_patched53.py
 *.mo
 src/resources_rc.py
+src/webengine_crash.log
+src/dBaseRunner_patched51.py
+src/test.dbf
+src/dist/test.pro

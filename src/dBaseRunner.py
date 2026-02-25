@@ -53,13 +53,53 @@ import json
 import sqlite3
 
 # ---------------------------------------------------------------------------
+# debug log file beyond the exe application ...
+# ---------------------------------------------------------------------------
+import faulthandler
+
+BASE = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
+LOG = BASE / "webengine_crash.log"
+
+faulthandler.enable(open(LOG, "a", buffering=1), all_threads=True)
+
+# ---------------------------------------------------------------------------
+# sys.argv[0] zeigt auf die gestartete EXE
+# ---------------------------------------------------------------------------
+def app_dir() -> Path:
+    return Path(sys.argv[0]).resolve().parent
+    
+def excepthook(etype, value, tb):
+    with open(LOG, "a", buffering=1) as f:
+        f.write("\n--- PYTHON UNCAUGHT EXCEPTION ---\n")
+        traceback.print_exception(etype, value, tb, file=f)
+    sys.__excepthook__(etype, value, tb)
+
+sys.excepthook = excepthook
+print("hook installed.")
+
+base = Path(sys.argv[0]).resolve().parent
+cand = list(base.rglob("QtWebEngineProcess.exe"))
+with open("webengine_crash.log", "a", buffering=1) as f:
+    f.write(f"base={base}\nQtWebEngineProcess={cand}\n")
+    
+try:
+    from PyQt5.QtCore import qInstallMessageHandler
+    def qt_msg_handler(mode, context, message):
+        with open(LOG, "a", buffering=1) as f:
+            f.write(f"[QT] {message}\n")
+    qInstallMessageHandler(qt_msg_handler)
+except Exception as e:
+    print(e)
+    pass
+
+# ---------------------------------------------------------------------------
 # Qt Backend Factory + Property Mapping
 # ---------------------------------------------------------------------------
 from PyQt5.QtCore    import (
     QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
     QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
     QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
-    QSortFilterProxyModel, QByteArray, QUrl, QTimer
+    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler
 )
 from PyQt5.QtGui     import (
     QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
@@ -91,6 +131,18 @@ from PyQt5.QtSvg import QSvgRenderer
 # ---------------------------------------------------------------------------
 import resources_rc
 
+# ---------------------------------------------------------------------------
+# Qt message handleer (for WebEngine) ...
+# ---------------------------------------------------------------------------
+def qt_msg_handler(mode, context, message):
+    with open(LOG, "a", buffering=1) as f:
+        f.write(f"[QT] {message}\n")
+
+qInstallMessageHandler(qt_msg_handler)
+
+# ---------------------------------------------------------------------------
+# dBase field types ...
+# ---------------------------------------------------------------------------
 TYPE_VALUES = [
     "Character",
     "Numeric",
@@ -346,7 +398,7 @@ class TranslationManager:
 _I18N = TranslationManager()
 
 # ---- Standard-Locale beim Start setzen ----
-_I18N.set_zip(Path(__file__).parent / "locales.zip")
+_I18N.set_zip(Path(__file__).parent / "data\\locales.zip")
 _I18N.load_language("de")   # Deutsch als Default
 
 def tr(msgid: str) -> str:
@@ -527,22 +579,29 @@ def decompile_chm_windows(chm_path: str, out_dir: str) -> bool:
     """
     hh = shutil.which("hh.exe") or shutil.which("hh")
     if not hh:
+        print("hh.exe not found !")
         return False
     try:
-        subprocess.run(
+        p = subprocess.Popen(
             [hh, "-decompile", out_dir, chm_path],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            #check  = True,
+            text   = True,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE
         )
+        out, err = p.communicate(timeout=60)
+        if p.returncode != 0:
+            raise RuntimeError(f"hh.exe failed ({p.returncode}):\n{err}")
         return True
-    except Exception:
+    except Exception as e:
+        print(e)
         return False
 
 def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     # wichtig: nicht als eigenes Top-Level laufen
     mw.setWindowFlags(Qt.Widget)
     mw.setParent(mdi_area)
+    mw.open_from_args("./dBaseHelp_de.chm", "index.html")
 
     sub = QMdiSubWindow()
     sub.setWidget(mw)
@@ -554,23 +613,39 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     return sub
 
 class F1Filter(QObject):
+    def __init__(self, mdi_area, create_help_mw, parent=None):
+        super().__init__(parent)
+        self.mdi_area       = mdi_area
+        self.create_help_mw = create_help_mw
+        self._help_sub      = None  # optional: merken, damit wir nicht 100 Fenster öffnen
+        
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F1:
             print("F1 global abgefangen")
-            help_window = HelpMainWindow()
-            open_helpwindow(MAINAPP.mdi, help_window)
+            # optional: wenn schon offen, nur nach vorne holen
+            if self._help_sub is not None and not self._help_sub.isHidden():
+                self.mdi_area.setActiveSubWindow(self._help_sub)
+                self._help_sub.showNormal()
+                self._help_sub.raise_()
+                return True
             
-            help_window.dark_mode = False
-            help_window._apply_theme()
-            help_window.dark_mode = True
-            help_window._apply_theme()
+            help_mw = self.create_help_mw()   # erzeugt ein QMainWindow (oder QWidget im QMainWindow)
+            self._help_sub = open_helpwindow(self.mdi_area, help_mw)
+            self._help_sub.dark_mode = True
             
-            help_window.open_from_args("dBaseHelp_de.chm", "index.html")
+            # wenn User schließt: Referenz leeren
+            self._help_sub.destroyed.connect(lambda *_: setattr(self, "_help_sub", None))
+            return True
+                        
+            #self.help_window = HelpMainWindow()
+            #open_helpwindow(MAINAPP.mdi, self.help_window)
+            #self.help_window.open_from_args("dBaseHelp_de.chm", "index.html")
             return True  # Event stoppt hier
+            
         if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F2:
             pass
-            #if EDIT_OBJECT
-        return False
+            
+        return super().eventFilter(obj, event)
 
 class HelpMainWindow(QMainWindow):
     ROLE_LOCAL = Qt.UserRole + 1
@@ -605,7 +680,6 @@ class HelpMainWindow(QMainWindow):
         top_lay.addWidget(sep)
 
         self.setMenuWidget(top)
-        
         
         self.base_dir: Optional[str] = None
         self.dark_mode = True
@@ -786,6 +860,7 @@ class HelpMainWindow(QMainWindow):
 
         if os.path.exists(hhc):
             self.base_dir = folder
+            print(self.base_dir)
             self.load_contents(hhc)
             if os.path.exists(hhk):
                 self.load_index(hhk)
@@ -797,6 +872,7 @@ class HelpMainWindow(QMainWindow):
         # fallback: decompile CHM
         tmp = tempfile.mkdtemp(prefix="chm_decompile_")
         ok = decompile_chm_windows(chm_path, tmp)
+
         if not ok:
             QMessageBox.warning(
                 self,
@@ -817,6 +893,7 @@ class HelpMainWindow(QMainWindow):
 
         self.base_dir = tmp
         self.load_contents(hhc_found)
+        
         if hhk_found:
             self.load_index(hhk_found)
         else:
@@ -834,6 +911,9 @@ class HelpMainWindow(QMainWindow):
             self._pending_page = page
 
         if chm_path:
+            chm_path = str(app_dir()) + "\\data\\" + chm_path
+            chm_path = chm_path.replace("/", "\\")
+
             self.load_from_chm_path(chm_path)
 
             # nach dem Laden ggf. die Seite öffnen
@@ -927,7 +1007,8 @@ class HelpMainWindow(QMainWindow):
     def _find_first(self, folder: str, exts: Tuple[str, ...]) -> Optional[str]:
         for fn in os.listdir(folder):
             if fn.lower().endswith(exts):
-                return os.path.join(folder, fn)
+                fo = os.path.join(folder, fn)
+                return fo
         return None
 
     def _first_local_item(self, model: QStandardItemModel) -> Optional[str]:
@@ -1138,8 +1219,6 @@ class HelpMainWindow(QMainWindow):
         self.act_theme.setText("☀️ Light" if self.dark_mode else "🌙 Dark")
         self._apply_theme()
         self._inject_web_css()
-    
-    from PyQt5.QtWebEngineWidgets import QWebEngineScript  # oder PyQt6 entsprechend
 
     def _apply_webview_theme(self):
         """
@@ -13225,6 +13304,18 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("dBase 2026 - (c) Jens Kallup - paule32")
         self.setCentralWidget(self.mdi)
+        
+        # Factory: wie dein Help-Fenster erzeugt wird
+        def create_help():
+            # Beispiel: irgendein HelpMainWindow / HelpWidget
+            mw = HelpMainWindow()
+            mw.setWindowTitle("Hilfe")
+            #mw.setCentralWidget(QLabel("Hier kommt die Hilfe rein"))
+            return mw
+
+        self.f1filter = F1Filter(self.mdi, create_help, self)
+        QApplication.instance().installEventFilter(self.f1filter)
+                
         _init_designer_panels(self)
         self.dark_mode = True
 
@@ -13237,7 +13328,7 @@ class MainWindow(QMainWindow):
 
         # --- i18n: load translations from locales.zip next to this script ---
         try:
-            self._locales_zip = Path(__file__).with_name("locales.zip")
+            self._locales_zip = Path(__file__).with_name("data\\locales.zip")
             _I18N.set_zip(self._locales_zip)
             # Default: Deutsch (passt zum aktuellen UI-Stand)
             _I18N.load_language("de")
@@ -15147,11 +15238,20 @@ def center_on_screen(widget):
     widget.move(fg.topLeft())
 
 def main():
+    # Remote DevTools (hilft zu sehen, ob der Renderer überhaupt hochkommt)
+    #os.environ.setdefault("QTWEBENGINE_REMOTE_DEBUGGING", "9222")
+    
+    # Häufige Workarounds für Frozen/Windows-Umgebungen:
+    os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu --disable-gpu-compositing")
+    # wenn es *immer noch* crasht, testweise:
+    # os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] += " --no-sandbox"
+
     app = ensure_qt_app()
     if app is not None:
-        f1filter = F1Filter()
-        app.installEventFilter(f1filter)
+        #f1filter = F1Filter()
+        #app.installEventFilter(f1filter)
         #app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
+        
         app.setStyle(ArrowFontProxyStyle(app.style()))
         global MAINAPP
         MAINAPP = MainWindow()
