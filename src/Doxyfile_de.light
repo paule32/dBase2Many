@@ -241,7 +241,7 @@ HTML_EXTRA_FILES       += \
     #css/ielte8.css \
     #css/base.css \
 
-HTML_COLORSTYLE        = DARK
+HTML_COLORSTYLE        = LIGHT
 
 HTML_COLORSTYLE_HUE    = 220
 HTML_COLORSTYLE_SAT    = 100

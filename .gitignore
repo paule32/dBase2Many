@@ -75,3 +75,5 @@ src/webengine_crash.log
 src/dBaseRunner_patched51.py
 src/test.dbf
 src/dist/test.pro
+/doc/out/light
+/doc/out/dark

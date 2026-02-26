@@ -2,16 +2,16 @@ DOXYFILE_ENCODING      = UTF-8
 
 PROJECT_NAME           = "dBase 2 Many"
 PROJECT_NUMBER         = 1.0.0
-PROJECT_BRIEF          = Transpile dBase source code to many other DSL
+PROJECT_BRIEF          = Transpiler für dBase Quellcode Konverter
 PROJECT_LOGO           = logo.png
 PROJECT_ICON           =
 
-OUTPUT_LANGUAGE        = English
-OUTPUT_DIRECTORY       = out/en
+OUTPUT_LANGUAGE        = German
+OUTPUT_DIRECTORY       = ../out/dark/de
 
-ENABLED_SECTIONS       = en
+ENABLED_SECTIONS       = de
 
-INPUT                  = ../dBaseRuntime.py .
+INPUT                  = .
 RECURSIVE              = YES
 
 INPUT_ENCODING         = UTF-8
@@ -120,7 +120,7 @@ HIDE_SCOPE_NAMES       = NO
 
 HIDE_COMPOUND_REFERENCE= NO
 
-SHOW_HEADERFILE        = YES
+SHOW_HEADERFILE        = NO
 SHOW_INCLUDE_FILES     = YES
 SHOW_GROUPED_MEMB_INC  = NO
 
@@ -216,7 +216,7 @@ SOURCE_TOOLTIPS        = YES
 
 
 USE_HTAGS              = NO
-VERBATIM_HEADERS       = YES
+VERBATIM_HEADERS       = NO
 
 ALPHABETICAL_INDEX     = YES
 
@@ -226,11 +226,16 @@ GENERATE_HTML          = YES
 
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            = ./header.html
-HTML_FOOTER            = ./footer.html
+HTML_HEADER            = 
+HTML_FOOTER            = assets/html/footer.html
 HTML_STYLESHEET        =
 #HTML_EXTRA_STYLESHEET  += ./customdoxygen.css
-HTML_EXTRA_FILES       += ./dynsections.js svg.min.js svg-darkmode.js
+
+HTML_EXTRA_FILES       += \
+    assets/js/dynsections.js assets/js/svg.min.js assets/js/svg-darkmode.js \
+    assets/js/chmRelative.js \
+    assets/img/mathe.png
+
 HTML_COLORSTYLE        = DARK
 
 HTML_COLORSTYLE_HUE    = 220
@@ -241,13 +246,13 @@ HTML_DYNAMIC_MENUS     = NO
 HTML_DYNAMIC_SECTIONS  = NO
 
 HTML_CODE_FOLDING      = YES
-HTML_COPY_CLIPBOARD    = YES
+HTML_COPY_CLIPBOARD    = NO
 HTML_PROJECT_COOKIE    =
 HTML_INDEX_NUM_ENTRIES = 100
 
 GENERATE_HTMLHELP      = YES
 
-CHM_FILE               = ./dBaseHelp_en.chm
+CHM_FILE               = ./dBaseHelp_dark_de.chm
 HHC_LOCATION           = "C:/Program Files (x86)/HTML Help Workshop/hhc.exe"
 
 CLASS_DIAGRAMS         = YES
