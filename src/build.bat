@@ -19,18 +19,45 @@ set "CHM_HELP=..\doc\out\chm\dBaseHelp"
 :: ---------------------------------------------------------------
 echo build resources ...
 pyrcc5 resources.qrc -o resources_rc.py
-
+if errorlevel 1 (
+echo error building dBaseLexer
+goto have_error
+)
 :: ---------------------------------------------------------------
 :: build the parser for dbase ...
 :: ---------------------------------------------------------------
-antlr4 -Dlanguage=Python3 -visitor -o gen          dBaseLexer.g4
+antlr4 -Dlanguage=Python3 -visitor -o gen dBaseLexer.g4
+if errorlevel 1 (
+echo error building dBaseLexer
+goto have_error
+)
 antlr4 -Dlanguage=Python3 -visitor -o gen -lib gen dBaseParser.g4
+if errorlevel 1 (
+echo error building dBaseParser
+goto have_error
+)
 
 pushd gen
 %PY313%\python -m compileall dBaseLexer.py
+if errorlevel 1 (
+echo error building dBaseLexer
+goto have_error
+)
 %PY313%\python -m compileall dBaseParser.py
+if errorlevel 1 (
+echo error building dBaseParser
+goto have_error
+)
 %PY313%\python -m compileall dBaseParserListener.py
+if errorlevel 1 (
+echo error building dBaseParserListener
+goto have_error
+)
 %PY313%\python -m compileall dBaseParserVisitor.py
+if errorlevel 1 (
+echo error building dBaseParserVisitor
+goto have_error
+)
 
 :: ---------------------------------------------------------------
 :: rename the output files that was created by python3 ...
@@ -52,12 +79,12 @@ copy /y dBaseRunner_patched51.py dBaseRunner.py
 %PY313%\python -m compileall dBaseRunner.py
 if errorlevel 1 (
 echo error building dBaseRunner
-exit /b 1
+goto have_error
 )
 %PY313%\python -m compileall resources_rc.py
 if errorlevel 1 (
 echo error building resources_rc.py
-exit /b 1
+goto have_error
 )
 :: ---------------------------------------------------------------
 :: perform pre-task for application scripts ...
@@ -78,7 +105,7 @@ del dbase.mo
 msgfmt -o dbase.mo dbase.po
 if errorlevel 1 (
 echo error creating english dbase.mo
-exit /b 1
+goto have_error
 )
 popd
 echo build \de\LC_MESSAGES\dbase.mo ...
@@ -87,7 +114,7 @@ del dbase.mo
 msgfmt -o dbase.mo dbase.po
 if errorlevel 1 (
 echo error creating german dbase.mo
-exit /b 1
+goto have_error
 )
 popd
 :: ---------------------------------------------------------------
@@ -99,7 +126,7 @@ del locales.zip
 zip -9 -R locales.zip *.mo
 if errorlevel 1 (
 echo error creating locales.zip
-exit /b 1
+goto have_error
 )
 popd
 :: ---------------------------------------------------------------
@@ -112,7 +139,7 @@ mkdir  %DIST%\data
 copy /y locales\locales.zip %DIST%\data\locales.zip
 if errorlevel 1 (
 echo error copy locales.zip
-exit /b 1
+goto have_error
 )
 :: ---------------------------------------------------------------
 :: install application binaries ...
@@ -146,26 +173,26 @@ cd ..\src
 doxygen.exe Doxyfile_de.dark
 if errorlevel 1 (
 echo error building dark german documentation.
-exit /b 1
+goto have_error
 )
 :: ---------------------------------------------------------------
 doxygen.exe Doxyfile_de.light
 if errorlevel 1 (
 echo error building light german documentation.
-exit /b 1
+goto have_error
 )
 :: ---------------------------------------------------------------
 echo building English documentation ...
 doxygen.exe Doxyfile_en.dark
 if errorlevel 1 (
 echo error building dark english documentation.
-exit /b 1
+goto have_error
 )
 :: ---------------------------------------------------------------
 doxygen.exe Doxyfile_en.light
 if errorlevel 1 (
 echo error building light english documentation.
-exit /b 1
+goto have_error
 )
 popd
 :: ---------------------------------------------------------------
@@ -193,17 +220,30 @@ copy /y install.bat %DIST%\install.bat
 copy /y start.bat %DIST%\start.bat
 
 :: ---------------------------------------------------------------
-:: create zip archive for ftp server upload ...
+:: TODO: create zip archive for ftp server upload ...
 :: ---------------------------------------------------------------
+goto skip
 echo create zip archive ...
 pushd dist
-::zuo -9 -R packed.zip *.*
+zip -9 -R packed.zip *.*
+if errorlevel 1 (
+echo error building dBaseLexer
+goto have_error
+)
 popd
+:skip
+goto ok
+
+:have_error
+echo error on building dBaseRunner
+popd
+exit /b 1
 
 :: ---------------------------------------------------------------
 :: \brief todo: modify the path in install.bat, to start python3.
 :: \note  use the Microsoft App Store to install Python3.
 :: ---------------------------------------------------------------
+:ok
 echo all files under: .\dist\
 echo done.
 endlocal

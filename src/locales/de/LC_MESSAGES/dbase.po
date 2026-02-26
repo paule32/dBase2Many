@@ -26,7 +26,7 @@ msgid "Language"
 msgstr "Sprache"
 
 msgid "English"
-msgstr "English"
+msgstr "Englisch"
 
 msgid "German"
 msgstr "Deutsch"
@@ -51,3 +51,64 @@ msgstr "Abbrechen"
 
 msgid "OK"
 msgstr "OK"
+
+msgid "Delete"
+msgstr "Löschen"
+
+msgid "Rename"
+msgstr "Umbenennen"
+
+msgid "Copy"
+msgstr "Kopieren"
+
+msgid "Compile"
+msgstr "Compilieren"
+
+msgid "Edit"
+msgstr "Bearbeiten"
+
+msgid "Run - F2"
+msgstr "Ausführen - F2"
+
+msgid "Common Exception: "
+msgstr "Allgemeiner Fehler: "
+
+msgid "Error: "
+msgstr "Fehler: "
+
+msgid "Syntax Error: "
+msgstr "Syntax-Fehler: "
+
+msgid "Runtime Error: "
+msgstr "Laufzeit-Fehler: "
+
+msgid "Attribut Error: "
+msgstr "Attribute-Fehler: "
+
+msgid "Internal Error (Python NameError)"
+msgstr "Interner Fehler (Pyhton NameError)"
+
+msgid "File Error: "
+msgstr "Datei-Fehler: "
+
+msgid "Access Error: "
+msgstr "Zugriff-Fehler: "
+
+msgid "Internal Error: "
+msgstr "Interner-Fehler: "
+
+msgid "Comment Error: "
+msgstr "Kommentar-Fehler: "
+
+msgid "Please enter text"
+msgstr "Bitte erst Text eingeben."
+
+msgid "Structure"
+msgstr "Struktur"
+
+msgid "Character"
+msgstr "Zeichen"
+
+msgid "Logical"
+msgstr "Logisch"
+

@@ -10002,18 +10002,18 @@ class TableDesignerDialog(QDialog):
         
     def _fill_demo_data(self):
         rows = [
-            (1,  "First_Name",    "Character", 25, 0, "None"),
-            (2,  "Last_Name",     "Character", 35, 0, "None"),
-            (3,  "Sex",           "Character",  1, 0, "None"),
-            (4,  "Address",       "Character", 40, 0, "None"),
-            (5,  "City",          "Character", 25, 0, "None"),
-            (6,  "State_Prov",    "Character", 17, 0, "None"),
-            (7,  "Zip_Code",      "Character",  7, 0, "Ascend"),
-            (8,  "Long_Distance", "Logical",    1, 0, "None"),
-            (9,  "Phone",         "Character", 10, 0, "None"),
-            (10, "Fax",           "Character", 10, 0, "None"),
-            (11, "Email",         "Character", 40, 0, "None"),
-            (12, "Notes",         "Memo",      10, 0, ""),
+            (1,  "First_Name",    tr("Character"), 25, 0, "None"),
+            (2,  "Last_Name",     tr("Character"), 35, 0, "None"),
+            (3,  "Sex",           tr("Character"),  1, 0, "None"),
+            (4,  "Address",       tr("Character"), 40, 0, "None"),
+            (5,  "City",          tr("Character"), 25, 0, "None"),
+            (6,  "State_Prov",    tr("Character"), 17, 0, "None"),
+            (7,  "Zip_Code",      tr("Character"),  7, 0, tr("Ascend")),
+            (8,  "Long_Distance", tr("Logical"  ),  1, 0, "None"),
+            (9,  "Phone",         tr("Character"), 10, 0, "None"),
+            (10, "Fax",           tr("Character"), 10, 0, "None"),
+            (11, "Email",         tr("Character"), 40, 0, "None"),
+            (12, "Notes",         "Memo",          10, 0, ""),
         ]
 
         for r, rowdata in enumerate(rows):
@@ -10097,7 +10097,7 @@ QHeaderView::section {
         
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
         model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["Struktur"])
+        model.setHorizontalHeaderLabels([tr("Structure")])
         
         root = model.invisibleRootItem()
         
@@ -10111,7 +10111,7 @@ QHeaderView::section {
 
         # Mehrzeiliges Eingabefeld
         self.text = CodeEditor(self.splitter)
-        self.text.setPlaceholderText("Schreib hier was rein…")
+        self.text.setPlaceholderText(tr("Please enter text"))
         self.text.setLineWrapMode(self.text.NoWrap)
         self.text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -10241,7 +10241,7 @@ QHeaderView::section {
         # Das ist die Funktion, die beim Klick ausgeführt wird
         content = self.text.toPlainText().strip()
         if not content:
-            QMessageBox.information(self, "Info", "Bitte erst Text eingeben.")
+            QMessageBox.information(self, "Info", tr("Please enter text"))
             return
         try:
             with open(self.filename, "w", encoding="utf-8") as f:
@@ -10253,66 +10253,61 @@ QHeaderView::section {
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
 
             dlg = showException(self,
-            "Kommentar-Fehler" + type(e).__name__, tb_str)
+            tr("Comment Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except KeyError as e:
             tb_str = (f"error: {e.name}: {e.message}\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            "Internal-Fehler" + type(e).__name__, tb_str)
+            tr("Internal Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except PermissionError as e:
             tb_str = (f"error: Zugriff verweigert\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            "Zugriff-Fehler" + type(e).__name__, tb_str)
+            tr("Access Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except FileNotFoundError as e:
             tb_str = (f"error: Datei nicht gefunden.\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            "Datei-Fehler" + type(e).__name__, tb_str)
+            tr("File Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except NameError as e:
             msg = str(e)
             m = re.search(r"name '([^']+)' is not defined", msg)
             missing = m.group(1) if m else "<?>"
-            message = "Internal Error (Python NameError)\n"
+            message = tr("Internal Error (Python NameError)") + "\n"
             message = message + f"{missing}: {msg}"
             
             tb_str = (f"Fehler: {message}\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,
-            "Fehler: " + type(e).__name__, tb_str)
+            dlg = showException(self,tr("Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except AttributeError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,
-            "Attribut-Fehler: " + type(e).__name__, tb_str)
+            dlg = showException(self,tr("Attribut Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except RuntimeError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,
-            "Laufzeit-Fehler" + type(e).__name__, tb_str)
+            dlg = showException(self,tr("Runtime Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except SyntaxError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,
-            "Syntax-Fehler: " + type(e).__name__, tb_str)
+            dlg = showException(self,tr("Syntax Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except Exception as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
             traceback.print_exc()
-            dlg = showException(self,
-            "Allgemeiner Fehler: " + type(e).__name__, tb_str)
+            dlg = showException(self,tr("Common Exception: ") + type(e).__name__, tb_str)
             dlg.exec_()
 
 class IconTab(QListWidget):
@@ -10349,7 +10344,7 @@ class IconTab(QListWidget):
         self.customContextMenuRequested.connect(self._on_context_menu)
 
         # F2 = Ausführen
-        self._act_run = QAction("Ausführen - F2", self)
+        self._act_run = QAction(tr("Run - F2"), self)
         self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
         self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self._act_run.triggered.connect(self._run_selected)
@@ -10437,39 +10432,54 @@ class IconTab(QListWidget):
 
         menu = QMenu(self)
 
-        act_run = QAction("Ausführen - F2", self)
+        act_run = QAction(tr("Run - F2"), self)
         act_run.triggered.connect(lambda: self._run_file(path))
         menu.addAction(act_run)
 
 
-        act_edit = QAction("Bearbeiten", self)
+        act_edit = QAction(tr("Edit"), self)
         act_edit.setEnabled(ext == ".prg")
         act_edit.triggered.connect(lambda: self._edit_in_code_editor(path))
         menu.addAction(act_edit)
 
         menu.addSeparator()
 
-        m_compile = menu.addMenu("Compilieren")
-        act_c_py = QAction("Python", self)
-        act_c_cpp = QAction("CPP", self)
-        act_c_py.setEnabled(ext == ".prg")
-        act_c_cpp.setEnabled(ext == ".prg")
-        act_c_py.triggered.connect(lambda: self._compile_to_python(path))
-        act_c_cpp.triggered.connect(lambda: self._compile_to_cpp(path))
-        m_compile.addAction(act_c_py)
-        m_compile.addAction(act_c_cpp)
+        m_compile    = menu.addMenu(tr("Compile"))
+        act_c_py     = QAction("Python",     self)
+        act_c_cpp    = QAction("C++",        self)
+        act_c_csharp = QAction("C Sharp",    self)
+        act_c_java   = QAction("Java",       self)
+        act_c_javscr = QAction("JavaScript", self)
+        
+        act_c_py    .setEnabled(ext == ".prg")
+        act_c_cpp   .setEnabled(ext == ".prg")
+        act_c_csharp.setEnabled(ext == ".prg")
+        act_c_java  .setEnabled(ext == ".prg")
+        act_c_javscr.setEnabled(ext == ".prg")
+        
+        act_c_py    .triggered.connect(lambda: self._compile_to_python(path))
+        act_c_cpp   .triggered.connect(lambda: self._compile_to_cpp   (path))
+        act_c_csharp.triggered.connect(lambda: self._compile_to_csharp(path))
+        act_c_java  .triggered.connect(lambda: self._compile_to_java  (path))
+        act_c_javscr.triggered.connect(lambda: self._compile_to_javscr(path))
+        
+        m_compile.addAction(act_c_py    )
+        m_compile.addAction(act_c_cpp   )
+        m_compile.addAction(act_c_csharp)
+        m_compile.addAction(act_c_java  )
+        m_compile.addAction(act_c_javscr)
 
         menu.addSeparator()
 
-        act_copy = QAction("Kopieren", self)
+        act_copy = QAction(tr("Copy"), self)
         act_copy.triggered.connect(lambda: self._copy_path(path))
         menu.addAction(act_copy)
 
-        act_ren = QAction("Umbenennen", self)
+        act_ren = QAction(tr("Rename"), self)
         act_ren.triggered.connect(lambda: self._rename_file(item, path))
         menu.addAction(act_ren)
 
-        act_del = QAction("Löschen", self)
+        act_del = QAction(tr("Delete"), self)
         act_del.triggered.connect(lambda: self._delete_file(item, path))
         menu.addAction(act_del)
 
