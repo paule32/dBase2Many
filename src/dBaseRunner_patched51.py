@@ -314,6 +314,16 @@ class BoundMethod:
 #        return self.runner.call_method(self.obj, self.method, list(args))
 
 # ---------------------------------------------------------------------------
+# application states for global usage ...
+# ---------------------------------------------------------------------------
+class AppMode_State:
+    dark   = True
+    lang   = "de"
+    domain = "dbase"
+# ---------------------------------------------------------------------------
+AppMode = AppMode_State()
+
+# ---------------------------------------------------------------------------
 # Exception classes ...
 # ---------------------------------------------------------------------------
 class ReturnSignal(Exception):
@@ -372,6 +382,9 @@ class TranslationManager:
         if not self.zip_path:
             return False
 
+        AppMode.lang   = lang
+        AppMode.domain = self.domain
+        
         inner = f"{lang}/LC_MESSAGES/{self.domain}.mo"
         try:
             with zipfile.ZipFile(str(self.zip_path), "r") as zf:
@@ -601,7 +614,11 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     # wichtig: nicht als eigenes Top-Level laufen
     mw.setWindowFlags(Qt.Widget)
     mw.setParent(mdi_area)
-    mw.open_from_args("./dBaseHelp_de.chm", "index.html")
+    
+    mode = "dark" if AppMode.dark else "light"
+    lang = "de"   if AppMode.lang else "en"
+    
+    mw.open_from_args(f"./dBaseHelp_{mode}_{lang}.chm", "index.html")
 
     sub = QMdiSubWindow()
     sub.setWidget(mw)
@@ -1288,6 +1305,7 @@ class HelpMainWindow(QMainWindow):
         app.setPalette(pal)
         
         if self.dark_mode:
+            AppMode.dark = True
             header_bg               = "#222222"
             header_fg               = "#ffd866"
             tree_bg                 = "#181818"
@@ -1324,6 +1342,7 @@ class HelpMainWindow(QMainWindow):
             scroll_handle           = "#0b2a4a"
             scroll_handle_hover     = "#0f3a66"
         else:
+            AppMode.dark = False
             header_bg               = "#f0f0f0"
             header_fg               = "#000000"
             tree_bg                 = "#ffffff"

@@ -8,6 +8,8 @@ setlocal EnableDelayedExpansion
 
 set "STARTDIR=%CD%"
 set "CPYTHON=cpython-313"
+set "PY313=%STARTDIR%\venv\Scripts"
+
 set "DIST=dist\dBaseRunner"
 set "GEN_DBASE=gen\__pycache__\dBase"
 set "CHM_HELP=..\doc\out\chm\dBaseHelp"
@@ -25,10 +27,10 @@ antlr4 -Dlanguage=Python3 -visitor -o gen          dBaseLexer.g4
 antlr4 -Dlanguage=Python3 -visitor -o gen -lib gen dBaseParser.g4
 
 pushd gen
-python -m compileall dBaseLexer.py
-python -m compileall dBaseParser.py
-python -m compileall dBaseListener.py
-python -m compileall dBaseParserVisitor.py
+%PY313%\python -m compileall dBaseLexer.py
+%PY313%\python -m compileall dBaseParser.py
+%PY313%\python -m compileall dBaseParserListener.py
+%PY313%\python -m compileall dBaseParserVisitor.py
 
 :: ---------------------------------------------------------------
 :: rename the output files that was created by python3 ...
@@ -47,12 +49,12 @@ popd
 :: ---------------------------------------------------------------
 echo compile dBaseRunner.py ...
 copy /y dBaseRunner_patched51.py dBaseRunner.py
-python -m compileall dBaseRunner.py
+%PY313%\python -m compileall dBaseRunner.py
 if errorlevel 1 (
 echo error building dBaseRunner
 exit /b 1
 )
-python -m compileall resources_rc.py
+%PY313%\python -m compileall resources_rc.py
 if errorlevel 1 (
 echo error building resources_rc.py
 exit /b 1
@@ -64,7 +66,7 @@ pushd __pycache__
 copy /y dBaseRunner.%CPYTHON%.pyc dBaseRunner.pyc
 copy /y resources_rc.%CPYTHON%.pyc resources_rc.pyc
 
-del *.cpython-313.pyc
+del *.cpython-314.pyc
 popd
 
 :: ---------------------------------------------------------------
@@ -130,17 +132,16 @@ copy %GEN_DBASE%ParserVisitor.pyc %DIST%\gen\dBaseParserVisitor.pyc
 :: create documentation:
 :: ---------------------------------------------------------------
 echo building German documentation ...
-pushd ..\doc
-cd out
+pushd ..\doc\src
+cd ..\out
 if exist de    ( rm -rf de    )
 if exist en    ( rm -rf en    )
 if exist dark  ( rm -rf dark  )
 if exist ligth ( rm -rf ligth )
 :: ---------------------------------------------------------------
-mkdir  light
-mkdir  dark
-
-cd ..
+mkdir light
+mkdir dark
+cd ..\src
 :: ---------------------------------------------------------------
 doxygen.exe Doxyfile_de.dark
 if errorlevel 1 (
