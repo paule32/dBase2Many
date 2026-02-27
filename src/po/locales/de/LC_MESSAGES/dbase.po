@@ -73,6 +73,9 @@ msgstr "Ausführen - F2"
 msgid "Common Exception: "
 msgstr "Allgemeiner Fehler: "
 
+msgid "Error"
+msgstr "Error"
+
 msgid "Error: "
 msgstr "Fehler: "
 
@@ -106,9 +109,106 @@ msgstr "Bitte erst Text eingeben."
 msgid "Structure"
 msgstr "Struktur"
 
+msgid "already exists."
+msgstr "existiert bereits."
+
+msgid "Choose path"
+msgstr "Pfad auswählen"
+
+msgid "are you sure, to delete?"
+msgstr "wirklich entfernen?"
+
+msgid "Remove"
+msgstr "Entfernen"
+
+msgid "alias already exists"
+msgstr "Alias existiert bereits"
+
+msgid "The alias"
+msgstr "Der Alias"
+
+msgid "already exists"
+msgstr "existiert schon"
+
+# Datenbank
+
 msgid "Character"
 msgstr "Zeichen"
 
 msgid "Logical"
 msgstr "Logisch"
 
+msgid "Numeric"
+msgstr "DEZIMAL"
+
+msgid "Float"
+msgstr "DOUBLE"
+
+msgid "Integer"
+msgstr "Numerisch"
+
+msgid "Date"
+msgstr "DATUM"
+
+msgid "Time"
+msgstr "ZEIT"
+
+msgid "DateTime"
+msgstr "DATUMZEIT"
+
+msgid "New Project"
+msgstr "Neues Projekt"
+
+msgid "Open Project"
+msgstr "Project öffnen"
+
+msgid "Print"
+msgstr "Drucken"
+
+msgid "Print Preview"
+msgstr "Durckvorschau"
+
+msgid "One-Click Application"
+msgstr "Ein-klick Anwendung"
+
+msgid "Database Manager"
+msgstr "Datenbank-Verwaltung"
+
+msgid "Forms"
+msgstr "Formulare"
+
+msgid "Menue"
+msgstr "Menüs"
+
+msgid "Reports"
+msgstr "Berichte"
+
+msgid "Labels"
+msgstr "Ettiketten"
+
+msgid "Programs"
+msgstr "Programme"
+
+msgid "Tables"
+msgstr "Tabellen"
+
+msgid "Queries"
+msgstr "Abfragen"
+
+msgid "Regiecenter"
+msgstr "Regiezentrum"
+
+msgid "Form-Designer"
+msgstr "Formular-Designer"
+
+msgid "Open File..."
+msgstr "Datei öffnen"
+
+msgid "dBaseSourcecodeFiles"
+msgstr "dBase Quellcode (*.prg)"
+
+msgid "allFiles"
+msgstr "Alle Dateien (*.*)"
+
+msgid "could not open file"
+msgstr "Konnte Datei nicht öffnen"

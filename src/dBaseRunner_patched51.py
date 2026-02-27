@@ -68,10 +68,32 @@ faulthandler.enable(open(LOG, "a", buffering=1), all_threads=True)
 def app_dir() -> Path:
     return Path(sys.argv[0]).resolve().parent
     
+def load_qss(rel_path: str) -> str:
+    p = app_dir() / rel_path
+    return p.read_text(encoding="utf-8")
+
 def excepthook(etype, value, tb):
+    content = ""
+    
     with open(LOG, "a", buffering=1) as f:
         f.write("\n--- PYTHON UNCAUGHT EXCEPTION ---\n")
         traceback.print_exception(etype, value, tb, file=f)
+        f.close()
+        
+    with open(LOG, "r") as f:
+        content = f.read()
+        f.close()
+        
+    app = ensure_qt_app()
+    
+    if app is not None:
+        dlg = ErrorMessage(
+            title    = "Laufzeitfehler",
+            message  = content,
+            log_path = LOG,
+            parent   = MAINAPP
+        )
+        dlg.exec_()
     sys.__excepthook__(etype, value, tb)
 
 sys.excepthook = excepthook
@@ -89,6 +111,7 @@ try:
             f.write(f"[QT] {message}\n")
     qInstallMessageHandler(qt_msg_handler)
 except Exception as e:
+    print("-------------")
     print(e)
     pass
 
@@ -131,6 +154,81 @@ from PyQt5.QtSvg import QSvgRenderer
 # ---------------------------------------------------------------------------
 import resources_rc
 
+class ErrorMessage(QDialog):
+    def __init__(self, title="Fehler", message="", log_path=None, parent=None):
+        super().__init__(parent)
+
+        self.log_path = log_path  # Pfad zur Logdatei (oder None)
+
+        self.setWindowTitle(title)
+        self.resize(750, 420)
+
+        layout = QVBoxLayout(self)
+
+        # Textbereich
+        self.text_edit = QPlainTextEdit()
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setPlainText(message)
+        self.text_edit.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.Monospace)
+        self.text_edit.setFont(font)
+
+        layout.addWidget(self.text_edit)
+
+        # Button-Leiste
+        btn_row = QHBoxLayout()
+
+        self.btn_delete_log = QPushButton("LOG löschen")
+        self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
+        self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
+
+        btn_row.addWidget(self.btn_delete_log)
+        btn_row.addStretch()
+
+        self.btn_close = QPushButton("Schließen")
+        self.btn_close.clicked.connect(self.accept)
+        btn_row.addWidget(self.btn_close)
+
+        layout.addLayout(btn_row)
+
+    def _on_delete_log_clicked(self):
+        if not self.log_path:
+            return
+        if not os.path.exists(self.log_path):
+            QMessageBox.information(
+                self,
+                "LOG nicht gefunden",
+                "Die LOG-Datei existiert nicht (mehr)."
+            )
+            return
+        answer = QMessageBox.question(
+            self,
+            "LOG-Datei löschen?",
+            f"Soll die LOG-Datei wirklich gelöscht werden?\n\n{self.log_path}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if answer != QMessageBox.Yes:
+            return
+        try:
+            os.remove(self.log_path)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Löschen fehlgeschlagen",
+                f"Die LOG-Datei konnte nicht gelöscht werden:\n{e}"
+            )
+            return
+        QMessageBox.information(
+            self,
+            "Gelöscht",
+            "Die LOG-Datei wurde gelöscht."
+        )
+        # Optional: Button deaktivieren, weil Datei weg ist
+        self.btn_delete_log.setEnabled(False)
+
 # ---------------------------------------------------------------------------
 # Qt message handleer (for WebEngine) ...
 # ---------------------------------------------------------------------------
@@ -139,20 +237,6 @@ def qt_msg_handler(mode, context, message):
         f.write(f"[QT] {message}\n")
 
 qInstallMessageHandler(qt_msg_handler)
-
-# ---------------------------------------------------------------------------
-# dBase field types ...
-# ---------------------------------------------------------------------------
-TYPE_VALUES = [
-    "Character",
-    "Numeric",
-    "Float",
-    "Integer",
-    "Date",
-    "DateTime",
-    "Logical",
-    "Memo",
-]
 
 # ---------------------------------------------------------------------------
 # native base classes supported by dBase 2026
@@ -385,7 +469,7 @@ class TranslationManager:
         AppMode.lang   = lang
         AppMode.domain = self.domain
         
-        inner = f"{lang}/LC_MESSAGES/{self.domain}.mo"
+        inner = f"locales/{lang}/LC_MESSAGES/{self.domain}.mo"
         try:
             with zipfile.ZipFile(str(self.zip_path), "r") as zf:
                 data = zf.read(inner)  # bytes
@@ -416,6 +500,21 @@ _I18N.load_language("de")   # Deutsch als Default
 
 def tr(msgid: str) -> str:
     return _I18N.tr(msgid)
+
+
+# ---------------------------------------------------------------------------
+# dBase field types ...
+# ---------------------------------------------------------------------------
+TYPE_VALUES = [
+    tr("Character"),
+    tr("Numeric"),
+    tr("Float"),
+    tr("Integer"),
+    tr("Date"),
+    tr("DateTime"),
+    tr("Logical"),
+    tr("Memo"),
+]
 
 class FontTriangleArrowsStyle(QProxyStyle):
     def __init__(self, base_style=None, color="#d7b300", font_family=None):
@@ -9769,8 +9868,8 @@ class SourceAliasesTab(QWidget):
         if alias in self._model:
             r = QMessageBox.question(
                 self,
-                "Alias existiert bereits",
-                f"Der Alias '{alias}' existiert schon.\nSoll der Pfad überschrieben werden?",
+                tr("alias already exists"),
+                f"{tr("The alias")} '{alias}' {tr("already exists")}.\n{tr(alias_overwrite)}",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
@@ -9788,8 +9887,8 @@ class SourceAliasesTab(QWidget):
         alias = cur.text()
         r = QMessageBox.question(
             self,
-            "Entfernen",
-            f"Alias '{alias}' wirklich entfernen?",
+            tr("Remove"),
+            f"Alias '{alias}' {tr("are you sure, to delete?")}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -9801,7 +9900,7 @@ class SourceAliasesTab(QWidget):
 
     def _on_browse(self):
         start_dir = (self.ed_path.text() or "").strip() or ""
-        dlg = QFileDialog(self, "Pfad auswählen", start_dir)
+        dlg = QFileDialog(self, tr("Choose path"), start_dir)
         dlg.setFileMode(QFileDialog.Directory)
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
         dlg.setOption(QFileDialog.DontUseNativeDialog, True)  # <- NICHT NATIV
@@ -9844,7 +9943,7 @@ class SourceAliasesTab(QWidget):
             return
 
         if new_alias in self._model:
-            QMessageBox.warning(self, "Fehler", f"Alias '{new_alias}' existiert bereits.")
+            QMessageBox.warning(self, tr("Error"), f"Alias '{new_alias}' " + tr("already exists."))
             self._updating_ui = True
             try:
                 self.ed_alias.setText(old_alias)
@@ -10054,46 +10153,13 @@ class EditorWidget(QDialog):
         
         # Splitter: links Tree, rechts Editor
         self.splitter = QSplitter(Qt.Horizontal, self)
-        self.splitter.setStyleSheet(
-        "QSplitter::handle { background: rgb(200,200,0); }" +
-        "QSplitter::handle:hover { background: rgb(200,200,200); }")
-        
-        self.setStyleSheet("""QDialog { background: #1e1f22; }""")
+        self.splitter.setStyleSheet(css("EditorWindow_Splitter"))
+        self.setStyleSheet(css("EditorWindow_Dialog"))
         
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
 
-        self.tree.setStyleSheet("""
-QTreeView {
-    background: #061226;              /* etwas dunkler als Editor */
-    color: #c9b458;                   /* warmes, dunkleres Gelb */
-    border: 1px solid #0f2a4a;
-    alternate-background-color: #071a33;
-    outline: 0;
-}
-QTreeView::item {
-    padding: 4px 6px;
-}
-QTreeView::item:hover {
-    background: #0b2a52;
-}
-QTreeView::item:selected {
-    background: #274b8a;
-    color: #f0e6b0;
-}
-QTreeView::branch {
-    background: transparent;
-}
-/* Header */
-QHeaderView::section {
-    background: #07162c;
-    color: #c9b458;
-    padding: 4px 6px;
-    border: 0px;
-    border-right: 1px solid #0f2a4a;
-    border-bottom: 1px solid #0f2a4a;
-}
-""")
+        self.tree.setStyleSheet(css("EditoWidget"))
         
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
         model = QStandardItemModel()
@@ -13461,36 +13527,36 @@ class MainWindow(QMainWindow):
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
         
-        action_file_new_project     = QAction("Neues Projekt", self)
-        action_file_open_project    = QAction("Projekt öffnen", self)
-        action_file_print           = QAction("Drucken", self)
+        action_file_new_project     = QAction(tr("New Project"), self)
+        action_file_open_project    = QAction(tr("Open Project"), self)
+        action_file_print           = QAction(tr("Print"), self)
 
         action_file_print.setShortcut(QKeySequence("Ctrl+P"))
         
         action_file_new_project .triggered.connect(self.on_action_file_new_project)
         action_file_open_project.triggered.connect(self.on_action_file_open_project)
         
-        action_file_print_preview   = QAction("Durckvorschau", self)
-        action_file_window_app      = QAction("Ein-klick Anwendung", self)
-        action_file_web_wizard      = QAction("Web Wizard", self)
-        action_file_database        = QAction("Datenbank-Verwaltung", self)
-        self.action_file_exit            = QAction(tr("Exit"), self)
+        action_file_print_preview   = QAction(tr("Print Preview")        , self)
+        action_file_window_app      = QAction(tr("One-Click Application"), self)
+        action_file_web_wizard      = QAction(tr("Web Wizard")           , self)
+        action_file_database        = QAction(tr("Database Manager")     , self)
+        action_file_exit            = QAction(tr("Exit")                 , self)
         
         action_file_print        .triggered.connect(self.on_action_file_print)
         action_file_print_preview.triggered.connect(self.on_action_file_print_preview)
         action_file_window_app   .triggered.connect(self.on_action_file_window_app)
         action_file_web_wizard   .triggered.connect(self.on_action_file_web_wizard)
         action_file_database     .triggered.connect(self.on_action_file_database)
-        self.action_file_exit.triggered.connect(self.on_action_file_exit)
+        action_file_exit         .triggered.connect(self.on_action_file_exit)
         
-        action_file_new_form        = QAction("Formular", self)
-        action_file_new_menu        = QAction("Menu", self)
-        action_file_new_popupmenu   = QAction("Popup-Menu", self)
-        action_file_new_report      = QAction("Bericht", self)
-        action_file_new_labels      = QAction("Ettiketten", self)
-        action_file_new_program     = QAction("Programm", self)
-        action_file_new_table       = QAction("Tabelle", self)
-        action_file_new_sql         = QAction("SQL", self)
+        action_file_new_form        = QAction(tr("Forms")     , self)
+        action_file_new_menu        = QAction(tr("Menue")     , self)
+        action_file_new_popupmenu   = QAction(tr("Popup-Menu"), self)
+        action_file_new_report      = QAction(tr("Reports")   , self)
+        action_file_new_labels      = QAction(tr("Labels")    , self)
+        action_file_new_program     = QAction(tr("Programs")  , self)
+        action_file_new_table       = QAction(tr("Tables")    , self)
+        action_file_new_sql         = QAction(tr("Queries")   , self)
         
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
@@ -13517,7 +13583,7 @@ class MainWindow(QMainWindow):
         self.menu_file.addAction(action_file_web_wizard)
         self.menu_file.addSeparator()
         self.menu_file.addAction(action_file_database)
-        self.menu_file.addAction(self.action_file_exit)
+        self.menu_file.addAction(action_file_exit)
         
         action_workplace = QAction("Arbeitsplatz", self)
         action_workplace.triggered.connect(self.open_workplace_properties)
@@ -13692,7 +13758,7 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(dlg)
             sub.resize(520, 300)
             sub.move(30, 30)
-            sub.setWindowTitle("Regiezentrum")
+            sub.setWindowTitle(tr("Regiecenter"))
             dlg.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -13736,7 +13802,7 @@ class MainWindow(QMainWindow):
 
             sub = self.mdi.addSubWindow(fw)
             sub.resize(720, 560)
-            sub.setWindowTitle("Formular-Designer")
+            sub.setWindowTitle(tr("Form-Designer"))
             fw.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -13793,10 +13859,10 @@ class MainWindow(QMainWindow):
     def on_action_file_open(self):
         """Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen."""
         try:
-            dlg = QFileDialog(self, "Datei öffnen")
+            dlg = QFileDialog(self, tr("Open File..."))
             dlg.setFileMode(QFileDialog.ExistingFiles)
-            dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
-            dlg.selectNameFilter("dBase Quellcode (*.prg)")
+            dlg.setNameFilters([ tr("dBaseSourcecodeFiles"), tr("allFiles")])
+            dlg.selectNameFilter(tr("dBaseSourcecodeFiles"))
             try:
                 dlg.setDefaultSuffix("prg")
             except Exception:
@@ -13863,7 +13929,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         except Exception as e:
-            QMessageBox.warning(self, "Datei öffnen", f"Konnte Datei nicht öffnen:\n{e}")
+            QMessageBox.warning(self, tr("Open File..."), f"{tr("could not open file")}:\n{e}")
 
     def on_action_file_database(self):
         print("file data base")
