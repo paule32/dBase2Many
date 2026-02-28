@@ -128,7 +128,7 @@ from PyQt5.QtGui     import (
     QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
     QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
     QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat, QBrush,
-    QGuiApplication
+    QGuiApplication, QTextOption
 )
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
@@ -6358,7 +6358,7 @@ class IconScrollBarStyle(QProxyStyle):
                 rect.setTop(cy - h // 2)
                 rect.setBottom(rect.top() + h - 1)
         return rect
-        
+
 class CodeEditor(QPlainTextEdit):
     runRequested = pyqtSignal()
     hlpRequested = pyqtSignal()
@@ -6553,8 +6553,6 @@ class CodeEditor(QPlainTextEdit):
 
         self.setExtraSelections(selections)
 
-
-
 class ModifiedTabBar(QTabBar):
     """TabBar, der bei 'modified' (tabData == True) eine 2px Linie unter dem Tab-Text zeichnet."""
     def paintEvent(self, event):
@@ -6574,6 +6572,234 @@ class ModifiedTabBar(QTabBar):
         finally:
             painter.end()
 
+class MiniMap(QPlainTextEdit):
+    """
+    Read-only minimap view for a main QPlainTextEdit.
+    Shows viewport overlay + optional cursor line marker.
+    Dragging overlay scrolls main editor.
+    """
+    def __init__(self, main_editor: QPlainTextEdit, parent=None):
+        super().__init__(parent)
+        self.main = main_editor
+
+        self.setReadOnly(True)
+        self.setUndoRedoEnabled(False)
+        self.setWordWrapMode(QTextOption.NoWrap)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setMouseTracking(True)
+
+        # Tiny font
+        f = QFont(self.main.font())
+        f.setPointSize(max(6, f.pointSize() - 4))
+        self.setFont(f)
+
+        # Make it look like a minimap
+        self.setFrameShape(QFrame.NoFrame)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        # Overlay behavior
+        self._dragging = False
+        self._drag_offset_y = 0
+
+        # Keep text + basic settings in sync
+        self._sync_all()
+
+        # Signals: main -> minimap
+        self.main.textChanged.connect(self._sync_text)
+        self.main.verticalScrollBar().valueChanged.connect(self._sync_scroll_from_main)
+        self.main.cursorPositionChanged.connect(self._update_overlay)
+        self.main.updateRequest.connect(lambda *_: self._update_overlay())
+
+        # Signals: minimap -> main (scrollbar sync)
+        self.verticalScrollBar().valueChanged.connect(self._sync_scroll_to_main)
+
+        # Keep document layout similar
+        self.document().setDocumentMargin(self.main.document().documentMargin())
+
+        # Initial overlay
+        QTimer.singleShot(0, self._update_overlay)
+
+    # ---------- sync helpers ----------
+    def _sync_all(self):
+        self._sync_text()
+        self._sync_scroll_from_main()
+        self._update_overlay()
+
+    def _sync_text(self):
+        # Avoid cursor jumps: preserve minimap scrollbar ratio
+        sb = self.verticalScrollBar()
+        ratio = 0.0
+        if sb.maximum() > 0:
+            ratio = sb.value() / sb.maximum()
+
+        self.setPlainText(self.main.toPlainText())
+
+        # Restore approximate scroll ratio after text update
+        QTimer.singleShot(0, lambda: self._restore_ratio(ratio))
+
+    def _restore_ratio(self, ratio: float):
+        sb = self.verticalScrollBar()
+        if sb.maximum() > 0:
+            sb.setValue(int(ratio * sb.maximum()))
+        self._update_overlay()
+
+    def _sync_scroll_from_main(self):
+        if self._dragging:
+            return
+        m = self.main.verticalScrollBar()
+        s = self.verticalScrollBar()
+        self._map_scrollbars(m, s)
+        self._update_overlay()
+
+    def _sync_scroll_to_main(self, _value: int):
+        if self._dragging:
+            # during drag we drive main directly
+            return
+        m = self.main.verticalScrollBar()
+        s = self.verticalScrollBar()
+        self._map_scrollbars(s, m)
+        self._update_overlay()
+
+    @staticmethod
+    def _map_scrollbars(src: QScrollBar, dst: QScrollBar):
+        # Map src.value in [0..src.max] to dst.value in [0..dst.max]
+        if src.maximum() <= 0:
+            dst.setValue(0)
+            return
+        ratio = src.value() / src.maximum()
+        dst.setValue(int(ratio * dst.maximum()))
+
+    # ---------- overlay drawing ----------
+    def _visible_block_range_in_main(self):
+        # Which blocks (lines) are visible in main editor?
+        main = self.main
+        vb = main.firstVisibleBlock()
+        if not vb.isValid():
+            return 0, 0
+
+        start_block = vb.blockNumber()
+
+        # Estimate how many blocks fit in main viewport
+        bh = main.blockBoundingRect(vb).height()
+        if bh <= 0:
+            bh = QFontMetrics(main.font()).height()
+
+        blocks_visible = int(main.viewport().height() / bh) + 2
+        end_block = start_block + blocks_visible
+        return start_block, end_block
+
+    def _block_y_in_minimap(self, block_number: int) -> int:
+        # Convert block number to y coordinate in minimap viewport using its own geometry
+        doc = self.document()
+        block = doc.findBlockByNumber(block_number)
+        if not block.isValid():
+            return 0
+        r = self.blockBoundingGeometry(block).translated(self.contentOffset())
+        return int(r.top())
+
+    def _update_overlay(self):
+        self.viewport().update()
+
+    def paintEvent(self, e: QPaintEvent):
+        super().paintEvent(e)
+
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.Antialiasing, False)
+
+        # Draw viewport overlay (visible region of main)
+        start_b, end_b = self._visible_block_range_in_main()
+        y1 = self._block_y_in_minimap(start_b)
+        y2 = self._block_y_in_minimap(end_b)
+        if y2 <= y1:
+            y2 = y1 + 20
+
+        overlay_rect = QRect(0, y1, self.viewport().width(), y2 - y1)
+
+        # translucent overlay
+        overlay_color = QColor(255, 215, 0, 40)  # gold-ish, transparent
+        border_color  = QColor(255, 215, 0, 160)
+
+        painter.fillRect(overlay_rect, overlay_color)
+        pen = QPen(border_color)
+        pen.setWidth(1)
+        painter.setPen(pen)
+        painter.drawRect(overlay_rect.adjusted(0, 0, -1, -1))
+
+        # Optional: cursor line marker (thin)
+        cursor_block = self.main.textCursor().blockNumber()
+        cy = self._block_y_in_minimap(cursor_block)
+        cpen = QPen(QColor(255, 215, 0, 200))
+        cpen.setWidth(1)
+        painter.setPen(cpen)
+        painter.drawLine(0, cy, self.viewport().width(), cy)
+
+        painter.end()
+
+    # ---------- mouse interaction (drag overlay to scroll main) ----------
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self._dragging = True
+            self._drag_offset_y = event.pos().y()
+            self._scroll_main_to_minimap_y(event.pos().y())
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if self._dragging:
+            self._scroll_main_to_minimap_y(event.pos().y())
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton and self._dragging:
+            self._dragging = False
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _scroll_main_to_minimap_y(self, y: int):
+        # Map minimap y position to a block number, then scroll main to that block.
+        # We compute which block is under y and set main scrollbar ratio accordingly.
+        doc = self.document()
+        # Convert y to document coordinate
+        y_doc = y - self.contentOffset().y()
+
+        # Find approximate block by scanning from first visible block in minimap
+        first = self.firstVisibleBlock()
+        if not first.isValid():
+            return
+
+        block = first
+        while block.isValid():
+            rect = self.blockBoundingGeometry(block)
+            top = rect.top()
+            bottom = rect.bottom()
+            if top <= y_doc <= bottom:
+                target_block = block.blockNumber()
+                self._scroll_main_to_block(target_block)
+                return
+            if top > y_doc:
+                # y is above current block -> use current
+                target_block = block.blockNumber()
+                self._scroll_main_to_block(target_block)
+                return
+            block = block.next()
+
+        # If beyond end, go to bottom
+        self.main.verticalScrollBar().setValue(self.main.verticalScrollBar().maximum())
+
+    def _scroll_main_to_block(self, block_number: int):
+        m = self.main.verticalScrollBar()
+        doc = self.main.document()
+        last_block = max(1, doc.blockCount() - 1)
+        ratio = max(0.0, min(1.0, block_number / last_block))
+        m.setValue(int(ratio * m.maximum()))
+        self._update_overlay()
+        
 class FileEditorWindow(QDialog):
     def __init__(self, parent, initial_path: str = "", initial_text: str = ""):
         super().__init__(parent)
@@ -6823,17 +7049,46 @@ class FileEditorWindow(QDialog):
             dlg.exec_()
 
     def _create_editor(self):
-        # Parent bewusst None: QTabWidget übernimmt Ownership und Resize korrekt
-        editor = CodeEditor(None)
-        editor.setPlaceholderText("Schreib hier was rein…")
-        editor.setLineWrapMode(editor.NoWrap)
-        editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        editor.setLineWrapMode(editor.NoWrap)
-        editor.setFont(QFont("Consolas", 10))
+        self.editor = CodeEditor(None)
+        self.editor.setPlaceholderText("Schreib hier was rein…")
+        self.editor.setLineWrapMode(self.editor.NoWrap)
+        self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.editor.setFont(QFont("Consolas", 10))
+
+        self.minimap = MiniMap(self.editor)
+        self.minimap.setVisible(True)          # oder False als Default
+        self.minimap.setMinimumWidth(140)      # damit sie nicht auf 0 kollabiert
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.editor)
+        splitter.addWidget(self.minimap)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([900, 180])
+
+        self.container = QWidget()
+        self.container._editor = self.editor
         
-        self.highlighter = DBaseHighlighter(editor.document())
-        return editor
+        lay = QHBoxLayout(self.container)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(splitter)
+
+        # wichtig: Referenzen speichern (pro Editor!)
+        self.editor._minimap = self.minimap
+        self.editor._minimap_container = self.container
+
+        print("1111")
+        self.highlighter = DBaseHighlighter(self.editor.document())
+        print("2222")
+        return self.editor
+        
+    def set_minimap_visible(self, visible: bool):
+        ed = self.current_editor()
+        mm = self.minimap
+        if mm is not None:
+            print("set visible: ", visible)
+            mm.setVisible(visible)
         
     def _create_actions(self):
         pass
@@ -6853,7 +7108,9 @@ class FileEditorWindow(QDialog):
     # ---------- Tab / Editor Helpers ----------
     def current_editor(self) -> CodeEditor:
         w = self.editor_tabs.currentWidget()
-        return w  # type: ignore
+        if w is None:
+            return None
+        return self.editor
 
     def current_tab_index(self) -> int:
         return int(self.editor_tabs.currentIndex())
@@ -6874,6 +7131,7 @@ class FileEditorWindow(QDialog):
         ed = self.editor_tabs.widget(idx)
         if ed is None:
             return
+        ed = self.current_editor()
         modified = bool(ed.document().isModified())
         # TabText: nur Dateiname (ohne Pfad)
         title = self.tab_display_name(getattr(ed, "_path", ""))
@@ -6903,18 +7161,22 @@ class FileEditorWindow(QDialog):
 
         # Syntax Highlighter pro Editor
         try:
+            print("oooooo")
             self._highlighter = DBaseHighlighter(ed.document())
+            print("999999")
         except Exception as e:
             print(e)
 
-        idx = self.editor_tabs.addTab(ed, title)
+        #idx = self.editor_tabs.addTab(ed, title)
+        idx = self.editor_tabs.addTab(ed._minimap_container, title)
         self.editor_tabs.setCurrentIndex(idx)
-
+        print("----->>>>")
         # Modified Tracking
         ed.document().contentsChanged.connect(self._schedule_tree_refresh)
         ed.document().modificationChanged.connect(lambda _m, i=idx: self._update_tab_visuals(i))
-
+        print("AAAAA")
         self._update_tab_visuals(idx)
+        print("iuiuiui")
         return idx
 
     def open_path_in_tab(self, path: str) -> int:
@@ -6950,6 +7212,7 @@ class FileEditorWindow(QDialog):
         ed = self.editor_tabs.widget(idx)
         if ed is None:
             return True
+        ed = self.current_editor()
         if not ed.document().isModified():
             return True
         title = self.tab_display_name(getattr(ed, "_path", ""))
@@ -7034,11 +7297,11 @@ class FileEditorWindow(QDialog):
         name = "Unbenannt"
         star = ""
         if idx >= 0:
-            ed = self.editor_tabs.widget(idx)
-            if ed is not None:
-                name = getattr(ed, "_path", "") or "Unbenannt"
-                star = " *" if ed.document().isModified() else ""
-
+            ed = self.current_editor()
+            if ed is None:
+                return
+            star = " *" if ed.document().isModified() else ""
+        
         if hasattr(self, "fname"):
             self.fname.setText(name)
         self.setWindowTitle(f"{name}{star} - Editor")
@@ -10516,7 +10779,7 @@ class IconTab(QListWidget):
 
 
         act_edit = QAction(tr("Edit"), self)
-        act_edit.setEnabled(ext == ".prg")
+        #act_edit.setEnabled(ext == ".prg")
         act_edit.triggered.connect(lambda: self._edit_in_code_editor(path))
         menu.addAction(act_edit)
 
@@ -13458,26 +13721,31 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        
         self.menu_file       = menubar.addMenu(tr("File"))
         self.menu_file.setFont(f2)
         
         self.menu_edit       = menubar.addMenu(tr("Edit"))
+        self.menu_edit.setFont(f2)
+        
+        self.act_edit_minimap = QAction(tr("Mini-Map"), self, checkable=True, checked=True)
+        self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
+        
+        self.menu_edit.addAction(self.act_edit_minimap)
+        
         self.menu_display    = menubar.addMenu(tr("View"))
         self.menu_display.setFont(f2)
-
+        
         # Ansicht/Anzeige: mindestens eine Action hinzufügen, sonst öffnet Qt das Menü nicht (leeres Menü => unsichtbar)
-        self.act_view_regie = QAction(tr("Control Center"), self)
-        self.act_view_designer = QAction(tr("Designer"), self)
-        self.act_view_editor = QAction(tr("Editor"), self)
-        self.act_view_table = QAction(tr("Table Designer"), self)
+        self.act_view_regie    = QAction(tr("Control Center"), self)
+        self.act_view_designer = QAction(tr("Designer")      , self)
+        self.act_view_editor   = QAction(tr("Editor")        , self)
+        self.act_view_table    = QAction(tr("Table Designer"), self)
 
         self.act_view_sql = QAction(tr("SQL Builder"), self)
-        self.act_view_regie.triggered.connect(self.on_action_view_regiecenter)
+        self.act_view_regie   .triggered.connect(self.on_action_view_regiecenter)
         self.act_view_designer.triggered.connect(self.on_action_view_designer)
-        self.act_view_editor.triggered.connect(self.on_action_view_editor)
-        self.act_view_table.triggered.connect(self.on_action_view_table_designer)
-
+        self.act_view_editor  .triggered.connect(self.on_action_view_editor)
+        self.act_view_table   .triggered.connect(self.on_action_view_table_designer)
 
         self.act_view_sql.triggered.connect(self.on_action_view_sql_builder)
         self.menu_display.addAction(self.act_view_regie)
@@ -13621,6 +13889,10 @@ class MainWindow(QMainWindow):
         #self.mdi_open_editor()
         self.mdi_open_table_designer()
 
+    def on_action_edit_minimap(self, visible: bool):
+        print(visible)
+        MINIMAP.minimap.setVisible(visible)
+        
     def closeEvent(self, event):
         reply = QMessageBox.question(
             self,
@@ -13718,7 +13990,7 @@ class MainWindow(QMainWindow):
         except Exception:
             return None
         return None
-
+    
     def jump_to_symbol(self, symbol: str):
         """Best-effort: springt im aktiven Editor zu 'symbol' (oder legt Marker an)."""
         symbol = (symbol or "").strip()
@@ -13727,7 +13999,7 @@ class MainWindow(QMainWindow):
         w = self.ensure_code_editor_window(focus=True)
         if w is None:
             return
-
+        
         ed = None
         for attr in ("current_editor", "editor", "code_editor", "text_edit"):
             if hasattr(w, attr):
@@ -13739,7 +14011,7 @@ class MainWindow(QMainWindow):
                     break
         if ed is None:
             return
-
+        
         try:
             txt = ed.document().toPlainText()
             idx = txt.lower().find(symbol.lower())
