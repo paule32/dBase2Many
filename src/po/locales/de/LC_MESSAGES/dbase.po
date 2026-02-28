@@ -49,6 +49,9 @@ msgstr "Beenden"
 msgid "Cancel"
 msgstr "Abbrechen"
 
+msgid "Properties"
+msgstr "Eigenschaften"
+
 msgid "OK"
 msgstr "OK"
 
@@ -82,8 +85,17 @@ msgstr "Fehler: "
 msgid "Syntax Error: "
 msgstr "Syntax-Fehler: "
 
+msgid "Runtime Error"
+msgstr "Laufzeitfehler"
+
 msgid "Runtime Error: "
 msgstr "Laufzeit-Fehler: "
+
+msgid "file not found"
+msgstr "Datei nicht gefunden"
+
+msgid "file is in use"
+msgstr "Datei ist in benutzung"
 
 msgid "Attribut Error: "
 msgstr "Attribute-Fehler: "
@@ -212,3 +224,30 @@ msgstr "Alle Dateien (*.*)"
 
 msgid "could not open file"
 msgstr "Konnte Datei nicht öffnen"
+
+msgid "you have to remove it your self"
+msgstr "Sie müssen die Datei selbst löschen"
+
+msgid "Would you realy close the Application?"
+msgstr "Wollen Sie die Anwendung wirklich beenden ?"
+
+msgid "Close Application"
+msgstr "Anwendung schließen"
+
+msgid "delete LOG file?"
+msgstr "LOG-Datei löschen?"
+
+msgid "remove LOG file?"
+msgstr "Soll die LOG-Datei wirklich gelöscht werden?"
+
+msgid "remove file diened."
+msgstr "Löschen fehlgeschlagen"
+
+msgid "LOG file could not remove"
+msgstr "Die LOG-Datei konnte nicht gelöscht werden"
+
+msgid "remvoed"
+msgstr "Gelöscht"
+
+msgid "LOG file have been removed"
+msgstr "Die LOG-Datei wurde gelöscht."

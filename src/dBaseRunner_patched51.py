@@ -75,18 +75,18 @@ def load_qss(rel_path: str) -> str:
 def excepthook(etype, value, tb):
     content = ""
     
-    with open(LOG, "a", buffering=1) as f:
+    with open(LOG, "w", buffering=1) as f:
         f.write("\n--- PYTHON UNCAUGHT EXCEPTION ---\n")
         traceback.print_exception(etype, value, tb, file=f)
-        f.close()
-        
-    with open(LOG, "r") as f:
-        content = f.read()
         f.close()
         
     app = ensure_qt_app()
     
     if app is not None:
+        with open(LOG, "r") as f:
+            content = f.read()
+            f.close()
+        
         dlg = ErrorMessage(
             title    = "Laufzeitfehler",
             message  = content,
@@ -111,7 +111,6 @@ try:
             f.write(f"[QT] {message}\n")
     qInstallMessageHandler(qt_msg_handler)
 except Exception as e:
-    print("-------------")
     print(e)
     pass
 
@@ -203,28 +202,32 @@ class ErrorMessage(QDialog):
                 "Die LOG-Datei existiert nicht (mehr)."
             )
             return
+        err = tr("remove LOG file?")
         answer = QMessageBox.question(
             self,
-            "LOG-Datei löschen?",
-            f"Soll die LOG-Datei wirklich gelöscht werden?\n\n{self.log_path}",
+            tr("delete LOG file?"),
+            f"{err}\n\n{self.log_path}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         if answer != QMessageBox.Yes:
             return
         try:
+            with open(LOG, "w", encoding="utf-8"):
+                pass
             os.remove(self.log_path)
         except Exception as e:
+            err = tr("LOG file could not remove")
             QMessageBox.critical(
                 self,
-                "Löschen fehlgeschlagen",
-                f"Die LOG-Datei konnte nicht gelöscht werden:\n{e}"
+                tr("remove file diened."),
+                f"{err}:\n{e}"
             )
             return
         QMessageBox.information(
             self,
-            "Gelöscht",
-            "Die LOG-Datei wurde gelöscht."
+            tr("removed"),
+            tr("LOG file have been removed")
         )
         # Optional: Button deaktivieren, weil Datei weg ist
         self.btn_delete_log.setEnabled(False)
@@ -10035,6 +10038,8 @@ class TableDesignerDialog(QDialog):
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
+        self.parent      = parent
+        self.subwindow   = None
 
         self.setWindowTitle("Phonebook.dbf - Table Designer")
         self.setModal(False)
@@ -10094,6 +10099,13 @@ class TableDesignerDialog(QDialog):
         
         self.proxy.setCurrentRow(0)
         self.table.selectRow(0)
+    
+    def closeEvent(self, event):
+        self.subwindow.close()
+        self.parent.close()
+        
+    def setSubWindow(self, parent):
+        self.subwindow = parent
         
     # Bei Reihenwechsel Marker mitwandern lassen
     def on_current_changed(self, current, previous):
@@ -11280,6 +11292,8 @@ class DesktopPropertiesDialog(QDialog):
         self.setWindowTitle("Desktop Properties")
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
+        
+        self.setFont(QFont("Arial",10))
 
         root = QVBoxLayout(self)
 
@@ -12870,8 +12884,6 @@ class PixelGridCanvas(QWidget):
         self.update_canvas_size()
         self.ensure_visible_control(ctrl)
 
-
-
     def ensure_visible_control(self, ctrl):
         sa = self._scroll_area
         if sa is not None and ctrl is not None:
@@ -12879,8 +12891,6 @@ class PixelGridCanvas(QWidget):
                 sa.ensureWidgetVisible(ctrl, 40, 40)
             except Exception:
                 pass
-
-
 
     def update_canvas_size(self):
         w = int(self._base_design_size.width())
@@ -12894,8 +12904,6 @@ class PixelGridCanvas(QWidget):
             except Exception:
                 pass
         self.setMinimumSize(QSize(w, h))
-
-
 
     def keyPressEvent(self, ev):
         if ev.key() in (Qt.Key_Delete, Qt.Key_Backspace):
@@ -13020,7 +13028,7 @@ class ObjectInspectorPanel(QWidget):
         self.tree_props.setHeaderLabels(["Key", "Value"])
         self.tree_props.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_props.header().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabs.addTab(self.tree_props, "Properties")
+        self.tabs.addTab(self.tree_props, tr("Properties"))
         self.tree_props.itemChanged.connect(self._on_prop_changed)
 
         # Events (Event/Handler)
@@ -13323,13 +13331,13 @@ class MainWindow(QMainWindow):
 
         # Menüs (nur wenn vorhanden)
         try:
-            if hasattr(self, "menu_file"):       self.menu_file.setTitle(tr("File"))
-            if hasattr(self, "menu_edit"):       self.menu_edit.setTitle(tr("Edit"))
-            if hasattr(self, "menu_display"):    self.menu_display.setTitle(tr("View"))
+            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(tr("File"))
+            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(tr("Edit"))
+            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(tr("View"))
             if hasattr(self, "menu_properties"): self.menu_properties.setTitle(tr("Properties"))
-            if hasattr(self, "menu_windows"):    self.menu_windows.setTitle(tr("Window"))
-            if hasattr(self, "menu_help"):       self.menu_help.setTitle(tr("Help"))
-            if hasattr(self, "menu_language"):   self.menu_language.setTitle(tr("Language"))
+            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(tr("Window"))
+            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(tr("Help"))
+            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(tr("Language"))
         except Exception:
             pass
 
@@ -13613,6 +13621,19 @@ class MainWindow(QMainWindow):
         #self.mdi_open_editor()
         self.mdi_open_table_designer()
 
+    def closeEvent(self, event):
+        reply = QMessageBox.question(
+            self,
+            tr("Close Application"),
+            tr("Would you realy close the Application?"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            event.accept()   # Schließen erlauben
+        else:
+            event.ignore()   # Schließen verhindern
+            
     def ensure_code_editor_window(self, focus: bool = True):
         """Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
 
@@ -13933,9 +13954,34 @@ class MainWindow(QMainWindow):
 
     def on_action_file_database(self):
         print("file data base")
+    
     def on_action_file_exit(self):
         print("file exit")
+        try:
+            os.remove(LOG)
+            p = Path(LOG)
+            if p.exists():
+                p.unlink()
+        except FileNotFoundError:
+            dlg = ErrorMessage(
+                title    = tr("Runtime Error"),
+                log_path = LOG,
+                message  = f"{tr("file not found")}: '{LOG}'.",
+                parent   = MAINAPP
+            )
+            dlg.exec_()
+        except PermissionError:
+            txt = tr("file is in use")
+            dlg = ErrorMessage(
+                title    = tr("Runtime Error"),
+                log_path = LOG,
+                message  = (f"{txt}: '{LOG}'.\n" +
+                tr("you have to remove it your self")),
+                parent   = MAINAPP
+            )
+            dlg.exec_()
         self.close()
+        
     def on_action_file_new_project(self):
         print("file new project")
 
@@ -14014,7 +14060,7 @@ class MainWindow(QMainWindow):
 
     def on_action_file_open(self):
         # Datei -> Öffnen: in CodeEditor-Tabs öffnen
-        dlg = QFileDialog(self, "Datei öffnen")
+        dlg = QFileDialog(self, tr("Open File..."))
         dlg.setFileMode(QFileDialog.ExistingFile)
         dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
         dlg.setDefaultSuffix("prg")
@@ -14196,6 +14242,7 @@ class MainWindow(QMainWindow):
     def mdi_open_table_designer(self):
         dlg = TableDesignerDialog(self)
         sub = self.mdi.addSubWindow(dlg)
+        dlg.setSubWindow(sub)
         sub.resize(600,250)
         sub.move(56,320)
         sub.show()
@@ -14280,6 +14327,26 @@ class MainWindow(QMainWindow):
             sb_dark  = "#000000"
             arrow    = "#FFD400"
 
+            window_bg=        "#0f1116"
+            panel_bg=         "#141824"
+            input_bg=         "#101521"
+
+            text_fg=          "#e6e6e6"
+            text_hover_fg=    "#ffffff"
+            text_disabled_fg= "#7a808a"
+
+            title_fg=         "#ffd866"
+
+            border=           "#2a2f3a"
+            border_hover=     "#3a4150"
+            border_disabled=  "#242935"
+
+            accent=           "#2b4c7e"
+            accent_hover =     "#3b68ad"
+            accent_disabled=  "#223a5e"
+
+            disabled_bg=      "#0c0f14"
+        
         else:
             header_bg               = "#f0f0f0"
             header_fg               = "#000000"
@@ -14323,6 +14390,189 @@ class MainWindow(QMainWindow):
         
         size = 21  # Win95 vibe
         self.setStyleSheet(f"""
+/* =========================
+   QCheckBox (Dark)
+   ========================= */
+QCheckBox {{
+    color: {text_fg};
+    spacing: 8px;
+}}
+
+QCheckBox:hover {{
+    color: {text_hover_fg};
+}}
+
+QCheckBox:disabled {{
+    color: {text_disabled_fg};
+}}
+
+QCheckBox::indicator {{
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid {border};
+    background: {input_bg};
+}}
+
+QCheckBox::indicator:hover {{
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:focus {{
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:checked {{
+    background: {accent};
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:checked:hover {{
+    background: {accent_hover};
+    border: 1px solid {accent_hover};
+}}
+
+QCheckBox::indicator:unchecked {{
+    background: {input_bg};
+}}
+
+QCheckBox::indicator:indeterminate {{
+    background: {accent};
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:disabled {{
+    background: {disabled_bg};
+    border: 1px solid {border_disabled};
+}}
+
+QCheckBox::indicator:checked:disabled {{
+    background: {accent_disabled};
+    border: 1px solid {border_disabled};
+}}
+
+/* =========================
+   QRadioButton (Dark)
+   ========================= */
+QRadioButton {{
+    color: {text_fg};
+    spacing: 8px;
+}}
+
+QRadioButton:hover {{
+    color: {text_hover_fg};
+}}
+
+QRadioButton:disabled {{
+    color: {text_disabled_fg};
+}}
+
+QRadioButton::indicator {{
+    width: 16px;
+    height: 16px;
+    border-radius: 8px; /* rund */
+    border: 1px solid {border};
+    background: {input_bg};
+}}
+
+QRadioButton::indicator:hover {{
+    border: 1px solid {accent};
+}}
+
+QRadioButton::indicator:focus {{
+    border: 1px solid {accent};
+}}
+
+QRadioButton::indicator:checked {{
+    border: 1px solid {accent};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent},
+        stop:0.35 {accent},
+        stop:0.36 {input_bg},
+        stop:1.0 {input_bg}
+    );
+}}
+
+QRadioButton::indicator:checked:hover {{
+    border: 1px solid {accent_hover};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent_hover},
+        stop:0.35 {accent_hover},
+        stop:0.36 {input_bg},
+        stop:1.0 {input_bg}
+    );
+}}
+
+QRadioButton::indicator:disabled {{
+    background: {disabled_bg};
+    border: 1px solid {border_disabled};
+}}
+
+QRadioButton::indicator:checked:disabled {{
+    border: 1px solid {border_disabled};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent_disabled},
+        stop:0.35 {accent_disabled},
+        stop:0.36 {disabled_bg},
+        stop:1.0 {disabled_bg}
+    );
+}}
+
+/* =========================
+   QGroupBox (Dark)
+   ========================= */
+QGroupBox {{
+    color: {text_fg};
+    border: 1px solid {border};
+    border-radius: 10px;
+    margin-top: 14px;     /* Platz für Titel */
+    padding: 10px;
+    background: {panel_bg};
+}}
+
+QGroupBox:hover {{
+    border: 1px solid {border_hover};
+}}
+
+QGroupBox:disabled {{
+    color: {text_disabled_fg};
+    border: 1px solid {border_disabled};
+    background: {disabled_bg};
+}}
+
+/* Titel-Label */
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 8px;
+    left: 10px;
+    top: 2px;
+
+    color: {title_fg};
+    background: {window_bg}; /* damit der Titel die Border "überdeckt" */
+}}
+
+/* Optional: wenn du GroupBoxen checkable nutzt */
+QGroupBox::indicator {{
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+}}
+
+QGroupBox::indicator:unchecked {{
+    border: 1px solid {border};
+    border-radius: 4px;
+    background: {input_bg};
+}}
+
+QGroupBox::indicator:checked {{
+    border: 1px solid {accent};
+    background: {accent};
+}}
+
 QMenuBar {{ background: #1a1a1a; color: #ffd866; }}
 QMenuBar::item {{ background: transparent; padding: 6px 10px; }}
 QMenuBar::item:selected {{ background: #2a2a2a; }}
@@ -14385,9 +14635,9 @@ QComboBox::drop-down:hover {{
 
 /* Pfeil */
 QComboBox::down-arrow {{
-    width: 10px;
-    height: 10px;
-    background: #ffd866;          /* oder #000000 im Light Mode */
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_down.png);
 }}
 
 /* Popup-Liste */
@@ -14517,8 +14767,8 @@ QWebEngineView {{background: {tree_bg};}}
 QScrollBar:vertical {{background: {sb_face};width: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
 QScrollBar:horizontal {{background: {sb_face};height: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
 QScrollBar::track:vertical, QScrollBar::track:horizontal {{background: {sb_track};}}
-QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
+/*QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
+/*QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{background: transparent;}}
 QScrollBar::sub-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
@@ -14527,14 +14777,34 @@ QScrollBar::sub-line:horizontal {{background: {sb_face};width: {size}px;border-t
 QScrollBar::add-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
 QScrollBar::sub-line:vertical:pressed, QScrollBar::add-line:vertical:pressed,
 QScrollBar::sub-line:horizontal:pressed, QScrollBar::add-line:horizontal:pressed {{border-top: 1px solid {sb_mid};border-left: 1px solid {sb_mid};border-right: 1px solid {sb_hi};border-bottom: 1px solid {sb_hi};}}
-QScrollBar::up-arrow:vertical {{width: 8px; height: 8px;background: {arrow};}}
-QScrollBar::down-arrow:vertical {{width: 8px; height: 8px;background: {arrow};}}
-QScrollBar::left-arrow:horizontal {{width: 8px; height: 8px;background: {arrow};}}
-QScrollBar::right-arrow:horizontal {{width: 8px; height: 8px;background: {arrow};}}
+QScrollBar::up-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_up.png);
+}}
+QScrollBar::down-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_down.png);
+}}
+QScrollBar::left-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_left.png);
+}}
+QScrollBar::right-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_right.png);
+}}
+
 QScrollBar::sub-line:vertical {{ subcontrol-position: top;    subcontrol-origin: margin; }}
 QScrollBar::add-line:vertical {{ subcontrol-position: bottom; subcontrol-origin: margin; }}
 QScrollBar::sub-line:horizontal {{ subcontrol-position: left;  subcontrol-origin: margin; }}
 QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin: margin; }}
+
+QScrollBar:vertical[dir="down"]::handle {{ image: url(:/icons/arrow_down.png); }}
+QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
 """)
         self.mdi.setBackground(QBrush(QColor("#373737")))
 

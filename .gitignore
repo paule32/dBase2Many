@@ -79,3 +79,4 @@ src/dist/test.pro
 /doc/out/dark
 src/dBaseRunner_patched51.py
 src/inst.bat
+src/resources_rc.py
