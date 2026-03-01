@@ -277,16 +277,25 @@ copy /y start.bat %DIST%\start.bat
 :: ---------------------------------------------------------------
 :: TODO: create zip archive for ftp server upload ...
 :: ---------------------------------------------------------------
-goto skip
+:skip
 echo create zip archive ...
 pushd dist
-zip -9 -R packed.zip *.*
+zip -9 -r packed.zip dBaseRunner\data\*.*
+zip -9 -r packed.zip dBaseRunner\data\img\*.*
+zip -9 -r packed.zip dBaseRunner\gen\*.*
+zip -9 -r packed.zip dBaseRunner\test\*.*
+zip -9 -r packed.zip dBaseRunner\dBaseRunner.pyc
+zip -9 -r packed.zip dBaseRunner\resources_rc.pyc
+zip -9 -r packed.zip dBaseRunner\install.bat
+zip -9 -r packed.zip dBaseRunner\setup.bat
+zip -9 -r packed.zip dBaseRunner\setup.ini
+zip -9 -r packed.zip dBaseRunner\setup.ps1
+zip -9 -r packed.zip dBaseRunner\start.bat
 if errorlevel 1 (
     echo error building dBaseLexer
     goto have_error
 )
 popd
-:skip
 goto ok
 
 :have_error

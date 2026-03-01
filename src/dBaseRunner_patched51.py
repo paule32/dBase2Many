@@ -30,6 +30,7 @@ import sys
 import os
 import re
 import pprint
+import datetime
 
 # ---------------------------------------------------------------------------
 # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
@@ -121,7 +122,8 @@ from PyQt5.QtCore    import (
     QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
     QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
     QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
-    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler
+    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler,
+    QDataStream, QIODevice, QMimeData
 )
 from PyQt5.QtGui     import (
     QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
@@ -136,12 +138,12 @@ from PyQt5.QtWidgets import (
     QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
     QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
     QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
-    QTableWidgetItem, QHeaderView, QStyledItemDelegate, QGroupBox, QLabel,
-    QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
-    QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
-    QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
-    QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem,
-    QHeaderView, QDockWidget, QScrollArea
+    QTableWidgetItem, QHeaderView, QStyledItemDelegate, QAbstractItemDelegate,
+    QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QSpinBox,
+    QGridLayout, QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QTreeView,
+    QAbstractItemView, QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog,
+    QTreeWidgetItem, QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget,
+    QTreeWidgetItem, QHeaderView, QDockWidget, QScrollArea
 )
 from PyQt5.QtWebEngineWidgets import (
     QWebEngineView, QWebEngineScript
@@ -296,6 +298,17 @@ def icon_from_svg(svg: str, size: int = 16) -> QIcon:
     renderer.render(p)
     p.end()
     return QIcon(pix)
+
+# ---------------------------------------------------------------------------
+# DBF schema helpers
+# ---------------------------------------------------------------------------
+@dataclass
+class DbfFieldSpec:
+    name: str
+    ftype: str
+    length: int
+    decimals: int
+    offset: int = 0
 
 @dataclass
 class TocNode:
@@ -10223,8 +10236,6 @@ class SourceAliasesTab(QWidget):
         self._reload_list(select_alias=new_alias)
 
 class UpperNoSpaceDelegate(QStyledItemDelegate):
-    """Editor erzwingt: keine Leerzeichen + (optional) Großbuchstaben."""
-
     def __init__(self, parent=None, force_upper=True):
         super().__init__(parent)
         self.force_upper = force_upper
@@ -10265,8 +10276,6 @@ class IntOnlyDelegate(QStyledItemDelegate):
         model.setData(index, editor.text(), Qt.EditRole)
         
 class TypeComboDelegate(QStyledItemDelegate):
-    """ComboBox-Editor nur für die Type-Spalte."""
-
     def __init__(self, type_column: int, parent=None):
         super().__init__(parent)
         self.type_column = type_column
@@ -10276,6 +10285,11 @@ class TypeComboDelegate(QStyledItemDelegate):
             return super().createEditor(parent, option, index)
 
         cb = QComboBox(parent)
+        # Requested: force font
+        try:
+            cb.setFont(QFont("Arial", 10))
+        except Exception:
+            pass
         cb.addItems(TYPE_VALUES)
         cb.setEditable(False)
         return cb
@@ -10297,6 +10311,706 @@ class TypeComboDelegate(QStyledItemDelegate):
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
 
+class IndexComboDelegate(QStyledItemDelegate):
+    VALUES = [tr("kein"), tr("aufsteigend"), tr("absteigend")]
+
+    def __init__(self, index_column: int, parent=None):
+        super().__init__(parent)
+        self.index_column = index_column
+
+    def createEditor(self, parent, option, index):
+        if index.column() != self.index_column:
+            return super().createEditor(parent, option, index)
+        cb = QComboBox(parent)
+        try:
+            cb.setFont(QFont("Arial", 10))
+        except Exception:
+            pass
+        cb.addItems(self.VALUES)
+        cb.setEditable(False)
+        return cb
+
+    def setEditorData(self, editor, index):
+        if index.column() != self.index_column or not isinstance(editor, QComboBox):
+            return super().setEditorData(editor, index)
+        current = (index.data(Qt.DisplayRole) or "").strip()
+        i = editor.findText(current, Qt.MatchFixedString)
+        editor.setCurrentIndex(i if i >= 0 else 0)
+
+    def setModelData(self, editor, model, index):
+        if index.column() != self.index_column or not isinstance(editor, QComboBox):
+            return super().setModelData(editor, model, index)
+        model.setData(index, editor.currentText(), Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+class ReorderableStandardItemModel(QStandardItemModel):
+    _MIME = "application/x-dbase-td-rows"
+
+    def flags(self, index):
+        f = super().flags(index)
+        # ganze Row bewegen: Drag/Drop auf jedes Item erlauben
+        if index.isValid():
+            f |= Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        else:
+            f |= Qt.ItemIsDropEnabled
+        return f
+
+    def supportedDropActions(self):
+        return Qt.MoveAction
+
+    def mimeTypes(self):
+        return [self._MIME]
+
+    def mimeData(self, indexes):
+        md = QMimeData()
+        rows = sorted({i.row() for i in indexes if i.isValid()})
+        if not rows:
+            return md
+        # wir unterstützen 1 Row Move (sonst wird's unübersichtlich)
+        row = rows[0]
+        ba = QByteArray()
+        ds = QDataStream(ba, QIODevice.WriteOnly)
+        ds.writeInt32(row)
+        md.setData(self._MIME, ba)
+        return md
+
+    def dropMimeData(self, data, action, row, column, parent):
+        if action != Qt.MoveAction:
+            return False
+        if not data or not data.hasFormat(self._MIME):
+            return False
+
+        ba = data.data(self._MIME)
+        ds = QDataStream(ba, QIODevice.ReadOnly)
+        src_row = ds.readInt32()
+        if src_row < 0 or src_row >= self.rowCount():
+            return False
+
+        # Zielrow bestimmen
+        if row < 0:
+            row = parent.row() if parent.isValid() else self.rowCount()
+        row = max(0, min(row, self.rowCount()))
+
+        if row == src_row or row == src_row + 1:
+            return False
+
+        take = self.takeRow(src_row)
+        if row > src_row:
+            row -= 1
+        self.insertRow(row, take)
+        return True
+
+class TableRecordEditorDialog(QDialog):
+    def __init__(self, main_window: "MainWindow", dbf_path: str, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.current_path = dbf_path or ""
+        self._modified = False
+        self._updating = False
+        self._subwindow = None
+
+        self.setModal(False)
+        self.setWindowModality(Qt.NonModal)
+
+        lay = QVBoxLayout(self)
+
+        # Sidebar + table
+        self.table = QTableView(self)
+        self.model = QStandardItemModel(0, 0, self.table)
+        self.table.setModel(self.model)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.setAlternatingRowColors(True)
+        self.table.setEditTriggers(
+            QAbstractItemView.DoubleClicked |
+            QAbstractItemView.SelectedClicked |
+            QAbstractItemView.EditKeyPressed
+        )
+
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+
+        self.side_bar = QWidget(self)
+        self.side_bar.setObjectName("TableRecordEditorSideBar")
+        sb_lay = QVBoxLayout(self.side_bar)
+        sb_lay.setContentsMargins(1, 1, 1, 1)
+        sb_lay.setSpacing(6)
+
+        def _mk(std_icon, tip):
+            b = QToolButton(self.side_bar)
+            try:
+                b.setIcon(self.style().standardIcon(std_icon))
+            except Exception:
+                pass
+            b.setToolTip(tip)
+            b.setAutoRaise(True)
+            b.setIconSize (QSize(36, 36))
+            b.setFixedSize(QSize(42, 42))
+            return b
+
+        self.btn_new = _mk(QStyle.SP_FileIcon, "Neuer Record")
+        self.btn_del = _mk(QStyle.SP_DialogDiscardButton, "Record löschen")
+        self.btn_save = _mk(QStyle.SP_DialogSaveButton, "Speichern")
+
+        self.btn_new.clicked.connect(self._action_new_record)
+        self.btn_del.clicked.connect(self._action_delete_record)
+        self.btn_save.clicked.connect(self._action_save)
+
+        sb_lay.addWidget(self.btn_new)
+        sb_lay.addWidget(self.btn_del)
+        sb_lay.addSpacing(8)
+        sb_lay.addWidget(self.btn_save)
+        sb_lay.addStretch(1)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        row.addWidget(self.side_bar, 0, Qt.AlignTop)
+        row.addWidget(self.table, 1)
+        lay.addLayout(row)
+
+        self.resize(780, 460)
+
+        self.fields: List[DbfFieldSpec] = []
+        self.header_len = 0
+        self.record_len = 0
+        self.version = 0x03
+        self._load_dbf(self.current_path)
+
+        # track modifications
+        try:
+            self.model.dataChanged.connect(self._on_model_changed)
+            self.model.rowsInserted.connect(self._on_model_changed)
+            self.model.rowsRemoved.connect(self._on_model_changed)
+        except Exception:
+            pass
+
+    def closeEvent(self, event):
+        if not self._maybe_save_changes():
+            event.ignore()
+            return
+        event.accept()
+
+    def _on_model_changed(self, *_):
+        if self._updating:
+            return
+        self._modified = True
+        self._update_title()
+
+    def _update_title(self):
+        base = os.path.basename(self.current_path) if self.current_path else "Unbenannt.dbf"
+        star = " *" if self._modified else ""
+        self.setWindowTitle(f"{base}{star} - Bearbeiten")
+
+    # ---------------- DBF I/O ----------------
+    def _read_dbf_header(self, path: str):
+        with open(path, "rb") as f:
+            hdr = f.read(32)
+            if len(hdr) < 32:
+                raise ValueError("DBF header too short")
+            self.version = hdr[0]
+            num_records = int.from_bytes(hdr[4:8], "little")
+            self.header_len = int.from_bytes(hdr[8:10], "little")
+            self.record_len = int.from_bytes(hdr[10:12], "little")
+
+            # field descriptors
+            f.seek(32)
+            desc = f.read(max(0, self.header_len - 32))
+            end = desc.find(b"\x0D")
+            if end == -1:
+                end = len(desc)
+            desc = desc[:end]
+
+            fields: List[DbfFieldSpec] = []
+            offset = 1  # deletion flag
+            for i in range(0, len(desc), 32):
+                ch = desc[i:i+32]
+                if len(ch) < 32:
+                    break
+                name_raw = ch[0:11].split(b"\x00", 1)[0]
+                name = name_raw.decode("ascii", errors="ignore").strip()
+                if not name:
+                    continue
+                ftype = chr(ch[11]).upper()
+                flen = int(ch[16])
+                fdec = int(ch[17])
+                fields.append(DbfFieldSpec(name=name, ftype=ftype, length=flen, decimals=fdec, offset=offset))
+                offset += flen
+
+            return num_records, fields
+
+    def _decode_field(self, spec: DbfFieldSpec, raw: bytes) -> Any:
+        s = raw.decode("cp1252", errors="ignore")
+        if spec.ftype in ("C", "M"):
+            return s.rstrip()
+        if spec.ftype in ("N", "F", "I"):
+            return s.strip()
+        if spec.ftype == "L":
+            v = s.strip().upper()
+            return True if v in ("T", "Y", "1") else False
+        if spec.ftype == "D":
+            v = s.strip()
+            return v
+        if spec.ftype == "T":
+            return s.strip()
+        return s.rstrip()
+
+    def _encode_field(self, spec: DbfFieldSpec, value: Any) -> bytes:
+        # returns exactly spec.length bytes
+        if spec.ftype in ("C", "M"):
+            txt = str(value or "")
+            b = txt.encode("cp1252", errors="replace")[:spec.length]
+            return b.ljust(spec.length, b" ")
+        if spec.ftype in ("N", "F", "I"):
+            txt = str(value or "").strip().replace(",", ".")
+            # right-justify numeric
+            b = txt.encode("ascii", errors="ignore")[:spec.length]
+            return b.rjust(spec.length, b" ")
+        if spec.ftype == "L":
+            v = value
+            if isinstance(v, str):
+                vv = v.strip().upper()
+                v = True if vv in ("1", "T", "Y", "TRUE") else False
+            ch = b"T" if bool(v) else b"F"
+            return ch.ljust(spec.length, b" ")
+        if spec.ftype == "D":
+            txt = str(value or "").strip()
+            # expect YYYYMMDD
+            b = txt.encode("ascii", errors="ignore")[:spec.length]
+            return b.ljust(spec.length, b" ")
+        # fallback
+        txt = str(value or "")
+        b = txt.encode("cp1252", errors="replace")[:spec.length]
+        return b.ljust(spec.length, b" ")
+
+    def _load_dbf(self, path: str):
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "Fehler", "Keine DBF-Datei zum Bearbeiten vorhanden.")
+            return
+
+        try:
+            num_records, fields = self._read_dbf_header(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"DBF konnte nicht gelesen werden:\n{e}")
+            return
+
+        self.fields = fields
+        self._updating = True
+        try:
+            self.model.clear()
+            self.model.setColumnCount(len(fields))
+            self.model.setHorizontalHeaderLabels([f.name for f in fields])
+
+            # set delegates per column
+            for c, spec in enumerate(fields):
+                if spec.ftype == "L":
+                    self.table.setItemDelegateForColumn(c, LogicalCheckDelegate(self.table))
+                elif spec.ftype in ("N", "F", "I"):
+                    self.table.setItemDelegateForColumn(c, NumericLenDelegate(spec.length, spec.decimals, self.table))
+                else:
+                    self.table.setItemDelegateForColumn(c, FixedLenTextDelegate(spec.length, self.table))
+
+            # read records
+            with open(path, "rb") as f:
+                f.seek(self.header_len)
+                for r in range(num_records):
+                    rec = f.read(self.record_len)
+                    if len(rec) < self.record_len:
+                        break
+                    if rec[:1] == b"*":
+                        continue  # deleted
+                    items: List[QStandardItem] = []
+                    for spec in fields:
+                        raw = rec[spec.offset:spec.offset + spec.length]
+                        val = self._decode_field(spec, raw)
+                        it = QStandardItem()
+                        if spec.ftype == "L":
+                            it.setData(bool(val), Qt.EditRole)
+                            it.setData("1" if bool(val) else "0", Qt.DisplayRole)
+                        else:
+                            it.setData(str(val), Qt.EditRole)
+                            it.setData(str(val), Qt.DisplayRole)
+                        items.append(it)
+                    self.model.appendRow(items)
+
+            self._modified = False
+            self._update_title()
+            if self.model.rowCount() > 0:
+                self.table.selectRow(0)
+        finally:
+            self._updating = False
+
+    def _save_dbf(self, path: str) -> bool:
+        try:
+            # Build header
+            nfields = len(self.fields)
+            header_len = 32 + 32 * nfields + 1
+            record_len = 1 + sum(f.length for f in self.fields)
+
+            today = datetime.date.today()
+            num_records = self.model.rowCount()
+
+            hdr = bytearray(32)
+            hdr[0] = self.version if self.version else 0x03
+            hdr[1] = today.year - 1900
+            hdr[2] = today.month
+            hdr[3] = today.day
+            hdr[4:8] = int(num_records).to_bytes(4, "little", signed=False)
+            hdr[8:10] = int(header_len).to_bytes(2, "little", signed=False)
+            hdr[10:12] = int(record_len).to_bytes(2, "little", signed=False)
+
+            out = bytearray()
+            out += hdr
+
+            # field descriptors
+            for spec in self.fields:
+                desc = bytearray(32)
+                nb = spec.name.encode("ascii", errors="ignore")[:11]
+                desc[0:len(nb)] = nb
+                desc[11] = ord(spec.ftype[:1])
+                desc[16] = int(spec.length) & 0xFF
+                desc[17] = int(spec.decimals) & 0xFF
+                out += desc
+            out += b"\x0D"
+
+            # records
+            for r in range(self.model.rowCount()):
+                rec = bytearray()
+                rec += b" "  # not deleted
+                for c, spec in enumerate(self.fields):
+                    v = self.model.item(r, c)
+                    if v is None:
+                        val = ""
+                    else:
+                        # Logical: prefer EditRole boolean
+                        val = v.data(Qt.EditRole)
+                    rec += self._encode_field(spec, val)
+                # enforce record length
+                if len(rec) < record_len:
+                    rec += b" " * (record_len - len(rec))
+                out += rec[:record_len]
+
+            out += b"\x1A"
+
+            with open(path, "wb") as f:
+                f.write(out)
+            return True
+        except Exception:
+            return False
+
+    # ---------------- actions ----------------
+    def _maybe_save_changes(self) -> bool:
+        if not self._modified:
+            return True
+        r = QMessageBox.question(
+            self,
+            "Änderungen speichern?",
+            "Es gibt ungespeicherte Änderungen.\nSollen diese gespeichert werden?",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            QMessageBox.Yes,
+        )
+        if r == QMessageBox.Cancel:
+            return False
+        if r == QMessageBox.Yes:
+            self._action_save()
+            return not self._modified
+        return True
+
+    def _open_help(self):
+        try:
+            if hasattr(self.main_window, "mdi") and hasattr(self.main_window, "help_mainwindow"):
+                open_helpwindow(self.main_window.mdi, self.main_window.help_mainwindow)
+                return
+        except Exception:
+            pass
+        QMessageBox.information(self, "Hilfe", "Keine Hilfe verfügbar.")
+
+    def _action_new_record(self):
+        items = []
+        for spec in self.fields:
+            it = QStandardItem()
+            if spec.ftype == "L":
+                it.setData(False, Qt.EditRole)
+                it.setData("0", Qt.DisplayRole)
+            else:
+                it.setData("", Qt.EditRole)
+                it.setData("", Qt.DisplayRole)
+            items.append(it)
+        self.model.appendRow(items)
+        r = self.model.rowCount() - 1
+        if r >= 0:
+            self.table.selectRow(r)
+        self._modified = True
+        self._update_title()
+
+    def _action_delete_record(self):
+        idx = self.table.currentIndex()
+        if not idx.isValid():
+            return
+        r = idx.row()
+        self.model.removeRow(r)
+        self._modified = True
+        self._update_title()
+        if self.model.rowCount() > 0:
+            self.table.selectRow(min(r, self.model.rowCount() - 1))
+
+    def _action_copy_record(self):
+        idx = self.table.currentIndex()
+        if not idx.isValid():
+            return
+        r = idx.row()
+        vals = []
+        for c, spec in enumerate(self.fields):
+            it = self.model.item(r, c)
+            if spec.ftype == "L":
+                vals.append("1" if bool(it.data(Qt.EditRole)) else "0")
+            else:
+                vals.append(str(it.data(Qt.EditRole) or ""))
+        QApplication.clipboard().setText("\t".join(vals))
+
+    def _action_paste_record(self):
+        txt = QApplication.clipboard().text() or ""
+        parts = txt.split("\t")
+        if not parts or not self.fields:
+            return
+        # insert after current row
+        idx = self.table.currentIndex()
+        insert_at = idx.row() + 1 if idx.isValid() else self.model.rowCount()
+        self.model.insertRow(insert_at)
+        for c, spec in enumerate(self.fields):
+            it = self.model.item(insert_at, c)
+            if it is None:
+                it = QStandardItem()
+                self.model.setItem(insert_at, c, it)
+            v = parts[c] if c < len(parts) else ""
+            if spec.ftype == "L":
+                vv = str(v).strip().upper()
+                b = True if vv in ("1", "T", "Y", "TRUE") else False
+                it.setData(b, Qt.EditRole)
+                it.setData("1" if b else "0", Qt.DisplayRole)
+            else:
+                it.setData(v, Qt.EditRole)
+                it.setData(v, Qt.DisplayRole)
+        self.table.selectRow(insert_at)
+        self._modified = True
+        self._update_title()
+
+    def _action_cut_record(self):
+        self._action_copy_record()
+        self._action_delete_record()
+
+    def _action_save(self):
+        if not self.current_path:
+            return self._action_save_as()
+        if os.path.exists(self.current_path):
+            r = QMessageBox.question(
+                self,
+                "Überschreiben?",
+                f"Datei existiert bereits:\n{self.current_path}\n\nÜberschreiben?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if r != QMessageBox.Yes:
+                return
+        if self._save_dbf(self.current_path):
+            self._modified = False
+            self._update_title()
+        else:
+            QMessageBox.critical(self, "Fehler", "Konnte die DBF-Datei nicht speichern.")
+
+    def _action_save_as(self):
+        dlg = QFileDialog(self, "Speichern unter")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        dlg.setFileMode(QFileDialog.AnyFile)
+        dlg.setDefaultSuffix("dbf")
+        dlg.setNameFilters(["dBase Tabellen (*.dbf)", "Alle Dateien (*.*)"])
+        if self.current_path:
+            try:
+                dlg.selectFile(self.current_path)
+            except Exception:
+                pass
+        if not dlg.exec_():
+            return
+        files = dlg.selectedFiles()
+        if not files:
+            return
+        path = files[0]
+        if os.path.exists(path):
+            r = QMessageBox.question(
+                self,
+                "Überschreiben?",
+                f"Datei existiert bereits:\n{path}\n\nÜberschreiben?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if r != QMessageBox.Yes:
+                return
+        if self._save_dbf(path):
+            self.current_path = path
+            self._modified = False
+            self._update_title()
+        else:
+            QMessageBox.critical(self, "Fehler", "Konnte die DBF-Datei nicht speichern.")
+
+    def _action_design_mode(self):
+        # open TableDesigner and close this dialog
+        try:
+            designer = TableDesignerDialog(self.main_window)
+            # load schema
+            designer._clear_rows()
+            if designer._load_dbf_schema(self.current_path):
+                designer.current_path = self.current_path
+                designer._set_modified(False)
+            sub = self.main_window.mdi.addSubWindow(designer)
+            designer.setSubWindow(sub)
+            sub.setWindowTitle(f"Table Designer - {os.path.basename(self.current_path)}")
+            sub.resize(640, 340)
+            sub.move(240, 60)
+            designer.show()
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Konnte Design-Modus nicht öffnen:\n{e}")
+            return
+        try:
+            if self._subwindow is not None:
+                self._subwindow.close()
+        except Exception:
+            pass
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    # ---------------- context menu ----------------
+    def _show_context_menu(self, pos):
+        menu = QMenu(self)
+
+        act_help = QAction("Hilfe\tF1", self)
+        act_help.setShortcut(QKeySequence("F1"))
+        menu.addAction(act_help)
+
+        menu.addSeparator()
+
+        act_new = QAction("Neuer Record", self)
+        menu.addAction(act_new)
+
+        edit_menu = menu.addMenu("Edit")
+        act_copy = QAction("Record Kopieren", self)
+        act_paste = QAction("Record Einfügen", self)
+        act_cut = QAction("Ausschneiden", self)
+        edit_menu.addAction(act_copy)
+        edit_menu.addAction(act_paste)
+        edit_menu.addAction(act_cut)
+
+        act_del = QAction("Record löschen", self)
+        menu.addAction(act_del)
+
+        menu.addSeparator()
+
+        act_save = QAction("Speichern", self)
+        act_save_as = QAction("Speichern unter...", self)
+        menu.addAction(act_save)
+        menu.addAction(act_save_as)
+
+        menu.addSeparator()
+
+        act_design = QAction("Design Modus", self)
+        act_close = QAction("Schließen", self)
+        menu.addAction(act_design)
+        menu.addAction(act_close)
+
+        has_row = self.model.rowCount() > 0 and self.table.currentIndex().isValid()
+        act_copy.setEnabled(has_row)
+        act_cut.setEnabled(has_row)
+        act_del.setEnabled(has_row)
+
+        chosen = menu.exec_(self.table.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen is act_help:
+            self._open_help()
+        elif chosen is act_new:
+            self._action_new_record()
+        elif chosen is act_copy:
+            self._action_copy_record()
+        elif chosen is act_paste:
+            self._action_paste_record()
+        elif chosen is act_cut:
+            self._action_cut_record()
+        elif chosen is act_del:
+            self._action_delete_record()
+        elif chosen is act_save:
+            self._action_save()
+        elif chosen is act_save_as:
+            self._action_save_as()
+        elif chosen is act_design:
+            self._action_design_mode()
+        elif chosen is act_close:
+            self.close()
+
+class FixedLenTextDelegate(QStyledItemDelegate):
+    def __init__(self, max_len: int, parent=None):
+        super().__init__(parent)
+        self.max_len = max(1, int(max_len or 1))
+
+    def createEditor(self, parent, option, index):
+        ed = QLineEdit(parent)
+        ed.setMaxLength(self.max_len)
+        return ed
+
+class NumericLenDelegate(QStyledItemDelegate):
+    def __init__(self, max_len: int, decimals: int = 0, parent=None):
+        super().__init__(parent)
+        self.max_len = max(1, int(max_len or 1))
+        self.decimals = max(0, int(decimals or 0))
+
+        # allow: optional sign, digits, optional decimal part
+        # keep it permissive; hard truncation is done on save.
+        if self.decimals > 0:
+            pat = r"^[+-]?[0-9]*([\\.,][0-9]{0,%d})?$" % self.decimals
+        else:
+            pat = r"^[+-]?[0-9]*$"
+        try:
+            self._re = QRegularExpression(pat)
+            self._val = QRegularExpressionValidator(self._re)
+        except Exception:
+            self._val = None
+
+    def createEditor(self, parent, option, index):
+        ed = QLineEdit(parent)
+        ed.setMaxLength(self.max_len)
+        if self._val is not None:
+            ed.setValidator(self._val)
+        return ed
+
+class LogicalCheckDelegate(QStyledItemDelegate):
+    """Displays/edits logical field as checkbox."""
+    def createEditor(self, parent, option, index):
+        cb = QCheckBox(parent)
+        cb.setTristate(False)
+        return cb
+
+    def setEditorData(self, editor, index):
+        if isinstance(editor, QCheckBox):
+            v = index.data(Qt.EditRole)
+            # accept 0/1, True/False, 'T'/'F', 'Y'/'N'
+            s = str(v).strip().upper()
+            checked = False
+            if v is True or s in ("1", "T", "Y", "TRUE"):
+                checked = True
+            editor.setChecked(checked)
+            return
+        super().setEditorData(editor, index)
+
+    def setModelData(self, editor, model, index):
+        if isinstance(editor, QCheckBox):
+            model.setData(index, bool(editor.isChecked()), Qt.EditRole)
+            # display as 1/0 like many dBase tools
+            model.setData(index, "1" if editor.isChecked() else "0", Qt.DisplayRole)
+            return
+        super().setModelData(editor, model, index)
+
 class TableDesignerDialog(QDialog):
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
@@ -10304,18 +11018,26 @@ class TableDesignerDialog(QDialog):
         self.parent      = parent
         self.subwindow   = None
 
-        self.setWindowTitle("Phonebook.dbf - Table Designer")
+        # current file path (may be empty)
+        self.current_path = ""
+        self._modified = False
+        self._updating = False  # guard while loading
+
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
 
         layout = QVBoxLayout(self)
-        
+
         self.table = QTableView(self)
-        self.model = QStandardItemModel(0, 6, self.table)
+        # Use a model that supports InternalMove (drag&drop row reorder) if possible
+        try:
+            self.model = ReorderableStandardItemModel(0, 6, self.table)
+        except Exception:
+            self.model = QStandardItemModel(0, 6, self.table)
+
         self.proxy = RowMarkerProxy(self.model, self.table)
         self.table.setModel(self.proxy)
-        
-        #self.table.setColumnCount(6)
+
         self.model.setHorizontalHeaderLabels(["Field", "Name", "Type", "Width", "Decimal", "Index"])
 
         self.table.setEditTriggers(
@@ -10325,21 +11047,25 @@ class TableDesignerDialog(QDialog):
         )
 
         # Delegate auf Spalten
-        self.table.setItemDelegateForColumn(4, IntOnlyDelegate     (self.table, min_value=0, max_value=512))
-        self.table.setItemDelegateForColumn(3, IntOnlyDelegate     (self.table, min_value=0, max_value=512))
+        self.table.setItemDelegateForColumn(4, IntOnlyDelegate(self.table, min_value=0, max_value=512))
+        self.table.setItemDelegateForColumn(3, IntOnlyDelegate(self.table, min_value=0, max_value=512))
         self.table.setItemDelegateForColumn(2, TypeComboDelegate(2, self.table))
+        self.table.setItemDelegateForColumn(5, IndexComboDelegate(5, self.table))
         self.table.setItemDelegateForColumn(1, UpperNoSpaceDelegate(self.table, force_upper=True))
 
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setSelectionMode    (QAbstractItemView.SingleSelection)
-        
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+
         self.table.verticalHeader().setVisible(True)
         self.table.verticalHeader().setFixedWidth(24)
         self.table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
 
-        vm = self.table.verticalHeader()
-        vm.setFont(QFont("Arial", 14))
+        try:
+            vm = self.table.verticalHeader()
+            vm.setFont(QFont("Arial", 14))
+        except Exception:
+            pass
 
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
@@ -10352,28 +11078,733 @@ class TableDesignerDialog(QDialog):
         self.table.setColumnWidth(4, 80)
         self.table.setColumnWidth(5, 120)
 
-        layout.addWidget(self.table)
+        # Enable row drag&drop reordering (best effort; Up/Down actions are the fallback)
+        try:
+            self.table.setDragEnabled(True)
+            self.table.setAcceptDrops(True)
+            self.table.setDropIndicatorShown(True)
+            self.table.setDragDropMode(QAbstractItemView.InternalMove)
+            self.table.setDefaultDropAction(Qt.MoveAction)
+        except Exception:
+            pass
+
+        # Context menu
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+
+        
+        # --- Left icon toolbar (row operations) ---
+        self.side_bar = QWidget(self)
+        self.side_bar.setObjectName("TableDesignerSideBar")
+        side_layout = QVBoxLayout(self.side_bar)
+        side_layout.setContentsMargins(1, 1, 1, 1)
+        side_layout.setSpacing(6)
+
+        def _mk_tool_btn(std_icon, tooltip):
+            b = QToolButton(self.side_bar)
+            try:
+                b.setIcon(self.style().standardIcon(std_icon))
+            except Exception:
+                pass
+            b.setToolTip(tooltip)
+            b.setAutoRaise(True)
+            b.setIconSize (QSize(36, 36))
+            b.setFixedSize(QSize(42, 42))
+            return b
+
+        self.btn_move_up = _mk_tool_btn(QStyle.SP_ArrowUp, "Move up")
+        self.btn_move_down = _mk_tool_btn(QStyle.SP_ArrowDown, "Move down")
+        self.btn_new_row = _mk_tool_btn(QStyle.SP_FileIcon, "Neu (Zeile hinzufügen)")
+        self.btn_delete = _mk_tool_btn(QStyle.SP_DialogDiscardButton, "Löschen")
+        self.btn_save = _mk_tool_btn(QStyle.SP_DialogSaveButton, "Speichern")
+
+        self.btn_move_up.clicked.connect(lambda: self._action_move_row(-1))
+        self.btn_move_down.clicked.connect(lambda: self._action_move_row(+1))
+        self.btn_new_row.clicked.connect(self._action_add_row)
+        self.btn_delete.clicked.connect(self._action_delete_row)
+        self.btn_save.clicked.connect(self._action_save)
+
+        side_layout.addWidget(self.btn_move_up)
+        side_layout.addWidget(self.btn_move_down)
+        side_layout.addSpacing(8)
+        side_layout.addWidget(self.btn_new_row)
+        side_layout.addWidget(self.btn_delete)
+        side_layout.addSpacing(8)
+        side_layout.addWidget(self.btn_save)
+        side_layout.addStretch(1)
+
+        # Put side bar + table into a single horizontal row
+        main_row = QHBoxLayout()
+        main_row.setContentsMargins(0, 0, 0, 0)
+        main_row.setSpacing(6)
+        main_row.addWidget(self.side_bar, 0, Qt.AlignTop)
+        main_row.addWidget(self.table, 1)
+
+        layout.addLayout(main_row)
+
         self.resize(620, 320)
 
+        # Demo / start state
         self._fill_demo_data()
 
         self.table.selectionModel().currentChanged.connect(self.on_current_changed)
         self.table.selectRow(0)
-        
         self.proxy.setCurrentRow(0)
-        self.table.selectRow(0)
-    
-    def closeEvent(self, event):
-        self.subwindow.close()
-        self.parent.close()
-        
+
+        # Modified tracking
+        try:
+            self.model.itemChanged.connect(self._on_item_changed)
+        except Exception:
+            pass
+        # Some edits come through setData via the proxy/delegates; ensure we still mark modified.
+        try:
+            self.model.dataChanged.connect(self._on_any_model_change)
+        except Exception:
+            pass
+        for sig in ("rowsInserted", "rowsRemoved", "rowsMoved", "columnsInserted", "columnsRemoved", "columnsMoved"):
+            try:
+                getattr(self.model, sig).connect(self._on_any_model_change)
+            except Exception:
+                pass
+
+        self._update_window_title()
+
     def setSubWindow(self, parent):
         self.subwindow = parent
-        
+
+    def closeEvent(self, event):
+        # ask to save changes before closing
+        if not self._maybe_save_changes():
+            event.ignore()
+            return
+        try:
+            if self.subwindow is not None:
+                self.subwindow.close()
+        except Exception:
+            pass
+        try:
+            if self.parent is not None:
+                self.parent.close()
+        except Exception:
+            pass
+        event.accept()
+
+    # --------------------------
+    # UI helpers
+    # --------------------------
+    def _update_window_title(self):
+        base = os.path.basename(self.current_path) if self.current_path else "Unbenannt.dbf"
+        star = " *" if self._modified else ""
+        self.setWindowTitle(f"{base}{star} - Table Designer")
+
+    def _set_modified(self, flag: bool):
+        self._modified = bool(flag)
+        self._update_window_title()
+
+    def _on_item_changed(self, *_):
+        if self._updating:
+            return
+        self._set_modified(True)
+
+    def _on_any_model_change(self, *_):
+        # catches dataChanged/rowsMoved/etc. (including updates via proxy/delegates)
+        if self._updating:
+            return
+        self._set_modified(True)
+
+    def _update_side_buttons(self):
+        """Enable/disable sidebar buttons based on current row and model state."""
+        try:
+            row = self._current_source_row()
+            rc = self.model.rowCount()
+            has_row = (rc > 0) and (row >= 0)
+            self.btn_delete.setEnabled(has_row)
+            self.btn_move_up.setEnabled(has_row and row > 0)
+            self.btn_move_down.setEnabled(has_row and row < rc - 1)
+            # Save is always allowed (will fall back to Save As if needed)
+            self.btn_save.setEnabled(True)
+        except Exception:
+            pass
+
+    def _commit_pending_edit(self):
+        """Try to commit an active editor (e.g. ComboBox) so modifications are detected."""
+        try:
+            if self.table.state() == QAbstractItemView.EditingState:
+                fw = QApplication.focusWidget()
+                try:
+                    self.table.closeEditor(fw, QAbstractItemDelegate.SubmitModelCache)
+                except Exception:
+                    # fallback: toggling focus usually commits
+                    self.table.clearFocus()
+                    self.table.setFocus()
+                QApplication.processEvents()
+        except Exception:
+            pass
+
     # Bei Reihenwechsel Marker mitwandern lassen
     def on_current_changed(self, current, previous):
-        self.proxy.setCurrentRow(current.row())
-        
+        try:
+            self.proxy.setCurrentRow(current.row())
+        except Exception:
+            pass
+
+    def _current_source_row(self) -> int:
+        idx = self.table.currentIndex()
+        if not idx.isValid():
+            return -1
+        try:
+            return self.proxy.mapToSource(idx).row()
+        except Exception:
+            return idx.row()
+
+    def _select_source_row(self, row: int):
+        if row < 0 or row >= self.model.rowCount():
+            return
+        try:
+            pidx = self.proxy.mapFromSource(self.model.index(row, 0))
+            self.table.setCurrentIndex(pidx)
+            self.table.selectRow(pidx.row())
+            self.proxy.setCurrentRow(pidx.row())
+        except Exception:
+            self.table.selectRow(row)
+            self.proxy.setCurrentRow(row)
+
+    # --------------------------
+    # Context menu
+    # --------------------------
+    def _show_context_menu(self, pos):
+        menu = QMenu(self)
+
+        act_help = QAction("Hilfe\tF1", self)
+        act_help.setShortcut(QKeySequence("F1"))
+        menu.addAction(act_help)
+
+        act_edit = QAction("Bearbeiten", self)
+        menu.addAction(act_edit)
+
+        # requested: separator after help, then Neu/Open
+        menu.addSeparator()
+
+        act_new = QAction("Neu", self)
+        act_open = QAction("Öffnen...", self)
+        menu.addAction(act_new)
+        menu.addAction(act_open)
+
+        menu.addSeparator()
+
+        act_add = QAction("Hinzufügen", self)
+        act_del = QAction("Löschen", self)
+        menu.addAction(act_add)
+        menu.addAction(act_del)
+
+        menu.addSeparator()
+
+        act_save = QAction("Speichern", self)
+        act_save_as = QAction("Speichern unter...", self)
+        menu.addAction(act_save)
+        menu.addAction(act_save_as)
+
+        menu.addSeparator()
+
+        act_up = QAction("Nach oben verschieben", self)
+        act_down = QAction("Nach unten verschieben", self)
+        menu.addAction(act_up)
+        menu.addAction(act_down)
+
+        menu.addSeparator()
+
+        act_close = QAction("Schließen", self)
+        menu.addAction(act_close)
+
+        # enable/disable
+        has_row = self.model.rowCount() > 0 and self._current_source_row() >= 0
+        act_del.setEnabled(has_row)
+        act_up.setEnabled(has_row and self._current_source_row() > 0)
+        act_down.setEnabled(has_row and self._current_source_row() < self.model.rowCount() - 1)
+        act_save.setEnabled(bool(self.current_path))
+
+        chosen = menu.exec_(self.table.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+
+        if chosen is act_help:
+            self._open_help()
+        elif chosen is act_edit:
+            self._action_edit_records()
+        elif chosen is act_new:
+            self._action_new()
+        elif chosen is act_open:
+            self._action_open()
+        elif chosen is act_add:
+            self._action_add_row()
+        elif chosen is act_del:
+            self._action_delete_row()
+        elif chosen is act_save:
+            self._action_save()
+        elif chosen is act_save_as:
+            self._action_save_as()
+        elif chosen is act_up:
+            self._action_move_row(-1)
+        elif chosen is act_down:
+            self._action_move_row(+1)
+        elif chosen is act_close:
+            self.close()
+
+    def _open_help(self):
+        # Use existing help window API from this project
+        try:
+            # Many parts of this project use open_helpwindow(mdi_area, mw)
+            if hasattr(self.main_window, "mdiArea") and hasattr(self.main_window, "help_mainwindow"):
+                open_helpwindow(self.main_window.mdiArea(), self.main_window.help_mainwindow)
+                return
+        except Exception:
+            pass
+        try:
+            # fallback: some projects have a method
+            if hasattr(self.main_window, "open_help"):
+                self.main_window.open_help()
+                return
+        except Exception:
+            pass
+        QMessageBox.information(self, "Hilfe", "Keine Hilfe verfügbar.")
+
+    # --------------------------
+    # Actions
+    # --------------------------
+    def _action_new(self):
+        # "Neu" clears the designer visually, but keeps the current file path.
+        # If there are unsaved changes, ask the user first.
+        if not self._maybe_save_changes():
+            return
+
+        self._clear_rows()
+        # user expectation: start with exactly one empty row
+        self._insert_default_row(0)
+        self._select_source_row(0)
+        try:
+            self.proxy.setCurrentRow(0)
+        except Exception:
+            pass
+        self._set_modified(False)
+        self._update_side_buttons()
+
+    def _action_open(self):
+
+        # Visual clear + load from file; ask to save changes first
+        if not self._maybe_save_changes():
+            return
+
+        dlg = QFileDialog(self, "DBF öffnen")
+        dlg.setAcceptMode(QFileDialog.AcceptOpen)
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.setNameFilters(["dBase Tabellen (*.dbf)", "Alle Dateien (*.*)"])
+        if self.current_path:
+            try:
+                dlg.selectFile(self.current_path)
+            except Exception:
+                pass
+        if not dlg.exec_():
+            return
+        files = dlg.selectedFiles()
+        if not files:
+            return
+        path = files[0]
+        # Ensure the view is really empty before re-populating
+        self._clear_rows()
+        ok = self._load_dbf_schema(path)
+        if ok:
+            self.current_path = path
+            self._set_modified(False)
+            self._update_side_buttons()
+        else:
+            QMessageBox.warning(self, "Fehler", "Die DBF-Datei konnte nicht gelesen werden.")
+
+    def _action_edit_records(self):
+        """Switch to record-edit mode for the current DBF file."""
+        # Need a file on disk.
+        if not self.current_path:
+            # Ask user to save schema first
+            r = QMessageBox.question(
+                self,
+                "Datei speichern?",
+                "Zum Bearbeiten der Records muss eine DBF-Datei existieren.\n"
+                "Soll die Tabelle zuerst gespeichert werden?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if r != QMessageBox.Yes:
+                return
+            self._action_save_as()
+            if not self.current_path:
+                return
+
+        # If schema modified, offer to save.
+        if not self._maybe_save_changes():
+            return
+
+        try:
+            dlg = TableRecordEditorDialog(self.main_window, self.current_path)
+            sub = None
+            try:
+                sub = self.main_window.mdi.addSubWindow(dlg)
+            except Exception:
+                sub = None
+            if sub is not None:
+                dlg._subwindow = sub
+                sub.setWindowTitle(f"Bearbeiten - {os.path.basename(self.current_path)}")
+                sub.resize(760, 460)
+                sub.move(240, 60)
+                dlg.show()
+            else:
+                dlg.show()
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", f"Konnte Bearbeiten-Modus nicht öffnen:\n{e}")
+            return
+
+        # Close designer window (only the designer, not the whole app)
+        try:
+            if self.subwindow is not None:
+                self.subwindow.close()
+        except Exception:
+            pass
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def _action_add_row(self):
+        row = self._current_source_row()
+        insert_at = (row + 1) if row >= 0 else self.model.rowCount()
+        self._insert_default_row(insert_at)
+        self._select_source_row(insert_at)
+        self._set_modified(True)
+        self._update_side_buttons()
+
+    def _action_delete_row(self):
+        row = self._current_source_row()
+        if row < 0:
+            return
+        self.model.removeRow(row)
+        # renumber Field column
+        self._renumber_field_column()
+        self._set_modified(True)
+        self._select_source_row(min(row, self.model.rowCount() - 1))
+        self._update_side_buttons()
+
+    def _action_move_row(self, delta: int):
+        row = self._current_source_row()
+        if row < 0:
+            return
+        new_row = row + delta
+        if new_row < 0 or new_row >= self.model.rowCount():
+            return
+
+        # move row in source model
+        items = self.model.takeRow(row)
+        self.model.insertRow(new_row, items)
+        self._renumber_field_column()
+        self._set_modified(True)
+        self._select_source_row(new_row)
+        self._update_side_buttons()
+
+    def _action_save(self):
+        if not self.current_path:
+            return self._action_save_as()
+
+        # overwrite confirmation
+        if os.path.exists(self.current_path):
+            r = QMessageBox.question(
+                self,
+                "Überschreiben?",
+                f"Datei existiert bereits:\n{self.current_path}\n\nÜberschreiben?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if r != QMessageBox.Yes:
+                return
+
+        if self._save_dbf_schema(self.current_path):
+            self._set_modified(False)
+        else:
+            QMessageBox.critical(self, "Fehler", "Konnte die DBF-Datei nicht speichern.")
+
+    def _action_save_as(self):
+        dlg = QFileDialog(self, "Speichern unter")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        dlg.setFileMode(QFileDialog.AnyFile)
+        dlg.setDefaultSuffix("dbf")
+        dlg.setNameFilters(["dBase Tabellen (*.dbf)", "Alle Dateien (*.*)"])
+        if self.current_path:
+            try:
+                dlg.selectFile(self.current_path)
+            except Exception:
+                pass
+        if not dlg.exec_():
+            return
+        files = dlg.selectedFiles()
+        if not files:
+            return
+        path = files[0]
+
+        # overwrite confirmation
+        if os.path.exists(path):
+            r = QMessageBox.question(
+                self,
+                "Überschreiben?",
+                f"Datei existiert bereits:\n{path}\n\nÜberschreiben?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if r != QMessageBox.Yes:
+                return
+
+        if self._save_dbf_schema(path):
+            self.current_path = path
+            self._set_modified(False)
+        else:
+            QMessageBox.critical(self, "Fehler", "Konnte die DBF-Datei nicht speichern.")
+
+    # --------------------------
+    # Save / Load / Clear helpers
+    # --------------------------
+    def _clear_rows(self):
+        self._updating = True
+        try:
+            # hard reset so proxy/view reliably refresh
+            try:
+                self.model.beginResetModel()
+            except Exception:
+                pass
+            try:
+                self.model.removeRows(0, self.model.rowCount())
+            finally:
+                try:
+                    self.model.endResetModel()
+                except Exception:
+                    pass
+            # reset row marker
+            try:
+                self.proxy.setCurrentRow(-1)
+            except Exception:
+                pass
+        finally:
+            self._updating = False
+
+    def _insert_default_row(self, row: int):
+        self._updating = True
+        try:
+            self.model.insertRow(row)
+            # Field number
+            self.model.setItem(row, 0, QStandardItem(str(row + 1)))
+            self.model.setItem(row, 1, QStandardItem("FIELD"))
+            self.model.setItem(row, 2, QStandardItem(tr("Character")))
+            self.model.setItem(row, 3, QStandardItem("10"))
+            self.model.setItem(row, 4, QStandardItem("0"))
+            self.model.setItem(row, 5, QStandardItem(tr("kein")))
+        finally:
+            self._updating = False
+
+    def _renumber_field_column(self):
+        self._updating = True
+        try:
+            for r in range(self.model.rowCount()):
+                it = self.model.item(r, 0)
+                if it is None:
+                    it = QStandardItem()
+                    self.model.setItem(r, 0, it)
+                it.setText(str(r + 1))
+        finally:
+            self._updating = False
+
+    def _maybe_save_changes(self) -> bool:
+        # commit current editor (e.g. Type ComboBox) so changes are detected
+        self._commit_pending_edit()
+        if not self._modified:
+            return True
+        r = QMessageBox.question(
+            self,
+            "Änderungen speichern?",
+            "Es gibt ungespeicherte Änderungen.\nSollen diese gespeichert werden?",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            QMessageBox.Yes
+        )
+        if r == QMessageBox.Cancel:
+            return False
+        if r == QMessageBox.Yes:
+            # if no current_path -> Save As
+            if self.current_path:
+                self._action_save()
+            else:
+                self._action_save_as()
+            # if still modified, assume save cancelled/failed
+            return not self._modified
+        return True
+
+    def _type_char_to_label(self, t: str) -> str:
+        t = (t or "").upper()[:1]
+        mapping = {
+            "C": tr("Character"),
+            "N": tr("Numeric"),
+            "F": tr("Float"),
+            "I": tr("Integer"),
+            "D": tr("Date"),
+            "T": tr("DateTime"),
+            "L": tr("Logical"),
+            "M": tr("Memo"),
+        }
+        return mapping.get(t, tr("Character"))
+
+    def _type_label_to_char(self, label: str) -> str:
+        # label is translated; match by TYPE_VALUES content
+        lab = (label or "").strip()
+        if lab == tr("Character"):
+            return "C"
+        if lab == tr("Numeric"):
+            return "N"
+        if lab == tr("Float"):
+            return "F"
+        if lab == tr("Integer"):
+            return "I"
+        if lab == tr("Date"):
+            return "D"
+        if lab == tr("DateTime"):
+            return "T"
+        if lab == tr("Logical"):
+            return "L"
+        if lab == tr("Memo"):
+            return "M"
+        return "C"
+
+    def _load_dbf_schema(self, path: str) -> bool:
+        try:
+            with open(path, "rb") as f:
+                hdr = f.read(32)
+                if len(hdr) < 32:
+                    return False
+                # header length at bytes 8-9 (little endian)
+                header_len = int.from_bytes(hdr[8:10], "little")
+                if header_len < 33:
+                    return False
+                # field descriptors follow
+                f.seek(32)
+                desc_bytes = f.read(max(0, header_len - 32))
+                # descriptors end with 0x0D
+                end = desc_bytes.find(b"\x0D")
+                if end == -1:
+                    end = len(desc_bytes)
+                desc_bytes = desc_bytes[:end]
+
+            fields = []
+            for i in range(0, len(desc_bytes), 32):
+                chunk = desc_bytes[i:i+32]
+                if len(chunk) < 32:
+                    break
+                name_raw = chunk[0:11].split(b"\x00", 1)[0]
+                name = name_raw.decode("ascii", errors="ignore").strip()
+                if not name:
+                    continue
+                ftype = chr(chunk[11])
+                flen = chunk[16]
+                fdec = chunk[17]
+                fields.append((name, ftype, flen, fdec))
+
+            # full reset so view/proxy always reflects new schema
+            self._updating = True
+            try:
+                try:
+                    self.model.beginResetModel()
+                except Exception:
+                    pass
+                try:
+                    self.model.removeRows(0, self.model.rowCount())
+                    for r, (name, ftype, flen, fdec) in enumerate(fields):
+                        self.model.insertRow(r)
+                        self.model.setItem(r, 0, QStandardItem(str(r + 1)))
+                        self.model.setItem(r, 1, QStandardItem(name))
+                        self.model.setItem(r, 2, QStandardItem(self._type_char_to_label(ftype)))
+                        self.model.setItem(r, 3, QStandardItem(str(int(flen))))
+                        self.model.setItem(r, 4, QStandardItem(str(int(fdec))))
+                        self.model.setItem(r, 5, QStandardItem(tr("kein")))
+                finally:
+                    try:
+                        self.model.endResetModel()
+                    except Exception:
+                        pass
+            finally:
+                self._updating = False
+
+            if self.model.rowCount() > 0:
+                self._select_source_row(0)
+                try:
+                    self.proxy.setCurrentRow(0)
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
+
+    def _save_dbf_schema(self, path: str) -> bool:
+        # write schema-only DBF (0 records), dBase 5 compatible header
+        try:
+            # collect fields
+            fields = []
+            for r in range(self.model.rowCount()):
+                name = (self.model.item(r, 1).text() if self.model.item(r, 1) else "").strip()
+                if not name:
+                    continue
+                name = name[:11]  # dbf limit
+                tlabel = (self.model.item(r, 2).text() if self.model.item(r, 2) else tr("Character"))
+                ftype = self._type_label_to_char(tlabel)
+                flen = int((self.model.item(r, 3).text() if self.model.item(r, 3) else "0") or "0")
+                fdec = int((self.model.item(r, 4).text() if self.model.item(r, 4) else "0") or "0")
+                flen = 1 if flen <= 0 else min(255, flen)
+                fdec = 0 if fdec < 0 else min(255, fdec)
+                fields.append((name, ftype, flen, fdec))
+
+            n = len(fields)
+            header_len = 32 + 32 * n + 1
+            record_len = 1 + sum(f[2] for f in fields)  # deletion flag + field widths
+
+            today = datetime.date.today()
+            ver = 0x03  # dBASE III+ style, widely accepted as "dBase 5 compatible" for schema
+            num_records = 0
+
+            hdr = bytearray(32)
+            hdr[0] = ver
+            hdr[1] = today.year - 1900
+            hdr[2] = today.month
+            hdr[3] = today.day
+            hdr[4:8] = int(num_records).to_bytes(4, "little", signed=False)
+            hdr[8:10] = int(header_len).to_bytes(2, "little", signed=False)
+            hdr[10:12] = int(record_len).to_bytes(2, "little", signed=False)
+            # rest stays 0
+
+            out = bytearray()
+            out += hdr
+
+            # field descriptors
+            for name, ftype, flen, fdec in fields:
+                desc = bytearray(32)
+                nb = name.encode("ascii", errors="ignore")[:11]
+                desc[0:len(nb)] = nb
+                desc[11] = ord(ftype)
+                # desc[12:16] data address = 0
+                desc[16] = int(flen) & 0xFF
+                desc[17] = int(fdec) & 0xFF
+                out += desc
+
+            out += b"\x0D"  # field descriptor terminator
+            out += b"\x1A"  # EOF marker (optional but common)
+
+            with open(path, "wb") as f:
+                f.write(out)
+            return True
+        except Exception:
+            return False
+
+    # --------------------------
+    # Demo data (kept for convenience)
+    # --------------------------
     def _fill_demo_data(self):
         rows = [
             (1,  "First_Name",    tr("Character"), 25, 0, "None"),
@@ -10382,38 +11813,24 @@ class TableDesignerDialog(QDialog):
             (4,  "Address",       tr("Character"), 40, 0, "None"),
             (5,  "City",          tr("Character"), 25, 0, "None"),
             (6,  "State_Prov",    tr("Character"), 17, 0, "None"),
-            (7,  "Zip_Code",      tr("Character"),  7, 0, tr("Ascend")),
-            (8,  "Long_Distance", tr("Logical"  ),  1, 0, "None"),
-            (9,  "Phone",         tr("Character"), 10, 0, "None"),
-            (10, "Fax",           tr("Character"), 10, 0, "None"),
-            (11, "Email",         tr("Character"), 40, 0, "None"),
-            (12, "Notes",         "Memo",          10, 0, ""),
+            (7,  "Zip",           tr("Character"), 10, 0, "None"),
         ]
 
-        for r, rowdata in enumerate(rows):
-            self.model.insertRow(r)
-            for c, value in enumerate(rowdata):
-                text = str(value)
-                
-                # 1. Feld (Spalte 0) in Großbuchstaben
-                if c == 1:
-                    text = text.upper()
-                
-                self.model.setItem(r, c, QStandardItem(text))
+        self._updating = True
+        try:
+            self.model.removeRows(0, self.model.rowCount())
+            for r, (no, name, typ, width, dec, idx) in enumerate(rows):
+                self.model.insertRow(r)
+                self.model.setItem(r, 0, QStandardItem(str(no)))
+                self.model.setItem(r, 1, QStandardItem(name))
+                self.model.setItem(r, 2, QStandardItem(typ))
+                self.model.setItem(r, 3, QStandardItem(str(width)))
+                self.model.setItem(r, 4, QStandardItem(str(dec)))
+                self.model.setItem(r, 5, QStandardItem(tr("kein") if (idx or "").strip().lower() in ("none", "") else idx))
+        finally:
+            self._updating = False
 
-class DBaseParser:
-    def __init__(self, filename):
-        # 0 pre-procession
-        self.pp = Preprocessor(include_paths=[Path("includes")])
-        self.pre = self.pp.process(filename)
-        
-        #source = FileStream(filename, encoding="utf-8")
-        self.source  = InputStream       (self.pre)
-        self.lexer   = dBaseLexer        (self.source)
-        self.tokens  = CommonTokenStream (self.lexer)
-        self.tokens.fill();
-        self.parser  = dBaseParser       (self.tokens)
-        self.tree    = self.parser.input_()
+        self._set_modified(False)
         
 class EditorWidget(QDialog):
     def __init__(self, text="abcdef"):
@@ -10652,14 +12069,6 @@ class EditorWidget(QDialog):
             dlg.exec_()
 
 class IconTab(QListWidget):
-    """
-    IconView je Tab. Zeigt je nach Filter andere Dateiarten.
-    Meta-Info pro Item:
-      - Qt.UserRole: voller Pfad
-    Meta-Info am Widget:
-      - self.base_dir (und Qt Property 'directory')
-    """
-
     def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None):
         super().__init__(parent)
 
@@ -14935,6 +16344,11 @@ QTableView::viewport, QTableWidget::viewport {{
     background: #0b0b0b;
 }}
 
+/* Ecke oben links (Corner-Button) im TableView */
+QTableCornerButton::section {{
+    background: #000000;
+    border: 1px solid #333333;
+}}
 /* Header oben/links */
 QHeaderView::section {{
     background: #222222;

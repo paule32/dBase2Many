@@ -1,21 +1,13 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
-<HTML><HEAD>
-<meta name="GENERATOR" content="Microsoft HTML Help Workshop">
+<HTML>
+<HEAD>
+<meta name="GENERATOR" content="Microsoft&reg; HTML Help Workshop 4.1">
+<!-- Sitemap 1.0 -->
 </HEAD><BODY>
 <UL>
-  <LI><OBJECT type="text/sitemap">
-      <param name="Name" value="Hilfe">
-      <param name="Local" value="master_index.html">
-  </OBJECT></LI>
-
-  <LI><OBJECT type="text/sitemap">
-      <param name="Name" value="Deutsch">
-      <param name="Merge" value="dBaseHelp_de.chm::/index.hhk">
-  </OBJECT></LI>
-
-  <LI><OBJECT type="text/sitemap">
-      <param name="Name" value="English">
-      <param name="Merge" value="dBaseHelp_en.chm::/index.hhk">
-  </OBJECT></LI>
+	<LI> <OBJECT type="text/sitemap">
+		<param name="Name" value="Hilfe">
+		<param name="Local" value="master_index.html">
+		</OBJECT>
 </UL>
 </BODY></HTML>

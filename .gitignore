@@ -80,3 +80,18 @@ src/dist/test.pro
 src/dBaseRunner_patched51.py
 src/inst.bat
 src/resources_rc.py
+/doc/out/chm/merged_build
+doc/out/chm/Table of Contents.hhc
+doc/out/chm/MergedHelp.hhc
+doc/out/chm/MergedHelp.hhk
+doc/out/chm/MergedHelp.hhp
+*.log
+*.chw
+src/dBaseRunner_patched52.py
+src/dBaseRunner_patched54.py
+src/dBaseRunner_patched55.py
+src/dBaseRunner_patched56.py
+src/dBaseRunner_patched57.py
+src/dBaseRunner_patched58.py
+src/dBaseRunner_patched59.py
+src/dBaseRunner_patched60.py
