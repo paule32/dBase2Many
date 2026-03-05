@@ -1494,7 +1494,8 @@ class HelpMainWindow(QMainWindow):
             scroll_handle           = "#c8c8c8"
             scroll_handle_hover     = "#b0b0b0"
         
-        self.setStyleSheet(f"""
+        self.setStyleSheet(_css("default_dark"))
+        """
 QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
 QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
 QLineEdit {{padding: 6px 10px;border-radius: 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
@@ -1542,7 +1543,8 @@ QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
 QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
 QSplitter {{background: {tree_bg};}}
 QSplitter::handle {{background: {border};}}
-QWebEngineView {{background: {tree_bg};}}""")
+QWebEngineView {{background: {tree_bg};}}
+"""
 
         if self.dark_mode:
             self.web.setStyleSheet("background: #000000;")
@@ -11112,17 +11114,17 @@ class TableDesignerDialog(QDialog):
             b.setFixedSize(QSize(42, 42))
             return b
 
-        self.btn_move_up = _mk_tool_btn(QStyle.SP_ArrowUp, "Move up")
+        self.btn_move_up   = _mk_tool_btn(QStyle.SP_ArrowUp, "Move up")
         self.btn_move_down = _mk_tool_btn(QStyle.SP_ArrowDown, "Move down")
-        self.btn_new_row = _mk_tool_btn(QStyle.SP_FileIcon, "Neu (Zeile hinzufügen)")
-        self.btn_delete = _mk_tool_btn(QStyle.SP_DialogDiscardButton, "Löschen")
-        self.btn_save = _mk_tool_btn(QStyle.SP_DialogSaveButton, "Speichern")
+        self.btn_new_row   = _mk_tool_btn(QStyle.SP_FileIcon, "Neu (Zeile hinzufügen)")
+        self.btn_delete    = _mk_tool_btn(QStyle.SP_DialogDiscardButton, "Löschen")
+        self.btn_save      = _mk_tool_btn(QStyle.SP_DialogSaveButton, "Speichern")
 
-        self.btn_move_up.clicked.connect(lambda: self._action_move_row(-1))
-        self.btn_move_down.clicked.connect(lambda: self._action_move_row(+1))
-        self.btn_new_row.clicked.connect(self._action_add_row)
-        self.btn_delete.clicked.connect(self._action_delete_row)
-        self.btn_save.clicked.connect(self._action_save)
+        self.btn_move_up   . clicked.connect(lambda: self._action_move_row(-1))
+        self.btn_move_down . clicked.connect(lambda: self._action_move_row(+1))
+        self.btn_new_row   . clicked.connect(self._action_add_row)
+        self.btn_delete    . clicked.connect(self._action_delete_row)
+        self.btn_save      . clicked.connect(self._action_save)
 
         side_layout.addWidget(self.btn_move_up)
         side_layout.addWidget(self.btn_move_down)
@@ -11218,9 +11220,9 @@ class TableDesignerDialog(QDialog):
             row = self._current_source_row()
             rc = self.model.rowCount()
             has_row = (rc > 0) and (row >= 0)
-            self.btn_delete.setEnabled(has_row)
-            self.btn_move_up.setEnabled(has_row and row > 0)
-            self.btn_move_down.setEnabled(has_row and row < rc - 1)
+            self.btn_delete    . setEnabled(has_row)
+            self.btn_move_up   . setEnabled(has_row and row > 0)
+            self.btn_move_down . setEnabled(has_row and row < rc - 1)
             # Save is always allowed (will fall back to Save As if needed)
             self.btn_save.setEnabled(True)
         except Exception:
@@ -11306,7 +11308,7 @@ class TableDesignerDialog(QDialog):
 
         menu.addSeparator()
 
-        act_up = QAction("Nach oben verschieben", self)
+        act_up   = QAction("Nach oben verschieben", self)
         act_down = QAction("Nach unten verschieben", self)
         menu.addAction(act_up)
         menu.addAction(act_down)
@@ -11318,8 +11320,8 @@ class TableDesignerDialog(QDialog):
 
         # enable/disable
         has_row = self.model.rowCount() > 0 and self._current_source_row() >= 0
-        act_del.setEnabled(has_row)
-        act_up.setEnabled(has_row and self._current_source_row() > 0)
+        act_del .setEnabled(has_row)
+        act_up  .setEnabled(has_row and self._current_source_row() > 0)
         act_down.setEnabled(has_row and self._current_source_row() < self.model.rowCount() - 1)
         act_save.setEnabled(bool(self.current_path))
 
@@ -12094,12 +12096,12 @@ class IconTab(QListWidget):
         self.customContextMenuRequested.connect(self._on_context_menu)
 
         # F2 = Ausführen
-        self._act_run = QAction(tr("Run - F2"), self)
+        self._act_run = QAction(tr("Run"), self)
         self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
         self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self._act_run.triggered.connect(self._run_selected)
         self.addAction(self._act_run)
-
+        
         # Doppelklick: *.prg ausführen
         self.setFocusPolicy(Qt.StrongFocus)
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -12162,7 +12164,8 @@ class IconTab(QListWidget):
             path = item.data(Qt.UserRole) or ""
             if not path:
                 return
-            if os.path.splitext(path)[1].lower() == ".prg":
+            ext = os.path.splitext(path)[1].lower()
+            if  ext == ".prg" or ext == ".dbf":
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
@@ -12181,39 +12184,44 @@ class IconTab(QListWidget):
         ext = os.path.splitext(path)[1].lower()
 
         menu = QMenu(self)
+        menu.setFont(QFont("Arial",10))
 
-        act_run = QAction(tr("Run - F2"), self)
+        act_run = QAction(tr("Run"), self)
         act_run.triggered.connect(lambda: self._run_file(path))
         menu.addAction(act_run)
 
 
         act_edit = QAction(tr("Edit"), self)
         #act_edit.setEnabled(ext == ".prg")
-        act_edit.triggered.connect(lambda: self._edit_in_code_editor(path))
+        act_edit.triggered.connect(lambda: self._edit_in_editor(path))
+
         menu.addAction(act_edit)
-
         menu.addSeparator()
-
+        
         m_compile    = menu.addMenu(tr("Compile"))
         act_c_py     = QAction("Python",     self)
+        act_c_pascal = QAction("Pascal",     self)
         act_c_cpp    = QAction("C++",        self)
         act_c_csharp = QAction("C Sharp",    self)
         act_c_java   = QAction("Java",       self)
         act_c_javscr = QAction("JavaScript", self)
         
         act_c_py    .setEnabled(ext == ".prg")
+        act_c_pascal.setEnabled(ext == ".prg")
         act_c_cpp   .setEnabled(ext == ".prg")
         act_c_csharp.setEnabled(ext == ".prg")
         act_c_java  .setEnabled(ext == ".prg")
         act_c_javscr.setEnabled(ext == ".prg")
         
         act_c_py    .triggered.connect(lambda: self._compile_to_python(path))
+        act_c_pascal.triggered.connect(lambda: self._compile_to_pascal(path))
         act_c_cpp   .triggered.connect(lambda: self._compile_to_cpp   (path))
         act_c_csharp.triggered.connect(lambda: self._compile_to_csharp(path))
         act_c_java  .triggered.connect(lambda: self._compile_to_java  (path))
         act_c_javscr.triggered.connect(lambda: self._compile_to_javscr(path))
         
         m_compile.addAction(act_c_py    )
+        m_compile.addAction(act_c_pascal)
         m_compile.addAction(act_c_cpp   )
         m_compile.addAction(act_c_csharp)
         m_compile.addAction(act_c_java  )
@@ -12235,25 +12243,37 @@ class IconTab(QListWidget):
 
         menu.exec_(self.viewport().mapToGlobal(pos))
 
-
-    def _edit_in_code_editor(self, path: str) -> None:
-        """Öffnet die Datei im CodeEditor (Hook am RegieCenter/Host)."""
+    # -----------------------------------------------------------
+    # Öffnet die Datei im CodeEditor (Hook am RegieCenter/Host).
+    # -----------------------------------------------------------
+    def _edit_in_editor(self, path: str) -> None:
         try:
             ext = os.path.splitext(path)[1].lower()
-            if ext != ".prg":
+            if not (ext == ".prg" or ext == ".dbf"):
                 return
 
             display_name = os.path.basename(path)
-
+            
             # Host/RegieCenter finden (parent-chain)
             host = self.parent()
-            while host is not None and not hasattr(host, "open_in_code_editor"):
-                host = host.parent()
-
-            if host is not None and hasattr(host, "open_in_code_editor"):
-                host.open_in_code_editor(display_name=display_name, path=path)
-            else:
-                QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
+            
+            if ext == ".prg":
+                while host is not None and not hasattr(host, "open_in_code_editor"):
+                    host = host.parent()
+                if host is not None and hasattr(host, "open_in_code_editor"):
+                    host.open_in_code_editor(display_name=display_name, path=path)
+                else:
+                    QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
+            elif ext == ".dbf":
+                while host is not None and not hasattr(host, "open_in_table_editor"):
+                    host = host.parent()
+                if host is not None and hasattr(host, "open_in_table_editor"):
+                    global MDIHOST
+                    MDIHOST = host
+                    MDIHOST.open_in_table_editor(display_name=display_name, path=path)
+                else:
+                    QMessageBox.information(self, "Bearbeiten", "Kein TabellenEditor-Hook gefunden.")
+                    
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
@@ -12263,68 +12283,97 @@ class IconTab(QListWidget):
         except Exception as e:
             QMessageBox.warning(self, "Kopieren", f"Konnte Pfad nicht kopieren:\n{e}")
 
-
     def _run_file(self, path: str):
-        """Ausführen:
-        - .prg -> parse(path) (dein Runner)
-        - .py  -> Python
-        - sonst -> OS öffnen (startfile/xdg-open/open)
-        """
         try:
             ext = os.path.splitext(path)[1].lower()
             if ext == ".prg":
                 parse(path)
                 return
-            if ext == ".py":
-                subprocess.Popen([sys.executable, path], cwd=str(Path(path).parent))
+            if ext == ".dbf":
+                display_name = os.path.basename(path)
+                self._edit_in_editor(path)
                 return
-
-            if os.name == "nt":
-                os.startfile(path)  # noqa
-            elif sys.platform == "darwin":
-                subprocess.Popen(["open", path])
-            else:
-                subprocess.Popen(["xdg-open", path])
+                
+            #if os.name == "nt":
+            #    os.startfile(path)  # noqa
+            #elif sys.platform == "darwin":
+            #    subprocess.Popen(["open", path])
+            #else:
+            #    subprocess.Popen(["xdg-open", path])
         except Exception as e:
             QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
 
+    def _compile_to_vba(self, path: str):
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
+        codegen.generate(parser.tree, "dbase.cls")
+        print("gen vba ok.")
+        
+    def _compile_to_javscr(self, path: str):
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
+        codegen.generate(parser.tree, "dbase.js")
+        print("gen js ok.")
+        
+    def _compile_to_csharp(self, path: str):
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
+        codegen.generate(parser.tree, "dbase.cs")
+        print("gen c-sharp ok.")
+        
+    def _compile_to_java(self, path: str):
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToJava(parser, class_name="GenProg", package=None)
+        codegen.generate(parser.tree, "dbase.java")
+        print("gen java ok.")
+
     def _compile_to_python(self, path: str):
-        # Platzhalter: an deinen Generator anbinden
-        QMessageBox.information(self, "Compilieren → Python", "TODO: dBase → Python Generator anbinden.")
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToPython(parser.parser)
+        codegen.generate(parser.tree, "dbase.py")
+        print("gen py ok.")
 
     def _compile_to_cpp(self, path: str):
-        # Platzhalter: an deinen Generator anbinden
-        QMessageBox.information(self, "Compilieren → CPP", "TODO: dBase → CPP Generator anbinden.")
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToCpp(parser, prog_name="genprog")
+        codegen.generate(parser.tree, "dbase.cc")
+        print("gen c++ ok.")
+    
+    def _compile_to_pascal(self, path: str):
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToPascal(parser, unit_name="GenProg")
+        codegen.generate(parser.tree, "dbase.pas")
+        print("gen pas ok.")
 
 class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         
         self.setFont(QFont("Arial", 10))
-
+        
         self.setWindowTitle("Regierzentrum")
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
-
+        
         self.icon_provider = QFileIconProvider()
-
+        
         # --- Top controls ---
         self.combo = QComboBox()
         self.combo.setEditable(True)
         self.combo.setInsertPolicy(QComboBox.NoInsert)
         self.combo.currentTextChanged.connect(self._on_dir_changed)
-
+        
         self.btn_pick = QPushButton("Verzeichnis…")
         self.btn_pick.clicked.connect(self.pick_directory_non_native)
-
+        
         top = QHBoxLayout()
         top.addWidget(self.combo, 1)
         top.addWidget(self.btn_pick, 0)
-
-                # --- Tabs ---
+        
+        # --- Tabs ---
         self.tabs = QTabWidget()
         self.icon_lists = []
-
+        
         # Dateityp-Filter pro Tab (kannst du jederzeit anpassen)
         ext_alltypes  = [
             '.htm', '.html', '.css'   , '.js', '.url',
@@ -12344,7 +12393,7 @@ class RegieCenter(QDialog):
         ext_sql       = ['.sql']
         ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
         ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
-
+        
         self.lw1 = IconTab(ext_alltypes,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, 'Alle Typen')
         self.lw2 = IconTab(ext_projekte,  parent=self, icon_provider=self.icon_provider)
@@ -12375,10 +12424,61 @@ class RegieCenter(QDialog):
         root.addWidget(self.tabs, 1)
 
         self.resize(980, 640)
-
-    def open_in_code_editor(self, display_name: str, path: str):
-        """Öffnet *path* im FileEditorWindow (CodeEditor) als Tab."""
+        
+    # -----------------------------------------------------------
+    # Öffnet *path* im TableEditorWindow
+    # -----------------------------------------------------------
+    def open_in_table_editor(self, display_name: str, path: str):
         try:
+            print("table")
+            path = os.path.normpath(path)
+            # erst versuchen: aktives Editor-Fenster wiederverwenden
+            sub = None
+            win = None
+            try:
+                sub = MAINAPP.mdi.activeSubWindow() if hasattr(MAINAPP, "mdi") else None
+                win = sub.widget() if sub else None
+            except Exception:
+                sub = None
+                win = None
+
+            if isinstance(win, FileEditorWindow):
+                win.open_path_in_tab(path)
+                win.raise_()
+                try:
+                    win.activateWindow()
+                except Exception:
+                    pass
+                return
+            
+            try:
+                dlg = TableRecordEditorDialog(MAINAPP, path)
+                sub = None
+                try:
+                    sub = MAINAPP.mdi.addSubWindow(dlg)
+                except Exception:
+                    sub = None
+                if sub is not None:
+                    dlg._subwindow = sub
+                    sub.setWindowTitle(f"Bearbeiten - {os.path.basename(path)}")
+                    sub.resize(760, 460)
+                    sub.move(240, 60)
+                    dlg.show()
+                else:
+                    dlg.show()
+            except Exception as e:
+                QMessageBox.critical(self, "Fehler", f"Konnte Bearbeiten-Modus nicht öffnen:\n{e}")
+                return
+                
+        except Exception as e:
+            QMessageBox.warning(self, "Bearbeiten", f"Konnte Tabellen-Editor nicht öffnen:\n{e}")
+            
+    # -----------------------------------------------------------
+    # Öffnet *path* im FileEditorWindow (CodeEditor) als Tab.
+    # -----------------------------------------------------------
+    def open_in_code_editor(self, display_name: str, path: str):
+        try:
+            print("editor")
             path = os.path.normpath(path)
             # erst versuchen: aktives Editor-Fenster wiederverwenden
             sub = None
@@ -12429,25 +12529,24 @@ class RegieCenter(QDialog):
         dlg.setFileMode(QFileDialog.Directory)
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
         dlg.setOption(QFileDialog.DontUseNativeDialog, True)
-
+        
         if dlg.exec_():
             selected = dlg.selectedFiles()
             if selected:
                 path = selected[0]
                 self._add_and_select_dir(path)
-
+    
     def _add_and_select_dir(self, path: str):
         path = os.path.normpath(path)
-
+        
         # Wenn schon drin -> nur markieren
         idx = self.combo.findText(path, Qt.MatchExactly)
         if idx < 0:
             self.combo.addItem(path)
             idx = self.combo.findText(path, Qt.MatchExactly)
-
+        
         self.combo.setCurrentIndex(idx)  # markiert/selektiert
         # _on_dir_changed() wird automatisch ausgelöst
-
     
     def _on_dir_changed(self, path: str):
         path = (path or "").strip()
@@ -12460,6 +12559,7 @@ class RegieCenter(QDialog):
         # Jede IconView rendert ihren eigenen Filter
         for lw in self.icon_lists:
             lw.set_directory(path)
+            
 class UserBdeAliasesTab(QWidget):
     """
     Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-native Dialoge.
@@ -13779,11 +13879,6 @@ class _ToolPalette(QTabWidget):
         # Individuell (Platzhalter)
         self._add(self.custom, "CustomControl", ip.icon(QFileIconProvider.File))
 
-
-
-
-
-
 class ObjectInspectorDock(QDockWidget):
     """Dock: Objekt-Inspector (oben links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
@@ -13817,8 +13912,6 @@ class ObjectPaletteDock(QDockWidget):
             lay.addWidget(QLabel("ToolPalette nicht verfügbar", palette))
 
         self.setWidget(palette)
-
-
 
 class DesignerControl(QWidget):
     """
@@ -15525,7 +15618,6 @@ class MainWindow(QMainWindow):
     def on_action_view_table_designer(self):
         self.mdi_open_table_designer()
 
-
     def on_action_view_sql_builder(self):
         self.mdi_open_sql_builder()
 
@@ -15927,7 +16019,6 @@ class MainWindow(QMainWindow):
         sub.resize(600,250)
         sub.move(56,320)
         sub.show()
-
 
     def mdi_open_sql_builder(self):
         dlg = SqlBuilderWindow(self)
