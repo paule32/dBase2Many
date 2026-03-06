@@ -25,14 +25,14 @@ from gen.dBaseLexer         import dBaseLexer
 from gen.dBaseParser        import dBaseParser
 from gen.dBaseParserVisitor import dBaseParserVisitor
 
-import mimetypes
-
 import traceback
 import sys
 import os
 import re
 import pprint
+
 import datetime
+import contextlib
 
 # ---------------------------------------------------------------------------
 # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
@@ -49,57 +49,11 @@ import shutil
 import tempfile
 import subprocess
 
-import tempfile
-import contextlib
-
 # ---------------------------------------------------------------------------
 # database module imports ....
 # ---------------------------------------------------------------------------
 import json
 import sqlite3
-
-# ---------------------------------------------------------------------------
-# Qt Backend Factory + Property Mapping
-# ---------------------------------------------------------------------------
-from PyQt5.QtCore    import (
-    QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
-    QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
-    QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
-    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler,
-    QMimeData, QDataStream, QIODevice, QBuffer, QSettings
-)
-from PyQt5.QtGui     import (
-    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
-    QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
-    QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
-    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat, QBrush,
-    QGuiApplication, QTextOption, QTextCursor
-)
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
-    QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
-    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
-    QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
-    QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
-    QTableWidgetItem, QHeaderView, QStyledItemDelegate, QGroupBox, QLabel,
-    QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
-    QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
-    QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
-    QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem,
-    QHeaderView, QScrollArea, QAbstractButton
-)
-from PyQt5.QtWebEngineCore import (
-    QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob, QWebEngineUrlScheme
-)
-from PyQt5.QtWebEngineWidgets import (
-    QWebEngineView, QWebEngineScript
-)
-from PyQt5.QtSvg import QSvgRenderer
-
-# ---------------------------------------------------------------------------
-# resources suff like icons, ...
-# ---------------------------------------------------------------------------
-import resources_rc
 
 # ---------------------------------------------------------------------------
 # debug log file beyond the exe application ...
@@ -121,22 +75,6 @@ def load_qss(rel_path: str) -> str:
     p = app_dir() / rel_path
     return p.read_text(encoding="utf-8")
 
-
-# ---------------------------------------------------------------------------
-# ensure_qt_app (safe early stub)
-# Some crashes can happen during module import before Qt widgets are loaded.
-# This stub allows the excepthook to avoid NameError and fail gracefully.
-# ---------------------------------------------------------------------------
-def ensure_qt_app():
-    try:
-        from PyQt5.QtWidgets import QApplication
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        return app
-    except Exception:
-        return None
-
 def excepthook(etype, value, tb):
     content = ""
     
@@ -146,43 +84,31 @@ def excepthook(etype, value, tb):
         f.close()
         
     app = ensure_qt_app()
-
-    # If Qt isn't available yet (e.g. crash during import), just log and fall back.
+    
     if app is not None:
-        try:
-            with open(LOG, "r") as f:
-                content = f.read()
-
-            dlg = ErrorMessage(
-                title    = "Laufzeitfehler",
-                message  = content,
-                log_path = LOG,
-                parent   = None
-            )
-            dlg.exec_()
-        except Exception:
-            # Never let the excepthook crash the program.
-            pass
-
+        with open(LOG, "r") as f:
+            content = f.read()
+            f.close()
+        
+        dlg = ErrorMessage(
+            title    = "Laufzeitfehler",
+            message  = content,
+            log_path = LOG,
+            parent   = MAINAPP
+        )
+        dlg.exec_()
     sys.__excepthook__(etype, value, tb)
 
 sys.excepthook = excepthook
 print("hook installed.")
 
-APPINST = ensure_qt_app()
-if APPINST is None:
-    print("internal error")
-    sys.exit(1)
-
 base = Path(sys.argv[0]).resolve().parent
 cand = list(base.rglob("QtWebEngineProcess.exe"))
-try:
-    with open(LOG, "a", buffering=1) as f:
-        f.write(f"base={base}\nQtWebEngineProcess={cand}\n")
-except Exception:
-    pass
+with open("webengine_crash.log", "a", buffering=1) as f:
+    f.write(f"base={base}\nQtWebEngineProcess={cand}\n")
     
 try:
+    from PyQt5.QtCore import qInstallMessageHandler
     def qt_msg_handler(mode, context, message):
         with open(LOG, "a", buffering=1) as f:
             f.write(f"[QT] {message}\n")
@@ -191,43 +117,83 @@ except Exception as e:
     print(e)
     pass
 
+# ---------------------------------------------------------------------------
+# Qt Backend Factory + Property Mapping
+# ---------------------------------------------------------------------------
+from PyQt5.QtCore    import (
+    QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
+    QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
+    QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
+    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler,
+    QDataStream, QIODevice, QMimeData, QSettings, QTextStream, QFile
+)
+from PyQt5.QtGui     import (
+    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
+    QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
+    QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
+    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat, QBrush,
+    QGuiApplication, QTextOption, QTextCursor
+)
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
+    QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
+    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
+    QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
+    QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
+    QTableWidgetItem, QHeaderView, QStyledItemDelegate, QAbstractItemDelegate,
+    QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QSpinBox,
+    QGridLayout, QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QTreeView,
+    QAbstractItemView, QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog,
+    QTreeWidgetItem, QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget,
+    QTreeWidgetItem, QHeaderView, QDockWidget, QScrollArea, QActionGroup
+)
+from PyQt5.QtWebEngineWidgets import (
+    QWebEngineView, QWebEngineScript
+)
+from PyQt5.QtSvg import QSvgRenderer
+
+# ---------------------------------------------------------------------------
+# resources suff like icons, ...
+# ---------------------------------------------------------------------------
+import resources_rc
+
 class ErrorMessage(QDialog):
     def __init__(self, title="Fehler", message="", log_path=None, parent=None):
         super().__init__(parent)
-        
+
         self.log_path = log_path  # Pfad zur Logdatei (oder None)
-        
+
         self.setWindowTitle(title)
         self.resize(750, 420)
-        
+
         layout = QVBoxLayout(self)
-        
+
         # Textbereich
         self.text_edit = QPlainTextEdit()
         self.text_edit.setReadOnly(True)
         self.text_edit.setPlainText(message)
         self.text_edit.setLineWrapMode(QPlainTextEdit.NoWrap)
-        
+
         font = QFont("Consolas")
         font.setStyleHint(QFont.Monospace)
         self.text_edit.setFont(font)
-        
+
         layout.addWidget(self.text_edit)
-        
+
         # Button-Leiste
         btn_row = QHBoxLayout()
-        
+
         self.btn_delete_log = QPushButton("LOG löschen")
         self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
         self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
-        
+
         btn_row.addWidget(self.btn_delete_log)
         btn_row.addStretch()
-        
+
         self.btn_close = QPushButton("Schließen")
         self.btn_close.clicked.connect(self.accept)
         btn_row.addWidget(self.btn_close)
-        
+
         layout.addLayout(btn_row)
 
     def _on_delete_log_clicked(self):
@@ -240,10 +206,10 @@ class ErrorMessage(QDialog):
                 "Die LOG-Datei existiert nicht (mehr)."
             )
             return
-        err = tr("remove LOG file?")
+        err = _tr("remove LOG file?")
         answer = QMessageBox.question(
             self,
-            tr("delete LOG file?"),
+            _tr("delete LOG file?"),
             f"{err}\n\n{self.log_path}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
@@ -255,17 +221,17 @@ class ErrorMessage(QDialog):
                 pass
             os.remove(self.log_path)
         except Exception as e:
-            err = tr("LOG file could not remove")
+            err = _tr("LOG file could not remove")
             QMessageBox.critical(
                 self,
-                tr("remove file diened."),
+                _tr("remove file diened."),
                 f"{err}:\n{e}"
             )
             return
         QMessageBox.information(
             self,
-            tr("removed"),
-            tr("LOG file have been removed")
+            _tr("removed"),
+            _tr("LOG file have been removed")
         )
         # Optional: Button deaktivieren, weil Datei weg ist
         self.btn_delete_log.setEnabled(False)
@@ -512,7 +478,7 @@ def delete_last_line(edit):
         c.deletePreviousChar()
 
     c.endEditBlock()
-    
+
 # ---------------------------------------------------------------------------
 # locales (gnu gettext) support ...
 # ---------------------------------------------------------------------------
@@ -582,6 +548,30 @@ def  _tr(msgid: str) -> str: return _I18N._tr(msgid)
 def _css(msgid: str) -> str: return _QCSS._tr(msgid)
 
 # ---------------------------------------------------------------------------
+# read-in style aliases, and get css style of them. return the css string ...
+# ---------------------------------------------------------------------------
+def stylesheet_from_resource_keys(resource_path: str) -> str:
+    file = QFile(resource_path)
+    if not file.open(QIODevice.ReadOnly | QIODevice.Text):
+        raise RuntimeError(f"Kann Resource nicht öffnen: {resource_path}")
+    
+    stream = QTextStream(file)
+    stream.setCodec("UTF-8")
+    
+    parts = []
+    while not stream.atEnd():
+        key = stream.readLine().strip()
+        if not key or key.startswith("#"):
+            continue
+        
+        text = _css(key)
+        if text != key:
+            parts.append(text.strip())
+    
+    file.close()
+    return "\n\n".join(parts)
+
+# ---------------------------------------------------------------------------
 # dBase field types ...
 # ---------------------------------------------------------------------------
 TYPE_VALUES = [
@@ -594,20 +584,6 @@ TYPE_VALUES = [
     _tr("Logical"),
     _tr("Memo"),
 ]
-
-def _guess_mime(path: str) -> bytes:
-    mt, _ = mimetypes.guess_type(path)
-    if not mt:
-        # sinnvolle Defaults
-        if path.lower().endswith(".html") or path.lower().endswith(".htm"):
-            mt = "text/html"
-        elif path.lower().endswith(".css"):
-            mt = "text/css"
-        elif path.lower().endswith(".js"):
-            mt = "application/javascript"
-        else:
-            mt = "application/octet-stream"
-    return mt.encode("ascii")
 
 class FontTriangleArrowsStyle(QProxyStyle):
     def __init__(self, base_style=None, color="#d7b300", font_family=None):
@@ -926,12 +902,6 @@ class HelpMainWindow(QMainWindow):
         self.contents_tree.setUniformRowHeights(True)
         self.contents_tree.clicked.connect(self.on_contents_clicked)
 
-        #hhc = "/index.hhc"  # du sagst Startseite ist /index.html, oft passt /index.hhc
-        #toc_root = load_toc_from_chm(reader, hhc)
-
-        #model = build_toc_model(toc_root)
-        #connect_toc(self.contents_tree, self.contents_model, self.web)
-
         tab_contents = QWidget()
         vc = QVBoxLayout(tab_contents)
         vc.setContentsMargins(8, 8, 8, 8)
@@ -978,7 +948,7 @@ class HelpMainWindow(QMainWindow):
         row.addWidget(self.search_edit, 1)
         row.addWidget(btn, 0)
 
-        hint = QLabel("Sucht über search.html – Ergebnisse erscheinen rechts.")
+        hint = QLabel("Sucht in Sphinx über search.html – Ergebnisse erscheinen rechts.")
         hint.setWordWrap(True)
         hint.setStyleSheet("opacity: 0.8;")
 
@@ -1297,16 +1267,18 @@ class HelpMainWindow(QMainWindow):
 
 
     def _set_cursor_for_edge(self, edge):
-        if edge in ("L", "R"):
-            self.setCursor(Qt.SizeHorCursor)
-        elif edge in ("T", "B"):
-            self.setCursor(Qt.SizeVerCursor)
-        elif edge in ("LT", "RB"):
-            self.setCursor(Qt.SizeFDiagCursor)
-        elif edge in ("RT", "LB"):
-            self.setCursor(Qt.SizeBDiagCursor)
-        else:
-            self.setCursor(Qt.ArrowCursor)
+        pass
+        #"""if edge in ("L", "R"):
+        #    self.setCursor(Qt.SizeHorCursor)
+        #elif edge in ("T", "B"):
+        #    self.setCursor(Qt.SizeVerCursor)
+        #elif edge in ("LT", "RB"):
+        #    self.setCursor(Qt.SizeFDiagCursor)
+        #elif edge in ("RT", "LB"):
+        #    self.setCursor(Qt.SizeBDiagCursor)
+        #else:
+        #    self.setCursor(Qt.ArrowCursor)"""
+
 
     def mouseMoveEvent(self, event):
         if self.isMaximized():
@@ -1575,6 +1547,58 @@ class HelpMainWindow(QMainWindow):
             scroll_handle           = "#c8c8c8"
             scroll_handle_hover     = "#b0b0b0"
         
+        self.setStyleSheet(_css("default_dark"))
+        """
+QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
+QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
+QLineEdit {{padding: 6px 10px;border-radius: 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
+QLabel {{color: {tab_fg};}}
+QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 6px 10px;}}
+QToolButton:hover {{background: {toolbtn_hover};}}
+QToolButton:pressed {{background: {toolbtn_pressed};}}
+QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
+QTabBar {{background: {tab_bar_bg};}}
+QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;border-top-left-radius: 12px;border-top-right-radius: 12px;min-width: 90px;}}
+QTabBar::tab:hover {{background: {tab_hover_bg};}}
+QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
+QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
+QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
+QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
+QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
+QPushButton:hover {{background: {toolbtn_hover};}}
+QPushButton:pressed {{background: {toolbtn_pressed};}}
+/* Scrollbars (TreeView etc.) */
+QScrollBar:vertical {{background: {scroll_track};width: 12px;margin: 0px;border: none;border-radius: 6px;}}
+QScrollBar::handle:vertical {{background: {scroll_handle};min-height: 28px;border-radius: 6px;}}
+QScrollBar::handle:vertical:hover {{background: {scroll_handle_hover};}}
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {{height: 0px;}}
+QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {{background: transparent;}}
+QScrollBar:horizontal {{background: {scroll_track};height: 12px;margin: 0px;border: none;border-radius: 6px;}}
+QScrollBar::handle:horizontal {{background: {scroll_handle};min-width: 28px;border-radius: 6px;}}
+QScrollBar::handle:horizontal:hover {{background: {scroll_handle_hover};}}
+QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {{width: 0px;}}
+QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal {{background: transparent;}}
+/* Custom Title Bar */
+#TopContainer {{ background: transparent; }}
+#TitleLabel {{color: {title_fg};font-weight: 600;}}
+#TitleSeparator {{background: {border};}}
+QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
+QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
+QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
+QStatusBar {{background: {status_bg};color: {status_fg};border-top: 1px solid {status_border};}}
+QStatusBar QLabel {{color: {status_fg};}}
+/* Tab scrollers (left/right arrows) */
+QTabBar::scroller {{width: 22px;height: 22px;background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;margin: 2px;}}
+QTabBar::scroller:hover {{background: {tab_hover_bg};}}
+/* Arrow icons color via "color" + qproperty (works in many styles) */
+QTabBar QToolButton {{background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;padding: 2px;color: {tab_fg_active};}}
+QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
+QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
+QSplitter {{background: {tree_bg};}}
+QSplitter::handle {{background: {border};}}
+QWebEngineView {{background: {tree_bg};}}
+"""
+
         if self.dark_mode:
             self.web.setStyleSheet("background: #000000;")
         else:
@@ -2066,47 +2090,6 @@ class Preprocessor:
         self.defined: set[str] = set()
         self._include_stack: list[Path] = []
 
-    def _rewrite_use_line(self, raw_line: str) -> str:
-        # keep original newline (if any)
-        nl = ""
-        if raw_line.endswith("\r\n"):
-            raw, nl = raw_line[:-2], "\r\n"
-        elif raw_line.endswith("\n"):
-            raw, nl = raw_line[:-1], "\n"
-        else:
-            raw = raw_line
-        
-        if "USE" not in raw.upper():
-            return raw_line
-        
-        stripped = raw.lstrip()
-        if not stripped or stripped.startswith("#"):
-            return raw_line
-        
-        m = re.match(r"^(\s*)USE\b(.*)$", raw, flags=re.IGNORECASE)
-        if not m:
-            return raw_line
-        
-        indent = m.group(1)
-        rest = m.group(2).strip()
-        
-        if rest.startswith("("):   # already USE(...)
-            return raw_line
-        
-        mm = re.match(r"^(.*?)(\s+EXCLUSIVE\s*)$", rest, flags=re.IGNORECASE)
-        if mm:
-            expr = mm.group(1).rstrip()
-            exclusive = True
-        else:
-            expr = rest
-            exclusive = False
-        
-        if not expr:
-            return raw_line
-        
-        ex_flag = "1" if exclusive else "0"
-        return f"{indent}USE({expr}, {ex_flag}){nl}"
-    
     def _split_args(self, s: str) -> list[str]:
         # s ist Inhalt zwischen den äußeren (...) eines Calls
         args = []
@@ -2300,11 +2283,7 @@ class Preprocessor:
             for i, line in enumerate(lines, start=1):
                 # Direktiven erkennen (immer), aber nur ausführen wenn "active"
                 raw_line = line
-                #line = self._strip_trailing_comment(line).rstrip("\r\n")
-                
-                raw_line = self._rewrite_use_line(raw_line)
-                out_lines.append(self._expand_macros_in_line(raw_line))
-                
+                line = self._strip_trailing_comment(line).rstrip("\r\n")
                 m = self.include_re.match(line)
                 if m:
                     if active():
@@ -3133,12 +3112,8 @@ class DBaseToJava:
         return f"t{self._tmp_i}"
 
     def jstr(self, s: str) -> str:
-        if os.name == "nt":
-            s = s.replace("\\", "\\\\").replace('"', '\\"')
-        else:
-            s = s.replace("\\", "/")
-        s = f'"{str}"'
-        return s
+        s = s.replace("\\", "\\\\").replace('"', '\\"')
+        return f"\"{s}\""
 
     def jstr_list(self, items):
         # java.util.List.of("A","B")
@@ -7263,13 +7238,13 @@ class FileEditorWindow(QDialog):
         #idx = self.editor_tabs.addTab(ed, title)
         idx = self.editor_tabs.addTab(ed._minimap_container, title)
         self.editor_tabs.setCurrentIndex(idx)
-        print("----->>>>")
+        
         # Modified Tracking
         ed.document().contentsChanged.connect(self._schedule_tree_refresh)
         ed.document().modificationChanged.connect(lambda _m, i=idx: self._update_tab_visuals(i))
-        print("AAAAA")
+        
         self._update_tab_visuals(idx)
-        print("iuiuiui")
+        
         return idx
 
     def open_path_in_tab(self, path: str) -> int:
@@ -7297,8 +7272,7 @@ class FileEditorWindow(QDialog):
             w.deleteLater()
         if self.editor_tabs.count() == 0:
             self.close()
-
-
+            
     def maybe_save(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
@@ -7320,10 +7294,10 @@ class FileEditorWindow(QDialog):
         if res == QMessageBox.No:
             return True
         return False
-
+    
     def file_new(self):
         self.new_tab(title="Unbenannt", path="", text="")
-
+    
     def file_save(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
@@ -7473,11 +7447,11 @@ class ExecVisitor(dBaseParserVisitor):
 
         # args kann Tokens/Nodes enthalten – je nach Parser.
         # Häufig ist das erste Argument der Tabellenname.
-        table = args[0]
-        alias = None
+        table     = args[0]
+        alias     = None
         exclusive = False
-        shared = True
-
+        shared    = True
+        
         # sehr tolerant parsen
         i = 1
         while i < len(args):
@@ -7497,13 +7471,17 @@ class ExecVisitor(dBaseParserVisitor):
                 i += 1
                 continue
             i += 1
-
+        
+        # ----------------------------------------------------------------------------------------
         # Hier an deine Runtime anbinden:
         # z.B.: self.runtime.use_table(table, alias=alias, exclusive=exclusive, shared=shared)
+        # ----------------------------------------------------------------------------------------
         if hasattr(self, "runtime") and hasattr(self.runtime, "use_table"):
             return self.runtime.use_table(str(table), alias=alias, exclusive=exclusive, shared=shared)
-
+        
+        # ----------------------------------------------------------------------------------------
         # Fallback: zumindest merken, dass "USE" ausgeführt wurde
+        # ----------------------------------------------------------------------------------------
         if hasattr(self, "context"):
             self.context["current_table"] = str(table)
             if alias:
@@ -7538,16 +7516,7 @@ class ExecVisitor(dBaseParserVisitor):
         return self.this_stack[-1]
 
     
-    def _acquire_dbf_exclusive_lock(self, dbf_path: str) -> None:
-        lock_path = dbf_path + ".lck"
-        try:
-            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with os.fdopen(fd, "w", encoding="utf-8", errors="ignore") as f:
-                f.write(str(os.getpid()))
-        except FileExistsError:
-            raise RuntimeError(f"DBF ist bereits exklusiv gesperrt: {dbf_path}")
-        self._dbf_exclusive_locks[dbf_path] = lock_path
-    
+
     # ----------------- MENU / POPUPMENU helpers -----------------
     def _detach_menu(self, inst: Instance) -> None:
         """Entfernt ein bereits angehängtes Menü aus MenuBar oder Parent-Menu (wenn möglich)."""
@@ -9479,14 +9448,18 @@ class ExecVisitor(dBaseParserVisitor):
         return None
         
     def visitWriteStmt(self, ctx):
-        # Im Collect-Pass nichts ausführen/ausgeben, sonst doppelte Ausgabe
-        if getattr(self, "_mode", "exec") != "exec":
-            return None
+        #print("DEBUG writeStmt text:", ctx.getText())
+        #print("DEBUG writeArg count:", len(ctx.writeArg()))
+        #for i, a in enumerate(ctx.writeArg()):
+            #print(f"DEBUG arg[{i}] text:", a.getText(),
+            #      "STRING?", a.STRING() is not None,
+            #      "dottedRef?", a.dottedRef() is not None,
+            #      "expr?", a.expr() is not None)
 
         parts = [self.eval_writeArg(a) for a in ctx.writeArg()]
         print("".join(parts))
         return None
-
+    
     def eval_writeArg(self, arg_ctx):
         if arg_ctx.STRING():
             s = arg_ctx.STRING().getText()
@@ -10090,24 +10063,15 @@ def parse(filename: str):
     sema   = analyze(tree, parser)
     
     # 1. lexer check
-    try:
-        while True:
-            tok = lexer.nextToken()   # HIER wird dein Override aufgerufen
-            if tok.type == Token.EOF:
-                depth = getattr(lexer, "_cmtDepth", 0)
-                if depth > 0:
-                    line = lexer.line
-                    col  = lexer.column
-                    raise UnterminatedBlockCommentError(line, col)
-                break
-    except Exception as e:
-        dlg = ErrorMessage(
-            title    = _tr("Lexer Error"),
-            log_path = LOG,
-            message  = f"{e}",
-            parent   = MAINAPP
-        )
-        dlg.exec_()
+    while True:
+        tok = lexer.nextToken()   # HIER wird dein Override aufgerufen
+        if tok.type == Token.EOF:
+            depth = getattr(lexer, "_cmtDepth", 0)
+            if depth > 0:
+                line = lexer.line
+                col  = lexer.column
+                raise UnterminatedBlockCommentError(line, col)
+            break
     
     global VISITOR
     VISITOR = ExecVisitor()
@@ -10295,8 +10259,8 @@ class SourceAliasesTab(QWidget):
         if alias in self._model:
             r = QMessageBox.question(
                 self,
-                tr("alias already exists"),
-                f"{tr('The alias')} '{alias}' {_tr('already exists')}.\n{_tr(alias_overwrite)}",
+                _tr("alias already exists"),
+                f"{_tr("The alias")} '{alias}' {_tr("already exists")}.\n{_tr(alias_overwrite)}",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
@@ -10315,7 +10279,7 @@ class SourceAliasesTab(QWidget):
         r = QMessageBox.question(
             self,
             _tr("Remove"),
-                f"Alias '{alias}' {_tr('are you sure, to delete?')}",
+            f"Alias '{alias}' {_tr("are you sure, to delete?")}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -12118,20 +12082,6 @@ class TableDesignerDialog(QDialog):
             self._updating = False
 
         self._set_modified(False)
-
-class DBaseParser:
-    def __init__(self, filename):
-        # 0 pre-procession
-        self.pp = Preprocessor(include_paths=[Path("includes")])
-        self.pre = self.pp.process(filename)
-        
-        #source = FileStream(filename, encoding="utf-8")
-        self.source  = InputStream       (self.pre)
-        self.lexer   = dBaseLexer        (self.source)
-        self.tokens  = CommonTokenStream (self.lexer)
-        self.tokens.fill();
-        self.parser  = dBaseParser       (self.tokens)
-        self.tree    = self.parser.input_()
         
 class EditorWidget(QDialog):
     def __init__(self, text="abcdef"):
@@ -12146,13 +12096,13 @@ class EditorWidget(QDialog):
         
         # Splitter: links Tree, rechts Editor
         self.splitter = QSplitter(Qt.Horizontal, self)
-        self.splitter.setStyleSheet(_css("EditorWindow_Splitter"))
-        self.setStyleSheet(_css("EditorWindow_Dialog"))
+        self.splitter.setStyleSheet(css("EditorWindow_Splitter"))
+        self.setStyleSheet(css("EditorWindow_Dialog"))
         
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
 
-        self.tree.setStyleSheet(_css("EditoWidget"))
+        self.tree.setStyleSheet(css("EditoWidget"))
         
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
         model = QStandardItemModel()
@@ -12370,14 +12320,6 @@ class EditorWidget(QDialog):
             dlg.exec_()
 
 class IconTab(QListWidget):
-    """
-    IconView je Tab. Zeigt je nach Filter andere Dateiarten.
-    Meta-Info pro Item:
-      - Qt.UserRole: voller Pfad
-    Meta-Info am Widget:
-      - self.base_dir (und Qt Property 'directory')
-    """
-
     def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None):
         super().__init__(parent)
 
@@ -12403,12 +12345,12 @@ class IconTab(QListWidget):
         self.customContextMenuRequested.connect(self._on_context_menu)
 
         # F2 = Ausführen
-        self._act_run = QAction(_tr("Run - F2"), self)
+        self._act_run = QAction(_tr("Run"), self)
         self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
         self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self._act_run.triggered.connect(self._run_selected)
         self.addAction(self._act_run)
-
+        
         # Doppelklick: *.prg ausführen
         self.setFocusPolicy(Qt.StrongFocus)
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -12471,192 +12413,88 @@ class IconTab(QListWidget):
             path = item.data(Qt.UserRole) or ""
             if not path:
                 return
-            if os.path.splitext(path)[1].lower() == ".prg":
+            ext = os.path.splitext(path)[1].lower()
+            if  ext == ".prg" or ext == ".dbf":
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
             pass
 
-    
     def _on_context_menu(self, pos: QPoint):
-        # Kontextmenü für die IconView (auch bei Rechtsklick auf leere Fläche).
         item = self.itemAt(pos)
-        if item:
-            self.setCurrentItem(item)
-            path = item.data(Qt.UserRole) or ""
-        else:
-            path = ""
-
-        menu = QMenu(self)
-
-        # --- Neu Submenu (immer vorhanden) ---
-        m_new = menu.addMenu(_tr("Neu"))
-        act_new_prg = QAction(_tr("Programm"), self)
-        act_new_prg.triggered.connect(self._new_program)
-        m_new.addAction(act_new_prg)
-
-        act_new_table = QAction(_tr("Tabelle"), self)
-        act_new_table.triggered.connect(self._new_table)
-        m_new.addAction(act_new_table)
-
-        act_new_sql = QAction(_tr("SQL Query"), self)
-        act_new_sql.triggered.connect(self._new_sql_query)
-        m_new.addAction(act_new_sql)
-
-        menu.addSeparator()
-
-        # --- Datei-Aktionen (nur wenn Item selektiert) ---
-        if path:
-            ext = os.path.splitext(path)[1].lower()
-
-            act_run = QAction(_tr("Run - F2"), self)
-            act_run.triggered.connect(lambda: self._run_file(path))
-            menu.addAction(act_run)
-
-            act_edit = QAction(_tr("Edit"), self)
-            act_edit.triggered.connect(lambda: self._edit_in_editor(path))
-            
-            menu.addAction(act_edit)
-            menu.addSeparator()
-            
-            m_compile    = menu.addMenu(_tr("Compile"))
-            act_c_py     = QAction("Python",     self)
-            act_c_pascal = QAction("Pascal",     self)
-            act_c_cpp    = QAction("C++",        self)
-            act_c_csharp = QAction("C Sharp",    self)
-            act_c_java   = QAction("Java",       self)
-            act_c_javscr = QAction("JavaScript", self)
-            
-            act_c_py    .setEnabled(ext == ".prg")
-            act_c_pascal.setEnabled(ext == ".prg")
-            act_c_cpp   .setEnabled(ext == ".prg")
-            act_c_csharp.setEnabled(ext == ".prg")
-            act_c_java  .setEnabled(ext == ".prg")
-            act_c_javscr.setEnabled(ext == ".prg")
-            
-            act_c_py    .triggered.connect(lambda: self._compile_to_python(path))
-            act_c_pascal.triggered.connect(lambda: self._compile_to_pascal(path))
-            act_c_cpp   .triggered.connect(lambda: self._compile_to_cpp   (path))
-            act_c_csharp.triggered.connect(lambda: self._compile_to_csharp(path))
-            act_c_java  .triggered.connect(lambda: self._compile_to_java  (path))
-            act_c_javscr.triggered.connect(lambda: self._compile_to_javscr(path))
-            
-            m_compile.addAction(act_c_py    )
-            m_compile.addAction(act_c_pascal)
-            m_compile.addAction(act_c_cpp   )
-            m_compile.addAction(act_c_csharp)
-            m_compile.addAction(act_c_java  )
-            m_compile.addAction(act_c_javscr)
-
-            menu.addSeparator()
-
-            act_copy = QAction(_tr("Copy"), self)
-            act_copy.triggered.connect(lambda: self._copy_path(path))
-            menu.addAction(act_copy)
-
-            act_ren = QAction(_tr("Rename"), self)
-            act_ren.triggered.connect(lambda: self._rename_file(item, path))
-            menu.addAction(act_ren)
-
-            act_del = QAction(_tr("Delete"), self)
-            act_del.triggered.connect(lambda: self._delete_file(item, path))
-            menu.addAction(act_del)
-
-        menu.exec_(self.viewport().mapToGlobal(pos))
-
-    # ------------------------------------------------------------------
-    # Neu Aktionen (RegieCenter IconView)
-    # ------------------------------------------------------------------
-    def _regiecenter_host(self):
-        host = self.parent()
-        while host is not None and host.__class__.__name__ != "RegieCenter":
-            host = host.parent()
-        return host
-
-    def _refresh_all_icon_tabs(self):
-        host = self._regiecenter_host()
-        if host is None:
-            return
-        try:
-            cur_dir = host.combo.currentText()
-            host._on_dir_changed(cur_dir)
-        except Exception:
-            try:
-                self.refresh()
-            except Exception:
-                pass
-
-    def _unique_name_in_dir(self, directory: str, base: str, ext: str) -> str:
-        directory = os.path.normpath(directory or "")
-        if not directory:
-            return ""
-        candidate = os.path.join(directory, f"{base}{ext}")
-        if not os.path.exists(candidate):
-            return candidate
-        i = 1
-        while True:
-            candidate = os.path.join(directory, f"{base}{i}{ext}")
-            if not os.path.exists(candidate):
-                return candidate
-            i += 1
-
-    def _new_program(self):
-        host = self._regiecenter_host()
-        directory = (getattr(self, "base_dir", "") or "").strip()
-        if not directory or not os.path.isdir(directory):
-            QMessageBox.information(self, "Neu", "Bitte zuerst ein Verzeichnis auswählen.")
+        if not item:
             return
 
-        path = self._unique_name_in_dir(directory, "unbenannt", ".prg")
+        self.setCurrentItem(item)
+        path = item.data(Qt.UserRole) or ""
         if not path:
             return
 
-        try:
-            tpl = "* unbenannt.prg\n\n"
-            with open(path, "w", encoding="utf-8", errors="replace") as f:
-                f.write(tpl)
-        except Exception as e:
-            QMessageBox.warning(self, "Neu", f"Konnte Datei nicht erstellen:\n{e}")
-            return
+        ext = os.path.splitext(path)[1].lower()
 
-        self._refresh_all_icon_tabs()
+        menu = QMenu(self)
+        menu.setFont(QFont("Arial",10))
 
-        if host is not None and hasattr(host, "open_in_code_editor"):
-            host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+        act_run = QAction(_tr("Run"), self)
+        act_run.triggered.connect(lambda: self._run_file(path))
+        menu.addAction(act_run)
 
-    def _new_table(self):
-        # neues Tabellen-Designer Fenster (ohne Records)
-        try:
-            if "MAINAPP" in globals() and hasattr(MAINAPP, "mdi_open_table_designer"):
-                MAINAPP.mdi_open_table_designer()
-                return
-        except Exception:
-            pass
-        QMessageBox.information(self, "Neu", "Konnte Table-Designer nicht öffnen (Hook fehlt).")
 
-    def _new_sql_query(self):
-        # SQL Builder öffnen
-        try:
-            if "MAINAPP" in globals():
-                if hasattr(MAINAPP, "mdi_open_sql_builder"):
-                    MAINAPP.mdi_open_sql_builder()
-                    return
-                if hasattr(MAINAPP, "on_action_view_sql_builder"):
-                    MAINAPP.on_action_view_sql_builder()
-                    return
-        except Exception:
-            pass
-        QMessageBox.information(self, "Neu", "Konnte SQL Builder nicht öffnen (Hook fehlt).")
+        act_edit = QAction(_tr("Edit"), self)
+        #act_edit.setEnabled(ext == ".prg")
+        act_edit.triggered.connect(lambda: self._edit_in_editor(path))
 
-    def _close_regiecenter(self):
-        host = self._regiecenter_host()
-        try:
-            if host is not None:
-                host.close()
-                return
-        except Exception:
-            pass
+        menu.addAction(act_edit)
+        menu.addSeparator()
+        
+        m_compile    = menu.addMenu(_tr("Compile"))
+        act_c_py     = QAction("Python",     self)
+        act_c_pascal = QAction("Pascal",     self)
+        act_c_cpp    = QAction("C++",        self)
+        act_c_csharp = QAction("C Sharp",    self)
+        act_c_java   = QAction("Java",       self)
+        act_c_javscr = QAction("JavaScript", self)
+        
+        act_c_py    .setEnabled(ext == ".prg")
+        act_c_pascal.setEnabled(ext == ".prg")
+        act_c_cpp   .setEnabled(ext == ".prg")
+        act_c_csharp.setEnabled(ext == ".prg")
+        act_c_java  .setEnabled(ext == ".prg")
+        act_c_javscr.setEnabled(ext == ".prg")
+        
+        act_c_py    .triggered.connect(lambda: self._compile_to_python(path))
+        act_c_pascal.triggered.connect(lambda: self._compile_to_pascal(path))
+        act_c_cpp   .triggered.connect(lambda: self._compile_to_cpp   (path))
+        act_c_csharp.triggered.connect(lambda: self._compile_to_csharp(path))
+        act_c_java  .triggered.connect(lambda: self._compile_to_java  (path))
+        act_c_javscr.triggered.connect(lambda: self._compile_to_javscr(path))
+        
+        m_compile.addAction(act_c_py    )
+        m_compile.addAction(act_c_pascal)
+        m_compile.addAction(act_c_cpp   )
+        m_compile.addAction(act_c_csharp)
+        m_compile.addAction(act_c_java  )
+        m_compile.addAction(act_c_javscr)
 
+        menu.addSeparator()
+
+        act_copy = QAction(_tr("Copy"), self)
+        act_copy.triggered.connect(lambda: self._copy_path(path))
+        menu.addAction(act_copy)
+
+        act_ren = QAction(_tr("Rename"), self)
+        act_ren.triggered.connect(lambda: self._rename_file(item, path))
+        menu.addAction(act_ren)
+
+        act_del = QAction(_tr("Delete"), self)
+        act_del.triggered.connect(lambda: self._delete_file(item, path))
+        menu.addAction(act_del)
+
+        menu.exec_(self.viewport().mapToGlobal(pos))
+
+    # -----------------------------------------------------------
+    # Öffnet die Datei im CodeEditor (Hook am RegieCenter/Host).
+    # -----------------------------------------------------------
     def _edit_in_editor(self, path: str) -> None:
         try:
             ext = os.path.splitext(path)[1].lower()
@@ -12684,6 +12522,7 @@ class IconTab(QListWidget):
                     MDIHOST.open_in_table_editor(display_name=display_name, path=path)
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein TabellenEditor-Hook gefunden.")
+                    
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
@@ -12712,7 +12551,7 @@ class IconTab(QListWidget):
             #    subprocess.Popen(["xdg-open", path])
         except Exception as e:
             QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
-    
+
     def _compile_to_vba(self, path: str):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
@@ -12736,13 +12575,13 @@ class IconTab(QListWidget):
         codegen = DBaseToJava(parser, class_name="GenProg", package=None)
         codegen.generate(parser.tree, "dbase.java")
         print("gen java ok.")
-    
+
     def _compile_to_python(self, path: str):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToPython(parser.parser)
         codegen.generate(parser.tree, "dbase.py")
         print("gen py ok.")
-        
+
     def _compile_to_cpp(self, path: str):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToCpp(parser, prog_name="genprog")
@@ -12760,30 +12599,30 @@ class RegieCenter(QDialog):
         super().__init__(parent)
         
         self.setFont(QFont("Arial", 10))
-
+        
         self.setWindowTitle("Regierzentrum")
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
-
+        
         self.icon_provider = QFileIconProvider()
-
+        
         # --- Top controls ---
         self.combo = QComboBox()
         self.combo.setEditable(True)
         self.combo.setInsertPolicy(QComboBox.NoInsert)
         self.combo.currentTextChanged.connect(self._on_dir_changed)
-
+        
         self.btn_pick = QPushButton("Verzeichnis…")
         self.btn_pick.clicked.connect(self.pick_directory_non_native)
-
+        
         top = QHBoxLayout()
         top.addWidget(self.combo, 1)
         top.addWidget(self.btn_pick, 0)
-
-                # --- Tabs ---
+        
+        # --- Tabs ---
         self.tabs = QTabWidget()
         self.icon_lists = []
-
+        
         # Dateityp-Filter pro Tab (kannst du jederzeit anpassen)
         ext_alltypes  = [
             '.htm', '.html', '.css'   , '.js', '.url',
@@ -12803,7 +12642,7 @@ class RegieCenter(QDialog):
         ext_sql       = ['.sql']
         ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
         ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
-
+        
         self.lw1 = IconTab(ext_alltypes,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, 'Alle Typen')
         self.lw2 = IconTab(ext_projekte,  parent=self, icon_provider=self.icon_provider)
@@ -12834,7 +12673,10 @@ class RegieCenter(QDialog):
         root.addWidget(self.tabs, 1)
 
         self.resize(980, 640)
-
+        
+    # -----------------------------------------------------------
+    # Öffnet *path* im TableEditorWindow
+    # -----------------------------------------------------------
     def open_in_table_editor(self, display_name: str, path: str):
         try:
             print("table")
@@ -12936,25 +12778,25 @@ class RegieCenter(QDialog):
         dlg.setFileMode(QFileDialog.Directory)
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
         dlg.setOption(QFileDialog.DontUseNativeDialog, True)
-
+        
         if dlg.exec_():
             selected = dlg.selectedFiles()
             if selected:
                 path = selected[0]
                 self._add_and_select_dir(path)
-
+    
     def _add_and_select_dir(self, path: str):
         path = os.path.normpath(path)
-
+        
         # Wenn schon drin -> nur markieren
         idx = self.combo.findText(path, Qt.MatchExactly)
         if idx < 0:
             self.combo.addItem(path)
             idx = self.combo.findText(path, Qt.MatchExactly)
-
+        
         self.combo.setCurrentIndex(idx)  # markiert/selektiert
         # _on_dir_changed() wird automatisch ausgelöst
-
+    
     def _on_dir_changed(self, path: str):
         path = (path or "").strip()
         if not path or not os.path.isdir(path):
@@ -12966,21 +12808,7 @@ class RegieCenter(QDialog):
         # Jede IconView rendert ihren eigenen Filter
         for lw in self.icon_lists:
             lw.set_directory(path)
-
-        # INI: Arbeitsverzeichnis merken
-        try:
-            if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
-                MAINAPP._settings.setValue('regiecenter/workdir', path)
-        except Exception:
-            pass
-
-            # INI: Arbeitsverzeichnis merken
-            try:
-                if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
-                    MAINAPP._settings.setValue('regiecenter/workdir', path)
-            except Exception:
-                pass
-                
+            
 class UserBdeAliasesTab(QWidget):
     """
     Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-native Dialoge.
@@ -14214,6 +14042,8 @@ class _KeyValueTree(QTreeWidget):
         self.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
         self.setRootIsDecorated(True)
 
+
+
 class _ToolPalette(QTabWidget):
     """
     Werkzeug-Palette (links unten):
@@ -14297,82 +14127,6 @@ class _ToolPalette(QTabWidget):
 
         # Individuell (Platzhalter)
         self._add(self.custom, "CustomControl", ip.icon(QFileIconProvider.File))
-
-class DockTitleBar(QWidget):
-    def __init__(self, dock: QDockWidget, title: str = "", parent=None):
-        super().__init__(parent)
-        self.dock = dock
-
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(8, 2, 6, 2)
-        lay.setSpacing(6)
-
-        self.lbl = QLabel(title or dock.windowTitle(), self)
-        self.lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-
-        # Float (andocken/abdocken)
-        self.btnFloat = QToolButton(self)
-        self.btnFloat.setAutoRaise(True)
-        self.btnFloat.clicked.connect(self._toggle_floating)
-
-        # Close
-        self.btnClose = QToolButton(self)
-        self.btnClose.setAutoRaise(True)
-        self.btnClose.clicked.connect(dock.close)
-
-        lay.addWidget(self.lbl)
-        lay.addWidget(self.btnFloat)
-        lay.addWidget(self.btnClose)
-
-        # initial
-        self._sync_icons()
-
-        # Wenn der Dock-Zustand wechselt, Icon anpassen
-        dock.topLevelChanged.connect(lambda _: self._sync_icons())
-
-        # Styling direkt hier (oder per globalem QSS, s.u.)
-        self.setStyleSheet("""
-            DockTitleBar {
-                background: #1e1e1e;
-            }
-            QLabel {
-                color: #ffd866;           /* GELB */
-                font-weight: 600;
-            }
-            QToolButton {
-                color: #ffffff;           /* WEISS (falls Text/Icon-Font) */
-                background: transparent;
-                border: none;
-                padding: 2px;
-            }
-            QToolButton:hover {
-                background: rgba(255,255,255,0.10);
-                border-radius: 3px;
-            }
-        """)
-
-    def setTitle(self, text: str):
-        self.lbl.setText(text)
-
-    def _toggle_floating(self):
-        self.dock.setFloating(not self.dock.isFloating())
-        self._sync_icons()
-
-    def _sync_icons(self):
-        # NIMM HIER DEINE WEISSEN PNG/SVG ICONS (empfohlen)
-        # Beispiel: Ressourcenpfade anpassen:
-        if self.dock.isFloating():
-            self.btnFloat.setIcon(QIcon(":/icons/dock_white.png"))   # andocken
-        else:
-            self.btnFloat.setIcon(QIcon(":/icons/undock_white.png")) # abdocken
-        self.btnClose.setIcon(QIcon(":/icons/close_white.png"))
-
-def apply_custom_dock_titlebar(dock: QDockWidget):
-    tb = DockTitleBar(dock)
-    dock.setTitleBarWidget(tb)
-
-    # Optional: damit dein Titel immer sync bleibt
-    dock.windowTitleChanged.connect(tb.setTitle)
 
 class ObjectInspectorDock(QDockWidget):
     """Dock: Objekt-Inspector (oben links)."""
@@ -14803,8 +14557,6 @@ class DesignerControl(QWidget):
 
         menu.exec_(ev.globalPos())
 
-
-
     def _action_edit(self):
         # Öffnet den CodeEditor + springt zur Komponente/Handler-Stelle (best-effort)
         try:
@@ -14844,22 +14596,17 @@ class DesignerControl(QWidget):
         self.instance_name = new_name
         self.update()
 
-
-
     def _action_delete(self):
         try:
             self.parent().delete_control(self)
         except Exception:
             self.deleteLater()
 
-
-
     def _clipboard_copy(self, cut: bool = False):
         try:
             self.parent().copy_to_clipboard(self, cut=cut)
         except Exception as e:
             QMessageBox.warning(self, "Clipboard", str(e))
-
 
 class PixelGridCanvas(QWidget):
     """
@@ -15572,16 +15319,12 @@ class ArrowFontProxyStyle(QProxyStyle):
         painter.setFont(f)
         painter.drawText(rect, Qt.AlignCenter, glyph)
         painter.restore()
-        
-
-
 
 # ---------------------------------------------------------------------------
 # Debug Console (split view: output + one-liner input with history)
 # ---------------------------------------------------------------------------
 class _CommandInputEdit(QPlainTextEdit):
     """Single-line-ish input with history (Up/Down) and Enter-to-submit."""
-
     commandEntered = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -15651,10 +15394,8 @@ class _CommandInputEdit(QPlainTextEdit):
 
         super().keyPressEvent(ev)
 
-
 class DebugConsoleWidget(QWidget):
     """MDI widget: output on top (read-only), input below."""
-
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
@@ -15696,7 +15437,7 @@ class DebugConsoleWidget(QWidget):
             out = self.main_window._execute_one_liner(cmd)
             if out:
                 self.append_output(out.rstrip())
-                delete_last_line(self.out)
+                #delete_last_line(self.out)
         except Exception as e:
             tb = traceback.format_exc()
             self.append_output(tb)
@@ -15744,7 +15485,7 @@ class MainWindow(QMainWindow):
             ]:
                 act = getattr(self, name, None)
                 if act is not None:
-                    act.setText(_tr(msgid))
+                    act.setText(tr(msgid))
         except Exception:
             pass
 
@@ -15869,41 +15610,39 @@ class MainWindow(QMainWindow):
         self.act_view_regie    = QAction(_tr("Control Center"), self)
         self.act_view_designer = QAction(_tr("Designer")      , self)
         self.act_view_editor   = QAction(_tr("Editor")        , self)
+        self.act_view_command  = QAction(_tr("Command Window"), self)
         self.act_view_table    = QAction(_tr("Table Designer"), self)
 
         self.act_view_sql = QAction(_tr("SQL Builder"), self)
         self.act_view_regie   .triggered.connect(self.on_action_view_regiecenter)
         self.act_view_designer.triggered.connect(self.on_action_view_designer)
         self.act_view_editor  .triggered.connect(self.on_action_view_editor)
+        self.act_view_command .triggered.connect(self.on_action_view_command)
         self.act_view_table   .triggered.connect(self.on_action_view_table_designer)
 
         self.act_view_sql.triggered.connect(self.on_action_view_sql_builder)
         self.menu_display.addAction(self.act_view_regie)
         self.menu_display.addAction(self.act_view_designer)
         self.menu_display.addAction(self.act_view_editor)
+        self.menu_display.addAction(self.act_view_command)
         self.menu_display.addSeparator()
         self.menu_display.addAction(self.act_view_table)
         self.menu_display.addSeparator()
         self.menu_display.addAction(self.act_view_sql)
-
+        
         # --- Ansicht -> Sprache ---
         self.menu_language = self.menu_display.addMenu(_tr("Language"))
-        try:
-            from PyQt5.QtWidgets import QActionGroup
-        except Exception:
-            QActionGroup = None
-
+        
         self.act_lang_en = QAction("English", self)
         self.act_lang_de = QAction("Deutsch", self)
         self.act_lang_en.setCheckable(True)
         self.act_lang_de.setCheckable(True)
-
-        if QActionGroup is not None:
-            grp = QActionGroup(self)
-            grp.setExclusive(True)
-            grp.addAction(self.act_lang_en)
-            grp.addAction(self.act_lang_de)
-
+        
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        grp.addAction(self.act_lang_en)
+        grp.addAction(self.act_lang_de)
+        
         # Default checked
         if (_I18N.lang or "").lower().startswith("de"):
             self.act_lang_de.setChecked(True)
@@ -15913,10 +15652,10 @@ class MainWindow(QMainWindow):
         self._set_language("de")
         self.act_lang_en.triggered.connect(lambda: self._set_language("en"))
         self.act_lang_de.triggered.connect(lambda: self._set_language("de"))
-
+        
         self.menu_language.addAction(self.act_lang_en)
         self.menu_language.addAction(self.act_lang_de)
-
+        
         self.menu_properties = menubar.addMenu(_tr("Properties"))
         self.menu_windows    = menubar.addMenu(_tr("Window"))
         self.menu_help       = menubar.addMenu(_tr("Help"))
@@ -15924,8 +15663,8 @@ class MainWindow(QMainWindow):
         menu_file_new               = self.menu_file.addMenu(_tr("New"))
         menu_file_new.setFont(f2)
         
-        self.action_file_open            = QAction(_tr("Open"), self)
-        self.action_file_close           = QAction(_tr("Close"), self)
+        self.action_file_open  = QAction(_tr("Open"), self)
+        self.action_file_close = QAction(_tr("Close"), self)
         
         self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
         self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
@@ -16030,7 +15769,8 @@ class MainWindow(QMainWindow):
         # CommandWindow (Debug Console) beim Start immer anzeigen
         try:
             self.ensure_debug_console(focus=False)
-        except Exception:
+        except Exception as e:
+            print(e)
             pass
 
 
@@ -16083,6 +15823,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return w
+        
     def _execute_one_liner(self, code_line: str) -> str:
         """
         Führt eine einzelne dBase-One-Liner-Eingabe aus und gibt die Ausgabe (stdout) zurück.
@@ -16124,21 +15865,12 @@ class MainWindow(QMainWindow):
 
         tmp_path = os.path.join(tempfile.gettempdir(), "dbase_one_liner.prg")
         with open(tmp_path, "w", encoding="utf-8", errors="replace") as f:
-            f.write(code_line + "\n")
+            f.write(code_line)
 
-        try:
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                parse(tmp_path)
-            return buf.getvalue()
-        except Exception as e:
-            dlg = ErrorMessage(
-                title    = _tr("Parser Error"),
-                log_path = LOG,
-                message  = f"{e}",
-                parent   = MAINAPP
-            )
-            dlg.exec_()
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            parse(tmp_path)
+        return buf.getvalue()
 
     def on_action_edit_minimap(self, visible: bool):
         print(visible)
@@ -16190,8 +15922,7 @@ class MainWindow(QMainWindow):
             pass
 
         event.accept()
-
-            
+    
     def ensure_code_editor_window(self, focus: bool = True):
         """Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
 
@@ -16212,7 +15943,7 @@ class MainWindow(QMainWindow):
                 return w
         except Exception:
             pass
-
+        
         # 2) irgendein vorhandenes FileEditorWindow wiederverwenden
         try:
             if hasattr(self, "mdi"):
@@ -16407,11 +16138,22 @@ class MainWindow(QMainWindow):
         self.ensure_designer(focus=True)
 
     def on_action_view_editor(self):
-        self.ensure_code_editor_window(focus=True)
+        self.ensure_code_editor_window(focus = True)
 
+    def on_action_view_command(self):
+        try:
+            self.ensure_debug_console(focus = True)
+        except Exception:
+            dlg = ErrorMessage(
+                title    = _tr("Runtime Error"),
+                log_path = LOG,
+                message  = f"{_tr('command window error')}.",
+                parent   = self
+            )
+            dlg.exec_()
+    
     def on_action_view_table_designer(self):
         self.mdi_open_table_designer()
-
 
     def on_action_view_sql_builder(self):
         self.mdi_open_sql_builder()
@@ -16957,488 +16699,9 @@ class MainWindow(QMainWindow):
             arrow    = "#000000"
         
         size = 21  # Win95 vibe
-        self.setStyleSheet(f"""
-/* =========================
-   QCheckBox (Dark)
-   ========================= */
-QCheckBox {{
-    color: {text_fg};
-    spacing: 8px;
-}}
-
-QCheckBox:hover {{
-    color: {text_hover_fg};
-}}
-
-QCheckBox:disabled {{
-    color: {text_disabled_fg};
-}}
-
-QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    border: 1px solid {border};
-    background: {input_bg};
-}}
-
-QCheckBox::indicator:hover {{
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:focus {{
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:checked {{
-    background: {accent};
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:checked:hover {{
-    background: {accent_hover};
-    border: 1px solid {accent_hover};
-}}
-
-QCheckBox::indicator:unchecked {{
-    background: {input_bg};
-}}
-
-QCheckBox::indicator:indeterminate {{
-    background: {accent};
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:disabled {{
-    background: {disabled_bg};
-    border: 1px solid {border_disabled};
-}}
-
-QCheckBox::indicator:checked:disabled {{
-    background: {accent_disabled};
-    border: 1px solid {border_disabled};
-}}
-
-/* =========================
-   QRadioButton (Dark)
-   ========================= */
-QRadioButton {{
-    color: {text_fg};
-    spacing: 8px;
-}}
-
-QRadioButton:hover {{
-    color: {text_hover_fg};
-}}
-
-QRadioButton:disabled {{
-    color: {text_disabled_fg};
-}}
-
-QRadioButton::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 8px; /* rund */
-    border: 1px solid {border};
-    background: {input_bg};
-}}
-
-QRadioButton::indicator:hover {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:focus {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:checked {{
-    border: 1px solid {accent};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent},
-        stop:0.35 {accent},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:checked:hover {{
-    border: 1px solid {accent_hover};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_hover},
-        stop:0.35 {accent_hover},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:disabled {{
-    background: {disabled_bg};
-    border: 1px solid {border_disabled};
-}}
-
-QRadioButton::indicator:checked:disabled {{
-    border: 1px solid {border_disabled};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_disabled},
-        stop:0.35 {accent_disabled},
-        stop:0.36 {disabled_bg},
-        stop:1.0 {disabled_bg}
-    );
-}}
-
-/* =========================
-   QGroupBox (Dark)
-   ========================= */
-QGroupBox {{
-    color: {text_fg};
-    border: 1px solid {border};
-    border-radius: 10px;
-    margin-top: 14px;     /* Platz für Titel */
-    padding: 10px;
-    background: {panel_bg};
-}}
-
-QGroupBox:hover {{
-    border: 1px solid {border_hover};
-}}
-
-QGroupBox:disabled {{
-    color: {text_disabled_fg};
-    border: 1px solid {border_disabled};
-    background: {disabled_bg};
-}}
-
-/* Titel-Label */
-QGroupBox::title {{
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    padding: 0 8px;
-    left: 10px;
-    top: 2px;
-
-    color: {title_fg};
-    background: {window_bg}; /* damit der Titel die Border "überdeckt" */
-}}
-
-/* Optional: wenn du GroupBoxen checkable nutzt */
-QGroupBox::indicator {{
-    width: 16px;
-    height: 16px;
-    margin-left: 6px;
-}}
-
-QGroupBox::indicator:unchecked {{
-    border: 1px solid {border};
-    border-radius: 4px;
-    background: {input_bg};
-}}
-
-QGroupBox::indicator:checked {{
-    border: 1px solid {accent};
-    background: {accent};
-}}
-
-QMenuBar {{ background: #1a1a1a; color: #ffd866; }}
-QMenuBar::item {{ background: transparent; padding: 6px 10px; }}
-QMenuBar::item:selected {{ background: #2a2a2a; }}
-QMenu {{ background: #141414; color: #ffffff; border: 1px solid #333333; }}
-QMenu::separator {{
-    height: 2px;
-    margin: 6px 10px;
-    background: qlineargradient(
-        x1:0, y1:0, x2:0, y2:1,
-        stop:0 #2a2a2a,
-        stop:1 #555555
-    );
-}}
-QMenu::item:selected {{ background: #2b4c7e; color: #ffffff; }}
-QMdiArea {{
-    background: #1e1e1e;           /* noch dunkler */
-    border: 2px solid #333333;
-}}
-QMdiArea::viewport {{
-    background: #1b1b0b;
-}}
-/* optional: Subwindows im Dark Mode passend */
-QMdiSubWindow {{
-    background: #343434;
-    border: 2px solid #333333;
-}}
-QMdiSubWindow:title {{
-    background: 0;
-    color: #ffffff;
-}}
-QComboBox {{
-    background: #2a2a2a;          /* Feld grau */
-    color: #ffffff;
-    border: 1px solid #333333;
-    padding: 6px 10px;
-    padding-right: 28px;          /* Platz für den Pfeil */
-}}
-
-QComboBox:hover {{
-    background: #303030;
-}}
-
-QComboBox:disabled {{
-    background: #202020;
-    color: #777777;
-}}
-
-/* Drop-down Button rechts */
-QComboBox::drop-down {{
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 24px;
-    border-left: 1px solid #333333;
-    background: #222222;
-}}
-
-QComboBox::drop-down:hover {{
-    background: #2a2a2a;
-}}
-
-/* Pfeil */
-QComboBox::down-arrow {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_down.png);
-}}
-
-/* Popup-Liste */
-QComboBox QAbstractItemView {{
-    background: #1c1c1c;
-    color: #ffffff;
-    border: 1px solid #333333;
-    selection-background-color: #2b4c7e;
-    selection-color: #ffffff;
-    outline: 1px;
-}}
-QTableView, QTableWidget {{
-    background: #0b0b0b;
-    color: #ffffff;
-    gridline-color: #333333;
-    border: 1px solid #333333;
-    selection-background-color: #2b4c7e;
-    selection-color: #ffffff;
-}}
-
-/* WICHTIG: leere Fläche kommt oft vom viewport */
-QTableView::viewport, QTableWidget::viewport {{
-    background-color: #0b0b0b;
-}}
-
-/* Header oben/links */
-QHeaderView::section {{
-    background-color: #000000;
-    color: #e6e6e6;
-    padding: 6px;
-    border: none;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* Der “Eck-Button” oben links (häufig DER weiße Fleck) */
-QTableCornerButton::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-QMessageBox {{
-    background-color: #2b2b2b;
-    color: #e8e8e8;
-    font-size: 10pt;
-}}
-QMessageBox QLabel {{
-    color: #e8e8e8;
-}}
-QMessageBox QLabel#qt_msgbox_label {{
-    color: #e8e8e8;
-}}
-QMessageBox QLabel#qt_msgboxex_icon_label {{
-    /* Icon-Label */
-    padding-right: 10px;
-}}
-QMessageBox QTextEdit {{
-    background-color: #232323;
-    color: #e8e8e8;
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
-}}
-QMessageBox QMessageBox QPushButton {{
-    background-color: #3a3a3a;
-    color: #f0f0f0;
-    border: 1px solid #555;
-    border-radius: 8px;
-    padding: 6px 12px;
-    min-width: 90px;
-}}
-QMessageBox QPushButton:hover {{
-    background-color: #444;
-    border-color: #777;
-}}
-QMessageBox QPushButton:pressed {{
-    background-color: #2f2f2f;
-}}
-QMessageBox QPushButton:default {{
-    border: 1px solid #a33;   /* dezenter roter Akzent */
-}}
-QMessageBox QPushButton:focus {{
-    outline: none;
-    border: 1px solid #888;
-}}
-QAbstractItemView, QAbstractButton {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-/* Optional: falls Qt dort eine Ecke der ScrollArea malt */
-QAbstractScrollArea::corner {{
-    background-color: #000000;
-    border: 1px solid #222222;
-}}
-QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
-QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
-QLineEdit {{padding: 6px 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
-QLabel {{color: {tab_fg};}}
-QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};padding: 6px 10px;}}
-QToolButton:hover {{background: {toolbtn_hover};}}
-QToolButton:pressed {{background: {toolbtn_pressed};}}
-QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
-QTabBar {{background: {tab_bar_bg};}}
-QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;min-width: 90px;}}
-QTabBar::tab:hover {{background: {tab_hover_bg};}}
-QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
-QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
-QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
-QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
-QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
-QPushButton:hover {{background: {toolbtn_hover};}}
-QPushButton:pressed {{background: {toolbtn_pressed};}}
-TopContainer {{ background: transparent; }}
-TitleBar {{background: {title_bg};}}
-TitleLabel {{color: {title_fg};font-weight: 600;}}
-TitleSeparator {{background: {border};}}
-QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
-QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
-QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
-QStatusBar {{background: {status_bg};color: {status_fg};border-top: 1px solid {status_border};}}
-QStatusBar QLabel {{color: {status_fg};}}
-QTabBar::scroller {{width: 22px;height: 22px;background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;margin: 2px;}}
-QTabBar::scroller:hover {{background: {tab_hover_bg};}}
-QTabBar QToolButton {{background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;padding: 2px;color: {tab_fg_active};}}
-QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
-QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
-QSplitter {{background: {tree_bg};}}
-QSplitter::handle {{background: {border};}}
-QWebEngineView {{background: {tree_bg};}}
-QScrollBar:vertical {{background: {sb_face};width: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
-QScrollBar:horizontal {{background: {sb_face};height: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
-QScrollBar::track:vertical, QScrollBar::track:horizontal {{background: {sb_track};}}
-/*QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
-/*QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{background: transparent;}}
-QScrollBar::sub-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::add-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::sub-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::add-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::sub-line:vertical:pressed, QScrollBar::add-line:vertical:pressed,
-QScrollBar::sub-line:horizontal:pressed, QScrollBar::add-line:horizontal:pressed {{border-top: 1px solid {sb_mid};border-left: 1px solid {sb_mid};border-right: 1px solid {sb_hi};border-bottom: 1px solid {sb_hi};}}
-QScrollBar::up-arrow:vertical {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_up.png);
-}}
-QScrollBar::down-arrow:vertical {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_down.png);
-}}
-QScrollBar::left-arrow:horizontal {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_left.png);
-}}
-QScrollBar::right-arrow:horizontal {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_right.png);
-}}
-
-QScrollBar::sub-line:vertical {{ subcontrol-position: top;    subcontrol-origin: margin; }}
-QScrollBar::add-line:vertical {{ subcontrol-position: bottom; subcontrol-origin: margin; }}
-QScrollBar::sub-line:horizontal {{ subcontrol-position: left;  subcontrol-origin: margin; }}
-QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin: margin; }}
-
-QScrollBar:vertical[dir="down"]::handle {{ image: url(:/icons/arrow_down.png); }}
-QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
-
-/* ===== FORCE: Table Header + Corner wirklich schwarz ===== */
-
-/* Header (oben + links) */
-QTableView QHeaderView::section,
-QTableWidget QHeaderView::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* obere linke Ecke (zwischen Headern) */
-QTableView QTableCornerButton::section,
-QTableWidget QTableCornerButton::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* falls Qt statt CornerButton die ScrollArea-Ecke malt (wenn beide Scrollbars da sind) */
-QTableView QAbstractScrollArea::corner,
-QTableWidget QAbstractScrollArea::corner {{
-    background-color: #000000;
-    border: 1px solid #333333;
-}}
-QDockWidget::title {{
-    color: #ffd866;              /* gelb */
-    padding-left: 8px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-}}
-QDockWidget::close-button, QDockWidget::float-button {{
-    background: transparent;
-    border: none;
-    color: #ffffff;              /* wirkt bei font-basierten Icons */
-    icon-size: 14px;
-}}
-QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
-    background: rgba(255,255,255,0.08);
-    border-radius: 3px;
-}}
-DockTitleBar {{
-    background: #1e1e1e;
-}}
-QLabel {{
-    color: #ffd866;           /* GELB */
-    font-weight: 600;
-}}
-QToolButton {{
-    color: #ffffff;           /* WEISS (falls Text/Icon-Font) */
-    background: transparent;
-    border: none;
-    padding: 2px;
-}}
-QToolButton:hover {{
-    background: rgba(255,255,255,0.10);
-    border-radius: 3px;
-}}
-QWebEngineView {{background: {tree_bg};}}
-""")
+        cssStyle = stylesheet_from_resource_keys(":/stylerc.txt")
+        self.setStyleSheet(cssStyle)
         self.mdi.setBackground(QBrush(QColor("#373737")))
-
 
 # ---------------------------------------------------------------------------
 # Fixup: globale Helper als MainWindow-Methoden (falls sie durch Einrückung global gelandet sind)
@@ -17455,9 +16718,12 @@ try:
 except Exception:
     pass
 
+
+
 # ---------------------------------------------------------------------------
 # SQL Builder (Canvas + Table)
 # ---------------------------------------------------------------------------
+
 def _read_dbf_fields(dbf_path: str) -> List[str]:
     """Read field names from a DBF header (dBASE III/IV style).
     Best-effort: returns [] on errors.
@@ -18239,47 +17505,18 @@ def main():
     # wenn es *immer noch* crasht, testweise:
     # os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] += " --no-sandbox"
 
-    global APPINST
-    APPINST = ensure_qt_app()
-    if APPINST is not None:
-        #register_chm_scheme()
-        #chm_path = 
-        
-        #profile = QWebEngineProfile.defaultProfile()
-        #handler = ChmOnDemandSchemeHandler(chm_path, profile)
-        #profile.installUrlSchemeHandler(b"chm", handler)
-        
+    app = ensure_qt_app()
+    if app is not None:
         #f1filter = F1Filter()
         #app.installEventFilter(f1filter)
         #app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
         
-        APPINST.setStyle(ArrowFontProxyStyle(APPINST.style()))
+        app.setStyle(ArrowFontProxyStyle(app.style()))
         global MAINAPP
-        try:
-            MAINAPP = MainWindow()
-            MAINAPP.show()
-            center_on_screen(MAINAPP)
-        except Exception:
-            import traceback as _tb
-            try:
-                with open(LOG, "a", encoding="utf-8", buffering=1) as _f:
-                    _f.write("[Startup Exception]")
-                    _f.write(_tb.format_exc())
-                    _f.write("")
-            except Exception:
-                pass
-            try:
-                QMessageBox.critical(None, "Startfehler",
-                                     "Beim Start ist ein Fehler aufgetreten.\n" +
-                                     "Details stehen in: webengine_crash.log")
-            except Exception:
-                pass
-            return
-
-        rc = APPINST.exec_()
-        
-        #handler.close()
-        sys.exit(rc)
+        MAINAPP = MainWindow()
+        MAINAPP.show()
+        center_on_screen(MAINAPP)
+        sys.exit(app.exec_())
     else:
         print("Qt5 kann nicht gestartet werden.")
         sys.exit(1)

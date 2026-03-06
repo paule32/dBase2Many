@@ -73,7 +73,7 @@ popd
 :: build the main application (dbase) ...
 :: ---------------------------------------------------------------
 echo compile dBaseRunner.py ...
-copy /y dBaseRunner_patched79.py dBaseRunner.py
+copy /y dBaseRunner_patched64.py dBaseRunner.py
 %PY313%\python -m compileall dBaseRunner.py
 if errorlevel 1 (
     echo error building dBaseRunner

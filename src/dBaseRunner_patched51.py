@@ -1494,8 +1494,7 @@ class HelpMainWindow(QMainWindow):
             scroll_handle           = "#c8c8c8"
             scroll_handle_hover     = "#b0b0b0"
         
-        self.setStyleSheet(_css("default_dark"))
-        """
+        self.setStyleSheet(f"""
 QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
 QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
 QLineEdit {{padding: 6px 10px;border-radius: 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
@@ -15075,9 +15074,132 @@ class ArrowFontProxyStyle(QProxyStyle):
         painter.setFont(f)
         painter.drawText(rect, Qt.AlignCenter, glyph)
         painter.restore()
-        
-class MainWindow(QMainWindow):
 
+# ---------------------------------------------------------------------------
+# Debug Console (split view: output + one-liner input with history)
+# ---------------------------------------------------------------------------
+class _CommandInputEdit(QPlainTextEdit):
+    """Single-line-ish input with history (Up/Down) and Enter-to-submit."""
+
+    commandEntered = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._history = []
+        self._hist_idx = -1
+        self.setMaximumBlockCount(2000)
+        self.setTabChangesFocus(False)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        try:
+            self.setFont(QFont("Consolas", 10))
+        except Exception:
+            pass
+
+    def set_history(self, items):
+        self._history = list(items or [])
+        self._hist_idx = len(self._history)
+
+    def history(self):
+        return list(self._history)
+
+    def _set_text_all(self, s: str):
+        self.blockSignals(True)
+        try:
+            self.setPlainText(s)
+            cur = self.textCursor()
+            cur.movePosition(QTextCursor.End)
+            self.setTextCursor(cur)
+        finally:
+            self.blockSignals(False)
+
+    def keyPressEvent(self, ev):
+        key = ev.key()
+        mods = ev.modifiers()
+
+        # Enter => submit current line(s)
+        if key in (Qt.Key_Return, Qt.Key_Enter) and mods == Qt.NoModifier:
+            cmd = self.toPlainText().strip()
+            if cmd:
+                # add to history (dedupe last)
+                if not self._history or self._history[-1] != cmd:
+                    self._history.append(cmd)
+                self._hist_idx = len(self._history)
+                self._set_text_all("")
+                self.commandEntered.emit(cmd)
+            ev.accept()
+            return
+
+        # Up/Down => history navigation (only when cursor at start/end-ish)
+        if key == Qt.Key_Up and mods == Qt.NoModifier:
+            if self._history:
+                self._hist_idx = max(0, self._hist_idx - 1)
+                self._set_text_all(self._history[self._hist_idx])
+            ev.accept()
+            return
+
+        if key == Qt.Key_Down and mods == Qt.NoModifier:
+            if self._history:
+                self._hist_idx = min(len(self._history), self._hist_idx + 1)
+                if self._hist_idx >= len(self._history):
+                    self._set_text_all("")
+                else:
+                    self._set_text_all(self._history[self._hist_idx])
+            ev.accept()
+            return
+
+        super().keyPressEvent(ev)
+
+class DebugConsoleWidget(QWidget):
+    """MDI widget: output on top (read-only), input below."""
+
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main_window = main_window
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        self.splitter = QSplitter(Qt.Vertical, self)
+
+        self.out = QPlainTextEdit(self)
+        self.out.setReadOnly(True)
+        self.out.setMaximumBlockCount(10000)
+        self.out.setLineWrapMode(QPlainTextEdit.NoWrap)
+        try:
+            self.out.setFont(QFont("Consolas", 10))
+        except Exception:
+            pass
+
+        self.inp = _CommandInputEdit(self)
+        self.inp.setMinimumHeight(100)
+        self.inp.commandEntered.connect(self._on_command)
+
+        self.splitter.addWidget(self.out)
+        self.splitter.addWidget(self.inp)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setSizes([400, 90])
+
+        lay.addWidget(self.splitter, 1)
+
+    def append_output(self, text: str):
+        text = "" if text is None else str(text)
+        self.out.appendPlainText(text)
+
+    def _on_command(self, cmd: str):
+        #self.append_output(f">>> {cmd}")
+        try:
+            out = self.main_window._execute_one_liner(cmd)
+            if out:
+                self.append_output(out.rstrip())
+                delete_last_line(self.out)
+        except Exception as e:
+            tb = traceback.format_exc()
+            self.append_output(tb)
+
+class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     def _set_language(self, lang: str):
         """Loads <lang>/LC_MESSAGES/dbase.mo from locales.zip and refreshes menu texts."""
@@ -15090,19 +15212,19 @@ class MainWindow(QMainWindow):
     def _retranslate_ui(self):
         """Best-effort retranslate for main menu + window title."""
         try:
-            self.setWindowTitle(tr("dBase 2026 - (c) Jens Kallup - paule32"))
+            self.setWindowTitle(_tr("dBase 2026 - (c) Jens Kallup - paule32"))
         except Exception:
             pass
 
         # Menüs (nur wenn vorhanden)
         try:
-            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(tr("File"))
-            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(tr("Edit"))
-            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(tr("View"))
-            if hasattr(self, "menu_properties"): self.menu_properties.setTitle(tr("Properties"))
-            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(tr("Window"))
-            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(tr("Help"))
-            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(tr("Language"))
+            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(_tr("File"))
+            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(_tr("Edit"))
+            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(_tr("View"))
+            if hasattr(self, "menu_properties"): self.menu_properties.setTitle(_tr("Properties"))
+            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(_tr("Window"))
+            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(_tr("Help"))
+            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(_tr("Language"))
         except Exception:
             pass
 
@@ -15120,7 +15242,7 @@ class MainWindow(QMainWindow):
             ]:
                 act = getattr(self, name, None)
                 if act is not None:
-                    act.setText(tr(msgid))
+                    act.setText(_tr(msgid))
         except Exception:
             pass
 
@@ -15160,6 +15282,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # INI Settings
+        self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
+        self._settings.setFallbacksEnabled(False)
+
         self.mdi = QMdiArea(self)
         
         pal = self.mdi.palette()
@@ -15184,7 +15310,7 @@ class MainWindow(QMainWindow):
         self.f1filter = F1Filter(self.mdi, create_help, self)
         QApplication.instance().installEventFilter(self.f1filter)
                 
-        _init_designer_panels(self)
+        # Designer (Form-Designer + Docks) wird erst bei 'Ansicht -> Designer' on-demand erstellt
         self.dark_mode = True
 
         # Beispiel-Menü "Fenster"
@@ -15223,27 +15349,27 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        self.menu_file       = menubar.addMenu(tr("File"))
+        self.menu_file       = menubar.addMenu(_tr("File"))
         self.menu_file.setFont(f2)
         
-        self.menu_edit       = menubar.addMenu(tr("Edit"))
+        self.menu_edit       = menubar.addMenu(_tr("Edit"))
         self.menu_edit.setFont(f2)
         
-        self.act_edit_minimap = QAction(tr("Mini-Map"), self, checkable=True, checked=True)
+        self.act_edit_minimap = QAction(_tr("Mini-Map"), self, checkable=True, checked=True)
         self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
         
         self.menu_edit.addAction(self.act_edit_minimap)
         
-        self.menu_display    = menubar.addMenu(tr("View"))
+        self.menu_display    = menubar.addMenu(_tr("View"))
         self.menu_display.setFont(f2)
         
         # Ansicht/Anzeige: mindestens eine Action hinzufügen, sonst öffnet Qt das Menü nicht (leeres Menü => unsichtbar)
-        self.act_view_regie    = QAction(tr("Control Center"), self)
-        self.act_view_designer = QAction(tr("Designer")      , self)
-        self.act_view_editor   = QAction(tr("Editor")        , self)
-        self.act_view_table    = QAction(tr("Table Designer"), self)
+        self.act_view_regie    = QAction(_tr("Control Center"), self)
+        self.act_view_designer = QAction(_tr("Designer")      , self)
+        self.act_view_editor   = QAction(_tr("Editor")        , self)
+        self.act_view_table    = QAction(_tr("Table Designer"), self)
 
-        self.act_view_sql = QAction(tr("SQL Builder"), self)
+        self.act_view_sql = QAction(_tr("SQL Builder"), self)
         self.act_view_regie   .triggered.connect(self.on_action_view_regiecenter)
         self.act_view_designer.triggered.connect(self.on_action_view_designer)
         self.act_view_editor  .triggered.connect(self.on_action_view_editor)
@@ -15259,7 +15385,7 @@ class MainWindow(QMainWindow):
         self.menu_display.addAction(self.act_view_sql)
 
         # --- Ansicht -> Sprache ---
-        self.menu_language = self.menu_display.addMenu(tr("Language"))
+        self.menu_language = self.menu_display.addMenu(_tr("Language"))
         try:
             from PyQt5.QtWidgets import QActionGroup
         except Exception:
@@ -15289,15 +15415,15 @@ class MainWindow(QMainWindow):
         self.menu_language.addAction(self.act_lang_en)
         self.menu_language.addAction(self.act_lang_de)
 
-        self.menu_properties = menubar.addMenu(tr("Properties"))
-        self.menu_windows    = menubar.addMenu(tr("Window"))
-        self.menu_help       = menubar.addMenu(tr("Help"))
+        self.menu_properties = menubar.addMenu(_tr("Properties"))
+        self.menu_windows    = menubar.addMenu(_tr("Window"))
+        self.menu_help       = menubar.addMenu(_tr("Help"))
         
-        menu_file_new               = self.menu_file.addMenu(tr("New"))
+        menu_file_new               = self.menu_file.addMenu(_tr("New"))
         menu_file_new.setFont(f2)
         
-        self.action_file_open            = QAction(tr("Open"), self)
-        self.action_file_close           = QAction(tr("Close"), self)
+        self.action_file_open            = QAction(_tr("Open"), self)
+        self.action_file_close           = QAction(_tr("Close"), self)
         
         self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
         self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
@@ -15305,20 +15431,20 @@ class MainWindow(QMainWindow):
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
         
-        action_file_new_project     = QAction(tr("New Project"), self)
-        action_file_open_project    = QAction(tr("Open Project"), self)
-        action_file_print           = QAction(tr("Print"), self)
+        action_file_new_project     = QAction(_tr("New Project"), self)
+        action_file_open_project    = QAction(_tr("Open Project"), self)
+        action_file_print           = QAction(_tr("Print"), self)
 
         action_file_print.setShortcut(QKeySequence("Ctrl+P"))
         
         action_file_new_project .triggered.connect(self.on_action_file_new_project)
         action_file_open_project.triggered.connect(self.on_action_file_open_project)
         
-        action_file_print_preview   = QAction(tr("Print Preview")        , self)
-        action_file_window_app      = QAction(tr("One-Click Application"), self)
-        action_file_web_wizard      = QAction(tr("Web Wizard")           , self)
-        action_file_database        = QAction(tr("Database Manager")     , self)
-        action_file_exit            = QAction(tr("Exit")                 , self)
+        action_file_print_preview   = QAction(_tr("Print Preview")        , self)
+        action_file_window_app      = QAction(_tr("One-Click Application"), self)
+        action_file_web_wizard      = QAction(_tr("Web Wizard")           , self)
+        action_file_database        = QAction(_tr("Database Manager")     , self)
+        action_file_exit            = QAction(_tr("Exit")                 , self)
         
         action_file_print        .triggered.connect(self.on_action_file_print)
         action_file_print_preview.triggered.connect(self.on_action_file_print_preview)
@@ -15327,14 +15453,14 @@ class MainWindow(QMainWindow):
         action_file_database     .triggered.connect(self.on_action_file_database)
         action_file_exit         .triggered.connect(self.on_action_file_exit)
         
-        action_file_new_form        = QAction(tr("Forms")     , self)
-        action_file_new_menu        = QAction(tr("Menue")     , self)
-        action_file_new_popupmenu   = QAction(tr("Popup-Menu"), self)
-        action_file_new_report      = QAction(tr("Reports")   , self)
-        action_file_new_labels      = QAction(tr("Labels")    , self)
-        action_file_new_program     = QAction(tr("Programs")  , self)
-        action_file_new_table       = QAction(tr("Tables")    , self)
-        action_file_new_sql         = QAction(tr("Queries")   , self)
+        action_file_new_form        = QAction(_tr("Forms")     , self)
+        action_file_new_menu        = QAction(_tr("Menue")     , self)
+        action_file_new_popupmenu   = QAction(_tr("Popup-Menu"), self)
+        action_file_new_report      = QAction(_tr("Reports")   , self)
+        action_file_new_labels      = QAction(_tr("Labels")    , self)
+        action_file_new_program     = QAction(_tr("Programs")  , self)
+        action_file_new_table       = QAction(_tr("Tables")    , self)
+        action_file_new_sql         = QAction(_tr("Queries")   , self)
         
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
@@ -15386,27 +15512,175 @@ class MainWindow(QMainWindow):
         sub = self.mdi.addSubWindow(dlg)
         sub.resize(520,300)
         sub.move(30,30)
+        sub.setWindowTitle(_tr("Regiecenter"))
+        dlg.show()
         sub.show()
+
+        # RegieCenter: zuletzt verwendetes Arbeitsverzeichnis (INI)
+        try:
+            last_dir = (self._settings.value("regiecenter/workdir", "", type=str) or "").strip()
+            if last_dir:
+                if dlg.combo.findText(last_dir, Qt.MatchExactly) < 0:
+                    dlg.combo.addItem(last_dir)
+                dlg.combo.setCurrentText(last_dir)  # triggert refresh
+        except Exception:
+            pass
+        # CommandWindow (Debug Console) beim Start immer anzeigen
+        try:
+            self.ensure_debug_console(focus=False)
+        except Exception:
+            pass
+
+
+    # Debug Console als weiteres Sub-MDI (Split: Output/Input)
+    # -------- INI / State --------
+    def _ini_path(self) -> str:
+        """INI file path (portable: next to script/exe)."""
+        try:
+            base = os.path.dirname(os.path.abspath(sys.argv[0]))
+        except Exception:
+            base = os.getcwd()
+        return os.path.join(base, "dBaseRunner.ini")
+
+    def ensure_debug_console(self, focus: bool = True):
+        """Creates (or focuses) the debug console MDI subwindow."""
+        try:
+            existing = getattr(self, "_debug_console", None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+
+        w = DebugConsoleWidget(self)
+        self._debug_console = w
+        sub = self.mdi.addSubWindow(w)
+        sub.setWindowTitle(_tr("Debug Console"))
+        sub.resize(780, 420)
+        sub.move(580, 30)
+        w.show()
+        sub.show()
+        if focus:
+            self.mdi.setActiveSubWindow(sub)
+
+        # restore splitter + history
+        try:
+            sizes = self._settings.value("console/split_sizes", None)
+            if isinstance(sizes, (list, tuple)) and len(sizes) == 2:
+                w.splitter.setSizes([int(sizes[0]), int(sizes[1])])
+        except Exception:
+            pass
+        try:
+            hist = self._settings.value("console/history", [], type=list)
+            w.inp.set_history(hist)
+        except Exception:
+            pass
+        return w
         
-        #self.mdi_open_editor()
-        self.mdi_open_table_designer()
+    def _execute_one_liner(self, code_line: str) -> str:
+        """
+        Führt eine einzelne dBase-One-Liner-Eingabe aus und gibt die Ausgabe (stdout) zurück.
+
+        - Statements wie: WRITE "test"
+        - Expressions wie: 2 + 3 * 4  -> werden automatisch zu: WRITE (2 + 3 * 4)
+        - '?' wird als Kurzform für WRITE behandelt: ? "hi"
+        """
+        code_line = (code_line or "").strip()
+        if not code_line:
+            return ""
+
+        # '?' als Kurzform
+        if code_line.startswith("?"):
+            code_line = "WRITE " + code_line[1:].lstrip()
+
+        # Wenn es wie eine Expression aussieht (oder kein bekanntes Statement ist),
+        # automatisch in WRITE einbetten, damit der Benutzer ein Ergebnis sieht.
+        first_tok = (code_line.split(None, 1)[0] if code_line.split() else "").upper()
+
+        stmt_keywords = {
+            "WRITE", "USE", "SELECT", "SET", "IF", "ELSE", "ENDIF",
+            "FOR", "ENDFOR", "BREAK", "RETURN", "WITH", "ENDWITH",
+            "PARAMETER", "LOCAL", "CREATE", "OPEN", "CLOSE", "CLEAR",
+            "DO", "CALL", "QUIT"
+        }
+
+        looks_like_expr = (
+            first_tok not in stmt_keywords
+            and (
+                code_line[:1] in "\"'("  # String / Klammer
+                or any(op in code_line for op in ("+", "-", "*", "/", "(", ")", "%"))
+                or re.match(r"^[0-9\s\.\+\-\*/\(\)%]+$", code_line) is not None
+            )
+        )
+
+        if looks_like_expr:
+            code_line = f"WRITE ({code_line})"
+
+        tmp_path = os.path.join(tempfile.gettempdir(), "dbase_one_liner.prg")
+        with open(tmp_path, "w", encoding="utf-8", errors="replace") as f:
+            f.write(code_line)
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            parse(tmp_path)
+        return buf.getvalue()
 
     def on_action_edit_minimap(self, visible: bool):
         print(visible)
         MINIMAP.minimap.setVisible(visible)
         
     def closeEvent(self, event):
+        # Ask user
         reply = QMessageBox.question(
             self,
-            tr("Close Application"),
-            tr("Would you realy close the Application?"),
+            _tr("Close Application"),
+            _tr("Would you realy close the Application?"),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
-        if reply == QMessageBox.Yes:
-            event.accept()   # Schließen erlauben
-        else:
-            event.ignore()   # Schließen verhindern
+        if reply != QMessageBox.Yes:
+            event.ignore()
+            return
+
+        # ---- persist INI ----
+        try:
+            # RegieCenter workdir
+            rc = getattr(self, "regie_center", None)
+            if rc is not None and hasattr(rc, "combo"):
+                wd = (rc.combo.currentText() or "").strip()
+                self._settings.setValue("regiecenter/workdir", wd)
+        except Exception:
+            pass
+
+        # Debug Console state
+        try:
+            c = getattr(self, "_debug_console", None)
+            if c is not None:
+                self._settings.setValue("console/split_sizes", c.splitter.sizes())
+                self._settings.setValue("console/history", c.inp.history())
+        except Exception:
+            pass
+
+        # Designer dock layout (only if created)
+        try:
+            if hasattr(self, "obj_inspector_dock") and hasattr(self, "obj_palette_dock"):
+                self._settings.setValue("designer/main_state", self.saveState())
+                self._settings.setValue("designer/main_geom", self.saveGeometry())
+        except Exception:
+            pass
+
+        try:
+            self._settings.sync()
+        except Exception:
+            pass
+
+        event.accept()
+
             
     def ensure_code_editor_window(self, focus: bool = True):
         """Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
@@ -15553,7 +15827,7 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(dlg)
             sub.resize(520, 300)
             sub.move(30, 30)
-            sub.setWindowTitle(tr("Regiecenter"))
+            sub.setWindowTitle(_tr("Regiecenter"))
             dlg.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -15567,6 +15841,16 @@ class MainWindow(QMainWindow):
         try:
             if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
                 _init_designer_panels(self)
+                # restore saved dock positions (INI)
+                try:
+                    st = self._settings.value("designer/main_state", None)
+                    if st is not None:
+                        self.restoreState(st)
+                    geom = self._settings.value("designer/main_geom", None)
+                    if geom is not None:
+                        self.restoreGeometry(geom)
+                except Exception:
+                    pass
             try:
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
@@ -15597,7 +15881,7 @@ class MainWindow(QMainWindow):
 
             sub = self.mdi.addSubWindow(fw)
             sub.resize(720, 560)
-            sub.setWindowTitle(tr("Form-Designer"))
+            sub.setWindowTitle(_tr("Form-Designer"))
             fw.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -15617,6 +15901,7 @@ class MainWindow(QMainWindow):
 
     def on_action_view_table_designer(self):
         self.mdi_open_table_designer()
+
 
     def on_action_view_sql_builder(self):
         self.mdi_open_sql_builder()
@@ -15653,10 +15938,10 @@ class MainWindow(QMainWindow):
     def on_action_file_open(self):
         """Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen."""
         try:
-            dlg = QFileDialog(self, tr("Open File..."))
+            dlg = QFileDialog(self, _tr("Open File..."))
             dlg.setFileMode(QFileDialog.ExistingFiles)
-            dlg.setNameFilters([ tr("dBaseSourcecodeFiles"), tr("allFiles")])
-            dlg.selectNameFilter(tr("dBaseSourcecodeFiles"))
+            dlg.setNameFilters([ _tr("dBaseSourcecodeFiles"), tr("allFiles")])
+            dlg.selectNameFilter(_tr("dBaseSourcecodeFiles"))
             try:
                 dlg.setDefaultSuffix("prg")
             except Exception:
@@ -15723,7 +16008,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         except Exception as e:
-            QMessageBox.warning(self, tr("Open File..."), f"{tr("could not open file")}:\n{e}")
+            QMessageBox.warning(self, _tr("Open File..."), f"{_tr('could not open file')}:\n{e}")
 
     def on_action_file_database(self):
         print("file data base")
@@ -15737,19 +16022,19 @@ class MainWindow(QMainWindow):
                 p.unlink()
         except FileNotFoundError:
             dlg = ErrorMessage(
-                title    = tr("Runtime Error"),
+                title    = _tr("Runtime Error"),
                 log_path = LOG,
-                message  = f"{tr("file not found")}: '{LOG}'.",
+        message  = f"{_tr('file not found')}: '{LOG}'.",
                 parent   = MAINAPP
             )
             dlg.exec_()
         except PermissionError:
-            txt = tr("file is in use")
+            txt = _tr("file is in use")
             dlg = ErrorMessage(
-                title    = tr("Runtime Error"),
+                title    = _tr("Runtime Error"),
                 log_path = LOG,
                 message  = (f"{txt}: '{LOG}'.\n" +
-                tr("you have to remove it your self")),
+                _tr("you have to remove it your self")),
                 parent   = MAINAPP
             )
             dlg.exec_()
@@ -15833,7 +16118,7 @@ class MainWindow(QMainWindow):
 
     def on_action_file_open(self):
         # Datei -> Öffnen: in CodeEditor-Tabs öffnen
-        dlg = QFileDialog(self, tr("Open File..."))
+        dlg = QFileDialog(self, _tr("Open File..."))
         dlg.setFileMode(QFileDialog.ExistingFile)
         dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
         dlg.setDefaultSuffix("prg")
@@ -16019,6 +16304,7 @@ class MainWindow(QMainWindow):
         sub.resize(600,250)
         sub.move(56,320)
         sub.show()
+
 
     def mdi_open_sql_builder(self):
         dlg = SqlBuilderWindow(self)
@@ -16432,18 +16718,13 @@ QTableView, QTableWidget {{
 
 /* WICHTIG: leere Fläche kommt oft vom viewport */
 QTableView::viewport, QTableWidget::viewport {{
-    background: #0b0b0b;
+    background-color: #0b0b0b;
 }}
 
-/* Ecke oben links (Corner-Button) im TableView */
-QTableCornerButton::section {{
-    background: #000000;
-    border: 1px solid #333333;
-}}
 /* Header oben/links */
 QHeaderView::section {{
-    background: #222222;
-    color: #ffd866;
+    background-color: #000000;
+    color: #e6e6e6;
     padding: 6px;
     border: none;
     border-right: 1px solid #333333;
@@ -16452,7 +16733,7 @@ QHeaderView::section {{
 
 /* Der “Eck-Button” oben links (häufig DER weiße Fleck) */
 QTableCornerButton::section {{
-    background: #222222;
+    background-color: #000000;
     border-right: 1px solid #333333;
     border-bottom: 1px solid #333333;
 }}
@@ -16478,7 +16759,7 @@ QMessageBox QTextEdit {{
     border: 1px solid #3a3a3a;
     border-radius: 8px;
 }}
-QMessageBox QAbstractButton, QMessageBox QPushButton {{
+QMessageBox QMessageBox QPushButton {{
     background-color: #3a3a3a;
     color: #f0f0f0;
     border: 1px solid #555;
@@ -16500,11 +16781,15 @@ QMessageBox QPushButton:focus {{
     outline: none;
     border: 1px solid #888;
 }}
-
+QAbstractItemView, QAbstractButton {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
 /* Optional: falls Qt dort eine Ecke der ScrollArea malt */
 QAbstractScrollArea::corner {{
-    background: #222222;
-    border: 1px solid #333333;
+    background-color: #000000;
+    border: 1px solid #222222;
 }}
 QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
 QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
@@ -16582,6 +16867,65 @@ QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin
 
 QScrollBar:vertical[dir="down"]::handle {{ image: url(:/icons/arrow_down.png); }}
 QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
+
+/* ===== FORCE: Table Header + Corner wirklich schwarz ===== */
+
+/* Header (oben + links) */
+QTableView QHeaderView::section,
+QTableWidget QHeaderView::section {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+/* obere linke Ecke (zwischen Headern) */
+QTableView QTableCornerButton::section,
+QTableWidget QTableCornerButton::section {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+/* falls Qt statt CornerButton die ScrollArea-Ecke malt (wenn beide Scrollbars da sind) */
+QTableView QAbstractScrollArea::corner,
+QTableWidget QAbstractScrollArea::corner {{
+    background-color: #000000;
+    border: 1px solid #333333;
+}}
+QDockWidget::title {{
+    color: #ffd866;              /* gelb */
+    padding-left: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}}
+QDockWidget::close-button, QDockWidget::float-button {{
+    background: transparent;
+    border: none;
+    color: #ffffff;              /* wirkt bei font-basierten Icons */
+    icon-size: 14px;
+}}
+QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+}}
+DockTitleBar {{
+    background: #1e1e1e;
+}}
+QLabel {{
+    color: #ffd866;           /* GELB */
+    font-weight: 600;
+}}
+QToolButton {{
+    color: #ffffff;           /* WEISS (falls Text/Icon-Font) */
+    background: transparent;
+    border: none;
+    padding: 2px;
+}}
+QToolButton:hover {{
+    background: rgba(255,255,255,0.10);
+    border-radius: 3px;
+}}
+QWebEngineView {{background: {tree_bg};}}
 """)
         self.mdi.setBackground(QBrush(QColor("#373737")))
 
