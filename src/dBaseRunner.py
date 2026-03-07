@@ -16699,9 +16699,488 @@ class MainWindow(QMainWindow):
             arrow    = "#000000"
         
         size = 21  # Win95 vibe
-        cssStyle = stylesheet_from_resource_keys(":/stylerc.txt")
-        self.setStyleSheet(cssStyle)
+        self.setStyleSheet(f"""
+/* =========================
+   QCheckBox (Dark)
+   ========================= */
+QCheckBox {{
+    color: {text_fg};
+    spacing: 8px;
+}}
+
+QCheckBox:hover {{
+    color: {text_hover_fg};
+}}
+
+QCheckBox:disabled {{
+    color: {text_disabled_fg};
+}}
+
+QCheckBox::indicator {{
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid {border};
+    background: {input_bg};
+}}
+
+QCheckBox::indicator:hover {{
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:focus {{
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:checked {{
+    background: {accent};
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:checked:hover {{
+    background: {accent_hover};
+    border: 1px solid {accent_hover};
+}}
+
+QCheckBox::indicator:unchecked {{
+    background: {input_bg};
+}}
+
+QCheckBox::indicator:indeterminate {{
+    background: {accent};
+    border: 1px solid {accent};
+}}
+
+QCheckBox::indicator:disabled {{
+    background: {disabled_bg};
+    border: 1px solid {border_disabled};
+}}
+
+QCheckBox::indicator:checked:disabled {{
+    background: {accent_disabled};
+    border: 1px solid {border_disabled};
+}}
+
+/* =========================
+   QRadioButton (Dark)
+   ========================= */
+QRadioButton {{
+    color: {text_fg};
+    spacing: 8px;
+}}
+
+QRadioButton:hover {{
+    color: {text_hover_fg};
+}}
+
+QRadioButton:disabled {{
+    color: {text_disabled_fg};
+}}
+
+QRadioButton::indicator {{
+    width: 16px;
+    height: 16px;
+    border-radius: 8px; /* rund */
+    border: 1px solid {border};
+    background: {input_bg};
+}}
+
+QRadioButton::indicator:hover {{
+    border: 1px solid {accent};
+}}
+
+QRadioButton::indicator:focus {{
+    border: 1px solid {accent};
+}}
+
+QRadioButton::indicator:checked {{
+    border: 1px solid {accent};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent},
+        stop:0.35 {accent},
+        stop:0.36 {input_bg},
+        stop:1.0 {input_bg}
+    );
+}}
+
+QRadioButton::indicator:checked:hover {{
+    border: 1px solid {accent_hover};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent_hover},
+        stop:0.35 {accent_hover},
+        stop:0.36 {input_bg},
+        stop:1.0 {input_bg}
+    );
+}}
+
+QRadioButton::indicator:disabled {{
+    background: {disabled_bg};
+    border: 1px solid {border_disabled};
+}}
+
+QRadioButton::indicator:checked:disabled {{
+    border: 1px solid {border_disabled};
+    background: qradialgradient(
+        cx:0.5, cy:0.5, radius:0.5,
+        stop:0.0 {accent_disabled},
+        stop:0.35 {accent_disabled},
+        stop:0.36 {disabled_bg},
+        stop:1.0 {disabled_bg}
+    );
+}}
+
+/* =========================
+   QGroupBox (Dark)
+   ========================= */
+QGroupBox {{
+    color: {text_fg};
+    border: 1px solid {border};
+    border-radius: 10px;
+    margin-top: 14px;     /* Platz für Titel */
+    padding: 10px;
+    background: {panel_bg};
+}}
+
+QGroupBox:hover {{
+    border: 1px solid {border_hover};
+}}
+
+QGroupBox:disabled {{
+    color: {text_disabled_fg};
+    border: 1px solid {border_disabled};
+    background: {disabled_bg};
+}}
+
+/* Titel-Label */
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 8px;
+    left: 10px;
+    top: 2px;
+
+    color: {title_fg};
+    background: {window_bg}; /* damit der Titel die Border "überdeckt" */
+}}
+
+/* Optional: wenn du GroupBoxen checkable nutzt */
+QGroupBox::indicator {{
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+}}
+
+QGroupBox::indicator:unchecked {{
+    border: 1px solid {border};
+    border-radius: 4px;
+    background: {input_bg};
+}}
+
+QGroupBox::indicator:checked {{
+    border: 1px solid {accent};
+    background: {accent};
+}}
+
+QMenuBar {{ background: #1a1a1a; color: #ffd866; }}
+QMenuBar::item {{ background: transparent; padding: 6px 10px; }}
+QMenuBar::item:selected {{ background: #2a2a2a; }}
+QMenu {{ background: #141414; color: #ffffff; border: 1px solid #333333; }}
+QMenu::separator {{
+    height: 2px;
+    margin: 6px 10px;
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #2a2a2a,
+        stop:1 #555555
+    );
+}}
+QMenu::item:selected {{ background: #2b4c7e; color: #ffffff; }}
+QMdiArea {{
+    background: #1e1e1e;           /* noch dunkler */
+    border: 2px solid #333333;
+}}
+QMdiArea::viewport {{
+    background: #1b1b0b;
+}}
+/* optional: Subwindows im Dark Mode passend */
+QMdiSubWindow {{
+    background: #343434;
+    border: 2px solid #333333;
+}}
+QMdiSubWindow:title {{
+    background: 0;
+    color: #ffffff;
+}}
+QComboBox {{
+    background: #2a2a2a;          /* Feld grau */
+    color: #ffffff;
+    border: 1px solid #333333;
+    padding: 6px 10px;
+    padding-right: 28px;          /* Platz für den Pfeil */
+}}
+
+QComboBox:hover {{
+    background: #303030;
+}}
+
+QComboBox:disabled {{
+    background: #202020;
+    color: #777777;
+}}
+
+/* Drop-down Button rechts */
+QComboBox::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #333333;
+    background: #222222;
+}}
+
+QComboBox::drop-down:hover {{
+    background: #2a2a2a;
+}}
+
+/* Pfeil */
+QComboBox::down-arrow {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_down.png);
+}}
+
+/* Popup-Liste */
+QComboBox QAbstractItemView {{
+    background: #1c1c1c;
+    color: #ffffff;
+    border: 1px solid #333333;
+    selection-background-color: #2b4c7e;
+    selection-color: #ffffff;
+    outline: 1px;
+}}
+QTableView, QTableWidget {{
+    background: #0b0b0b;
+    color: #ffffff;
+    gridline-color: #333333;
+    border: 1px solid #333333;
+    selection-background-color: #2b4c7e;
+    selection-color: #ffffff;
+}}
+
+/* WICHTIG: leere Fläche kommt oft vom viewport */
+QTableView::viewport, QTableWidget::viewport {{
+    background-color: #0b0b0b;
+}}
+
+/* Header oben/links */
+QHeaderView::section {{
+    background-color: #000000;
+    color: #e6e6e6;
+    padding: 6px;
+    border: none;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+/* Der “Eck-Button” oben links (häufig DER weiße Fleck) */
+QTableCornerButton::section {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+QMessageBox {{
+    background-color: #2b2b2b;
+    color: #e8e8e8;
+    font-size: 10pt;
+}}
+QMessageBox QLabel {{
+    color: #e8e8e8;
+}}
+QMessageBox QLabel#qt_msgbox_label {{
+    color: #e8e8e8;
+}}
+QMessageBox QLabel#qt_msgboxex_icon_label {{
+    /* Icon-Label */
+    padding-right: 10px;
+}}
+QMessageBox QTextEdit {{
+    background-color: #232323;
+    color: #e8e8e8;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+}}
+QMessageBox QMessageBox QPushButton {{
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-width: 90px;
+}}
+QMessageBox QPushButton:hover {{
+    background-color: #444;
+    border-color: #777;
+}}
+QMessageBox QPushButton:pressed {{
+    background-color: #2f2f2f;
+}}
+QMessageBox QPushButton:default {{
+    border: 1px solid #a33;   /* dezenter roter Akzent */
+}}
+QMessageBox QPushButton:focus {{
+    outline: none;
+    border: 1px solid #888;
+}}
+QAbstractItemView, QAbstractButton {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+/* Optional: falls Qt dort eine Ecke der ScrollArea malt */
+QAbstractScrollArea::corner {{
+    background-color: #000000;
+    border: 1px solid #222222;
+}}
+QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
+QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
+QLineEdit {{padding: 6px 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
+QLabel {{color: {tab_fg};}}
+QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};padding: 6px 10px;}}
+QToolButton:hover {{background: {toolbtn_hover};}}
+QToolButton:pressed {{background: {toolbtn_pressed};}}
+QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
+QTabBar {{background: {tab_bar_bg};}}
+QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;min-width: 90px;}}
+QTabBar::tab:hover {{background: {tab_hover_bg};}}
+QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
+QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
+QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
+QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
+QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
+QPushButton:hover {{background: {toolbtn_hover};}}
+QPushButton:pressed {{background: {toolbtn_pressed};}}
+TopContainer {{ background: transparent; }}
+TitleBar {{background: {title_bg};}}
+TitleLabel {{color: {title_fg};font-weight: 600;}}
+TitleSeparator {{background: {border};}}
+QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
+QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
+QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
+QStatusBar {{background: {status_bg};color: {status_fg};border-top: 1px solid {status_border};}}
+QStatusBar QLabel {{color: {status_fg};}}
+QTabBar::scroller {{width: 22px;height: 22px;background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;margin: 2px;}}
+QTabBar::scroller:hover {{background: {tab_hover_bg};}}
+QTabBar QToolButton {{background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;padding: 2px;color: {tab_fg_active};}}
+QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
+QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
+QSplitter {{background: {tree_bg};}}
+QSplitter::handle {{background: {border};}}
+QWebEngineView {{background: {tree_bg};}}
+QScrollBar:vertical {{background: {sb_face};width: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
+QScrollBar:horizontal {{background: {sb_face};height: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
+QScrollBar::track:vertical, QScrollBar::track:horizontal {{background: {sb_track};}}
+/*QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
+/*QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{background: transparent;}}
+QScrollBar::sub-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
+QScrollBar::add-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
+QScrollBar::sub-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
+QScrollBar::add-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
+QScrollBar::sub-line:vertical:pressed, QScrollBar::add-line:vertical:pressed,
+QScrollBar::sub-line:horizontal:pressed, QScrollBar::add-line:horizontal:pressed {{border-top: 1px solid {sb_mid};border-left: 1px solid {sb_mid};border-right: 1px solid {sb_hi};border-bottom: 1px solid {sb_hi};}}
+QScrollBar::up-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_up.png);
+}}
+QScrollBar::down-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_down.png);
+}}
+QScrollBar::left-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_left.png);
+}}
+QScrollBar::right-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_right.png);
+}}
+
+QScrollBar::sub-line:vertical {{ subcontrol-position: top;    subcontrol-origin: margin; }}
+QScrollBar::add-line:vertical {{ subcontrol-position: bottom; subcontrol-origin: margin; }}
+QScrollBar::sub-line:horizontal {{ subcontrol-position: left;  subcontrol-origin: margin; }}
+QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin: margin; }}
+
+QScrollBar:vertical[dir="down"]::handle {{ image: url(:/icons/arrow_down.png); }}
+QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
+
+/* ===== FORCE: Table Header + Corner wirklich schwarz ===== */
+
+/* Header (oben + links) */
+QTableView QHeaderView::section,
+QTableWidget QHeaderView::section {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+/* obere linke Ecke (zwischen Headern) */
+QTableView QTableCornerButton::section,
+QTableWidget QTableCornerButton::section {{
+    background-color: #000000;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+}}
+
+/* falls Qt statt CornerButton die ScrollArea-Ecke malt (wenn beide Scrollbars da sind) */
+QTableView QAbstractScrollArea::corner,
+QTableWidget QAbstractScrollArea::corner {{
+    background-color: #000000;
+    border: 1px solid #333333;
+}}
+QDockWidget::title {{
+    color: #ffd866;              /* gelb */
+    padding-left: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}}
+QDockWidget::close-button, QDockWidget::float-button {{
+    background: transparent;
+    border: none;
+    color: #ffffff;              /* wirkt bei font-basierten Icons */
+    icon-size: 14px;
+}}
+QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+}}
+DockTitleBar {{
+    background: #1e1e1e;
+}}
+QLabel {{
+    color: #ffd866;           /* GELB */
+    font-weight: 600;
+}}
+QToolButton {{
+    color: #ffffff;           /* WEISS (falls Text/Icon-Font) */
+    background: transparent;
+    border: none;
+    padding: 2px;
+}}
+QToolButton:hover {{
+    background: rgba(255,255,255,0.10);
+    border-radius: 3px;
+}}
+QWebEngineView {{background: {tree_bg};}}
+""")
         self.mdi.setBackground(QBrush(QColor("#373737")))
+
 
 # ---------------------------------------------------------------------------
 # Fixup: globale Helper als MainWindow-Methoden (falls sie durch Einrückung global gelandet sind)
