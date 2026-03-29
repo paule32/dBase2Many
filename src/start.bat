@@ -11,4 +11,4 @@ set "STARTDIR=%CD%"
 ::        runner maybe faster - because the installed files are
 ::        present in venv directory.
 :: ---------------------------------------------------------------
-venv\Scripts\python.exe dBaseRunner.pyc
+venv\Scripts\python.exe __pycache__ dBaseRunner.pyc

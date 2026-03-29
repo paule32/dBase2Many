@@ -2254,200 +2254,7 @@ class Preprocessor:
         #    f.close()
             
         entry = Path(filename).resolve()
-        data = self._process_file(entry)
-        data = self._rewrite_do_case_blocks(data)
-        return data
-
-    def _rewrite_do_case_blocks(self, text: str) -> str:
-        def split_header_and_inline(rest: str):
-            rest = (rest or "").strip()
-            if not rest:
-                return "", ""
-            in_quote = None
-            i = 0
-            n = len(rest)
-            while i < n:
-                ch = rest[i]
-                if in_quote is not None:
-                    if ch == in_quote:
-                        if i + 1 < n and rest[i + 1] == in_quote:
-                            i += 2
-                            continue
-                        in_quote = None
-                    i += 1
-                    continue
-                if ch in ("'", '"'):
-                    in_quote = ch
-                    i += 1
-                    continue
-                if ch.isspace():
-                    tail = rest[i:].lstrip()
-                    head = rest[:i].rstrip()
-                    upper_tail = tail.upper()
-                    stmt_starters = (
-                        "WRITE", "?", "@", "IF", "DO", "FOR", "SCAN", "STORE", "REPLACE",
-                        "APPEND", "INSERT", "DELETE", "GOTO", "LOOP", "EXIT", "RETURN",
-                        "THIS.", "SUPER.", "SET", "USE", "SELECT", "WAIT", "MESSAGEBOX",
-                        "BROWSE", "COUNT", "SUM", "AVERAGE", "LIST", "DISPLAY", "ASSERT"
-                    )
-                    if upper_tail.startswith(stmt_starters) or re.match(r'^[A-Za-z_]\w*\s*=.*$', tail):
-                        return head, tail
-                i += 1
-            return rest, ""
-
-        def normalize_body(body_lines, branch_indent: str):
-            normalized = []
-            for line in body_lines:
-                stripped = line.strip()
-                if not stripped:
-                    normalized.append(line)
-                    continue
-                raw_no_nl = line.rstrip('')
-                content = raw_no_nl.lstrip()
-                normalized.append(branch_indent + content + "")
-            return normalized
-
-        def render_branches(branches, indent=""):
-            def render_at(i: int, cur_indent: str):
-                kind, cond, body = branches[i]
-                out = []
-                if kind == "CASE":
-                    out.append(f"{cur_indent}IF {cond}")
-                    out.extend(normalize_body(body, cur_indent + "    "))
-                    if i + 1 < len(branches):
-                        out.append(f"{cur_indent}ELSE")
-                        out.extend(render_at(i + 1, cur_indent + "    "))
-                    out.append(f"{cur_indent}ENDIF")
-                else:
-                    out.extend(normalize_body(body, cur_indent))
-                return out
-            return render_at(0, indent) if branches else []
-
-        def nesting_delta(s: str) -> int:
-            delta = 0
-            if re.match(r'^IF\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDIF\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^DO\s+CASE\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDCASE\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^DO\s+WHILE\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDDO\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^FOR\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^(ENDFOR|NEXT)\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^SCAN\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDSCAN\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^WITH\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDWITH\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^TRY\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDTRY\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            return delta
-
-        def rewrite_lines(lines):
-            out = []
-            i = 0
-            n = len(lines)
-            while i < n:
-                raw = lines[i]
-                stripped = raw.strip()
-                if re.match(r'^DO\s+CASE\b', stripped, flags=re.IGNORECASE):
-                    base_indent = raw[:len(raw) - len(raw.lstrip())]
-                    depth = 1
-                    j = i + 1
-                    block_lines = []
-                    while j < n:
-                        s = lines[j].strip()
-                        if re.match(r'^DO\s+CASE\b', s, flags=re.IGNORECASE):
-                            depth += 1
-                        elif re.match(r'^ENDCASE\b', s, flags=re.IGNORECASE):
-                            depth -= 1
-                            if depth == 0:
-                                break
-                        block_lines.append(lines[j])
-                        j += 1
-                    if depth != 0:
-                        out.append(raw)
-                        i += 1
-                        continue
-
-                    branches = []
-                    cur_kind = None
-                    cur_cond = None
-                    cur_body = []
-                    nested_depth = 0
-
-                    def flush_branch():
-                        nonlocal cur_kind, cur_cond, cur_body
-                        if cur_kind is not None:
-                            rewritten_body = rewrite_lines(cur_body)
-                            branches.append((cur_kind, cur_cond, rewritten_body))
-                        cur_kind = None
-                        cur_cond = None
-                        cur_body = []
-
-                    for inner in block_lines:
-                        s = inner.strip()
-
-                        if nested_depth == 0:
-                            m_case = re.match(r'^CASE\b(.*)$', s, flags=re.IGNORECASE)
-                            m_other = re.match(r'^OTHERWISE\b(.*)$', s, flags=re.IGNORECASE)
-                            if m_case:
-                                flush_branch()
-                                cond, inline_stmt = split_header_and_inline(m_case.group(1))
-                                cur_kind = "CASE"
-                                cur_cond = cond.strip()
-                                if inline_stmt:
-                                    cur_body.append(base_indent + "    " + inline_stmt.rstrip() + "")
-                                continue
-                            if m_other:
-                                flush_branch()
-                                inline_stmt = (m_other.group(1) or "").strip()
-                                cur_kind = "OTHERWISE"
-                                cur_cond = None
-                                if inline_stmt:
-                                    cur_body.append(base_indent + "    " + inline_stmt.rstrip() + "")
-                                continue
-
-                        cur_body.append(inner)
-                        nested_depth += nesting_delta(s)
-                        if nested_depth < 0:
-                            nested_depth = 0
-
-                    flush_branch()
-
-                    if branches:
-                        out.extend(render_branches(branches, base_indent))
-                    else:
-                        out.append(raw)
-                        out.extend(block_lines)
-                        out.append(base_indent + "ENDCASE")
-                    i = j + 1
-                    continue
-
-                out.append(raw)
-                i += 1
-            return out
-
-        return "".join(rewrite_lines(text.splitlines(keepends=True)))
+        return self._process_file(entry)
 
     def _resolve_include(self, current_file: Path, name: str) -> Path:
         # 1) relativ zum aktuellen file
@@ -2467,43 +2274,14 @@ class Preprocessor:
     # (Nur bis Zeilenende; Blockkommentar-Mehrzeiligkeit ist für Direktiven egal,
     # weil nach der Direktive sowieso nichts mehr ausgewertet werden soll.)
     def _strip_trailing_comment(self, s: str) -> str:
-        if s is None:
-            return s
-
-        out = []
-        i = 0
-        n = len(s)
-        in_quote = None
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                out.append(ch)
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        out.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if ch in ("'", '"'):
-                in_quote = ch
-                out.append(ch)
-                i += 1
-                continue
-
-            two = s[i:i+2]
-            if two in ("&&", "**", "//", "/*"):
-                break
-
-            out.append(ch)
-            i += 1
-
-        return "".join(out)
-
+        markers = ["&&", "**", "//", "/*"]
+        cut = None
+        for m in markers:
+            pos = s.find(m)
+            if pos != -1 and (cut is None or pos < cut):
+                cut = pos
+        return s if cut is None else s[:cut]
+        
     def _process_file(self, path: Path) -> str:
         if path in self._include_stack:
             chain = " -> ".join(str(p) for p in self._include_stack + [path])
@@ -2522,10 +2300,12 @@ class Preprocessor:
             for i, line in enumerate(lines, start=1):
                 # Direktiven erkennen (immer), aber nur ausführen wenn "active"
                 raw_line = line
+                #line = self._strip_trailing_comment(line).rstrip("\r\n")
+                
                 raw_line = self._rewrite_use_line(raw_line)
-                line_for_directive = self._strip_trailing_comment(raw_line).rstrip("\r\n")
-
-                m = self.include_re.match(line_for_directive)
+                out_lines.append(self._expand_macros_in_line(raw_line))
+                
+                m = self.include_re.match(line)
                 if m:
                     if active():
                         inc_name = m.group(1)
@@ -2534,8 +2314,8 @@ class Preprocessor:
                         out_lines.append(self._process_file(inc_path))
                         out_lines.append(f'**line {i+1} "{path}"*/\n')
                     continue
-
-                m = self.define_re.match(line_for_directive)
+                    
+                m = self.define_re.match(line)
                 if m:
                     if active():
                         name = m.group(1)
@@ -2557,7 +2337,7 @@ class Preprocessor:
                         self.defined.add(name)
                     continue
                 
-                m = self.ifdef_re.match(line_for_directive)
+                m = self.ifdef_re.match(line)
                 if m:
                     name = m.group(1)
                     parent = active()
@@ -2572,7 +2352,7 @@ class Preprocessor:
                     ))
                     continue
 
-                m = self.ifndef_re.match(line_for_directive)
+                m = self.ifndef_re.match(line)
                 if m:
                     name = m.group(1)
                     parent = active()
@@ -2587,7 +2367,7 @@ class Preprocessor:
                     ))
                     continue
 
-                if self.else_re.match(line_for_directive):
+                if self.else_re.match(line):
                     if len(frames) == 1:
                         raise PreprocessorError(f"{path}:{i}: #else without #if")
                     top = frames[-1]
@@ -2598,7 +2378,7 @@ class Preprocessor:
                     top.this_active = not top.this_active
                     continue
 
-                if self.endif_re.match(line_for_directive):
+                if self.endif_re.match(line):
                     if len(frames) == 1:
                         raise PreprocessorError(f"{path}:{i}: #endif without #if")
                     frames.pop()
@@ -6489,10 +6269,9 @@ class DBaseHighlighter(QSyntaxHighlighter):
         # --- Keywords (nach Bedarf erweitern) ---
         keywords = [
             "FOR", "ENDFOR", "CLASS", "ENDCLASS", "METHOD", "ENDMETHOD",
-            "IF", "ENDIF", "ELSE", "DO", "CASE" "ENDCASE", "OTHERWISE",
-            "WHILE", "ENDDO", "RETURN", "LOCAL", "PARAMETER", "WITH",
-            "ENDWITH", "NEW", "OF", "OBJECT", "THIS", "SUPER",
-            "TRUE", "FALSE"
+            "IF", "ENDIF", "ELSE", "DO", "WHILE", "ENDDO",
+            "RETURN", "LOCAL", "PARAMETER", "WITH", "ENDWITH",
+            "NEW", "OF", "OBJECT", "THIS", "SUPER", "TRUE", "FALSE"
         ]
 
         self.rules = []
@@ -7420,40 +7199,21 @@ class FileEditorWindow(QDialog):
 
     # ---------- File operations ----------
     # ---------- Tab / Editor Helpers ----------
-    def _editor_from_tab_widget(self, w):
-        if w is None:
-            return None
-        if isinstance(w, (QPlainTextEdit, QTextEdit)):
-            return w
-        ed = getattr(w, "_editor", None)
-        if ed is not None:
-            return ed
-        try:
-            ed = w.findChild(QPlainTextEdit)
-            if ed is not None:
-                return ed
-            ed = w.findChild(QTextEdit)
-            if ed is not None:
-                return ed
-        except Exception:
-            pass
-        return None
-
     def current_editor(self) -> CodeEditor:
         w = self.editor_tabs.currentWidget()
         if w is None:
             return None
-        return self._editor_from_tab_widget(w)
+        return self.editor
 
     def current_tab_index(self) -> int:
         return int(self.editor_tabs.currentIndex())
 
     def tab_path(self, idx: int) -> str:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         return getattr(ed, "_path", "") if ed is not None else ""
 
     def set_tab_path(self, idx: int, path: str) -> None:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         if ed is not None:
             setattr(ed, "_path", path)
 
@@ -7461,9 +7221,10 @@ class FileEditorWindow(QDialog):
         return os.path.basename(path) if path else "Unbenannt"
 
     def _update_tab_visuals(self, idx: int) -> None:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         if ed is None:
             return
+        ed = self.current_editor()
         modified = bool(ed.document().isModified())
         # TabText: nur Dateiname (ohne Pfad)
         title = self.tab_display_name(getattr(ed, "_path", ""))
@@ -7541,9 +7302,10 @@ class FileEditorWindow(QDialog):
     def maybe_save(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         if ed is None:
             return True
+        ed = self.current_editor()
         if not ed.document().isModified():
             return True
         title = self.tab_display_name(getattr(ed, "_path", ""))
@@ -7565,7 +7327,7 @@ class FileEditorWindow(QDialog):
     def file_save(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         if ed is None:
             return False
         path = getattr(ed, "_path", "") or ""
@@ -7588,7 +7350,7 @@ class FileEditorWindow(QDialog):
     def file_save_as(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        ed = self.editor_tabs.widget(idx)
         if ed is None:
             return False
         cur_path = getattr(ed, "_path", "") or ""
@@ -12951,64 +12713,47 @@ class IconTab(QListWidget):
         except Exception as e:
             QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
     
-    def _compile_output_path(self, src_path: str, lang_folder: str, ext: str) -> str:
-        src_path = os.path.abspath(src_path)
-        src_dir  = os.path.dirname(src_path)
-        src_name = os.path.splitext(os.path.basename(src_path))[0]
-
-        out_dir = os.path.join(src_dir, "build", lang_folder)
-        os.makedirs(out_dir, exist_ok=True)
-
-        return os.path.join(out_dir, src_name + ext)
-
     def _compile_to_vba(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "vba", ".cls")
-        codegen  = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
-        codegen.generate(parser.tree, out_file)
-        print("gen vba ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
+        codegen.generate(parser.tree, "dbase.cls")
+        print("gen vba ok.")
         
     def _compile_to_javscr(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "javascript", ".js")
-        codegen  = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
-        codegen.generate(parser.tree, out_file)
-        print("gen js ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
+        codegen.generate(parser.tree, "dbase.js")
+        print("gen js ok.")
         
     def _compile_to_csharp(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "csharp", ".cs")
-        codegen  = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
-        codegen.generate(parser.tree, out_file)
-        print("gen c-sharp ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
+        codegen.generate(parser.tree, "dbase.cs")
+        print("gen c-sharp ok.")
         
     def _compile_to_java(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "java", ".java")
-        codegen  = DBaseToJava(parser, class_name="GenProg", package=None)
-        codegen.generate(parser.tree, out_file)
-        print("gen java ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToJava(parser, class_name="GenProg", package=None)
+        codegen.generate(parser.tree, "dbase.java")
+        print("gen java ok.")
     
     def _compile_to_python(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "python", ".py")
-        codegen  = DBaseToPython(parser.parser)
-        codegen.generate(parser.tree, out_file)
-        print("gen py ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToPython(parser.parser)
+        codegen.generate(parser.tree, "dbase.py")
+        print("gen py ok.")
         
     def _compile_to_cpp(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "cpp", ".cc")
-        codegen  = DBaseToCpp(parser, prog_name="genprog")
-        codegen.generate(parser.tree, out_file)
-        print("gen c++ ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToCpp(parser, prog_name="genprog")
+        codegen.generate(parser.tree, "dbase.cc")
+        print("gen c++ ok.")
     
     def _compile_to_pascal(self, path: str):
-        parser   = DBaseParser(path)
-        out_file = self._compile_output_path(path, "pascal", ".pas")
-        codegen  = DBaseToPascal(parser, unit_name="GenProg")
-        codegen.generate(parser.tree, out_file)
-        print("gen pas ok:", out_file)
+        parser  = DBaseParser(self.filename)
+        codegen = DBaseToPascal(parser, unit_name="GenProg")
+        codegen.generate(parser.tree, "dbase.pas")
+        print("gen pas ok.")
 
 class RegieCenter(QDialog):
     def __init__(self, parent=None):

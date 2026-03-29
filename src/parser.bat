@@ -4,5 +4,5 @@
 :: All rights reserved
 :: ---------------------------------------------------------------------------
 :: build dBase parser
-antlr4 -Dlanguage=Python3 -visitor -o gen          dBaseLexer.g4
-antlr4 -Dlanguage=Python3 -visitor -o gen -lib gen dBaseParser.g4
+venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gen          dBaseLexer.g4
+venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gen -lib gen dBaseParser.g4

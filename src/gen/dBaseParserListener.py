@@ -80,6 +80,33 @@ class dBaseParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by dBaseParser#doCaseStmt.
+    def enterDoCaseStmt(self, ctx:dBaseParser.DoCaseStmtContext):
+        pass
+
+    # Exit a parse tree produced by dBaseParser#doCaseStmt.
+    def exitDoCaseStmt(self, ctx:dBaseParser.DoCaseStmtContext):
+        pass
+
+
+    # Enter a parse tree produced by dBaseParser#doCaseBranch.
+    def enterDoCaseBranch(self, ctx:dBaseParser.DoCaseBranchContext):
+        pass
+
+    # Exit a parse tree produced by dBaseParser#doCaseBranch.
+    def exitDoCaseBranch(self, ctx:dBaseParser.DoCaseBranchContext):
+        pass
+
+
+    # Enter a parse tree produced by dBaseParser#doOtherwiseBranch.
+    def enterDoOtherwiseBranch(self, ctx:dBaseParser.DoOtherwiseBranchContext):
+        pass
+
+    # Exit a parse tree produced by dBaseParser#doOtherwiseBranch.
+    def exitDoOtherwiseBranch(self, ctx:dBaseParser.DoOtherwiseBranchContext):
+        pass
+
+
     # Enter a parse tree produced by dBaseParser#doTarget.
     def enterDoTarget(self, ctx:dBaseParser.DoTargetContext):
         pass

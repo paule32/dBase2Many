@@ -20,8 +20,11 @@ STEP        : [sS][tT][eE][pP];
 BREAK       : [bB][rR][eE][aA][kK];
 
 DO          : [dD][oO];
+CASE        : [cC][aA][sS][eE];
+OTHERWISE   : [oO][tT][hH][eE][rR][wW][iI][sS][eE];
 WHILE       : [wW][hH][iI][lL][eE];
 ENDDO       : [eE][nN][dD][dD][oO];
+ENDCASE     : [eE][nN][dD][cC][aA][sS][eE];
 
 LOCAL       : [lL][oO][cC][aA][lL];
 NEW         : [nN][eE][wW];

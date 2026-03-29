@@ -18,6 +18,7 @@ item
 
 statement
     :   ifStmt
+    |   doCaseStmt
     |   doStmt
     |   breakStmt
     |   parameterStmt
@@ -56,8 +57,21 @@ doStmt
     :   DO doTarget (WITH argList)?   // WITH ist optional
     ;
 
+doCaseStmt
+    :   DO CASE doCaseBranch+ doOtherwiseBranch? ENDCASE
+    ;
+
+doCaseBranch
+    :   CASE expr block
+    ;
+
+doOtherwiseBranch
+    :   OTHERWISE block
+    ;
+
 doTarget
     :   programRef
+    |   STRING                        // z.B. "prog.prg"
     |   IDENT                         // prozedurname
     ;
 

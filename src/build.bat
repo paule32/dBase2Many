@@ -6,16 +6,20 @@
 @echo off
 setlocal EnableDelayedExpansion
 :: ---------------------------------------------------------------
-set "STARTDIR=%CD%"
-set "CPYTHON=cpython-313"
-set "PY313=%STARTDIR%\venv\Scripts"
+set STARTDIR=%CD%
+set CPYTHON=cpython-314
+set VENV=%STARTDIR%\venv\Scripts
+set PATH=%STARTDIR%\venv\Scripts;%PATH%
 :: ---------------------------------------------------------------
 set "DIST=dist\dBaseRunner"
 set "GEN_DBASE=gen\__pycache__\dBase"
 set "CHM_HELP=..\doc\out\chm\dBaseHelp"
 :: ---------------------------------------------------------------
+set ANTLR4_TOOLS_ANTLR_VERSION=4.13.2
+:: ---------------------------------------------------------------
 :: resources:
 :: ---------------------------------------------------------------
+::antlr4.exe
 echo build resources ...
 pyrcc5 resources.qrc -o resources_rc.py
 if errorlevel 1 (
@@ -37,22 +41,22 @@ if errorlevel 1 (
 )
 :: ---------------------------------------------------------------
 pushd gen
-%PY313%\python -m compileall dBaseLexer.py
+%VENV%\python.exe -m compileall dBaseLexer.py
 if errorlevel 1 (
     echo error building dBaseLexer
     goto have_error
 )
-%PY313%\python -m compileall dBaseParser.py
+%VENV%\python.exe -m compileall dBaseParser.py
 if errorlevel 1 (
     echo error building dBaseParser
     goto have_error
 )
-%PY313%\python -m compileall dBaseParserListener.py
+%VENV%\python.exe -m compileall dBaseParserListener.py
 if errorlevel 1 (
     echo error building dBaseParserListener
     goto have_error
 )
-%PY313%\python -m compileall dBaseParserVisitor.py
+%VENV%\python.exe -m compileall dBaseParserVisitor.py
 if errorlevel 1 (
     echo error building dBaseParserVisitor
     goto have_error
@@ -74,12 +78,12 @@ popd
 :: ---------------------------------------------------------------
 echo compile dBaseRunner.py ...
 copy /y dBaseRunner_patched64.py dBaseRunner.py
-%PY313%\python -m compileall dBaseRunner.py
+%VENV%\python.exe -m compileall dBaseRunner.py
 if errorlevel 1 (
     echo error building dBaseRunner
     goto have_error
 )
-%PY313%\python -m compileall resources_rc.py
+%VENV%\python.exe -m compileall resources_rc.py
 if errorlevel 1 (
     echo error building resources_rc.py
     goto have_error

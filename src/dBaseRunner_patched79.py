@@ -18286,3 +18286,345 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================================
+# APPEND-ONLY PATCH
+# DO CASE / DO <program.prg> support
+# This block is appended only. The original source above remains byte-identical.
+# ============================================================================
+
+def _dbase_patch_first_ctx_attr(node, names):
+    for name in names:
+        fn = getattr(node, name, None)
+        if callable(fn):
+            try:
+                value = fn()
+            except TypeError:
+                value = None
+            if value is not None:
+                return value
+    return None
+
+def _dbase_patch_collect_do_case_entries(ctx):
+    cases = []
+    otherwise_block = None
+
+    children = list(getattr(ctx, "children", []) or [])
+
+    for ch in children:
+        tname = type(ch).__name__.lower()
+        if "otherwise" in tname:
+            block_ctx = _dbase_patch_first_ctx_attr(ch, ("block", "stmtBlock", "compoundStmt"))
+            if block_ctx is not None:
+                otherwise_block = block_ctx
+        elif "case" in tname and "docase" not in tname and "do" not in tname:
+            expr_ctx = _dbase_patch_first_ctx_attr(ch, ("expr", "condition", "logicalOr"))
+            block_ctx = _dbase_patch_first_ctx_attr(ch, ("block", "stmtBlock", "compoundStmt"))
+            if expr_ctx is not None and block_ctx is not None:
+                cases.append((expr_ctx, block_ctx))
+
+    if cases or otherwise_block is not None:
+        return cases, otherwise_block
+
+    exprs = []
+    blocks = []
+
+    expr_fn = getattr(ctx, "expr", None)
+    if callable(expr_fn):
+        try:
+            value = expr_fn()
+            if isinstance(value, list):
+                exprs = value
+            elif value is not None:
+                exprs = [value]
+        except TypeError:
+            tmp = []
+            i = 0
+            while True:
+                try:
+                    tmp.append(expr_fn(i))
+                    i += 1
+                except Exception:
+                    break
+            exprs = tmp
+
+    block_fn = getattr(ctx, "block", None)
+    if callable(block_fn):
+        try:
+            value = block_fn()
+            if isinstance(value, list):
+                blocks = value
+            elif value is not None:
+                blocks = [value]
+        except TypeError:
+            tmp = []
+            i = 0
+            while True:
+                try:
+                    tmp.append(block_fn(i))
+                    i += 1
+                except Exception:
+                    break
+            blocks = tmp
+
+    for i, expr_ctx in enumerate(exprs):
+        if i < len(blocks):
+            cases.append((expr_ctx, blocks[i]))
+
+    if len(blocks) > len(exprs):
+        otherwise_block = blocks[-1]
+
+    return cases, otherwise_block
+
+def _dbase_patch_exec_block_ctx(self, block_ctx):
+    if block_ctx is None:
+        return None
+    if hasattr(block_ctx, "statement") and callable(block_ctx.statement):
+        for st in block_ctx.statement():
+            self.visit(st)
+        return None
+    return self.visit(block_ctx)
+
+def _dbase_patch_visitDoCaseStmt(self, ctx):
+    cases, otherwise_block = _dbase_patch_collect_do_case_entries(ctx)
+
+    for expr_ctx, block_ctx in cases:
+        if bool(self.visit(expr_ctx)):
+            return _dbase_patch_exec_block_ctx(self, block_ctx)
+
+    if otherwise_block is not None:
+        return _dbase_patch_exec_block_ctx(self, otherwise_block)
+    return None
+
+def _dbase_patch_looks_like_program(self, target):
+    t = str(target or "").strip().strip("\"'")
+    if not t:
+        return False
+    tu = t.upper()
+    if tu.endswith(".PRG"):
+        return True
+    if "/" in t or "\\" in t or "." in os.path.basename(t):
+        return True
+
+    base = getattr(self, "current_program_path", None)
+    if base:
+        cand = (Path(base).resolve().parent / (t + ".prg")).resolve()
+        if cand.exists():
+            return True
+    return False
+
+def _dbase_patch_resolve_do_program_path(self, target):
+    t = str(target or "").strip().strip("\"'")
+    if not t:
+        raise RuntimeError("DO: Program name missing")
+
+    path = Path(t)
+    if path.suffix == "":
+        path = Path(str(path) + ".prg")
+
+    if path.is_absolute() and path.exists():
+        return path.resolve()
+
+    base = Path(getattr(self, "current_program_path", Path.cwd())).resolve().parent
+    cand = (base / path).resolve()
+    if cand.exists():
+        return cand
+
+    raise FileNotFoundError(str(cand))
+
+def _dbase_patch_run_program(self, target, args=None, ctx=None):
+    args = list(args or [])
+    path = _dbase_patch_resolve_do_program_path(self, target)
+
+    pp = Preprocessor(include_paths=[Path("includes")])
+    pre = pp.process(path)
+
+    source = InputStream(pre)
+    lexer  = dBaseLexer(source)
+    tokens = CommonTokenStream(lexer)
+    tokens.fill()
+    parser = dBaseParser(tokens)
+    tree   = parser.input_()
+    analyze(tree, parser)
+
+    prev_mode = getattr(self, "_mode", "exec")
+    prev_path = getattr(self, "current_program_path", None)
+
+    self.current_program_path = str(path)
+    self.push_frame(str(path), args)
+    self.push_scope()
+    try:
+        self._mode = "collect"
+        self.visit(tree)
+        self._mode = "exec"
+        return self.visit(tree)
+    finally:
+        self._mode = prev_mode
+        self.current_program_path = prev_path
+        self.pop_scope()
+        self.pop_frame()
+
+def _dbase_patch_call_procedure(self, target, args=None, ctx=None):
+    args = list(args or [])
+    name = str(target or "").strip().upper()
+    if not name:
+        raise RuntimeError("DO: procedure name missing")
+
+    methods = getattr(self, "methods", {})
+    entry = methods.get(name)
+    if entry is not None:
+        params = list(entry.get("params", []))
+        body_ctx = entry.get("ctx")
+
+        self.push_frame(name, args)
+        self.push_scope()
+        try:
+            for i, pname in enumerate(params):
+                self.set_var(pname.upper(), args[i] if i < len(args) else None)
+            try:
+                return self.visit(body_ctx)
+            except ReturnSignal as rs:
+                return rs.value
+        finally:
+            self.pop_scope()
+            self.pop_frame()
+
+    try:
+        callee = self._get_name(name)
+    except Exception:
+        callee = None
+
+    if callable(callee):
+        return callee(*args)
+
+    try:
+        this_obj = self.get_var("THIS", None)
+    except Exception:
+        this_obj = None
+
+    if isinstance(this_obj, Instance):
+        try:
+            self.resolve_method(this_obj.class_name.upper(), name, ctx)
+            return self.invoke_method(this_obj, name, args, ctx)
+        except Exception:
+            pass
+
+    raise RuntimeError(f"{self.loc(ctx) if ctx else ''}: DO: procedure '{name}' not found")
+
+def _dbase_patch_visitDoStmt(self, ctx):
+    target_ctx = ctx.doTarget() if hasattr(ctx, "doTarget") else None
+    target = target_ctx.getText() if target_ctx is not None else ""
+    target_u = target.upper()
+
+    if target_u == "CASE" or ctx.getText().upper().startswith("DOCASE"):
+        return _dbase_patch_visitDoCaseStmt(self, ctx)
+
+    args = []
+    if hasattr(ctx, "argList") and ctx.argList():
+        for e in ctx.argList().expr():
+            args.append(self.visit(e))
+
+    if _dbase_patch_looks_like_program(self, target):
+        return _dbase_patch_run_program(self, target, args, ctx)
+
+    return _dbase_patch_call_procedure(self, target, args, ctx)
+
+def _dbase_patch_collect_methodDecl(self, ctx):
+    name = ctx.IDENT().getText().upper()
+    params = []
+    if hasattr(ctx, "paramList") and ctx.paramList():
+        params = [t.getText() for t in ctx.paramList().IDENT()]
+    if not hasattr(self, "methods"):
+        self.methods = {}
+    self.methods[name] = {"params": params, "ctx": ctx.block()}
+    return None
+
+def _dbase_patch_visitInput(self, ctx):
+    if getattr(self, "_mode", "exec") == "collect":
+        for it in ctx.item():
+            if it.classDecl():
+                self.visit(it.classDecl())
+            if hasattr(it, "methodDecl") and it.methodDecl():
+                _dbase_patch_collect_methodDecl(self, it.methodDecl())
+        return None
+
+    for it in ctx.item():
+        if it.statement():
+            self.visit(it.statement())
+    return None
+
+def _dbase_patch_py_gen_do(self, ctx):
+    target_ctx = ctx.doTarget() if hasattr(ctx, "doTarget") else None
+    target = target_ctx.getText() if target_ctx is not None else ""
+    target_u = target.upper()
+
+    if target_u == "CASE" or ctx.getText().upper().startswith("DOCASE"):
+        cases, otherwise_block = _dbase_patch_collect_do_case_entries(ctx)
+        first = True
+        for expr_ctx, block_ctx in cases:
+            kw = "if" if first else "elif"
+            self.out.emit(f"{kw} rt.TRUE({self.gen_expr(expr_ctx)}):")
+            self.out.indent()
+            for st in block_ctx.statement():
+                self.gen_stmt(st)
+            self.out.dedent()
+            first = False
+
+        if otherwise_block is not None:
+            self.out.emit("else:")
+            self.out.indent()
+            for st in otherwise_block.statement():
+                self.gen_stmt(st)
+            self.out.dedent()
+        return
+
+    args = []
+    if hasattr(ctx, "argList") and ctx.argList():
+        args = [self.gen_expr(e) for e in ctx.argList().expr()]
+    self.out.emit(f"rt.DO({target!r}, [{', '.join(args)}])")
+
+def _dbase_patch_install():
+    try:
+        if "ExecVisitor" in globals():
+            ExecVisitor.visitDoStmt = _dbase_patch_visitDoStmt
+            ExecVisitor.looks_like_program = _dbase_patch_looks_like_program
+            ExecVisitor.run_program = _dbase_patch_run_program
+            ExecVisitor.call_procedure = _dbase_patch_call_procedure
+            ExecVisitor.visitDoCaseStmt = _dbase_patch_visitDoCaseStmt
+            ExecVisitor.visitInput = _dbase_patch_visitInput
+
+            _orig_init = ExecVisitor.__init__
+            def _patched_init(self, *args, **kwargs):
+                _orig_init(self, *args, **kwargs)
+                if not hasattr(self, "methods"):
+                    self.methods = {}
+            ExecVisitor.__init__ = _patched_init
+
+        if "DBaseToPython" in globals():
+            _orig_gen_stmt = DBaseToPython.gen_stmt
+            def _patched_gen_stmt(self, st):
+                if hasattr(st, "doStmt") and st.doStmt():
+                    return _dbase_patch_py_gen_do(self, st.doStmt())
+                return _orig_gen_stmt(self, st)
+            DBaseToPython.gen_stmt = _patched_gen_stmt
+
+        if "parse" in globals():
+            _orig_parse = parse
+            def _patched_parse(filename):
+                result = _orig_parse(filename)
+                try:
+                    if "VISITOR" in globals() and VISITOR is not None:
+                        VISITOR.current_program_path = str(Path(filename).resolve())
+                except Exception:
+                    pass
+                return result
+            globals()["parse"] = _patched_parse
+    except Exception as exc:
+        print("append-only patch install warning:", exc)
+
+_dbase_patch_install()
+
+# ============================================================================
+# END APPEND-ONLY PATCH
+# ============================================================================

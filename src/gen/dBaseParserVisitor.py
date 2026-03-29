@@ -49,6 +49,21 @@ class dBaseParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by dBaseParser#doCaseStmt.
+    def visitDoCaseStmt(self, ctx:dBaseParser.DoCaseStmtContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by dBaseParser#doCaseBranch.
+    def visitDoCaseBranch(self, ctx:dBaseParser.DoCaseBranchContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by dBaseParser#doOtherwiseBranch.
+    def visitDoOtherwiseBranch(self, ctx:dBaseParser.DoOtherwiseBranchContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by dBaseParser#doTarget.
     def visitDoTarget(self, ctx:dBaseParser.DoTargetContext):
         return self.visitChildren(ctx)

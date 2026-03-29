@@ -158,6 +158,18 @@ CLASS ParentForm OF FORM
     // --------------------------------------------------------------
     METHOD ParentForm_onClick(Sender)
         WRITE "on form clicked"
+        v = 43
+        a = 15
+        DO CASE
+            CASE v == 40 WRITE "-32-"
+            CASE v == 41 WRITE "-42-"
+            OTHERWISE
+                DO CASE
+                    CASE a == 15 WRITE "OK"
+                ENDCASE
+                WRITE "fallback"
+                WRITE "other"
+        ENDCASE
         x = 5
         WRITE X
         DO WHILE x >= 2
@@ -168,7 +180,7 @@ CLASS ParentForm OF FORM
             ENDIf
         ENDDO
         WRITE "----->"
-        CREATE FILE "33.txt"
+        // CREATE FILE "33.txt"
     ENDMETHOD
     
     // --------------------------------------------------------------
