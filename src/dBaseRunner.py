@@ -4,110 +4,157 @@
 # All rights reserved
 # ---------------------------------------------------------------------------
 from __future__  import annotations
+from system_info import SystemInfo
 
-from antlr4      import (
-     InputStream, FileStream, CommonTokenStream, Token, Lexer, Parser, DFA,
-     ParserRuleContext, ATNDeserializer, PredictionContextCache,
-     ParseTreeListener, ParseTreeVisitor
-)
-from dataclasses import dataclass, field
-from typing      import Dict, List, Optional, Union, Any, TextIO
-from pathlib     import Path
-from copy        import deepcopy
-
-from html        import unescape
-from html.parser import HTMLParser
-
-# ---------------------------------------------------------------------------
-# dbase interpreter lexer + parser ...
-# ---------------------------------------------------------------------------
-from gen.dBaseLexer         import dBaseLexer
-from gen.dBaseParser        import dBaseParser
-from gen.dBaseParserVisitor import dBaseParserVisitor
-
-import mimetypes
-
-import traceback
 import sys
 import os
-import re
-import pprint
-import datetime
 
 # ---------------------------------------------------------------------------
-# i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
+# perform Windows 10/11 specifiec stuff ...
 # ---------------------------------------------------------------------------
-import io
-import zipfile
-import gettext
-import polib
+if SystemInfo.is_windows():
+    import ctypes
+    ctypes.windll.user32.MessageBoxW(0,"Hallo von der Win32 API","Titel",0)
+    print("Windows detected.")
+elif SystemInfo.is_linux():
+    print("Linux detected")
+else:
+    print("could not detect operating system,")
+    sys.exit(1)
 
-# ---------------------------------------------------------------------------
-# needed module imports for chm help viewer ...
-# ---------------------------------------------------------------------------
-import shutil
-import tempfile
-import subprocess
+try:
+    # -----------------------------------------------------------------------
+    # import some internal used modules ...
+    # -----------------------------------------------------------------------
+    from dataclasses import dataclass, field
+    from typing      import Dict, List, Optional, Union, Any, TextIO
+    from pathlib     import Path
+    from copy        import deepcopy
+    
+    # -----------------------------------------------------------------------
+    # import modules to handle html files ...
+    # -----------------------------------------------------------------------
+    from html        import unescape
+    from html.parser import HTMLParser
+    
+    # -----------------------------------------------------------------------
+    # we use antlr4 for the lexer + parser generator ...
+    # -----------------------------------------------------------------------
+    from antlr4      import (
+         InputStream, FileStream, CommonTokenStream, Token, Lexer,
+         Parser, DFA, ParserRuleContext, ATNDeserializer,
+         PredictionContextCache, ParseTreeListener, ParseTreeVisitor
+    )
+    # -----------------------------------------------------------------------
+    # dbase interpreter lexer + parser ...
+    # -----------------------------------------------------------------------
+    from gen.dBaseLexer         import dBaseLexer
+    from gen.dBaseParser        import dBaseParser
+    from gen.dBaseParserVisitor import dBaseParserVisitor
 
-import tempfile
-import contextlib
+    import mimetypes
 
-# ---------------------------------------------------------------------------
-# database module imports ....
-# ---------------------------------------------------------------------------
-import json
-import sqlite3
+    import traceback
+    import re
+    import pprint
+    import datetime
 
-# ---------------------------------------------------------------------------
-# Qt Backend Factory + Property Mapping
-# ---------------------------------------------------------------------------
-from PyQt5.QtCore    import (
-    QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize, QRegExp,
-    QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QRegularExpression,
-    QRectF, QPointF, qRegisterResourceData, qUnregisterResourceData, qVersion,
-    QSortFilterProxyModel, QByteArray, QUrl, QTimer, qInstallMessageHandler,
-    QMimeData, QDataStream, QIODevice, QBuffer, QSettings
-)
-from PyQt5.QtGui     import (
-    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QTextCharFormat, QColor,
-    QStandardItemModel, QStandardItem, QIcon, QPixmap, QFontInfo, QPalette,
-    QFontDatabase, QRegularExpressionValidator, QIntValidator, QPainterPath,
-    QLinearGradient, QRadialGradient, QPen, QKeySequence, QTextFormat, QBrush,
-    QGuiApplication, QTextOption, QTextCursor
-)
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton, QVBoxLayout,
-    QTextEdit, QToolBar, QStatusBar, QMessageBox, QPlainTextEdit, QAction,
-    QFileDialog, QMenuBar, QMdiArea, QMdiSubWindow, QDockWidget, QTreeWidget,
-    QHBoxLayout, QComboBox, QTabWidget, QListWidget, QListWidgetItem, QScrollBar,
-    QMenu, QFileDialog, QFileIconProvider, QListWidget, QTableWidget, QProgressBar,
-    QTableWidgetItem, QHeaderView, QStyledItemDelegate, QGroupBox, QLabel,
-    QLineEdit, QCheckBox, QRadioButton, QSpacerItem, QGridLayout, QSpinBox,
-    QSizePolicy, QStyleOptionHeader, QStyle, QTableView, QAbstractItemView,
-    QStyleOptionComplex, QProxyStyle, QToolButton, QInputDialog, QTreeWidgetItem,
-    QTreeView, QSplitter, QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem,
-    QHeaderView, QScrollArea, QAbstractButton
-)
-from PyQt5.QtWebEngineCore import (
-    QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob, QWebEngineUrlScheme
-)
-from PyQt5.QtWebEngineWidgets import (
-    QWebEngineView, QWebEngineScript
-)
-from PyQt5.QtSvg import QSvgRenderer
+    # -----------------------------------------------------------------------
+    # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
+    # -----------------------------------------------------------------------
+    import io
+    import zipfile
+    import gettext
+    import polib
 
-# ---------------------------------------------------------------------------
-# resources suff like icons, ...
-# ---------------------------------------------------------------------------
-import resources_rc
+    # -----------------------------------------------------------------------
+    # needed module imports for chm help viewer ...
+    # -----------------------------------------------------------------------
+    import shutil
+    import tempfile
+    import subprocess
 
-# ---------------------------------------------------------------------------
-# debug log file beyond the exe application ...
-# ---------------------------------------------------------------------------
-import faulthandler
+    import tempfile
+    import contextlib
 
+    # -----------------------------------------------------------------------
+    # database module imports ....
+    # -----------------------------------------------------------------------
+    import json
+    import sqlite3
+
+    # -----------------------------------------------------------------------
+    # Qt Backend Factory + Property Mapping
+    # -----------------------------------------------------------------------
+    from PyQt5.QtCore    import (
+        QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize,
+        QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex,
+        QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
+        qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
+        QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
+        QBuffer, QSettings
+    )
+    from PyQt5.QtGui     import (
+        QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
+        QTextCharFormat, QColor, QStandardItemModel, QStandardItem, QPen,
+        QPalette, QFontInfo, QFontDatabase, QRegularExpressionValidator,
+        QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
+        QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
+        QTextCursor
+    )
+    from PyQt5.QtWidgets import (
+        QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
+        QVBoxLayout, QTextEdit, QToolBar, QStatusBar, QMessageBox,
+        QPlainTextEdit, QAction, QFileDialog, QMenuBar, QMdiArea,
+        QMdiSubWindow, QDockWidget, QTreeWidget, QHBoxLayout, QComboBox,
+        QTabWidget, QListWidget, QListWidgetItem, QScrollBar, QMenu,
+        QFileDialog, QFileIconProvider, QListWidget, QTableWidget,
+        QProgressBar, QTableWidgetItem, QHeaderView, QStyledItemDelegate,
+        QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem,
+        QGridLayout, QSpinBox, QSizePolicy, QStyleOptionHeader, QStyle,
+        QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
+        QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
+        QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
+        QScrollArea, QAbstractButton
+    )
+    from PyQt5.QtWebEngineCore import (
+        QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,
+        QWebEngineUrlScheme
+    )
+    from PyQt5.QtWebEngineWidgets import (
+        QWebEngineView, QWebEngineScript
+    )
+    from PyQt5.QtSvg import QSvgRenderer
+    
+    # -----------------------------------------------------------------------
+    # resources suff like icons, ...
+    # -----------------------------------------------------------------------
+    import resources_rc
+    
+    # -----------------------------------------------------------------------
+    # debug log file beyond the exe application ...
+    # -----------------------------------------------------------------------
+    import faulthandler
+
+except ImportError as e:
+    if SystemInfo.is_windows():
+        ctypes.windll.user32.MessageBoxW(0, str(e), "Import Error:", 0)
+        sys.exit(1)
+
+except ModuleNotFound as e:
+    name = f"Module could not be found: {e.name}."
+    if SystemInfo.is_windows():
+        ctypes.windll.user32.MessageBoxW(0, name, "Module Error:", 0)
+        sys.exit()
+
+except Exception as e:
+    if SystemInfo.is_windows():
+        ctypes.windll.user32.MessageBoxW(0, "A common Exception occur",
+        "Exception", 0)
+        sys.exit(1)
+    
 BASE = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
-LOG = BASE / "webengine_crash.log"
+LOG  = BASE / "webengine_crash.log"
 
 faulthandler.enable(open(LOG, "a", buffering=1), all_threads=True)
 
@@ -120,7 +167,6 @@ def app_dir() -> Path:
 def load_qss(rel_path: str) -> str:
     p = app_dir() / rel_path
     return p.read_text(encoding="utf-8")
-
 
 # ---------------------------------------------------------------------------
 # ensure_qt_app (safe early stub)
@@ -171,8 +217,15 @@ print("hook installed.")
 
 APPINST = ensure_qt_app()
 if APPINST is None:
-    print("internal error")
-    sys.exit(1)
+    if SystemInfo.is_windows():
+        ctypes.windll.user32.MessageBoxW(0,
+            "Application could not be initialized.",
+            "Internal Error:",
+            0)
+        sys.exit(1)
+    else:
+        print("internal error")
+        sys.exit(1)
 
 base = Path(sys.argv[0]).resolve().parent
 cand = list(base.rglob("QtWebEngineProcess.exe"))
@@ -188,8 +241,14 @@ try:
             f.write(f"[QT] {message}\n")
     qInstallMessageHandler(qt_msg_handler)
 except Exception as e:
-    print(e)
-    pass
+    if SystemInfo.is_windows():
+        ctypes.windll.user32.MessageBoxW(0,
+            "Could not install Qt5 Message Handler.",
+            "Error:",0)
+        sys.exit(1)
+    else:
+        print(e)
+        pass
 
 class ErrorMessage(QDialog):
     def __init__(self, title="Fehler", message="", log_path=None, parent=None):
@@ -542,9 +601,9 @@ class TranslationManager:
         AppMode.domain = self.domain
         
         if self.mode == 0:
-            inner = f"locales/{lang}/LC_MESSAGES/{self.domain}.mo"
+            inner = f"{lang}/LC_MESSAGES/{self.domain}.mo"
         elif self.mode == 1:
-            inner = f"styles/default/{self.style_name}.mo"
+            inner = f"default/{self.style_name}.mo"
         try:
             with zipfile.ZipFile(str(self.zip_path), "r") as zf:
                 data = zf.read(inner)  # bytes
@@ -571,7 +630,7 @@ _I18N = TranslationManager( mode = 0 )
 _QCSS = TranslationManager( mode = 1 )
 
 # ---- Standard-Locale beim Start setzen ----
-if os.name == "nt":
+if SystemInfo.is_windows():
     _I18N.set_zip(Path(__file__).parent / "data\\locales.zip"); _I18N.load_mo("de"  ) # Deutsch als Default
     _QCSS.set_zip(Path(__file__).parent / "data\\styles.zip" ); _QCSS.load_mo("dark") # dark mode style
 else:
@@ -617,9 +676,9 @@ class FontTriangleArrowsStyle(QProxyStyle):
 
     def _draw_triangle(self, painter: QPainter, rect, direction: Qt.ArrowType):
         glyph = {
-            Qt.UpArrow: "▲",
-            Qt.DownArrow: "▼",
-            Qt.LeftArrow: "◀",
+            Qt.UpArrow   : "▲",
+            Qt.DownArrow : "▼",
+            Qt.LeftArrow : "◀",
             Qt.RightArrow: "▶",
         }[direction]
 
@@ -18536,8 +18595,15 @@ def main():
         #handler.close()
         sys.exit(rc)
     else:
-        print("Qt5 kann nicht gestartet werden.")
-        sys.exit(1)
+        if SystemInfo.is_windows():
+            ctypes.windll.user32.MessageBoxW(0,
+                "Qt5 could not be started",
+                "Qt5 Framework Error:", 0
+            )
+            sys.exit(1)
+        else:
+            print("Qt5 kann nicht gestartet werden.")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
