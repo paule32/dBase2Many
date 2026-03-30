@@ -58,6 +58,7 @@ try:
     import re
     import pprint
     import datetime
+    import time
 
     # -----------------------------------------------------------------------
     # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
@@ -328,6 +329,157 @@ class ErrorMessage(QDialog):
         )
         # Optional: Button deaktivieren, weil Datei weg ist
         self.btn_delete_log.setEnabled(False)
+
+
+class CollectProgressDialog(QDialog):
+    def __init__(self, parent=None, filename: str = ""):
+        super().__init__(parent)
+        self.cancel_requested = False
+        self.total_lines = 0
+        self.current_lines = 0
+        self.class_count = 0
+        self.method_count = 0
+        self.start_time = time.monotonic()
+        self._recent_hits: list[str] = []
+
+        self.setWindowTitle("Collect-Phase")
+        self.setModal(False)
+        self.resize(560, 360)
+
+        layout = QVBoxLayout(self)
+
+        self.lbl_status = QLabel("Sammle Informationen …")
+        self.lbl_file   = QLabel(f"Datei: {filename}")
+        self.lbl_line   = QLabel("Zeile: 0 / 0")
+        self.lbl_class  = QLabel("CLASS(en): 0")
+        self.lbl_method = QLabel("METHOD(en): 0")
+        self.lbl_count  = QLabel("Zeilen: 0")
+        self.lbl_time   = QLabel("Zeit: 0,0 s")
+        self.lbl_hit    = QLabel("Letzter Treffer: —")
+
+        layout.addWidget(self.lbl_status)
+        layout.addWidget(self.lbl_file)
+        layout.addWidget(self.lbl_line)
+        layout.addWidget(self.lbl_class)
+        layout.addWidget(self.lbl_method)
+        layout.addWidget(self.lbl_count)
+        layout.addWidget(self.lbl_time)
+        layout.addWidget(self.lbl_hit)
+
+        self.progress = QProgressBar(self)
+        self.progress.setMinimum(0)
+        self.progress.setMaximum(0)
+        layout.addWidget(self.progress)
+
+        self.current_text = QPlainTextEdit(self)
+        self.current_text.setReadOnly(True)
+        self.current_text.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.current_text.setPlaceholderText("Aktuelle Zeile …")
+        layout.addWidget(self.current_text, 1)
+
+        self.recent_text = QPlainTextEdit(self)
+        self.recent_text.setReadOnly(True)
+        self.recent_text.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.recent_text.setMaximumHeight(90)
+        self.recent_text.setPlaceholderText("Letzte erkannte Einträge …")
+        layout.addWidget(self.recent_text)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        self.btn_ok = QPushButton("OK", self)
+        self.btn_ok.setEnabled(False)
+        self.btn_ok.clicked.connect(self.accept)
+
+        self.btn_cancel = QPushButton("Cancel", self)
+        self.btn_cancel.clicked.connect(self._on_cancel)
+
+        btn_row.addWidget(self.btn_ok)
+        btn_row.addWidget(self.btn_cancel)
+        layout.addLayout(btn_row)
+
+    def _pump(self):
+        app = QApplication.instance()
+        if app is not None:
+            app.processEvents()
+
+    def _format_elapsed(self) -> str:
+        elapsed = max(0.0, time.monotonic() - self.start_time)
+        return f"{elapsed:0.1f}".replace(".", ",")
+
+    def _extract_hit(self, line_text: str) -> str:
+        raw = (line_text or "").strip()
+        if not raw:
+            return ""
+        m = re.match(r'^\s*CLASS\s+([A-Za-z_]\w*)', raw, flags=re.IGNORECASE)
+        if m:
+            return f"CLASS  {m.group(1)}"
+        m = re.match(r'^\s*METHOD\s+([A-Za-z_]\w*)', raw, flags=re.IGNORECASE)
+        if m:
+            return f"METHOD {m.group(1)}"
+        m = re.match(r'^\s*#include\s+"([^"]+)"', raw, flags=re.IGNORECASE)
+        if m:
+            return f'INCLUDE {m.group(1)}'
+        return ""
+
+    def _append_hit(self, hit: str):
+        hit = (hit or "").strip()
+        if not hit:
+            return
+        if self._recent_hits and self._recent_hits[-1] == hit:
+            return
+        self._recent_hits.append(hit)
+        self._recent_hits = self._recent_hits[-8:]
+        self.lbl_hit.setText(f"Letzter Treffer: {hit}")
+        self.recent_text.setPlainText("\n".join(self._recent_hits))
+
+    def _on_cancel(self):
+        self.cancel_requested = True
+        self.reject()
+
+    def set_total_lines(self, total: int):
+        self.total_lines = max(0, int(total or 0))
+        self.progress.setMaximum(max(1, self.total_lines))
+        self.progress.setValue(0)
+        self.lbl_line.setText(f"Zeile: 0 / {self.total_lines}")
+        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self._pump()
+
+    def update_progress(self, *, line_no: int = 0, line_text: str = "", class_count: int | None = None, method_count: int | None = None, line_count: int | None = None, status: str | None = None):
+        if status is not None:
+            self.lbl_status.setText(status)
+        if line_no:
+            self.current_lines = int(line_no)
+            self.progress.setValue(min(self.progress.maximum(), max(0, self.current_lines)))
+        if class_count is not None:
+            self.class_count = int(class_count)
+        if method_count is not None:
+            self.method_count = int(method_count)
+        if line_count is None:
+            line_count = self.current_lines
+        self.lbl_line.setText(f"Zeile: {self.current_lines} / {self.total_lines}")
+        self.lbl_class.setText(f"CLASS(en): {self.class_count}")
+        self.lbl_method.setText(f"METHOD(en): {self.method_count}")
+        self.lbl_count.setText(f"Zeilen: {int(line_count)}")
+        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self.current_text.setPlainText(line_text or "")
+        self._append_hit(self._extract_hit(line_text))
+        self._pump()
+        return not self.cancel_requested
+
+    def set_ready(self, *, class_count: int = 0, method_count: int = 0, line_count: int = 0):
+        self.class_count = int(class_count)
+        self.method_count = int(method_count)
+        self.current_lines = max(self.current_lines, self.total_lines)
+        self.progress.setValue(self.progress.maximum())
+        self.lbl_status.setText("Collect-Phase abgeschlossen. Mit OK starten oder mit Cancel abbrechen.")
+        self.lbl_line.setText(f"Zeile: {self.current_lines} / {self.total_lines}")
+        self.lbl_class.setText(f"CLASS(en): {self.class_count}")
+        self.lbl_method.setText(f"METHOD(en): {self.method_count}")
+        self.lbl_count.setText(f"Zeilen: {int(line_count)}")
+        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self.btn_ok.setEnabled(True)
+        self._pump()
 
 # ---------------------------------------------------------------------------
 # Qt message handleer (for WebEngine) ...
@@ -2345,6 +2497,7 @@ class Preprocessor:
                     upper_tail = tail.upper()
                     stmt_starters = (
                         "WRITE", "?", "@", "IF", "DO", "FOR", "SCAN", "STORE", "REPLACE",
+                        "CASE", "ENDCASE", "OTHERWISE",
                         "APPEND", "INSERT", "DELETE", "GOTO", "LOOP", "EXIT", "RETURN",
                         "THIS.", "SUPER.", "SET", "USE", "SELECT", "WAIT", "MESSAGEBOX",
                         "BROWSE", "COUNT", "SUM", "AVERAGE", "LIST", "DISPLAY", "ASSERT"
@@ -6548,7 +6701,7 @@ class DBaseHighlighter(QSyntaxHighlighter):
         # --- Keywords (nach Bedarf erweitern) ---
         keywords = [
             "FOR", "ENDFOR", "CLASS", "ENDCLASS", "METHOD", "ENDMETHOD",
-            "IF", "ENDIF", "ELSE", "DO", "CASE" "ENDCASE", "OTHERWISE",
+            "IF", "ENDIF", "ELSE", "DO", "CASE", "ENDCASE", "OTHERWISE",
             "WHILE", "ENDDO", "RETURN", "LOCAL", "PARAMETER", "WITH",
             "ENDWITH", "NEW", "OF", "OBJECT", "THIS", "SUPER",
             "TRUE", "FALSE"
@@ -6761,6 +6914,12 @@ class CodeEditor(QPlainTextEdit):
         self._update_gutter_widths()
         self._highlight_current_line()
 
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setCenterOnScroll(False)
+        self.viewport().installEventFilter(self)
+        self._tab_spaces = "    "
+        self._apply_tab_settings()
+
         # --- Run (F2) ---
         self.act_run = QAction("Run2", self)
         self.act_run.setShortcut(QKeySequence(Qt.Key_F2))
@@ -6771,6 +6930,143 @@ class CodeEditor(QPlainTextEdit):
     def focusInEvent(self, e):
         print("FileEditorWindow Fokus IN")
         super().focusInEvent(e)
+
+    def _apply_tab_settings(self):
+        try:
+            fm = QFontMetrics(self.font())
+            try:
+                tabw = fm.horizontalAdvance(self._tab_spaces)
+            except AttributeError:
+                tabw = fm.width(self._tab_spaces)
+            self.setTabStopDistance(max(1, tabw))
+        except Exception:
+            pass
+
+    def setFont(self, font):
+        super().setFont(font)
+        self._apply_tab_settings()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Tab and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)):
+            cursor = self.textCursor()
+            if cursor.hasSelection():
+                self._indent_selection_with_spaces()
+            else:
+                cursor.insertText(self._tab_spaces)
+            return
+
+        if event.key() == Qt.Key_Backtab and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)):
+            self._unindent_selection_spaces()
+            return
+
+        super().keyPressEvent(event)
+
+    def _indent_selection_with_spaces(self):
+        cursor = self.textCursor()
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+
+        cursor.beginEditBlock()
+        cursor.setPosition(start)
+        first_block = self.document().findBlock(start).blockNumber()
+        last_block = self.document().findBlock(max(start, end - 1)).blockNumber()
+
+        for block_no in range(first_block, last_block + 1):
+            block = self.document().findBlockByNumber(block_no)
+            if not block.isValid():
+                continue
+            c = QTextCursor(block)
+            c.movePosition(QTextCursor.StartOfBlock)
+            c.insertText(self._tab_spaces)
+
+        cursor.endEditBlock()
+
+    def _unindent_selection_spaces(self):
+        cursor = self.textCursor()
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+
+        cursor.beginEditBlock()
+        first_block = self.document().findBlock(start).blockNumber()
+        last_block = self.document().findBlock(max(start, end - 1)).blockNumber()
+
+        for block_no in range(first_block, last_block + 1):
+            block = self.document().findBlockByNumber(block_no)
+            if not block.isValid():
+                continue
+            text = block.text()
+            remove_count = 0
+            for ch in text[:4]:
+                if ch == ' ':
+                    remove_count += 1
+                else:
+                    break
+            if remove_count > 0:
+                c = QTextCursor(block)
+                c.movePosition(QTextCursor.StartOfBlock)
+                for _ in range(remove_count):
+                    c.deleteChar()
+
+        cursor.endEditBlock()
+
+    def eventFilter(self, obj, event):
+        if obj is self.viewport() and event.type() == QEvent.Wheel:
+            if self._handle_vertical_wheel(event):
+                event.accept()
+                return True
+        return super().eventFilter(obj, event)
+
+    def wheelEvent(self, event):
+        if self._handle_vertical_wheel(event):
+            event.accept()
+            return
+        super().wheelEvent(event)
+        event.accept()
+
+    def _handle_vertical_wheel(self, event) -> bool:
+        sb = self.verticalScrollBar()
+        if sb is None:
+            return False
+
+        pixel_delta_y = event.pixelDelta().y()
+        angle_delta_y = event.angleDelta().y()
+        angle_delta_x = event.angleDelta().x()
+
+        if angle_delta_y == 0 and pixel_delta_y == 0:
+            return False if angle_delta_x else True
+
+        single_step = max(1, sb.singleStep())
+        page_step = max(single_step, sb.pageStep())
+
+        if pixel_delta_y:
+            steps = float(pixel_delta_y) / 40.0
+        else:
+            steps = float(angle_delta_y) / 120.0
+
+        mods = event.modifiers()
+        factor = 3.0
+        if mods & Qt.ShiftModifier:
+            factor = 0.5
+        elif mods & Qt.ControlModifier:
+            factor = float(page_step) / float(single_step)
+
+        delta = int(round(steps * single_step * factor))
+        if delta == 0:
+            delta = 1 if steps > 0 else -1
+
+        target = sb.value() - delta
+        sb.setValue(max(sb.minimum(), min(sb.maximum(), target)))
+
+        # Wichtig: NICHT ensureCursorVisible() aufrufen.
+        # Sonst springt der sichtbare Bereich sofort wieder zur aktuellen
+        # Cursor-Zeile zurück und das Scrollen per Mausrad wirkt so, als
+        # würde der Editor gar nicht scrollen.
+        self.viewport().update()
+
+        mm = getattr(self, "_minimap", None)
+        if mm is not None:
+            mm.viewport().update()
+        return True
         
     def _emit_run_requested(self):
         self.runRequested.emit()
@@ -6961,7 +7257,10 @@ class MiniMap(QPlainTextEdit):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.setFocusPolicy(Qt.NoFocus)
+        self.setCenterOnScroll(False)
         self.setMouseTracking(True)
+        self.viewport().installEventFilter(self)
+        self._sync_guard = 0
 
         # Tiny font
         f = QFont(self.main.font())
@@ -7015,7 +7314,13 @@ class MiniMap(QPlainTextEdit):
     def _restore_ratio(self, ratio: float):
         sb = self.verticalScrollBar()
         if sb.maximum() > 0:
-            sb.setValue(int(ratio * sb.maximum()))
+            self._sync_guard += 1
+            try:
+                was_blocked = sb.blockSignals(True)
+                sb.setValue(int(ratio * sb.maximum()))
+                sb.blockSignals(was_blocked)
+            finally:
+                self._sync_guard = max(0, self._sync_guard - 1)
         self._update_overlay()
 
     def _sync_scroll_from_main(self):
@@ -7023,12 +7328,17 @@ class MiniMap(QPlainTextEdit):
             return
         m = self.main.verticalScrollBar()
         s = self.verticalScrollBar()
-        self._map_scrollbars(m, s)
+        self._sync_guard += 1
+        try:
+            self._map_scrollbars(m, s)
+        finally:
+            self._sync_guard = max(0, self._sync_guard - 1)
         self._update_overlay()
 
     def _sync_scroll_to_main(self, _value: int):
-        if self._dragging:
+        if self._dragging or self._sync_guard:
             # during drag we drive main directly
+            # or while main -> minimap sync is active
             return
         m = self.main.verticalScrollBar()
         s = self.verticalScrollBar()
@@ -7038,11 +7348,21 @@ class MiniMap(QPlainTextEdit):
     @staticmethod
     def _map_scrollbars(src: QScrollBar, dst: QScrollBar):
         # Map src.value in [0..src.max] to dst.value in [0..dst.max]
-        if src.maximum() <= 0:
-            dst.setValue(0)
+        if dst is None:
+            return
+        if src.maximum() <= 0 or dst.maximum() <= 0:
+            was_blocked = dst.blockSignals(True)
+            try:
+                dst.setValue(0)
+            finally:
+                dst.blockSignals(was_blocked)
             return
         ratio = src.value() / src.maximum()
-        dst.setValue(int(ratio * dst.maximum()))
+        was_blocked = dst.blockSignals(True)
+        try:
+            dst.setValue(int(ratio * dst.maximum()))
+        finally:
+            dst.blockSignals(was_blocked)
 
     # ---------- overlay drawing ----------
     def _visible_block_range_in_main(self):
@@ -7133,6 +7453,22 @@ class MiniMap(QPlainTextEdit):
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def eventFilter(self, obj, event):
+        if obj is self.viewport() and event.type() == QEvent.Wheel:
+            if hasattr(self.main, "_handle_vertical_wheel") and self.main._handle_vertical_wheel(event):
+                event.accept()
+                return True
+        return super().eventFilter(obj, event)
+
+    def wheelEvent(self, event):
+        # MiniMap-Rad scrollt den Haupteditor und konsumiert das Event,
+        # damit der MDI-Bereich es nicht übernimmt.
+        if hasattr(self.main, "_handle_vertical_wheel") and self.main._handle_vertical_wheel(event):
+            event.accept()
+            return
+        self.main.wheelEvent(event)
+        event.accept()
 
     def _scroll_main_to_minimap_y(self, y: int):
         # Map minimap y position to a block number, then scroll main to that block.
@@ -7716,6 +8052,7 @@ class ExecVisitor(dBaseParserVisitor):
         super().__init__()
         self.output  = []  # sammelt Ausgaben (statt direkt printen)
         self._mode = ""
+        self._class_line_ranges = None
         
         self.vars: Dict[str, object] = {}   # normale Variablen
         self.this_obj: object | None = None # aktuelles "this"
@@ -7746,6 +8083,9 @@ class ExecVisitor(dBaseParserVisitor):
             }
         )
         
+        self.methods = {}          # top-level METHOD name -> MethodDef / MethodDeclContext
+        self._current_filename = ""
+
         self.frames: list[Frame] = [Frame(name="<global>")]  # globaler Frame
         self._current_class = None
         
@@ -8148,6 +8488,18 @@ class ExecVisitor(dBaseParserVisitor):
         if self._mode == "collect":
             # im Sammelpass Statements ignorieren
             return None
+
+        # classDecl darf im Exec-Pass nie als normales Statement herunterlaufen.
+        # In der Grammar ist classDecl sowohl als item als auch als statement erlaubt.
+        # Falls der Parse-Tree hier dennoch eine Klassendeklaration liefert,
+        # würden sonst Header-Tokens wie "ParentForm" als exprStmt/memberExpr
+        # fehlinterpretiert werden.
+        try:
+            if hasattr(ctx, "classDecl") and ctx.classDecl() is not None:
+                return None
+        except Exception:
+            pass
+
         return self.visitChildren(ctx)
     
     def ctx_text_token(ctx, token_name: str) -> str | None:
@@ -8226,6 +8578,7 @@ class ExecVisitor(dBaseParserVisitor):
         m = method_name.upper()
 
         while c is not None:
+            self._ensure_class_methods_loaded(c)
             cdef = self.classes.get(c)
             if cdef is None:
                 raise Exception(f"{ctx.start.line}:{ctx.start.column}: Klasse '{c}' ist nicht definiert")
@@ -8234,23 +8587,40 @@ class ExecVisitor(dBaseParserVisitor):
             if m in cdef.methods:
                 return c, cdef.methods[m]
 
+            found = self._find_method_decl_in_tree(c, m)
+            if found is None:
+                found = self._find_method_decl_in_source(c, m)
+            if found is not None:
+                cdef.methods[m] = found
+                self.classes[c] = cdef
+                return c, found
+
             c = cdef.parent.upper() if cdef.parent else None
 
         raise Exception(f"{ctx.start.line}:{ctx.start.column}: Methode '{m}' nicht gefunden (ab '{start_class}')")
 
 
     def resolve_method_silent(self, class_name: str, method_name: str):
-        c = class_name
+        c = class_name.upper() if class_name else None
         m = method_name.upper()
 
         while c:
+            self._ensure_class_methods_loaded(c)
             cdef = self.classes.get(c)
-            if not cdef:
+            if cdef is None:
                 return None
 
-            hit = cdef.methods.get(m)
-            if hit:
-                return hit
+            methods = getattr(cdef, "methods", {}) or {}
+            if m in methods:
+                return methods[m]
+
+            found = self._find_method_decl_in_tree(c, m)
+            if found is None:
+                found = self._find_method_decl_in_source(c, m)
+            if found is not None:
+                cdef.methods[m] = found
+                self.classes[c] = cdef
+                return found
 
             c = cdef.parent.upper() if cdef.parent else None
 
@@ -8402,10 +8772,14 @@ class ExecVisitor(dBaseParserVisitor):
             if key == "PARENT":
                 return obj.parent
 
-            # 1) Property?
-
+            # 1) zuerst direkt in props, dann robust in children
             if key in obj.props:
                 return obj.props[key]
+            if key in obj.children:
+                child = obj.children[key]
+                # props/cache nachziehen, damit zukünftige Lookups konsistent sind
+                obj.props[key] = child
+                return child
             
             if key == "FONT" and getattr(obj, "backend", None) is not None and hasattr(obj.backend, "font"):
                 qf = obj.backend.font()  # QFont vom Widget
@@ -8469,8 +8843,7 @@ class ExecVisitor(dBaseParserVisitor):
 
             # 2) DSL-Methode? -> als Delegate zurückgeben
             if cls_name:
-                cls_def = self.classes.get(cls_name.upper())
-                if cls_def and key in cls_def.methods:
+                if self.resolve_method_silent(cls_name.upper(), key) is not None:
                     return Delegate(target=obj, method_name=key, runner=self)
 
             # ✅ 3) Native Methode: OPEN (für FORM und alles was davon erbt)
@@ -8749,6 +9122,7 @@ class ExecVisitor(dBaseParserVisitor):
             return inst
 
         # 3) user-defined Klassen
+        self._hydrate_class_from_source(cn)
         cdef = self.classes.get(cn)
         if cdef is None:
             known = ", ".join(sorted(self.classes.keys()))
@@ -8781,11 +9155,12 @@ class ExecVisitor(dBaseParserVisitor):
             self._scopes[-1]["THIS"] = inst
             self._scopes[-1]["SELF"] = inst
             self.exec_class_body(classdef)
+            self._ensure_declared_children_from_source(inst)
         finally:
             self.pop_scope()
             self.pop_this()
         
-        if "INIT" in classdef.methods:
+        if self.resolve_method_silent(classdef.name, "INIT") is not None:
             self.invoke_method(inst, "INIT", args, None)
         
         return inst
@@ -8795,6 +9170,16 @@ class ExecVisitor(dBaseParserVisitor):
         
         # 1) normal speichern
         inst.props[key] = value
+
+        # 1a) Objekt-Kinder automatisch binden, damit THIS.PushButton1,
+        #     THIS.Container1.PushButton1 usw. sowohl über props als auch
+        #     über children zuverlässig auflösbar bleiben.
+        if isinstance(value, Instance) and key != "PARENT":
+            try:
+                self.bind_child(inst, key, value)
+            except Exception:
+                # Fallback: wenigstens Runtime-Referenz sichern
+                inst.children[key] = value
 
         # MENU/POPUPMENU: Text => Menü-Titel
         if inst.class_name.upper() in ("MENU", "POPUPMENU") and key in ("TEXT", "CAPTION", "TITLE"):
@@ -9206,21 +9591,269 @@ class ExecVisitor(dBaseParserVisitor):
         self._scopes[-1][key] = value
     
     # ---------- Statements ----------
+    def _precollect_classes_from_source(self):
+        text = getattr(self, "_pre_source", "") or ""
+        if not text:
+            return
+
+        rx = re.compile(r'^\s*CLASS\s+(?P<name>[A-Za-z_]\w*)(?:\s+OF\s+(?P<parent>[A-Za-z_]\w*))?\b', re.IGNORECASE | re.MULTILINE)
+        for m in rx.finditer(text):
+            cname = m.group('name').upper()
+            parent = m.group('parent').upper() if m.group('parent') else None
+            cdef = self.classes.get(cname)
+            if cdef is None or not isinstance(cdef, ClassDef):
+                self.classes[cname] = ClassDef(name=cname, parent=parent)
+            else:
+                if parent and not cdef.parent:
+                    cdef.parent = parent
+
+    def _get_class_line_ranges(self):
+        if self._class_line_ranges is not None:
+            return self._class_line_ranges
+
+        text = getattr(self, "_pre_source", "") or ""
+        ranges = []
+        stack = []
+
+        for lineno, raw in enumerate(text.splitlines(), start=1):
+            line = raw.strip()
+            if re.match(r"^CLASS\b", line, re.IGNORECASE):
+                stack.append(lineno)
+                continue
+            if re.match(r"^ENDCLASS\b", line, re.IGNORECASE):
+                if stack:
+                    start = stack.pop()
+                    ranges.append((start, lineno))
+
+        self._class_line_ranges = ranges
+        return ranges
+
+
+    def _eval_expr_text_from_source(self, expr_text: str):
+        txt = (expr_text or "").strip()
+        if not txt:
+            return None
+        try:
+            sub_source = InputStream(txt)
+            sub_lexer = dBaseLexer(sub_source)
+            sub_tokens = CommonTokenStream(sub_lexer)
+            sub_tokens.fill()
+            sub_parser = dBaseParser(sub_tokens)
+            if hasattr(sub_parser, "expr"):
+                ectx = sub_parser.expr()
+                return self.visit(ectx)
+        except Exception:
+            pass
+
+        u = txt.upper()
+        if u in (".T.", "TRUE"):
+            return True
+        if u in (".F.", "FALSE"):
+            return False
+        if (txt.startswith('"') and txt.endswith('"')) or (txt.startswith("'") and txt.endswith("'")):
+            try:
+                return self._unescape_string(txt)
+            except Exception:
+                return txt[1:-1]
+        try:
+            if "." in txt:
+                return float(txt)
+            return int(txt)
+        except Exception:
+            return txt
+
+    def _parse_statements_from_source(self, source_text: str):
+        txt = source_text or ""
+        if not txt.strip():
+            return []
+        try:
+            if not txt.endswith("\n"):
+                txt += "\n"
+            sub_source = InputStream(txt)
+            sub_lexer = dBaseLexer(sub_source)
+            sub_tokens = CommonTokenStream(sub_lexer)
+            sub_tokens.fill()
+            sub_parser = dBaseParser(sub_tokens)
+            sub_tree = sub_parser.input_()
+            out = []
+            items = []
+            try:
+                items = sub_tree.item() or []
+            except Exception:
+                items = []
+            if not isinstance(items, list):
+                items = [items]
+            for it in items:
+                if it is None:
+                    continue
+                try:
+                    st = it.statement()
+                except Exception:
+                    st = None
+                if st is not None:
+                    out.append(st)
+            return out
+        except Exception:
+            return []
+
+    def _hydrate_class_from_source(self, class_name: str):
+        source = getattr(self, "_pre_source", "") or ""
+        cname = (class_name or "").strip().upper()
+        if not source or not cname:
+            return
+
+        class_pat = re.compile(
+            rf'(?ims)^\s*CLASS\s+{re.escape(cname)}\b(?:\s+OF\s+(?P<parent>[A-Za-z_]\w*))?(?P<body>.*?)^\s*ENDCLASS\b'
+        )
+        m_class = class_pat.search(source)
+        if not m_class:
+            return
+
+        parent_name = m_class.group('parent').upper() if m_class.group('parent') else None
+        class_body = m_class.group('body') or ''
+
+        cdef = self.classes.get(cname)
+        if cdef is None or not isinstance(cdef, ClassDef):
+            cdef = ClassDef(name=cname, parent=parent_name)
+            self.classes[cname] = cdef
+        else:
+            cdef.name = cname
+            cdef.parent = parent_name
+
+        cdef.methods = {}
+        cdef.default_props = {}
+        cdef.inits = []
+
+        pre_method = re.split(r'(?im)^\s*METHOD\b', class_body, maxsplit=1)[0]
+
+        prop_rx = re.compile(r'(?im)^\s*PROPERTY\s+(?P<name>[A-Za-z_]\w*)\s*=\s*(?P<expr>.+?)\s*$')
+        for pm in prop_rx.finditer(pre_method):
+            pname = pm.group('name').upper()
+            pexpr = pm.group('expr')
+            cdef.default_props[pname] = self._eval_expr_text_from_source(pexpr)
+
+        init_stmts = self._parse_statements_from_source(pre_method)
+        if init_stmts:
+            cdef.inits.extend(init_stmts)
+
+        method_rx = re.compile(
+            r'(?ims)^\s*METHOD\s+(?P<name>[A-Za-z_]\w*)\b\s*\((?P<params>.*?)\)\s*(?P<body>.*?)^\s*ENDMETHOD\b'
+        )
+        for mm in method_rx.finditer(class_body):
+            mname = mm.group('name').upper()
+            snippet = mm.group(0)
+            try:
+                if not snippet.endswith("\n"):
+                    snippet += "\n"
+                sub_source = InputStream(snippet)
+                sub_lexer = dBaseLexer(sub_source)
+                sub_tokens = CommonTokenStream(sub_lexer)
+                sub_tokens.fill()
+                sub_parser = dBaseParser(sub_tokens)
+                if hasattr(sub_parser, 'methodDecl'):
+                    mctx = sub_parser.methodDecl()
+                    if mctx is not None:
+                        cdef.methods[mname] = mctx
+                        continue
+            except Exception:
+                pass
+            found = self._find_method_decl_in_source(cname, mname)
+            if found is not None:
+                cdef.methods[mname] = found
+
+        self.classes[cname] = cdef
+
+    def _hydrate_all_classes_from_source(self):
+        text = getattr(self, "_pre_source", "") or ""
+        if not text:
+            return
+        rx = re.compile(r'^\s*CLASS\s+(?P<name>[A-Za-z_]\w*)\b', re.IGNORECASE | re.MULTILINE)
+        seen = set()
+        for m in rx.finditer(text):
+            cname = m.group('name').upper()
+            if cname in seen:
+                continue
+            seen.add(cname)
+            self._hydrate_class_from_source(cname)
+
+    def _is_line_inside_class_block(self, lineno: int) -> bool:
+        if not lineno:
+            return False
+        for start, stop in self._get_class_line_ranges():
+            if start <= lineno <= stop:
+                return True
+        return False
+
+    def _collect_all_classdecls(self, node, seen=None):
+        if node is None:
+            return
+        if seen is None:
+            seen = set()
+        try:
+            nid = id(node)
+            if nid in seen:
+                return
+            seen.add(nid)
+        except Exception:
+            pass
+
+        tname = type(node).__name__
+        if tname.endswith("ClassDeclContext"):
+            self.visitClassDecl(node)
+            return
+
+        if hasattr(node, "classDecl"):
+            try:
+                cd = node.classDecl()
+            except TypeError:
+                cd = None
+            if cd is not None:
+                if isinstance(cd, list):
+                    for it in cd:
+                        if it is not None:
+                            self.visitClassDecl(it)
+                else:
+                    self.visitClassDecl(cd)
+
+        children = getattr(node, "children", None)
+        if children:
+            for ch in children:
+                self._collect_all_classdecls(ch, seen)
+
     def visitInput(self, ctx):
-        # Pass 1: Klassen registrieren
+        # Pass 1: Klassen + top-level Methoden registrieren
         if self._mode == "collect":
+            self._precollect_classes_from_source()
+            self._collect_all_classdecls(ctx)
+            self._hydrate_all_classes_from_source()
             for it in ctx.item():
-                if it.classDecl():
-                    self.visit(it.classDecl())
+                try:
+                    mctx = it.methodDecl()
+                except Exception:
+                    mctx = None
+                if mctx is not None:
+                    self.visit(mctx)
             return None
 
-        # Pass 2: Statements ausführen
+        # Pass 2: nur echte Top-Level-Statements ausführen.
+        # Parser-Recovery kann Anweisungen aus CLASS...ENDCLASS-Blöcken als
+        # scheinbare Top-Level-Statements durchreichen; die dürfen hier nicht
+        # laufen, weil z.B. WITH(THIS) nur beim Instanziieren gültig ist.
         for it in ctx.item():
             if it.statement():
-                self.visit(it.statement())
+                st = it.statement()
+                if hasattr(st, "classDecl") and st.classDecl() is not None:
+                    continue
+                try:
+                    st_line = getattr(getattr(st, "start", None), "line", 0) or 0
+                except Exception:
+                    st_line = 0
+                if self._is_line_inside_class_block(st_line):
+                    continue
+                self.visit(st)
 
         return None
-    
+
     def visitCallStmt(self, ctx):
         # callee irgendwie holen – z.B.:
         callee = self.visit(ctx.memberExpr())   # je nach Grammar: memberExpr/MemberExpr/etc.
@@ -9353,6 +9986,197 @@ class ExecVisitor(dBaseParserVisitor):
         pname = pctx.IDENT().getText().upper()
         pval  = self.visit(pctx.expr())   # Expression auswerten
         cdef.default_props[pname] = pval
+
+    def _walk_tree_nodes(self, node, seen=None):
+        if node is None:
+            return
+        if seen is None:
+            seen = set()
+        try:
+            nid = id(node)
+            if nid in seen:
+                return
+            seen.add(nid)
+        except Exception:
+            pass
+        yield node
+        children = getattr(node, 'children', None)
+        if children:
+            for ch in children:
+                yield from self._walk_tree_nodes(ch, seen)
+
+    def _collect_methods_from_node(self, node, cdef: ClassDef):
+        changed = False
+        for sub in self._walk_tree_nodes(node):
+            tname = type(sub).__name__
+            mctx = None
+            if tname.endswith('MethodDeclContext'):
+                mctx = sub
+            elif hasattr(sub, 'methodDecl'):
+                try:
+                    tmp = sub.methodDecl()
+                except TypeError:
+                    tmp = None
+                if isinstance(tmp, list):
+                    for one in tmp:
+                        if one is None:
+                            continue
+                        mname = self._method_name(one).upper()
+                        cdef.methods[mname] = one
+                        changed = True
+                    continue
+                mctx = tmp
+            if mctx is not None:
+                mname = self._method_name(mctx).upper()
+                cdef.methods[mname] = mctx
+                changed = True
+        return changed
+
+    def _find_method_decl_in_tree(self, class_name: str, method_name: str):
+        tree = getattr(self, '_parse_tree', None)
+        if tree is None:
+            return None
+
+        cname = (class_name or '').upper()
+        mname = (method_name or '').upper()
+
+        for node in self._walk_tree_nodes(tree):
+            if not type(node).__name__.endswith('ClassDeclContext'):
+                continue
+            try:
+                node_cname = node.name.text.upper()
+            except Exception:
+                continue
+            if node_cname != cname:
+                continue
+
+            for sub in self._walk_tree_nodes(node):
+                if not type(sub).__name__.endswith('MethodDeclContext'):
+                    continue
+                try:
+                    if self._method_name(sub).upper() == mname:
+                        return sub
+                except Exception:
+                    pass
+        return None
+
+    def _find_method_decl_in_source(self, class_name: str, method_name: str):
+        source = getattr(self, '_pre_source', None)
+        if not source:
+            return None
+
+        cname = (class_name or '').strip()
+        mname = (method_name or '').strip()
+        if not cname or not mname:
+            return None
+
+        try:
+            class_pat = re.compile(
+                rf'(?is)\bCLASS\s+{re.escape(cname)}\b(?:\s+OF\s+[A-Za-z_]\w*)?(?P<body>.*?)\bENDCLASS\b'
+            )
+            m_class = class_pat.search(source)
+            if not m_class:
+                return None
+
+            class_body = m_class.group('body') or ''
+            method_pat = re.compile(
+                rf'(?is)\bMETHOD\s+{re.escape(mname)}\b\s*\((?P<params>.*?)\)\s*(?P<body>.*?)\bENDMETHOD\b'
+            )
+            m_method = method_pat.search(class_body)
+            if not m_method:
+                return None
+
+            params = (m_method.group('params') or '').strip()
+            body = (m_method.group('body') or '').strip()
+            snippet = f"METHOD {mname}({params})\n{body}\nENDMETHOD\n"
+
+            sub_source = InputStream(snippet)
+            sub_lexer = dBaseLexer(sub_source)
+            sub_tokens = CommonTokenStream(sub_lexer)
+            sub_parser = dBaseParser(sub_tokens)
+
+            if hasattr(sub_parser, 'methodDecl'):
+                mctx = sub_parser.methodDecl()
+                return mctx
+        except Exception:
+            return None
+
+        return None
+
+    def _ensure_declared_children_from_source(self, inst: Instance):
+        source = getattr(self, "_pre_source", None)
+        if not source or not isinstance(inst, Instance):
+            return
+
+        cname = (getattr(inst, "class_name", "") or "").strip()
+        if not cname:
+            return
+
+        try:
+            class_pat = re.compile(
+                rf'(?is)\bCLASS\s+{re.escape(cname)}\b(?:\s+OF\s+[A-Za-z_]\w*)?(?P<body>.*?)\bENDCLASS\b'
+            )
+            m_class = class_pat.search(source)
+            if not m_class:
+                return
+
+            class_body = m_class.group('body') or ''
+            pre_method = re.split(r'(?im)^\s*METHOD\b', class_body, maxsplit=1)[0]
+
+            # 1) direkte Kinder: THIS.PushButton1 = NEW PUSHBUTTON(THIS)
+            rx_direct = re.compile(
+                r'(?im)^\s*THIS\.(?P<name>[A-Za-z_]\w*)\s*=\s*NEW\s+(?P<klass>[A-Za-z_]\w*)\s*\(\s*THIS\s*\)\s*$'
+            )
+            for m in rx_direct.finditer(pre_method):
+                key = m.group('name').upper()
+                if key in inst.props or key in inst.children:
+                    continue
+                child_class = m.group('klass').upper()
+                try:
+                    child = self.new_instance(child_class, [inst])
+                    self.bind_child(inst, key, child)
+                except Exception:
+                    pass
+
+            # 2) ein Level verschachtelt: THIS.Container1.PushButton1 = NEW PUSHBUTTON(THIS.Container1)
+            rx_nested = re.compile(
+                r'(?im)^\s*THIS\.(?P<owner>[A-Za-z_]\w*)\.(?P<name>[A-Za-z_]\w*)\s*=\s*NEW\s+(?P<klass>[A-Za-z_]\w*)\s*\(\s*THIS\.(?P=owner)\s*\)\s*$'
+            )
+            for m in rx_nested.finditer(pre_method):
+                owner_key = m.group('owner').upper()
+                child_key = m.group('name').upper()
+                owner_obj = inst.props.get(owner_key) or inst.children.get(owner_key)
+                if not isinstance(owner_obj, Instance):
+                    continue
+                if child_key in owner_obj.props or child_key in owner_obj.children:
+                    continue
+                child_class = m.group('klass').upper()
+                try:
+                    child = self.new_instance(child_class, [owner_obj])
+                    self.bind_child(owner_obj, child_key, child)
+                except Exception:
+                    pass
+        except Exception:
+            return
+
+    def _ensure_class_methods_loaded(self, class_name: str):
+        c = (class_name or '').upper()
+        cdef = self.classes.get(c)
+        if not isinstance(cdef, ClassDef):
+            return
+
+        # Nicht nur bei komplett leeren Methodenlisten laden.
+        # In einigen Tree-Formen werden einzelne Methoden (z.B. INIT)
+        # beim ersten Collect übersehen, obwohl andere Methoden schon
+        # vorhanden sind. Deshalb immer noch einmal robust über body/decl
+        # nachladen; das Dict verhindert Dubletten automatisch.
+        body = getattr(cdef, 'body_ctx', None)
+        decl = getattr(cdef, 'decl_ctx', None)
+        if body is not None:
+            self._collect_methods_from_node(body, cdef)
+        if decl is not None:
+            self._collect_methods_from_node(decl, cdef)
+        self.classes[c] = cdef
         
     def visitClassDecl(self, ctx):
         if getattr(self, "_mode", "") != "collect":
@@ -9361,32 +10185,86 @@ class ExecVisitor(dBaseParserVisitor):
         class_name  = ctx.name.text.upper()
         parent_name = ctx.parent.text.upper() if ctx.parent else None
         
-        cdef = ClassDef(name=class_name.upper(), parent=parent_name)
+        cdef = self.classes.get(class_name)
+        if cdef is None or not isinstance(cdef, ClassDef):
+            cdef = ClassDef(name=class_name.upper(), parent=parent_name)
+            self.classes[class_name] = cdef
+        else:
+            cdef.name = class_name.upper()
+            cdef.parent = parent_name
+            # beim erneuten Collect nicht anhäufen
+            cdef.methods = {}
+            cdef.default_props = {}
+            cdef.inits = []
+
         body = ctx.classBody()
-        
-        # WICHTIG: alles in Original-Reihenfolge einsammeln
+        cdef.body_ctx = body
+        cdef.decl_ctx = ctx
+
+        # 1) echte classMember zuverlässig einsammeln
+        members = []
+        try:
+            members = body.classMember() or []
+        except Exception:
+            members = []
+        if not isinstance(members, list):
+            members = [members]
+
+        for ch in members:
+            if ch is None:
+                continue
+            if hasattr(ch, "propertyDecl") and ch.propertyDecl() is not None:
+                self._handle_property_decl(ch.propertyDecl(), cdef)
+                continue
+            if hasattr(ch, "methodDecl") and ch.methodDecl() is not None:
+                mctx = ch.methodDecl()
+                mname = self._method_name(mctx).upper()
+                cdef.methods[mname] = mctx
+                continue
+            if hasattr(ch, "assignStmt") and ch.assignStmt() is not None:
+                cdef.inits.append(ch.assignStmt())
+                continue
+            if hasattr(ch, "withStmt") and ch.withStmt() is not None:
+                cdef.inits.append(ch.withStmt())
+                continue
+
+        # 2) zusätzliche normale statements im Klassenrumpf (z.B. WRITE ...)
+        stmts = []
+        try:
+            stmts = body.statement() or []
+        except Exception:
+            stmts = []
+        if not isinstance(stmts, list):
+            stmts = [stmts]
+        for st in stmts:
+            if st is not None:
+                cdef.inits.append(st)
+
+        # 3) Zusätzlicher robuster Scan des gesamten Klassenknotens.
+        #    Wichtig: methodDecl kann je nach Tree-Form nicht immer sauber in
+        #    body.classMember() auftauchen. Darum Methoden immer zusätzlich
+        #    rekursiv einsammeln; Properties/Inits nur ergänzend.
+        self._collect_methods_from_node(body, cdef)
+
+        seen_init_ids = {id(x) for x in cdef.inits}
         for ch in list(getattr(body, "children", []) or []):
             tname = type(ch).__name__
-
-            # PROPERTY
             if hasattr(ch, "propertyDecl") and ch.propertyDecl():
                 self._handle_property_decl(ch.propertyDecl(), cdef)
-                # optional: auch in inits aufnehmen, wenn du propertyDecl zur Laufzeit ausführen willst
-                # cdef.inits.append(ch)
-
-            # METHOD
-            elif hasattr(ch, "methodDecl") and ch.methodDecl():
-                mctx = ch.methodDecl()
-                mname = mctx.IDENT().getText().upper()
-                cdef.methods[mname] = mctx
-
-            # direkte Init-Statements (Assign / WITH / normale Statements)
             elif hasattr(ch, "assignStmt") and ch.assignStmt():
-                cdef.inits.append(ch.assignStmt())
+                sub = ch.assignStmt()
+                if id(sub) not in seen_init_ids:
+                    cdef.inits.append(sub)
+                    seen_init_ids.add(id(sub))
             elif hasattr(ch, "withStmt") and ch.withStmt():
-                cdef.inits.append(ch.withStmt())
+                sub = ch.withStmt()
+                if id(sub) not in seen_init_ids:
+                    cdef.inits.append(sub)
+                    seen_init_ids.add(id(sub))
             elif tname.endswith("StatementContext"):
-                cdef.inits.append(ch)
+                if id(ch) not in seen_init_ids:
+                    cdef.inits.append(ch)
+                    seen_init_ids.add(id(ch))
 
         self.classes[class_name] = cdef
         return None
@@ -9445,15 +10323,8 @@ class ExecVisitor(dBaseParserVisitor):
         if pl is not None:
             params = [t.getText().upper() for t in pl.IDENT()]
 
-        # block besuchen / speichern / was auch immer du tust
         body = ctx.block()
-
-        # Beispiel: speichern
-        self.methods[method_name] = {
-            "params": params,
-            "ctx": body,
-        }
-
+        self.methods[method_name] = MethodDef(params=params, block_ctx=body)
         return None
 
     def visitMemberExpr(self, ctx):
@@ -9929,6 +10800,18 @@ class ExecVisitor(dBaseParserVisitor):
     
     def visitExprStmt(self, ctx):
         # expr ausführen, Ergebnis ignorieren
+        # Parser-Recovery kann Teile eines CLASS-Headers als nackte exprStmt liefern
+        # (z.B. "ParentForm" oder native Basen wie "FORM"). Diese sollen im
+        # Exec-Pass keine Laufzeitwirkung haben.
+        try:
+            pe = ctx.postfixExpr()
+            txt = pe.getText() if pe is not None else ""
+            up = txt.upper()
+            if up in self.classes or up in NATIVE_BASES:
+                return None
+        except Exception:
+            pass
+
         self.visit(ctx.postfixExpr())
         return None
 
@@ -9958,7 +10841,17 @@ class ExecVisitor(dBaseParserVisitor):
                         return v
                 raise RuntimeError(f"Unbekanntes WITH-Property '{name}'")
 
-        # 3) nicht gefunden
+        # 3) Klassenname oder native Basisklasse als Symbol tolerieren.
+        # Das verhindert, dass versehentlich im Exec-Pass ankommende Teile eines
+        # CLASS-Headers (z.B. "ParentForm" oder "FORM") als unbekannter
+        # Variablenname abstürzen. Für NEW <Class>(...) wird dieser Pfad nicht
+        # benutzt, daher ist das hier nur ein harmloser Fallback.
+        if key in self.classes:
+            return key
+        if key in NATIVE_BASES:
+            return key
+
+        # 4) nicht gefunden
         raise RuntimeError(f"Unbekannter Name '{name}'")
 
 
@@ -10133,6 +11026,9 @@ class ExecVisitor(dBaseParserVisitor):
         return MethodDef(params=params, block_ctx=block_ctx)
 
     def _get_method_params(self, method_ctx):
+        if isinstance(method_ctx, MethodDef):
+            return list(method_ctx.params or [])
+
         # method_ctx ist MethodDeclContext
         pl = method_ctx.paramList()
         if not pl:
@@ -10181,7 +11077,8 @@ class ExecVisitor(dBaseParserVisitor):
                 self.set_var(pname, args[i] if i < len(args) else None)
 
             try:
-                self.visit(mctx.block())
+                block_ctx = mctx.block_ctx if isinstance(mctx, MethodDef) else mctx.block()
+                self.visit(block_ctx)
                 return None
             except ReturnSignal as rs:
                 return rs.value
@@ -10199,6 +11096,153 @@ class ExecVisitor(dBaseParserVisitor):
     def visitCondition(self, ctx):
         return self.visit(ctx.logicalOr())
 
+    def _strip_program_target(self, target: str) -> str:
+        s = (target or "").strip()
+        if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
+            s = s[1:-1]
+        return s.strip()
+
+    def _do_program_extensions(self) -> list[str]:
+        return [".prg", ".wfm", ".frm"]
+
+    def _iter_program_candidates(self, target: str):
+        s = self._strip_program_target(target)
+        if not s:
+            return []
+        if s.upper().startswith("PROGRAM "):
+            s = s.split(None, 1)[1].strip()
+
+        root, ext = os.path.splitext(s)
+        names = [s] if ext else [s + ex for ex in self._do_program_extensions()]
+
+        candidates = []
+        cur = getattr(self, "_current_filename", "") or ""
+        if cur:
+            base_dir = os.path.dirname(os.path.abspath(cur))
+            for name in names:
+                candidates.append(os.path.join(base_dir, name))
+        for name in names:
+            candidates.append(os.path.abspath(name))
+            candidates.append(os.path.join(os.getcwd(), name))
+
+        seen = set()
+        ordered = []
+        for cand in candidates:
+            full = os.path.abspath(cand)
+            if full in seen:
+                continue
+            seen.add(full)
+            ordered.append(full)
+        return ordered
+
+    def looks_like_program(self, target: str) -> bool:
+        s = self._strip_program_target(target)
+        if not s:
+            return False
+        if s.upper().startswith("PROGRAM "):
+            return True
+        _root, ext = os.path.splitext(s)
+        if ext:
+            return ext.lower() in tuple(self._do_program_extensions())
+        # DO test: Datei zuerst versuchen
+        for cand in self._iter_program_candidates(target):
+            if os.path.exists(cand):
+                return True
+        # expliziter Pfad/quoted path ohne Extension -> ebenfalls dateiartig behandeln
+        return any(sep in s for sep in ("/", "\\"))
+
+    def try_resolve_program_path(self, target: str) -> str | None:
+        for cand in self._iter_program_candidates(target):
+            if os.path.exists(cand):
+                return cand
+        return None
+
+    def resolve_program_path(self, target: str, ctx=None) -> str:
+        path = self.try_resolve_program_path(target)
+        if path:
+            return path
+        s = self._strip_program_target(target)
+        if s.upper().startswith("PROGRAM "):
+            s = s.split(None, 1)[1].strip()
+        where = self.loc(ctx) if ctx is not None else "<unknown>"
+        raise RuntimeError(f"{where}: DO-Datei '{s}' wurde nicht gefunden")
+
+    def _parse_external_program(self, filename: str):
+        pp = Preprocessor(include_paths=[Path("includes")])
+        pre = pp.process(filename)
+        source = InputStream(pre)
+        lexer = dBaseLexer(source)
+        tokens = CommonTokenStream(lexer)
+        tokens.fill()
+        parser = dBaseParser(tokens)
+        tree = parser.input_()
+        return tree, pre
+
+    def run_program(self, target: str, args: list[Any] | None = None):
+        path = self.resolve_program_path(target)
+        tree, pre = self._parse_external_program(path)
+
+        old_mode = self._mode
+        old_pre_source = getattr(self, "_pre_source", "")
+        old_ranges = self._class_line_ranges
+        old_file = getattr(self, "_current_filename", "")
+
+        self.push_frame(os.path.basename(path), list(args or []))
+        try:
+            self._current_filename = path
+            self._pre_source = pre
+            self._class_line_ranges = None
+
+            self._mode = "collect"
+            self.visit(tree)
+
+            self._mode = "exec"
+            for it in tree.item():
+                st = it.statement() if hasattr(it, "statement") else None
+                if st is None:
+                    continue
+                if hasattr(st, "classDecl") and st.classDecl() is not None:
+                    continue
+                try:
+                    st_line = getattr(getattr(st, "start", None), "line", 0) or 0
+                except Exception:
+                    st_line = 0
+                if self._is_line_inside_class_block(st_line):
+                    continue
+                self.visit(st)
+        finally:
+            self.pop_frame()
+            self._mode = old_mode
+            self._pre_source = old_pre_source
+            self._class_line_ranges = old_ranges
+            self._current_filename = old_file
+
+    def has_procedure(self, target: str) -> bool:
+        name = self._strip_program_target(target).upper()
+        return name in self.methods
+
+    def call_procedure(self, target: str, args: list[Any] | None = None):
+        name = self._strip_program_target(target).upper()
+        mdef = self.methods.get(name)
+        if mdef is None:
+            raise RuntimeError(f"{self.loc(None)}: Prozedur/Methode '{name}' ist nicht definiert")
+
+        self.push_frame(name, list(args or []))
+        self.push_scope()
+        try:
+            params = self._get_method_params(mdef)
+            for i, pname in enumerate(params):
+                self.set_var(pname, args[i] if args and i < len(args) else None)
+            try:
+                block_ctx = mdef.block_ctx if isinstance(mdef, MethodDef) else mdef.block()
+                self.visit(block_ctx)
+                return None
+            except ReturnSignal as rs:
+                return rs.value
+        finally:
+            self.pop_scope()
+            self.pop_frame()
+
     def visitDoStmt(self, ctx):
         target = ctx.doTarget().getText()
         args = []
@@ -10206,11 +11250,42 @@ class ExecVisitor(dBaseParserVisitor):
             for e in ctx.argList().expr():
                 args.append(self.eval_expr(e))
 
-        # 1) Program?
-        if self.looks_like_program(target):   # z.B. enthält '.' oder endet auf .PRG
+        # 1) Datei im Quellverzeichnis / Pfad / CWD suchen (.prg, .wfm, .frm)
+        path = self.try_resolve_program_path(target)
+        if path is not None:
+            self.run_program(path, args)
+            return None
+
+        # 2) Falls keine Datei existiert: lokale/top-level METHOD aufrufen
+        if self.has_procedure(target):
+            return self.call_procedure(target, args)
+
+        # 3) Explizite Dateiangabe mit Extension/Pfad soll einen klaren Fehler liefern
+        if self.looks_like_program(target):
             self.run_program(target, args)
-        else:
-            self.call_procedure(target, args)
+            return None
+
+        # 4) Sonst wie klassische Prozedur behandeln -> Fehlermeldung aus call_procedure
+        return self.call_procedure(target, args)
+
+    def visitDoCaseStmt(self, ctx):
+        branches = ctx.doCaseBranch() or []
+        if not isinstance(branches, list):
+            branches = [branches]
+
+        for br in branches:
+            try:
+                cond = self.visit(br.expr())
+            except Exception:
+                cond = False
+            if bool(cond):
+                self.visit(br.block())
+                return None
+
+        ob = ctx.doOtherwiseBranch()
+        if ob is not None:
+            self.visit(ob.block())
+        return None
 
     def visitParameterStmt(self, ctx):
         names = [t.getText() for t in ctx.paramNames().IDENT()]
@@ -10319,7 +11394,8 @@ class ExecVisitor(dBaseParserVisitor):
             for i, pname in enumerate(params):
                 self.set_var(pname, args[i] if i < len(args) else None)
 
-            self.visit(mctx.block())
+            block_ctx = mctx.block_ctx if isinstance(mctx, MethodDef) else mctx.block()
+            self.visit(block_ctx)
         finally:
             self.pop_scope()
             self.pop_this()
@@ -10371,10 +11447,65 @@ class ExecVisitor(dBaseParserVisitor):
 # ---------------------------------------------------------------------------
 # parser stuff ...
 # ---------------------------------------------------------------------------        
-def parse(filename: str):
+def _count_collect_entities(visitor: "ExecVisitor") -> tuple[int, int]:
+    native = set(NATIVE_BASES.keys()) | {"OBJECT", "PUSHBUTTON"}
+
+    class_count = 0
+    method_count = 0
+
+    for cname, cdef in (getattr(visitor, "classes", {}) or {}).items():
+        if str(cname).upper() in native:
+            continue
+        if isinstance(cdef, ClassDef):
+            class_count += 1
+            for _, mdef in (cdef.methods or {}).items():
+                if isinstance(mdef, str):
+                    continue
+                method_count += 1
+
+    for _, mdef in (getattr(visitor, "methods", {}) or {}).items():
+        if isinstance(mdef, str):
+            continue
+        method_count += 1
+
+    return class_count, method_count
+
+def parse(filename: str, show_collect_dialog: bool = True):
+    collect_dlg = None
+
     # 0 pre-procession
     pp = Preprocessor(include_paths=[Path("includes")])
     pre = pp.process(filename)
+
+    if show_collect_dialog and QApplication.instance() is not None:
+        try:
+            collect_dlg = CollectProgressDialog(parent=MAINAPP if "MAINAPP" in globals() else None, filename=os.path.abspath(filename))
+            collect_dlg.show()
+            lines = pre.splitlines()
+            total_lines = len(lines)
+            collect_dlg.set_total_lines(total_lines)
+
+            class_rx = re.compile(r'^\s*CLASS', re.IGNORECASE)
+            method_rx = re.compile(r'^\s*METHOD', re.IGNORECASE)
+            class_count = 0
+            method_count = 0
+
+            for idx, raw in enumerate(lines, start=1):
+                if class_rx.search(raw):
+                    class_count += 1
+                if method_rx.search(raw):
+                    method_count += 1
+                if not collect_dlg.update_progress(
+                    line_no=idx,
+                    line_text=raw,
+                    class_count=class_count,
+                    method_count=method_count,
+                    line_count=idx,
+                    status="Collect-Phase: Quelltext wird durchsucht …"
+                ):
+                    return None
+        except Exception:
+            collect_dlg = None
     
     #source = FileStream(filename, encoding="utf-8")
     source = InputStream(pre)
@@ -10398,6 +11529,11 @@ def parse(filename: str):
                     raise UnterminatedBlockCommentError(line, col)
                 break
     except Exception as e:
+        if collect_dlg is not None:
+            try:
+                collect_dlg.close()
+            except Exception:
+                pass
         dlg = ErrorMessage(
             title    = _tr("Lexer Error"),
             log_path = LOG,
@@ -10408,10 +11544,33 @@ def parse(filename: str):
     
     global VISITOR
     VISITOR = ExecVisitor()
+    VISITOR._current_filename = os.path.abspath(filename)
+    VISITOR._pre_source = pre
+    VISITOR._class_line_ranges = None
+    VISITOR._pre_source = pre
+    VISITOR._parse_tree = tree
+
+    if collect_dlg is not None:
+        collect_dlg.update_progress(
+            line_no=0,
+            line_text="",
+            status="Collect-Phase: Klassen und Methoden werden eingesammelt …"
+        )
     
     # PASS 1: Klassen sammeln
     VISITOR._mode = "collect"
     VISITOR.visit(tree)
+
+    if collect_dlg is not None:
+        class_count, method_count = _count_collect_entities(VISITOR)
+        collect_dlg.set_ready(
+            class_count=class_count,
+            method_count=method_count,
+            line_count=len(pre.splitlines())
+        )
+        res = collect_dlg.exec_()
+        if res != QDialog.Accepted or collect_dlg.cancel_requested:
+            return None
 
     # PASS 2: Statements ausführen
     VISITOR._mode = "exec"
@@ -18583,9 +19742,10 @@ def main():
             except Exception:
                 pass
             try:
-                QMessageBox.critical(None, "Startfehler",
-                                     "Beim Start ist ein Fehler aufgetreten.\n" +
-                                     "Details stehen in: webengine_crash.log")
+                QMessageBox.critical(
+                    None, "Startfehler",
+                    "Beim Start ist ein Fehler aufgetreten.\n" +
+                    "Details stehen in: webengine_crash.log")
             except Exception:
                 pass
             return

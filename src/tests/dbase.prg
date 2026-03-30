@@ -152,6 +152,10 @@ CLASS ParentForm OF FORM
         RETURN 324
     ENDMETHOD
     
+    METHOD testProcer()
+        WRITE "test procer"
+    ENDMETHOD
+
     // --------------------------------------------------------------
     // \brief This is a onClick Event methode. It will be execute
     //        when you mouse click in the child-area of window/form.
@@ -165,7 +169,10 @@ CLASS ParentForm OF FORM
             CASE v == 41 WRITE "-42-"
             OTHERWISE
                 DO CASE
-                    CASE a == 15 WRITE "OK"
+                    CASE a == 15
+                        WRITE "OK"
+                        DO this.testProcer()
+                        DO test
                 ENDCASE
                 WRITE "fallback"
                 WRITE "other"
