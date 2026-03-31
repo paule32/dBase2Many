@@ -97,16 +97,8 @@ jobs:
             if (-not (Test-Path $p)) { throw "Required path not found: $p" }
           }
 
-          if (Test-Path 'src/dBaseLexer.g4' and Test-Path 'src/dBaseParser.g4') {
-            "GRAMMAR_DIR=src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          }
-          elseif (Test-Path 'dBaseLexer.g4' and Test-Path 'dBaseParser.g4') {
-            "GRAMMAR_DIR=." | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          }
-          else {
-            throw 'Could not find dBaseLexer.g4 and dBaseParser.g4 in repo root or src/'
-          }
-
+          "GRAMMAR_DIR=src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          
       - name: Download ANTLR tool
         shell: pwsh
         run: |
