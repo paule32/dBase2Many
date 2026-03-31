@@ -57,7 +57,7 @@ if errorlevel 1 (
     echo error installing PyQtWebEngine
     goto have_error
 )
-
+%PYTHON_VENV%\python.exe -m pip install reportlab
 goto no_error
 :: ---------------------------------------------------------------
 :have_error

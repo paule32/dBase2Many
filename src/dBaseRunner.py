@@ -767,7 +767,10 @@ class Delegate:
     def __call__(self, *args):
         if self.runner is None:
             raise RuntimeError("Delegate hat keinen runner")
-        return self.runner.invoke_method(self.target, self.method_name, list(args), None)
+        try:
+            return self.runner.invoke_method(self.target, self.method_name, list(args), None)
+        except ProgramAbortSignal:
+            return None
 
     def __repr__(self) -> str:
         target_name = getattr(self.target, "class_name", "<unknown>")
@@ -813,6 +816,10 @@ class ReturnSignal(Exception):
         super().__init__(self, value)
         self.value = value
         self.has_value = has_value
+
+class ProgramAbortSignal(Exception):
+    """Stoppt die aktuelle dBase-Abarbeitung kontrolliert und kehrt zur GUI zurück."""
+    pass
 
 class UnterminatedBlockCommentError(Exception):
     def __init__(self, line, column, message="unterminated block comment"):
@@ -880,13 +887,14 @@ _RUNTIME_PRINT_MARGIN_DEFAULTS = {
 _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
 _RUNTIME_ESCAPE_ENABLED = False
 _RUNTIME_ESCAPE_FILTER = None
+_RUNTIME_CONFIRM_ENABLED = False
 
 
 def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None):
     global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
     global _RUNTIME_PRINT_LINES, _RUNTIME_PRINT_PDF_PATH
     global _RUNTIME_PRINT_STARTED_AT, _RUNTIME_PRINT_SCRIPT_PATH
-    global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED
+    global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED, _RUNTIME_CONFIRM_ENABLED
 
     _RUNTIME_OUTPUT_FORMAT = "SCREEN"
     _RUNTIME_PRINT_ENABLED = False
@@ -895,6 +903,7 @@ def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None
     _RUNTIME_PRINT_STARTED_AT = datetime.datetime.now()
     _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
     _RUNTIME_ESCAPE_ENABLED = False
+    _RUNTIME_CONFIRM_ENABLED = False
     try:
         _RUNTIME_PRINT_SCRIPT_PATH = Path(script_filename).resolve() if script_filename else None
     except Exception:
@@ -1156,6 +1165,12 @@ def _set_runtime_print_enabled(enabled: bool):
 def _set_runtime_escape_enabled(enabled: bool):
     global _RUNTIME_ESCAPE_ENABLED
     _RUNTIME_ESCAPE_ENABLED = bool(enabled)
+    return 0
+
+
+def _set_runtime_confirm_enabled(enabled: bool):
+    global _RUNTIME_CONFIRM_ENABLED
+    _RUNTIME_CONFIRM_ENABLED = bool(enabled)
     return 0
 
 
@@ -3209,6 +3224,7 @@ class Preprocessor:
         data = self._rewrite_input_statements(data)
         data = self._rewrite_erase_statements(data)
         data = self._rewrite_set_output_statements(data)
+        data = self._rewrite_memvar_statements(data)
         return data
 
     def _rewrite_do_case_blocks(self, text: str) -> str:
@@ -3242,7 +3258,8 @@ class Preprocessor:
                         "CASE", "ENDCASE", "OTHERWISE",
                         "APPEND", "INSERT", "DELETE", "GOTO", "LOOP", "EXIT", "RETURN",
                         "THIS.", "SUPER.", "SET", "USE", "SELECT", "WAIT", "MESSAGEBOX",
-                        "BROWSE", "COUNT", "SUM", "AVERAGE", "LIST", "DISPLAY", "ASSERT"
+                        "BROWSE", "COUNT", "SUM", "AVERAGE", "LIST", "DISPLAY", "ASSERT",
+                        "SAVE", "RESTORE", "RELEASE"
                     )
                     if upper_tail.startswith(stmt_starters) or re.match(r'^[A-Za-z_]\w*\s*=.*$', tail):
                         return head, tail
@@ -3743,6 +3760,12 @@ class Preprocessor:
                 out.append(f'{indent}__DBASE_SET_ESCAPE__({enabled}){comment_suffix}{nl}')
                 continue
 
+            m = re.match(r'^SET\s+CONFIRM\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
+            if m:
+                enabled = '1' if m.group(1).upper() == 'ON' else '0'
+                out.append(f'{indent}__DBASE_SET_CONFIRM__({enabled}){comment_suffix}{nl}')
+                continue
+
             m = re.match(r'^SET\s+MARGIN\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
             if m:
                 tail = (m.group(1) or '').strip()
@@ -3760,6 +3783,181 @@ class Preprocessor:
                         rewritten_args.append(arg)
                 out.append(f"{indent}__DBASE_SET_MARGIN__(" + ", ".join(rewritten_args) + f"){comment_suffix}{nl}")
                 continue
+
+            out.append(raw_line)
+
+        return ''.join(out)
+
+    def _tokenize_space_separated(self, s: str) -> list[str]:
+        if s is None:
+            return []
+
+        tokens = []
+        cur = []
+        i = 0
+        n = len(s)
+        in_quote = None
+        in_bracket = False
+
+        while i < n:
+            ch = s[i]
+
+            if in_quote is not None:
+                cur.append(ch)
+                if ch == in_quote:
+                    if i + 1 < n and s[i + 1] == in_quote:
+                        cur.append(s[i + 1])
+                        i += 2
+                        continue
+                    in_quote = None
+                i += 1
+                continue
+
+            if in_bracket:
+                cur.append(ch)
+                if ch == ']':
+                    if i + 1 < n and s[i + 1] == ']':
+                        cur.append(s[i + 1])
+                        i += 2
+                        continue
+                    in_bracket = False
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                in_quote = ch
+                cur.append(ch)
+                i += 1
+                continue
+
+            if ch == '[':
+                in_bracket = True
+                cur.append(ch)
+                i += 1
+                continue
+
+            if ch.isspace():
+                if cur:
+                    tokens.append(''.join(cur))
+                    cur = []
+                i += 1
+                while i < n and s[i].isspace():
+                    i += 1
+                continue
+
+            cur.append(ch)
+            i += 1
+
+        if cur:
+            tokens.append(''.join(cur))
+        return tokens
+
+    def _quote_builtin_arg(self, s: str) -> str:
+        s = '' if s is None else str(s)
+        s = s.replace('\\', '\\\\').replace('"', '\"')
+        return f'"{s}"'
+
+    def _parse_mem_destination(self, s: str) -> tuple[str, str]:
+        tokens = self._tokenize_space_separated(s)
+        if not tokens:
+            return '', ''
+        if len(tokens) >= 2 and re.fullmatch(r'[A-Za-z]:?', tokens[0]):
+            drive = tokens[0].rstrip(':')
+            filename = ' '.join(tokens[1:]).strip()
+            return drive, filename
+        return '', ' '.join(tokens).strip()
+
+    def _rewrite_memvar_statements(self, text: str) -> str:
+        lines = text.splitlines(keepends=True)
+        out = []
+
+        for raw_line in lines:
+            nl = ''
+            line = raw_line
+            if line.endswith('\r\n'):
+                line = line[:-2]
+                nl = '\r\n'
+            elif line.endswith('\n'):
+                line = line[:-1]
+                nl = '\n'
+
+            stripped = line.strip()
+            if not stripped:
+                out.append(raw_line)
+                continue
+
+            indent = line[:len(line) - len(line.lstrip())]
+            code_part, comment_part = self._split_comment_outside(line)
+            work = code_part.strip()
+            comment_suffix = '' if not comment_part else ' ' + comment_part.lstrip()
+
+            if re.match(r'^STORE', work, flags=re.IGNORECASE):
+                rest = re.sub(r'^STORE', '', work, count=1, flags=re.IGNORECASE).strip()
+                to_pos = self._find_keyword_outside(rest, 'TO')
+                if to_pos >= 0:
+                    expr_text = rest[:to_pos].strip()
+                    target_name = rest[to_pos + 2:].strip()
+                    if expr_text and target_name:
+                        out.append(f"{indent}__DBASE_STORE__({expr_text}, {self._quote_builtin_arg(target_name)}){comment_suffix}{nl}")
+                        continue
+
+            if re.match(r'^SAVE', work, flags=re.IGNORECASE):
+                rest = re.sub(r'^SAVE', '', work, count=1, flags=re.IGNORECASE).strip()
+                mode = 'ALL'
+                mask = ''
+                dest_part = ''
+
+                if re.match(r'^TO', rest, flags=re.IGNORECASE):
+                    dest_part = re.sub(r'^TO', '', rest, count=1, flags=re.IGNORECASE).strip()
+                else:
+                    to_pos = self._find_keyword_outside(rest, 'TO')
+                    if to_pos >= 0:
+                        sel_part = rest[:to_pos].strip()
+                        dest_part = rest[to_pos + 2:].strip()
+                        m_sel = re.match(r'^ALL(?:\s+(LIKE|EXCEPT)\s+(.*))?$', sel_part, flags=re.IGNORECASE)
+                        if m_sel:
+                            if m_sel.group(1):
+                                mode = m_sel.group(1).upper()
+                                mask = (m_sel.group(2) or '').strip()
+                            else:
+                                mode = 'ALL'
+                        else:
+                            dest_part = ''
+
+                drive, filename = self._parse_mem_destination(dest_part)
+                if filename or drive:
+                    out.append(f"{indent}__DBASE_SAVE__({self._quote_builtin_arg(filename)}, {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(mask)}, {self._quote_builtin_arg(drive)}){comment_suffix}{nl}")
+                    continue
+
+            if re.match(r'^RESTORE', work, flags=re.IGNORECASE):
+                rest = re.sub(r'^RESTORE', '', work, count=1, flags=re.IGNORECASE).strip()
+                m_from = re.match(r'^FROM(.*)$', rest, flags=re.IGNORECASE)
+                if m_from:
+                    tail = (m_from.group(1) or '').strip()
+                    additive = '0'
+                    if re.search(r'ADDITIVE', tail, flags=re.IGNORECASE):
+                        additive = '1'
+                        tail = re.sub(r'ADDITIVE', '', tail, flags=re.IGNORECASE).strip()
+                    drive, filename = self._parse_mem_destination(tail)
+                    if filename or drive:
+                        out.append(f"{indent}__DBASE_RESTORE__({self._quote_builtin_arg(filename)}, {additive}, {self._quote_builtin_arg(drive)}){comment_suffix}{nl}")
+                        continue
+
+            if re.match(r'^RELEASE', work, flags=re.IGNORECASE):
+                rest = re.sub(r'^RELEASE', '', work, count=1, flags=re.IGNORECASE).strip()
+                if re.match(r'^ALL', rest, flags=re.IGNORECASE):
+                    tail = re.sub(r'^ALL', '', rest, count=1, flags=re.IGNORECASE).strip()
+                    mode = 'ALL'
+                    mask = ''
+                    m_mode = re.match(r'^(LIKE|EXCEPT)\s+(.*)$', tail, flags=re.IGNORECASE)
+                    if m_mode:
+                        mode = m_mode.group(1).upper()
+                        mask = (m_mode.group(2) or '').strip()
+                    out.append(f"{indent}__DBASE_RELEASE__('', {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(mask)}){comment_suffix}{nl}")
+                    continue
+                if rest:
+                    out.append(f"{indent}__DBASE_RELEASE__({self._quote_builtin_arg(rest)}, 'LIST', ''){comment_suffix}{nl}")
+                    continue
 
             out.append(raw_line)
 
@@ -9276,6 +9474,11 @@ class ExecVisitor(dBaseParserVisitor):
         self.set_var("__DBASE_SET_PRINT__", self._builtin_SET_PRINT)
         self.set_var("__DBASE_SET_MARGIN__", self._builtin_SET_MARGIN)
         self.set_var("__DBASE_SET_ESCAPE__", self._builtin_SET_ESCAPE)
+        self.set_var("__DBASE_SET_CONFIRM__", self._builtin_SET_CONFIRM)
+        self.set_var("__DBASE_STORE__", self._builtin_STORE)
+        self.set_var("__DBASE_SAVE__", self._builtin_SAVE)
+        self.set_var("__DBASE_RESTORE__", self._builtin_RESTORE)
+        self.set_var("__DBASE_RELEASE__", self._builtin_RELEASE)
     
     def _builtin_ERASE(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
@@ -9320,6 +9523,206 @@ class ExecVisitor(dBaseParserVisitor):
             else:
                 enabled = bool(raw)
         return _set_runtime_escape_enabled(enabled)
+
+    def _builtin_SET_CONFIRM(self, *args):
+        if getattr(self, "_mode", "exec") != "exec":
+            return 0
+        enabled = False
+        if args:
+            raw = args[0]
+            if isinstance(raw, str):
+                enabled = raw.strip().upper() in ("1", "ON", "TRUE", ".T.", "T", "Y", ".Y.")
+            else:
+                enabled = bool(raw)
+        return _set_runtime_confirm_enabled(enabled)
+
+    def _decode_builtin_text_arg(self, value, default: str = "") -> str:
+        if value is None:
+            return default
+        s = str(value).strip()
+        if not s:
+            return default
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+            return self._unescape_string(s)
+        if len(s) >= 2 and s[0] == '[' and s[-1] == ']':
+            return self._unescape_bracket_string(s)
+        return s
+
+    def _is_reserved_memvar(self, name: str, value=None) -> bool:
+        key = (name or '').upper()
+        if key in ('THIS', 'SELF'):
+            return True
+        if key.startswith('__DBASE_'):
+            return True
+        if callable(value):
+            return True
+        return False
+
+    def _match_mem_mask(self, name: str, mask: str) -> bool:
+        import fnmatch
+        return fnmatch.fnmatchcase((name or '').upper(), (mask or '').upper())
+
+    def _flatten_memory_vars(self) -> dict[str, object]:
+        merged: dict[str, object] = {}
+        for scope in self._scopes:
+            for key, value in scope.items():
+                merged[key.upper()] = value
+        return {k: v for k, v in merged.items() if not self._is_reserved_memvar(k, v)}
+
+    def _select_memory_vars(self, mode: str = 'ALL', mask: str = '') -> dict[str, object]:
+        mode = (mode or 'ALL').upper()
+        mask = (mask or '').strip()
+        items = self._flatten_memory_vars()
+        if mode == 'ALL' or not mask:
+            return dict(items)
+        if mode == 'LIKE':
+            return {k: v for k, v in items.items() if self._match_mem_mask(k, mask)}
+        if mode == 'EXCEPT':
+            return {k: v for k, v in items.items() if not self._match_mem_mask(k, mask)}
+        raise RuntimeError(f"SAVE/RELEASE: unbekannter Auswahlmodus '{mode}'")
+
+    def _jsonify_mem_value(self, value, var_name: str = ''):
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, (list, tuple)):
+            return [self._jsonify_mem_value(v, var_name) for v in value]
+        if isinstance(value, dict):
+            return {str(k): self._jsonify_mem_value(v, var_name) for k, v in value.items()}
+        raise RuntimeError(f"SAVE: Variable '{var_name}' ist nicht JSON-serialisierbar ({type(value).__name__})")
+
+    def _resolve_memfile_path(self, filename: str = '', drive: str = '') -> Path:
+        name = self._decode_builtin_text_arg(filename, 'memory.mem').strip()
+        if not name:
+            name = 'memory.mem'
+        if not Path(name).suffix:
+            name += '.mem'
+
+        drv = self._decode_builtin_text_arg(drive, '').strip().rstrip(':')
+        if drv:
+            base = Path(f"{drv.upper()}:\\")
+            path = base / name
+        else:
+            path = Path(name)
+            if not path.is_absolute():
+                cur = getattr(self, '_current_filename', '') or ''
+                base_dir = Path(cur).resolve().parent if cur else Path.cwd()
+                path = base_dir / path
+        return Path(os.path.abspath(str(path)))
+
+    def _confirm_memfile_overwrite(self, path: Path) -> None:
+        if not path.exists() or not _RUNTIME_CONFIRM_ENABLED:
+            return
+
+        parent = MAINAPP if 'MAINAPP' in globals() else None
+        answer = QMessageBox.question(
+            parent,
+            'Datei überschreiben?',
+            f'Die Datei existiert bereits und wird überschrieben:\n\n{path}\n\nSoll die Datei überschrieben werden?',
+            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.Cancel
+        )
+        if answer != QMessageBox.Ok:
+            raise ProgramAbortSignal()
+
+        backup_path = path.with_name(path.name + '.bak')
+        shutil.copy2(str(path), str(backup_path))
+
+    def _clear_memory_variables(self):
+        for scope in self._scopes:
+            for key in list(scope.keys()):
+                value = scope.get(key)
+                if self._is_reserved_memvar(key, value):
+                    continue
+                scope.pop(key, None)
+
+    def _delete_memory_variable(self, name: str):
+        key = (name or '').strip().upper()
+        if not key:
+            return
+        for scope in self._scopes:
+            scope.pop(key, None)
+
+    def _builtin_STORE(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        if len(args) < 2:
+            raise RuntimeError('STORE erwartet einen Ausdruck und eine Zielvariable')
+        value = args[0]
+        target_name = self._decode_builtin_text_arg(args[1], '').strip()
+        if not target_name:
+            raise RuntimeError('STORE: Zielvariable fehlt')
+        self._assign_input_target(target_name, value)
+        return value
+
+    def _builtin_SAVE(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        filename = args[0] if len(args) > 0 else ''
+        mode = self._decode_builtin_text_arg(args[1] if len(args) > 1 else 'ALL', 'ALL').upper()
+        mask = self._decode_builtin_text_arg(args[2] if len(args) > 2 else '', '')
+        drive = args[3] if len(args) > 3 else ''
+
+        path = self._resolve_memfile_path(filename, drive)
+        selected = self._select_memory_vars(mode, mask)
+        payload_vars = {key: self._jsonify_mem_value(value, key) for key, value in selected.items()}
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._confirm_memfile_overwrite(path)
+        payload = {
+            'format': 'dbase.mem.json',
+            'saved_at': datetime.datetime.now().isoformat(timespec='seconds'),
+            'variables': payload_vars,
+        }
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding='utf-8')
+        return 1
+
+    def _builtin_RESTORE(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        filename = args[0] if len(args) > 0 else ''
+        additive = bool(args[1]) if len(args) > 1 else False
+        drive = args[2] if len(args) > 2 else ''
+        path = self._resolve_memfile_path(filename, drive)
+        if not path.exists():
+            raise RuntimeError(f'RESTORE: Datei wurde nicht gefunden: {path}')
+
+        data = json.loads(path.read_text(encoding='utf-8'))
+        if isinstance(data, dict) and isinstance(data.get('variables'), dict):
+            variables = data['variables']
+        elif isinstance(data, dict):
+            variables = data
+        else:
+            raise RuntimeError('RESTORE: ungültiges Speicherformat')
+
+        if not additive:
+            self._clear_memory_variables()
+
+        for key, value in variables.items():
+            self._set_name(str(key), value, None)
+        return len(variables)
+
+    def _builtin_RELEASE(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        names_text = self._decode_builtin_text_arg(args[0] if len(args) > 0 else '', '')
+        mode = self._decode_builtin_text_arg(args[1] if len(args) > 1 else 'LIST', 'LIST').upper()
+        mask = self._decode_builtin_text_arg(args[2] if len(args) > 2 else '', '')
+
+        if mode == 'ALL':
+            self._clear_memory_variables()
+            return 0
+        if mode in ('LIKE', 'EXCEPT'):
+            selected = self._select_memory_vars(mode, mask)
+            for key in list(selected.keys()):
+                self._delete_memory_variable(key)
+            return len(selected)
+
+        names = [part.strip() for part in names_text.split(',') if part.strip()]
+        for name in names:
+            self._delete_memory_variable(name)
+        return len(names)
 
     def _builtin_USE(self, *args):
         """
@@ -9966,7 +10369,7 @@ class ExecVisitor(dBaseParserVisitor):
                     if pass_event:
                         args.append(ev)
                     self.invoke_method(h.target, h.method_name, args, None)
-                except ReturnSignal:
+                except (ReturnSignal, ProgramAbortSignal):
                     # RETURN in Handler -> nur diesen Handler beenden, nächste weiter
                     continue
             return None
@@ -10501,7 +10904,7 @@ class ExecVisitor(dBaseParserVisitor):
         def wrapper(qt_event=None):
             try:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONKEYDOWN_WRAPPER"] = wrapper
@@ -10517,7 +10920,7 @@ class ExecVisitor(dBaseParserVisitor):
         def wrapper(qt_event=None):
             try:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONKEYUP_WRAPPER"] = wrapper
@@ -10533,7 +10936,7 @@ class ExecVisitor(dBaseParserVisitor):
         def wrapper(qt_event=None):
             try:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONDBLCLICK_WRAPPER"] = wrapper
@@ -10562,10 +10965,10 @@ class ExecVisitor(dBaseParserVisitor):
                 for h in handlers:
                     try:
                         self.invoke_method(h.target, h.method_name, [inst], None)
-                    except ReturnSignal:
+                    except (ReturnSignal, ProgramAbortSignal):
                         # Return aus Handler ignorieren -> weiter zum nächsten
                         pass
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
                 
         # nur für Buttons (erstmal)
@@ -10616,7 +11019,7 @@ class ExecVisitor(dBaseParserVisitor):
             try:
                 # Wenn dein Handler Sender erwartet:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 # click-handler ignoriert return meistens
                 return None
         
@@ -10648,7 +11051,7 @@ class ExecVisitor(dBaseParserVisitor):
             try:
                 # Wenn dein Handler Sender erwartet:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 # click-handler ignoriert return meistens
                 return None
         
@@ -10670,7 +11073,7 @@ class ExecVisitor(dBaseParserVisitor):
             try:
                 # Minimal: nur Sender
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONMOUSEMOVE_WRAPPER"] = wrapper
@@ -10687,7 +11090,7 @@ class ExecVisitor(dBaseParserVisitor):
         def wrapper(qt_event=None):
             try:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONFOCUSIN_WRAPPER"] = wrapper
@@ -10704,7 +11107,7 @@ class ExecVisitor(dBaseParserVisitor):
         def wrapper(qt_event=None):
             try:
                 return self.invoke_method(handler.target, handler.method_name, [inst], None)
-            except ReturnSignal:
+            except (ReturnSignal, ProgramAbortSignal):
                 return None
 
         inst.props["_ONFOCUSOUT_WRAPPER"] = wrapper
@@ -13082,7 +13485,11 @@ def parse(filename: str, show_collect_dialog: bool = True):
             return None
 
     VISITOR._mode = "exec"
-    VISITOR.visit(tree)
+    try:
+        VISITOR.visit(tree)
+    except ProgramAbortSignal:
+        _runtime_output_session_end()
+        return None
 
     _runtime_output_session_end()
     return tree
