@@ -8,6 +8,7 @@ dBaseRunner.exe
 /doc/out/en
 *.chm
 *.zip
+*.pyc
 src/1
 doc/lib/drsktheme.jpg
 doc/lib/lighthteme.jpg
@@ -120,7 +121,6 @@ src/dBaseRunner_patched79_PREPROCESSOR_AND_ICONTAB_FIX.py
 src/dBaseRunner_patched79_PREPROCESSOR_APPEND_ONLY.py
 src/dBaseRunner_patched79_PREPROCESSOR_DIRECT_FIX.py
 src/regenerate_antlr.bat
-src/resources_rc.py
 /src/tests/build
 tmp/*
 src/dBaseRunner_1.py
