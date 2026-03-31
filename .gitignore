@@ -183,3 +183,4 @@ src/tests/dbase_parser_input_dump.prg
 src/tests/dbase_parse_input_dump.prg
 src/dBaseRunner_v48.py
 src/tests/proto/protokoll_2026-03-31_20-45-49.pdf
+src/dBaseRunner_v49.py

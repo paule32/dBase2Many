@@ -1,0 +1,276 @@
+VGA-Farbwerte 0..255 (Farbwert = Hintergrund*16 + Vordergrund)
+Indexfarben:
+   0 = Schwarz (#000000)
+   1 = Blau (#0000AA)
+   2 = Gruen (#00AA00)
+   3 = Cyan (#00AAAA)
+   4 = Rot (#AA0000)
+   5 = Magenta (#AA00AA)
+   6 = Braun (#AA5500)
+   7 = Hellgrau (#AAAAAA)
+   8 = Dunkelgrau (#555555)
+   9 = Hellblau (#5555FF)
+  10 = Hellgruen (#55FF55)
+  11 = Hellcyan (#55FFFF)
+  12 = Hellrot (#FF5555)
+  13 = Hellmagenta (#FF55FF)
+  14 = Gelb (#FFFF55)
+  15 = Weiss (#FFFFFF)
+
+Tabelle:
+  0: FG  0 Schwarz       / BG  0 Schwarz       -> Schwarz auf Schwarz
+  1: FG  1 Blau          / BG  0 Schwarz       -> Blau auf Schwarz
+  2: FG  2 Gruen         / BG  0 Schwarz       -> Gruen auf Schwarz
+  3: FG  3 Cyan          / BG  0 Schwarz       -> Cyan auf Schwarz
+  4: FG  4 Rot           / BG  0 Schwarz       -> Rot auf Schwarz
+  5: FG  5 Magenta       / BG  0 Schwarz       -> Magenta auf Schwarz
+  6: FG  6 Braun         / BG  0 Schwarz       -> Braun auf Schwarz
+  7: FG  7 Hellgrau      / BG  0 Schwarz       -> Hellgrau auf Schwarz
+  8: FG  8 Dunkelgrau    / BG  0 Schwarz       -> Dunkelgrau auf Schwarz
+  9: FG  9 Hellblau      / BG  0 Schwarz       -> Hellblau auf Schwarz
+ 10: FG 10 Hellgruen     / BG  0 Schwarz       -> Hellgruen auf Schwarz
+ 11: FG 11 Hellcyan      / BG  0 Schwarz       -> Hellcyan auf Schwarz
+ 12: FG 12 Hellrot       / BG  0 Schwarz       -> Hellrot auf Schwarz
+ 13: FG 13 Hellmagenta   / BG  0 Schwarz       -> Hellmagenta auf Schwarz
+ 14: FG 14 Gelb          / BG  0 Schwarz       -> Gelb auf Schwarz
+ 15: FG 15 Weiss         / BG  0 Schwarz       -> Weiss auf Schwarz
+ 16: FG  0 Schwarz       / BG  1 Blau          -> Schwarz auf Blau
+ 17: FG  1 Blau          / BG  1 Blau          -> Blau auf Blau
+ 18: FG  2 Gruen         / BG  1 Blau          -> Gruen auf Blau
+ 19: FG  3 Cyan          / BG  1 Blau          -> Cyan auf Blau
+ 20: FG  4 Rot           / BG  1 Blau          -> Rot auf Blau
+ 21: FG  5 Magenta       / BG  1 Blau          -> Magenta auf Blau
+ 22: FG  6 Braun         / BG  1 Blau          -> Braun auf Blau
+ 23: FG  7 Hellgrau      / BG  1 Blau          -> Hellgrau auf Blau
+ 24: FG  8 Dunkelgrau    / BG  1 Blau          -> Dunkelgrau auf Blau
+ 25: FG  9 Hellblau      / BG  1 Blau          -> Hellblau auf Blau
+ 26: FG 10 Hellgruen     / BG  1 Blau          -> Hellgruen auf Blau
+ 27: FG 11 Hellcyan      / BG  1 Blau          -> Hellcyan auf Blau
+ 28: FG 12 Hellrot       / BG  1 Blau          -> Hellrot auf Blau
+ 29: FG 13 Hellmagenta   / BG  1 Blau          -> Hellmagenta auf Blau
+ 30: FG 14 Gelb          / BG  1 Blau          -> Gelb auf Blau
+ 31: FG 15 Weiss         / BG  1 Blau          -> Weiss auf Blau
+ 32: FG  0 Schwarz       / BG  2 Gruen         -> Schwarz auf Gruen
+ 33: FG  1 Blau          / BG  2 Gruen         -> Blau auf Gruen
+ 34: FG  2 Gruen         / BG  2 Gruen         -> Gruen auf Gruen
+ 35: FG  3 Cyan          / BG  2 Gruen         -> Cyan auf Gruen
+ 36: FG  4 Rot           / BG  2 Gruen         -> Rot auf Gruen
+ 37: FG  5 Magenta       / BG  2 Gruen         -> Magenta auf Gruen
+ 38: FG  6 Braun         / BG  2 Gruen         -> Braun auf Gruen
+ 39: FG  7 Hellgrau      / BG  2 Gruen         -> Hellgrau auf Gruen
+ 40: FG  8 Dunkelgrau    / BG  2 Gruen         -> Dunkelgrau auf Gruen
+ 41: FG  9 Hellblau      / BG  2 Gruen         -> Hellblau auf Gruen
+ 42: FG 10 Hellgruen     / BG  2 Gruen         -> Hellgruen auf Gruen
+ 43: FG 11 Hellcyan      / BG  2 Gruen         -> Hellcyan auf Gruen
+ 44: FG 12 Hellrot       / BG  2 Gruen         -> Hellrot auf Gruen
+ 45: FG 13 Hellmagenta   / BG  2 Gruen         -> Hellmagenta auf Gruen
+ 46: FG 14 Gelb          / BG  2 Gruen         -> Gelb auf Gruen
+ 47: FG 15 Weiss         / BG  2 Gruen         -> Weiss auf Gruen
+ 48: FG  0 Schwarz       / BG  3 Cyan          -> Schwarz auf Cyan
+ 49: FG  1 Blau          / BG  3 Cyan          -> Blau auf Cyan
+ 50: FG  2 Gruen         / BG  3 Cyan          -> Gruen auf Cyan
+ 51: FG  3 Cyan          / BG  3 Cyan          -> Cyan auf Cyan
+ 52: FG  4 Rot           / BG  3 Cyan          -> Rot auf Cyan
+ 53: FG  5 Magenta       / BG  3 Cyan          -> Magenta auf Cyan
+ 54: FG  6 Braun         / BG  3 Cyan          -> Braun auf Cyan
+ 55: FG  7 Hellgrau      / BG  3 Cyan          -> Hellgrau auf Cyan
+ 56: FG  8 Dunkelgrau    / BG  3 Cyan          -> Dunkelgrau auf Cyan
+ 57: FG  9 Hellblau      / BG  3 Cyan          -> Hellblau auf Cyan
+ 58: FG 10 Hellgruen     / BG  3 Cyan          -> Hellgruen auf Cyan
+ 59: FG 11 Hellcyan      / BG  3 Cyan          -> Hellcyan auf Cyan
+ 60: FG 12 Hellrot       / BG  3 Cyan          -> Hellrot auf Cyan
+ 61: FG 13 Hellmagenta   / BG  3 Cyan          -> Hellmagenta auf Cyan
+ 62: FG 14 Gelb          / BG  3 Cyan          -> Gelb auf Cyan
+ 63: FG 15 Weiss         / BG  3 Cyan          -> Weiss auf Cyan
+ 64: FG  0 Schwarz       / BG  4 Rot           -> Schwarz auf Rot
+ 65: FG  1 Blau          / BG  4 Rot           -> Blau auf Rot
+ 66: FG  2 Gruen         / BG  4 Rot           -> Gruen auf Rot
+ 67: FG  3 Cyan          / BG  4 Rot           -> Cyan auf Rot
+ 68: FG  4 Rot           / BG  4 Rot           -> Rot auf Rot
+ 69: FG  5 Magenta       / BG  4 Rot           -> Magenta auf Rot
+ 70: FG  6 Braun         / BG  4 Rot           -> Braun auf Rot
+ 71: FG  7 Hellgrau      / BG  4 Rot           -> Hellgrau auf Rot
+ 72: FG  8 Dunkelgrau    / BG  4 Rot           -> Dunkelgrau auf Rot
+ 73: FG  9 Hellblau      / BG  4 Rot           -> Hellblau auf Rot
+ 74: FG 10 Hellgruen     / BG  4 Rot           -> Hellgruen auf Rot
+ 75: FG 11 Hellcyan      / BG  4 Rot           -> Hellcyan auf Rot
+ 76: FG 12 Hellrot       / BG  4 Rot           -> Hellrot auf Rot
+ 77: FG 13 Hellmagenta   / BG  4 Rot           -> Hellmagenta auf Rot
+ 78: FG 14 Gelb          / BG  4 Rot           -> Gelb auf Rot
+ 79: FG 15 Weiss         / BG  4 Rot           -> Weiss auf Rot
+ 80: FG  0 Schwarz       / BG  5 Magenta       -> Schwarz auf Magenta
+ 81: FG  1 Blau          / BG  5 Magenta       -> Blau auf Magenta
+ 82: FG  2 Gruen         / BG  5 Magenta       -> Gruen auf Magenta
+ 83: FG  3 Cyan          / BG  5 Magenta       -> Cyan auf Magenta
+ 84: FG  4 Rot           / BG  5 Magenta       -> Rot auf Magenta
+ 85: FG  5 Magenta       / BG  5 Magenta       -> Magenta auf Magenta
+ 86: FG  6 Braun         / BG  5 Magenta       -> Braun auf Magenta
+ 87: FG  7 Hellgrau      / BG  5 Magenta       -> Hellgrau auf Magenta
+ 88: FG  8 Dunkelgrau    / BG  5 Magenta       -> Dunkelgrau auf Magenta
+ 89: FG  9 Hellblau      / BG  5 Magenta       -> Hellblau auf Magenta
+ 90: FG 10 Hellgruen     / BG  5 Magenta       -> Hellgruen auf Magenta
+ 91: FG 11 Hellcyan      / BG  5 Magenta       -> Hellcyan auf Magenta
+ 92: FG 12 Hellrot       / BG  5 Magenta       -> Hellrot auf Magenta
+ 93: FG 13 Hellmagenta   / BG  5 Magenta       -> Hellmagenta auf Magenta
+ 94: FG 14 Gelb          / BG  5 Magenta       -> Gelb auf Magenta
+ 95: FG 15 Weiss         / BG  5 Magenta       -> Weiss auf Magenta
+ 96: FG  0 Schwarz       / BG  6 Braun         -> Schwarz auf Braun
+ 97: FG  1 Blau          / BG  6 Braun         -> Blau auf Braun
+ 98: FG  2 Gruen         / BG  6 Braun         -> Gruen auf Braun
+ 99: FG  3 Cyan          / BG  6 Braun         -> Cyan auf Braun
+100: FG  4 Rot           / BG  6 Braun         -> Rot auf Braun
+101: FG  5 Magenta       / BG  6 Braun         -> Magenta auf Braun
+102: FG  6 Braun         / BG  6 Braun         -> Braun auf Braun
+103: FG  7 Hellgrau      / BG  6 Braun         -> Hellgrau auf Braun
+104: FG  8 Dunkelgrau    / BG  6 Braun         -> Dunkelgrau auf Braun
+105: FG  9 Hellblau      / BG  6 Braun         -> Hellblau auf Braun
+106: FG 10 Hellgruen     / BG  6 Braun         -> Hellgruen auf Braun
+107: FG 11 Hellcyan      / BG  6 Braun         -> Hellcyan auf Braun
+108: FG 12 Hellrot       / BG  6 Braun         -> Hellrot auf Braun
+109: FG 13 Hellmagenta   / BG  6 Braun         -> Hellmagenta auf Braun
+110: FG 14 Gelb          / BG  6 Braun         -> Gelb auf Braun
+111: FG 15 Weiss         / BG  6 Braun         -> Weiss auf Braun
+112: FG  0 Schwarz       / BG  7 Hellgrau      -> Schwarz auf Hellgrau
+113: FG  1 Blau          / BG  7 Hellgrau      -> Blau auf Hellgrau
+114: FG  2 Gruen         / BG  7 Hellgrau      -> Gruen auf Hellgrau
+115: FG  3 Cyan          / BG  7 Hellgrau      -> Cyan auf Hellgrau
+116: FG  4 Rot           / BG  7 Hellgrau      -> Rot auf Hellgrau
+117: FG  5 Magenta       / BG  7 Hellgrau      -> Magenta auf Hellgrau
+118: FG  6 Braun         / BG  7 Hellgrau      -> Braun auf Hellgrau
+119: FG  7 Hellgrau      / BG  7 Hellgrau      -> Hellgrau auf Hellgrau
+120: FG  8 Dunkelgrau    / BG  7 Hellgrau      -> Dunkelgrau auf Hellgrau
+121: FG  9 Hellblau      / BG  7 Hellgrau      -> Hellblau auf Hellgrau
+122: FG 10 Hellgruen     / BG  7 Hellgrau      -> Hellgruen auf Hellgrau
+123: FG 11 Hellcyan      / BG  7 Hellgrau      -> Hellcyan auf Hellgrau
+124: FG 12 Hellrot       / BG  7 Hellgrau      -> Hellrot auf Hellgrau
+125: FG 13 Hellmagenta   / BG  7 Hellgrau      -> Hellmagenta auf Hellgrau
+126: FG 14 Gelb          / BG  7 Hellgrau      -> Gelb auf Hellgrau
+127: FG 15 Weiss         / BG  7 Hellgrau      -> Weiss auf Hellgrau
+128: FG  0 Schwarz       / BG  8 Dunkelgrau    -> Schwarz auf Dunkelgrau
+129: FG  1 Blau          / BG  8 Dunkelgrau    -> Blau auf Dunkelgrau
+130: FG  2 Gruen         / BG  8 Dunkelgrau    -> Gruen auf Dunkelgrau
+131: FG  3 Cyan          / BG  8 Dunkelgrau    -> Cyan auf Dunkelgrau
+132: FG  4 Rot           / BG  8 Dunkelgrau    -> Rot auf Dunkelgrau
+133: FG  5 Magenta       / BG  8 Dunkelgrau    -> Magenta auf Dunkelgrau
+134: FG  6 Braun         / BG  8 Dunkelgrau    -> Braun auf Dunkelgrau
+135: FG  7 Hellgrau      / BG  8 Dunkelgrau    -> Hellgrau auf Dunkelgrau
+136: FG  8 Dunkelgrau    / BG  8 Dunkelgrau    -> Dunkelgrau auf Dunkelgrau
+137: FG  9 Hellblau      / BG  8 Dunkelgrau    -> Hellblau auf Dunkelgrau
+138: FG 10 Hellgruen     / BG  8 Dunkelgrau    -> Hellgruen auf Dunkelgrau
+139: FG 11 Hellcyan      / BG  8 Dunkelgrau    -> Hellcyan auf Dunkelgrau
+140: FG 12 Hellrot       / BG  8 Dunkelgrau    -> Hellrot auf Dunkelgrau
+141: FG 13 Hellmagenta   / BG  8 Dunkelgrau    -> Hellmagenta auf Dunkelgrau
+142: FG 14 Gelb          / BG  8 Dunkelgrau    -> Gelb auf Dunkelgrau
+143: FG 15 Weiss         / BG  8 Dunkelgrau    -> Weiss auf Dunkelgrau
+144: FG  0 Schwarz       / BG  9 Hellblau      -> Schwarz auf Hellblau
+145: FG  1 Blau          / BG  9 Hellblau      -> Blau auf Hellblau
+146: FG  2 Gruen         / BG  9 Hellblau      -> Gruen auf Hellblau
+147: FG  3 Cyan          / BG  9 Hellblau      -> Cyan auf Hellblau
+148: FG  4 Rot           / BG  9 Hellblau      -> Rot auf Hellblau
+149: FG  5 Magenta       / BG  9 Hellblau      -> Magenta auf Hellblau
+150: FG  6 Braun         / BG  9 Hellblau      -> Braun auf Hellblau
+151: FG  7 Hellgrau      / BG  9 Hellblau      -> Hellgrau auf Hellblau
+152: FG  8 Dunkelgrau    / BG  9 Hellblau      -> Dunkelgrau auf Hellblau
+153: FG  9 Hellblau      / BG  9 Hellblau      -> Hellblau auf Hellblau
+154: FG 10 Hellgruen     / BG  9 Hellblau      -> Hellgruen auf Hellblau
+155: FG 11 Hellcyan      / BG  9 Hellblau      -> Hellcyan auf Hellblau
+156: FG 12 Hellrot       / BG  9 Hellblau      -> Hellrot auf Hellblau
+157: FG 13 Hellmagenta   / BG  9 Hellblau      -> Hellmagenta auf Hellblau
+158: FG 14 Gelb          / BG  9 Hellblau      -> Gelb auf Hellblau
+159: FG 15 Weiss         / BG  9 Hellblau      -> Weiss auf Hellblau
+160: FG  0 Schwarz       / BG 10 Hellgruen     -> Schwarz auf Hellgruen
+161: FG  1 Blau          / BG 10 Hellgruen     -> Blau auf Hellgruen
+162: FG  2 Gruen         / BG 10 Hellgruen     -> Gruen auf Hellgruen
+163: FG  3 Cyan          / BG 10 Hellgruen     -> Cyan auf Hellgruen
+164: FG  4 Rot           / BG 10 Hellgruen     -> Rot auf Hellgruen
+165: FG  5 Magenta       / BG 10 Hellgruen     -> Magenta auf Hellgruen
+166: FG  6 Braun         / BG 10 Hellgruen     -> Braun auf Hellgruen
+167: FG  7 Hellgrau      / BG 10 Hellgruen     -> Hellgrau auf Hellgruen
+168: FG  8 Dunkelgrau    / BG 10 Hellgruen     -> Dunkelgrau auf Hellgruen
+169: FG  9 Hellblau      / BG 10 Hellgruen     -> Hellblau auf Hellgruen
+170: FG 10 Hellgruen     / BG 10 Hellgruen     -> Hellgruen auf Hellgruen
+171: FG 11 Hellcyan      / BG 10 Hellgruen     -> Hellcyan auf Hellgruen
+172: FG 12 Hellrot       / BG 10 Hellgruen     -> Hellrot auf Hellgruen
+173: FG 13 Hellmagenta   / BG 10 Hellgruen     -> Hellmagenta auf Hellgruen
+174: FG 14 Gelb          / BG 10 Hellgruen     -> Gelb auf Hellgruen
+175: FG 15 Weiss         / BG 10 Hellgruen     -> Weiss auf Hellgruen
+176: FG  0 Schwarz       / BG 11 Hellcyan      -> Schwarz auf Hellcyan
+177: FG  1 Blau          / BG 11 Hellcyan      -> Blau auf Hellcyan
+178: FG  2 Gruen         / BG 11 Hellcyan      -> Gruen auf Hellcyan
+179: FG  3 Cyan          / BG 11 Hellcyan      -> Cyan auf Hellcyan
+180: FG  4 Rot           / BG 11 Hellcyan      -> Rot auf Hellcyan
+181: FG  5 Magenta       / BG 11 Hellcyan      -> Magenta auf Hellcyan
+182: FG  6 Braun         / BG 11 Hellcyan      -> Braun auf Hellcyan
+183: FG  7 Hellgrau      / BG 11 Hellcyan      -> Hellgrau auf Hellcyan
+184: FG  8 Dunkelgrau    / BG 11 Hellcyan      -> Dunkelgrau auf Hellcyan
+185: FG  9 Hellblau      / BG 11 Hellcyan      -> Hellblau auf Hellcyan
+186: FG 10 Hellgruen     / BG 11 Hellcyan      -> Hellgruen auf Hellcyan
+187: FG 11 Hellcyan      / BG 11 Hellcyan      -> Hellcyan auf Hellcyan
+188: FG 12 Hellrot       / BG 11 Hellcyan      -> Hellrot auf Hellcyan
+189: FG 13 Hellmagenta   / BG 11 Hellcyan      -> Hellmagenta auf Hellcyan
+190: FG 14 Gelb          / BG 11 Hellcyan      -> Gelb auf Hellcyan
+191: FG 15 Weiss         / BG 11 Hellcyan      -> Weiss auf Hellcyan
+192: FG  0 Schwarz       / BG 12 Hellrot       -> Schwarz auf Hellrot
+193: FG  1 Blau          / BG 12 Hellrot       -> Blau auf Hellrot
+194: FG  2 Gruen         / BG 12 Hellrot       -> Gruen auf Hellrot
+195: FG  3 Cyan          / BG 12 Hellrot       -> Cyan auf Hellrot
+196: FG  4 Rot           / BG 12 Hellrot       -> Rot auf Hellrot
+197: FG  5 Magenta       / BG 12 Hellrot       -> Magenta auf Hellrot
+198: FG  6 Braun         / BG 12 Hellrot       -> Braun auf Hellrot
+199: FG  7 Hellgrau      / BG 12 Hellrot       -> Hellgrau auf Hellrot
+200: FG  8 Dunkelgrau    / BG 12 Hellrot       -> Dunkelgrau auf Hellrot
+201: FG  9 Hellblau      / BG 12 Hellrot       -> Hellblau auf Hellrot
+202: FG 10 Hellgruen     / BG 12 Hellrot       -> Hellgruen auf Hellrot
+203: FG 11 Hellcyan      / BG 12 Hellrot       -> Hellcyan auf Hellrot
+204: FG 12 Hellrot       / BG 12 Hellrot       -> Hellrot auf Hellrot
+205: FG 13 Hellmagenta   / BG 12 Hellrot       -> Hellmagenta auf Hellrot
+206: FG 14 Gelb          / BG 12 Hellrot       -> Gelb auf Hellrot
+207: FG 15 Weiss         / BG 12 Hellrot       -> Weiss auf Hellrot
+208: FG  0 Schwarz       / BG 13 Hellmagenta   -> Schwarz auf Hellmagenta
+209: FG  1 Blau          / BG 13 Hellmagenta   -> Blau auf Hellmagenta
+210: FG  2 Gruen         / BG 13 Hellmagenta   -> Gruen auf Hellmagenta
+211: FG  3 Cyan          / BG 13 Hellmagenta   -> Cyan auf Hellmagenta
+212: FG  4 Rot           / BG 13 Hellmagenta   -> Rot auf Hellmagenta
+213: FG  5 Magenta       / BG 13 Hellmagenta   -> Magenta auf Hellmagenta
+214: FG  6 Braun         / BG 13 Hellmagenta   -> Braun auf Hellmagenta
+215: FG  7 Hellgrau      / BG 13 Hellmagenta   -> Hellgrau auf Hellmagenta
+216: FG  8 Dunkelgrau    / BG 13 Hellmagenta   -> Dunkelgrau auf Hellmagenta
+217: FG  9 Hellblau      / BG 13 Hellmagenta   -> Hellblau auf Hellmagenta
+218: FG 10 Hellgruen     / BG 13 Hellmagenta   -> Hellgruen auf Hellmagenta
+219: FG 11 Hellcyan      / BG 13 Hellmagenta   -> Hellcyan auf Hellmagenta
+220: FG 12 Hellrot       / BG 13 Hellmagenta   -> Hellrot auf Hellmagenta
+221: FG 13 Hellmagenta   / BG 13 Hellmagenta   -> Hellmagenta auf Hellmagenta
+222: FG 14 Gelb          / BG 13 Hellmagenta   -> Gelb auf Hellmagenta
+223: FG 15 Weiss         / BG 13 Hellmagenta   -> Weiss auf Hellmagenta
+224: FG  0 Schwarz       / BG 14 Gelb          -> Schwarz auf Gelb
+225: FG  1 Blau          / BG 14 Gelb          -> Blau auf Gelb
+226: FG  2 Gruen         / BG 14 Gelb          -> Gruen auf Gelb
+227: FG  3 Cyan          / BG 14 Gelb          -> Cyan auf Gelb
+228: FG  4 Rot           / BG 14 Gelb          -> Rot auf Gelb
+229: FG  5 Magenta       / BG 14 Gelb          -> Magenta auf Gelb
+230: FG  6 Braun         / BG 14 Gelb          -> Braun auf Gelb
+231: FG  7 Hellgrau      / BG 14 Gelb          -> Hellgrau auf Gelb
+232: FG  8 Dunkelgrau    / BG 14 Gelb          -> Dunkelgrau auf Gelb
+233: FG  9 Hellblau      / BG 14 Gelb          -> Hellblau auf Gelb
+234: FG 10 Hellgruen     / BG 14 Gelb          -> Hellgruen auf Gelb
+235: FG 11 Hellcyan      / BG 14 Gelb          -> Hellcyan auf Gelb
+236: FG 12 Hellrot       / BG 14 Gelb          -> Hellrot auf Gelb
+237: FG 13 Hellmagenta   / BG 14 Gelb          -> Hellmagenta auf Gelb
+238: FG 14 Gelb          / BG 14 Gelb          -> Gelb auf Gelb
+239: FG 15 Weiss         / BG 14 Gelb          -> Weiss auf Gelb
+240: FG  0 Schwarz       / BG 15 Weiss         -> Schwarz auf Weiss
+241: FG  1 Blau          / BG 15 Weiss         -> Blau auf Weiss
+242: FG  2 Gruen         / BG 15 Weiss         -> Gruen auf Weiss
+243: FG  3 Cyan          / BG 15 Weiss         -> Cyan auf Weiss
+244: FG  4 Rot           / BG 15 Weiss         -> Rot auf Weiss
+245: FG  5 Magenta       / BG 15 Weiss         -> Magenta auf Weiss
+246: FG  6 Braun         / BG 15 Weiss         -> Braun auf Weiss
+247: FG  7 Hellgrau      / BG 15 Weiss         -> Hellgrau auf Weiss
+248: FG  8 Dunkelgrau    / BG 15 Weiss         -> Dunkelgrau auf Weiss
+249: FG  9 Hellblau      / BG 15 Weiss         -> Hellblau auf Weiss
+250: FG 10 Hellgruen     / BG 15 Weiss         -> Hellgruen auf Weiss
+251: FG 11 Hellcyan      / BG 15 Weiss         -> Hellcyan auf Weiss
+252: FG 12 Hellrot       / BG 15 Weiss         -> Hellrot auf Weiss
+253: FG 13 Hellmagenta   / BG 15 Weiss         -> Hellmagenta auf Weiss
+254: FG 14 Gelb          / BG 15 Weiss         -> Gelb auf Weiss
+255: FG 15 Weiss         / BG 15 Weiss         -> Weiss auf Weiss

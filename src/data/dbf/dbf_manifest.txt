@@ -1,0 +1,18 @@
+Erzeugte DBF-Dateien
+
+1) stdcolor.dbf
+   Felder:
+   - INDEX  : Numeric(2,0)
+   - NAME   : Character(16)
+   - VALUE  : Character(7)   -> Hex-Farbwert #RRGGBB
+
+2) vga256.dbf
+   Felder:
+   - INDEX  : Numeric(3,0)
+   - FG     : Numeric(2,0)
+   - BG     : Numeric(2,0)
+
+Hinweis:
+- Für INDEX/FG/BG wurde Numeric ohne Nachkommastellen verwendet, damit die gewünschte Feldbreite
+  von 2 bzw. 3 Zeichen sauber abbildbar ist.
+- VALUE in stdcolor.dbf enthält den Hex-Farbwert aus der VGA-Tabelle.
