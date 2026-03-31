@@ -1,4 +1,4 @@
-name: Build Windows EXE (onefile) + Release
+name: Build Windows EXE (regenerate ANTLR) + Release
 
 on:
   workflow_dispatch:
@@ -7,10 +7,26 @@ on:
         description: 'Release-Tag, z. B. v1.0.0'
         required: true
         default: 'v0.1.0'
+      build_mode:
+        description: 'PyInstaller-Modus'
+        required: true
+        type: choice
+        default: 'onefile'
+        options:
+          - onefile
+          - onedir
       python_version:
         description: 'Python-Version'
         required: true
         default: '3.11'
+      java_version:
+        description: 'Java-Version für ANTLR'
+        required: true
+        default: '17'
+      antlr_tool_version:
+        description: 'ANTLR Tool Version'
+        required: true
+        default: '4.13.2'
       antlr_runtime_version:
         description: 'ANTLR4 Python Runtime Version'
         required: true
@@ -25,19 +41,25 @@ env:
   BUILD_MO_SCRIPT: src/tools/build_mo.py
   DATA_DIR: src/data
   TESTS_DIR: src/tests
-  PO_DIR: src/data/po
   LOCALES_ZIP: src/data/locales.zip
+  GEN_DIR: src/gen
 
 jobs:
-  build-onefile:
+  build-release:
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
           cache: pip
@@ -54,6 +76,7 @@ jobs:
         shell: pwsh
         run: |
           python --version
+          java -version
           pyinstaller --version
           python -c "import antlr4, PyQt5, PyQt5.QtWebEngineWidgets, reportlab, polib; print('Runtime ok')"
 
@@ -66,7 +89,6 @@ jobs:
             $env:REQUIREMENTS_FILE,
             $env:BUILD_MO_SCRIPT,
             'src/resources_rc.py',
-            'src/gen',
             $env:DATA_DIR,
             $env:TESTS_DIR,
             'src/data/po/locales/de/LC_MESSAGES',
@@ -74,6 +96,40 @@ jobs:
           )) {
             if (-not (Test-Path $p)) { throw "Required path not found: $p" }
           }
+
+          if (Test-Path 'src/dBaseLexer.g4' -and Test-Path 'src/dBaseParser.g4') {
+            "GRAMMAR_DIR=src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          elseif (Test-Path 'dBaseLexer.g4' -and Test-Path 'dBaseParser.g4') {
+            "GRAMMAR_DIR=." | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          else {
+            throw 'Could not find dBaseLexer.g4 and dBaseParser.g4 in repo root or src/'
+          }
+
+      - name: Download ANTLR tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jar = Join-Path $env:RUNNER_TEMP "antlr-${{ inputs.antlr_tool_version }}-complete.jar"
+          Invoke-WebRequest -Uri "https://www.antlr.org/download/antlr-${{ inputs.antlr_tool_version }}-complete.jar" -OutFile $jar
+          if (-not (Test-Path $jar)) { throw "ANTLR jar not downloaded: $jar" }
+          "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Regenerate ANTLR lexer/parser into src/gen
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path $env:GEN_DIR) { Remove-Item $env:GEN_DIR -Recurse -Force }
+          New-Item -ItemType Directory -Path $env:GEN_DIR -Force | Out-Null
+          $lexer = Join-Path $env:GRAMMAR_DIR 'dBaseLexer.g4'
+          $parser = Join-Path $env:GRAMMAR_DIR 'dBaseParser.g4'
+          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -o $env:GEN_DIR $lexer $parser
+          if (-not (Test-Path (Join-Path $env:GEN_DIR 'dBaseLexer.py'))) { throw 'dBaseLexer.py was not generated' }
+          if (-not (Test-Path (Join-Path $env:GEN_DIR 'dBaseParser.py'))) { throw 'dBaseParser.py was not generated' }
+          if (-not (Test-Path (Join-Path $env:GEN_DIR 'dBaseParserVisitor.py'))) { throw 'dBaseParserVisitor.py was not generated' }
+          if (-not (Test-Path (Join-Path $env:GEN_DIR 'dBaseParserListener.py'))) { throw 'dBaseParserListener.py was not generated' }
+          Set-Content -Path (Join-Path $env:GEN_DIR '__init__.py') -Value '' -Encoding utf8
 
       - name: Build GNU gettext .mo files
         shell: pwsh
@@ -89,36 +145,16 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python - <<'PY'
-          from pathlib import Path
-          import zipfile
-
-          base = Path('src/data/po')
-          files = [
-              base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
-              base / 'locales' / 'en' / 'LC_MESSAGES' / 'dbase.mo',
-          ]
-          out_zip = Path('src/data/locales.zip')
-          out_zip.parent.mkdir(parents=True, exist_ok=True)
-          if out_zip.exists():
-              out_zip.unlink()
-          with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-              for f in files:
-                  if not f.exists():
-                      raise SystemExit(f'Missing file for zip: {f}')
-                  zf.write(f, f.relative_to(base).as_posix())
-          print(f'Created {out_zip}')
-          PY
+          python -c "from pathlib import Path; import zipfile; base=Path('src/data/po'); files=[base/'locales'/'de'/'LC_MESSAGES'/'dbase.mo', base/'locales'/'en'/'LC_MESSAGES'/'dbase.mo']; out_zip=Path('src/data/locales.zip'); out_zip.parent.mkdir(parents=True, exist_ok=True); out_zip.unlink(missing_ok=True); zf=zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED); [zf.write(f, f.relative_to(base).as_posix()) for f in files]; zf.close(); print(f'Created {out_zip}')"
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
-      - name: Build onefile EXE
+      - name: Build Windows executable
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $args = @(
             '--noconfirm',
             '--clean',
-            '--onefile',
             '--windowed',
             '--name', 'dBaseRunner',
             '--paths', 'src',
@@ -136,9 +172,17 @@ jobs:
             '--collect-all', 'reportlab',
             '--copy-metadata', 'antlr4-python3-runtime',
             '--copy-metadata', 'reportlab',
-            '--copy-metadata', 'polib',
-            'src/dBaseRunner.py'
+            '--copy-metadata', 'polib'
           )
+
+          if ('${{ inputs.build_mode }}' -eq 'onefile') {
+            $args += '--onefile'
+          }
+          else {
+            $args += @('--onedir', '--contents-directory', '.')
+          }
+
+          $args += 'src/dBaseRunner.py'
           pyinstaller @args
 
       - name: Prepare release ZIP
@@ -148,17 +192,28 @@ jobs:
           if (Test-Path release) { Remove-Item release -Recurse -Force }
           $root = Join-Path release 'dBaseRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\dBaseRunner.exe (Join-Path $root 'dBaseRunner.exe') -Force
+
+          if ('${{ inputs.build_mode }}' -eq 'onefile') {
+            Copy-Item dist\dBaseRunner.exe (Join-Path $root 'dBaseRunner.exe') -Force
+          }
+          else {
+            Copy-Item dist\dBaseRunner\* $root -Recurse -Force
+            if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
+          }
+
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onefile.zip -Force
+
+          $zipName = "dBaseRunner-${{ inputs.tag }}-windows-${{ inputs.build_mode }}-regen-antlr.zip"
+          Compress-Archive -Path release\* -DestinationPath $zipName -Force
+          "RELEASE_ZIP=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dBaseRunner-${{ inputs.tag }}-windows-onefile
-          path: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          name: dBaseRunner-${{ inputs.tag }}-windows-${{ inputs.build_mode }}-regen-antlr
+          path: ${{ env.RELEASE_ZIP }}
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
@@ -167,5 +222,5 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: dBaseRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          files: ${{ env.RELEASE_ZIP }}
           overwrite_files: true

@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release-Tag, v1.0.0'
+        description: 'Release-Tag, z. B. v1.0.0'
         required: true
-        default: 'v0.0.1'
+        default: 'v0.1.0'
       python_version:
         description: 'Python-Version'
         required: true
-        default: '3.14'
+        default: '3.11'
       antlr_runtime_version:
         description: 'ANTLR4 Python Runtime Version'
         required: true
@@ -20,9 +20,13 @@ permissions:
   contents: write
 
 env:
-  APP_DIR: src
   APP_ENTRY: src/dBaseRunner.py
   REQUIREMENTS_FILE: requirements.txt
+  BUILD_MO_SCRIPT: src/tools/build_mo.py
+  DATA_DIR: src/data
+  TESTS_DIR: src/tests
+  PO_DIR: src/data/po
+  LOCALES_ZIP: src/data/locales.zip
 
 jobs:
   build-onedir:
@@ -30,13 +34,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-          cache: 'pip'
+          cache: pip
           cache-dependency-path: ${{ env.REQUIREMENTS_FILE }}
 
       - name: Install build dependencies
@@ -57,10 +61,55 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not (Test-Path $env:APP_ENTRY)) { throw "Entry file not found: $env:APP_ENTRY" }
-          foreach ($p in @('src/resources_rc.py','src/data','src/tests','src/gen')) {
+          foreach ($p in @(
+            $env:APP_ENTRY,
+            $env:REQUIREMENTS_FILE,
+            $env:BUILD_MO_SCRIPT,
+            'src/resources_rc.py',
+            'src/gen',
+            $env:DATA_DIR,
+            $env:TESTS_DIR,
+            'src/data/po/locales/de/LC_MESSAGES',
+            'src/data/po/locales/en/LC_MESSAGES'
+          )) {
             if (-not (Test-Path $p)) { throw "Required path not found: $p" }
           }
+
+      - name: Build GNU gettext .mo files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location src/tools
+          python build_mo.py
+          Pop-Location
+          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/dbase.mo')) { throw 'Missing de .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/dbase.mo')) { throw 'Missing en .mo file after build_mo.py' }
+
+      - name: Create locales.zip for runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          base = Path('src/data/po')
+          files = [
+              base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
+              base / 'locales' / 'en' / 'LC_MESSAGES' / 'dbase.mo',
+          ]
+          out_zip = Path('src/data/locales.zip')
+          out_zip.parent.mkdir(parents=True, exist_ok=True)
+          if out_zip.exists():
+              out_zip.unlink()
+          with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+              for f in files:
+                  if not f.exists():
+                      raise SystemExit(f'Missing file for zip: {f}')
+                  zf.write(f, f.relative_to(base).as_posix())
+          print(f'Created {out_zip}')
+          PY
+          if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
       - name: Build onedir EXE
         shell: pwsh
@@ -70,10 +119,13 @@ jobs:
             '--noconfirm',
             '--clean',
             '--onedir',
+            '--contents-directory', '.',
             '--windowed',
             '--name', 'dBaseRunner',
             '--paths', 'src',
             '--hidden-import', 'antlr4',
+            '--hidden-import', 'polib',
+            '--hidden-import', 'reportlab',
             '--hidden-import', 'resources_rc',
             '--hidden-import', 'gen.dBaseLexer',
             '--hidden-import', 'gen.dBaseParser',
@@ -82,15 +134,10 @@ jobs:
             '--collect-submodules', 'antlr4',
             '--collect-all', 'PyQt5',
             '--collect-all', 'PyQtWebEngine',
-            '--collect-all', 'PyQt5.QtWebEngineCore',
-            '--collect-all', 'PyQt5.QtWebEngineWidgets',
-            '--collect-all', 'PyQt5.QtSvg',
+            '--collect-all', 'reportlab',
             '--copy-metadata', 'antlr4-python3-runtime',
             '--copy-metadata', 'reportlab',
             '--copy-metadata', 'polib',
-            '--add-data', 'src/data;data',
-            '--add-data', 'src/tests;tests',
-            '--add-data', 'src/gen;gen',
             'src/dBaseRunner.py'
           )
           pyinstaller @args
@@ -100,9 +147,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (Test-Path release) { Remove-Item release -Recurse -Force }
-          New-Item -ItemType Directory -Path release -Force | Out-Null
-          Copy-Item dist\dBaseRunner release\dBaseRunner -Recurse -Force
-          Compress-Archive -Path release\dBaseRunner\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onedir.zip -Force
+          $root = Join-Path release 'dBaseRunner'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          Copy-Item dist\dBaseRunner\* $root -Recurse -Force
+          Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
+          Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
+          if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
+          if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
+          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onedir.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
