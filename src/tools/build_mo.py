@@ -9,6 +9,9 @@ from __future__ import annotations
 from pathlib    import Path
 
 import sys
+import shutil
+import subprocess
+import polib
 
 # ---------------------------------------------------------------------------
 #    Kompiliert eine .po Datei nach .mo.
