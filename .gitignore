@@ -119,8 +119,6 @@ src/dBaseRunner_patched79_mod.py
 src/dBaseRunner_patched79_PREPROCESSOR_AND_ICONTAB_FIX.py
 src/dBaseRunner_patched79_PREPROCESSOR_APPEND_ONLY.py
 src/dBaseRunner_patched79_PREPROCESSOR_DIRECT_FIX.py
-/src/gen
-/src/gen
 src/regenerate_antlr.bat
 src/resources_rc.py
 /src/tests/build

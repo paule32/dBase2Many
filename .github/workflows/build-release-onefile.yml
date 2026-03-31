@@ -1,0 +1,104 @@
+name: Build Windows EXE (onefile) + Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release-Tag, v0.0.1'
+        required: true
+        default: 'v0.0.1'
+      python_version:
+        description: 'Python-Version'
+        required: true
+        default: '3.14'
+      antlr_runtime_version:
+        description: 'ANTLR4 Python Runtime Version'
+        required: true
+        default: '4.13.2'
+
+permissions:
+  contents: write
+
+jobs:
+  build-onefile:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install pyinstaller PyQt5 PyQtWebEngine reportlab polib antlr4-python3-runtime==${{ inputs.antlr_runtime_version }}
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          python --version
+          pyinstaller --version
+          python - <<'PY'
+          import antlr4
+          print('antlr4 runtime ok:', antlr4.__file__)
+          PY
+
+      - name: Build onefile EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $args = @(
+            '--noconfirm',
+            '--clean',
+            '--onefile',
+            '--windowed',
+            '--name', 'dBaseRunner',
+            '--paths', '.',
+            '--hidden-import', 'antlr4',
+            '--hidden-import', 'resources_rc',
+            '--hidden-import', 'gen.dBaseLexer',
+            '--hidden-import', 'gen.dBaseParser',
+            '--hidden-import', 'gen.dBaseParserListener',
+            '--hidden-import', 'gen.dBaseParserVisitor',
+            '--collect-submodules', 'antlr4',
+            '--collect-all', 'PyQt5.QtWebEngineCore',
+            '--collect-all', 'PyQt5.QtWebEngineWidgets',
+            '--collect-all', 'PyQt5.QtSvg',
+            '--copy-metadata', 'antlr4-python3-runtime',
+            '--copy-metadata', 'reportlab',
+            '--copy-metadata', 'polib',
+            '--add-data', 'data;data',
+            '--add-data', 'tests;tests',
+            'dBaseRunner.py'
+          )
+          pyinstaller @args
+
+      - name: Prepare release ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Copy-Item dist\dBaseRunner.exe release\dBaseRunner.exe -Force
+          Compress-Archive -Path release\dBaseRunner.exe -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onefile.zip -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dBaseRunner-${{ inputs.tag }}-windows-onefile
+          path: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: dBaseRunner ${{ inputs.tag }}
+          generate_release_notes: true
+          files: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          overwrite_files: true
