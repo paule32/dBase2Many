@@ -6,12 +6,23 @@
 #ifndef __DBASE_PRG__
 #define __DBASE_PRG__
 
+NOTE comment line
+
+SET ESCAPE ON
+
+SET FORMAT TO PRINT
+SET MARGIN TO 10pt, 10pt
+
 #include "test.prg"         // test file include
 #define name(x,y) #x + #y
 
+ERASE
+
+TEXT
 // This is a C++ like one line comment
 ** This is a dBase comment line style A
 && This is a dBase comment line style B
+ENDTEXT
 
 /* This is a 
    multiline C like comment block
@@ -24,6 +35,12 @@ WRITE X
 X = X + 1
 IF X == 22
     WRITE "X := " + X
+ENDIF
+
+INPUT "Test input: " TO memVar
+IF memVar == "abc"
+    INPUT memVar TO cc
+    WRITE "no input"
 ENDIF
 
 IF 2 == (x + 1)
@@ -154,6 +171,11 @@ CLASS ParentForm OF FORM
     
     METHOD testProcer()
         WRITE "test procer"
+        INPUT "Test input: " TO THIS.memVar
+        IF THIS.memVar == "abc"
+            INPUT THIS.memVar TO cc
+            WRITE "no input: " + cc
+        ENDIF
     ENDMETHOD
 
     // --------------------------------------------------------------
@@ -171,7 +193,7 @@ CLASS ParentForm OF FORM
                 DO CASE
                     CASE a == 15
                         WRITE "OK"
-                        DO this.testProcer()
+                        DO THIS.testProcer()
                         DO test
                 ENDCASE
                 WRITE "fallback"
