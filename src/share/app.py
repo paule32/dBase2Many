@@ -2,8 +2,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Callable
+from typing  import Callable
 
+# -----------------------------------------------------------------------
+# we use antlr4 for the lexer + parser generator ...
+# -----------------------------------------------------------------------
+from antlr4      import (
+     InputStream, FileStream, CommonTokenStream, Token, Lexer,
+     Parser, DFA, ParserRuleContext, ATNDeserializer,
+     PredictionContextCache, ParseTreeListener, ParseTreeVisitor
+)
+from antlr4.error.ErrorListener import ErrorListener
+
+# -----------------------------------------------------------------------
 from .language_profiles import LanguageProfile, get_language_profile
 from . import legacy_api
 

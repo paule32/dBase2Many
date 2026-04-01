@@ -8,7 +8,7 @@ ohne dass alle Runner-Dateien geändert werden müssen.
 
 from __future__ import annotations
 
-import dBaseRunner as legacy
+import uiRunner as legacy
 
 # Direkter Zugriff auf das Legacy-Modul, falls später Monkey-Patching oder
 # ein schrittweiser Austausch notwendig ist.

@@ -1,4 +1,4 @@
-name: Build Windows EXE (onedir) + Release
+name: Build dBaseRunner Windows EXE Release
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
       tag:
         description: 'Release-Tag, z. B. v1.0.0'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.0.1'
       python_version:
         description: 'Python-Version'
         required: true
-        default: '3.11'
+        default: '3.14'
       antlr_runtime_version:
         description: 'ANTLR4 Python Runtime Version'
         required: true
@@ -29,7 +29,7 @@ env:
   LOCALES_ZIP: src/data/locales.zip
 
 jobs:
-  build-onedir:
+  build-onefile:
     runs-on: windows-latest
 
     steps:
@@ -111,15 +111,14 @@ jobs:
           PY
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
-      - name: Build onedir EXE
+      - name: Build onefile EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $args = @(
             '--noconfirm',
             '--clean',
-            '--onedir',
-            '--contents-directory', '.',
+            '--onefile',
             '--windowed',
             '--name', 'dBaseRunner',
             '--paths', 'src',
@@ -127,10 +126,10 @@ jobs:
             '--hidden-import', 'polib',
             '--hidden-import', 'reportlab',
             '--hidden-import', 'resources_rc',
-            '--hidden-import', 'gen.dBaseLexer',
-            '--hidden-import', 'gen.dBaseParser',
-            '--hidden-import', 'gen.dBaseParserListener',
-            '--hidden-import', 'gen.dBaseParserVisitor',
+            '--hidden-import', 'parse.dBaseLexer',
+            '--hidden-import', 'parse.dBaseParser',
+            '--hidden-import', 'parse.dBaseParserListener',
+            '--hidden-import', 'parse.dBaseParserVisitor',
             '--collect-submodules', 'antlr4',
             '--collect-all', 'PyQt5',
             '--collect-all', 'PyQtWebEngine',
@@ -149,18 +148,17 @@ jobs:
           if (Test-Path release) { Remove-Item release -Recurse -Force }
           $root = Join-Path release 'dBaseRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\dBaseRunner\* $root -Recurse -Force
+          Copy-Item dist\dBaseRunner.exe (Join-Path $root 'dBaseRunner.exe') -Force
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
-          if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onedir.zip -Force
+          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onefile.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dBaseRunner-${{ inputs.tag }}-windows-onedir
-          path: dBaseRunner-${{ inputs.tag }}-windows-onedir.zip
+          name: dBaseRunner-${{ inputs.tag }}-windows-onefile
+          path: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
@@ -169,5 +167,5 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: dBaseRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: dBaseRunner-${{ inputs.tag }}-windows-onedir.zip
+          files: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
           overwrite_files: true

@@ -1,0 +1,185 @@
+name: Build ccRunner Windows EXE Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release-Tag, z. B. v1.0.0'
+        required: true
+        default: 'v0.0.1'
+      python_version:
+        description: 'Python-Version'
+        required: true
+        default: '3.14'
+      antlr_runtime_version:
+        description: 'ANTLR4 Python Runtime Version'
+        required: true
+        default: '4.13.2'
+
+permissions:
+  contents: write
+
+env:
+  APP_ENTRY: src/ccRunner.py
+  REQUIREMENTS_FILE: requirements.txt
+  BUILD_MO_SCRIPT: src/tools/build_mo.py
+  DATA_DIR: src/data
+  TESTS_DIR: src/tests
+  PO_DIR: src/data/po
+  LOCALES_ZIP: src/data/locales.zip
+
+jobs:
+  build-onedir:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+          cache-dependency-path: ${{ env.REQUIREMENTS_FILE }}
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install -r $env:REQUIREMENTS_FILE
+          python -m pip install pyinstaller antlr4-python3-runtime==${{ inputs.antlr_runtime_version }}
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          python --version
+          pyinstaller --version
+          python -c "import antlr4, PyQt5, PyQt5.QtWebEngineWidgets, reportlab, polib; print('Runtime ok')"
+
+      - name: Validate project files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($p in @(
+            $env:APP_ENTRY,
+            $env:REQUIREMENTS_FILE,
+            $env:BUILD_MO_SCRIPT,
+            'src/resources_rc.py',
+            'src/parse',
+            $env:DATA_DIR,
+            $env:TESTS_DIR,
+            'src/data/po/locales/de/LC_MESSAGES',
+            'src/data/po/locales/en/LC_MESSAGES'
+          )) {
+            if (-not (Test-Path $p)) { throw "Required path not found: $p" }
+          }
+
+      - name: Build GNU gettext .mo files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location src/tools
+          python build_mo.py
+          Pop-Location
+          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/cc.mo')) { throw 'Missing de .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/cc.mo')) { throw 'Missing en .mo file after build_mo.py' }
+
+      - name: Create locales.zip for runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          base = Path('src/data/po')
+          files = [
+              base / 'locales' / 'de' / 'LC_MESSAGES' / 'cc.mo',
+              base / 'locales' / 'en' / 'LC_MESSAGES' / 'cc.mo',
+          ]
+          out_zip = Path('src/data/locales.zip')
+          out_zip.parent.mkdir(parents=True, exist_ok=True)
+          if out_zip.exists():
+              out_zip.unlink()
+          with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+              for f in files:
+                  if not f.exists():
+                      raise SystemExit(f'Missing file for zip: {f}')
+                  zf.write(f, f.relative_to(base).as_posix())
+          print(f'Created {out_zip}')
+          PY
+          if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
+
+      - name: Build onedir EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $args = @(
+            '--noconfirm',
+            '--clean',
+            '--onedir',
+            '--contents-directory', '.',
+            '--windowed',
+            '--name', 'ccRunner',
+            '--paths', 'src',
+            '--hidden-import', 'antlr4',
+            '--hidden-import', 'polib',
+            '--hidden-import', 'reportlab',
+            '--hidden-import', 'resources_rc',
+            '--hidden-import', 'parse.dBaseLexer',
+            '--hidden-import', 'parse.dBaseParser',
+            '--hidden-import', 'parse.dBaseParserListener',
+            '--hidden-import', 'parse.dBaseParserVisitor',
+            '--hidden-import', 'parse.pascalLexer',
+            '--hidden-import', 'parse.pascalParser',
+            '--hidden-import', 'parse.pascalParserListener',
+            '--hidden-import', 'parse.pascalParserVisitor',
+            '--hidden-import', 'parse.ccLexer',
+            '--hidden-import', 'parse.ccParser',
+            '--hidden-import', 'parse.ccParserListener',
+            '--hidden-import', 'parse.ccParserVisitor',
+            '--hidden-import', 'parse.lispLexer',
+            '--hidden-import', 'parse.lispParser',
+            '--hidden-import', 'parse.lispParserListener',
+            '--hidden-import', 'parse.lispParserVisitor',
+            '--collect-submodules', 'antlr4',
+            '--collect-all', 'PyQt5',
+            '--collect-all', 'PyQtWebEngine',
+            '--collect-all', 'reportlab',
+            '--copy-metadata', 'antlr4-python3-runtime',
+            '--copy-metadata', 'reportlab',
+            '--copy-metadata', 'polib',
+            'src/ccRunner.py'
+          )
+          pyinstaller @args
+
+      - name: Prepare release ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path release) { Remove-Item release -Recurse -Force }
+          $root = Join-Path release 'ccRunner'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          Copy-Item dist\ccRunner\* $root -Recurse -Force
+          Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
+          Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
+          if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
+          if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
+          Compress-Archive -Path release\* -DestinationPath ccRunner-${{ inputs.tag }}-windows-onedir.zip -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccRunner-${{ inputs.tag }}-windows-onedir
+          path: ccRunner-${{ inputs.tag }}-windows-onedir.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ccRunner ${{ inputs.tag }}
+          generate_release_notes: true
+          files: ccRunner-${{ inputs.tag }}-windows-onedir.zip
+          overwrite_files: true

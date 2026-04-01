@@ -1,4 +1,4 @@
-name: Build Windows EXE (onefile) + Release
+name: Build pascalRunner Windows EXE Release
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
       tag:
         description: 'Release-Tag, z. B. v1.0.0'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.0.1'
       python_version:
         description: 'Python-Version'
         required: true
-        default: '3.11'
+        default: '3.14'
       antlr_runtime_version:
         description: 'ANTLR4 Python Runtime Version'
         required: true
@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 env:
-  APP_ENTRY: src/dBaseRunner.py
+  APP_ENTRY: src/pascalRunner.py
   REQUIREMENTS_FILE: requirements.txt
   BUILD_MO_SCRIPT: src/tools/build_mo.py
   DATA_DIR: src/data
@@ -82,8 +82,8 @@ jobs:
           Push-Location src/tools
           python build_mo.py
           Pop-Location
-          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/dbase.mo')) { throw 'Missing de .mo file after build_mo.py' }
-          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/dbase.mo')) { throw 'Missing en .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/pascal.mo')) { throw 'Missing de .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/pascal.mo')) { throw 'Missing en .mo file after build_mo.py' }
 
       - name: Create locales.zip for runtime
         shell: pwsh
@@ -95,8 +95,8 @@ jobs:
 
           base = Path('src/data/po')
           files = [
-              base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
-              base / 'locales' / 'en' / 'LC_MESSAGES' / 'dbase.mo',
+              base / 'locales' / 'de' / 'LC_MESSAGES' / 'pascal.mo',
+              base / 'locales' / 'en' / 'LC_MESSAGES' / 'pascal.mo',
           ]
           out_zip = Path('src/data/locales.zip')
           out_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -120,16 +120,16 @@ jobs:
             '--clean',
             '--onefile',
             '--windowed',
-            '--name', 'dBaseRunner',
+            '--name', 'pascalRunner',
             '--paths', 'src',
             '--hidden-import', 'antlr4',
             '--hidden-import', 'polib',
             '--hidden-import', 'reportlab',
             '--hidden-import', 'resources_rc',
-            '--hidden-import', 'gen.dBaseLexer',
-            '--hidden-import', 'gen.dBaseParser',
-            '--hidden-import', 'gen.dBaseParserListener',
-            '--hidden-import', 'gen.dBaseParserVisitor',
+            '--hidden-import', 'parse.pascalLexer',
+            '--hidden-import', 'parse.pascalParser',
+            '--hidden-import', 'parse.pascalParserListener',
+            '--hidden-import', 'parse.pascalParserVisitor',
             '--collect-submodules', 'antlr4',
             '--collect-all', 'PyQt5',
             '--collect-all', 'PyQtWebEngine',
@@ -137,7 +137,7 @@ jobs:
             '--copy-metadata', 'antlr4-python3-runtime',
             '--copy-metadata', 'reportlab',
             '--copy-metadata', 'polib',
-            'src/dBaseRunner.py'
+            'src/pascalRunner.py'
           )
           pyinstaller @args
 
@@ -146,26 +146,26 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (Test-Path release) { Remove-Item release -Recurse -Force }
-          $root = Join-Path release 'dBaseRunner'
+          $root = Join-Path release 'pascalRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\dBaseRunner.exe (Join-Path $root 'dBaseRunner.exe') -Force
+          Copy-Item dist\pascalRunner.exe (Join-Path $root 'pascalRunner.exe') -Force
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onefile.zip -Force
+          Compress-Archive -Path release\* -DestinationPath pascalRunner-${{ inputs.tag }}-windows-onefile.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dBaseRunner-${{ inputs.tag }}-windows-onefile
-          path: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          name: pascalRunner-${{ inputs.tag }}-windows-onefile
+          path: pascalRunner-${{ inputs.tag }}-windows-onefile.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          name: dBaseRunner ${{ inputs.tag }}
+          name: pascalRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          files: pascalRunner-${{ inputs.tag }}-windows-onefile.zip
           overwrite_files: true
