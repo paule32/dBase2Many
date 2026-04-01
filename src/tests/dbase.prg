@@ -10,7 +10,7 @@ NOTE comment line
 
 SET ESCAPE ON
 
-SET FORMAT TO PRINT
+SET FORMAT TO SCREEN
 SET MARGIN TO 10pt, 10pt
 
 #include "test.prg"         // test file include

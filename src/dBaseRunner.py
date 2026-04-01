@@ -156,10 +156,12 @@ try:
     _PDF_BACKEND_IMPORT_ERROR = None
     try:
         from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors as rl_colors
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfgen import canvas
     except ImportError as _pdf_import_error:
         A4 = None
+        rl_colors = None
         pdfmetrics = None
         canvas = None
         _PDF_BACKEND_AVAILABLE = False
@@ -874,7 +876,7 @@ def delete_last_line(edit):
 _RUNTIME_CAPTURE_STACK: list[tuple[list[str], bool]] = []
 _RUNTIME_OUTPUT_FORMAT = "SCREEN"
 _RUNTIME_PRINT_ENABLED = False
-_RUNTIME_PRINT_LINES: list[str] = []
+_RUNTIME_PRINT_LINES: list[dict[str, Any]] = []
 _RUNTIME_PRINT_PDF_PATH: Path | None = None
 _RUNTIME_PRINT_STARTED_AT: datetime.datetime | None = None
 _RUNTIME_PRINT_SCRIPT_PATH: Path | None = None
@@ -888,13 +890,98 @@ _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
 _RUNTIME_ESCAPE_ENABLED = False
 _RUNTIME_ESCAPE_FILTER = None
 _RUNTIME_CONFIRM_ENABLED = False
+_RUNTIME_DELETE_ENABLED = False
+
+_VGA_COLOR_TABLE = {
+    0: {"name": "Schwarz", "hex": "#000000"},
+    1: {"name": "Blau", "hex": "#0000AA"},
+    2: {"name": "Gruen", "hex": "#00AA00"},
+    3: {"name": "Cyan", "hex": "#00AAAA"},
+    4: {"name": "Rot", "hex": "#AA0000"},
+    5: {"name": "Magenta", "hex": "#AA00AA"},
+    6: {"name": "Braun", "hex": "#AA5500"},
+    7: {"name": "Hellgrau", "hex": "#AAAAAA"},
+    8: {"name": "Dunkelgrau", "hex": "#555555"},
+    9: {"name": "Hellblau", "hex": "#5555FF"},
+    10: {"name": "Hellgruen", "hex": "#55FF55"},
+    11: {"name": "Hellcyan", "hex": "#55FFFF"},
+    12: {"name": "Hellrot", "hex": "#FF5555"},
+    13: {"name": "Hellmagenta", "hex": "#FF55FF"},
+    14: {"name": "Gelb", "hex": "#FFFF55"},
+    15: {"name": "Weiss", "hex": "#FFFFFF"},
+}
+
+def _copy_runtime_color_style(style: dict[str, Any] | None) -> dict[str, Any]:
+    return dict(style or {})
+
+def _make_default_screen_style() -> dict[str, Any]:
+    return {
+        "attr": 7,
+        "fg_index": 7,
+        "bg_index": 0,
+        "fg_hex": _VGA_COLOR_TABLE[7]["hex"],
+        "bg_hex": _VGA_COLOR_TABLE[0]["hex"],
+        "fg_name": _VGA_COLOR_TABLE[7]["name"],
+        "bg_name": _VGA_COLOR_TABLE[0]["name"],
+        "transparent_bg": False,
+    }
+
+def _make_default_print_style() -> dict[str, Any]:
+    return {
+        "attr": None,
+        "fg_index": 0,
+        "bg_index": None,
+        "fg_hex": "#000000",
+        "bg_hex": None,
+        "fg_name": "Schwarz",
+        "bg_name": "Transparent/Weiss",
+        "transparent_bg": True,
+    }
+
+def _coerce_runtime_color_attr(value: Any) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        iv = int(value)
+    else:
+        s = ("" if value is None else str(value)).strip()
+        if not s:
+            raise RuntimeError("SET COLOR TO: Farbwert fehlt")
+        m = re.fullmatch(r"[+-]?\d+(?:\.\d+)?", s)
+        if not m:
+            raise RuntimeError(f"SET COLOR TO: ungueltiger Farbwert: {s}")
+        iv = int(float(s))
+    if iv < 0 or iv > 255:
+        raise RuntimeError(f"SET COLOR TO: Farbwert ausserhalb des Bereichs 0..255: {iv}")
+    return iv
+
+def _style_from_vga_attr(value: Any) -> dict[str, Any]:
+    attr = _coerce_runtime_color_attr(value)
+    fg_index = attr % 16
+    bg_index = (attr // 16) % 16
+    fg = _VGA_COLOR_TABLE[fg_index]
+    bg = _VGA_COLOR_TABLE[bg_index]
+    return {
+        "attr": attr,
+        "fg_index": fg_index,
+        "bg_index": bg_index,
+        "fg_hex": fg["hex"],
+        "bg_hex": bg["hex"],
+        "fg_name": fg["name"],
+        "bg_name": bg["name"],
+        "transparent_bg": False,
+    }
+
+_RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
+_RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
 
 
 def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None):
     global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
     global _RUNTIME_PRINT_LINES, _RUNTIME_PRINT_PDF_PATH
     global _RUNTIME_PRINT_STARTED_AT, _RUNTIME_PRINT_SCRIPT_PATH
-    global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED, _RUNTIME_CONFIRM_ENABLED
+    global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED, _RUNTIME_CONFIRM_ENABLED, _RUNTIME_DELETE_ENABLED
+    global _RUNTIME_SCREEN_COLOR_STYLE, _RUNTIME_PRINT_COLOR_STYLE
 
     _RUNTIME_OUTPUT_FORMAT = "SCREEN"
     _RUNTIME_PRINT_ENABLED = False
@@ -904,6 +991,9 @@ def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None
     _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
     _RUNTIME_ESCAPE_ENABLED = False
     _RUNTIME_CONFIRM_ENABLED = False
+    _RUNTIME_DELETE_ENABLED = False
+    _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
+    _RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
     try:
         _RUNTIME_PRINT_SCRIPT_PATH = Path(script_filename).resolve() if script_filename else None
     except Exception:
@@ -1051,6 +1141,27 @@ def _set_runtime_print_margin(*args):
         _render_runtime_output_pdf()
     return 0
 
+def _get_runtime_current_color_style() -> dict[str, Any]:
+    if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT":
+        return _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)
+    return _copy_runtime_color_style(_RUNTIME_SCREEN_COLOR_STYLE)
+
+def _set_runtime_color(*args):
+    global _RUNTIME_SCREEN_COLOR_STYLE, _RUNTIME_PRINT_COLOR_STYLE
+
+    if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT":
+        if len(args) == 0:
+            _RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
+        else:
+            _RUNTIME_PRINT_COLOR_STYLE = _style_from_vga_attr(args[0])
+        return 0
+
+    if len(args) == 0:
+        _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
+    else:
+        _RUNTIME_SCREEN_COLOR_STYLE = _style_from_vga_attr(args[0])
+    return 0
+
 
 def _render_runtime_output_pdf():
     global _RUNTIME_PRINT_PDF_PATH
@@ -1090,12 +1201,34 @@ def _render_runtime_output_pdf():
 
     c.setFont(font_name, font_size)
 
-    lines = _RUNTIME_PRINT_LINES[:] if _RUNTIME_PRINT_LINES else [""]
-    for raw in lines:
+    entries = _RUNTIME_PRINT_LINES[:] if _RUNTIME_PRINT_LINES else [{"text": "", "style": _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)}]
+    for entry in entries:
+        if isinstance(entry, dict):
+            raw = entry.get("text", "")
+            style = _copy_runtime_color_style(entry.get("style"))
+        else:
+            raw = str(entry)
+            style = _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)
+
+        fg_hex = style.get("fg_hex") or "#000000"
+        bg_hex = style.get("bg_hex")
         wrapped = _wrap_pdf_text_line(raw, font_name=font_name, font_size=font_size, max_width=max_width)
         for line in wrapped:
             if y < margin_bottom:
                 new_page()
+
+            if bg_hex:
+                try:
+                    c.setFillColor(rl_colors.HexColor(bg_hex))
+                    c.rect(margin_left, y - 2, max_width, line_height, stroke=0, fill=1)
+                except Exception:
+                    pass
+
+            try:
+                c.setFillColor(rl_colors.HexColor(fg_hex))
+            except Exception:
+                c.setFillColorRGB(0, 0, 0)
+
             c.drawString(margin_left, y, line)
             y -= line_height
 
@@ -1174,10 +1307,14 @@ def _set_runtime_confirm_enabled(enabled: bool):
     return 0
 
 
+def _set_runtime_delete_enabled(enabled: bool):
+    global _RUNTIME_DELETE_ENABLED
+    _RUNTIME_DELETE_ENABLED = bool(enabled)
+    return 0
+
+
 _ESCAPE_BLOCKED_WINDOW_CLASSES = {
     "DebugConsoleWidget",
-    "TableDesignerDialog",
-    "SqlBuilderWindow",
 }
 
 
@@ -1202,7 +1339,7 @@ def _resolve_escape_block_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("_ESCAPE_BLOCKED")) or w.__class__.__name__ in _ESCAPE_BLOCKED_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow(w)
+                sub = _find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -1218,14 +1355,14 @@ def _resolve_escape_block_target(widget: Any):
 
 
 def _mark_escape_close(obj: Any) -> Any:
-    """Kompatibilitaet: frueher schloss ESC diese Fenster. Jetzt blocken wir ESC dort."""
+    """Markiert Widget/Subwindow dafuer, dass ESC das gesamte Fenster schliesst."""
     try:
         if obj is not None and hasattr(obj, "setProperty"):
-            obj.setProperty("_ESCAPE_BLOCKED", True)
             try:
-                obj.setProperty("_ESCAPE_CLOSE", False)
+                obj.setProperty("_ESCAPE_BLOCKED", False)
             except Exception:
                 pass
+            obj.setProperty("_ESCAPE_CLOSE", True)
     except Exception:
         pass
     return obj
@@ -1240,7 +1377,7 @@ def _resolve_escape_close_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("_ESCAPE_CLOSE")) or w.__class__.__name__ in _ESCAPE_CLOSE_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow(w)
+                sub = _find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -1264,7 +1401,7 @@ def _resolve_escape_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("_DBASE_ESCAPE_TARGET")):
-                sub = _find_mdi_subwindow(w)
+                sub = _find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -1280,19 +1417,70 @@ def _resolve_escape_target(widget: Any):
 
 
 def _close_escape_target(widget: Any, sub: Any = None) -> bool:
+    """Schliesst robust ein komplettes MDI-Unterfenster inklusive eingebettetem Widget."""
     try:
         if sub is None:
-            sub = _find_mdi_subwindow(widget)
+            sub = _find_mdi_subwindow_robust(widget)
     except Exception:
         sub = None
 
     try:
-        if sub is not None:
+        host_sub = sub
+        if host_sub is None and widget is not None:
             try:
-                inner = sub.widget()
+                host_sub = _find_mdi_subwindow_robust(widget)
+            except Exception:
+                host_sub = None
+
+        if host_sub is not None:
+            try:
+                inner = host_sub.widget()
             except Exception:
                 inner = None
+
+            try:
+                host_sub.setAttribute(Qt.WA_DeleteOnClose, True)
+            except Exception:
+                pass
+            try:
+                if inner is not None:
+                    inner.setAttribute(Qt.WA_DeleteOnClose, True)
+            except Exception:
+                pass
+
+            try:
+                mdi = host_sub.mdiArea()
+            except Exception:
+                mdi = None
+
+            # Wichtig: Das QMdiSubWindow selbst aus der MDI-Area entfernen.
+            # removeSubWindow(inner) fuehrt in diesem Szenario dazu, dass nur
+            # das eingebettete Widget verschwindet und die leere MDI-Huelle
+            # stehen bleibt.
+            if mdi is not None:
+                try:
+                    mdi.removeSubWindow(host_sub)
+                except Exception:
+                    try:
+                        if inner is not None:
+                            mdi.removeSubWindow(inner)
+                    except Exception:
+                        pass
+
+            try:
+                host_sub.hide()
+            except Exception:
+                pass
+            try:
+                host_sub.close()
+            except Exception:
+                pass
+
             if inner is not None:
+                try:
+                    host_sub.setWidget(None)
+                except Exception:
+                    pass
                 try:
                     inner.hide()
                 except Exception:
@@ -1301,27 +1489,40 @@ def _close_escape_target(widget: Any, sub: Any = None) -> bool:
                     inner.close()
                 except Exception:
                     pass
+                try:
+                    inner.setParent(None)
+                except Exception:
+                    pass
+                try:
+                    inner.deleteLater()
+                except Exception:
+                    pass
+
             try:
-                sub.hide()
+                host_sub.setParent(None)
             except Exception:
                 pass
             try:
-                sub.close()
-            except Exception:
-                pass
-            try:
-                sub.deleteLater()
+                host_sub.deleteLater()
             except Exception:
                 pass
             return True
 
         if widget is not None:
             try:
+                widget.setAttribute(Qt.WA_DeleteOnClose, True)
+            except Exception:
+                pass
+            try:
                 widget.hide()
             except Exception:
                 pass
             try:
                 widget.close()
+            except Exception:
+                pass
+            try:
+                widget.setParent(None)
             except Exception:
                 pass
             try:
@@ -1336,6 +1537,20 @@ def _close_escape_target(widget: Any, sub: Any = None) -> bool:
 
 
 class _GlobalEscapeCloseFilter(QObject):
+    def _candidate_widget(self, obj):
+        try:
+            if isinstance(obj, QWidget):
+                return obj
+        except Exception:
+            pass
+        try:
+            fw = QApplication.focusWidget()
+            if fw is not None:
+                return fw
+        except Exception:
+            pass
+        return None
+
     def eventFilter(self, obj, event):
         try:
             et = event.type()
@@ -1344,7 +1559,9 @@ class _GlobalEscapeCloseFilter(QObject):
         except Exception:
             return False
 
-        blocked_widget, blocked_sub = _resolve_escape_block_target(obj)
+        candidate = self._candidate_widget(obj)
+
+        blocked_widget, blocked_sub = _resolve_escape_block_target(candidate)
         if blocked_widget is not None or blocked_sub is not None:
             try:
                 event.accept()
@@ -1352,28 +1569,55 @@ class _GlobalEscapeCloseFilter(QObject):
                 pass
             return True
 
-        close_widget, close_sub = _resolve_escape_close_target(obj)
+        close_widget, close_sub = _resolve_escape_close_target(candidate)
         if close_widget is not None or close_sub is not None:
             try:
                 event.accept()
             except Exception:
                 pass
-            if et == QEvent.KeyPress:
-                _close_escape_target(close_widget, close_sub)
+            # Wichtig: Auch bei ShortcutOverride bereits schliessen.
+            # Wenn wir das Event hier konsumieren, kommt oft kein KeyPress mehr an.
+            if not _close_escape_target(close_widget, close_sub):
+                try:
+                    fallback_sub = _find_mdi_subwindow_robust(candidate)
+                except Exception:
+                    fallback_sub = None
+                if fallback_sub is not None:
+                    _close_escape_target(candidate, fallback_sub)
             return True
 
-        target_widget, sub = _resolve_escape_target(obj)
-        if target_widget is None and sub is None:
-            return False
+        target_widget, sub = _resolve_escape_target(candidate)
+        if target_widget is not None or sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            if bool(_RUNTIME_ESCAPE_ENABLED):
+                if not _close_escape_target(target_widget, sub):
+                    try:
+                        fallback_sub = _find_mdi_subwindow_robust(candidate)
+                    except Exception:
+                        fallback_sub = None
+                    if fallback_sub is not None:
+                        _close_escape_target(candidate, fallback_sub)
+            return True
 
+        # Robuster Fallback: Wenn der Fokus in einem MDI-Unterfenster liegt,
+        # ESC soll das komplette QMdiSubWindow schliessen statt nur das innere Widget.
         try:
-            event.accept()
+            fallback_sub = _find_mdi_subwindow_robust(candidate)
         except Exception:
-            pass
+            fallback_sub = None
 
-        if et == QEvent.KeyPress and bool(_RUNTIME_ESCAPE_ENABLED):
-            _close_escape_target(target_widget, sub)
-        return True
+        if fallback_sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            _close_escape_target(candidate, fallback_sub)
+            return True
+
+        return False
 
 
 def _ensure_escape_filter_installed():
@@ -1394,6 +1638,7 @@ def _ensure_escape_filter_installed():
 
 def _emit_runtime_output_line(text: str):
     text = "" if text is None else str(text)
+    style = _get_runtime_current_color_style()
 
     # optional in-memory capture (used by one-liner console)
     try:
@@ -1409,7 +1654,10 @@ def _emit_runtime_output_line(text: str):
     try:
         if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT" and bool(_RUNTIME_PRINT_ENABLED):
             _ensure_runtime_print_pdf_path()
-            _RUNTIME_PRINT_LINES.append(text)
+            _RUNTIME_PRINT_LINES.append({
+                "text": text,
+                "style": _copy_runtime_color_style(style),
+            })
             _render_runtime_output_pdf()
             return
     except Exception:
@@ -1418,7 +1666,7 @@ def _emit_runtime_output_line(text: str):
     # preferred sink: Debug Console in the main window
     try:
         if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "append_debug_output"):
-            MAINAPP.append_debug_output(text)
+            MAINAPP.append_debug_output(text, fg_hex=style.get("fg_hex"), bg_hex=style.get("bg_hex"))
             return
     except Exception:
         pass
@@ -1750,7 +1998,8 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     mode = "dark" if AppMode.dark else "light"
     lang = "de"   if AppMode.lang else "en"
     
-    mw.open_from_args(f"./dBaseHelp_{mode}_{lang}.chm", "index.html")
+    # mw.open_from_args(f"./dBaseHelp_{mode}_{lang}.chm", "index.html")
+    mw.open_from_args("hlp/help.chm", None)
 
     sub = QMdiSubWindow()
     sub.setWidget(mw)
@@ -1761,15 +2010,133 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     sub.show()
     return sub
 
+def _global_shortcut_focus_widget(obj: Any):
+    try:
+        if isinstance(obj, QWidget):
+            return obj
+    except Exception:
+        pass
+    try:
+        return QApplication.focusWidget()
+    except Exception:
+        return None
+
+
+def _find_host_by_class_name(widget: Any, class_names: set[str]):
+    w = widget
+    while w is not None:
+        try:
+            if w.__class__.__name__ in class_names:
+                return w
+        except Exception:
+            pass
+        try:
+            w = w.parentWidget()
+        except Exception:
+            try:
+                w = w.parent()
+            except Exception:
+                w = None
+    return None
+
+
+def _resolve_global_shortcut_host(obj: Any):
+    focus = _global_shortcut_focus_widget(obj)
+    return _find_host_by_class_name(
+        focus,
+        {
+            "FileEditorWindow",
+            "TableDesignerDialog",
+            "TableRecordEditorDialog",
+            "SqlBuilderWindow",
+            "RegieCenter",
+            "MainWindow",
+        },
+    )
+
+
+def _dispatch_global_open(obj: Any) -> bool:
+    host = _resolve_global_shortcut_host(obj)
+    if host is None:
+        return False
+    name = host.__class__.__name__
+    try:
+        if name == "FileEditorWindow" and hasattr(host, "file_open"):
+            host.file_open()
+            return True
+        if name == "TableDesignerDialog" and hasattr(host, "_action_open"):
+            host._action_open()
+            return True
+        if name == "SqlBuilderWindow" and hasattr(host, "load_builder"):
+            host.load_builder()
+            return True
+        if name in ("RegieCenter", "MainWindow"):
+            mw = globals().get("MAINAPP", None)
+            if mw is not None and hasattr(mw, "on_action_file_open"):
+                mw.on_action_file_open()
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def _dispatch_global_save(obj: Any) -> bool:
+    host = _resolve_global_shortcut_host(obj)
+    if host is None:
+        return False
+    name = host.__class__.__name__
+    try:
+        if name == "FileEditorWindow" and hasattr(host, "file_save"):
+            host.file_save()
+            return True
+        if name == "TableDesignerDialog" and hasattr(host, "_action_save"):
+            host._action_save()
+            return True
+        if name == "TableRecordEditorDialog" and hasattr(host, "_action_save"):
+            host._action_save()
+            return True
+        if name == "SqlBuilderWindow" and hasattr(host, "save_builder"):
+            host.save_builder()
+            return True
+    except Exception:
+        return False
+    return False
+
+
 class F1Filter(QObject):
     def __init__(self, mdi_area, create_help_mw, parent=None):
         super().__init__(parent)
         self.mdi_area       = mdi_area
         self.create_help_mw = create_help_mw
         self._help_sub      = None  # optional: merken, damit wir nicht 100 Fenster öffnen
-        
+
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F1:
+        try:
+            et = event.type()
+        except Exception:
+            return super().eventFilter(obj, event)
+
+        # Ctrl+O / Ctrl+S global und kontextabhaengig
+        try:
+            if et in (QEvent.ShortcutOverride, QEvent.KeyPress):
+                mods = event.modifiers()
+                ctrl_only = bool(mods & Qt.ControlModifier) and not bool(mods & (Qt.AltModifier | Qt.MetaModifier))
+                if ctrl_only and event.key() in (Qt.Key_O, Qt.Key_S):
+                    handled = False
+                    if event.key() == Qt.Key_O:
+                        handled = _dispatch_global_open(obj)
+                    elif event.key() == Qt.Key_S:
+                        handled = _dispatch_global_save(obj)
+                    if handled:
+                        try:
+                            event.accept()
+                        except Exception:
+                            pass
+                        return True
+        except Exception:
+            pass
+
+        if et == QEvent.KeyPress and event.key() == Qt.Key_F1:
             _debug_print("F1 global abgefangen")
             # optional: wenn schon offen, nur nach vorne holen
             if self._help_sub is not None and not self._help_sub.isHidden():
@@ -1777,23 +2144,18 @@ class F1Filter(QObject):
                 self._help_sub.showNormal()
                 self._help_sub.raise_()
                 return True
-            
+
             help_mw = self.create_help_mw()   # erzeugt ein QMainWindow (oder QWidget im QMainWindow)
             self._help_sub = open_helpwindow(self.mdi_area, help_mw)
             self._help_sub.dark_mode = True
-            
+
             # wenn User schließt: Referenz leeren
             self._help_sub.destroyed.connect(lambda *_: setattr(self, "_help_sub", None))
             return True
-                        
-            #self.help_window = HelpMainWindow()
-            #open_helpwindow(MAINAPP.mdi, self.help_window)
-            #self.help_window.open_from_args("dBaseHelp_de.chm", "index.html")
-            return True  # Event stoppt hier
-            
-        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_F2:
+
+        if et == QEvent.KeyPress and event.key() == Qt.Key_F2:
             pass
-            
+
         return super().eventFilter(obj, event)
 
 class HelpMainWindow(QMainWindow):
@@ -1843,7 +2205,13 @@ class HelpMainWindow(QMainWindow):
 
         # Web
         self.web = QWebEngineView()
+        try:
+            self.web.page().setBackgroundColor(QColor(0, 0, 0))
+        except Exception:
+            pass
+        self.web.setStyleSheet("background: #000000;")
         self.web.urlChanged.connect(self._on_url_changed)
+        self.web.loadFinished.connect(self._on_web_load_finished)
 
         # Tabs left
         self.tabs = QTabWidget()
@@ -2517,8 +2885,16 @@ class HelpMainWindow(QMainWindow):
         
         if self.dark_mode:
             self.web.setStyleSheet("background: #000000;")
+            try:
+                self.web.page().setBackgroundColor(QColor(0, 0, 0))
+            except Exception:
+                pass
         else:
             self.web.setStyleSheet("background: white;")
+            try:
+                self.web.page().setBackgroundColor(QColor(255, 255, 255))
+            except Exception:
+                pass
             
         self._apply_webview_theme()
 
@@ -2616,18 +2992,65 @@ html.dark ::-webkit-scrollbar-button:single-button:horizontal:decrement {backgro
 html.dark ::-webkit-scrollbar-button:single-button:horizontal:increment {background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23FFD400' d='M8 5 L3 1 V9 Z'/></svg>") !important;}
 """
 
-    def _inject_web_css(self):
+    def _webview_theme_css(self) -> str:
         if self.dark_mode:
-            js = """
-(function(){const id='__qt_dark_css__';let s=document.getElementById(id);if(!s){s=document.createElement('style');
-s.id=id;s.innerHTML=`html, body { background-color:#040404 !important;color:#eaeaea !important;}
-a { color:#8ab4ff !important;}pre, code { background:#1e1e1e !important;}
-`;document.head.appendChild(s);}})();"""
-        else:
-            js = """(function(){const s=document.getElementById('__qt_dark_css__');if(s) s.remove();})();"""
+            return (
+                "html, body { background-color:#040404 !important; color:#ffffff !important; }"
+                " body, div, span, p, li, td, th, dt, dd, code, pre, small, strong, em { color:#ffffff !important; }"
+                " a { color:#8ab4ff !important; }"
+                " pre, code { background:#1e1e1e !important; }"
+            )
+        return (
+            "html, body { background-color:#ffffff !important; color:#000000 !important; }"
+            " body, div, span, p, li, td, th, dt, dd, code, pre, small, strong, em { color:#000000 !important; }"
+            " a { color:#0645ad !important; }"
+            " pre, code { background:#f4f4f4 !important; }"
+        )
+
+    def _inject_web_css(self):
+        css = self._webview_theme_css().replace("\\", "\\\\").replace("`", "\\`")
+        is_dark = str(bool(self.dark_mode)).lower()
+        js = f"""
+(function(){{
+  const STYLE_ID='__qt_theme_css__';
+  const root=document.documentElement;
+  root.classList.toggle('dark', {is_dark});
+  let head=document.head;
+  if(!head){{
+    head=document.getElementsByTagName('head')[0];
+    if(!head){{
+      head=document.createElement('head');
+      document.documentElement.insertBefore(head, document.body || null);
+    }}
+  }}
+  let s=document.getElementById(STYLE_ID);
+  if(!s){{
+    s=document.createElement('style');
+    s.id=STYLE_ID;
+    head.appendChild(s);
+  }}
+  s.textContent=`{css}`;
+}})();"""
         self.web.page().runJavaScript(js)
 
+        script = QWebEngineScript()
+        script.setName("help-theme-css")
+        script.setInjectionPoint(QWebEngineScript.DocumentReady)
+        script.setWorldId(QWebEngineScript.MainWorld)
+        script.setRunsOnSubFrames(True)
+        script.setSourceCode(js)
+
+        scripts = self.web.page().scripts()
+        for s in scripts.toList():
+            if s.name() == "help-theme-css":
+                scripts.remove(s)
+                break
+        scripts.insert(script)
+
     def _on_url_changed(self, url: QUrl):
+        self._inject_web_css()
+
+    def _on_web_load_finished(self, ok: bool):
         self._inject_web_css()
         
     def _style_theme_button(self):
@@ -2672,6 +3095,40 @@ def _find_mdi_subwindow(widget: Any):
         return None
     except Exception:
         return None
+
+
+def _find_mdi_subwindow_robust(widget: Any):
+    """Robuster Fallback fuer eingebettete QDialog/QWidget-Faelle im MDI."""
+    sub = _find_mdi_subwindow(widget)
+    if sub is not None:
+        return sub
+
+    try:
+        if isinstance(widget, QWidget):
+            w = widget.window()
+            sub = _find_mdi_subwindow(w)
+            if sub is not None:
+                return sub
+    except Exception:
+        pass
+
+    try:
+        aw = QApplication.activeWindow()
+        sub = _find_mdi_subwindow(aw)
+        if sub is not None:
+            return sub
+    except Exception:
+        pass
+
+    try:
+        if 'MAINAPP' in globals() and getattr(MAINAPP, 'mdi', None) is not None:
+            sub = MAINAPP.mdi.activeSubWindow()
+            if sub is not None:
+                return sub
+    except Exception:
+        pass
+
+    return None
 
 
 def _qss_color(v: Any) -> Optional[str]:
@@ -3038,37 +3495,44 @@ class Preprocessor:
             raw, nl = raw_line[:-1], "\n"
         else:
             raw = raw_line
-        
-        if "USE" not in raw.upper():
-            return raw_line
-        
+
         stripped = raw.lstrip()
         if not stripped or stripped.startswith("#"):
             return raw_line
-        
+
         m = re.match(r"^(\s*)USE\b(.*)$", raw, flags=re.IGNORECASE)
         if not m:
             return raw_line
-        
+
         indent = m.group(1)
         rest = m.group(2).strip()
-        
+
         if rest.startswith("("):   # already USE(...)
             return raw_line
-        
-        mm = re.match(r"^(.*?)(\s+EXCLUSIVE\s*)$", rest, flags=re.IGNORECASE)
-        if mm:
-            expr = mm.group(1).rstrip()
+
+        code_part, comment_part = self._split_comment_outside(raw)
+        work = code_part.strip()
+        rest = re.sub(r"^USE\b", "", work, count=1, flags=re.IGNORECASE).strip()
+
+        exclusive = False
+        m_ex = re.match(r"^(.*?)(\s+EXCLUSIVE\s*)$", rest, flags=re.IGNORECASE)
+        if m_ex:
+            rest = m_ex.group(1).rstrip()
             exclusive = True
-        else:
-            expr = rest
-            exclusive = False
-        
-        if not expr:
-            return raw_line
-        
+
+        index_part = ""
+        idx_pos = self._find_keyword_outside(rest, "INDEX")
+        if idx_pos >= 0:
+            index_part = rest[idx_pos + len("INDEX"):].strip()
+            rest = rest[:idx_pos].strip()
+
+        comment_suffix = "" if not comment_part else " " + comment_part.lstrip()
         ex_flag = "1" if exclusive else "0"
-        return f"{indent}USE({expr}, {ex_flag}){nl}"
+
+        if not rest:
+            return f"{indent}__DBASE_USE__(\"\", \"\" , {ex_flag}){comment_suffix}{nl}"
+
+        return f"{indent}__DBASE_USE__({self._quote_builtin_arg(rest)}, {self._quote_builtin_arg(index_part)}, {ex_flag}){comment_suffix}{nl}"
     
     def _split_args(self, s: str) -> list[str]:
         # s ist Inhalt zwischen den äußeren (...) eines Calls
@@ -3220,11 +3684,13 @@ class Preprocessor:
         data = self._process_file(entry)
         data = self._rewrite_text_blocks(data)
         data = self._rewrite_note_comments(data)
+        data = self._rewrite_dot_logical_keywords(data)
         data = self._rewrite_do_case_blocks(data)
         data = self._rewrite_input_statements(data)
         data = self._rewrite_erase_statements(data)
         data = self._rewrite_set_output_statements(data)
         data = self._rewrite_memvar_statements(data)
+        data = self._rewrite_dbf_statements(data)
         return data
 
     def _rewrite_do_case_blocks(self, text: str) -> str:
@@ -3766,6 +4232,12 @@ class Preprocessor:
                 out.append(f'{indent}__DBASE_SET_CONFIRM__({enabled}){comment_suffix}{nl}')
                 continue
 
+            m = re.match(r'^SET\s+DELETE\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
+            if m:
+                enabled = '1' if m.group(1).upper() == 'ON' else '0'
+                out.append(f'{indent}__DBASE_SET_DELETE__({enabled}){comment_suffix}{nl}')
+                continue
+
             m = re.match(r'^SET\s+MARGIN\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
             if m:
                 tail = (m.group(1) or '').strip()
@@ -3782,6 +4254,15 @@ class Preprocessor:
                     else:
                         rewritten_args.append(arg)
                 out.append(f"{indent}__DBASE_SET_MARGIN__(" + ", ".join(rewritten_args) + f"){comment_suffix}{nl}")
+                continue
+
+            m = re.match(r'^SET\s+COLOR\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
+            if m:
+                tail = (m.group(1) or '').strip()
+                if not tail:
+                    out.append(f'{indent}__DBASE_SET_COLOR__(){comment_suffix}{nl}')
+                    continue
+                out.append(f"{indent}__DBASE_SET_COLOR__({tail}){comment_suffix}{nl}")
                 continue
 
             out.append(raw_line)
@@ -3854,7 +4335,7 @@ class Preprocessor:
 
     def _quote_builtin_arg(self, s: str) -> str:
         s = '' if s is None else str(s)
-        s = s.replace('\\', '\\\\').replace('"', '\"')
+        s = s.replace('\\', '\\\\').replace('"', '\\"')
         return f'"{s}"'
 
     def _parse_mem_destination(self, s: str) -> tuple[str, str]:
@@ -3958,6 +4439,210 @@ class Preprocessor:
                 if rest:
                     out.append(f"{indent}__DBASE_RELEASE__({self._quote_builtin_arg(rest)}, 'LIST', ''){comment_suffix}{nl}")
                     continue
+
+            out.append(raw_line)
+
+        return ''.join(out)
+
+
+    def _replace_dot_logical_tokens(self, code: str) -> str:
+        if not code:
+            return code
+
+        out = []
+        i = 0
+        n = len(code)
+        in_quote = None
+        in_bracket = False
+
+        while i < n:
+            ch = code[i]
+
+            if in_quote is not None:
+                out.append(ch)
+                if ch == in_quote:
+                    if i + 1 < n and code[i + 1] == in_quote:
+                        out.append(code[i + 1])
+                        i += 2
+                        continue
+                    in_quote = None
+                i += 1
+                continue
+
+            if in_bracket:
+                out.append(ch)
+                if ch == ']':
+                    if i + 1 < n and code[i + 1] == ']':
+                        out.append(code[i + 1])
+                        i += 2
+                        continue
+                    in_bracket = False
+                i += 1
+                continue
+
+            if ch in ('"', "'"):
+                in_quote = ch
+                out.append(ch)
+                i += 1
+                continue
+
+            if ch == '[':
+                in_bracket = True
+                out.append(ch)
+                i += 1
+                continue
+
+            rem = code[i:].upper()
+            if rem.startswith('.NOT.'):
+                out.append('NOT')
+                i += 5
+                continue
+            if rem.startswith('.AND.'):
+                out.append('AND')
+                i += 5
+                continue
+            if rem.startswith('.OR.'):
+                out.append('OR')
+                i += 4
+                continue
+
+            out.append(ch)
+            i += 1
+
+        return ''.join(out)
+
+    def _rewrite_dot_logical_keywords(self, text: str) -> str:
+        lines = text.splitlines(keepends=True)
+        out = []
+
+        for raw_line in lines:
+            nl = ''
+            line = raw_line
+            if line.endswith('\r\n'):
+                line = line[:-2]
+                nl = '\r\n'
+            elif line.endswith('\n'):
+                line = line[:-1]
+                nl = '\n'
+
+            if not line.strip():
+                out.append(raw_line)
+                continue
+
+            code_part, comment_part = self._split_comment_outside(line)
+            rewritten = self._replace_dot_logical_tokens(code_part)
+            if comment_part:
+                rewritten += (' ' if rewritten and not rewritten.endswith(' ') else '') + comment_part.lstrip()
+            out.append(rewritten + nl)
+
+        return ''.join(out)
+
+    def _rewrite_dbf_statements(self, text: str) -> str:
+        lines = text.splitlines(keepends=True)
+        out = []
+
+        for raw_line in lines:
+            nl = ''
+            line = raw_line
+            if line.endswith('\r\n'):
+                line = line[:-2]
+                nl = '\r\n'
+            elif line.endswith('\n'):
+                line = line[:-1]
+                nl = '\n'
+
+            if not line.strip():
+                out.append(raw_line)
+                continue
+
+            indent = line[:len(line) - len(line.lstrip())]
+            code_part, comment_part = self._split_comment_outside(line)
+            work = code_part.strip()
+            comment_suffix = '' if not comment_part else ' ' + comment_part.lstrip()
+
+            m = re.match(r'^SELECT\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
+            if m:
+                expr = (m.group(1) or '').strip()
+                if not expr:
+                    expr = '0'
+                out.append(f"{indent}__DBASE_SELECT__({expr}){comment_suffix}{nl}")
+                continue
+
+            m = re.match(r'^RENAME\b(.*)$', work, flags=re.IGNORECASE)
+            if m:
+                rest = (m.group(1) or '').strip()
+                to_pos = self._find_keyword_outside(rest, 'TO')
+                if to_pos >= 0:
+                    old_name = rest[:to_pos].strip()
+                    new_name = rest[to_pos + 2:].strip()
+                    if old_name and new_name:
+                        out.append(f"{indent}__DBASE_RENAME__({self._quote_builtin_arg(old_name)}, {self._quote_builtin_arg(new_name)}){comment_suffix}{nl}")
+                        continue
+
+            if re.match(r'^CLEAR\s+ALL\s*$', work, flags=re.IGNORECASE):
+                out.append(f"{indent}__DBASE_CLEAR_ALL__(){comment_suffix}{nl}")
+                continue
+
+            m = re.match(r'^SKIP(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
+            if m:
+                expr = (m.group(1) or '').strip()
+                if not expr:
+                    expr = '1'
+                out.append(f"{indent}__DBASE_SKIP__({expr}){comment_suffix}{nl}")
+                continue
+
+            m = re.match(r'^(?:GO|GOTO)(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
+            if m:
+                tail = (m.group(1) or '').strip()
+                if not tail:
+                    out.append(raw_line)
+                    continue
+                if tail.upper() in ('TOP', 'BOTTOM'):
+                    out.append(f"{indent}__DBASE_GOTO__({self._quote_builtin_arg(tail.upper())}){comment_suffix}{nl}")
+                else:
+                    out.append(f"{indent}__DBASE_GOTO__({tail}){comment_suffix}{nl}")
+                continue
+
+            if re.match(r'^DELETE\s*$', work, flags=re.IGNORECASE):
+                out.append(f"{indent}__DBASE_DELETE_RECORD__(){comment_suffix}{nl}")
+                continue
+
+            if re.match(r'^PACK\s*$', work, flags=re.IGNORECASE):
+                out.append(f"{indent}__DBASE_PACK__(){comment_suffix}{nl}")
+                continue
+
+            if re.match(r'^(?:ZIP|ZAP)\s*$', work, flags=re.IGNORECASE):
+                out.append(f"{indent}__DBASE_ZAP__(){comment_suffix}{nl}")
+                continue
+
+            if re.match(r'^COUNT', work, flags=re.IGNORECASE):
+                rest = re.sub(r'^COUNT', '', work, count=1, flags=re.IGNORECASE).strip()
+                range_part = ''
+                mode = ''
+                cond = ''
+                to_var = ''
+
+                if rest:
+                    pos_to = self._find_keyword_outside(rest, 'TO')
+                    if pos_to >= 0:
+                        before_to = rest[:pos_to].strip()
+                        to_var = rest[pos_to + 2:].strip()
+                    else:
+                        before_to = rest
+
+                    pos_for = self._find_keyword_outside(before_to, 'FOR')
+                    pos_while = self._find_keyword_outside(before_to, 'WHILE')
+                    picks = [(p, 'FOR') for p in [pos_for] if p >= 0] + [(p, 'WHILE') for p in [pos_while] if p >= 0]
+                    if picks:
+                        p, kw = sorted(picks, key=lambda x: x[0])[0]
+                        range_part = before_to[:p].strip()
+                        mode = kw
+                        cond = before_to[p + len(kw):].strip()
+                    else:
+                        range_part = before_to.strip()
+
+                out.append(f"{indent}__DBASE_COUNT__({self._quote_builtin_arg(range_part)}, {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(cond)}, {self._quote_builtin_arg(to_var)}){comment_suffix}{nl}")
+                continue
 
             out.append(raw_line)
 
@@ -8981,7 +9666,7 @@ class FileEditorWindow(QDialog):
         if initial_path:
             self.open_path_in_tab(initial_path)
         else:
-            self.new_tab(title="(neu)", path="", text=initial_text or "")
+            self.new_tab(title="unbenannt.prg", path="", text=initial_text or "")
 
         self._update_cursor_status()
 
@@ -9127,7 +9812,7 @@ class FileEditorWindow(QDialog):
             dlg.exec_()
 
     def _create_editor(self):
-        self.editor = CodeEditor(None)
+        self.editor = CodeEditor(self)
         self.editor.setPlaceholderText("Schreib hier was rein…")
         self.editor.setLineWrapMode(self.editor.NoWrap)
         self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -9147,7 +9832,7 @@ class FileEditorWindow(QDialog):
 
         self.container = QWidget()
         self.container._editor = self.editor
-        
+
         lay = QHBoxLayout(self.container)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(splitter)
@@ -9156,11 +9841,24 @@ class FileEditorWindow(QDialog):
         self.editor._minimap = self.minimap
         self.editor._minimap_container = self.container
 
+        # Strg+S / Strg+O direkt im Editor
+        self.editor.act_save_file = QAction("Speichern", self.editor)
+        self.editor.act_save_file.setShortcut(QKeySequence("Ctrl+S"))
+        self.editor.act_save_file.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.editor.act_save_file.triggered.connect(lambda ed=self.editor: self.file_save(self._tab_index_for_editor(ed)))
+        self.editor.addAction(self.editor.act_save_file)
+
+        self.editor.act_open_file = QAction("Öffnen", self.editor)
+        self.editor.act_open_file.setShortcut(QKeySequence("Ctrl+O"))
+        self.editor.act_open_file.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        self.editor.act_open_file.triggered.connect(self.file_open)
+        self.editor.addAction(self.editor.act_open_file)
+
         _debug_print("1111")
         self.highlighter = DBaseHighlighter(self.editor.document())
         _debug_print("2222")
         return self.editor
-        
+
     def set_minimap_visible(self, visible: bool):
         ed = self.current_editor()
         mm = self.minimap
@@ -9212,6 +9910,33 @@ class FileEditorWindow(QDialog):
     def current_tab_index(self) -> int:
         return int(self.editor_tabs.currentIndex())
 
+    def _normalize_meta_path(self, path: str) -> str:
+        if not path:
+            return ""
+        try:
+            return os.path.normcase(os.path.abspath(os.path.normpath(path)))
+        except Exception:
+            return os.path.normcase(os.path.normpath(path))
+
+    def _tab_index_for_editor(self, editor) -> int:
+        if editor is None:
+            return self.current_tab_index()
+        for i in range(self.editor_tabs.count()):
+            ed = self._editor_from_tab_widget(self.editor_tabs.widget(i))
+            if ed is editor:
+                return i
+        return self.current_tab_index()
+
+    def _find_open_tab_by_path(self, path: str) -> int:
+        needle = self._normalize_meta_path(path)
+        if not needle:
+            return -1
+        for i in range(self.editor_tabs.count()):
+            cur = self._normalize_meta_path(self.tab_path(i))
+            if cur and cur == needle:
+                return i
+        return -1
+
     def tab_path(self, idx: int) -> str:
         ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
         return getattr(ed, "_path", "") if ed is not None else ""
@@ -9222,7 +9947,7 @@ class FileEditorWindow(QDialog):
             setattr(ed, "_path", path)
 
     def tab_display_name(self, path: str) -> str:
-        return os.path.basename(path) if path else "Unbenannt"
+        return os.path.basename(path) if path else "unbenannt.prg"
 
     def _update_tab_visuals(self, idx: int) -> None:
         ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
@@ -9244,7 +9969,7 @@ class FileEditorWindow(QDialog):
         except Exception:
             pass
 
-    def new_tab(self, title: str = "Unbenannt", path: str = "", text: str = "") -> int:
+    def new_tab(self, title: str = "unbenannt.prg", path: str = "", text: str = "") -> int:
         ed = self._create_editor()
         ed.setFont(QFont("Consolas", 10))
         ed.setLineWrapMode(ed.NoWrap)
@@ -9275,20 +10000,32 @@ class FileEditorWindow(QDialog):
         _debug_print("iuiuiui")
         return idx
 
-    def open_path_in_tab(self, path: str) -> int:
-        path = os.path.normpath(path)
-        # bereits offen?
-        for i in range(self.editor_tabs.count()):
-            if os.path.normpath(self.tab_path(i)) == path:
-                self.editor_tabs.setCurrentIndex(i)
-                return i
+    def open_path_in_tab(self, path: str, warn_if_open: bool = False) -> int:
+        path = self._normalize_meta_path(path)
+        existing = self._find_open_tab_by_path(path)
+        if existing >= 0:
+            if warn_if_open:
+                QMessageBox.warning(
+                    self,
+                    "Datei bereits geöffnet",
+                    f"Die Datei ist bereits geöffnet:\n{path}",
+                    QMessageBox.Ok
+                )
+            self.editor_tabs.setCurrentIndex(existing)
+            ed = self.current_editor()
+            if ed is not None:
+                ed.setFocus()
+            return existing
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 txt = f.read()
         except Exception as e:
             QMessageBox.critical(self, "Fehler", f"Konnte Datei nicht öffnen:\n{e}")
-            txt = ""
+            return -1
         idx = self.new_tab(title=self.tab_display_name(path), path=path, text=txt)
+        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        if ed is not None:
+            ed.setFocus()
         return idx
 
     def _on_tab_close_requested(self, idx: int) -> None:
@@ -9324,7 +10061,20 @@ class FileEditorWindow(QDialog):
         return False
 
     def file_new(self):
-        self.new_tab(title="Unbenannt", path="", text="")
+        self.new_tab(title="unbenannt.prg", path="", text="")
+
+    def file_open(self) -> bool:
+        dlg = QFileDialog(self, "Öffnen")
+        dlg.setAcceptMode(QFileDialog.AcceptOpen)
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+        if not dlg.exec_():
+            return False
+        files = dlg.selectedFiles()
+        if not files:
+            return False
+        idx = self.open_path_in_tab(files[0], warn_if_open=True)
+        return idx >= 0
 
     def file_save(self, idx: Optional[int] = None) -> bool:
         if idx is None:
@@ -9361,14 +10111,27 @@ class FileEditorWindow(QDialog):
         dlg.setFileMode(QFileDialog.AnyFile)
         dlg.setDefaultSuffix("prg")
         dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+        dlg.setOption(QFileDialog.DontConfirmOverwrite, True)
         if cur_path:
             dlg.selectFile(cur_path)
+        else:
+            dlg.selectFile("unbenannt.prg")
         if not dlg.exec_():
             return False
         files = dlg.selectedFiles()
         if not files:
             return False
         path = files[0]
+        if os.path.exists(path):
+            res = QMessageBox.question(
+                self,
+                "Datei überschreiben?",
+                f"Die Datei existiert bereits und soll überschrieben werden:\n{path}",
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Cancel
+            )
+            if res != QMessageBox.Ok:
+                return False
         setattr(ed, "_path", path)
         self._update_tab_visuals(idx)
         return self.file_save(idx)
@@ -9469,16 +10232,33 @@ class ExecVisitor(dBaseParserVisitor):
         # Builtins
         self.set_var("USE", self._builtin_USE)
         self.set_var("INPUT", self._builtin_INPUT)
+        # interne Builtins aus der Vorverarbeitung
+        self.set_var("__DBASE_USE__", self._builtin_USE)
         self.set_var("__DBASE_ERASE__", self._builtin_ERASE)
         self.set_var("__DBASE_SET_FORMAT__", self._builtin_SET_FORMAT)
         self.set_var("__DBASE_SET_PRINT__", self._builtin_SET_PRINT)
         self.set_var("__DBASE_SET_MARGIN__", self._builtin_SET_MARGIN)
+        self.set_var("__DBASE_SET_COLOR__", self._builtin_SET_COLOR)
         self.set_var("__DBASE_SET_ESCAPE__", self._builtin_SET_ESCAPE)
         self.set_var("__DBASE_SET_CONFIRM__", self._builtin_SET_CONFIRM)
+        self.set_var("__DBASE_SET_DELETE__", self._builtin_SET_DELETE)
         self.set_var("__DBASE_STORE__", self._builtin_STORE)
         self.set_var("__DBASE_SAVE__", self._builtin_SAVE)
         self.set_var("__DBASE_RESTORE__", self._builtin_RESTORE)
         self.set_var("__DBASE_RELEASE__", self._builtin_RELEASE)
+        self.set_var("__DBASE_SELECT__", self._builtin_SELECT)
+        self.set_var("__DBASE_RENAME__", self._builtin_RENAME)
+        self.set_var("__DBASE_CLEAR_ALL__", self._builtin_CLEAR_ALL)
+        self.set_var("__DBASE_SKIP__", self._builtin_SKIP)
+        self.set_var("__DBASE_GOTO__", self._builtin_GOTO)
+        self.set_var("__DBASE_DELETE_RECORD__", self._builtin_DELETE_RECORD)
+        self.set_var("__DBASE_PACK__", self._builtin_PACK)
+        self.set_var("__DBASE_ZAP__", self._builtin_ZAP)
+        self.set_var("__DBASE_COUNT__", self._builtin_COUNT)
+
+        # DBF-Arbeitsbereiche immer sofort initialisieren, damit SELECT/USE
+        # bereits im ersten Script-Lauf sicher funktionieren.
+        self._init_workareas()
     
     def _builtin_ERASE(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
@@ -9511,6 +10291,11 @@ class ExecVisitor(dBaseParserVisitor):
         if getattr(self, "_mode", "exec") != "exec":
             return 0
         return _set_runtime_print_margin(*args)
+
+    def _builtin_SET_COLOR(self, *args):
+        if getattr(self, "_mode", "exec") != "exec":
+            return 0
+        return _set_runtime_color(*args)
 
     def _builtin_SET_ESCAPE(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
@@ -9644,6 +10429,515 @@ class ExecVisitor(dBaseParserVisitor):
         for scope in self._scopes:
             scope.pop(key, None)
 
+
+    def _workarea_empty(self) -> dict[str, object]:
+        return {
+            "dbf_path": "",
+            "indexes": [],
+            "fields": [],
+            "records": [],
+            "pointer": 1,
+            "eof": True,
+            "version": 0x03,
+        }
+
+    def _workarea_state_file_path(self) -> Path:
+        return Path(tempfile.gettempdir()) / ".dbase_workareas.json"
+
+    def _mark_hidden_path(self, path: Path) -> None:
+        try:
+            if SystemInfo.is_windows():
+                ctypes.windll.kernel32.SetFileAttributesW(str(path), 0x02)
+        except Exception:
+            pass
+
+    def _init_workareas(self):
+        self._selected_workarea = 0
+        self._workareas = {i: self._workarea_empty() for i in range(65)}
+        self._workarea_state_path = self._workarea_state_file_path()
+        self._sync_workareas_state()
+
+    def _sync_workareas_state(self):
+        try:
+            payload = {
+                "selected": int(getattr(self, "_selected_workarea", 0)),
+                "workareas": {},
+            }
+            for idx, ws in getattr(self, "_workareas", {}).items():
+                recs = ws.get("records", []) or []
+                payload["workareas"][str(idx)] = {
+                    "dbf_path": ws.get("dbf_path", ""),
+                    "indexes": list(ws.get("indexes", []) or []),
+                    "pointer": int(ws.get("pointer", 1) or 1),
+                    "eof": bool(ws.get("eof", True)),
+                    "record_count": len(recs),
+                    "deleted_count": sum(1 for r in recs if r.get("__deleted__")),
+                }
+            self._workarea_state_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            self._mark_hidden_path(self._workarea_state_path)
+        except Exception:
+            pass
+
+    def _current_workarea(self) -> dict[str, object]:
+        if not hasattr(self, "_workareas") or not hasattr(self, "_selected_workarea"):
+            self._init_workareas()
+        idx = int(getattr(self, "_selected_workarea", 0) or 0)
+        if idx < 0 or idx > 64:
+            idx = 0
+            self._selected_workarea = 0
+        if idx not in self._workareas:
+            self._workareas[idx] = self._workarea_empty()
+        return self._workareas[idx]
+
+    def _resolve_db_path(self, filename: str = "", default_ext: str = ".dbf") -> Path:
+        name = self._decode_builtin_text_arg(filename, "").strip()
+        if not name:
+            return Path("")
+        p = Path(name)
+        if not p.suffix and default_ext:
+            p = Path(str(p) + default_ext)
+        if not p.is_absolute():
+            cur = getattr(self, "_current_filename", "") or ""
+            base_dir = Path(cur).resolve().parent if cur else Path.cwd()
+            p = base_dir / p
+        return Path(os.path.abspath(str(p)))
+
+    def _resolve_index_paths(self, index_text: str = "", dbf_path: Path | None = None) -> list[str]:
+        raw = self._decode_builtin_text_arg(index_text, "").strip()
+        if not raw:
+            return []
+        base_dir = dbf_path.parent if isinstance(dbf_path, Path) and str(dbf_path) else (Path(getattr(self, "_current_filename", "")).resolve().parent if getattr(self, "_current_filename", "") else Path.cwd())
+        parts = [p.strip() for p in self._split_args(raw) if p.strip()]
+        resolved = []
+        for part in parts:
+            val = self._decode_builtin_text_arg(part, part).strip()
+            if not val:
+                continue
+            p = Path(val)
+            if not p.suffix:
+                p = Path(str(p) + ".ndx")
+            if not p.is_absolute():
+                p = base_dir / p
+            resolved.append(str(Path(os.path.abspath(str(p)))))
+        return resolved
+
+    def _dbf_read_header_runtime(self, path: str):
+        with open(path, "rb") as f:
+            hdr = f.read(32)
+            if len(hdr) < 32:
+                raise ValueError("DBF header too short")
+            version = hdr[0]
+            num_records = int.from_bytes(hdr[4:8], "little")
+            header_len = int.from_bytes(hdr[8:10], "little")
+            record_len = int.from_bytes(hdr[10:12], "little")
+
+            f.seek(32)
+            desc = f.read(max(0, header_len - 32))
+            end = desc.find(b"\x0D")
+            if end == -1:
+                end = len(desc)
+            desc = desc[:end]
+
+            def _parse_standard_32(desc_bytes: bytes):
+                parsed: list[DbfFieldSpec] = []
+                offset = 1
+                for i in range(0, len(desc_bytes), 32):
+                    ch = desc_bytes[i:i+32]
+                    if len(ch) < 32:
+                        break
+                    name_raw = ch[0:11].split(b"\x00", 1)[0]
+                    name = name_raw.decode("ascii", errors="ignore").strip()
+                    if not name:
+                        continue
+                    ftype = chr(ch[11]).upper()
+                    flen = int(ch[16])
+                    fdec = int(ch[17])
+                    parsed.append(DbfFieldSpec(name=name, ftype=ftype, length=flen, decimals=fdec, offset=offset))
+                    offset += flen
+                return parsed
+
+            def _parse_extended_48(desc_bytes: bytes):
+                # Fallback für zuvor erzeugte DBF-Dateien mit 48-Byte-Deskriptoren
+                # (32 Byte Feldname, Typ an Offset 32, Länge an 33, Dezimalen an 34).
+                parsed: list[DbfFieldSpec] = []
+                offset = 1
+                for i in range(0, len(desc_bytes), 48):
+                    ch = desc_bytes[i:i+48]
+                    if len(ch) < 35:
+                        break
+                    name_raw = ch[0:32].split(b"\x00", 1)[0]
+                    name = name_raw.decode("ascii", errors="ignore").strip()
+                    if not name:
+                        continue
+                    try:
+                        ftype = chr(ch[32]).upper()
+                    except Exception:
+                        continue
+                    flen = int(ch[33]) if len(ch) > 33 else 0
+                    fdec = int(ch[34]) if len(ch) > 34 else 0
+                    if flen <= 0:
+                        continue
+                    parsed.append(DbfFieldSpec(name=name, ftype=ftype, length=flen, decimals=fdec, offset=offset))
+                    offset += flen
+                return parsed
+
+            fields: list[DbfFieldSpec] = _parse_standard_32(desc)
+            if not fields:
+                fields = _parse_extended_48(desc)
+            return version, header_len, record_len, num_records, fields
+
+    def _dbf_decode_field_runtime(self, spec: DbfFieldSpec, raw: bytes):
+        s = raw.decode("cp1252", errors="ignore")
+        if spec.ftype in ("C", "M"):
+            return s.rstrip()
+        if spec.ftype in ("N", "F", "I"):
+            txt = s.strip()
+            if not txt:
+                return 0
+            try:
+                if spec.decimals:
+                    return float(txt.replace(",", "."))
+                return int(float(txt.replace(",", ".")))
+            except Exception:
+                return txt
+        if spec.ftype == "L":
+            v = s.strip().upper()
+            return True if v in ("T", "Y", "1") else False
+        if spec.ftype == "D":
+            return s.strip()
+        return s.rstrip()
+
+    def _dbf_encode_field_runtime(self, spec: DbfFieldSpec, value) -> bytes:
+        if spec.ftype in ("C", "M"):
+            txt = str(value or "")
+            b = txt.encode("cp1252", errors="replace")[:spec.length]
+            return b.ljust(spec.length, b" ")
+        if spec.ftype in ("N", "F", "I"):
+            if value is None or value == "":
+                txt = ""
+            elif isinstance(value, float) and spec.decimals:
+                txt = f"{value:.{spec.decimals}f}"
+            else:
+                txt = str(value).strip().replace(",", ".")
+            b = txt.encode("ascii", errors="ignore")[:spec.length]
+            return b.rjust(spec.length, b" ")
+        if spec.ftype == "L":
+            ch = b"T" if bool(value) else b"F"
+            return ch.ljust(spec.length, b" ")
+        if spec.ftype == "D":
+            txt = str(value or "").strip()
+            b = txt.encode("ascii", errors="ignore")[:spec.length]
+            return b.ljust(spec.length, b" ")
+        txt = str(value or "")
+        b = txt.encode("cp1252", errors="replace")[:spec.length]
+        return b.ljust(spec.length, b" ")
+
+    def _load_dbf_workarea(self, path: Path) -> dict[str, object]:
+        version, header_len, record_len, num_records, fields = self._dbf_read_header_runtime(str(path))
+        records = []
+        with open(path, "rb") as f:
+            f.seek(header_len)
+            for recno in range(1, num_records + 1):
+                rec = f.read(record_len)
+                if len(rec) < record_len:
+                    break
+                deleted = rec[:1] == b"*"
+                row = {"__deleted__": bool(deleted), "__recno__": recno}
+                for spec in fields:
+                    raw = rec[spec.offset:spec.offset + spec.length]
+                    row[spec.name.upper()] = self._dbf_decode_field_runtime(spec, raw)
+                records.append(row)
+        ws = self._workarea_empty()
+        ws.update({
+            "dbf_path": str(path),
+            "indexes": [],
+            "fields": fields,
+            "records": records,
+            "pointer": 1,
+            "eof": len(records) == 0,
+            "version": version or 0x03,
+        })
+        return ws
+
+    def _save_dbf_workarea(self, ws: dict[str, object]) -> None:
+        path = Path(ws.get("dbf_path", ""))
+        fields: list[DbfFieldSpec] = list(ws.get("fields", []) or [])
+        records = list(ws.get("records", []) or [])
+        if not path:
+            return
+        nfields = len(fields)
+        header_len = 32 + 32 * nfields + 1
+        record_len = 1 + sum(f.length for f in fields)
+        today = datetime.date.today()
+
+        hdr = bytearray(32)
+        hdr[0] = int(ws.get("version", 0x03) or 0x03)
+        hdr[1] = today.year - 1900
+        hdr[2] = today.month
+        hdr[3] = today.day
+        hdr[4:8] = int(len(records)).to_bytes(4, "little", signed=False)
+        hdr[8:10] = int(header_len).to_bytes(2, "little", signed=False)
+        hdr[10:12] = int(record_len).to_bytes(2, "little", signed=False)
+
+        out = bytearray()
+        out += hdr
+        for spec in fields:
+            desc = bytearray(32)
+            nb = spec.name.encode("ascii", errors="ignore")[:11]
+            desc[0:len(nb)] = nb
+            desc[11] = ord(spec.ftype[:1])
+            desc[16] = int(spec.length) & 0xFF
+            desc[17] = int(spec.decimals) & 0xFF
+            out += desc
+        out += b"\x0D"
+
+        for row in records:
+            rec = bytearray()
+            rec += b"*" if row.get("__deleted__") else b" "
+            for spec in fields:
+                rec += self._dbf_encode_field_runtime(spec, row.get(spec.name.upper()))
+            out += rec
+
+        out += b"\x1A"
+        path.write_bytes(bytes(out))
+
+    def _set_workarea_pointer(self, ws: dict[str, object], pointer: int) -> int:
+        records = list(ws.get("records", []) or [])
+        count = len(records)
+        if count <= 0:
+            ws["pointer"] = 1
+            ws["eof"] = True
+            return 1
+        pointer = int(pointer or 1)
+        if pointer < 1:
+            pointer = 1
+        if pointer > count:
+            ws["pointer"] = count + 1
+            ws["eof"] = True
+            return ws["pointer"]
+        ws["pointer"] = pointer
+        ws["eof"] = False
+        return pointer
+
+    def _current_record(self) -> dict[str, object] | None:
+        ws = self._current_workarea()
+        records = list(ws.get("records", []) or [])
+        ptr = int(ws.get("pointer", 1) or 1)
+        if ptr < 1 or ptr > len(records):
+            return None
+        return records[ptr - 1]
+
+    def _confirm_runtime_action(self, title: str, text: str) -> None:
+        if not _RUNTIME_CONFIRM_ENABLED:
+            return
+        parent = MAINAPP if 'MAINAPP' in globals() else None
+        answer = QMessageBox.question(
+            parent,
+            title,
+            text,
+            QMessageBox.Ok | QMessageBox.Cancel,
+            QMessageBox.Cancel
+        )
+        if answer != QMessageBox.Ok:
+            raise ProgramAbortSignal()
+
+    def _record_visible_for_runtime(self, rec: dict[str, object] | None) -> bool:
+        if rec is None:
+            return False
+        if _RUNTIME_DELETE_ENABLED and bool(rec.get('__deleted__')):
+            return False
+        return True
+
+    def _count_records_runtime(self, range_part: str = '', mode: str = '', cond_expr: str = '') -> int:
+        ws = self._current_workarea()
+        records = list(ws.get('records', []) or [])
+        old_ptr = int(ws.get('pointer', 1) or 1)
+        old_eof = bool(ws.get('eof', True))
+        total = 0
+
+        # Bereich derzeit reserviert; standardmäßig werden alle Datensätze geprüft.
+        start_idx = 1
+        end_idx = len(records)
+
+        mode_up = (mode or '').strip().upper()
+        cond_expr = (cond_expr or '').strip()
+
+        try:
+            for recno in range(start_idx, end_idx + 1):
+                self._set_workarea_pointer(ws, recno)
+                rec = self._current_record()
+                if rec is None:
+                    break
+
+                visible = self._record_visible_for_runtime(rec)
+                cond_ok = True
+                if cond_expr:
+                    cond_ok = bool(self._eval_expr_text_from_source(cond_expr))
+
+                if mode_up == 'WHILE':
+                    if not cond_ok:
+                        break
+                    if visible:
+                        total += 1
+                elif mode_up == 'FOR':
+                    if visible and cond_ok:
+                        total += 1
+                else:
+                    if visible:
+                        total += 1
+        finally:
+            ws['pointer'] = old_ptr
+            ws['eof'] = old_eof
+
+        return total
+
+    def _builtin_SELECT(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        area = 0
+        if args:
+            try:
+                area = int(float(args[0]))
+            except Exception:
+                area = 0
+        if area < 0 or area > 64:
+            parent = MAINAPP if 'MAINAPP' in globals() else None
+            try:
+                QMessageBox.warning(parent, 'Arbeitsbereich', 'Arbeitsbereich außerhalb des gültigen Bereichs 0..64. Es wird auf Arbeitsbereich 0 gewechselt.')
+            except Exception:
+                pass
+            area = 0
+        self._selected_workarea = area
+        self._sync_workareas_state()
+        return area
+
+    def _builtin_RENAME(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        if len(args) < 2:
+            raise RuntimeError('RENAME erwartet alten und neuen Dateinamen')
+        old_path = self._resolve_db_path(args[0], '.dbf')
+        new_name_raw = self._decode_builtin_text_arg(args[1], '').strip()
+        if not old_path or not str(old_path):
+            raise RuntimeError('RENAME: alter Dateiname fehlt')
+        if not old_path.exists():
+            raise RuntimeError(f'RENAME: Datei wurde nicht gefunden: {old_path}')
+        if not new_name_raw:
+            raise RuntimeError('RENAME: neuer Dateiname fehlt')
+        new_path = Path(new_name_raw)
+        if not new_path.suffix:
+            new_path = Path(str(new_path) + (old_path.suffix or '.dbf'))
+        if not new_path.is_absolute():
+            new_path = old_path.parent / new_path
+
+        self._confirm_runtime_action('Datei umbenennen?', f'Soll die Datei umbenannt werden?\n\n{old_path}\n→\n{new_path}')
+        os.replace(str(old_path), str(new_path))
+
+        old_abs = str(old_path.resolve())
+        new_abs = str(new_path.resolve())
+        for idx, ws in self._workareas.items():
+            if ws.get('dbf_path', '') and str(Path(ws['dbf_path']).resolve()) == old_abs:
+                reloaded = self._load_dbf_workarea(Path(new_abs))
+                reloaded['indexes'] = list(ws.get('indexes', []) or [])
+                self._set_workarea_pointer(reloaded, 1)
+                self._workareas[idx] = reloaded
+
+        self._sync_workareas_state()
+        return 1
+
+    def _builtin_CLEAR_ALL(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        self._clear_memory_variables()
+        self._init_workareas()
+        return 1
+
+    def _builtin_SKIP(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        count = 1
+        if args:
+            try:
+                count = int(float(args[0]))
+            except Exception:
+                count = 1
+        ws = self._current_workarea()
+        self._set_workarea_pointer(ws, int(ws.get('pointer', 1) or 1) + count)
+        self._sync_workareas_state()
+        return int(ws.get('pointer', 1) or 1)
+
+    def _builtin_GOTO(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        ws = self._current_workarea()
+        records = list(ws.get('records', []) or [])
+        count = len(records)
+        target = args[0] if args else 'TOP'
+        if isinstance(target, str):
+            up = target.strip().upper()
+            if up == 'TOP':
+                self._set_workarea_pointer(ws, 1)
+                self._sync_workareas_state()
+                return 1
+            if up == 'BOTTOM':
+                self._set_workarea_pointer(ws, count if count > 0 else 1)
+                self._sync_workareas_state()
+                return int(ws.get('pointer', 1) or 1)
+        try:
+            recno = int(float(target))
+        except Exception:
+            recno = 1
+
+        if recno < 1 or recno > max(1, count):
+            parent = MAINAPP if 'MAINAPP' in globals() else None
+            try:
+                QMessageBox.warning(parent, 'Datensatzzeiger', 'Ungültige Datensatznummer. Es wird auf Datensatz 1 gewechselt.')
+            except Exception:
+                pass
+            recno = 1
+        self._set_workarea_pointer(ws, recno)
+        self._sync_workareas_state()
+        return int(ws.get('pointer', 1) or 1)
+
+    def _builtin_DELETE_RECORD(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        ws = self._current_workarea()
+        rec = self._current_record()
+        if rec is None:
+            return 0
+        rec['__deleted__'] = True
+        self._save_dbf_workarea(ws)
+        self._sync_workareas_state()
+        return 1
+
+    def _builtin_PACK(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        ws = self._current_workarea()
+        if not ws.get('dbf_path'):
+            return 0
+        self._confirm_runtime_action('PACK', 'Sollen die löschmarkierten Datensätze endgültig entfernt werden?')
+        records = [r for r in list(ws.get('records', []) or []) if not r.get('__deleted__')]
+        ws['records'] = records
+        self._save_dbf_workarea(ws)
+        self._set_workarea_pointer(ws, 1)
+        self._sync_workareas_state()
+        return len(records)
+
+    def _builtin_ZAP(self, *args):
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
+        ws = self._current_workarea()
+        if not ws.get('dbf_path'):
+            return 0
+        self._confirm_runtime_action('ZAP', 'Sollen alle Datensätze endgültig gelöscht werden?')
+        ws['records'] = []
+        self._save_dbf_workarea(ws)
+        self._set_workarea_pointer(ws, 1)
+        self._sync_workareas_state()
+        return 0
+
     def _builtin_STORE(self, *args):
         if getattr(self, '_mode', 'exec') != 'exec':
             return 0
@@ -9726,50 +11020,34 @@ class ExecVisitor(dBaseParserVisitor):
 
     def _builtin_USE(self, *args):
         """
-        USE <table> [ALIAS <name>] [EXCLUSIVE|SHARED]
-        Minimal-Implementierung: delegiert an deine DBF/Runtime-Schicht.
+        USE <table> [INDEX idx1, idx2, ...]
+        Ohne Parameter wird der aktive Arbeitsbereich geschlossen.
         """
-        if not args:
-            raise RuntimeError("USE: Missing table name")
+        if getattr(self, '_mode', 'exec') != 'exec':
+            return 0
 
-        # args kann Tokens/Nodes enthalten – je nach Parser.
-        # Häufig ist das erste Argument der Tabellenname.
-        table = args[0]
-        alias = None
-        exclusive = False
-        shared = True
+        filename = args[0] if len(args) > 0 else ''
+        index_text = args[1] if len(args) > 1 else ''
+        _exclusive = bool(args[2]) if len(args) > 2 else False
 
-        # sehr tolerant parsen
-        i = 1
-        while i < len(args):
-            a = str(args[i]).upper()
-            if a == "ALIAS" and i + 1 < len(args):
-                alias = str(args[i + 1])
-                i += 2
-                continue
-            if a == "EXCLUSIVE":
-                exclusive = True
-                shared = False
-                i += 1
-                continue
-            if a == "SHARED":
-                shared = True
-                exclusive = False
-                i += 1
-                continue
-            i += 1
+        raw_name = self._decode_builtin_text_arg(filename, '').strip()
+        ws = self._current_workarea()
 
-        # Hier an deine Runtime anbinden:
-        # z.B.: self.runtime.use_table(table, alias=alias, exclusive=exclusive, shared=shared)
-        if hasattr(self, "runtime") and hasattr(self.runtime, "use_table"):
-            return self.runtime.use_table(str(table), alias=alias, exclusive=exclusive, shared=shared)
+        if not raw_name:
+            self._workareas[self._selected_workarea] = self._workarea_empty()
+            self._sync_workareas_state()
+            return 0
 
-        # Fallback: zumindest merken, dass "USE" ausgeführt wurde
-        if hasattr(self, "context"):
-            self.context["current_table"] = str(table)
-            if alias:
-                self.context["current_alias"] = alias
-        return True
+        path = self._resolve_db_path(raw_name, '.dbf')
+        if not path.exists():
+            raise RuntimeError(f"USE: Datei wurde nicht gefunden: {path}")
+
+        loaded = self._load_dbf_workarea(path)
+        loaded['indexes'] = self._resolve_index_paths(index_text, path)
+        self._set_workarea_pointer(loaded, 1)
+        self._workareas[self._selected_workarea] = loaded
+        self._sync_workareas_state()
+        return 1
         
     @property
     def current_frame(self) -> Frame:
@@ -12544,7 +13822,35 @@ class ExecVisitor(dBaseParserVisitor):
                         return v
                 raise RuntimeError(f"Unbekanntes WITH-Property '{name}'")
 
-        # 3) Klassenname oder native Basisklasse als Symbol tolerieren.
+        # 3) Aktiver Arbeitsbereich: EOF / Feldnamen
+        try:
+            ws = self._current_workarea()
+            if key == 'EOF':
+                return bool(ws.get('eof', True))
+            if key == 'RECNO':
+                return int(ws.get('pointer', 1) or 1)
+
+            rec = self._current_record()
+            if rec is not None:
+                if key == 'DELETED':
+                    return bool(rec.get('__deleted__'))
+                if key in rec:
+                    return rec[key]
+
+            # Feldnamen auch dann erkennen, wenn aktuell kein gültiger Datensatz
+            # im Zugriff ist (z.B. EOF/leer/pointer außerhalb). In diesem Fall
+            # liefern wir einen leeren Wert statt "Unbekannter Name".
+            fields = list(ws.get('fields', []) or [])
+            for spec in fields:
+                try:
+                    if str(getattr(spec, 'name', '') or '').upper() == key:
+                        return '' if rec is None else rec.get(key, '')
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 4) Klassenname oder native Basisklasse als Symbol tolerieren.
         # Das verhindert, dass versehentlich im Exec-Pass ankommende Teile eines
         # CLASS-Headers (z.B. "ParentForm" oder "FORM") als unbekannter
         # Variablenname abstürzen. Für NEW <Class>(...) wird dieser Pfad nicht
@@ -14645,7 +15951,7 @@ class TableDesignerDialog(QDialog):
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
-        _mark_escape_protected(self)
+        _mark_escape_close(self)
         self.parent      = parent
         self.subwindow   = None
 
@@ -17768,7 +19074,7 @@ def apply_custom_dock_titlebar(dock: QDockWidget):
 class ObjectInspectorDock(QDockWidget):
     """Dock: Objekt-Inspector (oben links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__("Objektinspektor", parent)
+        super().__init__(_tr("Object Inspector"), parent)
         self.main_window = main_window
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
@@ -17781,7 +19087,7 @@ class ObjectInspectorDock(QDockWidget):
 class ObjectPaletteDock(QDockWidget):
     """Dock: Objektpalette (unten links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__("Objektpalette", parent)
+        super().__init__(_tr("Object Palette"), parent)
         self.main_window = main_window
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
@@ -18600,6 +19906,51 @@ class FormDesignerWindow(QWidget):
 
         lay.addWidget(self.scroll_area, 1)
 
+    def closeEvent(self, ev):
+        mw = getattr(self, 'main_window', None)
+        try:
+            oi = getattr(mw, 'object_inspector', None) if mw is not None else None
+            if oi is not None:
+                try:
+                    oi._current_ctrl = None
+                except Exception:
+                    pass
+                try:
+                    oi.set_controls_list([])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        try:
+            dock = getattr(mw, 'obj_inspector_dock', None) if mw is not None else None
+            if dock is not None:
+                dock.hide()
+                dock.close()
+        except Exception:
+            pass
+
+        try:
+            dock = getattr(mw, 'obj_palette_dock', None) if mw is not None else None
+            if dock is not None:
+                dock.hide()
+                dock.close()
+        except Exception:
+            pass
+
+        try:
+            if mw is not None:
+                if getattr(mw, 'form_designer_window', None) is self:
+                    mw.form_designer_window = None
+                try:
+                    mw.designer_canvas = None
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        super().closeEvent(ev)
+
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
         # Bei Fenster-Resize: Canvas-MinSize neu berechnen und Objektinspektor updaten
@@ -18648,7 +19999,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
         main_window.form_designer_window = designer
         main_window.designer_canvas = getattr(designer, 'canvas', None)
         sub = main_window.mdi.addSubWindow(designer)
-        sub.setWindowTitle("Formular-Designer")
+        sub.setWindowTitle(_tr("Form Designer"))
         sub.resize(700, 520)
         sub.move(220, 40)
         designer.show()
@@ -19057,10 +20408,13 @@ class DebugConsoleWidget(QWidget):
 
         self.splitter = QSplitter(Qt.Vertical, self)
 
-        self.out = QPlainTextEdit(self)
+        self.out = QTextEdit(self)
         self.out.setReadOnly(True)
-        self.out.setMaximumBlockCount(10000)
-        self.out.setLineWrapMode(QPlainTextEdit.NoWrap)
+        try:
+            self.out.document().setMaximumBlockCount(10000)
+        except Exception:
+            pass
+        self.out.setLineWrapMode(QTextEdit.NoWrap)
         try:
             self.out.setFont(QFont("Consolas", 10))
         except Exception:
@@ -19078,9 +20432,31 @@ class DebugConsoleWidget(QWidget):
 
         lay.addWidget(self.splitter, 1)
 
-    def append_output(self, text: str):
+    def append_output(self, text: str, fg_hex: str | None = None, bg_hex: str | None = None):
         text = "" if text is None else str(text)
-        self.out.appendPlainText(text)
+        cursor = self.out.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.out.setTextCursor(cursor)
+
+        fmt = QTextCharFormat()
+        if fg_hex:
+            try:
+                fmt.setForeground(QColor(fg_hex))
+            except Exception:
+                pass
+        if bg_hex:
+            try:
+                fmt.setBackground(QColor(bg_hex))
+            except Exception:
+                pass
+
+        cursor.insertText(text, fmt)
+        cursor.insertBlock()
+        self.out.setTextCursor(cursor)
+        try:
+            self.out.ensureCursorVisible()
+        except Exception:
+            pass
 
     def clear_output(self):
         try:
@@ -19107,7 +20483,7 @@ class MainWindow(QMainWindow):
     def _set_language(self, lang: str):
         """Loads <lang>/LC_MESSAGES/dbase.mo from locales.zip and refreshes menu texts."""
         try:
-            _I18N.load_language(lang)
+            _I18N.load_mo(lang)
         except Exception:
             pass
         self._retranslate_ui()
@@ -19142,10 +20518,34 @@ class MainWindow(QMainWindow):
                 ("act_view_editor", "Editor"),
                 ("act_view_table", "Table Designer"),
                 ("act_view_sql", "SQL Builder"),
+                ("act_edit_minimap", "Mini-Map"),
             ]:
                 act = getattr(self, name, None)
                 if act is not None:
                     act.setText(_tr(msgid))
+            if hasattr(self, 'menu_language'):
+                try:
+                    self.act_lang_en.setText(_tr("English"))
+                    self.act_lang_de.setText(_tr("German"))
+                except Exception:
+                    pass
+            if hasattr(self, 'obj_inspector_dock') and self.obj_inspector_dock is not None:
+                try:
+                    self.obj_inspector_dock.setWindowTitle(_tr("Object Inspector"))
+                except Exception:
+                    pass
+            if hasattr(self, 'obj_palette_dock') and self.obj_palette_dock is not None:
+                try:
+                    self.obj_palette_dock.setWindowTitle(_tr("Object Palette"))
+                except Exception:
+                    pass
+            try:
+                for sub in self.mdi.subWindowList():
+                    w = sub.widget()
+                    if w is getattr(self, 'form_designer_window', None):
+                        sub.setWindowTitle(_tr("Form Designer"))
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -19212,6 +20612,10 @@ class MainWindow(QMainWindow):
 
         self.f1filter = F1Filter(self.mdi, create_help, self)
         QApplication.instance().installEventFilter(self.f1filter)
+        try:
+            _ensure_escape_filter_installed()
+        except Exception:
+            pass
                 
         # Designer (Form-Designer + Docks) wird erst bei 'Ansicht -> Designer' on-demand erstellt
         self.dark_mode = True
@@ -19225,10 +20629,10 @@ class MainWindow(QMainWindow):
 
         # --- i18n: load translations from locales.zip next to this script ---
         try:
-            self._locales_zip = Path(__file__).with_name("data\\locales.zip")
+            self._locales_zip = Path(__file__).parent / 'data' / 'locales.zip'
             _I18N.set_zip(self._locales_zip)
             # Default: Deutsch (passt zum aktuellen UI-Stand)
-            _I18N.load_language("de")
+            _I18N.load_mo("de")
         except Exception:
             self._locales_zip = None
 
@@ -19486,12 +20890,12 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return w
-    def append_debug_output(self, text: str):
+    def append_debug_output(self, text: str, fg_hex: str | None = None, bg_hex: str | None = None):
         text = "" if text is None else str(text)
         try:
             console = self.ensure_debug_console(focus=False)
             if console is not None:
-                console.append_output(text)
+                console.append_output(text, fg_hex=fg_hex, bg_hex=bg_hex)
                 return
         except Exception:
             pass
@@ -19818,7 +21222,7 @@ class MainWindow(QMainWindow):
 
             sub = self.mdi.addSubWindow(fw)
             sub.resize(720, 560)
-            sub.setWindowTitle(_tr("Form-Designer"))
+            sub.setWindowTitle(_tr("Form Designer"))
             fw.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -20081,7 +21485,7 @@ class MainWindow(QMainWindow):
         try:
             new_win = FileEditorWindow(parent=self, initial_path="", initial_text="")
             subw = self.mdi.addSubWindow(new_win)
-            _mark_escape_protected(subw)
+            _mark_escape_close(subw)
             new_win.resize(700, 500)
             new_win.show()
             new_win.open_path_in_tab(path)
@@ -20224,7 +21628,7 @@ class MainWindow(QMainWindow):
     def mdi_open_editor(self, title="Unbenannt", text=""):
         w = EditorWidget(text)
         sub = self.mdi.addSubWindow(w)     # Qt erzeugt ein QMdiSubWindow
-        _mark_escape_protected(sub)
+        _mark_escape_close(sub)
         sub.setWindowTitle(title)
         sub.resize(900, 650)
         w.show()
@@ -20239,7 +21643,7 @@ class MainWindow(QMainWindow):
     def mdi_open_table_designer(self):
         dlg = TableDesignerDialog(self)
         sub = self.mdi.addSubWindow(dlg)
-        _mark_escape_protected(sub)
+        _mark_escape_close(sub)
         dlg.setSubWindow(sub)
         sub.resize(600,250)
         sub.move(56,320)
@@ -20249,7 +21653,7 @@ class MainWindow(QMainWindow):
     def mdi_open_sql_builder(self):
         dlg = SqlBuilderWindow(self)
         sub = self.mdi.addSubWindow(dlg)
-        _mark_escape_protected(sub)
+        _mark_escape_close(sub)
         sub.resize(900, 520)
         sub.move(40, 60)
         sub.show()
@@ -21414,7 +22818,7 @@ class SqlBuilderWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._project_path = None
-        _mark_escape_protected(self)
+        _mark_escape_close(self)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)

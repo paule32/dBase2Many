@@ -1,0 +1,18 @@
+[OPTIONS]
+Auto Index=Yes
+Compatibility=1.1 or later
+Compiled file=help.chm
+Contents file=Table of Contents.hhc
+Default Font=Arial,10,0
+Default topic=htm\index.htm
+Display compile progress=Yes
+Index file=Index.hhk
+Language=0x407 Deutsch (Deutschland)
+Title=dBase 2026 (c) Jens Kallup - paule32
+
+
+[FILES]
+htm\index.htm
+
+[INFOTYPES]
+
