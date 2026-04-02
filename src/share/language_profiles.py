@@ -39,6 +39,21 @@ def _normalize_extensions(values: Iterable[str]) -> tuple[str, ...]:
 
 
 _PROFILES: dict[str, LanguageProfile] = {
+    "dbase": LanguageProfile(
+        key="dbase",
+        display_name="dBase",
+        app_title="dBase Runner 2026 - (c) Jens Kallup - paule32",
+        program_extensions=_normalize_extensions([".prg", ".wfm", ".frm"]),
+        program_name_filter="dBase Quellcode (*.prg *.wfm *.frm)",
+        default_source_extension=".prg",
+        new_file_template=(
+            "** END HEADER - do not delete this line\n\n"
+            "CLASS Form1 OF FORM\n"
+            "  // TODO\n"
+            "ENDCLASS\n"
+        ),
+        notes="UI-Basis stammt noch aus dBaseRunner.py; Parser/Lexer werden später ersetzt.",
+    ),
     "pascal": LanguageProfile(
         key="pascal",
         display_name="Pascal",

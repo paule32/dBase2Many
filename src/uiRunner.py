@@ -4,180 +4,31 @@
 # All rights reserved
 # ---------------------------------------------------------------------------
 from __future__  import annotations
-from system_info import SystemInfo
 
 import sys
 import os
 import builtins
 
-_VERBOSE_CONSOLE = os.environ.get("DBASERUNNER_VERBOSE", "0") == "1"
+from share.common            import *
+from share.editors.editor    import *
 
-def _debug_print(*args, **kwargs):
-    if not _VERBOSE_CONSOLE:
-        return
-    try:
-        builtins.print(*args, **kwargs)
-    except Exception:
-        pass
+import share.utildef
+from   share.utildef.sysinfo import SystemInfo
+from   share.utildef.theme   import *
+
+from parse.dbase.parser      import *
 
 # ---------------------------------------------------------------------------
 # perform Windows 10/11 specifiec stuff ...
 # ---------------------------------------------------------------------------
 if SystemInfo.is_windows():
     import ctypes
-    _debug_print("Windows detected.")
+    debug_print("Windows detected.")
 elif SystemInfo.is_linux():
-    _debug_print("Linux detected")
+    debug_print("Linux detected")
 else:
-    _debug_print("could not detect operating system,")
+    debug_print("could not detect operating system,")
     sys.exit(1)
-
-try:
-    # -----------------------------------------------------------------------
-    # import some internal used modules ...
-    # -----------------------------------------------------------------------
-    from dataclasses import dataclass, field
-    from typing      import Dict, List, Optional, Union, Any, TextIO
-    from pathlib     import Path
-    from copy        import deepcopy
-    
-    # -----------------------------------------------------------------------
-    # import modules to handle html files ...
-    # -----------------------------------------------------------------------
-    from html        import unescape
-    from html.parser import HTMLParser
-    
-    # -----------------------------------------------------------------------
-    # we use antlr4 for the lexer + parser generator ...
-    # -----------------------------------------------------------------------
-    from antlr4      import (
-         InputStream, FileStream, CommonTokenStream, Token, Lexer,
-         Parser, DFA, ParserRuleContext, ATNDeserializer,
-         PredictionContextCache, ParseTreeListener, ParseTreeVisitor
-    )
-    from antlr4.error.ErrorListener import ErrorListener
-    
-    import mimetypes
-
-    import traceback
-    import re
-    import pprint
-    import datetime
-    import time
-
-    # -----------------------------------------------------------------------
-    # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
-    # -----------------------------------------------------------------------
-    import io
-    import zipfile
-    import gettext
-    import polib
-
-    # -----------------------------------------------------------------------
-    # needed module imports for chm help viewer ...
-    # -----------------------------------------------------------------------
-    import shutil
-    import tempfile
-    import subprocess
-
-    import tempfile
-    import contextlib
-
-    # -----------------------------------------------------------------------
-    # database module imports ....
-    # -----------------------------------------------------------------------
-    import json
-    import sqlite3
-
-    # -----------------------------------------------------------------------
-    # Qt Backend Factory + Property Mapping
-    # -----------------------------------------------------------------------
-    from PyQt5.QtCore    import (
-        QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize,
-        QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex,
-        QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
-        qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
-        QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
-        QBuffer, QSettings
-    )
-    from PyQt5.QtGui     import (
-        QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
-        QTextCharFormat, QColor, QStandardItemModel, QStandardItem, QPen,
-        QPalette, QFontInfo, QFontDatabase, QRegularExpressionValidator,
-        QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
-        QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
-        QTextCursor
-    )
-    from PyQt5.QtWidgets import (
-        QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
-        QVBoxLayout, QTextEdit, QToolBar, QStatusBar, QMessageBox,
-        QPlainTextEdit, QAction, QFileDialog, QMenuBar, QMdiArea,
-        QMdiSubWindow, QDockWidget, QTreeWidget, QHBoxLayout, QComboBox,
-        QTabWidget, QListWidget, QListWidgetItem, QScrollBar, QMenu,
-        QFileDialog, QFileIconProvider, QListWidget, QTableWidget,
-        QProgressBar, QTableWidgetItem, QHeaderView, QStyledItemDelegate,
-        QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem,
-        QGridLayout, QSpinBox, QSizePolicy, QStyleOptionHeader, QStyle,
-        QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
-        QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
-        QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
-        QScrollArea, QAbstractButton
-    )
-    from PyQt5.QtWebEngineCore import (
-        QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,
-        QWebEngineUrlScheme
-    )
-    from PyQt5.QtWebEngineWidgets import (
-        QWebEngineView, QWebEngineScript
-    )
-    from PyQt5.QtSvg import QSvgRenderer
-    
-    # -----------------------------------------------------------------------
-    # resources suff like icons, ...
-    # -----------------------------------------------------------------------
-    import resources_rc
-    
-    # -----------------------------------------------------------------------
-    # debug log file beyond the exe application ...
-    # -----------------------------------------------------------------------
-    import faulthandler
-
-    # -----------------------------------------------------------------------
-    # PDF printer output for SET FORMAT / SET PRINT
-    # reportlab is optional. If it is missing, we fall back to SCREEN output.
-    # -----------------------------------------------------------------------
-    _PDF_BACKEND_AVAILABLE = True
-    _PDF_BACKEND_IMPORT_ERROR = None
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors as rl_colors
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfgen import canvas
-    except ImportError as _pdf_import_error:
-        A4 = None
-        rl_colors = None
-        pdfmetrics = None
-        canvas = None
-        _PDF_BACKEND_AVAILABLE = False
-        _PDF_BACKEND_IMPORT_ERROR = _pdf_import_error
-
-except ImportError as e:
-    if SystemInfo.is_windows():
-        ctypes.windll.user32.MessageBoxW(0, str(e), "Import Error:", 0)
-        sys.exit(1)
-
-except ModuleNotFound as e:
-    name = f"Module could not be found: {e.name}."
-    if SystemInfo.is_windows():
-        ctypes.windll.user32.MessageBoxW(0, name, "Module Error:", 0)
-        sys.exit()
-
-except Exception as e:
-    if SystemInfo.is_windows():
-        ctypes.windll.user32.MessageBoxW(0, "A common Exception occur",
-        "Exception", 0)
-        sys.exit(1)
-    
 
 if "_PDF_BACKEND_AVAILABLE" not in globals():
     _PDF_BACKEND_AVAILABLE = False
@@ -190,12 +41,7 @@ LOG  = BASE / "webengine_crash.log"
 
 faulthandler.enable(open(LOG, "a", buffering=1), all_threads=True)
 
-# ---------------------------------------------------------------------------
-# sys.argv[0] zeigt auf die gestartete EXE
-# ---------------------------------------------------------------------------
-def app_dir() -> Path:
-    return Path(sys.argv[0]).resolve().parent
-    
+
 def load_qss(rel_path: str) -> str:
     p = app_dir() / rel_path
     return p.read_text(encoding="utf-8")
@@ -210,34 +56,6 @@ def _runner_window_title() -> str:
         "lisp": "LISP Runner 2026 - (c) Jens Kallup - paule32",
     }
     return titles.get(_RUNNER_LANGUAGE, titles["dbase"])
-
-
-class _SilentAntlrErrorListener(ErrorListener):
-    def __init__(self):
-        super().__init__()
-        self.messages: list[str] = []
-
-    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        try:
-            self.messages.append(f"line {line}:{column} {msg}")
-        except Exception:
-            self.messages.append(str(msg))
-
-
-def _attach_silent_antlr_errors(lexer=None, parser=None):
-    listener = _SilentAntlrErrorListener()
-    for obj in (lexer, parser):
-        if obj is None:
-            continue
-        try:
-            obj.removeErrorListeners()
-        except Exception:
-            pass
-        try:
-            obj.addErrorListener(listener)
-        except Exception:
-            pass
-    return listener
 
 # ---------------------------------------------------------------------------
 # ensure_qt_app (safe early stub)
@@ -284,7 +102,7 @@ def excepthook(etype, value, tb):
     sys.__excepthook__(etype, value, tb)
 
 sys.excepthook = excepthook
-_debug_print("hook installed.")
+debug_print("hook installed.")
 
 APPINST = ensure_qt_app()
 if APPINST is None:
@@ -295,7 +113,7 @@ if APPINST is None:
             0)
         sys.exit(1)
     else:
-        _debug_print("internal error")
+        debug_print("internal error")
         sys.exit(1)
 
 base = Path(sys.argv[0]).resolve().parent
@@ -318,7 +136,7 @@ except Exception as e:
             "Error:",0)
         sys.exit(1)
     else:
-        _debug_print(e)
+        debug_print(e)
         pass
 
 class ErrorMessage(QDialog):
@@ -400,6 +218,106 @@ class ErrorMessage(QDialog):
         # Optional: Button deaktivieren, weil Datei weg ist
         self.btn_delete_log.setEnabled(False)
 
+
+class _GlobalEscapeCloseFilter(QObject):
+    def _candidate_widget(self, obj):
+        try:
+            if isinstance(obj, QWidget):
+                return obj
+        except Exception:
+            pass
+        try:
+            fw = QApplication.focusWidget()
+            if fw is not None:
+                return fw
+        except Exception:
+            pass
+        return None
+
+    def eventFilter(self, obj, event):
+        try:
+            et = event.type()
+            if et not in (QEvent.ShortcutOverride, QEvent.KeyPress) or event.key() != Qt.Key_Escape:
+                return False
+        except Exception:
+            return False
+
+        candidate = self._candidate_widget(obj)
+
+        blocked_widget, blocked_sub = _resolve_escape_block_target(candidate)
+        if blocked_widget is not None or blocked_sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            return True
+
+        close_widget, close_sub = _resolve_escape_close_target(candidate)
+        if close_widget is not None or close_sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            # Wichtig: Auch bei ShortcutOverride bereits schliessen.
+            # Wenn wir das Event hier konsumieren, kommt oft kein KeyPress mehr an.
+            if not close_escape_target(close_widget, close_sub):
+                try:
+                    fallback_sub = find_mdi_subwindow_robust(candidate)
+                except Exception:
+                    fallback_sub = None
+                if fallback_sub is not None:
+                    close_escape_target(candidate, fallback_sub)
+            return True
+
+        target_widget, sub = _resolve_escape_target(candidate)
+        if target_widget is not None or sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            if bool(_RUNTIME_ESCAPE_ENABLED):
+                if not close_escape_target(target_widget, sub):
+                    try:
+                        fallback_sub = find_mdi_subwindow_robust(candidate)
+                    except Exception:
+                        fallback_sub = None
+                    if fallback_sub is not None:
+                        close_escape_target(candidate, fallback_sub)
+            return True
+
+        # Robuster Fallback: Wenn der Fokus in einem MDI-Unterfenster liegt,
+        # ESC soll das komplette QMdiSubWindow schliessen statt nur das innere Widget.
+        try:
+            fallback_sub = find_mdi_subwindow_robust(candidate)
+        except Exception:
+            fallback_sub = None
+
+        if fallback_sub is not None:
+            try:
+                event.accept()
+            except Exception:
+                pass
+            close_escape_target(candidate, fallback_sub)
+            return True
+
+        return False
+
+
+def _ensure_escape_filter_installed():
+    global _RUNTIME_ESCAPE_FILTER
+
+    if _RUNTIME_ESCAPE_FILTER is not None:
+        return _RUNTIME_ESCAPE_FILTER
+
+    try:
+        app = QApplication.instance()
+        if app is None:
+            return None
+        _RUNTIME_ESCAPE_FILTER = _GlobalEscapeCloseFilter(app)
+        app.installEventFilter(_RUNTIME_ESCAPE_FILTER)
+        return _RUNTIME_ESCAPE_FILTER
+    except Exception:
+        return None
 
 class CollectProgressDialog(QDialog):
     def __init__(self, parent=None, filename: str = ""):
@@ -551,62 +469,6 @@ class CollectProgressDialog(QDialog):
         self.btn_ok.setEnabled(True)
         self._pump()
 
-
-class InputValueDialog(QDialog):
-    def __init__(self, prompt: str = "", parent=None):
-        super().__init__(parent)
-        self._value = ""
-        self._rc = 0
-
-        self.setWindowTitle("Eingabe")
-        self.setModal(True)
-        self.setWindowModality(Qt.ApplicationModal)
-        self.setFixedSize(360, 120)
-
-        layout = QVBoxLayout(self)
-
-        self.lbl_prompt = QLabel(str(prompt or ""), self)
-        self.lbl_prompt.setWordWrap(True)
-        layout.addWidget(self.lbl_prompt)
-
-        self.edit = QLineEdit(self)
-        layout.addWidget(self.edit)
-
-        btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
-
-        self.btn_ok = QPushButton("OK", self)
-        self.btn_cancel = QPushButton("Cancel", self)
-
-        self.btn_ok.clicked.connect(self._on_ok)
-        self.btn_cancel.clicked.connect(self._on_cancel)
-        self.edit.returnPressed.connect(self._on_ok)
-
-        btn_row.addWidget(self.btn_ok)
-        btn_row.addWidget(self.btn_cancel)
-        layout.addLayout(btn_row)
-
-        self.edit.setFocus()
-
-    def _on_ok(self):
-        self._value = self.edit.text()
-        self._rc = 1
-        self.accept()
-
-    def _on_cancel(self):
-        self._value = ""
-        self._rc = 0
-        self.reject()
-
-    def get_result(self):
-        return self._value, self._rc
-
-    @staticmethod
-    def get_value(prompt: str = "", parent=None):
-        dlg = InputValueDialog(prompt=prompt, parent=parent)
-        dlg.exec_()
-        return dlg.get_result()
-
 # ---------------------------------------------------------------------------
 # Qt message handleer (for WebEngine) ...
 # ---------------------------------------------------------------------------
@@ -615,33 +477,6 @@ def qt_msg_handler(mode, context, message):
         f.write(f"[QT] {message}\n")
 
 qInstallMessageHandler(qt_msg_handler)
-
-# ---------------------------------------------------------------------------
-# native base classes supported by dBase 2026
-# ---------------------------------------------------------------------------
-NATIVE_BASES = {
-    "FORM": QDialog,          # oder QDialog, wenn FORM per default Dialog sein soll
-    "DIALOG": QDialog,
-    "PUSHBUTTON": QPushButton,
-    "CONTAINER": QFrame,
-    "ENTRYFIELD": QLineEdit,
-    "RADIOBUTTON": QRadioButton,
-    "COMBOBOX": QComboBox,
-    "EDITOR": QPlainTextEdit,
-    "CHECKBOX": QCheckBox,
-    "LISTBOX": QListWidget,
-    "CHECKLISTBOX": QListWidget,
-    "IMAGE": QLabel,
-    "GRID": QTableWidget,
-    "PROGRESS": QProgressBar,
-    "PAINTBOX": QWidget,
-    "VSCROLLBAR": QScrollBar,
-    "HSCROLLBAR": QScrollBar,
-    "TEXT": QLabel,
-    "TREEVIEW": QTreeView,
-    "SPINBOX": QSpinBox,
-    "BROWSE": QTableView,
-}
 
 SVG_BOOK = r"""
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
@@ -673,139 +508,6 @@ def icon_from_svg(svg: str, size: int = 16) -> QIcon:
     return QIcon(pix)
 
 # ---------------------------------------------------------------------------
-# DBF schema helpers
-# ---------------------------------------------------------------------------
-@dataclass
-class DbfFieldSpec:
-    name: str
-    ftype: str
-    length: int
-    decimals: int
-    offset: int = 0
-
-@dataclass
-class TocNode:
-    title: str
-    local: Optional[str] = None
-    children: List["TocNode"] = field(default_factory=list)
-
-@dataclass
-class FontValue:
-    obj      : QFont
-    family   : str  = "Arial"
-    size     : int  = 10
-    bold     : bool = False
-    italic   : bool = False
-    underline: bool = False
-    
-def ensure_qt_app():
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication(sys.argv)
-        app.setStyle(IconScrollBarStyle(app.style()))
-    return app
-
-# ---------------------------------------------------------------------------
-# Runtime Datenstrukturen
-# ---------------------------------------------------------------------------
-@dataclass
-class CompileError:
-    line: int
-    column: int
-    message: str
-
-@dataclass
-class MethodDef:
-    params: list[str]
-    block_ctx: object   # BlockContext
-
-@dataclass
-class PPFrame:
-    parent_active: bool
-    this_active: bool
-    saw_else: bool = False
-    start_file: Path | None = None
-    start_line: int | None = None
-    kind: str | None = None
-    name: str | None = None
-
-@dataclass
-class Frame:
-    name: str = "<anon>"
-    vars: dict[str, Any] = field(default_factory=dict)
-    args: list[Any] = field(default_factory=list)     # DO ... WITH Argumente
-
-@dataclass
-class Macro:
-    name: str
-    params: list[str] | None  # None => object-like
-    body: str
-
-@dataclass
-class Instance:
-    class_name: str
-    backend: Any = None   # Qt Object
-    parent: Optional["Instance"] = None
-    props: Dict[str, object] = field(default_factory=dict)
-    children: Dict[str, "Instance"] = field(default_factory=dict)
-    
-    def get_prop(self, name: str) -> Any:
-        return self.props.get(name.upper())
-
-    def set_prop(self, name: str, value: Any):
-        self.props[name.upper()] = value
-
-    def __repr__(self) -> str:
-        label = self.props.get("NAME") or self.props.get("TEXT") or self.class_name
-        try:
-            child_count = len(self.children or {})
-        except Exception:
-            child_count = 0
-        return f"<Instance {self.class_name} {label!r} children={child_count}>"
-
-    __str__ = __repr__
-        
-@dataclass
-class Delegate:
-    target: "Instance"
-    method_name: str
-    runner: Optional[object] = None
-
-    def __call__(self, *args):
-        if self.runner is None:
-            raise RuntimeError("Delegate hat keinen runner")
-        try:
-            return self.runner.invoke_method(self.target, self.method_name, list(args), None)
-        except ProgramAbortSignal:
-            return None
-
-    def __repr__(self) -> str:
-        target_name = getattr(self.target, "class_name", "<unknown>")
-        return f"<Delegate {target_name}.{self.method_name}>"
-
-    __str__ = __repr__
-
-@dataclass
-class ClassDef:
-    name: str
-    parent: str | None = None
-    methods: dict[str, object] = field(default_factory = dict)        # methodname -> MethodDeclContext
-    default_props: dict[str, object] = field(default_factory = dict)  # defaults
-    inits: list[object] = field(default_factory = list)
-    
-@dataclass
-class BoundMethod:
-    target: "Instance"
-    name: str
-#    obj: object
-#    method: MethodDef
-#    runner: object  # z.B. dein Visitor/Runner, der Blöcke ausführt
-#
-#    def __call__(self, *args):
-#        # self/this vorne dran, wenn du OOP so modellierst:
-#        return self.runner.call_method(self.obj, self.method, list(args))
-
-# ---------------------------------------------------------------------------
 # application states for global usage ...
 # ---------------------------------------------------------------------------
 class AppMode_State:
@@ -814,46 +516,6 @@ class AppMode_State:
     domain = "dbase"
 # ---------------------------------------------------------------------------
 AppMode = AppMode_State()
-
-# ---------------------------------------------------------------------------
-# Exception classes ...
-# ---------------------------------------------------------------------------
-class ReturnSignal(Exception):
-    def __init__(self, value=None, has_value: bool = False):
-        super().__init__(self, value)
-        self.value = value
-        self.has_value = has_value
-
-class ProgramAbortSignal(Exception):
-    """Stoppt die aktuelle dBase-Abarbeitung kontrolliert und kehrt zur GUI zurück."""
-    pass
-
-class UnterminatedBlockCommentError(Exception):
-    def __init__(self, line, column, message="unterminated block comment"):
-        super().__init__(f"{line}:{column}: {message}")
-        self.line    = line
-        self.column  = column
-        self.message = message
-
-class KeyError(Exception):
-    def __init__(self, name, message="Zuordnungs-Fehler"):
-        super().__init__(self, name)
-        self.name    = name
-        self.message = message
-
-class BreakSignal(Exception):
-    """Interner Control-Flow für BREAK (nur Schleifen fangen das ab)."""
-    pass
-
-class PreprocessorError(Exception):
-    pass
-
-# ---------------------------------------------------------------------------
-# Interner Control-Flow für RETURN aus einer Methode.
-# ---------------------------------------------------------------------------
-class RuntimeReturn(Exception):
-    def __init__(self, value=None):
-        self.value = value
 
 def delete_last_line(edit):
     doc = edit.document()
@@ -872,840 +534,7 @@ def delete_last_line(edit):
         c.deletePreviousChar()
 
     c.endEditBlock()
-    
 
-
-# ---------------------------------------------------------------------------
-# runtime output routing (WRITE/TEXT -> Debug Console or PDF printer)
-# ---------------------------------------------------------------------------
-_RUNTIME_CAPTURE_STACK: list[tuple[list[str], bool]] = []
-_RUNTIME_OUTPUT_FORMAT = "SCREEN"
-_RUNTIME_PRINT_ENABLED = False
-_RUNTIME_PRINT_LINES: list[dict[str, Any]] = []
-_RUNTIME_PRINT_PDF_PATH: Path | None = None
-_RUNTIME_PRINT_STARTED_AT: datetime.datetime | None = None
-_RUNTIME_PRINT_SCRIPT_PATH: Path | None = None
-_RUNTIME_PRINT_MARGIN_DEFAULTS = {
-    "left": 42.0,
-    "top": 42.0,
-    "right": 42.0,
-    "bottom": 42.0,
-}
-_RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
-_RUNTIME_ESCAPE_ENABLED = False
-_RUNTIME_ESCAPE_FILTER = None
-_RUNTIME_CONFIRM_ENABLED = False
-_RUNTIME_DELETE_ENABLED = False
-
-_VGA_COLOR_TABLE = {
-    0: {"name": "Schwarz", "hex": "#000000"},
-    1: {"name": "Blau", "hex": "#0000AA"},
-    2: {"name": "Gruen", "hex": "#00AA00"},
-    3: {"name": "Cyan", "hex": "#00AAAA"},
-    4: {"name": "Rot", "hex": "#AA0000"},
-    5: {"name": "Magenta", "hex": "#AA00AA"},
-    6: {"name": "Braun", "hex": "#AA5500"},
-    7: {"name": "Hellgrau", "hex": "#AAAAAA"},
-    8: {"name": "Dunkelgrau", "hex": "#555555"},
-    9: {"name": "Hellblau", "hex": "#5555FF"},
-    10: {"name": "Hellgruen", "hex": "#55FF55"},
-    11: {"name": "Hellcyan", "hex": "#55FFFF"},
-    12: {"name": "Hellrot", "hex": "#FF5555"},
-    13: {"name": "Hellmagenta", "hex": "#FF55FF"},
-    14: {"name": "Gelb", "hex": "#FFFF55"},
-    15: {"name": "Weiss", "hex": "#FFFFFF"},
-}
-
-def _copy_runtime_color_style(style: dict[str, Any] | None) -> dict[str, Any]:
-    return dict(style or {})
-
-def _make_default_screen_style() -> dict[str, Any]:
-    return {
-        "attr": 7,
-        "fg_index": 7,
-        "bg_index": 0,
-        "fg_hex": _VGA_COLOR_TABLE[7]["hex"],
-        "bg_hex": _VGA_COLOR_TABLE[0]["hex"],
-        "fg_name": _VGA_COLOR_TABLE[7]["name"],
-        "bg_name": _VGA_COLOR_TABLE[0]["name"],
-        "transparent_bg": False,
-    }
-
-def _make_default_print_style() -> dict[str, Any]:
-    return {
-        "attr": None,
-        "fg_index": 0,
-        "bg_index": None,
-        "fg_hex": "#000000",
-        "bg_hex": None,
-        "fg_name": "Schwarz",
-        "bg_name": "Transparent/Weiss",
-        "transparent_bg": True,
-    }
-
-def _coerce_runtime_color_attr(value: Any) -> int:
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (int, float)):
-        iv = int(value)
-    else:
-        s = ("" if value is None else str(value)).strip()
-        if not s:
-            raise RuntimeError("SET COLOR TO: Farbwert fehlt")
-        m = re.fullmatch(r"[+-]?\d+(?:\.\d+)?", s)
-        if not m:
-            raise RuntimeError(f"SET COLOR TO: ungueltiger Farbwert: {s}")
-        iv = int(float(s))
-    if iv < 0 or iv > 255:
-        raise RuntimeError(f"SET COLOR TO: Farbwert ausserhalb des Bereichs 0..255: {iv}")
-    return iv
-
-def _style_from_vga_attr(value: Any) -> dict[str, Any]:
-    attr = _coerce_runtime_color_attr(value)
-    fg_index = attr % 16
-    bg_index = (attr // 16) % 16
-    fg = _VGA_COLOR_TABLE[fg_index]
-    bg = _VGA_COLOR_TABLE[bg_index]
-    return {
-        "attr": attr,
-        "fg_index": fg_index,
-        "bg_index": bg_index,
-        "fg_hex": fg["hex"],
-        "bg_hex": bg["hex"],
-        "fg_name": fg["name"],
-        "bg_name": bg["name"],
-        "transparent_bg": False,
-    }
-
-_RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
-_RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
-
-
-def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None):
-    global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
-    global _RUNTIME_PRINT_LINES, _RUNTIME_PRINT_PDF_PATH
-    global _RUNTIME_PRINT_STARTED_AT, _RUNTIME_PRINT_SCRIPT_PATH
-    global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED, _RUNTIME_CONFIRM_ENABLED, _RUNTIME_DELETE_ENABLED
-    global _RUNTIME_SCREEN_COLOR_STYLE, _RUNTIME_PRINT_COLOR_STYLE
-
-    _RUNTIME_OUTPUT_FORMAT = "SCREEN"
-    _RUNTIME_PRINT_ENABLED = False
-    _RUNTIME_PRINT_LINES = []
-    _RUNTIME_PRINT_PDF_PATH = None
-    _RUNTIME_PRINT_STARTED_AT = datetime.datetime.now()
-    _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
-    _RUNTIME_ESCAPE_ENABLED = False
-    _RUNTIME_CONFIRM_ENABLED = False
-    _RUNTIME_DELETE_ENABLED = False
-    _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
-    _RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
-    try:
-        _RUNTIME_PRINT_SCRIPT_PATH = Path(script_filename).resolve() if script_filename else None
-    except Exception:
-        _RUNTIME_PRINT_SCRIPT_PATH = None
-
-
-def _runtime_output_session_end():
-    try:
-        if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT" and _RUNTIME_PRINT_PDF_PATH is not None:
-            _render_runtime_output_pdf()
-    except Exception:
-        pass
-
-
-def _wrap_pdf_text_line(text: str, *, font_name: str, font_size: int, max_width: float) -> list[str]:
-    text = ("" if text is None else str(text)).expandtabs(4)
-    if text == "":
-        return [""]
-
-    parts = re.findall(r'\S+|\s+', text)
-    lines: list[str] = []
-    cur = ""
-
-    def width_of(s: str) -> float:
-        return pdfmetrics.stringWidth(s, font_name, font_size)
-
-    for part in parts:
-        trial = cur + part
-        if cur == "" or width_of(trial) <= max_width:
-            cur = trial
-            continue
-
-        if cur:
-            lines.append(cur.rstrip())
-            cur = ""
-
-        if width_of(part) <= max_width:
-            cur = part.lstrip()
-            continue
-
-        chunk = ""
-        for ch in part:
-            trial_chunk = chunk + ch
-            if chunk and width_of(trial_chunk) > max_width:
-                lines.append(chunk.rstrip())
-                chunk = ch.lstrip()
-            else:
-                chunk = trial_chunk
-        cur = chunk
-
-    if cur or not lines:
-        lines.append(cur.rstrip())
-
-    return lines
-
-
-def _notify_pdf_backend_unavailable():
-    global _PDF_BACKEND_WARNING_EMITTED, _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
-
-    _RUNTIME_OUTPUT_FORMAT = "SCREEN"
-    _RUNTIME_PRINT_ENABLED = False
-
-    if _PDF_BACKEND_WARNING_EMITTED:
-        return False
-
-    _PDF_BACKEND_WARNING_EMITTED = True
-    msg = "PDF-Ausgabe nicht verfügbar: Modul 'reportlab' wurde nicht gefunden. Ausgabe erfolgt im Debug-Fenster."
-    try:
-        if _PDF_BACKEND_IMPORT_ERROR is not None:
-            msg += f" ({_PDF_BACKEND_IMPORT_ERROR})"
-    except Exception:
-        pass
-
-    try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "append_debug_output"):
-            MAINAPP.append_debug_output(msg)
-            return False
-    except Exception:
-        pass
-
-    try:
-        _debug_print(msg)
-    except Exception:
-        pass
-    return False
-
-
-def _coerce_margin_to_points(value: Any) -> float:
-    if isinstance(value, (int, float)):
-        return max(0.0, float(value))
-
-    s = ("" if value is None else str(value)).strip()
-    if not s:
-        raise RuntimeError("SET MARGIN TO: leerer Randwert ist nicht zulässig")
-
-    m = re.fullmatch(r'([+-]?\d+(?:\.\d+)?)\s*(px|cm|pt)?', s, flags=re.IGNORECASE)
-    if not m:
-        raise RuntimeError(f"SET MARGIN TO: ungültiger Randwert: {s}")
-
-    num = float(m.group(1))
-    unit = (m.group(2) or 'pt').lower()
-
-    if unit == 'pt':
-        pts = num
-    elif unit == 'cm':
-        pts = num * 72.0 / 2.54
-    elif unit == 'px':
-        pts = num * 72.0 / 96.0
-    else:
-        raise RuntimeError(f"SET MARGIN TO: unbekannte Einheit: {unit}")
-
-    return max(0.0, pts)
-
-
-def _set_runtime_print_margin(*args):
-    global _RUNTIME_PRINT_MARGINS
-
-    if len(args) == 0:
-        _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
-        if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT" and _RUNTIME_PRINT_PDF_PATH is not None:
-            _render_runtime_output_pdf()
-        return 0
-
-    if len(args) not in (2, 4):
-        raise RuntimeError("SET MARGIN TO erwartet 0, 2 oder 4 Werte")
-
-    if len(args) == 2:
-        left, top = (_coerce_margin_to_points(args[0]), _coerce_margin_to_points(args[1]))
-        _RUNTIME_PRINT_MARGINS = {
-            "left": left,
-            "top": top,
-            "right": float(_RUNTIME_PRINT_MARGIN_DEFAULTS["right"]),
-            "bottom": float(_RUNTIME_PRINT_MARGIN_DEFAULTS["bottom"]),
-        }
-    else:
-        left, top, right, bottom = (_coerce_margin_to_points(v) for v in args[:4])
-        _RUNTIME_PRINT_MARGINS = {
-            "left": left,
-            "top": top,
-            "right": right,
-            "bottom": bottom,
-        }
-
-    if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT" and _RUNTIME_PRINT_PDF_PATH is not None:
-        _render_runtime_output_pdf()
-    return 0
-
-def _get_runtime_current_color_style() -> dict[str, Any]:
-    if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT":
-        return _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)
-    return _copy_runtime_color_style(_RUNTIME_SCREEN_COLOR_STYLE)
-
-def _set_runtime_color(*args):
-    global _RUNTIME_SCREEN_COLOR_STYLE, _RUNTIME_PRINT_COLOR_STYLE
-
-    if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT":
-        if len(args) == 0:
-            _RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
-        else:
-            _RUNTIME_PRINT_COLOR_STYLE = _style_from_vga_attr(args[0])
-        return 0
-
-    if len(args) == 0:
-        _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
-    else:
-        _RUNTIME_SCREEN_COLOR_STYLE = _style_from_vga_attr(args[0])
-    return 0
-
-
-def _render_runtime_output_pdf():
-    global _RUNTIME_PRINT_PDF_PATH
-
-    if not _PDF_BACKEND_AVAILABLE:
-        _notify_pdf_backend_unavailable()
-        return None
-
-    if _RUNTIME_PRINT_PDF_PATH is None:
-        return None
-
-    pdf_path = Path(_RUNTIME_PRINT_PDF_PATH)
-    pdf_path.parent.mkdir(parents=True, exist_ok=True)
-
-    page_w, page_h = A4
-    margin_left = float(_RUNTIME_PRINT_MARGINS.get("left", _RUNTIME_PRINT_MARGIN_DEFAULTS["left"]))
-    margin_right = float(_RUNTIME_PRINT_MARGINS.get("right", _RUNTIME_PRINT_MARGIN_DEFAULTS["right"]))
-    margin_top = float(_RUNTIME_PRINT_MARGINS.get("top", _RUNTIME_PRINT_MARGIN_DEFAULTS["top"]))
-    margin_bottom = float(_RUNTIME_PRINT_MARGINS.get("bottom", _RUNTIME_PRINT_MARGIN_DEFAULTS["bottom"]))
-    font_name = "Courier"
-    font_size = 10
-    line_height = 13
-    max_width = max(20.0, page_w - margin_left - margin_right)
-
-    c = canvas.Canvas(str(pdf_path), pagesize=A4)
-    c.setTitle(pdf_path.stem)
-    c.setAuthor("dBaseRunner")
-    c.setSubject("SET FORMAT TO PRINT")
-
-    y = page_h - margin_top
-
-    def new_page():
-        nonlocal y
-        c.showPage()
-        c.setFont(font_name, font_size)
-        y = page_h - margin_top
-
-    c.setFont(font_name, font_size)
-
-    entries = _RUNTIME_PRINT_LINES[:] if _RUNTIME_PRINT_LINES else [{"text": "", "style": _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)}]
-    for entry in entries:
-        if isinstance(entry, dict):
-            raw = entry.get("text", "")
-            style = _copy_runtime_color_style(entry.get("style"))
-        else:
-            raw = str(entry)
-            style = _copy_runtime_color_style(_RUNTIME_PRINT_COLOR_STYLE)
-
-        fg_hex = style.get("fg_hex") or "#000000"
-        bg_hex = style.get("bg_hex")
-        wrapped = _wrap_pdf_text_line(raw, font_name=font_name, font_size=font_size, max_width=max_width)
-        for line in wrapped:
-            if y < margin_bottom:
-                new_page()
-
-            if bg_hex:
-                try:
-                    c.setFillColor(rl_colors.HexColor(bg_hex))
-                    c.rect(margin_left, y - 2, max_width, line_height, stroke=0, fill=1)
-                except Exception:
-                    pass
-
-            try:
-                c.setFillColor(rl_colors.HexColor(fg_hex))
-            except Exception:
-                c.setFillColorRGB(0, 0, 0)
-
-            c.drawString(margin_left, y, line)
-            y -= line_height
-
-    c.save()
-    return pdf_path
-
-
-def _ensure_runtime_print_pdf_path() -> Path:
-    global _RUNTIME_PRINT_PDF_PATH
-
-    if _RUNTIME_PRINT_PDF_PATH is not None:
-        return Path(_RUNTIME_PRINT_PDF_PATH)
-
-    base_path = _RUNTIME_PRINT_SCRIPT_PATH or (Path.cwd() / "script.prg")
-    started = _RUNTIME_PRINT_STARTED_AT or datetime.datetime.now()
-    stamp_date = started.strftime("%Y-%m-%d")
-    stamp_time = started.strftime("%H-%M-%S")
-    pdf_name = f"protokoll_{stamp_date}_{stamp_time}.pdf"
-    proto_dir = base_path.resolve().parent / "proto"
-    _RUNTIME_PRINT_PDF_PATH = proto_dir / pdf_name
-    return Path(_RUNTIME_PRINT_PDF_PATH)
-
-
-def _set_runtime_output_format(mode: str):
-    global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
-
-    mode = (mode or "SCREEN").strip().upper()
-    if mode not in ("SCREEN", "PRINT"):
-        raise RuntimeError(f"SET FORMAT TO {mode} ist nicht unterstützt")
-
-    if mode == "PRINT" and not _PDF_BACKEND_AVAILABLE:
-        _notify_pdf_backend_unavailable()
-        return 0
-
-    _RUNTIME_OUTPUT_FORMAT = mode
-    if mode == "PRINT":
-        _RUNTIME_PRINT_ENABLED = True
-        _ensure_runtime_print_pdf_path()
-        _render_runtime_output_pdf()
-    else:
-        _RUNTIME_PRINT_ENABLED = False
-
-    return 0
-
-
-def _set_runtime_print_enabled(enabled: bool):
-    global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
-
-    enabled = bool(enabled)
-    if enabled:
-        if not _PDF_BACKEND_AVAILABLE:
-            _notify_pdf_backend_unavailable()
-            return 0
-        _RUNTIME_OUTPUT_FORMAT = "PRINT"
-        _RUNTIME_PRINT_ENABLED = True
-        _ensure_runtime_print_pdf_path()
-        _render_runtime_output_pdf()
-    else:
-        _RUNTIME_PRINT_ENABLED = False
-        if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT":
-            _RUNTIME_OUTPUT_FORMAT = "SCREEN"
-
-    return 0
-
-
-
-def _set_runtime_escape_enabled(enabled: bool):
-    global _RUNTIME_ESCAPE_ENABLED
-    _RUNTIME_ESCAPE_ENABLED = bool(enabled)
-    return 0
-
-
-def _set_runtime_confirm_enabled(enabled: bool):
-    global _RUNTIME_CONFIRM_ENABLED
-    _RUNTIME_CONFIRM_ENABLED = bool(enabled)
-    return 0
-
-
-def _set_runtime_delete_enabled(enabled: bool):
-    global _RUNTIME_DELETE_ENABLED
-    _RUNTIME_DELETE_ENABLED = bool(enabled)
-    return 0
-
-
-_ESCAPE_BLOCKED_WINDOW_CLASSES = {
-    "DebugConsoleWidget",
-}
-
-
-_ESCAPE_CLOSE_WINDOW_CLASSES = set()
-
-
-def _mark_escape_protected(obj: Any) -> Any:
-    try:
-        if obj is not None and hasattr(obj, "setProperty"):
-            obj.setProperty("_ESCAPE_BLOCKED", True)
-    except Exception:
-        pass
-    return obj
-
-
-def _resolve_escape_block_target(widget: Any):
-    try:
-        w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
-    except Exception:
-        w = None
-
-    while w is not None:
-        try:
-            if bool(w.property("_ESCAPE_BLOCKED")) or w.__class__.__name__ in _ESCAPE_BLOCKED_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow_robust(w)
-                return w, sub
-        except Exception:
-            pass
-        try:
-            w = w.parentWidget()
-        except Exception:
-            try:
-                w = w.parent()
-            except Exception:
-                w = None
-
-    return None, None
-
-
-def _mark_escape_close(obj: Any) -> Any:
-    """Markiert Widget/Subwindow dafuer, dass ESC das gesamte Fenster schliesst."""
-    try:
-        if obj is not None and hasattr(obj, "setProperty"):
-            try:
-                obj.setProperty("_ESCAPE_BLOCKED", False)
-            except Exception:
-                pass
-            obj.setProperty("_ESCAPE_CLOSE", True)
-    except Exception:
-        pass
-    return obj
-
-
-def _resolve_escape_close_target(widget: Any):
-    try:
-        w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
-    except Exception:
-        w = None
-
-    while w is not None:
-        try:
-            if bool(w.property("_ESCAPE_CLOSE")) or w.__class__.__name__ in _ESCAPE_CLOSE_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow_robust(w)
-                return w, sub
-        except Exception:
-            pass
-        try:
-            w = w.parentWidget()
-        except Exception:
-            try:
-                w = w.parent()
-            except Exception:
-                w = None
-
-    return None, None
-
-
-def _resolve_escape_target(widget: Any):
-    try:
-        w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
-    except Exception:
-        w = None
-
-    while w is not None:
-        try:
-            if bool(w.property("_DBASE_ESCAPE_TARGET")):
-                sub = _find_mdi_subwindow_robust(w)
-                return w, sub
-        except Exception:
-            pass
-        try:
-            w = w.parentWidget()
-        except Exception:
-            try:
-                w = w.parent()
-            except Exception:
-                w = None
-
-    return None, None
-
-
-def _close_escape_target(widget: Any, sub: Any = None) -> bool:
-    """Schliesst robust ein komplettes MDI-Unterfenster inklusive eingebettetem Widget."""
-    try:
-        if sub is None:
-            sub = _find_mdi_subwindow_robust(widget)
-    except Exception:
-        sub = None
-
-    try:
-        host_sub = sub
-        if host_sub is None and widget is not None:
-            try:
-                host_sub = _find_mdi_subwindow_robust(widget)
-            except Exception:
-                host_sub = None
-
-        if host_sub is not None:
-            try:
-                inner = host_sub.widget()
-            except Exception:
-                inner = None
-
-            try:
-                host_sub.setAttribute(Qt.WA_DeleteOnClose, True)
-            except Exception:
-                pass
-            try:
-                if inner is not None:
-                    inner.setAttribute(Qt.WA_DeleteOnClose, True)
-            except Exception:
-                pass
-
-            try:
-                mdi = host_sub.mdiArea()
-            except Exception:
-                mdi = None
-
-            # Wichtig: Das QMdiSubWindow selbst aus der MDI-Area entfernen.
-            # removeSubWindow(inner) fuehrt in diesem Szenario dazu, dass nur
-            # das eingebettete Widget verschwindet und die leere MDI-Huelle
-            # stehen bleibt.
-            if mdi is not None:
-                try:
-                    mdi.removeSubWindow(host_sub)
-                except Exception:
-                    try:
-                        if inner is not None:
-                            mdi.removeSubWindow(inner)
-                    except Exception:
-                        pass
-
-            try:
-                host_sub.hide()
-            except Exception:
-                pass
-            try:
-                host_sub.close()
-            except Exception:
-                pass
-
-            if inner is not None:
-                try:
-                    host_sub.setWidget(None)
-                except Exception:
-                    pass
-                try:
-                    inner.hide()
-                except Exception:
-                    pass
-                try:
-                    inner.close()
-                except Exception:
-                    pass
-                try:
-                    inner.setParent(None)
-                except Exception:
-                    pass
-                try:
-                    inner.deleteLater()
-                except Exception:
-                    pass
-
-            try:
-                host_sub.setParent(None)
-            except Exception:
-                pass
-            try:
-                host_sub.deleteLater()
-            except Exception:
-                pass
-            return True
-
-        if widget is not None:
-            try:
-                widget.setAttribute(Qt.WA_DeleteOnClose, True)
-            except Exception:
-                pass
-            try:
-                widget.hide()
-            except Exception:
-                pass
-            try:
-                widget.close()
-            except Exception:
-                pass
-            try:
-                widget.setParent(None)
-            except Exception:
-                pass
-            try:
-                widget.deleteLater()
-            except Exception:
-                pass
-            return True
-    except Exception:
-        return False
-
-    return False
-
-
-class _GlobalEscapeCloseFilter(QObject):
-    def _candidate_widget(self, obj):
-        try:
-            if isinstance(obj, QWidget):
-                return obj
-        except Exception:
-            pass
-        try:
-            fw = QApplication.focusWidget()
-            if fw is not None:
-                return fw
-        except Exception:
-            pass
-        return None
-
-    def eventFilter(self, obj, event):
-        try:
-            et = event.type()
-            if et not in (QEvent.ShortcutOverride, QEvent.KeyPress) or event.key() != Qt.Key_Escape:
-                return False
-        except Exception:
-            return False
-
-        candidate = self._candidate_widget(obj)
-
-        blocked_widget, blocked_sub = _resolve_escape_block_target(candidate)
-        if blocked_widget is not None or blocked_sub is not None:
-            try:
-                event.accept()
-            except Exception:
-                pass
-            return True
-
-        close_widget, close_sub = _resolve_escape_close_target(candidate)
-        if close_widget is not None or close_sub is not None:
-            try:
-                event.accept()
-            except Exception:
-                pass
-            # Wichtig: Auch bei ShortcutOverride bereits schliessen.
-            # Wenn wir das Event hier konsumieren, kommt oft kein KeyPress mehr an.
-            if not _close_escape_target(close_widget, close_sub):
-                try:
-                    fallback_sub = _find_mdi_subwindow_robust(candidate)
-                except Exception:
-                    fallback_sub = None
-                if fallback_sub is not None:
-                    _close_escape_target(candidate, fallback_sub)
-            return True
-
-        target_widget, sub = _resolve_escape_target(candidate)
-        if target_widget is not None or sub is not None:
-            try:
-                event.accept()
-            except Exception:
-                pass
-            if bool(_RUNTIME_ESCAPE_ENABLED):
-                if not _close_escape_target(target_widget, sub):
-                    try:
-                        fallback_sub = _find_mdi_subwindow_robust(candidate)
-                    except Exception:
-                        fallback_sub = None
-                    if fallback_sub is not None:
-                        _close_escape_target(candidate, fallback_sub)
-            return True
-
-        # Robuster Fallback: Wenn der Fokus in einem MDI-Unterfenster liegt,
-        # ESC soll das komplette QMdiSubWindow schliessen statt nur das innere Widget.
-        try:
-            fallback_sub = _find_mdi_subwindow_robust(candidate)
-        except Exception:
-            fallback_sub = None
-
-        if fallback_sub is not None:
-            try:
-                event.accept()
-            except Exception:
-                pass
-            _close_escape_target(candidate, fallback_sub)
-            return True
-
-        return False
-
-
-def _ensure_escape_filter_installed():
-    global _RUNTIME_ESCAPE_FILTER
-
-    if _RUNTIME_ESCAPE_FILTER is not None:
-        return _RUNTIME_ESCAPE_FILTER
-
-    try:
-        app = QApplication.instance()
-        if app is None:
-            return None
-        _RUNTIME_ESCAPE_FILTER = _GlobalEscapeCloseFilter(app)
-        app.installEventFilter(_RUNTIME_ESCAPE_FILTER)
-        return _RUNTIME_ESCAPE_FILTER
-    except Exception:
-        return None
-
-def _emit_runtime_output_line(text: str):
-    text = "" if text is None else str(text)
-    style = _get_runtime_current_color_style()
-
-    # optional in-memory capture (used by one-liner console)
-    try:
-        if _RUNTIME_CAPTURE_STACK:
-            bucket, forward = _RUNTIME_CAPTURE_STACK[-1]
-            bucket.append(text)
-            if not forward:
-                return
-    except Exception:
-        pass
-
-    # printer / PDF routing
-    try:
-        if _RUNTIME_OUTPUT_FORMAT.upper() == "PRINT" and bool(_RUNTIME_PRINT_ENABLED):
-            _ensure_runtime_print_pdf_path()
-            _RUNTIME_PRINT_LINES.append({
-                "text": text,
-                "style": _copy_runtime_color_style(style),
-            })
-            _render_runtime_output_pdf()
-            return
-    except Exception:
-        pass
-
-    # preferred sink: Debug Console in the main window
-    try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "append_debug_output"):
-            MAINAPP.append_debug_output(text, fg_hex=style.get("fg_hex"), bg_hex=style.get("bg_hex"))
-            return
-    except Exception:
-        pass
-
-    # fallback when no UI is available
-    try:
-        _debug_print(text)
-    except Exception:
-        pass
-
-
-def _clear_runtime_output():
-    try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "clear_debug_output"):
-            MAINAPP.clear_debug_output()
-            return
-    except Exception:
-        pass
-
-@contextlib.contextmanager
-def capture_runtime_output(forward: bool = False):
-    bucket: list[str] = []
-    entry = (bucket, bool(forward))
-    _RUNTIME_CAPTURE_STACK.append(entry)
-    try:
-        yield bucket
-    finally:
-        try:
-            if _RUNTIME_CAPTURE_STACK and _RUNTIME_CAPTURE_STACK[-1] is entry:
-                _RUNTIME_CAPTURE_STACK.pop()
-            else:
-                _RUNTIME_CAPTURE_STACK.remove(entry)
-        except Exception:
-            pass
 # ---------------------------------------------------------------------------
 # locales (gnu gettext) support ...
 # ---------------------------------------------------------------------------
@@ -1977,7 +806,7 @@ def decompile_chm_windows(chm_path: str, out_dir: str) -> bool:
     """
     hh = shutil.which("hh.exe") or shutil.which("hh")
     if not hh:
-        _debug_print("hh.exe not found !")
+        debug_print("hh.exe not found !")
         return False
     try:
         p = subprocess.Popen(
@@ -1992,7 +821,7 @@ def decompile_chm_windows(chm_path: str, out_dir: str) -> bool:
             raise RuntimeError(f"hh.exe failed ({p.returncode}):\n{err}")
         return True
     except Exception as e:
-        _debug_print(e)
+        debug_print(e)
         return False
 
 def open_helpwindow(mdi_area, mw: 'QMainWindow'):
@@ -2142,7 +971,7 @@ class F1Filter(QObject):
             pass
 
         if et == QEvent.KeyPress and event.key() == Qt.Key_F1:
-            _debug_print("F1 global abgefangen")
+            debug_print("F1 global abgefangen")
             # optional: wenn schon offen, nur nach vorne holen
             if self._help_sub is not None and not self._help_sub.isHidden():
                 self.mdi_area.setActiveSubWindow(self._help_sub)
@@ -2319,7 +1148,7 @@ class HelpMainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._make_toolbar()
-        self._apply_theme()
+        self.apply_theme()
 
     # -------- Toolbar --------
     def _make_toolbar(self):
@@ -2388,7 +1217,7 @@ class HelpMainWindow(QMainWindow):
 
         if os.path.exists(hhc):
             self.base_dir = folder
-            _debug_print(self.base_dir)
+            debug_print(self.base_dir)
             self.load_contents(hhc)
             if os.path.exists(hhk):
                 self.load_index(hhk)
@@ -2743,7 +1572,7 @@ class HelpMainWindow(QMainWindow):
     def toggle_theme(self):
         self.dark_mode = not self.dark_mode
         self.act_theme.setText("☀️ Light" if self.dark_mode else "🌙 Dark")
-        self._apply_theme()
+        self.apply_theme()
         self._inject_web_css()
 
     def _apply_webview_theme(self):
@@ -2794,7 +1623,7 @@ class HelpMainWindow(QMainWindow):
                 break
         scripts.insert(script)
 
-    def _apply_theme(self):
+    def apply_theme(self):
         app = QApplication.instance()
         pal = QPalette()
         
@@ -3063,1897 +1892,6 @@ html.dark ::-webkit-scrollbar-button:single-button:horizontal:increment {backgro
         # (QAction selbst ist kein Widget, aber wir können die Toolbar/Button-Styles über QSS steuern)
         pass
 
-def create_backend_for_base(base_name: str, parent_backend=None):
-    QtClass = NATIVE_BASES.get(base_name.upper())
-    if QtClass is None:
-        raise RuntimeError(f"Unbekannte native Basisklasse: {base_name}")
-    bn = base_name.upper()
-    # Spezialfälle: Scrollbars brauchen Orientation
-    if bn == "VSCROLLBAR":
-        return QScrollBar(Qt.Vertical, parent_backend) if parent_backend is not None else QScrollBar(Qt.Vertical)
-    if bn == "HSCROLLBAR":
-        return QScrollBar(Qt.Horizontal, parent_backend) if parent_backend is not None else QScrollBar(Qt.Horizontal)
-
-    return QtClass(parent_backend) if parent_backend is not None else QtClass()
-
-
-def _find_mdi_subwindow(widget: Any):
-    """Walk up parent widgets to find a QMdiSubWindow wrapper (if any)."""
-    try:
-        w = widget
-        while w is not None:
-            if isinstance(w, QMdiSubWindow):
-                return w
-            # QWidget has parentWidget(); fallback to QObject.parent()
-            if hasattr(w, "parentWidget"):
-                w = w.parentWidget()
-            else:
-                w = w.parent()
-        return None
-    except Exception:
-        return None
-
-
-def _find_mdi_subwindow_robust(widget: Any):
-    """Robuster Fallback fuer eingebettete QDialog/QWidget-Faelle im MDI."""
-    sub = _find_mdi_subwindow(widget)
-    if sub is not None:
-        return sub
-
-    try:
-        if isinstance(widget, QWidget):
-            w = widget.window()
-            sub = _find_mdi_subwindow(w)
-            if sub is not None:
-                return sub
-    except Exception:
-        pass
-
-    try:
-        aw = QApplication.activeWindow()
-        sub = _find_mdi_subwindow(aw)
-        if sub is not None:
-            return sub
-    except Exception:
-        pass
-
-    try:
-        if 'MAINAPP' in globals() and getattr(MAINAPP, 'mdi', None) is not None:
-            sub = MAINAPP.mdi.activeSubWindow()
-            if sub is not None:
-                return sub
-    except Exception:
-        pass
-
-    return None
-
-
-def _qss_color(v: Any) -> Optional[str]:
-    """Accepts '#RRGGBB', 'red', 'rgb(...)'. Returns None if empty."""
-    if v is None:
-        return None
-    if isinstance(v, str):
-        s = v.strip()
-        return s if s else None
-    return str(v)
-
-def build_container_qss(inst: "Instance") -> str:
-    """Build QSS for CONTAINER (QFrame) from instance properties."""
-    props = inst.props
-    bg = _qss_color(props.get("BACKCOLOR"))
-    bc = _qss_color(props.get("BORDERCOLOR"))
-    bw = props.get("BORDERWIDTH")
-    radius = props.get("RADIUS")
-    extra = props.get("STYLE")
-
-    rules: List[str] = []
-
-    if bg is not None:
-        rules.append(f"background-color: {bg};")
-
-    if bc is not None or bw is not None:
-        if bw is None:
-            bw = 1
-        try:
-            bw_i = int(bw)
-        except Exception:
-            bw_i = 1
-        if bc is None:
-            bc = "#404040"
-        rules.append(f"border: {bw_i}px solid {bc};")
-
-    if radius is not None:
-        try:
-            r_i = int(radius)
-        except Exception:
-            r_i = 0
-        if r_i > 0:
-            rules.append(f"border-radius: {r_i}px;")
-
-    if isinstance(extra, str) and extra.strip():
-        rules.append(extra.strip().rstrip(";") + ";")
-
-    if not rules:
-        return ""
-    return "QFrame { " + " ".join(rules) + " }"
-
-
-def apply_property_to_qt(inst: Instance, prop: str, value: Any):
-    if inst.backend is None:
-        return
-        
-    p = prop.upper()
-    s = str(value)
-    
-    # normalisiere Zahlen (dein Interpreter nutzt evtl. float)
-    if isinstance(value, float) and value.is_integer():
-        value = int(value)
-
-    # CONTAINER (QFrame) Stylesheet-Properties
-    if inst.class_name.upper() == "CONTAINER" and p in ("BACKCOLOR", "BORDERCOLOR", "BORDERWIDTH", "RADIUS", "STYLE"):
-        qss = build_container_qss(inst)
-        inst.backend.setStyleSheet(qss)
-        return
-
-    # VALUE/STATE/ITEMS Mappings (Entryfield, Checkbox, Radiobutton, Combobox, Editor, Listbox, Progress, Scrollbar, Spinbox, Image, Text)
-    if p in ("VALUE", "CHECKED"):
-        b = inst.backend
-        # QLineEdit
-        if isinstance(b, QLineEdit):
-            if p == "VALUE":
-                b.setText(str(value))
-            return
-        # QPlainTextEdit (EDITOR)
-        if isinstance(b, QPlainTextEdit):
-            if p == "VALUE":
-                b.setPlainText(str(value))
-            return
-        # QCheckBox / QRadioButton
-        if isinstance(b, (QCheckBox, QRadioButton)):
-            if p in ("VALUE", "CHECKED"):
-                b.setChecked(bool(value))
-            return
-        # QComboBox
-        if isinstance(b, QComboBox):
-            if p == "VALUE":
-                # akzeptiert Index (int) oder Text
-                if isinstance(value, (int, float)) and float(value).is_integer():
-                    idx = int(value)
-                    if 0 <= idx < b.count():
-                        b.setCurrentIndex(idx)
-                else:
-                    txt = str(value)
-                    i = b.findText(txt)
-                    if i >= 0:
-                        b.setCurrentIndex(i)
-            return
-        # QListWidget (LISTBOX/CHECKLISTBOX)
-        if isinstance(b, QListWidget):
-            if p == "VALUE":
-                # setzt Auswahl nach Index oder Text
-                if isinstance(value, (int, float)) and float(value).is_integer():
-                    idx = int(value)
-                    if 0 <= idx < b.count():
-                        b.setCurrentRow(idx)
-                else:
-                    txt = str(value)
-                    for i in range(b.count()):
-                        it = b.item(i)
-                        if it and it.text() == txt:
-                            b.setCurrentRow(i)
-                            break
-            return
-        # QProgressBar / QScrollBar / QSpinBox
-        if isinstance(b, (QProgressBar, QScrollBar, QSpinBox)):
-            if p == "VALUE":
-                try:
-                    b.setValue(int(value))
-                except Exception:
-                    pass
-            return
-        # QLabel as TEXT
-        if isinstance(b, QLabel) and p == "VALUE":
-            # VALUE synonym zu TEXT
-            b.setText(str(value))
-            return
-
-    # ITEMS: füllt ComboBox/ListBox/CheckListBox
-    if p in ("ITEMS", "LIST"):
-        b = inst.backend
-        # value kann list/tuple oder string "a,b,c" sein
-        items = None
-        if isinstance(value, (list, tuple)):
-            items = [str(x) for x in value]
-        else:
-            sitems = str(value)
-            # split an ',' or ';'
-            if "," in sitems:
-                items = [x.strip() for x in sitems.split(",") if x.strip() != ""]
-            elif ";" in sitems:
-                items = [x.strip() for x in sitems.split(";") if x.strip() != ""]
-            else:
-                items = [sitems] if sitems.strip() else []
-        if isinstance(b, QComboBox):
-            b.clear()
-            b.addItems(items)
-            return
-        if isinstance(b, QListWidget):
-            b.clear()
-            for t in items:
-                it = QListWidgetItem(t)
-                # CHECKLISTBOX: Items checkable
-                if inst.class_name.upper() == "CHECKLISTBOX":
-                    it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
-                    it.setCheckState(Qt.Unchecked)
-                b.addItem(it)
-            return
-
-    # IMAGE: lädt Bilddatei in QLabel
-    if p in ("PICTURE", "IMAGEFILE", "FILENAME") and isinstance(inst.backend, QLabel):
-        try:
-            pm = QPixmap(str(value))
-            if not pm.isNull():
-                inst.backend.setPixmap(pm)
-        except Exception:
-            pass
-        return
-    # Geometry: Qt braucht Left/Top/Width/Height gemeinsam
-    # Besonderheit: Wenn das Widget in einem QMdiSubWindow steckt, müssen wir
-    # sowohl das SubWindow (Position/Größe im MDI) als auch das eigentliche Widget anpassen.
-    if p in ("LEFT", "TOP", "WIDTH", "HEIGHT"):
-        # Ausgangswerte aus den gespeicherten Properties
-        left   = int(inst.props.get("LEFT",    0)   or 0)
-        top    = int(inst.props.get("TOP",     0)   or 0)
-        width  = int(inst.props.get("WIDTH", 100)   or 100)
-        height = int(inst.props.get("HEIGHT",100)   or 100)
-
-        mdi = _find_mdi_subwindow(inst.backend)
-
-        if mdi is not None:
-            # Für MDI: wenn der User das SubWindow verschoben hat, sind LEFT/TOP in props evtl. veraltet.
-            # Damit WIDTH/HEIGHT nicht auf alte Position zurückspringen, nehmen wir die aktuelle Position
-            # aus dem QMdiSubWindow, wenn nur die Größe geändert wird (und umgekehrt).
-            try:
-                g = mdi.geometry()
-                cur_left, cur_top, cur_w, cur_h = g.x(), g.y(), g.width(), g.height()
-            except Exception:
-                cur_left, cur_top, cur_w, cur_h = left, top, width, height
-
-            if p in ("WIDTH", "HEIGHT"):
-                left, top = cur_left, cur_top
-            if p in ("LEFT", "TOP"):
-                width, height = cur_w, cur_h
-
-        # jetzt den einen Wert aktualisieren
-        if p == "LEFT":   left   = int(value)
-        if p == "TOP":    top    = int(value)
-        if p == "WIDTH":  width  = int(value)
-        if p == "HEIGHT": height = int(value)
-
-        # Properties spiegeln
-        inst.props["LEFT"]   = left
-        inst.props["TOP"]    = top
-        inst.props["WIDTH"]  = width
-        inst.props["HEIGHT"] = height
-
-        if mdi is not None:
-            # SubWindow anpassen
-            try:
-                if p in ("LEFT", "TOP"):
-                    mdi.move(left, top)
-                elif p in ("WIDTH", "HEIGHT"):
-                    mdi.resize(width, height)
-                else:
-                    mdi.setGeometry(left, top, width, height)
-            except Exception:
-                try:
-                    mdi.setGeometry(left, top, width, height)
-                except Exception:
-                    pass
-
-            # Client-Widget im SubWindow auf die gleiche Größe bringen
-            try:
-                if hasattr(inst.backend, "move"):
-                    inst.backend.move(0, 0)
-                if hasattr(inst.backend, "resize"):
-                    inst.backend.resize(width, height)
-            except Exception:
-                pass
-        else:
-            # Normale Widgets/Fenster
-            try:
-                inst.backend.setGeometry(left, top, width, height)
-            except Exception:
-                try:
-                    if hasattr(inst.backend, "move"):
-                        inst.backend.move(left, top)
-                    if hasattr(inst.backend, "resize"):
-                        inst.backend.resize(width, height)
-                except Exception:
-                    pass
-        return
-
-        # Text / Caption für Buttons
-    if p in ("TEXT", "CAPTION"):
-        if hasattr(inst.backend, "setText"):
-            inst.backend.setText(s)
-            return
-        # Fenster/Dialog Titel
-        if hasattr(inst.backend, "setWindowTitle"):
-            inst.backend.setWindowTitle(s)
-            return
-    
-    # optional: TITLE explizit
-    if p == "TITLE":
-        if hasattr(inst.backend, "setWindowTitle"):
-            inst.backend.setWindowTitle(s)
-        return
-    
-    # Font setzen
-    if p == "FONT":
-        if isinstance(value, FontValue):
-            f = QFont(value.family, int(value.size))
-            f.setBold(bool(value.bold))
-            f.setItalic(bool(value.italic))
-            f.setUnderline(bool(value.underline))
-            if hasattr(inst.backend, "setFont"):
-                inst.backend.setFont(f)
-            return
-
-def set_prop_runtime(inst: Instance, name: str, value: Any):
-    inst.set_prop(name, value)
-    apply_property_to_qt(inst, name, value)
-
-def form_open(inst: Instance):
-    if inst.backend is None:
-        return
-
-    try:
-        _ensure_escape_filter_installed()
-    except Exception:
-        pass
-
-    try:
-        if hasattr(inst.backend, "setModal"):
-            inst.backend.setModal(False)
-    except Exception:
-        pass
-
-    try:
-        if hasattr(inst.backend, "setWindowModality"):
-            inst.backend.setWindowModality(Qt.NonModal)
-    except Exception:
-        pass
-
-    sub = None
-    try:
-        sub = MAINAPP.mdi.addSubWindow(inst.backend)
-    except Exception:
-        sub = None
-
-    if sub is not None:
-        try:
-            sub.setAttribute(Qt.WA_DeleteOnClose, True)
-        except Exception:
-            pass
-        try:
-            sub.resize(360, 400)
-        except Exception:
-            pass
-        try:
-            inst.backend.setProperty("_DBASE_ESCAPE_TARGET", True)
-        except Exception:
-            pass
-        try:
-            sub.setProperty("_DBASE_ESCAPE_TARGET", True)
-        except Exception:
-            pass
-        inst.props["_QT_SUBWINDOW"] = sub
-        try:
-            inst.backend.show()
-        except Exception:
-            pass
-        try:
-            sub.show()
-        except Exception:
-            pass
-        return sub
-
-    try:
-        inst.backend.setProperty("_DBASE_ESCAPE_TARGET", True)
-    except Exception:
-        pass
-    try:
-        inst.backend.show()
-    except Exception:
-        pass
-    return inst.backend
-
-class Preprocessor:
-    include_re = re.compile(r'^\s*#include\s+"([^"]+)"\s*$')
-    define_re  = re.compile(r'^\s*#define\s+([A-Za-z_]\w*)(.*)\s*$')
-    ifdef_re   = re.compile(r'^\s*#ifdef\s+([A-Za-z_]\w*)\s*$')
-    ifndef_re  = re.compile(r'^\s*#ifndef\s+([A-Za-z_]\w*)\s*$')
-    else_re    = re.compile(r'^\s*#else\s*$')
-    endif_re   = re.compile(r'^\s*#endif\s*$')
-
-    def __init__(self, *, include_paths: list[Path] | None = None):
-        self.include_paths = include_paths or []
-        self.macros: dict[str, Macro] = {}
-        self.defined: set[str] = set()
-        self._include_stack: list[Path] = []
-
-    def _rewrite_use_line(self, raw_line: str) -> str:
-        # keep original newline (if any)
-        nl = ""
-        if raw_line.endswith("\r\n"):
-            raw, nl = raw_line[:-2], "\r\n"
-        elif raw_line.endswith("\n"):
-            raw, nl = raw_line[:-1], "\n"
-        else:
-            raw = raw_line
-
-        stripped = raw.lstrip()
-        if not stripped or stripped.startswith("#"):
-            return raw_line
-
-        m = re.match(r"^(\s*)USE\b(.*)$", raw, flags=re.IGNORECASE)
-        if not m:
-            return raw_line
-
-        indent = m.group(1)
-        rest = m.group(2).strip()
-
-        if rest.startswith("("):   # already USE(...)
-            return raw_line
-
-        code_part, comment_part = self._split_comment_outside(raw)
-        work = code_part.strip()
-        rest = re.sub(r"^USE\b", "", work, count=1, flags=re.IGNORECASE).strip()
-
-        exclusive = False
-        m_ex = re.match(r"^(.*?)(\s+EXCLUSIVE\s*)$", rest, flags=re.IGNORECASE)
-        if m_ex:
-            rest = m_ex.group(1).rstrip()
-            exclusive = True
-
-        index_part = ""
-        idx_pos = self._find_keyword_outside(rest, "INDEX")
-        if idx_pos >= 0:
-            index_part = rest[idx_pos + len("INDEX"):].strip()
-            rest = rest[:idx_pos].strip()
-
-        comment_suffix = "" if not comment_part else " " + comment_part.lstrip()
-        ex_flag = "1" if exclusive else "0"
-
-        if not rest:
-            return f"{indent}__DBASE_USE__(\"\", \"\" , {ex_flag}){comment_suffix}{nl}"
-
-        return f"{indent}__DBASE_USE__({self._quote_builtin_arg(rest)}, {self._quote_builtin_arg(index_part)}, {ex_flag}){comment_suffix}{nl}"
-    
-    def _split_args(self, s: str) -> list[str]:
-        # s ist Inhalt zwischen den äußeren (...) eines Calls
-        args = []
-        cur = []
-        depth = 0
-        i = 0
-        while i < len(s):
-            ch = s[i]
-            if ch == "(":
-                depth += 1
-                cur.append(ch)
-            elif ch == ")":
-                depth -= 1
-                cur.append(ch)
-            elif ch == "," and depth == 0:
-                args.append("".join(cur).strip())
-                cur = []
-            else:
-                cur.append(ch)
-            i += 1
-        if cur or s.strip() == "":
-            args.append("".join(cur).strip())
-        return args
-
-    def _stringize(self, arg_text: str) -> str:
-        # Whitespace normalisieren wie C-ish
-        norm = " ".join(arg_text.split())
-        norm = norm.replace("\\", "\\\\").replace('"', '\\"')
-        return f"\"{norm}\""
-
-    def _expand_function_macro(self, macro: Macro, call_args: list[str]) -> str:
-        if macro.params is None:
-            raise PreprocessorError("internal: not a function macro")
-
-        if len(call_args) != len(macro.params):
-            raise PreprocessorError(
-                f"macro {macro.name} expects {len(macro.params)} args, got {len(call_args)}"
-            )
-
-        argmap = dict(zip(macro.params, call_args))
-
-        # body als Arbeitsstring
-        body = macro.body
-
-        # 1) stringize: #param  (nur wenn param direkt folgt)
-        #    Beispiel: #x
-        for p in macro.params:
-            body = re.sub(rf'#\s*{re.escape(p)}\b',
-                          lambda m, p=p: self._stringize(argmap[p]),
-                          body)
-
-        # 2) token paste: a ## b  (pragmatisch: Strings zusammenkleben)
-        #    Wir machen das iterativ, solange es '##' gibt.
-        #    Dabei erlauben wir links/rechts: param oder direktes Wort/Token
-        while "##" in body:
-            m = re.search(r'(\S+)\s*##\s*(\S+)', body)
-            if not m:
-                break
-            left = m.group(1)
-            right = m.group(2)
-
-            # param ersetzen, falls es param ist
-            left_val = argmap.get(left, left)
-            right_val = argmap.get(right, right)
-
-            # Wenn left_val ein Stringliteral ist ("..."), quotes entfernen und concat
-            if left_val.startswith('"') and left_val.endswith('"'):
-                left_inner = left_val[1:-1]
-                # right_val: wenn auch string, ohne quotes
-                if right_val.startswith('"') and right_val.endswith('"'):
-                    right_part = right_val[1:-1]
-                else:
-                    right_part = right_val
-                glued = f"\"{left_inner}{right_part}\""
-            else:
-                glued = f"{left_val}{right_val}"
-
-            body = body[:m.start()] + glued + body[m.end():]
-
-        # 3) normale param substitution (für verbleibende params im body)
-        for p in macro.params:
-            body = re.sub(rf'\b{re.escape(p)}\b', argmap[p], body)
-
-        return body
-
-    def _expand_macros_in_line(self, line: str) -> str:
-        # Sehr einfache, iterative Expansion (mit Limit gegen Endlosschleifen)
-        out = line
-        for _ in range(50):
-            changed = False
-
-            # 1) function-like macros: NAME(...)
-            #    Suche NAME( ... ) und expandiere
-            for name, macro in list(self.macros.items()):
-                if macro.params is None:
-                    continue
-
-                # finde "name(" in der Zeile
-                idx = out.find(name + "(")
-                while idx != -1:
-                    # parse bis passendes ')'
-                    j = idx + len(name) + 1
-                    depth = 1
-                    while j < len(out) and depth > 0:
-                        if out[j] == "(":
-                            depth += 1
-                        elif out[j] == ")":
-                            depth -= 1
-                        j += 1
-                    if depth != 0:
-                        # unbalanciert -> abbrechen
-                        break
-
-                    inside = out[idx + len(name) + 1 : j - 1]
-                    args = self._split_args(inside)
-                    repl = self._expand_function_macro(macro, args)
-
-                    out = out[:idx] + repl + out[j:]
-                    changed = True
-
-                    idx = out.find(name + "(", idx + len(repl))
-                # next macro
-
-            # 2) object-like macros: \bNAME\b
-            for name, macro in list(self.macros.items()):
-                if macro.params is not None:
-                    continue
-                # ganzes Wort ersetzen
-                new_out = re.sub(rf'\b{re.escape(name)}\b', macro.body, out)
-                if new_out != out:
-                    out = new_out
-                    changed = True
-
-            if not changed:
-                break
-
-        return out
-
-    def process(self, filename: str | Path) -> str:
-        #data = Path(filename).read_text(encoding="utf-8")
-        #data = re.sub(r'(?i)\bNEW(?=[A-Za-z_])', 'NEW ', data)
-        #data = re.sub(r'(?i)\bCALL(?=[A-Za-z_])', 'CALL ', data)
-        #with open(filename,"w",encoding="utf-8") as f:
-        #    f.write(data)
-        #    f.close()
-            
-        entry = Path(filename).resolve()
-        data = self._process_file(entry)
-        data = self._rewrite_text_blocks(data)
-        data = self._rewrite_note_comments(data)
-        data = self._rewrite_dot_logical_keywords(data)
-        data = self._rewrite_do_case_blocks(data)
-        data = self._rewrite_input_statements(data)
-        data = self._rewrite_erase_statements(data)
-        data = self._rewrite_set_output_statements(data)
-        data = self._rewrite_memvar_statements(data)
-        data = self._rewrite_dbf_statements(data)
-        return data
-
-    def _rewrite_do_case_blocks(self, text: str) -> str:
-        def split_header_and_inline(rest: str):
-            rest = (rest or "").strip()
-            if not rest:
-                return "", ""
-            in_quote = None
-            i = 0
-            n = len(rest)
-            while i < n:
-                ch = rest[i]
-                if in_quote is not None:
-                    if ch == in_quote:
-                        if i + 1 < n and rest[i + 1] == in_quote:
-                            i += 2
-                            continue
-                        in_quote = None
-                    i += 1
-                    continue
-                if ch in ("'", '"'):
-                    in_quote = ch
-                    i += 1
-                    continue
-                if ch.isspace():
-                    tail = rest[i:].lstrip()
-                    head = rest[:i].rstrip()
-                    upper_tail = tail.upper()
-                    stmt_starters = (
-                        "WRITE", "?", "@", "IF", "DO", "FOR", "SCAN", "STORE", "REPLACE",
-                        "CASE", "ENDCASE", "OTHERWISE",
-                        "APPEND", "INSERT", "DELETE", "GOTO", "LOOP", "EXIT", "RETURN",
-                        "THIS.", "SUPER.", "SET", "USE", "SELECT", "WAIT", "MESSAGEBOX",
-                        "BROWSE", "COUNT", "SUM", "AVERAGE", "LIST", "DISPLAY", "ASSERT",
-                        "SAVE", "RESTORE", "RELEASE"
-                    )
-                    if upper_tail.startswith(stmt_starters) or re.match(r'^[A-Za-z_]\w*\s*=.*$', tail):
-                        return head, tail
-                i += 1
-            return rest, ""
-
-        def normalize_body(body_lines, branch_indent: str):
-            normalized = []
-            for line in body_lines:
-                stripped = line.strip()
-                if not stripped:
-                    normalized.append(line)
-                    continue
-                raw_no_nl = line.rstrip('')
-                content = raw_no_nl.lstrip()
-                line_nl = "\n"
-                if line.endswith("\r\n"):
-                    line_nl = "\r\n"
-                elif line.endswith("\n"):
-                    line_nl = "\n"
-                normalized.append(branch_indent + content + line_nl)
-            return normalized
-
-        def render_branches(branches, indent=""):
-            def render_at(i: int, cur_indent: str):
-                kind, cond, body = branches[i]
-                out = []
-                if kind == "CASE":
-                    out.append(f"{cur_indent}IF {cond}")
-                    out.extend(normalize_body(body, cur_indent + "    "))
-                    if i + 1 < len(branches):
-                        out.append(f"{cur_indent}ELSE")
-                        out.extend(render_at(i + 1, cur_indent + "    "))
-                    out.append(f"{cur_indent}ENDIF")
-                else:
-                    out.extend(normalize_body(body, cur_indent))
-                return out
-            return render_at(0, indent) if branches else []
-
-        def nesting_delta(s: str) -> int:
-            delta = 0
-            if re.match(r'^IF\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDIF\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^DO\s+CASE\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDCASE\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^DO\s+WHILE\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDDO\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^FOR\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^(ENDFOR|NEXT)\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^SCAN\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDSCAN\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^WITH\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDWITH\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            if re.match(r'^TRY\b', s, flags=re.IGNORECASE):
-                delta += 1
-            elif re.match(r'^ENDTRY\b', s, flags=re.IGNORECASE):
-                delta -= 1
-
-            return delta
-
-        def rewrite_lines(lines):
-            out = []
-            i = 0
-            n = len(lines)
-            while i < n:
-                raw = lines[i]
-                stripped = raw.strip()
-                if re.match(r'^DO\s+CASE\b', stripped, flags=re.IGNORECASE):
-                    base_indent = raw[:len(raw) - len(raw.lstrip())]
-                    depth = 1
-                    j = i + 1
-                    block_lines = []
-                    while j < n:
-                        s = lines[j].strip()
-                        if re.match(r'^DO\s+CASE\b', s, flags=re.IGNORECASE):
-                            depth += 1
-                        elif re.match(r'^ENDCASE\b', s, flags=re.IGNORECASE):
-                            depth -= 1
-                            if depth == 0:
-                                break
-                        block_lines.append(lines[j])
-                        j += 1
-                    if depth != 0:
-                        out.append(raw)
-                        i += 1
-                        continue
-
-                    branches = []
-                    cur_kind = None
-                    cur_cond = None
-                    cur_body = []
-                    nested_depth = 0
-
-                    def flush_branch():
-                        nonlocal cur_kind, cur_cond, cur_body
-                        if cur_kind is not None:
-                            rewritten_body = rewrite_lines(cur_body)
-                            branches.append((cur_kind, cur_cond, rewritten_body))
-                        cur_kind = None
-                        cur_cond = None
-                        cur_body = []
-
-                    for inner in block_lines:
-                        s = inner.strip()
-
-                        if nested_depth == 0:
-                            m_case = re.match(r'^CASE\b(.*)$', s, flags=re.IGNORECASE)
-                            m_other = re.match(r'^OTHERWISE\b(.*)$', s, flags=re.IGNORECASE)
-                            if m_case:
-                                flush_branch()
-                                cond, inline_stmt = split_header_and_inline(m_case.group(1))
-                                cur_kind = "CASE"
-                                cur_cond = cond.strip()
-                                if inline_stmt:
-                                    cur_body.append(base_indent + "    " + inline_stmt.rstrip() + "")
-                                continue
-                            if m_other:
-                                flush_branch()
-                                inline_stmt = (m_other.group(1) or "").strip()
-                                cur_kind = "OTHERWISE"
-                                cur_cond = None
-                                if inline_stmt:
-                                    cur_body.append(base_indent + "    " + inline_stmt.rstrip() + "")
-                                continue
-
-                        cur_body.append(inner)
-                        nested_depth += nesting_delta(s)
-                        if nested_depth < 0:
-                            nested_depth = 0
-
-                    flush_branch()
-
-                    if branches:
-                        out.extend(render_branches(branches, base_indent))
-                    else:
-                        out.append(raw)
-                        out.extend(block_lines)
-                        out.append(base_indent + "ENDCASE")
-                    i = j + 1
-                    continue
-
-                out.append(raw)
-                i += 1
-            return out
-
-        return "".join(rewrite_lines(text.splitlines(keepends=True)))
-
-    def _find_note_comment_start(self, s: str) -> int:
-        if s is None:
-            return -1
-
-        up = s.upper()
-        kw = "NOTE"
-        i = 0
-        n = len(s)
-        in_quote = None
-        in_bracket = False
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if in_bracket:
-                if ch == ']':
-                    if i + 1 < n and s[i + 1] == ']':
-                        i += 2
-                        continue
-                    in_bracket = False
-                i += 1
-                continue
-
-            if ch in ("'", '"'):
-                in_quote = ch
-                i += 1
-                continue
-
-            if ch == '[':
-                in_bracket = True
-                i += 1
-                continue
-
-            if up.startswith(kw, i):
-                prev_ok = i == 0 or not (up[i - 1].isalnum() or up[i - 1] == '_')
-                next_pos = i + len(kw)
-                next_ok = next_pos >= n or s[next_pos].isspace()
-                if prev_ok and next_ok:
-                    return i
-
-            i += 1
-
-        return -1
-
-    def _rewrite_note_comments(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ""
-            line = raw_line
-            if line.endswith("\r\n"):
-                line = line[:-2]
-                nl = "\r\n"
-            elif line.endswith("\n"):
-                line = line[:-1]
-                nl = "\n"
-
-            pos = self._find_note_comment_start(line)
-            if pos < 0:
-                out.append(raw_line)
-                continue
-
-            out.append(line[:pos] + "//" + line[pos + 4:] + nl)
-
-        return ''.join(out)
-
-    def _split_comment_outside(self, s: str) -> tuple[str, str]:
-        if s is None:
-            return "", ""
-
-        out = []
-        i = 0
-        n = len(s)
-        in_quote = None
-        in_bracket = False
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                out.append(ch)
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        out.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if in_bracket:
-                out.append(ch)
-                if ch == ']':
-                    if i + 1 < n and s[i + 1] == ']':
-                        out.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_bracket = False
-                i += 1
-                continue
-
-            if ch in ("'", '"'):
-                in_quote = ch
-                out.append(ch)
-                i += 1
-                continue
-
-            if ch == '[':
-                in_bracket = True
-                out.append(ch)
-                i += 1
-                continue
-
-            two = s[i:i+2]
-            if two in ("&&", "**", "//", "/*"):
-                return "".join(out), s[i:]
-
-            if self._find_note_comment_start(s[i:]) == 0:
-                return "".join(out), s[i:]
-
-            out.append(ch)
-            i += 1
-
-        return "".join(out), ""
-
-    def _find_keyword_outside(self, s: str, keyword: str) -> int:
-        up = s.upper()
-        kw = keyword.upper()
-        i = 0
-        n = len(s)
-        in_quote = None
-        in_bracket = False
-        paren_depth = 0
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if in_bracket:
-                if ch == ']':
-                    if i + 1 < n and s[i + 1] == ']':
-                        i += 2
-                        continue
-                    in_bracket = False
-                i += 1
-                continue
-
-            if ch in ("'", '"'):
-                in_quote = ch
-                i += 1
-                continue
-
-            if ch == '[':
-                in_bracket = True
-                i += 1
-                continue
-
-            if ch == '(':
-                paren_depth += 1
-                i += 1
-                continue
-
-            if ch == ')':
-                paren_depth = max(0, paren_depth - 1)
-                i += 1
-                continue
-
-            if paren_depth == 0 and up.startswith(kw, i):
-                prev_ok = i == 0 or not (up[i - 1].isalnum() or up[i - 1] == '_')
-                next_pos = i + len(kw)
-                next_ok = next_pos >= n or not (up[next_pos].isalnum() or up[next_pos] == '_')
-                if prev_ok and next_ok:
-                    return i
-
-            i += 1
-
-        return -1
-
-    def _rewrite_input_statements(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ""
-            line = raw_line
-            if line.endswith("\r\n"):
-                line = line[:-2]
-                nl = "\r\n"
-            elif line.endswith("\n"):
-                line = line[:-1]
-                nl = "\n"
-
-            indent = line[:len(line) - len(line.lstrip())]
-            stripped = line.strip()
-            if not stripped:
-                out.append(raw_line)
-                continue
-
-            if not re.match(r'^INPUT\b', stripped, flags=re.IGNORECASE):
-                out.append(raw_line)
-                continue
-
-            code_part, comment_part = self._split_comment_outside(line)
-            work = code_part.strip()
-
-            if not re.match(r'^INPUT\b', work, flags=re.IGNORECASE):
-                out.append(raw_line)
-                continue
-
-            rest = re.sub(r'^INPUT\b', '', work, count=1, flags=re.IGNORECASE).strip()
-            if rest.startswith('('):
-                out.append(raw_line)
-                continue
-
-            to_pos = self._find_keyword_outside(rest, 'TO')
-            if to_pos < 0:
-                out.append(raw_line)
-                continue
-
-            prompt_expr = rest[:to_pos].strip()
-            target_name = rest[to_pos + 2:].strip()
-
-            if not target_name:
-                out.append(raw_line)
-                continue
-
-            target_escaped = target_name.replace('\\', '\\\\').replace(chr(34), '\\"')
-
-            if prompt_expr:
-                rewritten = f'{indent}INPUT({prompt_expr}, "{target_escaped}")'
-            else:
-                rewritten = f'{indent}INPUT("", "{target_escaped}")'
-
-            comment_suffix = "" if not comment_part else " " + comment_part.lstrip()
-            out.append(rewritten + comment_suffix + nl)
-
-        return ''.join(out)
-
-    def _rewrite_erase_statements(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ""
-            line = raw_line
-            if line.endswith("\r\n"):
-                line = line[:-2]
-                nl = "\r\n"
-            elif line.endswith("\n"):
-                line = line[:-1]
-                nl = "\n"
-
-            indent = line[:len(line) - len(line.lstrip())]
-            stripped = line.strip()
-            if not stripped:
-                out.append(raw_line)
-                continue
-
-            code_part, comment_part = self._split_comment_outside(line)
-            work = code_part.strip()
-
-            if not re.match(r'^ERASE\b', work, flags=re.IGNORECASE):
-                out.append(raw_line)
-                continue
-
-            rest = re.sub(r'^ERASE\b', '', work, count=1, flags=re.IGNORECASE).strip()
-            if rest:
-                out.append(raw_line)
-                continue
-
-            comment_suffix = "" if not comment_part else " " + comment_part.lstrip()
-            out.append(f'{indent}__DBASE_ERASE__(){comment_suffix}{nl}')
-
-        return ''.join(out)
-
-    def _rewrite_set_output_statements(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ""
-            line = raw_line
-            if line.endswith("\r\n"):
-                line = line[:-2]
-                nl = "\r\n"
-            elif line.endswith("\n"):
-                line = line[:-1]
-                nl = "\n"
-
-            stripped = line.strip()
-            if not stripped:
-                out.append(raw_line)
-                continue
-
-            indent = line[:len(line) - len(line.lstrip())]
-            code_part, comment_part = self._split_comment_outside(line)
-            work = code_part.strip()
-            comment_suffix = "" if not comment_part else " " + comment_part.lstrip()
-
-            m = re.match(r'^SET\s+FORMAT\s+(?:TO\s+)?(SCREEN|PRINT)\s*$', work, flags=re.IGNORECASE)
-            if m:
-                mode = m.group(1).upper()
-                out.append(f'{indent}__DBASE_SET_FORMAT__("{mode}"){comment_suffix}{nl}')
-                continue
-
-            m = re.match(r'^SET\s+PRINT\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
-            if m:
-                enabled = '1' if m.group(1).upper() == 'ON' else '0'
-                out.append(f'{indent}__DBASE_SET_PRINT__({enabled}){comment_suffix}{nl}')
-                continue
-
-            m = re.match(r'^SET\s+ESCAPE\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
-            if m:
-                enabled = '1' if m.group(1).upper() == 'ON' else '0'
-                out.append(f'{indent}__DBASE_SET_ESCAPE__({enabled}){comment_suffix}{nl}')
-                continue
-
-            m = re.match(r'^SET\s+CONFIRM\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
-            if m:
-                enabled = '1' if m.group(1).upper() == 'ON' else '0'
-                out.append(f'{indent}__DBASE_SET_CONFIRM__({enabled}){comment_suffix}{nl}')
-                continue
-
-            m = re.match(r'^SET\s+DELETE\s+(ON|OFF)\s*$', work, flags=re.IGNORECASE)
-            if m:
-                enabled = '1' if m.group(1).upper() == 'ON' else '0'
-                out.append(f'{indent}__DBASE_SET_DELETE__({enabled}){comment_suffix}{nl}')
-                continue
-
-            m = re.match(r'^SET\s+MARGIN\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
-            if m:
-                tail = (m.group(1) or '').strip()
-                if not tail:
-                    out.append(f'{indent}__DBASE_SET_MARGIN__(){comment_suffix}{nl}')
-                    continue
-
-                args = [a.strip() for a in self._split_args(tail) if a.strip()]
-                rewritten_args = []
-                for arg in args:
-                    if re.fullmatch(r'[+-]?\d+(?:\.\d+)?\s*(?:px|cm|pt)?', arg, flags=re.IGNORECASE):
-                        q = arg.replace('\\', '\\\\').replace('\"', '\\\"')
-                        rewritten_args.append(f'"{q}"')
-                    else:
-                        rewritten_args.append(arg)
-                out.append(f"{indent}__DBASE_SET_MARGIN__(" + ", ".join(rewritten_args) + f"){comment_suffix}{nl}")
-                continue
-
-            m = re.match(r'^SET\s+COLOR\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
-            if m:
-                tail = (m.group(1) or '').strip()
-                if not tail:
-                    out.append(f'{indent}__DBASE_SET_COLOR__(){comment_suffix}{nl}')
-                    continue
-                out.append(f"{indent}__DBASE_SET_COLOR__({tail}){comment_suffix}{nl}")
-                continue
-
-            out.append(raw_line)
-
-        return ''.join(out)
-
-    def _tokenize_space_separated(self, s: str) -> list[str]:
-        if s is None:
-            return []
-
-        tokens = []
-        cur = []
-        i = 0
-        n = len(s)
-        in_quote = None
-        in_bracket = False
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                cur.append(ch)
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        cur.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if in_bracket:
-                cur.append(ch)
-                if ch == ']':
-                    if i + 1 < n and s[i + 1] == ']':
-                        cur.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_bracket = False
-                i += 1
-                continue
-
-            if ch in ('"', "'"):
-                in_quote = ch
-                cur.append(ch)
-                i += 1
-                continue
-
-            if ch == '[':
-                in_bracket = True
-                cur.append(ch)
-                i += 1
-                continue
-
-            if ch.isspace():
-                if cur:
-                    tokens.append(''.join(cur))
-                    cur = []
-                i += 1
-                while i < n and s[i].isspace():
-                    i += 1
-                continue
-
-            cur.append(ch)
-            i += 1
-
-        if cur:
-            tokens.append(''.join(cur))
-        return tokens
-
-    def _quote_builtin_arg(self, s: str) -> str:
-        s = '' if s is None else str(s)
-        s = s.replace('\\', '\\\\').replace('"', '\\"')
-        return f'"{s}"'
-
-    def _parse_mem_destination(self, s: str) -> tuple[str, str]:
-        tokens = self._tokenize_space_separated(s)
-        if not tokens:
-            return '', ''
-        if len(tokens) >= 2 and re.fullmatch(r'[A-Za-z]:?', tokens[0]):
-            drive = tokens[0].rstrip(':')
-            filename = ' '.join(tokens[1:]).strip()
-            return drive, filename
-        return '', ' '.join(tokens).strip()
-
-    def _rewrite_memvar_statements(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ''
-            line = raw_line
-            if line.endswith('\r\n'):
-                line = line[:-2]
-                nl = '\r\n'
-            elif line.endswith('\n'):
-                line = line[:-1]
-                nl = '\n'
-
-            stripped = line.strip()
-            if not stripped:
-                out.append(raw_line)
-                continue
-
-            indent = line[:len(line) - len(line.lstrip())]
-            code_part, comment_part = self._split_comment_outside(line)
-            work = code_part.strip()
-            comment_suffix = '' if not comment_part else ' ' + comment_part.lstrip()
-
-            if re.match(r'^STORE', work, flags=re.IGNORECASE):
-                rest = re.sub(r'^STORE', '', work, count=1, flags=re.IGNORECASE).strip()
-                to_pos = self._find_keyword_outside(rest, 'TO')
-                if to_pos >= 0:
-                    expr_text = rest[:to_pos].strip()
-                    target_name = rest[to_pos + 2:].strip()
-                    if expr_text and target_name:
-                        out.append(f"{indent}__DBASE_STORE__({expr_text}, {self._quote_builtin_arg(target_name)}){comment_suffix}{nl}")
-                        continue
-
-            if re.match(r'^SAVE', work, flags=re.IGNORECASE):
-                rest = re.sub(r'^SAVE', '', work, count=1, flags=re.IGNORECASE).strip()
-                mode = 'ALL'
-                mask = ''
-                dest_part = ''
-
-                if re.match(r'^TO', rest, flags=re.IGNORECASE):
-                    dest_part = re.sub(r'^TO', '', rest, count=1, flags=re.IGNORECASE).strip()
-                else:
-                    to_pos = self._find_keyword_outside(rest, 'TO')
-                    if to_pos >= 0:
-                        sel_part = rest[:to_pos].strip()
-                        dest_part = rest[to_pos + 2:].strip()
-                        m_sel = re.match(r'^ALL(?:\s+(LIKE|EXCEPT)\s+(.*))?$', sel_part, flags=re.IGNORECASE)
-                        if m_sel:
-                            if m_sel.group(1):
-                                mode = m_sel.group(1).upper()
-                                mask = (m_sel.group(2) or '').strip()
-                            else:
-                                mode = 'ALL'
-                        else:
-                            dest_part = ''
-
-                drive, filename = self._parse_mem_destination(dest_part)
-                if filename or drive:
-                    out.append(f"{indent}__DBASE_SAVE__({self._quote_builtin_arg(filename)}, {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(mask)}, {self._quote_builtin_arg(drive)}){comment_suffix}{nl}")
-                    continue
-
-            if re.match(r'^RESTORE', work, flags=re.IGNORECASE):
-                rest = re.sub(r'^RESTORE', '', work, count=1, flags=re.IGNORECASE).strip()
-                m_from = re.match(r'^FROM(.*)$', rest, flags=re.IGNORECASE)
-                if m_from:
-                    tail = (m_from.group(1) or '').strip()
-                    additive = '0'
-                    if re.search(r'ADDITIVE', tail, flags=re.IGNORECASE):
-                        additive = '1'
-                        tail = re.sub(r'ADDITIVE', '', tail, flags=re.IGNORECASE).strip()
-                    drive, filename = self._parse_mem_destination(tail)
-                    if filename or drive:
-                        out.append(f"{indent}__DBASE_RESTORE__({self._quote_builtin_arg(filename)}, {additive}, {self._quote_builtin_arg(drive)}){comment_suffix}{nl}")
-                        continue
-
-            if re.match(r'^RELEASE', work, flags=re.IGNORECASE):
-                rest = re.sub(r'^RELEASE', '', work, count=1, flags=re.IGNORECASE).strip()
-                if re.match(r'^ALL', rest, flags=re.IGNORECASE):
-                    tail = re.sub(r'^ALL', '', rest, count=1, flags=re.IGNORECASE).strip()
-                    mode = 'ALL'
-                    mask = ''
-                    m_mode = re.match(r'^(LIKE|EXCEPT)\s+(.*)$', tail, flags=re.IGNORECASE)
-                    if m_mode:
-                        mode = m_mode.group(1).upper()
-                        mask = (m_mode.group(2) or '').strip()
-                    out.append(f"{indent}__DBASE_RELEASE__('', {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(mask)}){comment_suffix}{nl}")
-                    continue
-                if rest:
-                    out.append(f"{indent}__DBASE_RELEASE__({self._quote_builtin_arg(rest)}, 'LIST', ''){comment_suffix}{nl}")
-                    continue
-
-            out.append(raw_line)
-
-        return ''.join(out)
-
-
-    def _replace_dot_logical_tokens(self, code: str) -> str:
-        if not code:
-            return code
-
-        out = []
-        i = 0
-        n = len(code)
-        in_quote = None
-        in_bracket = False
-
-        while i < n:
-            ch = code[i]
-
-            if in_quote is not None:
-                out.append(ch)
-                if ch == in_quote:
-                    if i + 1 < n and code[i + 1] == in_quote:
-                        out.append(code[i + 1])
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if in_bracket:
-                out.append(ch)
-                if ch == ']':
-                    if i + 1 < n and code[i + 1] == ']':
-                        out.append(code[i + 1])
-                        i += 2
-                        continue
-                    in_bracket = False
-                i += 1
-                continue
-
-            if ch in ('"', "'"):
-                in_quote = ch
-                out.append(ch)
-                i += 1
-                continue
-
-            if ch == '[':
-                in_bracket = True
-                out.append(ch)
-                i += 1
-                continue
-
-            rem = code[i:].upper()
-            if rem.startswith('.NOT.'):
-                out.append('NOT')
-                i += 5
-                continue
-            if rem.startswith('.AND.'):
-                out.append('AND')
-                i += 5
-                continue
-            if rem.startswith('.OR.'):
-                out.append('OR')
-                i += 4
-                continue
-
-            out.append(ch)
-            i += 1
-
-        return ''.join(out)
-
-    def _rewrite_dot_logical_keywords(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ''
-            line = raw_line
-            if line.endswith('\r\n'):
-                line = line[:-2]
-                nl = '\r\n'
-            elif line.endswith('\n'):
-                line = line[:-1]
-                nl = '\n'
-
-            if not line.strip():
-                out.append(raw_line)
-                continue
-
-            code_part, comment_part = self._split_comment_outside(line)
-            rewritten = self._replace_dot_logical_tokens(code_part)
-            if comment_part:
-                rewritten += (' ' if rewritten and not rewritten.endswith(' ') else '') + comment_part.lstrip()
-            out.append(rewritten + nl)
-
-        return ''.join(out)
-
-    def _rewrite_dbf_statements(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        for raw_line in lines:
-            nl = ''
-            line = raw_line
-            if line.endswith('\r\n'):
-                line = line[:-2]
-                nl = '\r\n'
-            elif line.endswith('\n'):
-                line = line[:-1]
-                nl = '\n'
-
-            if not line.strip():
-                out.append(raw_line)
-                continue
-
-            indent = line[:len(line) - len(line.lstrip())]
-            code_part, comment_part = self._split_comment_outside(line)
-            work = code_part.strip()
-            comment_suffix = '' if not comment_part else ' ' + comment_part.lstrip()
-
-            m = re.match(r'^SELECT\s+TO(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
-            if m:
-                expr = (m.group(1) or '').strip()
-                if not expr:
-                    expr = '0'
-                out.append(f"{indent}__DBASE_SELECT__({expr}){comment_suffix}{nl}")
-                continue
-
-            m = re.match(r'^RENAME\b(.*)$', work, flags=re.IGNORECASE)
-            if m:
-                rest = (m.group(1) or '').strip()
-                to_pos = self._find_keyword_outside(rest, 'TO')
-                if to_pos >= 0:
-                    old_name = rest[:to_pos].strip()
-                    new_name = rest[to_pos + 2:].strip()
-                    if old_name and new_name:
-                        out.append(f"{indent}__DBASE_RENAME__({self._quote_builtin_arg(old_name)}, {self._quote_builtin_arg(new_name)}){comment_suffix}{nl}")
-                        continue
-
-            if re.match(r'^CLEAR\s+ALL\s*$', work, flags=re.IGNORECASE):
-                out.append(f"{indent}__DBASE_CLEAR_ALL__(){comment_suffix}{nl}")
-                continue
-
-            m = re.match(r'^SKIP(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
-            if m:
-                expr = (m.group(1) or '').strip()
-                if not expr:
-                    expr = '1'
-                out.append(f"{indent}__DBASE_SKIP__({expr}){comment_suffix}{nl}")
-                continue
-
-            m = re.match(r'^(?:GO|GOTO)(?:\s+(.*?))?\s*$', work, flags=re.IGNORECASE)
-            if m:
-                tail = (m.group(1) or '').strip()
-                if not tail:
-                    out.append(raw_line)
-                    continue
-                if tail.upper() in ('TOP', 'BOTTOM'):
-                    out.append(f"{indent}__DBASE_GOTO__({self._quote_builtin_arg(tail.upper())}){comment_suffix}{nl}")
-                else:
-                    out.append(f"{indent}__DBASE_GOTO__({tail}){comment_suffix}{nl}")
-                continue
-
-            if re.match(r'^DELETE\s*$', work, flags=re.IGNORECASE):
-                out.append(f"{indent}__DBASE_DELETE_RECORD__(){comment_suffix}{nl}")
-                continue
-
-            if re.match(r'^PACK\s*$', work, flags=re.IGNORECASE):
-                out.append(f"{indent}__DBASE_PACK__(){comment_suffix}{nl}")
-                continue
-
-            if re.match(r'^(?:ZIP|ZAP)\s*$', work, flags=re.IGNORECASE):
-                out.append(f"{indent}__DBASE_ZAP__(){comment_suffix}{nl}")
-                continue
-
-            if re.match(r'^COUNT', work, flags=re.IGNORECASE):
-                rest = re.sub(r'^COUNT', '', work, count=1, flags=re.IGNORECASE).strip()
-                range_part = ''
-                mode = ''
-                cond = ''
-                to_var = ''
-
-                if rest:
-                    pos_to = self._find_keyword_outside(rest, 'TO')
-                    if pos_to >= 0:
-                        before_to = rest[:pos_to].strip()
-                        to_var = rest[pos_to + 2:].strip()
-                    else:
-                        before_to = rest
-
-                    pos_for = self._find_keyword_outside(before_to, 'FOR')
-                    pos_while = self._find_keyword_outside(before_to, 'WHILE')
-                    picks = [(p, 'FOR') for p in [pos_for] if p >= 0] + [(p, 'WHILE') for p in [pos_while] if p >= 0]
-                    if picks:
-                        p, kw = sorted(picks, key=lambda x: x[0])[0]
-                        range_part = before_to[:p].strip()
-                        mode = kw
-                        cond = before_to[p + len(kw):].strip()
-                    else:
-                        range_part = before_to.strip()
-
-                out.append(f"{indent}__DBASE_COUNT__({self._quote_builtin_arg(range_part)}, {self._quote_builtin_arg(mode)}, {self._quote_builtin_arg(cond)}, {self._quote_builtin_arg(to_var)}){comment_suffix}{nl}")
-                continue
-
-            out.append(raw_line)
-
-        return ''.join(out)
-
-    def _rewrite_text_blocks(self, text: str) -> str:
-        lines = text.splitlines(keepends=True)
-        out = []
-
-        in_text = False
-        text_indent = ""
-        text_lines = []
-        text_start_line = 0
-
-        def flush_text_block():
-            flushed = []
-            for payload, payload_nl in text_lines:
-                escaped = payload.replace(']', ']]')
-                flushed.append(f"{text_indent}WRITE [{escaped}]{payload_nl or '\n'}")
-            return flushed
-
-        for line_no, raw_line in enumerate(lines, start=1):
-            nl = ""
-            line = raw_line
-            if line.endswith("\r\n"):
-                line = line[:-2]
-                nl = "\r\n"
-            elif line.endswith("\n"):
-                line = line[:-1]
-                nl = "\n"
-
-            if not in_text:
-                code_part, _comment_part = self._split_comment_outside(line)
-                stripped_code = code_part.strip()
-
-                if re.match(r'^TEXT\b', stripped_code, flags=re.IGNORECASE):
-                    rest = re.sub(r'^TEXT\b', '', stripped_code, count=1, flags=re.IGNORECASE).strip()
-                    if rest == "":
-                        in_text = True
-                        text_indent = line[:len(line) - len(line.lstrip())]
-                        text_lines = []
-                        text_start_line = line_no
-                        continue
-
-                out.append(raw_line)
-                continue
-
-            stripped_line = line.strip()
-            if re.match(r'^ENDTEXT\b', stripped_line, flags=re.IGNORECASE):
-                rest = re.sub(r'^ENDTEXT\b', '', stripped_line, count=1, flags=re.IGNORECASE).strip()
-                if rest == "":
-                    out.extend(flush_text_block())
-                    in_text = False
-                    text_indent = ""
-                    text_lines = []
-                    text_start_line = 0
-                    continue
-
-            text_lines.append((line, nl))
-
-        if in_text:
-            raise PreprocessorError(f"unterminated TEXT block starting at line {text_start_line}")
-
-        return ''.join(out)
-
-    def _resolve_include(self, current_file: Path, name: str) -> Path:
-        # 1) relativ zum aktuellen file
-        cand = (current_file.parent / name).resolve()
-        if cand.exists():
-            return cand
-
-        # 2) include_paths
-        for base in self.include_paths:
-            cand2 = (base / name).resolve()
-            if cand2.exists():
-                return cand2
-
-        raise PreprocessorError(f'include file not found: "{name}" (from {current_file})')
-        
-    # Schneidet trailing Kommentare ab: NOTE, &&, **, //, /* ...
-    # (Nur bis Zeilenende; Blockkommentar-Mehrzeiligkeit ist für Direktiven egal,
-    # weil nach der Direktive sowieso nichts mehr ausgewertet werden soll.)
-    def _strip_trailing_comment(self, s: str) -> str:
-        if s is None:
-            return s
-
-        out = []
-        i = 0
-        n = len(s)
-        in_quote = None
-
-        while i < n:
-            ch = s[i]
-
-            if in_quote is not None:
-                out.append(ch)
-                if ch == in_quote:
-                    if i + 1 < n and s[i + 1] == in_quote:
-                        out.append(s[i + 1])
-                        i += 2
-                        continue
-                    in_quote = None
-                i += 1
-                continue
-
-            if ch in ("'", '"'):
-                in_quote = ch
-                out.append(ch)
-                i += 1
-                continue
-
-            two = s[i:i+2]
-            if two in ("&&", "**", "//", "/*"):
-                break
-
-            if self._find_note_comment_start(s[i:]) == 0:
-                break
-
-            out.append(ch)
-            i += 1
-
-        return "".join(out)
-
-    def _process_file(self, path: Path) -> str:
-        if path in self._include_stack:
-            chain = " -> ".join(str(p) for p in self._include_stack + [path])
-            raise PreprocessorError(f"circular include detected: {chain}")
-
-        self._include_stack.append(path)
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-            out_lines: list[str] = []
-            frames: list[PPFrame] = [PPFrame(parent_active=True, this_active=True)]
-
-            def active() -> bool:
-                return frames[-1].parent_active and frames[-1].this_active
-
-            lines = text.splitlines(keepends=True)
-            for i, line in enumerate(lines, start=1):
-                # Direktiven erkennen (immer), aber nur ausführen wenn "active"
-                raw_line = line
-                raw_line = self._rewrite_use_line(raw_line)
-                line_for_directive = self._strip_trailing_comment(raw_line).rstrip("\r\n")
-
-                m = self.include_re.match(line_for_directive)
-                if m:
-                    if active():
-                        inc_name = m.group(1)
-                        inc_path = self._resolve_include(path, inc_name)
-                        out_lines.append(f'**line 1 "{inc_path}"*/\n')
-                        out_lines.append(self._process_file(inc_path))
-                        out_lines.append(f'**line {i+1} "{path}"*/\n')
-                    continue
-
-                m = self.define_re.match(line_for_directive)
-                if m:
-                    if active():
-                        name = m.group(1)
-                        tail = (m.group(2) or "").strip()
-
-                        # function-like: direkt nach Name "("
-                        if tail.startswith("("):
-                            close = tail.find(")")
-                            if close == -1:
-                                raise PreprocessorError(f"{path}:{i}: malformed function-like #define")
-                            params_part = tail[1:close].strip()
-                            body = tail[close+1:].lstrip()
-
-                            params = [p.strip() for p in params_part.split(",")] if params_part else []
-                            self.macros[name] = Macro(name=name, params=params, body=body)
-                        else:
-                            self.macros[name] = Macro(name=name, params=None, body=tail)
-
-                        self.defined.add(name)
-                    continue
-                
-                m = self.ifdef_re.match(line_for_directive)
-                if m:
-                    name = m.group(1)
-                    parent = active()
-                    cond = name in self.defined
-                    frames.append(PPFrame(
-                        parent_active=parent,
-                        this_active=cond,
-                        start_file=path,
-                        start_line=i,
-                        kind="#ifdef",
-                        name=name
-                    ))
-                    continue
-
-                m = self.ifndef_re.match(line_for_directive)
-                if m:
-                    name = m.group(1)
-                    parent = active()
-                    cond = name not in self.defined
-                    frames.append(PPFrame(
-                        parent_active=parent,
-                        this_active=cond,
-                        start_file=path,
-                        start_line=i,
-                        kind="#ifndef",
-                        name=name
-                    ))
-                    continue
-
-                if self.else_re.match(line_for_directive):
-                    if len(frames) == 1:
-                        raise PreprocessorError(f"{path}:{i}: #else without #if")
-                    top = frames[-1]
-                    if top.saw_else:
-                        raise PreprocessorError(f"{path}:{i}: multiple #else")
-                    top.saw_else = True
-                    # else invertiert nur die "this_active" Ebene, parent bleibt gleich
-                    top.this_active = not top.this_active
-                    continue
-
-                if self.endif_re.match(line_for_directive):
-                    if len(frames) == 1:
-                        raise PreprocessorError(f"{path}:{i}: #endif without #if")
-                    frames.pop()
-                    continue
-
-                # Normale Zeile: nur ausgeben wenn aktiv
-                if active():
-                     out_lines.append(self._expand_macros_in_line(raw_line))
-
-            if len(frames) != 1:
-                top = frames[-1]
-                raise PreprocessorError(
-                    f"{path}: EOF: missing #endif for {top.kind} {top.name} "
-                    f"(opened at {top.start_file}:{top.start_line})"
-                )
-                
-            return "".join(out_lines)
-        finally:
-            self._include_stack.pop()
-            
-# ---------------------------------------------------------------------------
-# Ein EventFilter pro Widget-Instance.
-# Ruft Wrapper-Funktionen auf, die du in inst.props hinterlegst.
-# ---------------------------------------------------------------------------
-class _QtEventFilter(QObject):
-    def __init__(self, runner, inst):
-        super().__init__()
-        self.runner = runner
-        self.inst = inst
-
-    def eventFilter(self, obj, event):
-        t = event.type()
-
-        if t == QEvent.FocusIn:
-            cb = self.inst.props.get("_ONFOCUSIN_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.FocusOut:
-            cb = self.inst.props.get("_ONFOCUSOUT_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.MouseMove:
-            cb = self.inst.props.get("_ONMOUSEMOVE_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.MouseButtonPress:
-            cb = self.inst.props.get("_ONMOUSEDOWN_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.MouseButtonRelease:
-            cb = self.inst.props.get("_ONMOUSEUP_WRAPPER")
-            if cb:
-                cb(event)
-
-            # Rechts/Links-Button Events
-            try:
-                if event.button() == Qt.LeftButton:
-                    cb = self.inst.props.get("_ONMOUSELBUTTON_WRAPPER")
-                    if cb:
-                        cb(event)
-
-                    # Click-Fallback NUR links (und nur wenn nicht via Qt.clicked)
-                    if not self.inst.props.get("_ONCLICK_VIA_SIGNAL"):
-                        cb = self.inst.props.get("_ONCLICK_WRAPPER")
-                        if cb:
-                            cb(event)
-
-                elif event.button() == Qt.RightButton:
-                    # onClick darf hier NICHT laufen!
-                    cb = self.inst.props.get("_ONMOUSERBUTTON_WRAPPER")
-                    if cb:
-                        cb(event)
-
-            except Exception:
-                pass
-        
-        elif t == QEvent.KeyPress:
-            cb = self.inst.props.get("_ONKEYDOWN_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.KeyRelease:
-            cb = self.inst.props.get("_ONKEYUP_WRAPPER")
-            if cb:
-                cb(event)
-
-        elif t == QEvent.MouseButtonDblClick:
-            cb = self.inst.props.get("_ONDBLCLICK_WRAPPER")
-            if cb:
-                cb(event)
-
-        return False
 
 class RowMarkerProxy(QAbstractProxyModel):
     def __init__(self, source_model, parent=None):
@@ -5490,110 +2428,6 @@ class PyEmitter:
         return "\n".join(self.lines) + "\n"
 
 # ---------------------------------------------------------------------------
-# Qt application stuff: Editor ...
-# ---------------------------------------------------------------------------
-class DBaseHighlighter(QSyntaxHighlighter):
-    def __init__(self, document):
-        super().__init__(document)
-
-        # --- Formate ---
-        self.fmt_keyword = QTextCharFormat()
-        self.fmt_keyword.setFontWeight(QFont.Bold)
-        self.fmt_keyword.setForeground(QColor(200, 200, 0))  # schwarz
-
-        self.fmt_comment = QTextCharFormat()
-        self.fmt_comment.setForeground(QColor(0, 148, 0))  # grün
-
-        # --- Keywords (nach Bedarf erweitern) ---
-        keywords = [
-            "FOR", "ENDFOR", "CLASS", "ENDCLASS", "METHOD", "ENDMETHOD",
-            "IF", "ENDIF", "ELSE", "DO", "CASE", "ENDCASE", "OTHERWISE",
-            "WHILE", "ENDDO", "RETURN", "LOCAL", "PARAMETER", "WITH",
-            "ENDWITH", "NEW", "OF", "OBJECT", "THIS", "SUPER",
-            "TRUE", "FALSE", "TEXT", "ENDTEXT", "ERASE",
-            "FORMAT", "PRINT", "SCREEN", "ON", "OFF", "MARGIN", "ESCAPE"
-        ]
-
-        self.rules = []
-        for kw in keywords:
-            # \bKW\b = ganzes Wort, case-insensitive
-            rx = QRegExp(rf"\b{kw}\b", Qt.CaseInsensitive)
-            self.rules.append((rx, self.fmt_keyword))
-
-        # --- Line comments: NOTE, //, **, && bis Zeilenende ---
-        self.rules.append((QRegExp(r"\bNOTE\b[^\n]*", Qt.CaseInsensitive), self.fmt_comment))
-        self.rules.append((QRegExp(r"//[^\n]*"), self.fmt_comment))
-        self.rules.append((QRegExp(r"\*\*[^\n]*"), self.fmt_comment))
-        self.rules.append((QRegExp(r"&&[^\n]*"), self.fmt_comment))
-
-        # --- Block comments: /* ... */ (mehrzeilig) ---
-        self.block_start = QRegExp(r"/\*")
-        self.block_end   = QRegExp(r"\*/")
-
-    def highlightBlock(self, text: str):
-        # 1) normale Regeln (Keywords + Single-line comments)
-        for rx, fmt in self.rules:
-            i = rx.indexIn(text, 0)
-            while i >= 0:
-                length = rx.matchedLength()
-                self.setFormat(i, length, fmt)
-                i = rx.indexIn(text, i + length)
-
-        # 2) Block comments mehrzeilig
-        self.setCurrentBlockState(0)
-
-        start = 0
-        if self.previousBlockState() != 1:
-            start = self.block_start.indexIn(text, 0)
-        else:
-            start = 0
-
-        while start >= 0:
-            end = self.block_end.indexIn(text, start)
-            if end == -1:
-                # Kommentar geht in nächste Zeile weiter
-                self.setCurrentBlockState(1)
-                length = len(text) - start
-            else:
-                length = (end - start) + self.block_end.matchedLength()
-
-            self.setFormat(start, length, self.fmt_comment)
-
-            if end == -1:
-                break
-            start = self.block_start.indexIn(text, start + length)
-
-class BreakpointArea(QWidget):
-    def __init__(self, editor: "CodeEditor"):
-        super().__init__(editor)
-        self.editor = editor
-        self.setCursor(Qt.PointingHandCursor)
-
-    def sizeHint(self):
-        return QSize(self.editor.breakpoint_area_width(), 0)
-
-    def paintEvent(self, event):
-        self.editor.paint_breakpoint_area(event)
-
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.editor.toggle_breakpoint_at_y(event.pos().y())
-            event.accept()
-            return
-        super().mouseDoubleClickEvent(event)
-
-class LineNumberArea(QWidget):
-    def __init__(self, editor: "CodeEditor"):
-        super().__init__(editor)
-        self.editor = editor
-
-    def sizeHint(self):
-        return QSize(self.editor.line_number_area_width(), 0)
-
-    def paintEvent(self, event):
-        self.editor.paint_line_number_area(event)
-
-
 class IconScrollBarStyle(QProxyStyle):
     def __init__(self, base_style=None):
         super().__init__(base_style)
@@ -5693,1561 +2527,9 @@ class IconScrollBarStyle(QProxyStyle):
                 rect.setBottom(rect.top() + h - 1)
         return rect
 
-class CodeEditor(QPlainTextEdit):
-    runRequested = pyqtSignal()
-    hlpRequested = pyqtSignal()
-    
-    def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__(parent)
-        self.main_window = main_window
-        self._line_number_area = LineNumberArea(self)
-
-        self._breakpoints = set()  # speichert blockNumber() (0-basiert)
-        
-        # --- Editor-Farben: Navy Hintergrund + dunkleres Gelb für Text ---
-        pal = self.palette()
-        pal.setColor(QPalette.Base, QColor("#081a33"))        # Hintergrund (navy)
-        pal.setColor(QPalette.Text, QColor("#c9b458"))        # Text (dunkleres Gelb)
-        pal.setColor(QPalette.Highlight, QColor("#274b8a"))   # Selection Hintergrund
-        pal.setColor(QPalette.HighlightedText, QColor("#f0e6b0"))
-        self.setPalette(pal)
-
-        self.breakpointArea = BreakpointArea(self)
-        self.lineNumberArea = LineNumberArea(self)
-        
-        self.blockCountChanged.connect(self._update_gutter_widths)
-        self.updateRequest.connect(self._update_gutters_on_scroll)
-        self.cursorPositionChanged.connect(self._highlight_current_line)
-
-        self._update_gutter_widths()
-        self._highlight_current_line()
-
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setCenterOnScroll(False)
-        self.viewport().installEventFilter(self)
-        self._tab_spaces = "    "
-        self._apply_tab_settings()
-
-        # --- Run (F2) ---
-        self.act_run = QAction("Run2", self)
-        self.act_run.setShortcut(QKeySequence(Qt.Key_F2))
-        self.act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        self.act_run.triggered.connect(self._emit_run_requested)
-        self.addAction(self.act_run)
-    
-    def focusInEvent(self, e):
-        _debug_print("FileEditorWindow Fokus IN")
-        super().focusInEvent(e)
-
-    def _apply_tab_settings(self):
-        try:
-            fm = QFontMetrics(self.font())
-            try:
-                tabw = fm.horizontalAdvance(self._tab_spaces)
-            except AttributeError:
-                tabw = fm.width(self._tab_spaces)
-            self.setTabStopDistance(max(1, tabw))
-        except Exception:
-            pass
-
-    def setFont(self, font):
-        super().setFont(font)
-        self._apply_tab_settings()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Tab and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)):
-            cursor = self.textCursor()
-            if cursor.hasSelection():
-                self._indent_selection_with_spaces()
-            else:
-                cursor.insertText(self._tab_spaces)
-            return
-
-        if event.key() == Qt.Key_Backtab and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)):
-            self._unindent_selection_spaces()
-            return
-
-        super().keyPressEvent(event)
-
-    def _indent_selection_with_spaces(self):
-        cursor = self.textCursor()
-        start = cursor.selectionStart()
-        end = cursor.selectionEnd()
-
-        cursor.beginEditBlock()
-        cursor.setPosition(start)
-        first_block = self.document().findBlock(start).blockNumber()
-        last_block = self.document().findBlock(max(start, end - 1)).blockNumber()
-
-        for block_no in range(first_block, last_block + 1):
-            block = self.document().findBlockByNumber(block_no)
-            if not block.isValid():
-                continue
-            c = QTextCursor(block)
-            c.movePosition(QTextCursor.StartOfBlock)
-            c.insertText(self._tab_spaces)
-
-        cursor.endEditBlock()
-
-    def _unindent_selection_spaces(self):
-        cursor = self.textCursor()
-        start = cursor.selectionStart()
-        end = cursor.selectionEnd()
-
-        cursor.beginEditBlock()
-        first_block = self.document().findBlock(start).blockNumber()
-        last_block = self.document().findBlock(max(start, end - 1)).blockNumber()
-
-        for block_no in range(first_block, last_block + 1):
-            block = self.document().findBlockByNumber(block_no)
-            if not block.isValid():
-                continue
-            text = block.text()
-            remove_count = 0
-            for ch in text[:4]:
-                if ch == ' ':
-                    remove_count += 1
-                else:
-                    break
-            if remove_count > 0:
-                c = QTextCursor(block)
-                c.movePosition(QTextCursor.StartOfBlock)
-                for _ in range(remove_count):
-                    c.deleteChar()
-
-        cursor.endEditBlock()
-
-    def eventFilter(self, obj, event):
-        if obj is self.viewport() and event.type() == QEvent.Wheel:
-            if self._handle_vertical_wheel(event):
-                event.accept()
-                return True
-        return super().eventFilter(obj, event)
-
-    def wheelEvent(self, event):
-        if self._handle_vertical_wheel(event):
-            event.accept()
-            return
-        super().wheelEvent(event)
-        event.accept()
-
-    def _handle_vertical_wheel(self, event) -> bool:
-        sb = self.verticalScrollBar()
-        if sb is None:
-            return False
-
-        pixel_delta_y = event.pixelDelta().y()
-        angle_delta_y = event.angleDelta().y()
-        angle_delta_x = event.angleDelta().x()
-
-        if angle_delta_y == 0 and pixel_delta_y == 0:
-            return False if angle_delta_x else True
-
-        single_step = max(1, sb.singleStep())
-        page_step = max(single_step, sb.pageStep())
-
-        if pixel_delta_y:
-            steps = float(pixel_delta_y) / 40.0
-        else:
-            steps = float(angle_delta_y) / 120.0
-
-        mods = event.modifiers()
-        factor = 3.0
-        if mods & Qt.ShiftModifier:
-            factor = 0.5
-        elif mods & Qt.ControlModifier:
-            factor = float(page_step) / float(single_step)
-
-        delta = int(round(steps * single_step * factor))
-        if delta == 0:
-            delta = 1 if steps > 0 else -1
-
-        target = sb.value() - delta
-        sb.setValue(max(sb.minimum(), min(sb.maximum(), target)))
-
-        # Wichtig: NICHT ensureCursorVisible() aufrufen.
-        # Sonst springt der sichtbare Bereich sofort wieder zur aktuellen
-        # Cursor-Zeile zurück und das Scrollen per Mausrad wirkt so, als
-        # würde der Editor gar nicht scrollen.
-        self.viewport().update()
-
-        mm = getattr(self, "_minimap", None)
-        if mm is not None:
-            mm.viewport().update()
-        return True
-        
-    def _emit_run_requested(self):
-        self.runRequested.emit()
-    
-    def contextMenuEvent(self, event):
-        std_menu = QPlainTextEdit.createStandardContextMenu(self, event.pos())
-        menu = QMenu(self)
-        menu.addAction(self.act_run)
-        menu.addSeparator()
-        for act in std_menu.actions():
-            menu.addAction(act)
-        menu.exec_(event.globalPos())
-
-    # ---------- API / State ----------
-    def breakpoints(self):
-        """Gibt Breakpoints als 1-basierte Zeilennummern zurück."""
-        return sorted(b + 1 for b in self._breakpoints)
-
-    # ---------- Layout: zwei Gutters ----------
-    def breakpoint_area_width(self) -> int:
-        return 14  # schmaler Gutter für roten Punkt
-
-    def line_number_area_width(self) -> int:
-        digits = len(str(max(1, self.blockCount())))
-        fm = QFontMetrics(self.font())
-        # etwas Padding
-        return 6 + fm.horizontalAdvance("9") * digits + 8
-
-    def _update_gutter_widths(self):
-        left = self.breakpoint_area_width() + self.line_number_area_width()
-        self.setViewportMargins(left, 0, 0, 0)
-        self._reposition_gutters()
-        self.viewport().update()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._reposition_gutters()
-
-    def _reposition_gutters(self):
-        cr = self.contentsRect()
-        bpw = self.breakpoint_area_width()
-        lnw = self.line_number_area_width()
-
-        self.breakpointArea.setGeometry(QRect(cr.left(), cr.top(), bpw, cr.height()))
-        self.lineNumberArea.setGeometry(QRect(cr.left() + bpw, cr.top(), lnw, cr.height()))
-
-    def _update_gutters_on_scroll(self, rect, dy):
-        if dy:
-            self.breakpointArea.scroll(0, dy)
-            self.lineNumberArea.scroll(0, dy)
-        else:
-            self.breakpointArea.update(0, rect.y(), self.breakpointArea.width(), rect.height())
-            self.lineNumberArea.update(0, rect.y(), self.lineNumberArea.width(), rect.height())
-
-        if rect.contains(self.viewport().rect()):
-            self._update_gutter_widths()
-
-    # ---------- Painting ----------
-    def paint_breakpoint_area(self, event):
-        painter = QPainter(self.breakpointArea)
-        painter.fillRect(event.rect(), QColor("#1b1b1b"))  # Hintergrund
-
-        block = self.firstVisibleBlock()
-        block_number = block.blockNumber()
-        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
-        bottom = top + int(self.blockBoundingRect(block).height())
-
-        # rote Punkte
-        dot_color = QColor("#d32f2f")
-
-        while block.isValid() and top <= event.rect().bottom():
-            if block.isVisible() and bottom >= event.rect().top():
-                if block_number in self._breakpoints:
-                    # Kreis zentriert im Breakpoint-Gutter
-                    w = self.breakpointArea.width()
-                    h = int(self.blockBoundingRect(block).height())
-                    diameter = min(10, w - 2, h - 4)
-                    x = (w - diameter) // 2
-                    y = top + (h - diameter) // 2
-
-                    painter.setPen(Qt.NoPen)
-                    painter.setBrush(dot_color)
-                    painter.setRenderHint(QPainter.Antialiasing, True)
-                    painter.drawEllipse(x, y, diameter, diameter)
-
-            block = block.next()
-            block_number += 1
-            top = bottom
-            bottom = top + int(self.blockBoundingRect(block).height())
-
-    def paint_line_number_area(self, event):
-        painter = QPainter(self.lineNumberArea)
-        painter.fillRect(event.rect(), QColor("#202020"))
-
-        block = self.firstVisibleBlock()
-        block_number = block.blockNumber()
-        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
-        bottom = top + int(self.blockBoundingRect(block).height())
-
-        painter.setPen(QColor("#9e9e9e"))
-
-        while block.isValid() and top <= event.rect().bottom():
-            if block.isVisible() and bottom >= event.rect().top():
-                number_text = str(block_number + 1)
-                painter.drawText(
-                    0, top,
-                    self.lineNumberArea.width() - 4, int(self.blockBoundingRect(block).height()),
-                    Qt.AlignRight | Qt.AlignVCenter,
-                    number_text
-                )
-            block = block.next()
-            block_number += 1
-            top = bottom
-            bottom = top + int(self.blockBoundingRect(block).height())
-
-    # ---------- Toggle per Doppelklick ----------
-    def toggle_breakpoint_at_y(self, y_in_area: int):
-        """Ermittelt Block unter y (Viewport-Koordinate) und toggelt Breakpoint."""
-        # y aus BreakpointArea -> y in Viewport
-        y_view = y_in_area
-        block = self.firstVisibleBlock()
-        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
-        bottom = top + int(self.blockBoundingRect(block).height())
-
-        while block.isValid():
-            if top <= y_view < bottom and block.isVisible():
-                bn = block.blockNumber()
-                if bn in self._breakpoints:
-                    self._breakpoints.remove(bn)
-                else:
-                    self._breakpoints.add(bn)
-                self.breakpointArea.update()
-                return
-
-            block = block.next()
-            top = bottom
-            bottom = top + int(self.blockBoundingRect(block).height())
-
-    # ---------- Optional: current line highlight ----------
-    def _highlight_current_line(self):
-        selections = []
-
-        if not self.isReadOnly():
-            sel = QTextEdit.ExtraSelection()  # <-- statt QPlainTextEdit.ExtraSelection
-
-            sel.format.setBackground(QColor("#0b2a52"))  # dunkleres Blau
-            sel.format.setForeground(QColor("#c9b458"))  # Gelb
-            sel.format.setProperty(QTextFormat.FullWidthSelection, True)
-
-            sel.cursor = self.textCursor()
-            sel.cursor.clearSelection()
-            selections.append(sel)
-
-        self.setExtraSelections(selections)
-
-class ModifiedTabBar(QTabBar):
-    """TabBar, der bei 'modified' (tabData == True) eine 2px Linie unter dem Tab-Text zeichnet."""
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        try:
-            # Farbe: gleiche wie Scrollbar-Handle (wir nehmen die Highlight-Farbe als sinnvollen Default)
-            pen = QPen(self.palette().highlight().color())
-            pen.setWidth(2)
-            painter.setPen(pen)
-            for i in range(self.count()):
-                if bool(self.tabData(i)):
-                    r = self.tabRect(i)
-                    # 2px Linie unten im Tab
-                    y = r.bottom() - 1
-                    painter.drawLine(r.left()+6, y, r.right()-6, y)
-        finally:
-            painter.end()
-
-class MiniMap(QPlainTextEdit):
-    """
-    Read-only minimap view for a main QPlainTextEdit.
-    Shows viewport overlay + optional cursor line marker.
-    Dragging overlay scrolls main editor.
-    """
-    def __init__(self, main_editor: QPlainTextEdit, parent=None):
-        super().__init__(parent)
-        self.main = main_editor
-
-        self.setReadOnly(True)
-        self.setUndoRedoEnabled(False)
-        self.setWordWrapMode(QTextOption.NoWrap)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.setFocusPolicy(Qt.NoFocus)
-        self.setCenterOnScroll(False)
-        self.setMouseTracking(True)
-        self.viewport().installEventFilter(self)
-        self._sync_guard = 0
-
-        # Tiny font
-        f = QFont(self.main.font())
-        f.setPointSize(max(6, f.pointSize() - 4))
-        self.setFont(f)
-
-        # Make it look like a minimap
-        self.setFrameShape(QFrame.NoFrame)
-        self.setLineWrapMode(QPlainTextEdit.NoWrap)
-
-        # Overlay behavior
-        self._dragging = False
-        self._drag_offset_y = 0
-
-        # Keep text + basic settings in sync
-        self._sync_all()
-
-        # Signals: main -> minimap
-        self.main.textChanged.connect(self._sync_text)
-        self.main.verticalScrollBar().valueChanged.connect(self._sync_scroll_from_main)
-        self.main.cursorPositionChanged.connect(self._update_overlay)
-        self.main.updateRequest.connect(lambda *_: self._update_overlay())
-
-        # Signals: minimap -> main (scrollbar sync)
-        self.verticalScrollBar().valueChanged.connect(self._sync_scroll_to_main)
-
-        # Keep document layout similar
-        self.document().setDocumentMargin(self.main.document().documentMargin())
-
-        # Initial overlay
-        QTimer.singleShot(0, self._update_overlay)
-
-    # ---------- sync helpers ----------
-    def _sync_all(self):
-        self._sync_text()
-        self._sync_scroll_from_main()
-        self._update_overlay()
-
-    def _sync_text(self):
-        # Avoid cursor jumps: preserve minimap scrollbar ratio
-        sb = self.verticalScrollBar()
-        ratio = 0.0
-        if sb.maximum() > 0:
-            ratio = sb.value() / sb.maximum()
-
-        self.setPlainText(self.main.toPlainText())
-
-        # Restore approximate scroll ratio after text update
-        QTimer.singleShot(0, lambda: self._restore_ratio(ratio))
-
-    def _restore_ratio(self, ratio: float):
-        sb = self.verticalScrollBar()
-        if sb.maximum() > 0:
-            self._sync_guard += 1
-            try:
-                was_blocked = sb.blockSignals(True)
-                sb.setValue(int(ratio * sb.maximum()))
-                sb.blockSignals(was_blocked)
-            finally:
-                self._sync_guard = max(0, self._sync_guard - 1)
-        self._update_overlay()
-
-    def _sync_scroll_from_main(self):
-        if self._dragging:
-            return
-        m = self.main.verticalScrollBar()
-        s = self.verticalScrollBar()
-        self._sync_guard += 1
-        try:
-            self._map_scrollbars(m, s)
-        finally:
-            self._sync_guard = max(0, self._sync_guard - 1)
-        self._update_overlay()
-
-    def _sync_scroll_to_main(self, _value: int):
-        if self._dragging or self._sync_guard:
-            # during drag we drive main directly
-            # or while main -> minimap sync is active
-            return
-        m = self.main.verticalScrollBar()
-        s = self.verticalScrollBar()
-        self._map_scrollbars(s, m)
-        self._update_overlay()
-
-    @staticmethod
-    def _map_scrollbars(src: QScrollBar, dst: QScrollBar):
-        # Map src.value in [0..src.max] to dst.value in [0..dst.max]
-        if dst is None:
-            return
-        if src.maximum() <= 0 or dst.maximum() <= 0:
-            was_blocked = dst.blockSignals(True)
-            try:
-                dst.setValue(0)
-            finally:
-                dst.blockSignals(was_blocked)
-            return
-        ratio = src.value() / src.maximum()
-        was_blocked = dst.blockSignals(True)
-        try:
-            dst.setValue(int(ratio * dst.maximum()))
-        finally:
-            dst.blockSignals(was_blocked)
-
-    # ---------- overlay drawing ----------
-    def _visible_block_range_in_main(self):
-        # Which blocks (lines) are visible in main editor?
-        main = self.main
-        vb = main.firstVisibleBlock()
-        if not vb.isValid():
-            return 0, 0
-
-        start_block = vb.blockNumber()
-
-        # Estimate how many blocks fit in main viewport
-        bh = main.blockBoundingRect(vb).height()
-        if bh <= 0:
-            bh = QFontMetrics(main.font()).height()
-
-        blocks_visible = int(main.viewport().height() / bh) + 2
-        end_block = start_block + blocks_visible
-        return start_block, end_block
-
-    def _block_y_in_minimap(self, block_number: int) -> int:
-        # Convert block number to y coordinate in minimap viewport using its own geometry
-        doc = self.document()
-        block = doc.findBlockByNumber(block_number)
-        if not block.isValid():
-            return 0
-        r = self.blockBoundingGeometry(block).translated(self.contentOffset())
-        return int(r.top())
-
-    def _update_overlay(self):
-        self.viewport().update()
-
-    def paintEvent(self, e: QPaintEvent):
-        super().paintEvent(e)
-
-        painter = QPainter(self.viewport())
-        painter.setRenderHint(QPainter.Antialiasing, False)
-
-        # Draw viewport overlay (visible region of main)
-        start_b, end_b = self._visible_block_range_in_main()
-        y1 = self._block_y_in_minimap(start_b)
-        y2 = self._block_y_in_minimap(end_b)
-        if y2 <= y1:
-            y2 = y1 + 20
-
-        overlay_rect = QRect(0, y1, self.viewport().width(), y2 - y1)
-
-        # translucent overlay
-        overlay_color = QColor(255, 215, 0, 40)  # gold-ish, transparent
-        border_color  = QColor(255, 215, 0, 160)
-
-        painter.fillRect(overlay_rect, overlay_color)
-        pen = QPen(border_color)
-        pen.setWidth(1)
-        painter.setPen(pen)
-        painter.drawRect(overlay_rect.adjusted(0, 0, -1, -1))
-
-        # Optional: cursor line marker (thin)
-        cursor_block = self.main.textCursor().blockNumber()
-        cy = self._block_y_in_minimap(cursor_block)
-        cpen = QPen(QColor(255, 215, 0, 200))
-        cpen.setWidth(1)
-        painter.setPen(cpen)
-        painter.drawLine(0, cy, self.viewport().width(), cy)
-
-        painter.end()
-
-    # ---------- mouse interaction (drag overlay to scroll main) ----------
-    def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
-            self._dragging = True
-            self._drag_offset_y = event.pos().y()
-            self._scroll_main_to_minimap_y(event.pos().y())
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        if self._dragging:
-            self._scroll_main_to_minimap_y(event.pos().y())
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton and self._dragging:
-            self._dragging = False
-            event.accept()
-            return
-        super().mouseReleaseEvent(event)
-
-    def eventFilter(self, obj, event):
-        if obj is self.viewport() and event.type() == QEvent.Wheel:
-            if hasattr(self.main, "_handle_vertical_wheel") and self.main._handle_vertical_wheel(event):
-                event.accept()
-                return True
-        return super().eventFilter(obj, event)
-
-    def wheelEvent(self, event):
-        # MiniMap-Rad scrollt den Haupteditor und konsumiert das Event,
-        # damit der MDI-Bereich es nicht übernimmt.
-        if hasattr(self.main, "_handle_vertical_wheel") and self.main._handle_vertical_wheel(event):
-            event.accept()
-            return
-        self.main.wheelEvent(event)
-        event.accept()
-
-    def _scroll_main_to_minimap_y(self, y: int):
-        # Map minimap y position to a block number, then scroll main to that block.
-        # We compute which block is under y and set main scrollbar ratio accordingly.
-        doc = self.document()
-        # Convert y to document coordinate
-        y_doc = y - self.contentOffset().y()
-
-        # Find approximate block by scanning from first visible block in minimap
-        first = self.firstVisibleBlock()
-        if not first.isValid():
-            return
-
-        block = first
-        while block.isValid():
-            rect = self.blockBoundingGeometry(block)
-            top = rect.top()
-            bottom = rect.bottom()
-            if top <= y_doc <= bottom:
-                target_block = block.blockNumber()
-                self._scroll_main_to_block(target_block)
-                return
-            if top > y_doc:
-                # y is above current block -> use current
-                target_block = block.blockNumber()
-                self._scroll_main_to_block(target_block)
-                return
-            block = block.next()
-
-        # If beyond end, go to bottom
-        self.main.verticalScrollBar().setValue(self.main.verticalScrollBar().maximum())
-
-    def _scroll_main_to_block(self, block_number: int):
-        m = self.main.verticalScrollBar()
-        doc = self.main.document()
-        last_block = max(1, doc.blockCount() - 1)
-        ratio = max(0.0, min(1.0, block_number / last_block))
-        m.setValue(int(ratio * m.maximum()))
-        self._update_overlay()
-        
-class FileEditorWindow(QDialog):
-    def __init__(self, parent, initial_path: str = "", initial_text: str = ""):
-        super().__init__(parent)
-        self.parent = parent
-        _mark_escape_close(self)
-
-        self.setModal(False)
-        self.setWindowModality(Qt.NonModal)
-        self.setMinimumWidth(640)
-        self.setMinimumHeight(480)
-
-        self.setWindowTitle("CodeEditor")
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
-        self.setAttribute(Qt.WA_TranslucentBackground, False)
-        
-        self.CLASS_START_RE = re.compile(r"(?im)^\s*CLASS\s+([A-Za-z_][A-Za-z0-9_]*)\b")
-        self.ENDCLASS_RE    = re.compile(r"(?im)^\s*ENDCLASS\b")
-        self.METHOD_RE      = re.compile(r"(?im)^\s*METHOD\s+([A-Za-z_][A-Za-z0-9_]*)\b")
-
-        # Optional: eigenes Icon setzen
-        icon = self.windowIcon()  # oder QIcon("dein_icon.png")
-
-        # --- Custom TitleBar (frameless window) ---
-        #self.titlebar = TitleBar(self, "CodeEditor", icon)
-
-        # Content Frame (Rahmen + Hintergrund)
-        self.frame = QFrame(self)
-        self.frame.setObjectName("WindowFrame")
-
-        # ---- Outer layout: TitleBar + Frame ----
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-        #outer.addWidget(self.titlebar)
-        outer.addWidget(self.frame, 1)
-
-        # ---- Inside frame ----
-        content_layout = QVBoxLayout(self.frame)
-        content_layout.setContentsMargins(10, 10, 10, 10)
-        content_layout.setSpacing(8)
-
-        # Filename / path display (optional)
-        self.fname = QLabel("")
-        self.fname.setObjectName("FileNameLabel")
-        self.fname.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.fname.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        content_layout.addWidget(self.fname)
-
-        # Menubar / Toolbar / Statusbar are normal widgets in this QDialog
-        self._create_actions()
-        self.mb = self._create_menus()
-        self.tb = self._create_toolbar()
-        self.sb = self._create_statusbar()
-
-        content_layout.addWidget(self.mb)
-        content_layout.addWidget(self.tb)
-
-        # Splitter: links Tree, rechts Editor
-        self.splitter = QSplitter(Qt.Horizontal, self.frame)
-        self.splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # --- TreeView links ---
-        self.tree = QTreeView(self.splitter)
-        self.tree.clicked.connect(self._on_tree_clicked)
-
-        # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
-        self.tree_model = QStandardItemModel()
-        self.tree_model.setHorizontalHeaderLabels(["Struktur"])
-        
-        root = self.tree_model.invisibleRootItem()
-        
-        self.node_classes = QStandardItem("CLASSES")
-        self.node_methods = QStandardItem("METHODS")
-        
-        root.appendRow(self.node_classes)
-        root.appendRow(self.node_methods)
-        
-        self.tree.setModel(self.tree_model)
-        self.tree.expandAll()
-        
-        self._parse_timer = QTimer(self)
-        self._parse_timer.setSingleShot(True)
-        self._parse_timer.timeout.connect(self._refresh_structure_tree)
-
-        # --- Editor Tabs (jede Datei ein Tab) ---
-        self.editor_tabs = QTabWidget(self.splitter)
-        self.editor_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.editor_tabs.setTabBar(ModifiedTabBar())
-        self.editor_tabs.setTabsClosable(True)
-        self.editor_tabs.tabCloseRequested.connect(self._on_tab_close_requested)
-        self.editor_tabs.currentChanged.connect(self._on_current_tab_changed)
-
-        # Splitter-Verhältnisse
-        self.splitter.setStretchFactor(0, 0)  # Tree
-        self.splitter.setStretchFactor(1, 1)  # Editor
-        self.splitter.setSizes([220, 800])
-
-        # Splitter soll beim Resize wachsen
-        content_layout.addWidget(self.splitter, 1)
-        content_layout.addWidget(self.sb)
-
-        # Default: ein neuer Tab (oder initial_path laden)
-        if initial_path:
-            self.open_path_in_tab(initial_path)
-        else:
-            self.new_tab(title="unbenannt.prg", path="", text=initial_text or "")
-
-        self._update_cursor_status()
-
-    def _schedule_tree_refresh(self):
-        # 180ms nach letzter Änderung neu parsen
-        self._parse_timer.start(180)
-        
-    def _refresh_structure_tree(self):
-        ed = self.current_editor()
-        if ed is None:
-            return
-        
-        text = self._strip_comments_preserve_positions(ed.toPlainText())
-        doc  = ed.document()
-
-        # CLASSES-Node leeren
-        self.node_classes.removeRows(0, self.node_classes.rowCount())
-
-        # Alle CLASS-Starts finden
-        starts = list(self.CLASS_START_RE.finditer(text))
-        if not starts:
-            self.tree.expand(self.tree_model.indexFromItem(self.node_classes))
-            return
-
-        # Für jede CLASS den passenden ENDCLASS suchen (von Start an)
-        for i, m in enumerate(starts):
-            cls_name = m.group(1)
-            cls_start = m.start()
-
-            end_m = self.ENDCLASS_RE.search(text, pos=m.end())
-            if not end_m:
-                cls_end = len(text)  # unvollständig: bis EOF
-            else:
-                cls_end = end_m.end()
-
-            # Klassen-Item + Position (für Sprung)
-            block = doc.findBlock(cls_start)
-            if not block.isValid():
-                continue
-            cls_line = block.blockNumber()
-            cls_col  = cls_start - block.position()
-
-            cls_item = QStandardItem(cls_name)
-            cls_item.setData(cls_line, Qt.UserRole)
-            cls_item.setData(cls_col,  Qt.UserRole + 1)
-
-            # Unterknoten "METHODS" für diese Klasse
-            methods_node = QStandardItem("METHODS")
-            cls_item.appendRow(methods_node)
-
-            # Methoden nur im Klassenbereich sammeln
-            seen = set()
-            for mm in self.METHOD_RE.finditer(text, cls_start, cls_end):
-                meth = mm.group(1)
-                key = meth.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                mpos = mm.start()
-                mblock = doc.findBlock(mpos)
-                if not mblock.isValid():
-                    continue
-                line = mblock.blockNumber()
-                col  = mpos - mblock.position()
-
-                it = QStandardItem(meth)
-                it.setData(line, Qt.UserRole)
-                it.setData(col,  Qt.UserRole + 1)
-                methods_node.appendRow(it)
-
-            self.node_classes.appendRow(cls_item)
-
-        self.tree.expand(self.tree_model.indexFromItem(self.node_classes))
-
-    def _on_tree_clicked(self, index):
-        item = self.tree_model.itemFromIndex(index)
-        if not item:
-            return
-            
-        if item in (self.node_classes, self.node_methods) or item.text() == "METHODS":
-            return
-
-        line = item.data(Qt.UserRole)
-        col  = item.data(Qt.UserRole + 1) or 0
-        if not isinstance(line, int):
-            return
-
-        ed = self.current_editor()
-        if ed is None:
-            return
-
-        block = ed.document().findBlockByNumber(line)
-        if not block.isValid():
-            return
-
-        pos = block.position() + int(col)
-
-        cursor = ed.textCursor()
-        cursor.setPosition(pos)
-        ed.setTextCursor(cursor)
-        ed.setFocus()
-        ed.centerCursor()
-    
-    def _strip_comments_preserve_positions(self, text: str) -> str:
-        # Block-Kommentare /* ... */
-        def repl_block(m):
-            return " " * (m.end() - m.start())
-
-        text = re.sub(r"/\*.*?\*/", repl_block, text, flags=re.S)
-
-        # Einzeilige Kommentare: NOTE, //, &&, **
-        def repl_line(m):
-            return " " * (m.end() - m.start())
-
-        text = re.sub(r"(?im)\bNOTE\b.*?$", repl_line, text)
-        text = re.sub(r"//.*?$", repl_line, text, flags=re.M)
-        text = re.sub(r"&&.*?$", repl_line, text, flags=re.M)
-        text = re.sub(r"\*\*.*?$", repl_line, text, flags=re.M)
-
-        return text
-    
-    def run_current_text(self):
-        """Führt den aktuellen Tab-Text aus (Run / F2)."""
-        ed = self.current_editor()
-        content = ed.toPlainText() if ed is not None else ""
-        if not content.strip():
-            QMessageBox.information(self, "Info", "Bitte erst Text eingeben.")
-            return
-        path = getattr(ed, "_path", "") or ""
-        if not path:
-            # temp file
-            path = os.path.join(os.getcwd(), "dbase_run.prg")
-            setattr(ed, "_path", path)
-            self._update_tab_visuals(self.current_tab_index())
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
-            parse(path)
-        except Exception as e:
-            tb_str = traceback.format_exc()
-            dlg = showException(self, "Run-Fehler " + type(e).__name__, tb_str)
-            dlg.exec_()
-
-    def _create_editor(self):
-        self.editor = CodeEditor(self)
-        self.editor.setPlaceholderText("Schreib hier was rein…")
-        self.editor.setLineWrapMode(self.editor.NoWrap)
-        self.editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.editor.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.editor.setFont(QFont("Consolas", 10))
-
-        self.minimap = MiniMap(self.editor)
-        self.minimap.setVisible(True)          # oder False als Default
-        self.minimap.setMinimumWidth(140)      # damit sie nicht auf 0 kollabiert
-
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self.editor)
-        splitter.addWidget(self.minimap)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 0)
-        splitter.setSizes([900, 180])
-
-        self.container = QWidget()
-        self.container._editor = self.editor
-
-        lay = QHBoxLayout(self.container)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(splitter)
-
-        # wichtig: Referenzen speichern (pro Editor!)
-        self.editor._minimap = self.minimap
-        self.editor._minimap_container = self.container
-
-        # Strg+S / Strg+O direkt im Editor
-        self.editor.act_save_file = QAction("Speichern", self.editor)
-        self.editor.act_save_file.setShortcut(QKeySequence("Ctrl+S"))
-        self.editor.act_save_file.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        self.editor.act_save_file.triggered.connect(lambda ed=self.editor: self.file_save(self._tab_index_for_editor(ed)))
-        self.editor.addAction(self.editor.act_save_file)
-
-        self.editor.act_open_file = QAction("Öffnen", self.editor)
-        self.editor.act_open_file.setShortcut(QKeySequence("Ctrl+O"))
-        self.editor.act_open_file.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        self.editor.act_open_file.triggered.connect(self.file_open)
-        self.editor.addAction(self.editor.act_open_file)
-
-        _debug_print("1111")
-        self.highlighter = DBaseHighlighter(self.editor.document())
-        _debug_print("2222")
-        return self.editor
-
-    def set_minimap_visible(self, visible: bool):
-        ed = self.current_editor()
-        mm = self.minimap
-        if mm is not None:
-            _debug_print("set visible: ", visible)
-            mm.setVisible(visible)
-        
-    def _create_actions(self):
-        pass
-
-    def _create_menus(self):
-        pass
-
-    def _create_toolbar(self):
-        pass
-
-    def _create_statusbar(self):
-        sb = QStatusBar(self)
-        sb.showMessage("Bereit")
-        return sb
-
-    # ---------- File operations ----------
-    # ---------- Tab / Editor Helpers ----------
-    def _editor_from_tab_widget(self, w):
-        if w is None:
-            return None
-        if isinstance(w, (QPlainTextEdit, QTextEdit)):
-            return w
-        ed = getattr(w, "_editor", None)
-        if ed is not None:
-            return ed
-        try:
-            ed = w.findChild(QPlainTextEdit)
-            if ed is not None:
-                return ed
-            ed = w.findChild(QTextEdit)
-            if ed is not None:
-                return ed
-        except Exception:
-            pass
-        return None
-
-    def current_editor(self) -> CodeEditor:
-        w = self.editor_tabs.currentWidget()
-        if w is None:
-            return None
-        return self._editor_from_tab_widget(w)
-
-    def current_tab_index(self) -> int:
-        return int(self.editor_tabs.currentIndex())
-
-    def _normalize_meta_path(self, path: str) -> str:
-        if not path:
-            return ""
-        try:
-            return os.path.normcase(os.path.abspath(os.path.normpath(path)))
-        except Exception:
-            return os.path.normcase(os.path.normpath(path))
-
-    def _tab_index_for_editor(self, editor) -> int:
-        if editor is None:
-            return self.current_tab_index()
-        for i in range(self.editor_tabs.count()):
-            ed = self._editor_from_tab_widget(self.editor_tabs.widget(i))
-            if ed is editor:
-                return i
-        return self.current_tab_index()
-
-    def _find_open_tab_by_path(self, path: str) -> int:
-        needle = self._normalize_meta_path(path)
-        if not needle:
-            return -1
-        for i in range(self.editor_tabs.count()):
-            cur = self._normalize_meta_path(self.tab_path(i))
-            if cur and cur == needle:
-                return i
-        return -1
-
-    def tab_path(self, idx: int) -> str:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        return getattr(ed, "_path", "") if ed is not None else ""
-
-    def set_tab_path(self, idx: int, path: str) -> None:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is not None:
-            setattr(ed, "_path", path)
-
-    def tab_display_name(self, path: str) -> str:
-        return os.path.basename(path) if path else "unbenannt.prg"
-
-    def _update_tab_visuals(self, idx: int) -> None:
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is None:
-            return
-        modified = bool(ed.document().isModified())
-        # TabText: nur Dateiname (ohne Pfad)
-        title = self.tab_display_name(getattr(ed, "_path", ""))
-        self.editor_tabs.setTabText(idx, title)
-        # 2px Linie via TabBar.tabData
-        self.editor_tabs.tabBar().setTabData(idx, modified)
-        self._update_title()
-
-    def _on_current_tab_changed(self, idx: int) -> None:
-        self._update_title()
-        # Cursor-Status neu
-        try:
-            self._update_cursor_status()
-        except Exception:
-            pass
-
-    def new_tab(self, title: str = "unbenannt.prg", path: str = "", text: str = "") -> int:
-        ed = self._create_editor()
-        ed.setFont(QFont("Consolas", 10))
-        ed.setLineWrapMode(ed.NoWrap)
-        ed.setPlainText(text or "")
-        
-        ed.document().setModified(False)
-        ed.runRequested.connect(self.run_current_text)
-        ed.cursorPositionChanged.connect(self._update_cursor_status)
-        setattr(ed, "_path", path or "")
-
-        # Syntax Highlighter pro Editor
-        try:
-            _debug_print("oooooo")
-            self._highlighter = DBaseHighlighter(ed.document())
-            _debug_print("999999")
-        except Exception as e:
-            _debug_print(e)
-
-        #idx = self.editor_tabs.addTab(ed, title)
-        idx = self.editor_tabs.addTab(ed._minimap_container, title)
-        self.editor_tabs.setCurrentIndex(idx)
-        _debug_print("----->>>>")
-        # Modified Tracking
-        ed.document().contentsChanged.connect(self._schedule_tree_refresh)
-        ed.document().modificationChanged.connect(lambda _m, i=idx: self._update_tab_visuals(i))
-        _debug_print("AAAAA")
-        self._update_tab_visuals(idx)
-        _debug_print("iuiuiui")
-        return idx
-
-    def open_path_in_tab(self, path: str, warn_if_open: bool = False) -> int:
-        path = self._normalize_meta_path(path)
-        existing = self._find_open_tab_by_path(path)
-        if existing >= 0:
-            if warn_if_open:
-                QMessageBox.warning(
-                    self,
-                    "Datei bereits geöffnet",
-                    f"Die Datei ist bereits geöffnet:\n{path}",
-                    QMessageBox.Ok
-                )
-            self.editor_tabs.setCurrentIndex(existing)
-            ed = self.current_editor()
-            if ed is not None:
-                ed.setFocus()
-            return existing
-        try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                txt = f.read()
-        except Exception as e:
-            QMessageBox.critical(self, "Fehler", f"Konnte Datei nicht öffnen:\n{e}")
-            return -1
-        idx = self.new_tab(title=self.tab_display_name(path), path=path, text=txt)
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is not None:
-            ed.setFocus()
-        return idx
-
-    def _on_tab_close_requested(self, idx: int) -> None:
-        if not self.maybe_save(idx):
-            return
-        w = self.editor_tabs.widget(idx)
-        self.editor_tabs.removeTab(idx)
-        if w is not None:
-            w.deleteLater()
-        if self.editor_tabs.count() == 0:
-            self.close()
-
-
-    def maybe_save(self, idx: Optional[int] = None) -> bool:
-        if idx is None:
-            idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is None:
-            return True
-        if not ed.document().isModified():
-            return True
-        title = self.tab_display_name(getattr(ed, "_path", ""))
-        res = QMessageBox.question(
-            self,
-            "Ungespeicherte Änderungen",
-            f"'{title}' hat ungespeicherte Änderungen. Speichern?",
-            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
-        )
-        if res == QMessageBox.Yes:
-            return self.file_save(idx)
-        if res == QMessageBox.No:
-            return True
-        return False
-
-    def file_new(self):
-        self.new_tab(title="unbenannt.prg", path="", text="")
-
-    def file_open(self) -> bool:
-        dlg = QFileDialog(self, "Öffnen")
-        dlg.setAcceptMode(QFileDialog.AcceptOpen)
-        dlg.setFileMode(QFileDialog.ExistingFile)
-        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
-        if not dlg.exec_():
-            return False
-        files = dlg.selectedFiles()
-        if not files:
-            return False
-        idx = self.open_path_in_tab(files[0], warn_if_open=True)
-        return idx >= 0
-
-    def file_save(self, idx: Optional[int] = None) -> bool:
-        if idx is None:
-            idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is None:
-            return False
-        path = getattr(ed, "_path", "") or ""
-        if not path:
-            return self.file_save_as(idx)
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(ed.toPlainText())
-            ed.document().setModified(False)
-            try:
-                self.sb.showMessage(f"Gespeichert: {path}", 3000)
-            except Exception:
-                pass
-            self._update_tab_visuals(idx)
-            return True
-        except Exception as e:
-            QMessageBox.critical(self, "Fehler", f"Konnte nicht speichern:\n{e}")
-            return False
-
-    def file_save_as(self, idx: Optional[int] = None) -> bool:
-        if idx is None:
-            idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
-        if ed is None:
-            return False
-        cur_path = getattr(ed, "_path", "") or ""
-        dlg = QFileDialog(self, "Speichern unter")
-        dlg.setAcceptMode(QFileDialog.AcceptSave)
-        dlg.setFileMode(QFileDialog.AnyFile)
-        dlg.setDefaultSuffix("prg")
-        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
-        dlg.setOption(QFileDialog.DontConfirmOverwrite, True)
-        if cur_path:
-            dlg.selectFile(cur_path)
-        else:
-            dlg.selectFile("unbenannt.prg")
-        if not dlg.exec_():
-            return False
-        files = dlg.selectedFiles()
-        if not files:
-            return False
-        path = files[0]
-        if os.path.exists(path):
-            res = QMessageBox.question(
-                self,
-                "Datei überschreiben?",
-                f"Die Datei existiert bereits und soll überschrieben werden:\n{path}",
-                QMessageBox.Ok | QMessageBox.Cancel,
-                QMessageBox.Cancel
-            )
-            if res != QMessageBox.Ok:
-                return False
-        setattr(ed, "_path", path)
-        self._update_tab_visuals(idx)
-        return self.file_save(idx)
-
-    def closeEvent(self, event):
-        for i in range(self.editor_tabs.count()):
-            if not self.maybe_save(i):
-                event.ignore()
-                return
-        event.accept()
-
-    def _set_text(self, text: str):
-        # legacy helper: set current editor text
-        ed = self.current_editor()
-        ed.setPlainText(text)
-        ed.document().setModified(False)
-        self._update_tab_visuals(self.current_tab_index())
-
-    def _update_title(self):
-        idx = self.current_tab_index() if hasattr(self, "editor_tabs") else -1
-        name = "Unbenannt"
-        star = ""
-        if idx >= 0:
-            ed = self.current_editor()
-            if ed is None:
-                return
-            star = " *" if ed.document().isModified() else ""
-        
-        if hasattr(self, "fname"):
-            self.fname.setText(name)
-        self.setWindowTitle(f"{name}{star} - Editor")
-
-    def _update_cursor_status(self):
-        ed = self.current_editor()
-        if ed is None:
-            return
-        tc = ed.textCursor()
-        line = tc.blockNumber() + 1
-        col = tc.positionInBlock() + 1
-        try:
-            self.sb.showMessage(f"Zeile {line}, Spalte {col}")
-        except Exception:
-            pass
-
 # ---------------------------------------------------------------------------
 # parser stuff ...
 # ---------------------------------------------------------------------------        
-
-def _write_preprocessed_dump(filename: str, pre: str) -> Path:
-    src_path = Path(filename).resolve()
-    candidates = [
-        src_path.with_name(src_path.stem + "_parse_input_dump.prg"),
-        Path(app_dir()) / "parse_input_dump.prg",
-        Path("parse_input_dump.prg").resolve(),
-    ]
-    txt = pre if pre.endswith("\n") else pre + "\n"
-    for dump_path in candidates:
-        try:
-            dump_path.write_text(txt, encoding="utf-8")
-            return dump_path
-        except Exception:
-            continue
-    return candidates[-1]
-
-
-
-def _write_parser_input_dump(filename: str, parser_input: str) -> Path:
-    src_path = Path(filename).resolve()
-    candidates = [
-        src_path.with_name(src_path.stem + "_parser_input_dump.prg"),
-        Path(app_dir()) / "parser_input_dump.prg",
-        Path("parser_input_dump.prg").resolve(),
-    ]
-    txt = parser_input if parser_input.endswith("\n") else parser_input + "\n"
-    for dump_path in candidates:
-        try:
-            dump_path.write_text(txt, encoding="utf-8")
-            return dump_path
-        except Exception:
-            continue
-    return candidates[-1]
-def _split_line_ending(raw: str) -> tuple[str, str]:
-    if raw.endswith("\r\n"):
-        return raw[:-2], "\r\n"
-    if raw.endswith("\n"):
-        return raw[:-1], "\n"
-    return raw, ""
-
-
-def _blank_like_line(raw: str) -> str:
-    _body, nl = _split_line_ending(raw)
-    return nl
-
-
-def _rewrite_do_this_for_parser(raw: str) -> str:
-    body, nl = _split_line_ending(raw)
-    m = re.match(
-        r'^(?P<indent>\s*)DO\s+(?P<target>THIS(?:\s*(?:\.|::)\s*[A-Za-z_]\w*)+)(?P<call>\s*\((?P<args>.*)\))?\s*$',
-        body,
-        flags=re.IGNORECASE,
-    )
-    if not m:
-        return raw
-    indent = m.group('indent') or ''
-    target = re.sub(r'\s*::\s*', '.', m.group('target') or '', flags=re.IGNORECASE)
-    target = re.sub(r'\s*\.\s*', '.', target)
-    call = m.group('call')
-    if call:
-        return f"{indent}{target}{call}{nl}"
-    return f"{indent}{target}(){nl}"
-
-
-def _build_parser_input(pre: str) -> str:
-    lines = pre.splitlines(keepends=True)
-    out: list[str] = []
-    class_depth = 0
-
-    for raw in lines:
-        if class_depth > 0:
-            if re.match(r'^\s*CLASS\b', raw, re.IGNORECASE):
-                class_depth += 1
-            if re.match(r'^\s*ENDCLASS\b', raw, re.IGNORECASE):
-                class_depth = max(0, class_depth - 1)
-            out.append(_blank_like_line(raw))
-            continue
-
-        if re.match(r'^\s*CLASS\b', raw, re.IGNORECASE):
-            class_depth = 1
-            out.append(_blank_like_line(raw))
-            continue
-
-        out.append(_rewrite_do_this_for_parser(raw))
-
-    return ''.join(out)
-
-
-def _format_parse_error_with_context(messages: list[str], pre: str, dump_path: Path) -> str:
-    lines = pre.splitlines()
-    out = []
-    msgs = messages[:10] if messages else ["Syntaxfehler im Quelltext"]
-    line_numbers = []
-
-    for msg in msgs:
-        out.append(msg)
-        m = re.search(r'line\s+(\d+):(\d+)', msg)
-        if m:
-            try:
-                line_numbers.append((int(m.group(1)), int(m.group(2))))
-            except Exception:
-                pass
-
-    seen = set()
-    for line_no, col in line_numbers[:3]:
-        start = max(1, line_no - 2)
-        end = min(len(lines), line_no + 2)
-        key = (start, end)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        out.append("")
-        out.append(f"Kontext um Zeile {line_no}:{col}")
-        for idx in range(start, end + 1):
-            prefix = ">>" if idx == line_no else "  "
-            txt = lines[idx - 1] if 0 <= idx - 1 < len(lines) else ""
-            out.append(f"{prefix} {idx:4d}: {txt}")
-
-    out.append("")
-    out.append(f"Vorverarbeitete Quelle: {dump_path}")
-    return "\n".join(out)
-
-
-def _count_collect_entities(visitor: "ExecVisitor") -> tuple[int, int]:
-    native = set(NATIVE_BASES.keys()) | {"OBJECT", "PUSHBUTTON"}
-
-    class_count = 0
-    method_count = 0
-
-    for cname, cdef in (getattr(visitor, "classes", {}) or {}).items():
-        if str(cname).upper() in native:
-            continue
-        if isinstance(cdef, ClassDef):
-            class_count += 1
-            for _, mdef in (cdef.methods or {}).items():
-                if isinstance(mdef, str):
-                    continue
-                method_count += 1
-
-    for _, mdef in (getattr(visitor, "methods", {}) or {}).items():
-        if isinstance(mdef, str):
-            continue
-        method_count += 1
-
-    return class_count, method_count
-
-def parse(filename: str, show_collect_dialog: bool = True):
-    collect_dlg = None
-    _runtime_output_session_begin(filename)
-
-    # 0 pre-procession
-    pp = Preprocessor(include_paths=[Path("includes")])
-    pre = pp.process(filename)
-    if pre and not pre.endswith("\n"):
-        pre += "\n"
-    dump_path = _write_preprocessed_dump(filename, pre)
-    parser_input = _build_parser_input(pre)
-    if parser_input and not parser_input.endswith("\n"):
-        parser_input += "\n"
-    parser_dump_path = _write_parser_input_dump(filename, parser_input)
-
-    if show_collect_dialog and QApplication.instance() is not None:
-        try:
-            collect_dlg = CollectProgressDialog(parent=MAINAPP if "MAINAPP" in globals() else None, filename=os.path.abspath(filename))
-            collect_dlg.show()
-            lines = pre.splitlines()
-            total_lines = len(lines)
-            collect_dlg.set_total_lines(total_lines)
-
-            class_rx = re.compile(r'^\s*CLASS\b', re.IGNORECASE)
-            method_rx = re.compile(r'^\s*METHOD\b', re.IGNORECASE)
-            class_count = 0
-            method_count = 0
-
-            for idx, raw in enumerate(lines, start=1):
-                if class_rx.search(raw):
-                    class_count += 1
-                if method_rx.search(raw):
-                    method_count += 1
-                if not collect_dlg.update_progress(
-                    line_no=idx,
-                    line_text=raw,
-                    class_count=class_count,
-                    method_count=method_count,
-                    line_count=idx,
-                    status="Collect-Phase: Quelltext wird durchsucht …"
-                ):
-                    _runtime_output_session_end()
-                    return None
-        except Exception:
-            collect_dlg = None
-
-    source = InputStream(parser_input)
-    lexer  = dBaseLexer(source)
-    tokens = CommonTokenStream(lexer)
-    tokens.fill()
-    parser = dBaseParser(tokens)
-    listener = _attach_silent_antlr_errors(lexer, parser)
-
-    tree = parser.input_()
-    if parser.getNumberOfSyntaxErrors() > 0:
-        if collect_dlg is not None:
-            try:
-                collect_dlg.close()
-            except Exception:
-                pass
-        msg = _format_parse_error_with_context(
-            getattr(listener, "messages", []) if listener is not None else [],
-            parser_input,
-            dump_path
-        ) + f"\n\nParser-Eingabe: {parser_dump_path}"
-        dlg = ErrorMessage(
-            title    = _tr("Parser Error"),
-            log_path = LOG,
-            message  = msg,
-            parent   = MAINAPP
-        )
-        dlg.exec_()
-        _runtime_output_session_end()
-        return None
-
-    try:
-        while True:
-            tok = lexer.nextToken()
-            if tok.type == Token.EOF:
-                depth = getattr(lexer, "_cmtDepth", 0)
-                if depth > 0:
-                    line = lexer.line
-                    col  = lexer.column
-                    raise UnterminatedBlockCommentError(line, col)
-                break
-    except Exception as e:
-        if collect_dlg is not None:
-            try:
-                collect_dlg.close()
-            except Exception:
-                pass
-        dlg = ErrorMessage(
-            title    = _tr("Lexer Error"),
-            log_path = LOG,
-            message  = f"{e}",
-            parent   = MAINAPP
-        )
-        dlg.exec_()
-        _runtime_output_session_end()
-        return None
-
-    global VISITOR
-    VISITOR = ExecVisitor()
-    VISITOR._current_filename = os.path.abspath(filename)
-    VISITOR._pre_source = pre
-    VISITOR._class_line_ranges = None
-    VISITOR._parse_tree = tree
-
-    if collect_dlg is not None:
-        collect_dlg.update_progress(
-            line_no=0,
-            line_text="",
-            status="Collect-Phase: Klassen und Methoden werden eingesammelt …"
-        )
-
-    VISITOR._mode = "collect"
-    VISITOR.visit(tree)
-
-    if collect_dlg is not None:
-        class_count, method_count = _count_collect_entities(VISITOR)
-        collect_dlg.set_ready(
-            class_count=class_count,
-            method_count=method_count,
-            line_count=len(pre.splitlines())
-        )
-        res = collect_dlg.exec_()
-        if res != QDialog.Accepted or collect_dlg.cancel_requested:
-            _runtime_output_session_end()
-            return None
-
-    VISITOR._mode = "exec"
-    try:
-        VISITOR.visit(tree)
-    except ProgramAbortSignal:
-        _runtime_output_session_end()
-        return None
-
-    _runtime_output_session_end()
-    return tree
-
-# ---------------------------------------------------------------------------
-# Qt5 Application stuff ...
-# ---------------------------------------------------------------------------
-class showException(QDialog):
-    def __init__(self, parent=None, etype: str="Ausnahme", message: str=""):
-        super().__init__(parent)
-        self.setWindowTitle("Demo: " + etype)
-        self.resize(320, 200)
-        self.message = message
-        
-        layout = QVBoxLayout(self)
-        
-        self.text = QTextEdit(self)
-        self.text.setText(self.message)
-        
-        layout.addWidget(self.text)
-        
-        self.btn = QPushButton("Schließen", self)
-        self.btn.clicked.connect(self.on_button_clicked)
-        
-        layout.addWidget(self.btn)
-        
-    def on_button_clicked(self):
-        self.close()
-
 class SourceAliasesTab(QWidget):
     """
     Tab 'Quell-Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-nativer Folder-Dialog.
@@ -7647,11 +2929,26 @@ class ReorderableStandardItemModel(QStandardItemModel):
         self.insertRow(row, take)
         return True
 
+# ---------------------------------------------------------------------------
+# Markiert Widget/Subwindow dafuer, dass ESC das gesamte Fenster schliesst.
+# ---------------------------------------------------------------------------
+def mark_escape_close(obj: Any) -> Any:
+    try:
+        if obj is not None and hasattr(obj, "setProperty"):
+            try:
+                obj.setProperty("ESCAPE_BLOCKED", False)
+            except Exception:
+                pass
+            obj.setProperty("ESCAPE_CLOSE", True)
+    except Exception:
+        pass
+    return obj
+    
 class TableRecordEditorDialog(QDialog):
     def __init__(self, main_window: "MainWindow", dbf_path: str, parent=None):
         super().__init__(parent)
         self.main_window = main_window
-        _mark_escape_close(self)
+        mark_escape_close(self)
         self.current_path = dbf_path or ""
         self._modified = False
         self._updating = False
@@ -8374,7 +3671,7 @@ class TableDesignerDialog(QDialog):
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
-        _mark_escape_close(self)
+        mark_escape_close(self)
         self.parent      = parent
         self.subwindow   = None
 
@@ -8833,7 +4130,7 @@ class TableDesignerDialog(QDialog):
             sub = None
             try:
                 sub = self.main_window.mdi.addSubWindow(dlg)
-                _mark_escape_close(sub)
+                mark_escape_close(sub)
             except Exception:
                 sub = None
             if sub is not None:
@@ -9355,46 +4652,46 @@ class EditorWidget(QDialog):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
         codegen.generate(parser.tree, "dbase.cls")
-        _debug_print("gen vba ok.")
+        debug_print("gen vba ok.")
         
     def on_button_gen_javscr_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
         codegen.generate(parser.tree, "dbase.js")
-        _debug_print("gen js ok.")
+        debug_print("gen js ok.")
         
     def on_button_gen_csharp_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
         codegen.generate(parser.tree, "dbase.cs")
-        _debug_print("gen c-sharp ok.")
+        debug_print("gen c-sharp ok.")
         
     def on_button_gen_javout_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToJava(parser, class_name="GenProg", package=None)
         codegen.generate(parser.tree, "dbase.java")
-        _debug_print("gen java ok.")
+        debug_print("gen java ok.")
 
     def on_button_gen_python_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToPython(parser.parser)
         codegen.generate(parser.tree, "dbase.py")
-        _debug_print("gen py ok.")
+        debug_print("gen py ok.")
     
     def on_button_gen_gnucpp_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToCpp(parser, prog_name="genprog")
         codegen.generate(parser.tree, "dbase.cc")
-        _debug_print("gen c++ ok.")
+        debug_print("gen c++ ok.")
     
     def on_button_gen_pascal_clicked(self):
         parser  = DBaseParser(self.filename)
         codegen = DBaseToPascal(parser, unit_name="GenProg")
         codegen.generate(parser.tree, "dbase.pas")
-        _debug_print("gen pas ok.")
+        debug_print("gen pas ok.")
     
     def on_button_hlp_clicked(self):
-        _debug_print("hhhhh")
+        debug_print("hhhhh")
         
     def on_button_run_clicked(self):
         # Das ist die Funktion, die beim Klick ausgeführt wird
@@ -9828,54 +5125,54 @@ class IconTab(QListWidget):
         out_file = self._compile_output_path(path, "vba", ".cls")
         codegen  = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen vba ok:", out_file)
+        debug_print("gen vba ok:", out_file)
         
     def _compile_to_javscr(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "javascript", ".js")
         codegen  = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen js ok:", out_file)
+        debug_print("gen js ok:", out_file)
         
     def _compile_to_csharp(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "csharp", ".cs")
         codegen  = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen c-sharp ok:", out_file)
+        debug_print("gen c-sharp ok:", out_file)
         
     def _compile_to_java(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "java", ".java")
         codegen  = DBaseToJava(parser, class_name="GenProg", package=None)
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen java ok:", out_file)
+        debug_print("gen java ok:", out_file)
     
     def _compile_to_python(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "python", ".py")
         codegen  = DBaseToPython(parser.parser)
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen py ok:", out_file)
+        debug_print("gen py ok:", out_file)
         
     def _compile_to_cpp(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "cpp", ".cc")
         codegen  = DBaseToCpp(parser, prog_name="genprog")
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen c++ ok:", out_file)
+        debug_print("gen c++ ok:", out_file)
     
     def _compile_to_pascal(self, path: str):
         parser   = DBaseParser(path)
         out_file = self._compile_output_path(path, "pascal", ".pas")
         codegen  = DBaseToPascal(parser, unit_name="GenProg")
         codegen.generate(parser.tree, out_file)
-        _debug_print("gen pas ok:", out_file)
+        debug_print("gen pas ok:", out_file)
 
 class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        _mark_escape_close(self)
+        mark_escape_close(self)
         
         self.setFont(QFont("Arial", 10))
 
@@ -9955,7 +5252,7 @@ class RegieCenter(QDialog):
 
     def open_in_table_editor(self, display_name: str, path: str):
         try:
-            _debug_print("table")
+            debug_print("table")
             path = os.path.normpath(path)
             # erst versuchen: aktives Editor-Fenster wiederverwenden
             sub = None
@@ -9981,7 +5278,7 @@ class RegieCenter(QDialog):
                 sub = None
                 try:
                     sub = MAINAPP.mdi.addSubWindow(dlg)
-                    _mark_escape_close(sub)
+                    mark_escape_close(sub)
                 except Exception:
                     sub = None
                 if sub is not None:
@@ -10004,7 +5301,7 @@ class RegieCenter(QDialog):
     # -----------------------------------------------------------
     def open_in_code_editor(self, display_name: str, path: str):
         try:
-            _debug_print("editor")
+            debug_print("editor")
             path = os.path.normpath(path)
             # erst versuchen: aktives Editor-Fenster wiederverwenden
             sub = None
@@ -10037,7 +5334,7 @@ class RegieCenter(QDialog):
             win.resize(900, 650)
             if hasattr(MAINAPP, "mdi"):
                 sub = MAINAPP.mdi.addSubWindow(win)
-                _mark_escape_close(sub)
+                mark_escape_close(sub)
                 try:
                     sub.setWindowTitle(display_name or os.path.basename(path))
                 except Exception:
@@ -12816,14 +8113,14 @@ class _CommandInputEdit(QPlainTextEdit):
 
         super().keyPressEvent(ev)
 
-
+# ---------------------------------------------------------------------------
+# MDI widget: output on top (read-only), input below.
+# ---------------------------------------------------------------------------
 class DebugConsoleWidget(QWidget):
-    """MDI widget: output on top (read-only), input below."""
-
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
-        _mark_escape_protected(self)
+        mark_escape_protected(self)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -13248,12 +8545,12 @@ class MainWindow(QMainWindow):
         self._create_toolbar()
         self._create_statusbar()
         
-        self._apply_theme()
+        self.apply_theme()
         
         dlg = RegieCenter()
         self.regie_center = dlg
         sub = self.mdi.addSubWindow(dlg)
-        _mark_escape_close(sub)
+        mark_escape_close(sub)
         sub.resize(520,300)
         sub.move(30,30)
         sub.setWindowTitle(_tr("Regiecenter"))
@@ -13304,7 +8601,7 @@ class MainWindow(QMainWindow):
         w = DebugConsoleWidget(self)
         self._debug_console = w
         sub = self.mdi.addSubWindow(w)
-        _mark_escape_protected(sub)
+        mark_escape_protected(sub)
         sub.setWindowTitle(_tr("Debug Window"))
         sub.resize(780, 420)
         sub.move(580, 30)
@@ -13343,7 +8640,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         try:
-            _debug_print(text)
+            debug_print(text)
         except Exception:
             pass
 
@@ -13414,7 +8711,7 @@ class MainWindow(QMainWindow):
             dlg.exec_()
 
     def on_action_edit_minimap(self, visible: bool):
-        _debug_print(visible)
+        debug_print(visible)
         MINIMAP.minimap.setVisible(visible)
         
     def closeEvent(self, event):
@@ -13608,7 +8905,7 @@ class MainWindow(QMainWindow):
             dlg = RegieCenter()
             self.regie_center = dlg
             sub = self.mdi.addSubWindow(dlg)
-            _mark_escape_close(sub)
+            mark_escape_close(sub)
             sub.resize(520, 300)
             sub.move(30, 30)
             sub.setWindowTitle(_tr("Regiecenter"))
@@ -13795,10 +9092,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, _tr("Open File..."), f"{_tr('could not open file')}:\n{e}")
 
     def on_action_file_database(self):
-        _debug_print("file data base")
+        debug_print("file data base")
     
     def on_action_file_exit(self):
-        _debug_print("file exit")
+        debug_print("file exit")
         try:
             os.remove(LOG)
             p = Path(LOG)
@@ -13825,7 +9122,7 @@ class MainWindow(QMainWindow):
         self.close()
         
     def on_action_file_new_project(self):
-        _debug_print("file new project")
+        debug_print("file new project")
 
     def _init_form_designer_dock(self):
         # Dock links anheften
@@ -13928,7 +9225,7 @@ class MainWindow(QMainWindow):
         try:
             new_win = FileEditorWindow(parent=self, initial_path="", initial_text="")
             subw = self.mdi.addSubWindow(new_win)
-            _mark_escape_close(subw)
+            mark_escape_close(subw)
             new_win.resize(700, 500)
             new_win.show()
             new_win.open_path_in_tab(path)
@@ -13980,13 +9277,13 @@ class MainWindow(QMainWindow):
                     pass
             QMessageBox.information(self, "Hinweis", "Projektpfad gesetzt, aber UI-Bindung unbekannt.")
     def on_action_file_print(self):
-        _debug_print("file print")
+        debug_print("file print")
     def on_action_file_print_preview(self):
-        _debug_print("file print preview")
+        debug_print("file print preview")
     def on_action_file_web_wizard(self):
-        _debug_print("file web wizard")
+        debug_print("file web wizard")
     def on_action_file_window_app(self):
-        _debug_print("file window app")
+        debug_print("file window app")
         
     def on_new(self):
         self.status_left.setText("Neu angelegt")
@@ -14071,7 +9368,7 @@ class MainWindow(QMainWindow):
     def mdi_open_editor(self, title="Unbenannt", text=""):
         w = EditorWidget(text)
         sub = self.mdi.addSubWindow(w)     # Qt erzeugt ein QMdiSubWindow
-        _mark_escape_close(sub)
+        mark_escape_close(sub)
         sub.setWindowTitle(title)
         sub.resize(900, 650)
         w.show()
@@ -14086,7 +9383,7 @@ class MainWindow(QMainWindow):
     def mdi_open_table_designer(self):
         dlg = TableDesignerDialog(self)
         sub = self.mdi.addSubWindow(dlg)
-        _mark_escape_close(sub)
+        mark_escape_close(sub)
         dlg.setSubWindow(sub)
         sub.resize(600,250)
         sub.move(56,320)
@@ -14096,7 +9393,7 @@ class MainWindow(QMainWindow):
     def mdi_open_sql_builder(self):
         dlg = SqlBuilderWindow(self)
         sub = self.mdi.addSubWindow(dlg)
-        _mark_escape_close(sub)
+        mark_escape_close(sub)
         sub.resize(900, 520)
         sub.move(40, 60)
         sub.show()
@@ -14112,611 +9409,10 @@ class MainWindow(QMainWindow):
         self._dlg_workplace.show()
         self._dlg_workplace.raise_()
         self._dlg_workplace.activateWindow()
-
-    def _apply_theme(self):
-        app = QApplication.instance()
-        pal = QPalette()
         
-        if self.dark_mode:
-            pal.setColor(QPalette.Window, QColor(40, 40, 40))
-            pal.setColor(QPalette.WindowText, Qt.black)
-            pal.setColor(QPalette.Base, QColor(34, 34, 34))
-            pal.setColor(QPalette.AlternateBase, QColor(35, 35, 35))
-            pal.setColor(QPalette.Text, Qt.white)
-            pal.setColor(QPalette.Button, QColor(45, 45, 45))
-            pal.setColor(QPalette.ButtonText, Qt.white)
-            pal.setColor(QPalette.Highlight, QColor(80, 120, 200))
-            pal.setColor(QPalette.HighlightedText, Qt.white)
-        else:
-            pal = app.style().standardPalette()
-        
-        app.setPalette(pal)
-        
-        if self.dark_mode:
-            header_bg               = "#222222"
-            header_fg               = "#ffd866"
-            tree_bg                 = "#181818"
-            tree_fg                 = "#ffffff"
-            sel_bg                  = "#2b4c7e"
-            sel_fg                  = "#ffffff"
-            border                  = "#333333"
-            
-            tab_bg                  = "#1c1c1c"
-            tab_bar_bg              = "#161616"
-            tab_fg                  = "#eaeaea"
-            tab_fg_active           = "#ffd866"
-            tab_sel_bg              = "#242424"
-            tab_hover_bg            = "#202020"
-            
-            toolbar_bg              = "#1a1a1a"
-            toolbtn_bg              = "#222222"
-            toolbtn_fg              = "#ffd866"
-            toolbtn_hover           = "#2a2a2a"
-            toolbtn_pressed         = "#303030"
-            
-            title_bg                = "#121212"  # Hintergrund Titelleiste
-            title_fg                = "#1fd816"  # Text/Farbe Buttons (oder "#ffffff")
-            title_btn_bg            = "#1f1f1f"  # Buttons normal
-            title_btn_hover         = "#2a2a2a"  # Buttons hover
-            title_btn_close_hover   = "#8a1f1f"  # Close hover
-            
-            status_bg               = "#121212"
-            status_fg               = "#ffd866"  # oder "#ffffff"
-            status_border           = "#333333"
-            
-            # Scrollbar dark-blue
-            sb_face  = "#001f4d"   # navy
-            sb_track = "#001a40"
-            sb_thumb = "#002b66"
-            sb_hi    = "#2d5aa0"
-            sb_mid   = "#000b1a"
-            sb_dark  = "#000000"
-            arrow    = "#FFD400"
-
-            window_bg=        "#0f1116"
-            panel_bg=         "#141824"
-            input_bg=         "#101521"
-
-            text_fg=          "#e6e6e6"
-            text_hover_fg=    "#ffffff"
-            text_disabled_fg= "#7a808a"
-
-            title_fg=         "#ffd866"
-
-            border=           "#2a2f3a"
-            border_hover=     "#3a4150"
-            border_disabled=  "#242935"
-
-            accent=           "#2b4c7e"
-            accent_hover =     "#3b68ad"
-            accent_disabled=  "#223a5e"
-
-            disabled_bg=      "#0c0f14"
-        
-        else:
-            header_bg               = "#f0f0f0"
-            header_fg               = "#000000"
-            tree_bg                 = "#ffffff"
-            tree_fg                 = "#000000"
-            sel_bg                  = "#cfe3ff"
-            sel_fg                  = "#000000"
-            border                  = "#d0d0d0"
-            
-            tab_bg                  = "#f4f4f4"
-            tab_bar_bg              = "#ededed"
-            tab_fg                  = "#000000"
-            tab_fg_active           = "#000000"
-            tab_sel_bg              = "#ffffff"
-            tab_hover_bg            = "#f9f9f9"
-            
-            toolbar_bg              = "#f2f2f2"
-            toolbtn_bg              = "#e9e9e9"
-            toolbtn_fg              = "#000000"
-            toolbtn_hover           = "#dedede"
-            toolbtn_pressed         = "#d2d2d2"
-            
-            title_bg                = "#eaeaea"
-            title_fg                = "#000000"
-            title_btn_bg            = "#f3f3f3"
-            title_btn_hover         = "#dedede"
-            title_btn_close_hover   = "#e06c75"
-            
-            status_bg               = "#ededed"
-            status_fg               = "#000000"
-            status_border           = "#d0d0d0"
-            
-            # Scrollbar light-gray
-            sb_face  = "#c0c0c0"
-            sb_track = "#e6e6e6"
-            sb_thumb = "#c0c0c0"
-            sb_hi    = "#ffffff"
-            sb_mid   = "#808080"
-            sb_dark  = "#000000"
-            arrow    = "#000000"
-        
-        size = 21  # Win95 vibe
-        self.setStyleSheet(f"""
-/* =========================
-   QCheckBox (Dark)
-   ========================= */
-QCheckBox {{
-    color: {text_fg};
-    spacing: 8px;
-}}
-
-QCheckBox:hover {{
-    color: {text_hover_fg};
-}}
-
-QCheckBox:disabled {{
-    color: {text_disabled_fg};
-}}
-
-QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    border: 1px solid {border};
-    background: {input_bg};
-}}
-
-QCheckBox::indicator:hover {{
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:focus {{
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:checked {{
-    background: {accent};
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:checked:hover {{
-    background: {accent_hover};
-    border: 1px solid {accent_hover};
-}}
-
-QCheckBox::indicator:unchecked {{
-    background: {input_bg};
-}}
-
-QCheckBox::indicator:indeterminate {{
-    background: {accent};
-    border: 1px solid {accent};
-}}
-
-QCheckBox::indicator:disabled {{
-    background: {disabled_bg};
-    border: 1px solid {border_disabled};
-}}
-
-QCheckBox::indicator:checked:disabled {{
-    background: {accent_disabled};
-    border: 1px solid {border_disabled};
-}}
-
-/* =========================
-   QRadioButton (Dark)
-   ========================= */
-QRadioButton {{
-    color: {text_fg};
-    spacing: 8px;
-}}
-
-QRadioButton:hover {{
-    color: {text_hover_fg};
-}}
-
-QRadioButton:disabled {{
-    color: {text_disabled_fg};
-}}
-
-QRadioButton::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 8px; /* rund */
-    border: 1px solid {border};
-    background: {input_bg};
-}}
-
-QRadioButton::indicator:hover {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:focus {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:checked {{
-    border: 1px solid {accent};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent},
-        stop:0.35 {accent},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:checked:hover {{
-    border: 1px solid {accent_hover};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_hover},
-        stop:0.35 {accent_hover},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:disabled {{
-    background: {disabled_bg};
-    border: 1px solid {border_disabled};
-}}
-
-QRadioButton::indicator:checked:disabled {{
-    border: 1px solid {border_disabled};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_disabled},
-        stop:0.35 {accent_disabled},
-        stop:0.36 {disabled_bg},
-        stop:1.0 {disabled_bg}
-    );
-}}
-
-/* =========================
-   QGroupBox (Dark)
-   ========================= */
-QGroupBox {{
-    color: {text_fg};
-    border: 1px solid {border};
-    border-radius: 10px;
-    margin-top: 14px;     /* Platz für Titel */
-    padding: 10px;
-    background: {panel_bg};
-}}
-
-QGroupBox:hover {{
-    border: 1px solid {border_hover};
-}}
-
-QGroupBox:disabled {{
-    color: {text_disabled_fg};
-    border: 1px solid {border_disabled};
-    background: {disabled_bg};
-}}
-
-/* Titel-Label */
-QGroupBox::title {{
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    padding: 0 8px;
-    left: 10px;
-    top: 2px;
-
-    color: {title_fg};
-    background: {window_bg}; /* damit der Titel die Border "überdeckt" */
-}}
-
-/* Optional: wenn du GroupBoxen checkable nutzt */
-QGroupBox::indicator {{
-    width: 16px;
-    height: 16px;
-    margin-left: 6px;
-}}
-
-QGroupBox::indicator:unchecked {{
-    border: 1px solid {border};
-    border-radius: 4px;
-    background: {input_bg};
-}}
-
-QGroupBox::indicator:checked {{
-    border: 1px solid {accent};
-    background: {accent};
-}}
-
-QMenuBar {{ background: #1a1a1a; color: #ffd866; }}
-QMenuBar::item {{ background: transparent; padding: 6px 10px; }}
-QMenuBar::item:selected {{ background: #2a2a2a; }}
-QMenu {{ background: #141414; color: #ffffff; border: 1px solid #333333; }}
-QMenu::separator {{
-    height: 2px;
-    margin: 6px 10px;
-    background: qlineargradient(
-        x1:0, y1:0, x2:0, y2:1,
-        stop:0 #2a2a2a,
-        stop:1 #555555
-    );
-}}
-QMenu::item:selected {{ background: #2b4c7e; color: #ffffff; }}
-QMdiArea {{
-    background: #1e1e1e;           /* noch dunkler */
-    border: 2px solid #333333;
-}}
-QMdiArea::viewport {{
-    background: #1b1b0b;
-}}
-/* optional: Subwindows im Dark Mode passend */
-QMdiSubWindow {{
-    background: #343434;
-    border: 2px solid #333333;
-}}
-QMdiSubWindow:title {{
-    background: 0;
-    color: #ffffff;
-}}
-QComboBox {{
-    background: #2a2a2a;          /* Feld grau */
-    color: #ffffff;
-    border: 1px solid #333333;
-    padding: 6px 10px;
-    padding-right: 28px;          /* Platz für den Pfeil */
-}}
-
-QComboBox:hover {{
-    background: #303030;
-}}
-
-QComboBox:disabled {{
-    background: #202020;
-    color: #777777;
-}}
-
-/* Drop-down Button rechts */
-QComboBox::drop-down {{
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 24px;
-    border-left: 1px solid #333333;
-    background: #222222;
-}}
-
-QComboBox::drop-down:hover {{
-    background: #2a2a2a;
-}}
-
-/* Pfeil */
-QComboBox::down-arrow {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_down.png);
-}}
-
-/* Popup-Liste */
-QComboBox QAbstractItemView {{
-    background: #1c1c1c;
-    color: #ffffff;
-    border: 1px solid #333333;
-    selection-background-color: #2b4c7e;
-    selection-color: #ffffff;
-    outline: 1px;
-}}
-QTableView, QTableWidget {{
-    background: #0b0b0b;
-    color: #ffffff;
-    gridline-color: #333333;
-    border: 1px solid #333333;
-    selection-background-color: #2b4c7e;
-    selection-color: #ffffff;
-}}
-
-/* WICHTIG: leere Fläche kommt oft vom viewport */
-QTableView::viewport, QTableWidget::viewport {{
-    background-color: #0b0b0b;
-}}
-
-/* Header oben/links */
-QHeaderView::section {{
-    background-color: #000000;
-    color: #e6e6e6;
-    padding: 6px;
-    border: none;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* Der “Eck-Button” oben links (häufig DER weiße Fleck) */
-QTableCornerButton::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-QMessageBox {{
-    background-color: #2b2b2b;
-    color: #e8e8e8;
-    font-size: 10pt;
-}}
-QMessageBox QLabel {{
-    color: #e8e8e8;
-}}
-QMessageBox QLabel#qt_msgbox_label {{
-    color: #e8e8e8;
-}}
-QMessageBox QLabel#qt_msgboxex_icon_label {{
-    /* Icon-Label */
-    padding-right: 10px;
-}}
-QMessageBox QTextEdit {{
-    background-color: #232323;
-    color: #e8e8e8;
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
-}}
-QMessageBox QMessageBox QPushButton {{
-    background-color: #3a3a3a;
-    color: #f0f0f0;
-    border: 1px solid #555;
-    border-radius: 8px;
-    padding: 6px 12px;
-    min-width: 90px;
-}}
-QMessageBox QPushButton:hover {{
-    background-color: #444;
-    border-color: #777;
-}}
-QMessageBox QPushButton:pressed {{
-    background-color: #2f2f2f;
-}}
-QMessageBox QPushButton:default {{
-    border: 1px solid #a33;   /* dezenter roter Akzent */
-}}
-QMessageBox QPushButton:focus {{
-    outline: none;
-    border: 1px solid #888;
-}}
-QAbstractItemView, QAbstractButton {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-/* Optional: falls Qt dort eine Ecke der ScrollArea malt */
-QAbstractScrollArea::corner {{
-    background-color: #000000;
-    border: 1px solid #222222;
-}}
-QToolBar {{spacing: 8px;background: {toolbar_bg};border: none;}}
-QToolBar::separator {{background: {border};width: 1px;margin: 6px 8px;}}
-QLineEdit {{padding: 6px 10px;border: 1px solid {border};background: {tab_bg};color: {tab_fg};}}
-QLabel {{color: {tab_fg};}}
-QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};padding: 6px 10px;}}
-QToolButton:hover {{background: {toolbtn_hover};}}
-QToolButton:pressed {{background: {toolbtn_pressed};}}
-QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
-QTabBar {{background: {tab_bar_bg};}}
-QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;min-width: 90px;}}
-QTabBar::tab:hover {{background: {tab_hover_bg};}}
-QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
-QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
-QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
-QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
-QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
-QPushButton:hover {{background: {toolbtn_hover};}}
-QPushButton:pressed {{background: {toolbtn_pressed};}}
-TopContainer {{ background: transparent; }}
-TitleBar {{background: {title_bg};}}
-TitleLabel {{color: {title_fg};font-weight: 600;}}
-TitleSeparator {{background: {border};}}
-QPushButton#TitleBtnMin,QPushButton#TitleBtnMax,QPushButton#TitleBtnClose {{background: {title_btn_bg};color: {title_fg};border: 1px solid {border};border-radius: 10px;}}
-QPushButton#TitleBtnMin:hover,QPushButton#TitleBtnMax:hover {{background: {title_btn_hover};}}
-QPushButton#TitleBtnClose:hover {{background: {title_btn_close_hover};}}
-QStatusBar {{background: {status_bg};color: {status_fg};border-top: 1px solid {status_border};}}
-QStatusBar QLabel {{color: {status_fg};}}
-QTabBar::scroller {{width: 22px;height: 22px;background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;margin: 2px;}}
-QTabBar::scroller:hover {{background: {tab_hover_bg};}}
-QTabBar QToolButton {{background: {tab_bar_bg};border: 1px solid {border};border-radius: 10px;padding: 2px;color: {tab_fg_active};}}
-QTabBar QToolButton:hover {{background: {tab_hover_bg};}}
-QTabBar QToolButton:pressed {{background: {tab_sel_bg};}}
-QSplitter {{background: {tree_bg};}}
-QSplitter::handle {{background: {border};}}
-QWebEngineView {{background: {tree_bg};}}
-QScrollBar:vertical {{background: {sb_face};width: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
-QScrollBar:horizontal {{background: {sb_face};height: {size}px;margin: 0px;border: 1px solid {sb_dark};}}
-QScrollBar::track:vertical, QScrollBar::track:horizontal {{background: {sb_track};}}
-/*QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
-/*QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{background: transparent;}}
-QScrollBar::sub-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::add-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::sub-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::add-line:horizontal {{background: {sb_face};width: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
-QScrollBar::sub-line:vertical:pressed, QScrollBar::add-line:vertical:pressed,
-QScrollBar::sub-line:horizontal:pressed, QScrollBar::add-line:horizontal:pressed {{border-top: 1px solid {sb_mid};border-left: 1px solid {sb_mid};border-right: 1px solid {sb_hi};border-bottom: 1px solid {sb_hi};}}
-QScrollBar::up-arrow:vertical {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_up.png);
-}}
-QScrollBar::down-arrow:vertical {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_down.png);
-}}
-QScrollBar::left-arrow:horizontal {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_left.png);
-}}
-QScrollBar::right-arrow:horizontal {{
-    width: 12px;
-    height: 12px;
-    image: url(:/icons/arrow_right.png);
-}}
-
-QScrollBar::sub-line:vertical {{ subcontrol-position: top;    subcontrol-origin: margin; }}
-QScrollBar::add-line:vertical {{ subcontrol-position: bottom; subcontrol-origin: margin; }}
-QScrollBar::sub-line:horizontal {{ subcontrol-position: left;  subcontrol-origin: margin; }}
-QScrollBar::add-line:horizontal {{ subcontrol-position: right; subcontrol-origin: margin; }}
-
-QScrollBar:vertical[dir="down"]::handle {{ image: url(:/icons/arrow_down.png); }}
-QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
-
-/* ===== FORCE: Table Header + Corner wirklich schwarz ===== */
-
-/* Header (oben + links) */
-QTableView QHeaderView::section,
-QTableWidget QHeaderView::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* obere linke Ecke (zwischen Headern) */
-QTableView QTableCornerButton::section,
-QTableWidget QTableCornerButton::section {{
-    background-color: #000000;
-    border-right: 1px solid #333333;
-    border-bottom: 1px solid #333333;
-}}
-
-/* falls Qt statt CornerButton die ScrollArea-Ecke malt (wenn beide Scrollbars da sind) */
-QTableView QAbstractScrollArea::corner,
-QTableWidget QAbstractScrollArea::corner {{
-    background-color: #000000;
-    border: 1px solid #333333;
-}}
-QDockWidget::title {{
-    color: #ffd866;              /* gelb */
-    padding-left: 8px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-}}
-QDockWidget::close-button, QDockWidget::float-button {{
-    background: transparent;
-    border: none;
-    color: #ffffff;              /* wirkt bei font-basierten Icons */
-    icon-size: 14px;
-}}
-QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
-    background: rgba(255,255,255,0.08);
-    border-radius: 3px;
-}}
-DockTitleBar {{
-    background: #1e1e1e;
-}}
-QLabel {{
-    color: #ffd866;           /* GELB */
-    font-weight: 600;
-}}
-QToolButton {{
-    color: #ffffff;           /* WEISS (falls Text/Icon-Font) */
-    background: transparent;
-    border: none;
-    padding: 2px;
-}}
-QToolButton:hover {{
-    background: rgba(255,255,255,0.10);
-    border-radius: 3px;
-}}
-QWebEngineView {{background: {tree_bg};}}
-""")
+    def apply_theme(self):
+        apply_theme_global(self)
         self.mdi.setBackground(QBrush(QColor("#373737")))
-
 
 # ---------------------------------------------------------------------------
 # Fixup: globale Helper als MainWindow-Methoden (falls sie durch Einrückung global gelandet sind)
@@ -15261,7 +9957,7 @@ class SqlBuilderWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._project_path = None
-        _mark_escape_close(self)
+        mark_escape_close(self)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -15535,7 +10231,7 @@ def main():
         APPINST.setStyle(ArrowFontProxyStyle(APPINST.style()))
         global MAINAPP
         try:
-            MAINAPP = MainWindow()
+            MAINAPP = MainWindow(); apply_theme_global(MAINAPP)
             MAINAPP.show()
             center_on_screen(MAINAPP)
         except Exception:
@@ -15568,7 +10264,7 @@ def main():
             )
             sys.exit(1)
         else:
-            _debug_print("Qt5 kann nicht gestartet werden.")
+            debug_print("Qt5 kann nicht gestartet werden.")
             sys.exit(1)
 
 if __name__ == "__main__":

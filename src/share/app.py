@@ -1,3 +1,8 @@
+# ---------------------------------------------------------------------------
+# \file  : app.py
+# \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# \note  : All rights reserved
+# ---------------------------------------------------------------------------
 from __future__ import annotations
 
 import os
@@ -15,6 +20,52 @@ from antlr4      import (
 from antlr4.error.ErrorListener import ErrorListener
 
 # -----------------------------------------------------------------------
+# Qt Backend Factory + Property Mapping
+# -----------------------------------------------------------------------
+from PyQt5.QtCore    import (
+    QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize,
+    QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex,
+    QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
+    qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
+    QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
+    QBuffer, QSettings
+)
+from PyQt5.QtGui     import (
+    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
+    QTextCharFormat, QColor, QStandardItemModel, QStandardItem, QPen,
+    QPalette, QFontInfo, QFontDatabase, QRegularExpressionValidator,
+    QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
+    QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
+    QTextCursor
+)
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
+    QVBoxLayout, QTextEdit, QToolBar, QStatusBar, QMessageBox,
+    QPlainTextEdit, QAction, QFileDialog, QMenuBar, QMdiArea,
+    QMdiSubWindow, QDockWidget, QTreeWidget, QHBoxLayout, QComboBox,
+    QTabWidget, QListWidget, QListWidgetItem, QScrollBar, QMenu,
+    QFileDialog, QFileIconProvider, QListWidget, QTableWidget,
+    QProgressBar, QTableWidgetItem, QHeaderView, QStyledItemDelegate,
+    QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem,
+    QGridLayout, QSpinBox, QSizePolicy, QStyleOptionHeader, QStyle,
+    QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
+    QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
+    QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
+    QScrollArea, QAbstractButton
+)
+from PyQt5.QtWebEngineCore import (
+    QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,
+    QWebEngineUrlScheme
+)
+from PyQt5.QtWebEngineWidgets import (
+    QWebEngineView, QWebEngineScript
+)
+from PyQt5.QtSvg import QSvgRenderer
+# -----------------------------------------------------------------------
+from share.common         import *
+from share.editors.editor import *
+# -----------------------------------------------------------------------
+
 from .language_profiles import LanguageProfile, get_language_profile
 from . import legacy_api
 
@@ -114,7 +165,7 @@ class ProfiledRegieCenter(legacy.QDialog):
     def __init__(self, profile: LanguageProfile, parent=None):
         super().__init__(parent)
         self.language_profile = profile
-        legacy._mark_escape_close(self)
+        legacy.mark_escape_close(self)
 
         self.setFont(legacy.QFont("Arial", 10))
         self.setWindowTitle(f"{profile.display_name} RegieCenter")
@@ -261,7 +312,7 @@ class ProfiledMainWindow(legacy.MainWindow):
         try:
             new_win = legacy.FileEditorWindow(parent=self, initial_path="", initial_text="")
             subw = self.mdi.addSubWindow(new_win)
-            legacy._mark_escape_close(subw)
+            legacy.mark_escape_close(subw)
             new_win.resize(700, 500)
             new_win.show()
             new_win.open_path_in_tab(path)
