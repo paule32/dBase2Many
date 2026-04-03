@@ -71,7 +71,7 @@ jobs:
             $env:REQUIREMENTS_FILE,
             $env:BUILD_MO_SCRIPT,
             'src/resources_rc.py',
-            'src/gen',
+            'src/parse/lisp',
             $env:DATA_DIR,
             $env:TESTS_DIR,
             'src/data/po/locales/de/LC_MESSAGES',
