@@ -1,4 +1,4 @@
-name: Build pascalRunner Windows EXE Release
+name: Build pascalRunner Windows EXE Release (onefile)
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ env:
   LOCALES_ZIP: src/data/locales.zip
 
 jobs:
-  build-onedir:
+  build-onefile:
     runs-on: windows-latest
 
     steps:
@@ -66,7 +66,7 @@ jobs:
             $env:REQUIREMENTS_FILE,
             $env:BUILD_MO_SCRIPT,
             'src/resources_rc.py',
-            'src/parse',
+            'src/gen',
             $env:DATA_DIR,
             $env:TESTS_DIR,
             'src/data/po/locales/de/LC_MESSAGES',
@@ -111,15 +111,14 @@ jobs:
           PY
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
-      - name: Build onedir EXE
+      - name: Build onefile EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $args = @(
             '--noconfirm',
             '--clean',
-            '--onedir',
-            '--contents-directory', '.',
+            '--onefile',
             '--windowed',
             '--name', 'pascalRunner',
             '--paths', 'src',
@@ -127,22 +126,10 @@ jobs:
             '--hidden-import', 'polib',
             '--hidden-import', 'reportlab',
             '--hidden-import', 'resources_rc',
-            '--hidden-import', 'parse.dBaseLexer',
-            '--hidden-import', 'parse.dBaseParser',
-            '--hidden-import', 'parse.dBaseParserListener',
-            '--hidden-import', 'parse.dBaseParserVisitor',
             '--hidden-import', 'parse.pascalLexer',
             '--hidden-import', 'parse.pascalParser',
             '--hidden-import', 'parse.pascalParserListener',
             '--hidden-import', 'parse.pascalParserVisitor',
-            '--hidden-import', 'parse.ccLexer',
-            '--hidden-import', 'parse.ccParser',
-            '--hidden-import', 'parse.ccParserListener',
-            '--hidden-import', 'parse.ccParserVisitor',
-            '--hidden-import', 'parse.lispLexer',
-            '--hidden-import', 'parse.lispParser',
-            '--hidden-import', 'parse.lispParserListener',
-            '--hidden-import', 'parse.lispParserVisitor',
             '--collect-submodules', 'antlr4',
             '--collect-all', 'PyQt5',
             '--collect-all', 'PyQtWebEngine',
@@ -161,18 +148,17 @@ jobs:
           if (Test-Path release) { Remove-Item release -Recurse -Force }
           $root = Join-Path release 'pascalRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\pascalRunner\* $root -Recurse -Force
+          Copy-Item dist\pascalRunner.exe (Join-Path $root 'pascalRunner.exe') -Force
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
-          if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath pascalRunner-${{ inputs.tag }}-windows-onedir.zip -Force
+          Compress-Archive -Path release\* -DestinationPath pascalRunner-${{ inputs.tag }}-windows-onefile.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pascalRunner-${{ inputs.tag }}-windows-onedir
-          path: pascalRunner-${{ inputs.tag }}-windows-onedir.zip
+          name: pascalRunner-${{ inputs.tag }}-windows-onefile
+          path: pascalRunner-${{ inputs.tag }}-windows-onefile.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
@@ -181,5 +167,5 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: pascalRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: pascalRunner-${{ inputs.tag }}-windows-onedir.zip
+          files: pascalRunner-${{ inputs.tag }}-windows-onefile.zip
           overwrite_files: true

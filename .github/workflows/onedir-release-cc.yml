@@ -1,4 +1,4 @@
-name: Build dBaseRunner Windows EXE Release
+name: Build ccRunner Windows EXE Release (onedir)
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 env:
-  APP_ENTRY: src/dBaseRunner.py
+  APP_ENTRY: src/ccRunner.py
   REQUIREMENTS_FILE: requirements.txt
   BUILD_MO_SCRIPT: src/tools/build_mo.py
   DATA_DIR: src/data
@@ -82,8 +82,8 @@ jobs:
           Push-Location src/tools
           python build_mo.py
           Pop-Location
-          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/dbase.mo')) { throw 'Missing de .mo file after build_mo.py' }
-          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/dbase.mo')) { throw 'Missing en .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/cc.mo')) { throw 'Missing de .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/cc.mo')) { throw 'Missing en .mo file after build_mo.py' }
 
       - name: Create locales.zip for runtime
         shell: pwsh
@@ -95,8 +95,8 @@ jobs:
 
           base = Path('src/data/po')
           files = [
-              base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
-              base / 'locales' / 'en' / 'LC_MESSAGES' / 'dbase.mo',
+              base / 'locales' / 'de' / 'LC_MESSAGES' / 'cc.mo',
+              base / 'locales' / 'en' / 'LC_MESSAGES' / 'cc.mo',
           ]
           out_zip = Path('src/data/locales.zip')
           out_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +121,7 @@ jobs:
             '--onedir',
             '--contents-directory', '.',
             '--windowed',
-            '--name', 'dBaseRunner',
+            '--name', 'ccRunner',
             '--paths', 'src',
             '--hidden-import', 'antlr4',
             '--hidden-import', 'polib',
@@ -150,7 +150,7 @@ jobs:
             '--copy-metadata', 'antlr4-python3-runtime',
             '--copy-metadata', 'reportlab',
             '--copy-metadata', 'polib',
-            'src/dBaseRunner.py'
+            'src/ccRunner.py'
           )
           pyinstaller @args
 
@@ -159,27 +159,27 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (Test-Path release) { Remove-Item release -Recurse -Force }
-          $root = Join-Path release 'dBaseRunner'
+          $root = Join-Path release 'ccRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\dBaseRunner\* $root -Recurse -Force
+          Copy-Item dist\ccRunner\* $root -Recurse -Force
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
           if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onedir.zip -Force
+          Compress-Archive -Path release\* -DestinationPath ccRunner-${{ inputs.tag }}-windows-onedir.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dBaseRunner-${{ inputs.tag }}-windows-onedir
-          path: dBaseRunner-${{ inputs.tag }}-windows-onedir.zip
+          name: ccRunner-${{ inputs.tag }}-windows-onedir
+          path: ccRunner-${{ inputs.tag }}-windows-onedir.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          name: dBaseRunner ${{ inputs.tag }}
+          name: ccRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: dBaseRunner-${{ inputs.tag }}-windows-onedir.zip
+          files: ccRunner-${{ inputs.tag }}-windows-onedir.zip
           overwrite_files: true

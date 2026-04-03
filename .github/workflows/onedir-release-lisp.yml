@@ -1,4 +1,4 @@
-name: Build dBaseRunner Windows EXE Release
+name: Build lispRunner Windows EXE Release (onedir)
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 env:
-  APP_ENTRY: src/dBaseRunner.py
+  APP_ENTRY: src/lispRunner.py
   REQUIREMENTS_FILE: requirements.txt
   BUILD_MO_SCRIPT: src/tools/build_mo.py
   DATA_DIR: src/data
@@ -29,7 +29,7 @@ env:
   LOCALES_ZIP: src/data/locales.zip
 
 jobs:
-  build-onefile:
+  build-onedir:
     runs-on: windows-latest
 
     steps:
@@ -66,7 +66,7 @@ jobs:
             $env:REQUIREMENTS_FILE,
             $env:BUILD_MO_SCRIPT,
             'src/resources_rc.py',
-            'src/gen',
+            'src/parse',
             $env:DATA_DIR,
             $env:TESTS_DIR,
             'src/data/po/locales/de/LC_MESSAGES',
@@ -82,8 +82,8 @@ jobs:
           Push-Location src/tools
           python build_mo.py
           Pop-Location
-          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/dbase.mo')) { throw 'Missing de .mo file after build_mo.py' }
-          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/dbase.mo')) { throw 'Missing en .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/de/LC_MESSAGES/lisü.mo')) { throw 'Missing de .mo file after build_mo.py' }
+          if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/lisp.mo')) { throw 'Missing en .mo file after build_mo.py' }
 
       - name: Create locales.zip for runtime
         shell: pwsh
@@ -95,8 +95,8 @@ jobs:
 
           base = Path('src/data/po')
           files = [
-              base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
-              base / 'locales' / 'en' / 'LC_MESSAGES' / 'dbase.mo',
+              base / 'locales' / 'de' / 'LC_MESSAGES' / 'lisp.mo',
+              base / 'locales' / 'en' / 'LC_MESSAGES' / 'lisp.mo',
           ]
           out_zip = Path('src/data/locales.zip')
           out_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -111,16 +111,17 @@ jobs:
           PY
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
-      - name: Build onefile EXE
+      - name: Build onedir EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $args = @(
             '--noconfirm',
             '--clean',
-            '--onefile',
+            '--onedir',
+            '--contents-directory', '.',
             '--windowed',
-            '--name', 'dBaseRunner',
+            '--name', 'lispRunner',
             '--paths', 'src',
             '--hidden-import', 'antlr4',
             '--hidden-import', 'polib',
@@ -130,6 +131,18 @@ jobs:
             '--hidden-import', 'parse.dBaseParser',
             '--hidden-import', 'parse.dBaseParserListener',
             '--hidden-import', 'parse.dBaseParserVisitor',
+            '--hidden-import', 'parse.pascalLexer',
+            '--hidden-import', 'parse.pascalParser',
+            '--hidden-import', 'parse.pascalParserListener',
+            '--hidden-import', 'parse.pascalParserVisitor',
+            '--hidden-import', 'parse.ccLexer',
+            '--hidden-import', 'parse.ccParser',
+            '--hidden-import', 'parse.ccParserListener',
+            '--hidden-import', 'parse.ccParserVisitor',
+            '--hidden-import', 'parse.lispLexer',
+            '--hidden-import', 'parse.lispParser',
+            '--hidden-import', 'parse.lispParserListener',
+            '--hidden-import', 'parse.lispParserVisitor',
             '--collect-submodules', 'antlr4',
             '--collect-all', 'PyQt5',
             '--collect-all', 'PyQtWebEngine',
@@ -137,7 +150,7 @@ jobs:
             '--copy-metadata', 'antlr4-python3-runtime',
             '--copy-metadata', 'reportlab',
             '--copy-metadata', 'polib',
-            'src/dBaseRunner.py'
+            'src/lispRunner.py'
           )
           pyinstaller @args
 
@@ -146,26 +159,27 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (Test-Path release) { Remove-Item release -Recurse -Force }
-          $root = Join-Path release 'dBaseRunner'
+          $root = Join-Path release 'lispRunner'
           New-Item -ItemType Directory -Path $root -Force | Out-Null
-          Copy-Item dist\dBaseRunner.exe (Join-Path $root 'dBaseRunner.exe') -Force
+          Copy-Item dist\lispRunner\* $root -Recurse -Force
           Copy-Item src\data  (Join-Path $root 'data')  -Recurse -Force
           Copy-Item src\tests (Join-Path $root 'tests') -Recurse -Force
+          if (Test-Path (Join-Path $root '_internal')) { throw '_internal directory should not exist in onedir release' }
           if (-not (Test-Path (Join-Path $root 'data\locales.zip'))) { throw 'data/locales.zip missing from release tree' }
-          Compress-Archive -Path release\* -DestinationPath dBaseRunner-${{ inputs.tag }}-windows-onefile.zip -Force
+          Compress-Archive -Path release\* -DestinationPath lispRunner-${{ inputs.tag }}-windows-onedir.zip -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dBaseRunner-${{ inputs.tag }}-windows-onefile
-          path: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          name: lispRunner-${{ inputs.tag }}-windows-onedir
+          path: lispRunner-${{ inputs.tag }}-windows-onedir.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          name: dBaseRunner ${{ inputs.tag }}
+          name: lispRunner ${{ inputs.tag }}
           generate_release_notes: true
-          files: dBaseRunner-${{ inputs.tag }}-windows-onefile.zip
+          files: lispRunner-${{ inputs.tag }}-windows-onedir.zip
           overwrite_files: true
