@@ -1,0 +1,240 @@
+# ---------------------------------------------------------------------------
+# Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# All rights reserved
+# ---------------------------------------------------------------------------
+name: Reusable release build
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      build_mode:
+        required: true
+        type: string
+      language:
+        required: true
+        type: string
+      python_version:
+        required: true
+        type: string
+      java_version:
+        required: true
+        type: string
+      antlr_tool_version:
+        required: true
+        type: string
+      antlr_runtime_version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  REQUIREMENTS_FILE: requirements.txt
+  BUILD_MO_SCRIPT: src/tools/build_mo.py
+  DATA_DIR: src/data
+  TESTS_DIR: src/tests
+  LOCALES_ZIP: src/data/locales.zip
+  GEN_DIR: src/parse
+  GRAMMAR_ROOT: src/gramm
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve selected language
+        shell: python
+        run: |
+          import os
+
+          cfg = {
+              "dbase": {
+                  "runner": "src/dBaseRunner.py",
+                  "grammar_subdir": "dbase",
+                  "lexer": "dBaseLexer.g4",
+                  "parser": "dBaseParser.g4",
+                  "app_name": "dBaseRunner",
+                  "mo_name": "dbase.mo",
+              },
+              "pascal": {
+                  "runner": "src/pascalRunner.py",
+                  "grammar_subdir": "pascal",
+                  "lexer": "pascalLexer.g4",
+                  "parser": "pascalParser.g4",
+                  "app_name": "pascalRunner",
+                  "mo_name": "pascal.mo",
+              },
+              "cc": {
+                  "runner": "src/ccRunner.py",
+                  "grammar_subdir": "cc",
+                  "lexer": "ccLexer.g4",
+                  "parser": "ccParser.g4",
+                  "app_name": "ccRunner",
+                  "mo_name": "cc.mo",
+              },
+              "lisp": {
+                  "runner": "src/lispRunner.py",
+                  "grammar_subdir": "lisp",
+                  "lexer": "lispLexer.g4",
+                  "parser": "lispParser.g4",
+                  "app_name": "lispRunner",
+                  "mo_name": "lisp.mo",
+              },
+          }
+
+          lang = "${{ inputs.language }}"
+          if lang not in cfg:
+              raise SystemExit(f"Unsupported language: {lang}")
+
+          c = cfg[lang]
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              f.write(f"APP_ENTRY={c['runner']}\n")
+              f.write(f"GRAMMAR_SUBDIR={c['grammar_subdir']}\n")
+              f.write(f"LEXER_FILE={c['lexer']}\n")
+              f.write(f"PARSER_FILE={c['parser']}\n")
+              f.write(f"APP_NAME={c['app_name']}\n")
+              f.write(f"MO_NAME={c['mo_name']}\n")
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java_version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+          cache-dependency-path: ${{ env.REQUIREMENTS_FILE }}
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install -r $env:REQUIREMENTS_FILE
+          python -m pip install pyinstaller antlr4-python3-runtime==${{ inputs.antlr_runtime_version }}
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          python --version
+          java -version
+          pyinstaller --version
+          python -c "import antlr4; print('ANTLR runtime ok')"
+
+      - name: Validate project files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($p in @(
+            $env:APP_ENTRY,
+            $env:REQUIREMENTS_FILE,
+            $env:BUILD_MO_SCRIPT,
+            'src/resources_rc.py',
+            $env:DATA_DIR,
+            $env:TESTS_DIR,
+            "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE",
+            "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
+          )) {
+            if (-not (Test-Path $p)) { throw "Required path not found: $p" }
+          }
+
+      - name: Download ANTLR tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jar = Join-Path $env:RUNNER_TEMP "antlr-${{ inputs.antlr_tool_version }}-complete.jar"
+          Invoke-WebRequest -Uri "https://www.antlr.org/download/antlr-${{ inputs.antlr_tool_version }}-complete.jar" -OutFile $jar
+          if (-not (Test-Path $jar)) { throw "ANTLR jar not downloaded: $jar" }
+          "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Regenerate selected ANTLR lexer/parser
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
+          if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+          $lexer  = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
+          $parser = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
+
+          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -o $outDir $lexer $parser
+
+      - name: Build GNU gettext .mo files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Push-Location src/tools
+          python build_mo.py
+          Pop-Location
+
+      - name: Create locales.zip for selected runtime
+        shell: python
+        run: |
+          from pathlib import Path
+          import os
+          import zipfile
+
+          base = Path("src/data/po")
+          mo_name = os.environ["MO_NAME"]
+
+          files = [
+              base / "locales" / "de" / "LC_MESSAGES" / mo_name,
+              base / "locales" / "en" / "LC_MESSAGES" / mo_name,
+          ]
+
+          out_zip = Path("src/data/locales.zip")
+          out_zip.parent.mkdir(parents=True, exist_ok=True)
+          if out_zip.exists():
+              out_zip.unlink()
+
+          with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              for f in files:
+                  if not f.exists():
+                      raise SystemExit(f"Missing file for zip: {f}")
+                  zf.write(f, f.relative_to(base).as_posix())
+
+          print(f"Created {out_zip}")
+
+      - name: Check locales.zip existence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
+
+      - name: Build executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $args = @(
+            '--noconfirm',
+            '--clean',
+            '--name', $env:APP_NAME,
+            '--paths', 'src',
+            '--add-data', 'src/data;data',
+            '--add-data', 'src/parse;parse'
+          )
+
+          if ('${{ inputs.build_mode }}' -eq 'onefile') {
+            pyinstaller --onefile @args $env:APP_ENTRY
+          }
+          else {
+            pyinstaller --onedir @args $env:APP_ENTRY
+          }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-${{ inputs.build_mode }}
+          path: |
+            dist/${{ env.APP_NAME }}*

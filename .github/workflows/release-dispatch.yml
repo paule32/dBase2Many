@@ -2,60 +2,79 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-name: onefile-release-dbase
+name: Dispatch selected release build
 
 on:
   workflow_dispatch:
     inputs:
       tag:
+        description: "Release-Tag, z. B. v1.0.0"
         required: true
         default: "v0.0.1"
         type: string
+
+      build_mode:
+        description: "PyInstaller-Modus"
+        required: true
+        type: choice
+        default: "onefile"
+        options:
+          - onefile
+          - onedir
+
+      target_language:
+        description: "Welche Sprache bauen?"
+        required: true
+        type: choice
+        default: "Build All"
+        options:
+          - Build All
+          - dbase
+          - pascal
+          - cc
+          - lisp
+
       python_version:
+        description: "Python-Version"
         required: true
         default: "3.14"
         type: string
+
       java_version:
+        description: "Java-Version für ANTLR"
         required: true
         default: "17"
         type: string
+
       antlr_tool_version:
-        required: true
-        default: "4.13.2"
-        type: string
-      antlr_runtime_version:
+        description: "ANTLR Tool Version"
         required: true
         default: "4.13.2"
         type: string
 
-  workflow_call:
-    inputs:
-      tag:
-        required: true
-        type: string
-      python_version:
-        required: true
-        type: string
-      java_version:
-        required: true
-        type: string
-      antlr_tool_version:
-        required: true
-        type: string
       antlr_runtime_version:
+        description: "ANTLR4 Python Runtime Version"
         required: true
+        default: "4.13.2"
         type: string
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-selected:
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [dbase, pascal, cc, lisp]
+
+    if: ${{ inputs.target_language == 'Build All' || inputs.target_language == matrix.language }}
+
     uses: ./.github/workflows/release-build.yml
     with:
       tag: ${{ inputs.tag }}
-      build_mode: onefile
-      language: dbase
+      build_mode: ${{ inputs.build_mode }}
+      language: ${{ matrix.language }}
       python_version: ${{ inputs.python_version }}
       java_version: ${{ inputs.java_version }}
       antlr_tool_version: ${{ inputs.antlr_tool_version }}
