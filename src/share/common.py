@@ -292,6 +292,15 @@ class BoundMethod:
     target: "Instance"
     name: str
 
+# ---------------------------------------------------------------------------
+# application states for global usage ...
+# ---------------------------------------------------------------------------
+class AppMode_State:
+    dark   = True
+    lang   = "de"
+    domain = "dbase"
+# ---------------------------------------------------------------------------
+AppMode = AppMode_State()
 
 def debug_print(*args, **kwargs):
     if not VERBOSE_CONSOLE:

@@ -18,7 +18,7 @@ class Preprocessor:
 
     def __init__(self, *, include_paths: list[Path] | None = None):
         self.include_paths = include_paths or []
-        self.macros: dict[str, Macro] = {}
+        self.macros: dict[str, share.common.Macro] = {}
         self.defined: set[str] = set()
         self._include_stack: list[Path] = []
 
@@ -100,7 +100,7 @@ class Preprocessor:
         norm = norm.replace("\\", "\\\\").replace('"', '\\"')
         return f"\"{norm}\""
 
-    def _expand_function_macro(self, macro: Macro, call_args: list[str]) -> str:
+    def _expand_function_macro(self, macro: share.common.Macro, call_args: list[str]) -> str:
         if macro.params is None:
             raise share.common.PreprocessorError("internal: not a function macro")
 
@@ -1348,9 +1348,9 @@ class Preprocessor:
                             body = tail[close+1:].lstrip()
 
                             params = [p.strip() for p in params_part.split(",")] if params_part else []
-                            self.macros[name] = Macro(name=name, params=params, body=body)
+                            self.macros[name] = share.common.Macro(name=name, params=params, body=body)
                         else:
-                            self.macros[name] = Macro(name=name, params=None, body=tail)
+                            self.macros[name] = share.common.Macro(name=name, params=None, body=tail)
 
                         self.defined.add(name)
                     continue
