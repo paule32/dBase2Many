@@ -1,0 +1,57 @@
+name: CleanUp old workflow runs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete all workflow runs except the latest 3
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const currentRunId = Number(process.env.GITHUB_RUN_ID);
+
+            const allRuns = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              {
+                owner,
+                repo,
+                per_page: 100
+              }
+            );
+
+            const sortedRuns = [...allRuns].sort(
+              (a, b) => new Date(b.created_at) - new Date(a.created_at)
+            );
+
+            const keepIds = new Set(sortedRuns.slice(0, 3).map(run => run.id));
+            keepIds.add(currentRunId); // den gerade laufenden Cleanup-Run nie löschen
+
+            const runsToDelete = sortedRuns.filter(run => !keepIds.has(run.id));
+
+            core.info(`Repository: ${owner}/${repo}`);
+            core.info(`Gefundene Runs: ${sortedRuns.length}`);
+            core.info(`Behalte: ${Array.from(keepIds).join(", ")}`);
+            core.info(`Zu löschen: ${runsToDelete.length}`);
+
+            for (const run of runsToDelete) {
+              try {
+                await github.rest.actions.deleteWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id
+                });
+                core.info(`Gelöscht: #${run.id} | ${run.name} | ${run.created_at}`);
+              } catch (error) {
+                core.warning(`Fehler bei Run #${run.id}: ${error.message}`);
+              }
+            }
