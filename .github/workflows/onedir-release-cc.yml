@@ -1,3 +1,8 @@
+# ---------------------------------------------------------------------------
+# \file  : onedir-release-cc.yml
+# \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# \note  : All rights reserved
+# ---------------------------------------------------------------------------
 name: Build ccRunner Windows EXE Release (onedir)
 
 on:

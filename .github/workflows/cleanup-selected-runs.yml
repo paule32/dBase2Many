@@ -1,0 +1,283 @@
+# ---------------------------------------------------------------------------
+# \file  : cleanup-selected-runs.yml
+# \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# \note  : All rights reserved
+# ---------------------------------------------------------------------------
+name: Cleanup selected workflow runs
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_variants:
+        description: "Release-Varianten: onefile, onedir oder both"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - onefile
+          - onedir
+
+      release_languages:
+        description: "Kommagetrennte Liste, z. B. cc,dbase,pascal,lisp"
+        required: true
+        default: "cc,dbase,pascal,lisp"
+        type: string
+
+      keep_release_total:
+        description: "Wie viele Release-Runs insgesamt behalten?"
+        required: true
+        default: "3"
+        type: string
+
+      other_workflows:
+        description: "Andere Workflows (Name oder Dateiname), jeweils kommagetrennt"
+        required: true
+        default: "deploy,GitHub Pages,coverity"
+        type: string
+
+      keep_other_per_workflow:
+        description: "Wie viele Runs je anderem Workflow behalten?"
+        required: true
+        default: "3"
+        type: string
+
+      dry_run:
+        description: "Nur anzeigen, nichts löschen"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: cleanup-selected-runs
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cleanup selected runs
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const currentRunId = Number(process.env.GITHUB_RUN_ID);
+
+            const releaseVariantsInput = String("${{ inputs.release_variants }}").trim().toLowerCase();
+            const releaseLanguagesInput = String("${{ inputs.release_languages }}");
+            const keepReleaseTotal = Math.max(0, parseInt("${{ inputs.keep_release_total }}", 10) || 3);
+
+            const otherWorkflowsInput = String("${{ inputs.other_workflows }}");
+            const keepOtherPerWorkflow = Math.max(0, parseInt("${{ inputs.keep_other_per_workflow }}", 10) || 3);
+
+            const dryRun = ${{ inputs.dry_run }};
+
+            function splitCsv(value) {
+              return value
+                .split(",")
+                .map(s => s.trim())
+                .filter(Boolean);
+            }
+
+            function byNewest(a, b) {
+              return new Date(b.created_at) - new Date(a.created_at);
+            }
+
+            function byOldest(a, b) {
+              return new Date(a.created_at) - new Date(b.created_at);
+            }
+
+            function isCompleted(run) {
+              return run.status === "completed";
+            }
+
+            function isProtected(run) {
+              return run.id === currentRunId;
+            }
+
+            const languages = splitCsv(releaseLanguagesInput);
+            const otherWorkflowSelectors = splitCsv(otherWorkflowsInput);
+
+            let variants = [];
+            if (releaseVariantsInput === "both") {
+              variants = ["onefile", "onedir"];
+            } else if (releaseVariantsInput === "onefile" || releaseVariantsInput === "onedir") {
+              variants = [releaseVariantsInput];
+            } else {
+              core.setFailed(`Ungültige release_variants-Angabe: ${releaseVariantsInput}`);
+              return;
+            }
+
+            const releaseWorkflowFiles = [];
+            for (const variant of variants) {
+              for (const lang of languages) {
+                releaseWorkflowFiles.push(`${variant}-release-${lang}.yml`);
+              }
+            }
+
+            core.info(`Repository: ${owner}/${repo}`);
+            core.info(`Release-Dateien: ${releaseWorkflowFiles.join(", ") || "(keine)"}`);
+            core.info(`Andere Workflow-Selektoren: ${otherWorkflowSelectors.join(", ") || "(keine)"}`);
+            core.info(`Behalte Release gesamt: ${keepReleaseTotal}`);
+            core.info(`Behalte je anderem Workflow: ${keepOtherPerWorkflow}`);
+            core.info(`Dry-Run: ${dryRun}`);
+
+            async function listAllWorkflows() {
+              return await github.paginate(
+                github.rest.actions.listRepoWorkflows,
+                {
+                  owner,
+                  repo,
+                  per_page: 100
+                }
+              );
+            }
+
+            async function listRunsForWorkflowId(workflow_id) {
+              const runs = await github.paginate(
+                github.rest.actions.listWorkflowRuns,
+                {
+                  owner,
+                  repo,
+                  workflow_id,
+                  per_page: 100
+                }
+              );
+              return runs;
+            }
+
+            const allWorkflowDefs = await listAllWorkflows();
+
+            const workflowById = new Map();
+            const workflowByName = new Map();
+            const workflowByFile = new Map();
+
+            for (const wf of allWorkflowDefs) {
+              workflowById.set(String(wf.id), wf);
+              workflowByName.set(wf.name, wf);
+
+              const path = String(wf.path || "");
+              const fileName = path.split("/").pop();
+              if (fileName) {
+                workflowByFile.set(fileName, wf);
+              }
+            }
+
+            const deleteMap = new Map();
+
+            // 1) Release-Gruppe: alle gewählten onefile/onedir-release-*.yml
+            //    zusammen betrachten, insgesamt nur N neueste behalten
+            let releaseRuns = [];
+
+            for (const fileName of releaseWorkflowFiles) {
+              const wf = workflowByFile.get(fileName);
+              if (!wf) {
+                core.warning(`Release-Workflow-Datei nicht gefunden: ${fileName}`);
+                continue;
+              }
+
+              const runs = await listRunsForWorkflowId(fileName);
+              core.info(`Release-Datei "${fileName}": ${runs.length} Runs gefunden`);
+
+              releaseRuns.push(
+                ...runs.map(run => ({
+                  ...run,
+                  __group: "release",
+                  __selector: fileName,
+                  __workflow_name: wf.name,
+                  __workflow_path: wf.path
+                }))
+              );
+            }
+
+            releaseRuns = releaseRuns
+              .filter(isCompleted)
+              .filter(run => !isProtected(run))
+              .sort(byNewest);
+
+            const releaseKeepIds = new Set(releaseRuns.slice(0, keepReleaseTotal).map(run => run.id));
+
+            core.info(`Release-Gruppe gesamt: ${releaseRuns.length} abgeschlossene Runs`);
+            core.info(`Release-Gruppe: Behalte ${Math.min(keepReleaseTotal, releaseRuns.length)} Runs`);
+
+            for (const run of releaseRuns) {
+              if (!releaseKeepIds.has(run.id)) {
+                deleteMap.set(run.id, run);
+              }
+            }
+
+            // 2) Andere Workflows: jeweils einzeln, je Workflow N behalten
+            //    Selektor darf Dateiname, Name oder numerische ID sein
+            for (const selector of otherWorkflowSelectors) {
+              let wf = null;
+              let workflowIdForApi = selector;
+
+              if (workflowByFile.has(selector)) {
+                wf = workflowByFile.get(selector);
+                workflowIdForApi = selector;
+              } else if (workflowByName.has(selector)) {
+                wf = workflowByName.get(selector);
+                workflowIdForApi = String(wf.id);
+              } else if (workflowById.has(selector)) {
+                wf = workflowById.get(selector);
+                workflowIdForApi = selector;
+              } else {
+                core.warning(`Anderer Workflow nicht gefunden: ${selector}`);
+                continue;
+              }
+
+              const runs = (await listRunsForWorkflowId(workflowIdForApi))
+                .map(run => ({
+                  ...run,
+                  __group: "other",
+                  __selector: selector,
+                  __workflow_name: wf.name,
+                  __workflow_path: wf.path
+                }))
+                .filter(isCompleted)
+                .filter(run => !isProtected(run))
+                .sort(byNewest);
+
+              const keepIds = new Set(runs.slice(0, keepOtherPerWorkflow).map(run => run.id));
+
+              core.info(`Anderer Workflow "${selector}" -> ${runs.length} abgeschlossene Runs`);
+              core.info(`Behalte dort ${Math.min(keepOtherPerWorkflow, runs.length)} Runs`);
+
+              for (const run of runs) {
+                if (!keepIds.has(run.id)) {
+                  deleteMap.set(run.id, run);
+                }
+              }
+            }
+
+            // 3) Löschen / Dry-Run
+            const runsToDelete = Array.from(deleteMap.values()).sort(byOldest);
+
+            core.info(`Zu löschen insgesamt: ${runsToDelete.length}`);
+
+            for (const run of runsToDelete) {
+              const label =
+                `[${run.__group}] ${run.__selector} | ${run.__workflow_name} | ${run.created_at} | #${run.id}`;
+
+              if (dryRun) {
+                core.info(`DRY-RUN würde löschen: ${label}`);
+                continue;
+              }
+
+              try {
+                await github.rest.actions.deleteWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id
+                });
+                core.info(`Gelöscht: ${label}`);
+              } catch (error) {
+                core.warning(`Fehler beim Löschen ${label}: ${error.message}`);
+              }
+            }

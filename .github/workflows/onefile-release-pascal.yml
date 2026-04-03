@@ -1,3 +1,8 @@
+# ---------------------------------------------------------------------------
+# \file  : onefile-release-pascal.yml
+# \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# \note  : All rights reserved
+# ---------------------------------------------------------------------------
 name: Build pascalRunner Windows EXE Release (onefile)
 
 on:
