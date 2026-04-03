@@ -91,13 +91,11 @@ jobs:
           if (-not (Test-Path 'src/data/po/locales/en/LC_MESSAGES/dbase.mo')) { throw 'Missing en .mo file after build_mo.py' }
 
       - name: Create locales.zip for runtime
-        shell: pwsh
+        shell: python
         run: |
-          $ErrorActionPreference = 'Stop'
-          python - <<'PY'
           from pathlib import Path
           import zipfile
-
+          
           base = Path('src/data/po')
           files = [
               base / 'locales' / 'de' / 'LC_MESSAGES' / 'dbase.mo',
@@ -113,7 +111,11 @@ jobs:
                       raise SystemExit(f'Missing file for zip: {f}')
                   zf.write(f, f.relative_to(base).as_posix())
           print(f'Created {out_zip}')
-          PY
+      
+      - name: Check locales.zip existence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
       - name: Build onefile EXE
