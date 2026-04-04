@@ -164,8 +164,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           dir src/gramm
           dir src/gramm/dbase
-
-          $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
+          
+          $outDir = "."
+          #$outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
           #if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
           #New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
