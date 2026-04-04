@@ -162,7 +162,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          dir
+          dir src/gramm
+          dir src/gramm/dbase
 
           $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
           if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
