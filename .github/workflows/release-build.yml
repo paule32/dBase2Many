@@ -40,7 +40,7 @@ env:
   DATA_DIR: src/data
   TESTS_DIR: src/tests
   LOCALES_ZIP: src/data/locales.zip
-  GEN_DIR: src/parse
+  GEN_DIR: src/gramm
   GRAMMAR_ROOT: src/gramm
 
 jobs:
