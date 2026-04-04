@@ -172,9 +172,17 @@ jobs:
           $lexer  = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
           $parser = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
 
+          Write-Host "--->"
+          Write-Host "$lexer"
+          Write-Host "$parser"
+          Write-Host "<---"
+
           Write-Host "Generating lexer from:  $lexer"
           Write-Host "Generating parser from: $parser"
           Write-Host "Output directory:       $outDir"
+
+          dir $outDir
+          Write-Host "$lexer"
 
           java -jar $env:ANTLR_JAR -Dlanguage=Python3 -o $outDir $lexer
           if ($LASTEXITCODE -ne 0) { throw "Lexer generation failed." }
