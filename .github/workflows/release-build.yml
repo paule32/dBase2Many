@@ -16,6 +16,12 @@ on:
       language:
         required: true
         type: string
+      runner_os:
+        required: true
+        type: string
+      os_label:
+        required: true
+        type: string
       python_version:
         required: true
         type: string
@@ -39,11 +45,11 @@ env:
   TESTS_DIR: src/tests
   LOCALES_ZIP: src/data/locales.zip
   GEN_DIR: src/parse
-  GRAMMAR_ROOT: src/gramm
+  GRAMMAR_ROOT: src/grammars
 
 jobs:
   build-release:
-    runs-on: windows-latest
+    runs-on: ${{ inputs.runner_os }}
 
     steps:
       - name: Checkout
@@ -212,29 +218,37 @@ jobs:
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
       - name: Build executable
-        shell: pwsh
+        shell: python
         run: |
-          $ErrorActionPreference = 'Stop'
+          import os
+          import subprocess
 
-          $args = @(
-            '--noconfirm',
-            '--clean',
-            '--name', $env:APP_NAME,
-            '--paths', 'src',
-            '--add-data', 'src/data;data',
-            '--add-data', 'src/parse;parse'
-          )
+          add_data_sep = ";" if os.name == "nt" else ":"
 
-          if ('${{ inputs.build_mode }}' -eq 'onefile') {
-            pyinstaller --onefile @args $env:APP_ENTRY
-          }
-          else {
-            pyinstaller --onedir @args $env:APP_ENTRY
-          }
+          args = [
+              "pyinstaller",
+              "--noconfirm",
+              "--clean",
+              "--name", os.environ["APP_NAME"],
+              "--paths", "src",
+              "--add-data", f"src/data{add_data_sep}data",
+              "--add-data", f"src/parse{add_data_sep}parse",
+          ]
+
+          build_mode = "${{ inputs.build_mode }}"
+          if build_mode == "onefile":
+              args.append("--onefile")
+          else:
+              args.append("--onedir")
+
+          args.append(os.environ["APP_ENTRY"])
+
+          print("Running:", " ".join(args))
+          subprocess.run(args, check=True)
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-${{ inputs.build_mode }}
+          name: ${{ env.APP_NAME }}-${{ inputs.build_mode }}-${{ inputs.os_label }}
           path: |
             dist/${{ env.APP_NAME }}*

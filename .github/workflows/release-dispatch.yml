@@ -17,7 +17,7 @@ on:
         description: "PyInstaller-Modus"
         required: true
         type: choice
-        default: "onedir"
+        default: "onefile"
         options:
           - onefile
           - onedir
@@ -33,6 +33,16 @@ on:
           - pascal
           - cc
           - lisp
+
+      target_os:
+        description: "Welches Betriebssystem bauen?"
+        required: true
+        type: choice
+        default: "windows"
+        options:
+          - windows
+          - linux
+          - both
 
       python_version:
         description: "Python-Version"
@@ -65,26 +75,43 @@ jobs:
   prepare-matrix:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.make.outputs.matrix }}
     steps:
-      - name: Build matrix from input
-        id: set-matrix
+      - id: make
         shell: python
         run: |
           import json
           import os
 
-          target = "${{ inputs.target_language }}"
+          lang_in = "${{ inputs.target_language }}"
+          os_in   = "${{ inputs.target_os }}"
 
-          if target == "Build All":
+          if lang_in == "Build All":
               langs = ["dbase", "pascal", "cc", "lisp"]
           else:
-              langs = [target]
+              langs = [lang_in]
 
-          matrix = {"language": langs}
+          if os_in == "both":
+              os_list = [
+                  {"label": "windows", "runner": "windows-latest"},
+                  {"label": "linux",   "runner": "ubuntu-latest"},
+              ]
+          elif os_in == "windows":
+              os_list = [{"label": "windows", "runner": "windows-latest"}]
+          else:
+              os_list = [{"label": "linux", "runner": "ubuntu-latest"}]
+
+          include = []
+          for lang in langs:
+              for os_item in os_list:
+                  include.append({
+                      "language": lang,
+                      "os_label": os_item["label"],
+                      "runner_os": os_item["runner"],
+                  })
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-              f.write(f"matrix={json.dumps(matrix)}\n")
+              f.write(f"matrix={json.dumps({'include': include})}\n")
 
   build-selected:
     needs: prepare-matrix
@@ -97,6 +124,8 @@ jobs:
       tag: ${{ inputs.tag }}
       build_mode: ${{ inputs.build_mode }}
       language: ${{ matrix.language }}
+      runner_os: ${{ matrix.runner_os }}
+      os_label: ${{ matrix.os_label }}
       python_version: ${{ inputs.python_version }}
       java_version: ${{ inputs.java_version }}
       antlr_tool_version: ${{ inputs.antlr_tool_version }}
