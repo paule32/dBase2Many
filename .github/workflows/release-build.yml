@@ -187,6 +187,10 @@ jobs:
           java -jar $env:ANTLR_JAR -Dlanguage=Python3 -o $outDir $lexer
           if ($LASTEXITCODE -ne 0) { throw "Lexer generation failed." }
 
+          Write-Host "--->"
+          dir $outDir
+          Write-Host "<---"
+
           java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -lib $outDir -o $outDir $parser
           if ($LASTEXITCODE -ne 0) { throw "Parser generation failed." }
 
