@@ -189,7 +189,7 @@ jobs:
 
           Write-Host "--->"
           dir $outDir
-          dir $outDir/src"
+          dir $outDir/src
           dir $outDir/src/gramm
           dir $outDir/src/gramm/dbase
           Write-Host "<---"
