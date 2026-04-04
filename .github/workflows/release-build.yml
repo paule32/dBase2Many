@@ -41,7 +41,7 @@ env:
   TESTS_DIR: src/tests
   LOCALES_ZIP: src/data/locales.zip
   GEN_DIR: src/parse
-  GRAMMAR_ROOT: src/grammars
+  GRAMMAR_ROOT: src/gramm
 
 jobs:
   build-release:
