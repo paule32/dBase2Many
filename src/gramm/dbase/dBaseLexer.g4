@@ -41,8 +41,8 @@ METHOD      : [mM][eE][tT][hH][oO][dD];
 ENDMETHOD   : [eE][nN][dD][mM][eE][tT][hH][oO][dD];
 PROPERTY    : [pP][rR][oO][pP][eE][rR][tT][yY];
 
-CREATE      : [cC][rR][eE][aA][tT][eE];
-FILE        : [fF][iI][lL][eE];
+CREATE 		: [Cc][Rr][Ee][Aa][Tt][Ee];
+FILE        : [Ff][Ii][Ll][Ee];
 
 IF          : [iI][fF];
 ELSE        : [eE][lL][sS][eE];
@@ -51,9 +51,6 @@ ENDIF       : [eE][nN][dD][iI][fF];
 WRITE       : [wW][rR][iI][tT][eE];
 
 CALL        : [cC][aA][lL][lL];
-
-COMMA       : ',';
-DOT         : '.';
 
 FLOAT       : [0-9]+'.'[0-9]+;
 NUMBER      : [0-9]+;
@@ -90,18 +87,20 @@ ASSIGN      : '=';
 
 LPAREN      : '(';
 RPAREN      : ')';
+
+COMMA       : ',';
+DOT         : '.';
+
 PLUS        : '+';
 MINUS       : '-';
 STAR        : '*';
 SLASH       : '/';
 
-LBRACE      : '{' ;
-RBRACE      : '}' ;
-SEMI        : ';' ;
+LBRACE      : '{';
+RBRACE      : '}';
+SEMI        : ';';
 
-BRACKET_STRING
-            : '[' ( ']]' | ~']' )* ']'   // ']]' bedeutet ein echtes ']' im Text
-            ;
+BRACKET_STRING : '[' ( ']]' | ~']' )* ']';   // ']]' bedeutet ein echtes ']' im Text
 
 TRUE        : '.T.' | '.t.';
 FALSE       : '.F.' | '.f.';

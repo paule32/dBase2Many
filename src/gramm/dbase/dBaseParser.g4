@@ -76,7 +76,7 @@ doTarget
     ;
 
 programRef
-    :   IDENT ('.' IDENT)?            // z.B. PROGRAM.PRG (optional: Extension)
+    :   IDENT (DOT IDENT)?            // z.B. PROGRAM.PRG (optional: Extension)
     |   PROGRAM IDENT                 // falls du "DO PROGRAM foo" willst
     ;
 
@@ -85,11 +85,11 @@ parameterStmt
     ;
 
 paramNames
-    :   IDENT (',' IDENT)*
+    :   IDENT (COMMA IDENT)*
     ;
     
 callExpr
-    : primary ('.' IDENT)* '(' argList? ')'
+    : primary (DOT IDENT)* LPAREN argList? RPAREN
     ;
 
 doWhileStatement
@@ -222,11 +222,11 @@ propertyDecl
     ;
 
 methodDecl
-    :   METHOD name=IDENT '(' paramList? ')' block ENDMETHOD
+    :   METHOD name=IDENT LPAREN paramList? RPAREN block ENDMETHOD
     ;
 
 paramList
-    :   IDENT (',' IDENT)*
+    :   IDENT (COMMA IDENT)*
     ;
 
 callStmt
@@ -281,7 +281,7 @@ postfixSuffix
     ;
 
 newExpr
-    :   NEW IDENT '(' argList? ')'
+    :   NEW IDENT LPAREN argList? RPAREN
     ;
 
 memberExpr
