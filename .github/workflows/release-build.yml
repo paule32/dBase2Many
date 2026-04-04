@@ -162,6 +162,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+
           $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
           if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
           New-Item -ItemType Directory -Path $outDir -Force | Out-Null
@@ -169,7 +170,17 @@ jobs:
           $lexer  = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
           $parser = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
 
-          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -o $outDir $lexer $parser
+          Write-Host "Generating lexer from:  $lexer"
+          Write-Host "Generating parser from: $parser"
+          Write-Host "Output directory:       $outDir"
+
+          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -o $outDir $lexer
+          if ($LASTEXITCODE -ne 0) { throw "Lexer generation failed." }
+
+          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -lib $outDir -o $outDir $parser
+          if ($LASTEXITCODE -ne 0) { throw "Parser generation failed." }
+
+          Get-ChildItem -Path $outDir | Select-Object Name, Length
 
       - name: Build GNU gettext .mo files
         shell: pwsh
