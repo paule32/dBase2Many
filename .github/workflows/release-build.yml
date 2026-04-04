@@ -189,7 +189,6 @@ jobs:
 
           Write-Host "--->"
           dir $outDir
-		  Write-Host "--->"
 		  dir $outDir/src
 		  dir $outDir/src/gramm
 		  dir $outDir/src/gramm/dbase
