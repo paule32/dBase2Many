@@ -166,8 +166,8 @@ jobs:
           dir src/gramm/dbase
 
           $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
-          if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
-          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+          #if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
+          #New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
           $lexer  = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
           $parser = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
