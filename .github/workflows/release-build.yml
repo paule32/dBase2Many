@@ -162,6 +162,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          dir
 
           $outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
           if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
