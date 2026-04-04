@@ -84,3 +84,6 @@ def build_all_locales(locale_root: str | Path, domain: str = "messages") -> None
 
 if __name__ == "__main__":
     build_all_locales("../data/po/locales", "dbase")
+    build_all_locales("../data/po/locales", "cc")
+    build_all_locales("../data/po/locales", "lisp")
+    build_all_locales("../data/po/locales", "pascal")
