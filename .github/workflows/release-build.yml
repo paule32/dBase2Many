@@ -189,6 +189,10 @@ jobs:
 
           Write-Host "--->"
           dir $outDir
+		  Write-Host "--->"
+		  dir $outDir/src
+		  dir $outDir/src/gramm
+		  dir $outDir/src/gramm/dbase
           Write-Host "<---"
 
           java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -lib $outDir -o $outDir $parser
