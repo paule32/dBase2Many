@@ -159,6 +159,27 @@ jobs:
           if (-not (Test-Path $jar)) { throw "ANTLR jar not downloaded: $jar" }
           "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Generate Lexer/Parser
+        shell: pwsh
+          run: |
+            $ErrorActionPreference = 'Stop'
+
+            Write-Host "PARSE SUBDIR: $env:GRAMMAR_SUBDIR"
+            New-Item -ItemType Directory -Force -Path f"src\parse\{$env:GRAMMAR_SUBDIR}" | Out-Null
+
+            java -jar "$env:RUNNER_TEMP\antlr-4.13.2-complete.jar" `
+                 -Dlanguage=Python3 `
+                 -visitor `
+                 -o f"src\parse\{$env:GRAMMAR_SUBDIR}" `
+                 f"src\gramm\{$env:LEXER_FILE}"
+
+            java -jar "$env:RUNNER_TEMP\antlr-4.13.2-complete.jar" `
+                 -Dlanguage=Python3 `
+                 -visitor `
+                 -o   f"src\parse\{$env:GRAMMAR_SUBDIR}" `
+                 -lib f"src\parse\{$env:GRAMMAR_SUBDIR}" `
+                 f"src\gramm\{$env:PARSER_FILE}"
+
       - name: Build GNU gettext .mo files
         shell: pwsh
         run: |
@@ -200,17 +221,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
-
-      - name: Build Generators .g4
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          cd src
-          parser_cc.bat
-          parser_dbase.bat
-          parser_pascal.bat
-          parser_lisp.bat
-          cd ..
 
       - name: Build executable
         shell: python
