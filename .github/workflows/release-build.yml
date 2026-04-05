@@ -171,14 +171,14 @@ jobs:
                -Dlanguage=Python3 `
                -visitor `
                -o "src\parse\$env:GRAMMAR_SUBDIR" `
-               "src\gramm\$env:LEXER_FILE"
+               "src\gramm\$env:GRAMMAR_SUBDIR\$env:LEXER_FILE"
 
           java -jar "$env:ANTLR_JAR" `
                -Dlanguage=Python3 `
                -visitor `
                -o   "src\parse\$env:GRAMMAR_SUBDIR" `
                -lib "src\parse\$env:GRAMMAR_SUBDIR" `
-               "src\gramm\$env:PARSER_FILE"
+               "src\gramm\$env:GRAMMAR_SUBDIR\$env:PARSER_FILE"
 
       - name: Build GNU gettext .mo files
         shell: pwsh
