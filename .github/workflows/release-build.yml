@@ -198,7 +198,7 @@ jobs:
               "-Dlanguage=Python3",
               "-visitor",
               "-o"  , f"{parse}",
-              "-lib", f"{parse}"",
+              "-lib", f"{parse}",
                       f"{parser}"])
 
       - name: Build GNU gettext .mo files
