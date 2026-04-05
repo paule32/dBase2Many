@@ -42,6 +42,7 @@ env:
   LOCALES_ZIP: src/data/locales.zip
   GEN_DIR: src/gramm
   GRAMMAR_ROOT: src/gramm
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-release:
@@ -200,6 +201,17 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if (-not (Test-Path $env:LOCALES_ZIP)) { throw "locales.zip was not created: $env:LOCALES_ZIP" }
 
+      - name: Build Generators .g4
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cd src
+          parser_cc.bat
+          parser_dbase.bat
+          parser_pascal.bat
+          parser_lisp.bat
+          cd ..
+
       - name: Build executable
         shell: python
         run: |
@@ -230,7 +242,7 @@ jobs:
           subprocess.run(args, check=True)
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ env.APP_NAME }}-${{ inputs.build_mode }}-${{ inputs.os_label }}
           path: |
