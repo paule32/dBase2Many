@@ -188,18 +188,32 @@ jobs:
               print("parser file don't exisits")
               sys.exit(1)
 
-          subprocess.run([r"java", "-jar", os.environ["ANTLR_JAR"],
+          # Lexer
+          res = subprocess.run([r"java", "-jar", os.environ["ANTLR_JAR"],
               "-Dlanguage=Python3",
               "-visitor",
               "-o", f"{parse}",
                     f"{lexer}"])
 
-          subprocess.run([r"java", "-jar", os.environ["ANTLR_JAR"],
+          if res.returncode == 0:
+              print("Success, Lexer created.")
+          else:
+              print(f"Error, returncode: {res.returncode}")
+              sys.exit(1)
+
+          # Parser
+          res = subprocess.run([r"java", "-jar", os.environ["ANTLR_JAR"],
               "-Dlanguage=Python3",
               "-visitor",
               "-o"  , f"{parse}",
               "-lib", f"{parse}",
                       f"{parser}"])
+          
+          if res.returncode == 0:
+              print("Success, Parser created.")
+          else:
+              print(f"Error, returncode: {res.returncode}")
+              sys.exit(1)
 
       - name: Build GNU gettext .mo files
         shell: pwsh
