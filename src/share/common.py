@@ -166,6 +166,11 @@ ESCAPE_BLOCKED_WINDOW_CLASSES = {
     "DebugConsoleWidget",
 }
 
+BASE = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
+LOG  = BASE / "webengine_crash.log"
+
+MAINAPP = None
+
 # ---------------------------------------------------------------------------
 # DBF schema helpers
 # ---------------------------------------------------------------------------

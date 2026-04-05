@@ -7,15 +7,15 @@ from __future__   import annotations
 from share.common import *
 
 class HtmlHelpParser(HTMLParser):
-    """
-    Parser für htmlhelp .hhc (Contents) und .hhk (Index).
-    Beide nutzen:
-      <OBJECT type="text/sitemap">
-         <param name="Name" value="...">
-         <param name="Local" value="...">
-      </OBJECT>
-      <UL> ... </UL> (optional)
-    """
+    # -----------------------------------------------------------------------
+    # Parser für htmlhelp .hhc (Contents) und .hhk (Index).
+    # Beide nutzen:
+    #   <OBJECT type="text/sitemap">
+    #      <param name="Name" value="...">
+    #      <param name="Local" value="...">
+    #   </OBJECT>
+    #   <UL> ... </UL> (optional)
+    # -----------------------------------------------------------------------
     def __init__(self):
         super().__init__()
         self.root = TocNode("ROOT")

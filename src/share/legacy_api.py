@@ -1,10 +1,11 @@
-"""Schmale Kompatibilitätsschicht über dBaseRunner.py.
-
-Der Sinn dieses Moduls ist nicht, Logik zu duplizieren, sondern einen
-zentralen Importpunkt zu schaffen. Sobald einzelne Klassen aus dem
-Monolithen extrahiert werden, können die Re-Exports hier angepasst werden,
-ohne dass alle Runner-Dateien geändert werden müssen.
-"""
+# ---------------------------------------------------------------------------
+# Schmale Kompatibilitätsschicht über dBaseRunner.py.
+#
+# Der Sinn dieses Moduls ist nicht, Logik zu duplizieren, sondern einen
+# zentralen Importpunkt zu schaffen. Sobald einzelne Klassen aus dem
+# Monolithen extrahiert werden, können die Re-Exports hier angepasst werden,
+# ohne dass alle Runner-Dateien geändert werden müssen.
+# ---------------------------------------------------------------------------
 
 from __future__ import annotations
 

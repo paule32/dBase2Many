@@ -74,3 +74,82 @@ class showException(QDialog):
         
     def on_button_clicked(self):
         self.close()
+
+class ErrorMessage(QDialog):
+    def __init__(self, title="Fehler", message="", log_path=None, parent=None):
+        super().__init__(parent)
+        
+        self.log_path = log_path  # Pfad zur Logdatei (oder None)
+        
+        self.setWindowTitle(title)
+        self.resize(750, 420)
+        
+        layout = QVBoxLayout(self)
+        
+        # Textbereich
+        self.text_edit = QPlainTextEdit()
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setPlainText(message)
+        self.text_edit.setLineWrapMode(QPlainTextEdit.NoWrap)
+        
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.Monospace)
+        self.text_edit.setFont(font)
+        
+        layout.addWidget(self.text_edit)
+        
+        # Button-Leiste
+        btn_row = QHBoxLayout()
+        
+        self.btn_delete_log = QPushButton("LOG löschen")
+        self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
+        self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
+        
+        btn_row.addWidget(self.btn_delete_log)
+        btn_row.addStretch()
+        
+        self.btn_close = QPushButton("Schließen")
+        self.btn_close.clicked.connect(self.accept)
+        btn_row.addWidget(self.btn_close)
+        
+        layout.addLayout(btn_row)
+
+    def _on_delete_log_clicked(self):
+        if not self.log_path:
+            return
+        if not os.path.exists(self.log_path):
+            QMessageBox.information(
+                self,
+                "LOG nicht gefunden",
+                "Die LOG-Datei existiert nicht (mehr)."
+            )
+            return
+        err = tr("remove LOG file?")
+        answer = QMessageBox.question(
+            self,
+            tr("delete LOG file?"),
+            f"{err}\n\n{self.log_path}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if answer != QMessageBox.Yes:
+            return
+        try:
+            with open(LOG, "w", encoding="utf-8"):
+                pass
+            os.remove(self.log_path)
+        except Exception as e:
+            err = tr("LOG file could not remove")
+            QMessageBox.critical(
+                self,
+                tr("remove file diened."),
+                f"{err}:\n{e}"
+            )
+            return
+        QMessageBox.information(
+            self,
+            tr("removed"),
+            tr("LOG file have been removed")
+        )
+        # Optional: Button deaktivieren, weil Datei weg ist
+        self.btn_delete_log.setEnabled(False)

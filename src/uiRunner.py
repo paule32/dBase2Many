@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# File:   dBaseRunner.py
+# File:   uiRunner.py
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
@@ -10,6 +10,8 @@ import os
 import builtins
 
 from   share.common          import *
+from   share.excepts         import *
+from   share.locales         import *
 from   share.editors.editor  import *
 
 import share.utildef
@@ -37,10 +39,8 @@ if "_PDF_BACKEND_IMPORT_ERROR" not in globals():
     _PDF_BACKEND_IMPORT_ERROR = None
 _PDF_BACKEND_WARNING_EMITTED = False
 
-BASE = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
-LOG  = BASE / "webengine_crash.log"
 
-faulthandler.enable(open(LOG, "a", buffering=1), all_threads=True)
+faulthandler.enable(open(share.common.LOG, "a", buffering=1), all_threads=True)
 
 
 def load_qss(rel_path: str) -> str:
@@ -51,10 +51,10 @@ _RUNNER_LANGUAGE = (os.environ.get("DBASERUNNER_LANGUAGE") or "dbase").strip().l
 
 def _runner_window_title() -> str:
     titles = {
-        "dbase": "dBase 2026 - (c) Jens Kallup - paule32",
+        "dbase" : "dBase 2026 - (c) Jens Kallup - paule32",
         "pascal": "Pascal Runner 2026 - (c) Jens Kallup - paule32",
-        "cc": "C/C++ Runner 2026 - (c) Jens Kallup - paule32",
-        "lisp": "LISP Runner 2026 - (c) Jens Kallup - paule32",
+        "cc"    : "C/C++ Runner 2026 - (c) Jens Kallup - paule32",
+        "lisp"  : "LISP Runner 2026 - (c) Jens Kallup - paule32",
     }
     return titles.get(_RUNNER_LANGUAGE, titles["dbase"])
 
@@ -76,7 +76,7 @@ def ensure_qt_app():
 def excepthook(etype, value, tb):
     content = ""
     
-    with open(LOG, "w", buffering=1) as f:
+    with open(share.common.LOG, "w", buffering=1) as f:
         f.write("\n--- PYTHON UNCAUGHT EXCEPTION ---\n")
         traceback.print_exception(etype, value, tb, file=f)
         f.close()
@@ -86,13 +86,13 @@ def excepthook(etype, value, tb):
     # If Qt isn't available yet (e.g. crash during import), just log and fall back.
     if app is not None:
         try:
-            with open(LOG, "r") as f:
+            with open(share.common.LOG, "r") as f:
                 content = f.read()
 
-            dlg = ErrorMessage(
+            dlg = share.excepts.ErrorMessage(
                 title    = "Laufzeitfehler",
                 message  = content,
-                log_path = LOG,
+                log_path = share.common.LOG,
                 parent   = None
             )
             dlg.exec_()
@@ -120,14 +120,14 @@ if APPINST is None:
 base = Path(sys.argv[0]).resolve().parent
 cand = list(base.rglob("QtWebEngineProcess.exe"))
 try:
-    with open(LOG, "a", buffering=1) as f:
+    with open(share.common.LOG, "a", buffering=1) as f:
         f.write(f"base={base}\nQtWebEngineProcess={cand}\n")
 except Exception:
     pass
     
 try:
     def qt_msg_handler(mode, context, message):
-        with open(LOG, "a", buffering=1) as f:
+        with open(share.common.LOG, "a", buffering=1) as f:
             f.write(f"[QT] {message}\n")
     qInstallMessageHandler(qt_msg_handler)
 except Exception as e:
@@ -139,85 +139,6 @@ except Exception as e:
     else:
         debug_print(e)
         pass
-
-class ErrorMessage(QDialog):
-    def __init__(self, title="Fehler", message="", log_path=None, parent=None):
-        super().__init__(parent)
-        
-        self.log_path = log_path  # Pfad zur Logdatei (oder None)
-        
-        self.setWindowTitle(title)
-        self.resize(750, 420)
-        
-        layout = QVBoxLayout(self)
-        
-        # Textbereich
-        self.text_edit = QPlainTextEdit()
-        self.text_edit.setReadOnly(True)
-        self.text_edit.setPlainText(message)
-        self.text_edit.setLineWrapMode(QPlainTextEdit.NoWrap)
-        
-        font = QFont("Consolas")
-        font.setStyleHint(QFont.Monospace)
-        self.text_edit.setFont(font)
-        
-        layout.addWidget(self.text_edit)
-        
-        # Button-Leiste
-        btn_row = QHBoxLayout()
-        
-        self.btn_delete_log = QPushButton("LOG löschen")
-        self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
-        self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
-        
-        btn_row.addWidget(self.btn_delete_log)
-        btn_row.addStretch()
-        
-        self.btn_close = QPushButton("Schließen")
-        self.btn_close.clicked.connect(self.accept)
-        btn_row.addWidget(self.btn_close)
-        
-        layout.addLayout(btn_row)
-
-    def _on_delete_log_clicked(self):
-        if not self.log_path:
-            return
-        if not os.path.exists(self.log_path):
-            QMessageBox.information(
-                self,
-                "LOG nicht gefunden",
-                "Die LOG-Datei existiert nicht (mehr)."
-            )
-            return
-        err = tr("remove LOG file?")
-        answer = QMessageBox.question(
-            self,
-            tr("delete LOG file?"),
-            f"{err}\n\n{self.log_path}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if answer != QMessageBox.Yes:
-            return
-        try:
-            with open(LOG, "w", encoding="utf-8"):
-                pass
-            os.remove(self.log_path)
-        except Exception as e:
-            err = tr("LOG file could not remove")
-            QMessageBox.critical(
-                self,
-                tr("remove file diened."),
-                f"{err}:\n{e}"
-            )
-            return
-        QMessageBox.information(
-            self,
-            tr("removed"),
-            tr("LOG file have been removed")
-        )
-        # Optional: Button deaktivieren, weil Datei weg ist
-        self.btn_delete_log.setEnabled(False)
 
 
 class _GlobalEscapeCloseFilter(QObject):
@@ -474,7 +395,7 @@ class CollectProgressDialog(QDialog):
 # Qt message handleer (for WebEngine) ...
 # ---------------------------------------------------------------------------
 def qt_msg_handler(mode, context, message):
-    with open(LOG, "a", buffering=1) as f:
+    with open(share.common.LOG, "a", buffering=1) as f:
         f.write(f"[QT] {message}\n")
 
 qInstallMessageHandler(qt_msg_handler)
@@ -528,85 +449,17 @@ def delete_last_line(edit):
     c.endEditBlock()
 
 # ---------------------------------------------------------------------------
-# locales (gnu gettext) support ...
-# ---------------------------------------------------------------------------
-class TranslationManager:
-    """Loads GNU gettext .mo files from a zip and provides tr()."""
-    def __init__(self, zip_path: Optional[Union[str, Path]] = None, mode: int = 0, domain: str = "dbase"):
-        self.domain     = domain
-        self.zip_path   = Path(zip_path) if zip_path else None
-        self.lang       = "de"
-        self.mode       = mode
-        self.style_name = "dark"
-        self._trans     = gettext.NullTranslations()
-    
-    def set_zip(self, zip_path: Union[str, Path]):
-        self.zip_path = Path(zip_path)
-    
-    def load_mo(self, lang: str) -> bool:
-        lang            = lang.strip().lower()
-        self.style_name = lang
-        self.lang       = lang
-        self._trans     = gettext.NullTranslations()
-        
-        if not self.zip_path:
-            return False
-        
-        share.common.AppMode.lang   = lang
-        share.common.AppMode.domain = self.domain
-        
-        if self.mode == 0:
-            inner = f"{lang}/LC_MESSAGES/{self.domain}.mo"
-        elif self.mode == 1:
-            inner = f"default/{self.style_name}.mo"
-        try:
-            with zipfile.ZipFile(str(self.zip_path), "r") as zf:
-                data = zf.read(inner)  # bytes
-            self._trans = gettext.GNUTranslations(fp=io.BytesIO(data))
-            return True
-        except KeyError:
-            # not found in zip
-            self._trans = gettext.NullTranslations()
-            return False
-        except Exception:
-            self._trans = gettext.NullTranslations()
-            return False
-    
-    def _tr(self, msgid: str) -> str:
-        try:
-            return self._trans.gettext(msgid)
-        except Exception:
-            return msgid
-
-# ---------------------------------------------------------------------------
-# Global translation hook used by UI code: tr("File") -> "Datei" (if de loaded)
-# ---------------------------------------------------------------------------
-_I18N = TranslationManager( mode = 0 )
-_QCSS = TranslationManager( mode = 1 )
-
-# ---- Standard-Locale beim Start setzen ----
-if SystemInfo.is_windows():
-    _I18N.set_zip(Path(__file__).parent / "data\\locales.zip"); _I18N.load_mo("de"  ) # Deutsch als Default
-    _QCSS.set_zip(Path(__file__).parent / "data\\styles.zip" ); _QCSS.load_mo("dark") # dark mode style
-else:
-    _I18N.set_zip(Path(__file__).parent / "data/locales.zip"); _I18N.load_mo("de"  ) # Deutsch als Default
-    _QCSS.set_zip(Path(__file__).parent / "data/styles.zip" ); _QCSS.load_mo("dark") # dark mode style
-
-def  _tr(msgid: str) -> str: return _I18N._tr(msgid)
-def _css(msgid: str) -> str: return _QCSS._tr(msgid)
-
-# ---------------------------------------------------------------------------
 # dBase field types ...
 # ---------------------------------------------------------------------------
 TYPE_VALUES = [
-    _tr("Character"),
-    _tr("Numeric"),
-    _tr("Float"),
-    _tr("Integer"),
-    _tr("Date"),
-    _tr("DateTime"),
-    _tr("Logical"),
-    _tr("Memo"),
+    share.locales.tr("Character"),
+    share.locales.tr("Numeric"),
+    share.locales.tr("Float"),
+    share.locales.tr("Integer"),
+    share.locales.tr("Date"),
+    share.locales.tr("DateTime"),
+    share.locales.tr("Logical"),
+    share.locales.tr("Memo"),
 ]
 
 def _guess_mime(path: str) -> bytes:
@@ -1542,10 +1395,10 @@ class SourceAliasesTab(QWidget):
         if not self._model:
             self._model.update({
                 "CoreShared": r"T:\Programme\dBASE\dBASE2019\Bin\dBLCore\Shared",
-                "dBStartup": r"T:\Programme\dBASE\dBASE2019\Bin\dBStartup",
-                "Examples": r"T:\Programme\dBASE\dBASE2019\Examples",
-                "Forms": r"T:\Programme\dBASE\dBASE2019\Forms",
-                "Images": r"T:\Programme\dBASE\dBASE2019\Images",
+                "dBStartup" : r"T:\Programme\dBASE\dBASE2019\Bin\dBStartup",
+                "Examples"  : r"T:\Programme\dBASE\dBASE2019\Examples",
+                "Forms"     : r"T:\Programme\dBASE\dBASE2019\Forms",
+                "Images"    : r"T:\Programme\dBASE\dBASE2019\Images",
             })
 
         self._reload_list(select_first=True)
@@ -1629,8 +1482,8 @@ class SourceAliasesTab(QWidget):
         if alias in self._model:
             r = QMessageBox.question(
                 self,
-                tr("alias already exists"),
-                f"{tr('The alias')} '{alias}' {_tr('already exists')}.\n{_tr(alias_overwrite)}",
+                share.locales.tr("alias already exists"),
+                f"{share.locales.tr('The alias')} '{alias}' {share.locales.tr('already exists')}.\n{share.locales.tr(alias_overwrite)}",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
@@ -1648,8 +1501,8 @@ class SourceAliasesTab(QWidget):
         alias = cur.text()
         r = QMessageBox.question(
             self,
-            _tr("Remove"),
-                f"Alias '{alias}' {_tr('are you sure, to delete?')}",
+            share.locales.tr("Remove"),
+                f"Alias '{alias}' {share.locales.tr('are you sure, to delete?')}",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -1661,7 +1514,7 @@ class SourceAliasesTab(QWidget):
 
     def _on_browse(self):
         start_dir = (self.ed_path.text() or "").strip() or ""
-        dlg = QFileDialog(self, _tr("Choose path"), start_dir)
+        dlg = QFileDialog(self, share.locales.tr("Choose path"), start_dir)
         dlg.setFileMode(QFileDialog.Directory)
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
         dlg.setOption(QFileDialog.DontUseNativeDialog, True)  # <- NICHT NATIV
@@ -1704,7 +1557,7 @@ class SourceAliasesTab(QWidget):
             return
 
         if new_alias in self._model:
-            QMessageBox.warning(self, _tr("Error"), f"Alias '{new_alias}' " + _tr("already exists."))
+            QMessageBox.warning(self, share.locales.tr("Error"), f"Alias '{new_alias}' " + share.locales.tr("already exists."))
             self._updating_ui = True
             try:
                 self.ed_alias.setText(old_alias)
@@ -1794,7 +1647,9 @@ class TypeComboDelegate(QStyledItemDelegate):
         editor.setGeometry(option.rect)
 
 class IndexComboDelegate(QStyledItemDelegate):
-    VALUES = [_tr("kein"), _tr("aufsteigend"), _tr("absteigend")]
+    VALUES = [  share.locales.tr("kein"),
+                share.locales.tr("aufsteigend"),
+                share.locales.tr("absteigend")]
 
     def __init__(self, index_column: int, parent=None):
         super().__init__(parent)
@@ -1970,8 +1825,8 @@ class TableRecordEditorDialog(QDialog):
             b.setFixedSize(QSize(42, 42))
             return b
 
-        self.btn_new = _mk(QStyle.SP_FileIcon, "Neuer Record")
-        self.btn_del = _mk(QStyle.SP_DialogDiscardButton, "Record löschen")
+        self.btn_new  = _mk(QStyle.SP_FileIcon, "Neuer Record")
+        self.btn_del  = _mk(QStyle.SP_DialogDiscardButton, "Record löschen")
         self.btn_save = _mk(QStyle.SP_DialogSaveButton, "Speichern")
 
         self.btn_new.clicked.connect(self._action_new_record)
@@ -3236,10 +3091,10 @@ class TableDesignerDialog(QDialog):
             # Field number
             self.model.setItem(row, 0, QStandardItem(str(row + 1)))
             self.model.setItem(row, 1, QStandardItem("FIELD"))
-            self.model.setItem(row, 2, QStandardItem(_tr("Character")))
+            self.model.setItem(row, 2, QStandardItem(share.locales.tr("Character")))
             self.model.setItem(row, 3, QStandardItem("10"))
             self.model.setItem(row, 4, QStandardItem("0"))
-            self.model.setItem(row, 5, QStandardItem(_tr("kein")))
+            self.model.setItem(row, 5, QStandardItem(share.locales.tr("kein")))
         finally:
             self._updating = False
 
@@ -3282,35 +3137,35 @@ class TableDesignerDialog(QDialog):
     def _type_char_to_label(self, t: str) -> str:
         t = (t or "").upper()[:1]
         mapping = {
-            "C": _tr("Character"),
-            "N": _tr("Numeric"),
-            "F": _tr("Float"),
-            "I": _tr("Integer"),
-            "D": _tr("Date"),
-            "T": _tr("DateTime"),
-            "L": _tr("Logical"),
-            "M": _tr("Memo"),
+            "C": share.locales.tr("Character"),
+            "N": share.locales.tr("Numeric"),
+            "F": share.locales.tr("Float"),
+            "I": share.locales.tr("Integer"),
+            "D": share.locales.tr("Date"),
+            "T": share.locales.tr("DateTime"),
+            "L": share.locales.tr("Logical"),
+            "M": share.locales.tr("Memo"),
         }
-        return mapping.get(t, _tr("Character"))
+        return mapping.get(t, share.locales.tr("Character"))
 
     def _type_label_to_char(self, label: str) -> str:
         # label is translated; match by TYPE_VALUES content
         lab = (label or "").strip()
-        if lab == _tr("Character"):
+        if lab == share.locales.tr("Character"):
             return "C"
-        if lab == _tr("Numeric"):
+        if lab == share.locales.tr("Numeric"):
             return "N"
-        if lab == _tr("Float"):
+        if lab == share.locales.tr("Float"):
             return "F"
-        if lab == _tr("Integer"):
+        if lab == share.locales.tr("Integer"):
             return "I"
-        if lab == _tr("Date"):
+        if lab == share.locales.tr("Date"):
             return "D"
-        if lab == _tr("DateTime"):
+        if lab == share.locales.tr("DateTime"):
             return "T"
-        if lab == _tr("Logical"):
+        if lab == share.locales.tr("Logical"):
             return "L"
-        if lab == _tr("Memo"):
+        if lab == share.locales.tr("Memo"):
             return "M"
         return "C"
 
@@ -3363,7 +3218,7 @@ class TableDesignerDialog(QDialog):
                         self.model.setItem(r, 2, QStandardItem(self._type_char_to_label(ftype)))
                         self.model.setItem(r, 3, QStandardItem(str(int(flen))))
                         self.model.setItem(r, 4, QStandardItem(str(int(fdec))))
-                        self.model.setItem(r, 5, QStandardItem(_tr("kein")))
+                        self.model.setItem(r, 5, QStandardItem(share.locales.tr("kein")))
                 finally:
                     try:
                         self.model.endResetModel()
@@ -3392,7 +3247,7 @@ class TableDesignerDialog(QDialog):
                 if not name:
                     continue
                 name = name[:11]  # dbf limit
-                tlabel = (self.model.item(r, 2).text() if self.model.item(r, 2) else _tr("Character"))
+                tlabel = (self.model.item(r, 2).text() if self.model.item(r, 2) else share.locales.tr("Character"))
                 ftype = self._type_label_to_char(tlabel)
                 flen = int((self.model.item(r, 3).text() if self.model.item(r, 3) else "0") or "0")
                 fdec = int((self.model.item(r, 4).text() if self.model.item(r, 4) else "0") or "0")
@@ -3446,13 +3301,13 @@ class TableDesignerDialog(QDialog):
     # --------------------------
     def _fill_demo_data(self):
         rows = [
-            (1,  "First_Name",    _tr("Character"), 25, 0, "None"),
-            (2,  "Last_Name",     _tr("Character"), 35, 0, "None"),
-            (3,  "Sex",           _tr("Character"),  1, 0, "None"),
-            (4,  "Address",       _tr("Character"), 40, 0, "None"),
-            (5,  "City",          _tr("Character"), 25, 0, "None"),
-            (6,  "State_Prov",    _tr("Character"), 17, 0, "None"),
-            (7,  "Zip",           _tr("Character"), 10, 0, "None"),
+            (1,  "First_Name",    share.locales.tr("Character"), 25, 0, "None"),
+            (2,  "Last_Name",     share.locales.tr("Character"), 35, 0, "None"),
+            (3,  "Sex",           share.locales.tr("Character"),  1, 0, "None"),
+            (4,  "Address",       share.locales.tr("Character"), 40, 0, "None"),
+            (5,  "City",          share.locales.tr("Character"), 25, 0, "None"),
+            (6,  "State_Prov",    share.locales.tr("Character"), 17, 0, "None"),
+            (7,  "Zip",           share.locales.tr("Character"), 10, 0, "None"),
         ]
 
         self._updating = True
@@ -3465,7 +3320,7 @@ class TableDesignerDialog(QDialog):
                 self.model.setItem(r, 2, QStandardItem(typ))
                 self.model.setItem(r, 3, QStandardItem(str(width)))
                 self.model.setItem(r, 4, QStandardItem(str(dec)))
-                self.model.setItem(r, 5, QStandardItem(_tr("kein") if (idx or "").strip().lower() in ("none", "") else idx))
+                self.model.setItem(r, 5, QStandardItem(share.locales.tr("kein") if (idx or "").strip().lower() in ("none", "") else idx))
         finally:
             self._updating = False
 
@@ -3498,17 +3353,17 @@ class EditorWidget(QDialog):
         
         # Splitter: links Tree, rechts Editor
         self.splitter = QSplitter(Qt.Horizontal, self)
-        self.splitter.setStyleSheet(_css("EditorWindow_Splitter"))
-        self.setStyleSheet(_css("EditorWindow_Dialog"))
+        self.splitter.setStyleSheet(share.locales.css("EditorWindow_Splitter"))
+        self.setStyleSheet(share.locales.css("EditorWindow_Dialog"))
         
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
 
-        self.tree.setStyleSheet(_css("EditoWidget"))
+        self.tree.setStyleSheet(share.locales.css("EditoWidget"))
         
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
         model = QStandardItemModel()
-        model.setHorizontalHeaderLabels([_tr("Structure")])
+        model.setHorizontalHeaderLabels([share.locales.tr("Structure")])
         
         root = model.invisibleRootItem()
         
@@ -3522,7 +3377,7 @@ class EditorWidget(QDialog):
 
         # Mehrzeiliges Eingabefeld
         self.text = CodeEditor(self.splitter)
-        self.text.setPlaceholderText(_tr("Please enter text"))
+        self.text.setPlaceholderText(share.locales.tr("Please enter text"))
         self.text.setLineWrapMode(self.text.NoWrap)
         self.text.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.text.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
@@ -3652,7 +3507,7 @@ class EditorWidget(QDialog):
         # Das ist die Funktion, die beim Klick ausgeführt wird
         content = self.text.toPlainText().strip()
         if not content:
-            QMessageBox.information(self, "Info", _tr("Please enter text"))
+            QMessageBox.information(self, "Info", share.locales.tr("Please enter text"))
             return
         try:
             with open(self.filename, "w", encoding="utf-8") as f:
@@ -3664,61 +3519,61 @@ class EditorWidget(QDialog):
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
 
             dlg = showException(self,
-            _tr("Comment Error: ") + type(e).__name__, tb_str)
+            share.locales.tr("Comment Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except KeyError as e:
             tb_str = (f"error: {e.name}: {e.message}\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            _tr("Internal Error: ") + type(e).__name__, tb_str)
+            share.locales.tr("Internal Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except PermissionError as e:
             tb_str = (f"error: Zugriff verweigert\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            _tr("Access Error: ") + type(e).__name__, tb_str)
+            share.locales.tr("Access Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except FileNotFoundError as e:
             tb_str = (f"error: Datei nicht gefunden.\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
             dlg = showException(self,
-            _tr("File Error: ") + type(e).__name__, tb_str)
+            share.locales.tr("File Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except NameError as e:
             msg = str(e)
             m = re.search(r"name '([^']+)' is not defined", msg)
             missing = m.group(1) if m else "<?>"
-            message = _tr("Internal Error (Python NameError)") + "\n"
+            message = share.locales.tr("Internal Error (Python NameError)") + "\n"
             message = message + f"{missing}: {msg}"
             
             tb_str = (f"Fehler: {message}\n")
             tb_str = (tb_str + "".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,_tr("Error: ") + type(e).__name__, tb_str)
+            dlg = showException(self,share.locales.tr("Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except AttributeError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,_tr("Attribut Error: ") + type(e).__name__, tb_str)
+            dlg = showException(self,share.locales.tr("Attribut Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except RuntimeError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,_tr("Runtime Error: ") + type(e).__name__, tb_str)
+            dlg = showException(self,share.locales.tr("Runtime Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except SyntaxError as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
-            dlg = showException(self,_tr("Syntax Error: ") + type(e).__name__, tb_str)
+            dlg = showException(self,share.locales.tr("Syntax Error: ") + type(e).__name__, tb_str)
             dlg.exec_()
         except Exception as e:
             tb_str = ("".join(traceback.TracebackException.from_exception(e).format()))
             
             traceback.print_exc()
-            dlg = showException(self,_tr("Common Exception: ") + type(e).__name__, tb_str)
+            dlg = showException(self,share.locales.tr("Common Exception: ") + type(e).__name__, tb_str)
             dlg.exec_()
 
 class IconTab(QListWidget):
@@ -3755,7 +3610,7 @@ class IconTab(QListWidget):
         self.customContextMenuRequested.connect(self._on_context_menu)
 
         # F2 = Ausführen
-        self._act_run = QAction(_tr("Run - F2"), self)
+        self._act_run = QAction(share.locales.tr("Run - F2"), self)
         self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
         self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self._act_run.triggered.connect(self._run_selected)
@@ -3842,16 +3697,16 @@ class IconTab(QListWidget):
         menu = QMenu(self)
 
         # --- Neu Submenu (immer vorhanden) ---
-        m_new = menu.addMenu(_tr("Neu"))
-        act_new_prg = QAction(_tr("Programm"), self)
+        m_new = menu.addMenu(share.locales.tr("Neu"))
+        act_new_prg = QAction(share.locales.tr("Programm"), self)
         act_new_prg.triggered.connect(self._new_program)
         m_new.addAction(act_new_prg)
 
-        act_new_table = QAction(_tr("Tabelle"), self)
+        act_new_table = QAction(share.locales.tr("Tabelle"), self)
         act_new_table.triggered.connect(self._new_table)
         m_new.addAction(act_new_table)
 
-        act_new_sql = QAction(_tr("SQL Query"), self)
+        act_new_sql = QAction(share.locales.tr("SQL Query"), self)
         act_new_sql.triggered.connect(self._new_sql_query)
         m_new.addAction(act_new_sql)
 
@@ -3861,17 +3716,17 @@ class IconTab(QListWidget):
         if path:
             ext = os.path.splitext(path)[1].lower()
 
-            act_run = QAction(_tr("Run - F2"), self)
+            act_run = QAction(share.locales.tr("Run - F2"), self)
             act_run.triggered.connect(lambda: self._run_file(path))
             menu.addAction(act_run)
 
-            act_edit = QAction(_tr("Edit"), self)
+            act_edit = QAction(share.locales.tr("Edit"), self)
             act_edit.triggered.connect(lambda: self._edit_in_editor(path))
             
             menu.addAction(act_edit)
             menu.addSeparator()
             
-            m_compile    = menu.addMenu(_tr("Compile"))
+            m_compile    = menu.addMenu(share.locales.tr("Compile"))
             act_c_py     = QAction("Python",     self)
             act_c_pascal = QAction("Pascal",     self)
             act_c_cpp    = QAction("C++",        self)
@@ -3902,15 +3757,15 @@ class IconTab(QListWidget):
 
             menu.addSeparator()
 
-            act_copy = QAction(_tr("Copy"), self)
+            act_copy = QAction(share.locales.tr("Copy"), self)
             act_copy.triggered.connect(lambda: self._copy_path(path))
             menu.addAction(act_copy)
 
-            act_ren = QAction(_tr("Rename"), self)
+            act_ren = QAction(share.locales.tr("Rename"), self)
             act_ren.triggered.connect(lambda: self._rename_file(item, path))
             menu.addAction(act_ren)
 
-            act_del = QAction(_tr("Delete"), self)
+            act_del = QAction(share.locales.tr("Delete"), self)
             act_del.triggered.connect(lambda: self._delete_file(item, path))
             menu.addAction(act_del)
 
@@ -4674,10 +4529,10 @@ class SourceAliasesTab(QWidget):
         if not self._model:
             self._model.update({
                 "CoreShared": r"T:\Programme\dBASE\dBASE2019\Bin\dBLCore\Shared",
-                "dBStartup": r"T:\Programme\dBASE\dBASE2019\Bin\dBStartup",
-                "Examples": r"T:\Programme\dBASE\dBASE2019\Examples",
-                "Forms": r"T:\Programme\dBASE\dBASE2019\Forms",
-                "Images": r"T:\Programme\dBASE\dBASE2019\Images",
+                "dBStartup" : r"T:\Programme\dBASE\dBASE2019\Bin\dBStartup",
+                "Examples"  : r"T:\Programme\dBASE\dBASE2019\Examples",
+                "Forms"     : r"T:\Programme\dBASE\dBASE2019\Forms",
+                "Images"    : r"T:\Programme\dBASE\dBASE2019\Images",
             })
 
         self._reload_list(select_first=True)
@@ -5749,7 +5604,7 @@ def apply_custom_dock_titlebar(dock: QDockWidget):
 class ObjectInspectorDock(QDockWidget):
     """Dock: Objekt-Inspector (oben links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__(_tr("Object Inspector"), parent)
+        super().__init__(share.locales.tr("Object Inspector"), parent)
         self.main_window = main_window
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
@@ -5762,7 +5617,7 @@ class ObjectInspectorDock(QDockWidget):
 class ObjectPaletteDock(QDockWidget):
     """Dock: Objektpalette (unten links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__(_tr("Object Palette"), parent)
+        super().__init__(share.locales.tr("Object Palette"), parent)
         self.main_window = main_window
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
@@ -6674,7 +6529,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
         main_window.form_designer_window = designer
         main_window.designer_canvas = getattr(designer, 'canvas', None)
         sub = main_window.mdi.addSubWindow(designer)
-        sub.setWindowTitle(_tr("Form Designer"))
+        sub.setWindowTitle(share.locales.tr("Form Designer"))
         sub.resize(700, 520)
         sub.move(220, 40)
         designer.show()
@@ -6707,7 +6562,7 @@ class ObjectInspectorPanel(QWidget):
         self.tree_props.setHeaderLabels(["Key", "Value"])
         self.tree_props.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_props.header().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabs.addTab(self.tree_props, _tr("Properties"))
+        self.tabs.addTab(self.tree_props, share.locales.tr("Properties"))
         self.tree_props.itemChanged.connect(self._on_prop_changed)
 
         # Events (Event/Handler)
@@ -7158,7 +7013,7 @@ class MainWindow(QMainWindow):
     def _set_language(self, lang: str):
         """Loads <lang>/LC_MESSAGES/dbase.mo from locales.zip and refreshes menu texts."""
         try:
-            _I18N.load_mo(lang)
+            share.locales.I18N.load_mo(lang)
         except Exception:
             pass
         self._retranslate_ui()
@@ -7166,19 +7021,19 @@ class MainWindow(QMainWindow):
     def _retranslate_ui(self):
         """Best-effort retranslate for main menu + window title."""
         try:
-            self.setWindowTitle(_tr(_runner_window_title()))
+            self.setWindowTitle(share.locales.tr(_runner_window_title()))
         except Exception:
             pass
 
         # Menüs (nur wenn vorhanden)
         try:
-            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(_tr("File"))
-            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(_tr("Edit"))
-            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(_tr("View"))
-            if hasattr(self, "menu_properties"): self.menu_properties.setTitle(_tr("Properties"))
-            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(_tr("Window"))
-            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(_tr("Help"))
-            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(_tr("Language"))
+            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(share.locales.tr("File"))
+            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(share.locales.tr("Edit"))
+            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(share.locales.tr("View"))
+            if hasattr(self, "menu_properties"): self.menu_properties.setTitle(share.locales.tr("Properties"))
+            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(share.locales.tr("Window"))
+            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(share.locales.tr("Help"))
+            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(share.locales.tr("Language"))
         except Exception:
             pass
 
@@ -7198,36 +7053,36 @@ class MainWindow(QMainWindow):
             ]:
                 act = getattr(self, name, None)
                 if act is not None:
-                    act.setText(_tr(msgid))
+                    act.setText(share.locales.tr(msgid))
             if hasattr(self, 'menu_language'):
                 try:
-                    self.act_lang_en.setText(_tr("English"))
-                    self.act_lang_de.setText(_tr("German"))
+                    self.act_lang_en.setText(share.locales.tr("English"))
+                    self.act_lang_de.setText(share.locales.tr("German"))
                 except Exception:
                     pass
             if hasattr(self, '_debug_console') and self._debug_console is not None:
                 try:
                     for sub in self.mdi.subWindowList():
                         if sub.widget() is self._debug_console:
-                            sub.setWindowTitle(_tr("Debug Window"))
+                            sub.setWindowTitle(share.locales.tr("Debug Window"))
                             break
                 except Exception:
                     pass
             if hasattr(self, 'obj_inspector_dock') and self.obj_inspector_dock is not None:
                 try:
-                    self.obj_inspector_dock.setWindowTitle(_tr("Object Inspector"))
+                    self.obj_inspector_dock.setWindowTitle(share.locales.tr("Object Inspector"))
                 except Exception:
                     pass
             if hasattr(self, 'obj_palette_dock') and self.obj_palette_dock is not None:
                 try:
-                    self.obj_palette_dock.setWindowTitle(_tr("Object Palette"))
+                    self.obj_palette_dock.setWindowTitle(share.locales.tr("Object Palette"))
                 except Exception:
                     pass
             try:
                 for sub in self.mdi.subWindowList():
                     w = sub.widget()
                     if w is getattr(self, 'form_designer_window', None):
-                        sub.setWindowTitle(_tr("Form Designer"))
+                        sub.setWindowTitle(share.locales.tr("Form Designer"))
             except Exception:
                 pass
         except Exception:
@@ -7314,9 +7169,9 @@ class MainWindow(QMainWindow):
         # --- i18n: load translations from locales.zip next to this script ---
         try:
             self._locales_zip = Path(__file__).parent / 'data' / 'locales.zip'
-            _I18N.set_zip(self._locales_zip)
+            share.locales.I18N.set_zip(self._locales_zip)
             # Default: Deutsch (passt zum aktuellen UI-Stand)
-            _I18N.load_mo("de")
+            share.locales.I18N.load_mo("de")
         except Exception:
             self._locales_zip = None
 
@@ -7340,28 +7195,28 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        self.menu_file       = menubar.addMenu(_tr("File"))
+        self.menu_file       = menubar.addMenu(share.locales.tr("File"))
         self.menu_file.setFont(f2)
         
-        self.menu_edit       = menubar.addMenu(_tr("Edit"))
+        self.menu_edit       = menubar.addMenu(share.locales.tr("Edit"))
         self.menu_edit.setFont(f2)
         
-        self.act_edit_minimap = QAction(_tr("Mini-Map"), self, checkable=True, checked=True)
+        self.act_edit_minimap = QAction(share.locales.tr("Mini-Map"), self, checkable=True, checked=True)
         self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
         
         self.menu_edit.addAction(self.act_edit_minimap)
         
-        self.menu_display    = menubar.addMenu(_tr("View"))
+        self.menu_display    = menubar.addMenu(share.locales.tr("View"))
         self.menu_display.setFont(f2)
         
         # Ansicht/Anzeige: mindestens eine Action hinzufügen, sonst öffnet Qt das Menü nicht (leeres Menü => unsichtbar)
-        self.act_view_debug_window = QAction(_tr("Debug Window"), self)
-        self.act_view_regie        = QAction(_tr("Control Center"), self)
-        self.act_view_designer     = QAction(_tr("Designer")      , self)
-        self.act_view_editor       = QAction(_tr("Editor")        , self)
-        self.act_view_table        = QAction(_tr("Table Designer"), self)
+        self.act_view_debug_window = QAction(share.locales.tr("Debug Window"), self)
+        self.act_view_regie        = QAction(share.locales.tr("Control Center"), self)
+        self.act_view_designer     = QAction(share.locales.tr("Designer")      , self)
+        self.act_view_editor       = QAction(share.locales.tr("Editor")        , self)
+        self.act_view_table        = QAction(share.locales.tr("Table Designer"), self)
 
-        self.act_view_sql = QAction(_tr("SQL Builder"), self)
+        self.act_view_sql = QAction(share.locales.tr("SQL Builder"), self)
         self.act_view_debug_window.triggered.connect(self.on_action_view_debug_window)
         self.act_view_regie       .triggered.connect(self.on_action_view_regiecenter)
         self.act_view_designer    .triggered.connect(self.on_action_view_designer)
@@ -7380,7 +7235,7 @@ class MainWindow(QMainWindow):
         self.menu_display.addAction(self.act_view_sql)
 
         # --- Ansicht -> Sprache ---
-        self.menu_language = self.menu_display.addMenu(_tr("Language"))
+        self.menu_language = self.menu_display.addMenu(share.locales.tr("Language"))
         try:
             from PyQt5.QtWidgets import QActionGroup
         except Exception:
@@ -7398,7 +7253,7 @@ class MainWindow(QMainWindow):
             grp.addAction(self.act_lang_de)
 
         # Default checked
-        if (_I18N.lang or "").lower().startswith("de"):
+        if (share.locales.I18N.lang or "").lower().startswith("de"):
             self.act_lang_de.setChecked(True)
         else:
             self.act_lang_en.setChecked(True)
@@ -7410,15 +7265,15 @@ class MainWindow(QMainWindow):
         self.menu_language.addAction(self.act_lang_en)
         self.menu_language.addAction(self.act_lang_de)
 
-        self.menu_properties = menubar.addMenu(_tr("Properties"))
-        self.menu_windows    = menubar.addMenu(_tr("Window"))
-        self.menu_help       = menubar.addMenu(_tr("Help"))
+        self.menu_properties = menubar.addMenu(share.locales.tr("Properties"))
+        self.menu_windows    = menubar.addMenu(share.locales.tr("Window"))
+        self.menu_help       = menubar.addMenu(share.locales.tr("Help"))
         
-        menu_file_new               = self.menu_file.addMenu(_tr("New"))
+        menu_file_new               = self.menu_file.addMenu(share.locales.tr("New"))
         menu_file_new.setFont(f2)
         
-        self.action_file_open            = QAction(_tr("Open"), self)
-        self.action_file_close           = QAction(_tr("Close"), self)
+        self.action_file_open            = QAction(share.locales.tr("Open"), self)
+        self.action_file_close           = QAction(share.locales.tr("Close"), self)
         
         self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
         self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
@@ -7426,20 +7281,20 @@ class MainWindow(QMainWindow):
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
         
-        action_file_new_project     = QAction(_tr("New Project"), self)
-        action_file_open_project    = QAction(_tr("Open Project"), self)
-        action_file_print           = QAction(_tr("Print"), self)
+        action_file_new_project     = QAction(share.locales.tr("New Project"), self)
+        action_file_open_project    = QAction(share.locales.tr("Open Project"), self)
+        action_file_print           = QAction(share.locales.tr("Print"), self)
 
         action_file_print.setShortcut(QKeySequence("Ctrl+P"))
         
         action_file_new_project .triggered.connect(self.on_action_file_new_project)
         action_file_open_project.triggered.connect(self.on_action_file_open_project)
         
-        action_file_print_preview   = QAction(_tr("Print Preview")        , self)
-        action_file_window_app      = QAction(_tr("One-Click Application"), self)
-        action_file_web_wizard      = QAction(_tr("Web Wizard")           , self)
-        action_file_database        = QAction(_tr("Database Manager")     , self)
-        action_file_exit            = QAction(_tr("Exit")                 , self)
+        action_file_print_preview   = QAction(share.locales.tr("Print Preview")        , self)
+        action_file_window_app      = QAction(share.locales.tr("One-Click Application"), self)
+        action_file_web_wizard      = QAction(share.locales.tr("Web Wizard")           , self)
+        action_file_database        = QAction(share.locales.tr("Database Manager")     , self)
+        action_file_exit            = QAction(share.locales.tr("Exit")                 , self)
         
         action_file_print        .triggered.connect(self.on_action_file_print)
         action_file_print_preview.triggered.connect(self.on_action_file_print_preview)
@@ -7448,14 +7303,14 @@ class MainWindow(QMainWindow):
         action_file_database     .triggered.connect(self.on_action_file_database)
         action_file_exit         .triggered.connect(self.on_action_file_exit)
         
-        action_file_new_form        = QAction(_tr("Forms")     , self)
-        action_file_new_menu        = QAction(_tr("Menue")     , self)
-        action_file_new_popupmenu   = QAction(_tr("Popup-Menu"), self)
-        action_file_new_report      = QAction(_tr("Reports")   , self)
-        action_file_new_labels      = QAction(_tr("Labels")    , self)
-        action_file_new_program     = QAction(_tr("Programs")  , self)
-        action_file_new_table       = QAction(_tr("Tables")    , self)
-        action_file_new_sql         = QAction(_tr("Queries")   , self)
+        action_file_new_form        = QAction(share.locales.tr("Forms")     , self)
+        action_file_new_menu        = QAction(share.locales.tr("Menue")     , self)
+        action_file_new_popupmenu   = QAction(share.locales.tr("Popup-Menu"), self)
+        action_file_new_report      = QAction(share.locales.tr("Reports")   , self)
+        action_file_new_labels      = QAction(share.locales.tr("Labels")    , self)
+        action_file_new_program     = QAction(share.locales.tr("Programs")  , self)
+        action_file_new_table       = QAction(share.locales.tr("Tables")    , self)
+        action_file_new_sql         = QAction(share.locales.tr("Queries")   , self)
         
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
@@ -7508,7 +7363,7 @@ class MainWindow(QMainWindow):
         mark_escape_close(sub)
         sub.resize(520,300)
         sub.move(30,30)
-        sub.setWindowTitle(_tr("Regiecenter"))
+        sub.setWindowTitle(share.locales.tr("Regiecenter"))
         dlg.show()
         sub.show()
 
@@ -7557,7 +7412,7 @@ class MainWindow(QMainWindow):
         self._debug_console = w
         sub = self.mdi.addSubWindow(w)
         mark_escape_protected(sub)
-        sub.setWindowTitle(_tr("Debug Window"))
+        sub.setWindowTitle(share.locales.tr("Debug Window"))
         sub.resize(780, 420)
         sub.move(580, 30)
         w.show()
@@ -7583,7 +7438,7 @@ class MainWindow(QMainWindow):
         try:
             self.ensure_debug_console(focus=True)
         except Exception as e:
-            QMessageBox.critical(self, _tr("Error"), f"{_tr('Debug Window')}\n\n{e}")
+            QMessageBox.critical(self, share.locales.tr("Error"), f"{share.locales.tr('Debug Window')}\n\n{e}")
 
     def append_debug_output(self, text: str, fg_hex: str | None = None, bg_hex: str | None = None):
         text = "" if text is None else str(text)
@@ -7657,9 +7512,9 @@ class MainWindow(QMainWindow):
                 parse(tmp_path, show_collect_dialog=False)
             return "\n".join(captured)
         except Exception as e:
-            dlg = ErrorMessage(
-                title    = _tr("Parser Error"),
-                log_path = LOG,
+            dlg = share.excepts.ErrorMessage(
+                title    = share.locales.tr("Parser Error"),
+                log_path = share.common.LOG,
                 message  = f"{e}",
                 parent   = MAINAPP
             )
@@ -7673,8 +7528,8 @@ class MainWindow(QMainWindow):
         # Ask user
         reply = QMessageBox.question(
             self,
-            _tr("Close Application"),
-            _tr("Would you realy close the Application?"),
+            share.locales.tr("Close Application"),
+            share.locales.tr("Would you realy close the Application?"),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -7863,7 +7718,7 @@ class MainWindow(QMainWindow):
             mark_escape_close(sub)
             sub.resize(520, 300)
             sub.move(30, 30)
-            sub.setWindowTitle(_tr("Regiecenter"))
+            sub.setWindowTitle(share.locales.tr("Regiecenter"))
             dlg.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -7917,7 +7772,7 @@ class MainWindow(QMainWindow):
 
             sub = self.mdi.addSubWindow(fw)
             sub.resize(720, 560)
-            sub.setWindowTitle(_tr("Form Designer"))
+            sub.setWindowTitle(share.locales.tr("Form Designer"))
             fw.show()
             if focus:
                 self.mdi.setActiveSubWindow(sub)
@@ -7974,10 +7829,10 @@ class MainWindow(QMainWindow):
     def on_action_file_open(self):
         """Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen."""
         try:
-            dlg = QFileDialog(self, _tr("Open File..."))
+            dlg = QFileDialog(self, share.locales.tr("Open File..."))
             dlg.setFileMode(QFileDialog.ExistingFiles)
-            dlg.setNameFilters([ _tr("dBaseSourcecodeFiles"), tr("allFiles")])
-            dlg.selectNameFilter(_tr("dBaseSourcecodeFiles"))
+            dlg.setNameFilters([ share.locales.tr("dBaseSourcecodeFiles"), share.locales.tr("allFiles")])
+            dlg.selectNameFilter(share.locales.tr("dBaseSourcecodeFiles"))
             try:
                 dlg.setDefaultSuffix("prg")
             except Exception:
@@ -8044,7 +7899,10 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         except Exception as e:
-            QMessageBox.warning(self, _tr("Open File..."), f"{_tr('could not open file')}:\n{e}")
+            QMessageBox.warning(self,
+                share.locales.tr("Open File..."),
+                f"{share.locales.tr('could not open file')}:\n{e}"
+            )
 
     def on_action_file_database(self):
         debug_print("file data base")
@@ -8052,25 +7910,25 @@ class MainWindow(QMainWindow):
     def on_action_file_exit(self):
         debug_print("file exit")
         try:
-            os.remove(LOG)
-            p = Path(LOG)
+            os.remove(share.common.LOG)
+            p = Path(share.common.LOG)
             if p.exists():
                 p.unlink()
         except FileNotFoundError:
-            dlg = ErrorMessage(
-                title    = _tr("Runtime Error"),
-                log_path = LOG,
-                message  = f"{_tr('file not found')}: '{LOG}'.",
+            dlg = share.excepts.ErrorMessage(
+                title    = share.locales.tr("Runtime Error"),
+                log_path = share.common.LOG,
+                message  = f"{share.locales.tr('file not found')}: '{share.common.LOG}'.",
                 parent   = MAINAPP
             )
             dlg.exec_()
         except PermissionError:
-            txt = _tr("file is in use")
-            dlg = ErrorMessage(
-                title    = _tr("Runtime Error"),
-                log_path = LOG,
-                message  = (f"{txt}: '{LOG}'.\n" +
-                _tr("you have to remove it your self")),
+            txt = share.locales.tr("file is in use")
+            dlg = share.excepts.ErrorMessage(
+                title    = share.locales.tr("Runtime Error"),
+                log_path = share.common.LOG,
+                message  = (f"{txt}: '{share.common.LOG}'.\n" +
+                share.locales.tr("you have to remove it your self")),
                 parent   = MAINAPP
             )
             dlg.exec_()
@@ -8154,7 +8012,7 @@ class MainWindow(QMainWindow):
 
     def on_action_file_open(self):
         # Datei -> Öffnen: in CodeEditor-Tabs öffnen
-        dlg = QFileDialog(self, _tr("Open File..."))
+        dlg = QFileDialog(self, share.locales.tr("Open File..."))
         dlg.setFileMode(QFileDialog.ExistingFile)
         dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
         dlg.setDefaultSuffix("prg")
@@ -9192,7 +9050,7 @@ def main():
         except Exception:
             import traceback as _tb
             try:
-                with open(LOG, "a", encoding="utf-8", buffering=1) as _f:
+                with open(share.common.LOG, "a", encoding="utf-8", buffering=1) as _f:
                     _f.write("[Startup Exception]")
                     _f.write(_tb.format_exc())
                     _f.write("")

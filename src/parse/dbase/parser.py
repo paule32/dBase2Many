@@ -9,6 +9,7 @@ import share.common
 from   share.common             import *
 
 from   share.excepts            import *
+from   share.locales            import *
 
 from   share.utildef.sysinfo    import *
 from   share.utildef.dialogs    import *
@@ -237,7 +238,7 @@ def form_open(inst: share.common.Instance):
 
     sub = None
     try:
-        sub = MAINAPP.mdi.addSubWindow(inst.backend)
+        sub = share.common.MAINAPP.mdi.addSubWindow(inst.backend)
     except Exception:
         sub = None
 
@@ -628,8 +629,8 @@ def _notify_pdf_backend_unavailable():
         pass
 
     try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "append_debug_output"):
-            MAINAPP.append_debug_output(msg)
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
+            share.common.MAINAPP.append_debug_output(msg)
             return False
     except Exception:
         pass
@@ -1204,7 +1205,7 @@ class ExecVisitor(dBaseParserVisitor):
         if not path.exists() or not _RUNTIME_CONFIRM_ENABLED:
             return
 
-        parent = MAINAPP if 'MAINAPP' in globals() else None
+        parent = share.common.MAINAPP if 'MAINAPP' in globals() else None
         answer = QMessageBox.question(
             parent,
             'Datei überschreiben?',
@@ -1534,7 +1535,7 @@ class ExecVisitor(dBaseParserVisitor):
     def _confirm_runtime_action(self, title: str, text: str) -> None:
         if not _RUNTIME_CONFIRM_ENABLED:
             return
-        parent = MAINAPP if 'MAINAPP' in globals() else None
+        parent = share.common.MAINAPP if 'MAINAPP' in globals() else None
         answer = QMessageBox.question(
             parent,
             title,
@@ -1605,7 +1606,7 @@ class ExecVisitor(dBaseParserVisitor):
             except Exception:
                 area = 0
         if area < 0 or area > 64:
-            parent = MAINAPP if 'MAINAPP' in globals() else None
+            parent = share.common.MAINAPP if 'MAINAPP' in globals() else None
             try:
                 QMessageBox.warning(parent, 'Arbeitsbereich', 'Arbeitsbereich außerhalb des gültigen Bereichs 0..64. Es wird auf Arbeitsbereich 0 gewechselt.')
             except Exception:
@@ -1693,7 +1694,7 @@ class ExecVisitor(dBaseParserVisitor):
             recno = 1
 
         if recno < 1 or recno > max(1, count):
-            parent = MAINAPP if 'MAINAPP' in globals() else None
+            parent = share.common.MAINAPP if 'MAINAPP' in globals() else None
             try:
                 QMessageBox.warning(parent, 'Datensatzzeiger', 'Ungültige Datensatznummer. Es wird auf Datensatz 1 gewechselt.')
             except Exception:
@@ -3347,7 +3348,7 @@ class ExecVisitor(dBaseParserVisitor):
         if not target_name:
             raise RuntimeError("INPUT: Missing target variable name")
 
-        parent = MAINAPP if "MAINAPP" in globals() else None
+        parent = share.common.MAINAPP if "MAINAPP" in globals() else None
 
         while True:
             raw_text, rc = InputValueDialog.get_value(prompt=prompt_text, parent=parent)
@@ -5292,9 +5293,9 @@ class ExecVisitor(dBaseParserVisitor):
                 debug_print("file not found.")
                 pass
         try:
-            win = FileEditorWindow(parent=MAINAPP, initial_path=path, initial_text=text)
+            win = FileEditorWindow(parent=share.common.MAINAPP, initial_path=path, initial_text=text)
             win.resize(600, 500)
-            sub = MAINAPP.mdi.addSubWindow(win)
+            sub = share.common.MAINAPP.mdi.addSubWindow(win)
             
             # 1) immer sichtbar + Vordergrund
             win.show()
@@ -5345,8 +5346,8 @@ def _emit_runtime_output_line(text: str):
 
     # preferred sink: Debug Console in the main window
     try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "append_debug_output"):
-            MAINAPP.append_debug_output(text, fg_hex=style.get("fg_hex"), bg_hex=style.get("bg_hex"))
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
+            share.common.MAINAPP.append_debug_output(text, fg_hex=style.get("fg_hex"), bg_hex=style.get("bg_hex"))
             return
     except Exception:
         pass
@@ -5360,8 +5361,8 @@ def _emit_runtime_output_line(text: str):
 
 def _clear_runtime_output():
     try:
-        if "MAINAPP" in globals() and MAINAPP is not None and hasattr(MAINAPP, "clear_debug_output"):
-            MAINAPP.clear_debug_output()
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "clear_debug_output"):
+            share.common.MAINAPP.clear_debug_output()
             return
     except Exception:
         pass
@@ -5546,7 +5547,7 @@ def parse(filename: str, show_collect_dialog: bool = True):
 
     if show_collect_dialog and QApplication.instance() is not None:
         try:
-            collect_dlg = CollectProgressDialog(parent=MAINAPP if "MAINAPP" in globals() else None, filename=os.path.abspath(filename))
+            collect_dlg = CollectProgressDialog(parent=share.common.MAINAPP if "MAINAPP" in globals() else None, filename=os.path.abspath(filename))
             collect_dlg.show()
             lines = pre.splitlines()
             total_lines = len(lines)
@@ -5594,11 +5595,11 @@ def parse(filename: str, show_collect_dialog: bool = True):
             parser_input,
             dump_path
         ) + f"\n\nParser-Eingabe: {parser_dump_path}"
-        dlg = ErrorMessage(
-            title    = _tr("Parser Error"),
-            log_path = LOG,
+        dlg = share.excepts.ErrorMessage(
+            title    = share.locales.tr("Parser Error"),
+            log_path = share.common.LOG,
             message  = msg,
-            parent   = MAINAPP
+            parent   = share.common.MAINAPP
         )
         dlg.exec_()
         _runtime_output_session_end()
@@ -5620,11 +5621,11 @@ def parse(filename: str, show_collect_dialog: bool = True):
                 collect_dlg.close()
             except Exception:
                 pass
-        dlg = ErrorMessage(
-            title    = _tr("Lexer Error"),
-            log_path = LOG,
+        dlg = share.excepts.ErrorMessage(
+            title    = share.locales.tr("Lexer Error"),
+            log_path = share.common.LOG,
             message  = f"{e}",
-            parent   = MAINAPP
+            parent   = share.common.MAINAPP
         )
         dlg.exec_()
         _runtime_output_session_end()

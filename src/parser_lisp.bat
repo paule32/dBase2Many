@@ -4,5 +4,5 @@
 :: All rights reserved
 :: ---------------------------------------------------------------------------
 :: build LISP parser
-venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gramm/lisp                 gramm/lisp/lispLexer.g4
-venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gramm/lisp -lib gramm/lisp gramm/lisp/lispParser.g4
+venv\Scripts\antlr4 -Dlanguage=Python3                          -o parse/lisp gramm/lisp/lispLexer.g4
+venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -lib parse/lisp -o parse/lisp gramm/lisp/lispParser.g4

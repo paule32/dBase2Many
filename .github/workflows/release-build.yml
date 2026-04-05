@@ -158,48 +158,6 @@ jobs:
           if (-not (Test-Path $jar)) { throw "ANTLR jar not downloaded: $jar" }
           "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Regenerate selected ANTLR lexer/parser
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          dir src/gramm
-          dir src/gramm/dbase
-          
-          $outDir = "."
-          #$outDir = Join-Path $env:GEN_DIR $env:GRAMMAR_SUBDIR
-          #if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
-          #New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-
-          $lexer  = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
-          $parser = "$env:GRAMMAR_ROOT/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
-
-          Write-Host "--->"
-          Write-Host "$lexer"
-          Write-Host "$parser"
-          Write-Host "<---"
-
-          Write-Host "Generating lexer from:  $lexer"
-          Write-Host "Generating parser from: $parser"
-          Write-Host "Output directory:       $outDir"
-
-          dir $outDir
-          Write-Host "$lexer"
-
-          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -o $outDir $lexer
-          if ($LASTEXITCODE -ne 0) { throw "Lexer generation failed." }
-
-          Write-Host "--->"
-          dir $outDir
-          dir $outDir/src
-          dir $outDir/src/gramm
-          dir $outDir/src/gramm/dbase
-          Write-Host "<---"
-
-          java -jar $env:ANTLR_JAR -Dlanguage=Python3 -visitor -lib $outDir -o $outDir $parser
-          if ($LASTEXITCODE -ne 0) { throw "Parser generation failed." }
-
-          Get-ChildItem -Path $outDir | Select-Object Name, Length
-
       - name: Build GNU gettext .mo files
         shell: pwsh
         run: |

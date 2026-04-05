@@ -4,5 +4,5 @@
 :: All rights reserved
 :: ---------------------------------------------------------------------------
 :: build dBase parser
-venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gramm/dbase                  gramm/dbase/dBaseLexer.g4
-venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -o gramm/dbase -lib gramm/dbase gramm/dbase/dBaseParser.g4
+venv\Scripts\antlr4 -Dlanguage=Python3                           -o parse/dbase gramm/dbase/dBaseLexer.g4
+venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -lib parse/dbase -o parse/dbase gramm/dbase/dBaseParser.g4
