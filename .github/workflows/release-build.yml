@@ -164,26 +164,26 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          Write-Host "PARSE SUBDIR: $env:GRAMMAR_SUBDIR"
+          Write-Host "PARSE SUBDIR: work/dBase2Many/dBase2Many/$env:GRAMMAR_SUBDIR"
           dir src
-          New-Item -ItemType Directory -Force -Path "~/src/parse/$env:GRAMMAR_SUBDIR"
-          Write-Host "~/src/parse/$env:GRAMMAR_SUBDIR created"
-          dir src\gramm
+          New-Item -ItemType Directory -Force -Path "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR"
+          Write-Host "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR created"
+          dir ~/work/dBase2Many/dBase2Many/src/gramm
           Write-Host "-------"
-          dir ~/src/gramm/dbase
+          dir ~/work/dBase2Many/dBase2Many/src/gramm/dbase
 
           java -jar "$env:ANTLR_JAR" `
                -Dlanguage=Python3 `
                -visitor `
-               -o "~/src/parse/$env:GRAMMAR_SUBDIR" `
-               "~/src/gramm/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
+               -o "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
+                  "~/work/dBase2Many/dBase2Many/src/gramm/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
 
           java -jar "$env:ANTLR_JAR" `
                -Dlanguage=Python3 `
                -visitor `
-               -o   "~/src/parse/$env:GRAMMAR_SUBDIR" `
-               -lib "~/src/parse/$env:GRAMMAR_SUBDIR" `
-               "~/src/gramm/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
+               -o   "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
+               -lib "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
+                    "~/work/dBase2Many/dBase2Many/src/gramm/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
 
       - name: Build GNU gettext .mo files
         shell: pwsh
