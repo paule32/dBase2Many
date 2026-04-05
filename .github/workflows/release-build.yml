@@ -160,30 +160,46 @@ jobs:
           "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Generate Lexer/Parser
-        shell: pwsh
+        shell: python
         run: |
-          $ErrorActionPreference = 'Stop'
+          from pathlib import Path
+          import os
+          import sys
+          import subprocess
 
-          Write-Host "PARSE SUBDIR: work/dBase2Many/dBase2Many/$env:GRAMMAR_SUBDIR"
-          dir src
-          New-Item -ItemType Directory -Force -Path "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR"
-          Write-Host "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR created"
-          dir ~/work/dBase2Many/dBase2Many/src/gramm
-          Write-Host "-------"
-          dir ~/work/dBase2Many/dBase2Many/src/gramm/dbase
+          gramm = Path("src/gramm")
+          parse = Path("src/parse")
 
-          java -jar "$env:ANTLR_JAR" `
-               -Dlanguage=Python3 `
-               -visitor `
-               -o "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
-                  "~/work/dBase2Many/dBase2Many/src/gramm/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"
+          gramm = gramm / os.environ["GRAMMAR_SUBDIR"]
+          parse = parse / os.environ["GRAMMAR_SUBDIR"]
 
-          java -jar "$env:ANTLR_JAR" `
-               -Dlanguage=Python3 `
-               -visitor `
-               -o   "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
-               -lib "~/work/dBase2Many/dBase2Many/src/parse/$env:GRAMMAR_SUBDIR" `
-                    "~/work/dBase2Many/dBase2Many/src/gramm/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"
+          if not parse.exists():
+              print("create parse subdir")
+              parse.mkdir(parents=True, exist_ok=True)
+
+          lexer  = Path(gramm / os.environ["LEXER_FILE"]
+          parser = Path(gramm / os.environ["PARSER_FILE"]
+
+          if not lexer.exists():
+              print("lexer file don't exists")
+              sys.exit(1)
+
+          if not parser.exists():
+              print("parser file don't exisits")
+              sys.exit(1)
+
+          subprocess.open([r"java","-jar $env:ANTLR_JAR",
+              "-Dlanguage=Python3",
+              "-visitor",
+              "-o src/parse/$env:GRAMMAR_SUBDIR",
+              "   src/gramm/$env:GRAMMAR_SUBDIR/$env:LEXER_FILE"])
+
+          subprocess.open([r"java","-jar $env:ANTLR_JAR",
+              "-Dlanguage=Python3",
+              "-visitor",
+              "-o   src/parse/$env:GRAMMAR_SUBDIR",
+              "-lib src/parse/$env:GRAMMAR_SUBDIR",
+              "     src/gramm/$env:GRAMMAR_SUBDIR/$env:PARSER_FILE"])
 
       - name: Build GNU gettext .mo files
         shell: pwsh
