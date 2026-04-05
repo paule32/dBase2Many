@@ -4,7 +4,7 @@
 // All rights reserved
 // ---------------------------------------------------------------------------
 parser grammar dBaseParser;
-options { tokenVocab=BaseLexer; }
+options { tokenVocab=dBaseLexer; }
 
 input
     :   item* EOF

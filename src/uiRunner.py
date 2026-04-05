@@ -51,11 +51,12 @@ def load_qss(rel_path: str) -> str:
 _RUNNER_LANGUAGE = (os.environ.get("DBASERUNNER_LANGUAGE") or "dbase").strip().lower()
 
 def _runner_window_title() -> str:
+    author = f"Runner 2026 - (c) Jens Kallup - paule32"
     titles = {
-        "dbase" : "dBase 2026 - (c) Jens Kallup - paule32",
-        "pascal": "Pascal Runner 2026 - (c) Jens Kallup - paule32",
-        "cc"    : "C/C++ Runner 2026 - (c) Jens Kallup - paule32",
-        "lisp"  : "LISP Runner 2026 - (c) Jens Kallup - paule32",
+        "dbase" : f"dBase  {author}",
+        "pascal": f"Pascal {author}",
+        "cc"    : f"C/C++  {author}",
+        "lisp"  : f"LISP   {author}",
     }
     return titles.get(_RUNNER_LANGUAGE, titles["dbase"])
 
@@ -209,7 +210,9 @@ class _GlobalEscapeCloseFilter(QObject):
             return True
 
         # Robuster Fallback: Wenn der Fokus in einem MDI-Unterfenster liegt,
-        # ESC soll das komplette QMdiSubWindow schliessen statt nur das innere Widget.
+        # ESC soll nur dann schliessen, wenn es sich nicht um ein dBase-Laufzeitfenster
+        # handelt oder SET ESCAPE ON aktiv ist. Bei SET ESCAPE OFF blockieren wir ESC,
+        # damit QDialog nicht per Default-Reject ausserhalb unserer Laufzeitlogik schliesst.
         try:
             fallback_sub = find_mdi_subwindow_robust(candidate)
         except Exception:
@@ -220,6 +223,18 @@ class _GlobalEscapeCloseFilter(QObject):
                 event.accept()
             except Exception:
                 pass
+
+            is_dbase_runtime_target = False
+            try:
+                is_dbase_runtime_target = bool(fallback_sub.property("_DBASE_ESCAPE_TARGET"))
+            except Exception:
+                is_dbase_runtime_target = False
+
+            if is_dbase_runtime_target:
+                if bool(_RUNTIME_ESCAPE_ENABLED):
+                    close_escape_target(candidate, fallback_sub)
+                return True
+
             close_escape_target(candidate, fallback_sub)
             return True
 
@@ -874,12 +889,12 @@ class IconScrollBarStyle(QProxyStyle):
 
 # ---------------------------------------------------------------------------
 # parser stuff ...
+# ---------------------------------------------------------------------------
+# Tab 'Quell-Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-nativer
+# Folder-Dialog.
+# model: dict[str, str]  (alias -> path)
 # ---------------------------------------------------------------------------        
 class SourceAliasesTab(QWidget):
-    """
-    Tab 'Quell-Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-nativer Folder-Dialog.
-    model: dict[str, str]  (alias -> path)
-    """
     def __init__(self, parent=None, initial=None):
         super().__init__(parent)
 
@@ -951,8 +966,10 @@ class SourceAliasesTab(QWidget):
         self.ed_path.editingFinished.connect(self._on_edit_finished)
 
     # ---------- Public ----------
+    # ---------------------------------------------------------------------------
+    # Gibt eine Kopie des Modells zurück.
+    # ---------------------------------------------------------------------------
     def model(self) -> dict:
-        """Gibt eine Kopie des Modells zurück."""
         return dict(self._model)
 
     # ---------- Intern ----------
@@ -1061,11 +1078,11 @@ class SourceAliasesTab(QWidget):
             if dirs:
                 self.ed_path.setText(dirs[0])
 
+    # ---------------------------------------------------------------------------
+    # Optional: wenn ein bestehender Alias ausgewählt ist,
+    # sollen Änderungen an Pfad/Alias (vorsichtig) ins Modell übernommen werden.
+    # ---------------------------------------------------------------------------
     def _on_edit_finished(self):
-        """
-        Optional: wenn ein bestehender Alias ausgewählt ist,
-        sollen Änderungen an Pfad/Alias (vorsichtig) ins Modell übernommen werden.
-        """
         if self._updating_ui:
             return
 
@@ -1444,8 +1461,10 @@ class TableRecordEditorDialog(QDialog):
             except Exception:
                 pass
 
+    # ---------------------------------------------------------------------------
+    # Make sure an open editor widget commits its value into the model before saving.
+    # ---------------------------------------------------------------------------
     def _commit_pending_edit(self):
-        """Make sure an open editor widget commits its value into the model before saving."""
         try:
             # clear focus from an editor widget -> triggers commitData/closeEditor
             self.table.clearFocus()
@@ -1453,8 +1472,11 @@ class TableRecordEditorDialog(QDialog):
         except Exception:
             pass
 
+    # ---------------------------------------------------------------------------
+    # Robust fallback to paint the top-left header corner black (some styles
+    # ignore QTableCornerButton::section).
+    # ---------------------------------------------------------------------------
     def _ensure_corner_overlay(self):
-        """Robust fallback to paint the top-left header corner black (some styles ignore QTableCornerButton::section)."""
         if getattr(self, "_corner_overlay", None) is not None:
             return
         self._corner_overlay = QLabel(self.table)
@@ -1987,8 +2009,10 @@ class NumericLenDelegate(QStyledItemDelegate):
             ed.setValidator(self._val)
         return ed
 
+# ---------------------------------------------------------------------------
+# Displays/edits logical field as checkbox.
+# ---------------------------------------------------------------------------
 class LogicalCheckDelegate(QStyledItemDelegate):
-    """Displays/edits logical field as checkbox."""
     def createEditor(self, parent, option, index):
         cb = QCheckBox(parent)
         cb.setTristate(False)
@@ -2242,8 +2266,10 @@ class TableDesignerDialog(QDialog):
             return
         self._set_modified(True)
 
+    # ---------------------------------------------------------------------------
+    # Enable/disable sidebar buttons based on current row and model state.
+    # ---------------------------------------------------------------------------
     def _update_side_buttons(self):
-        """Enable/disable sidebar buttons based on current row and model state."""
         try:
             row = self._current_source_row()
             rc = self.model.rowCount()
@@ -2256,8 +2282,10 @@ class TableDesignerDialog(QDialog):
         except Exception:
             pass
 
+    # ---------------------------------------------------------------------------
+    # Try to commit an active editor (e.g. ComboBox) so modifications are detected.
+    # ---------------------------------------------------------------------------
     def _commit_pending_edit(self):
-        """Try to commit an active editor (e.g. ComboBox) so modifications are detected."""
         try:
             if self.table.state() == QAbstractItemView.EditingState:
                 fw = QApplication.focusWidget()
@@ -2449,8 +2477,10 @@ class TableDesignerDialog(QDialog):
         else:
             QMessageBox.warning(self, "Fehler", "Die DBF-Datei konnte nicht gelesen werden.")
 
+    # ---------------------------------------------------------------------------
+    # Switch to record-edit mode for the current DBF file.
+    # ---------------------------------------------------------------------------
     def _action_edit_records(self):
-        """Switch to record-edit mode for the current DBF file."""
         # Need a file on disk.
         if not self.current_path:
             # Ask user to save schema first
@@ -3113,15 +3143,14 @@ class EditorWidget(QDialog):
             dlg = showException(self,share.locales.tr("Common Exception: ") + type(e).__name__, tb_str)
             dlg.exec_()
 
+# ---------------------------------------------------------------------------
+# IconView je Tab. Zeigt je nach Filter andere Dateiarten.
+# Meta-Info pro Item:
+#   - Qt.UserRole: voller Pfad
+# Meta-Info am Widget:
+#   - self.base_dir (und Qt Property 'directory')
+# ---------------------------------------------------------------------------
 class IconTab(QListWidget):
-    """
-    IconView je Tab. Zeigt je nach Filter andere Dateiarten.
-    Meta-Info pro Item:
-      - Qt.UserRole: voller Pfad
-    Meta-Info am Widget:
-      - self.base_dir (und Qt Property 'directory')
-    """
-
     def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None):
         super().__init__(parent)
 
@@ -3209,8 +3238,10 @@ class IconTab(QListWidget):
         if path:
             self._run_file(path)
 
+    # ---------------------------------------------------------------------------
+    # Bei Doppelklick auf *.prg -> ausführen.
+    # ---------------------------------------------------------------------------
     def _on_item_double_clicked(self, item: QListWidgetItem):
-        """Bei Doppelklick auf *.prg -> ausführen."""
         try:
             path = item.data(Qt.UserRole) or ""
             if not path:
@@ -3744,12 +3775,13 @@ class RegieCenter(QDialog):
                     MAINAPP._settings.setValue('regiecenter/workdir', path)
             except Exception:
                 pass
-                
+
+# ---------------------------------------------------------------------------
+# Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht
+# native Dialoge.
+# Model: dict[str, dict]  alias -> {"driver": str, "options": str}
+# ---------------------------------------------------------------------------
 class UserBdeAliasesTab(QWidget):
-    """
-    Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-native Dialoge.
-    Model: dict[str, dict]  alias -> {"driver": str, "options": str}
-    """
     def __init__(self, parent=None, initial=None):
         super().__init__(parent)
 
@@ -3945,11 +3977,11 @@ class UserBdeAliasesTab(QWidget):
         self._model.pop(alias, None)
         self._reload_list(select_first=True)
 
+    # ---------------------------------------------------------------------------
+    # Im Screenshot ist 'Options' meist PATH:... -> sinnvoll ist ein Directory Picker.
+    # Wir setzen dann automatisch 'PATH:<dir>'.
+    # ---------------------------------------------------------------------------
     def _on_options_browse(self):
-        """
-        Im Screenshot ist 'Options' meist PATH:... -> sinnvoll ist ein Directory Picker.
-        Wir setzen dann automatisch 'PATH:<dir>'.
-        """
         current = self._norm(self.ed_options.text())
         start_dir = ""
         if current.upper().startswith("PATH:"):
@@ -3965,11 +3997,11 @@ class UserBdeAliasesTab(QWidget):
             if dirs:
                 self.ed_options.setText(f"PATH:{dirs[0]}")
 
+    # ---------------------------------------------------------------------------
+    # Änderungen am aktuell selektierten Alias ins Model übernehmen.
+    # Alias-Umbenennung mit Kollisionscheck.
+    # ---------------------------------------------------------------------------
     def _on_edit_finished(self):
-        """
-        Änderungen am aktuell selektierten Alias ins Model übernehmen.
-        Alias-Umbenennung mit Kollisionscheck.
-        """
         if self._updating_ui:
             return
         cur = self.lst.currentItem()
@@ -4009,11 +4041,12 @@ class UserBdeAliasesTab(QWidget):
         self._model[new_alias] = {"driver": driver, "options": options}
         self._reload_list(select_alias=new_alias)
 
+# ---------------------------------------------------------------------------
+# Tab 'Quell-Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-nativer
+# Folder-Dialog.
+# model: dict[str, str]  (alias -> path)
+# ---------------------------------------------------------------------------
 class SourceAliasesTab(QWidget):
-    """
-    Tab 'Quell-Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht-nativer Folder-Dialog.
-    model: dict[str, str]  (alias -> path)
-    """
     def __init__(self, parent=None, initial=None):
         super().__init__(parent)
 
@@ -4085,8 +4118,10 @@ class SourceAliasesTab(QWidget):
         self.ed_path.editingFinished.connect(self._on_edit_finished)
 
     # ---------- Public ----------
+    # ---------------------------------------------------------------------------
+    # Gibt eine Kopie des Modells zurück.
+    # ---------------------------------------------------------------------------
     def model(self) -> dict:
-        """Gibt eine Kopie des Modells zurück."""
         return dict(self._model)
 
     # ---------- Intern ----------
@@ -4195,11 +4230,11 @@ class SourceAliasesTab(QWidget):
             if dirs:
                 self.ed_path.setText(dirs[0])
 
+    # ---------------------------------------------------------------------------
+    # Optional: wenn ein bestehender Alias ausgewählt ist,
+    # sollen Änderungen an Pfad/Alias (vorsichtig) ins Modell übernommen werden.
+    # ---------------------------------------------------------------------------
     def _on_edit_finished(self):
-        """
-        Optional: wenn ein bestehender Alias ausgewählt ist,
-        sollen Änderungen an Pfad/Alias (vorsichtig) ins Modell übernommen werden.
-        """
         if self._updating_ui:
             return
 
@@ -4259,23 +4294,23 @@ class DesktopPropertiesDialog(QDialog):
         root.addWidget(self.tabs)
 
         # Platzhalter-Tabs (wie im Bild)
-        self.tabs.addTab(self._build_tab_country (), "Country")
-        self.tabs.addTab(self._build_tab_table   (), "Table")
-        self.tabs.addTab(self._build_tab_data    (), "Data Entry")
-        self.tabs.addTab(self._build_tab_files   (), "Files")
-        self.tabs.addTab(self._build_tab_app     (), "Application")
-        self.tabs.addTab(self._build_tab_prog    (), "Programming")
-        self.tabs.addTab(self._build_tab_aliase  (), "Source Aliases")
-        self.tabs.addTab(self._build_tab_usrbde  (), "User-BDE-Aliases")
+        self.tabs.addTab(self._build_tab_country (), share.locales.tr("Country"))
+        self.tabs.addTab(self._build_tab_table   (), share.locales.tr("Table"))
+        self.tabs.addTab(self._build_tab_data    (), share.locales.tr("Data Entry"))
+        self.tabs.addTab(self._build_tab_files   (), share.locales.tr("Files"))
+        self.tabs.addTab(self._build_tab_app     (), share.locales.tr("Application"))
+        self.tabs.addTab(self._build_tab_prog    (), share.locales.tr("Programming"))
+        self.tabs.addTab(self._build_tab_aliase  (), share.locales.tr("Source Aliases"))
+        self.tabs.addTab(self._build_tab_usrbde  (), share.locales.tr("User-BDE-Aliases"))
         
         # Bottom buttons: OK / Abbrechen / Hilfe / Übernehmen
         btn_row = QHBoxLayout()
         btn_row.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        self.btn_ok     = QPushButton("OK")
-        self.btn_cancel = QPushButton("Abbrechen")
-        self.btn_help   = QPushButton("Hilfe")
-        self.btn_apply  = QPushButton("Übernehmen")
+        self.btn_ok     = QPushButton(share.locales.tr("OK"))
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"))
+        self.btn_help   = QPushButton(share.locales.tr("Help"))
+        self.btn_apply  = QPushButton(share.locales.tr("Apply"))
 
         for b in (self.btn_ok, self.btn_cancel, self.btn_help, self.btn_apply):
             b.setFixedWidth(95)
@@ -4422,19 +4457,19 @@ class DesktopPropertiesDialog(QDialog):
         l_multi.setHorizontalSpacing(10)
         l_multi.setVerticalSpacing(8)
 
-        self.chk_lock = QCheckBox("Sperren")
+        self.chk_lock = QCheckBox(share.locales.tr("Lock"))
         self.chk_exclusive = QCheckBox("Exklusiv")
 
         l_multi.addWidget(self.chk_lock, 0, 0, 1, 2)
         l_multi.addWidget(self.chk_exclusive, 1, 0, 1, 2)
 
-        l_multi.addWidget(QLabel("Aktualisieren:"), 2, 0)
+        l_multi.addWidget(QLabel(share.locales.tr("Refresh:")), 2, 0)
         self.spin_refresh = QSpinBox()
         self.spin_refresh.setRange(0, 9999)
         self.spin_refresh.setFixedWidth(70)
         l_multi.addWidget(self.spin_refresh, 2, 1, alignment=Qt.AlignLeft)
 
-        l_multi.addWidget(QLabel("Wiederholen:"), 3, 0)
+        l_multi.addWidget(QLabel(share.locales.tr("Replay:")), 3, 0)
         self.spin_retry = QSpinBox()
         self.spin_retry.setRange(0, 9999)
         self.spin_retry.setFixedWidth(70)
@@ -4491,12 +4526,12 @@ class DesktopPropertiesDialog(QDialog):
         l_other.setHorizontalSpacing(10)
         l_other.setVerticalSpacing(6)
 
-        self.chk_autosave = QCheckBox("Automatische Speicherung")
-        self.chk_deleted = QCheckBox("Löschmarken")
-        self.chk_encrypt = QCheckBox("Verschlüsselung")
-        self.chk_ident = QCheckBox("Identisch")
-        self.chk_approx = QCheckBox("Annähernd")
-        self.chk_autonull = QCheckBox("AutoNullFields")
+        self.chk_autosave   = QCheckBox(share.locales.tr("Automatische Speicherung"))
+        self.chk_deleted    = QCheckBox(share.locales.tr("Löschmarken"))
+        self.chk_encrypt    = QCheckBox(share.locales.tr("Verschlüsselung"))
+        self.chk_ident      = QCheckBox(share.locales.tr("Identisch"))
+        self.chk_approx     = QCheckBox(share.locales.tr("Annähernd"))
+        self.chk_autonull   = QCheckBox(share.locales.tr("AutoNullFields"))
 
         # wie Screenshot: Löschmarken + Verschlüsselung + AutoNullFields aktiv
         self.chk_deleted.setChecked(True)
@@ -4510,7 +4545,7 @@ class DesktopPropertiesDialog(QDialog):
         l_other.addWidget(self.chk_approx, 4, 0)
         l_other.addWidget(self.chk_autonull, 3, 1)
 
-        self.btn_components = QPushButton("Komponententypen zuordnen...")
+        self.btn_components = QPushButton(share.locales.tr("Komponententypen zuordnen..."))
         self.btn_components.setFixedWidth(220)
         l_other.addWidget(self.btn_components, 5, 0, 1, 2, alignment=Qt.AlignLeft)
 
@@ -4535,15 +4570,15 @@ class DesktopPropertiesDialog(QDialog):
         g.setVerticalSpacing(12)
 
         # --- Experten anzeigen (links oben) ---
-        gb_exp = QGroupBox("Experten anzeigen", tab)
+        gb_exp = QGroupBox(share.locales.tr("Experten anzeigen"), tab)
         exp = QVBoxLayout(gb_exp)
         exp.setSpacing(6)
 
-        chk_form = QCheckBox("Formular")
-        chk_report = QCheckBox("Report")
-        chk_labels = QCheckBox("Etiketten")
-        chk_datamodule = QCheckBox("Datenmodul")
-        chk_table = QCheckBox("Tabelle")
+        chk_form        = QCheckBox(share.locales.tr("Formular"))
+        chk_report      = QCheckBox(share.locales.tr("Report"))
+        chk_labels      = QCheckBox(share.locales.tr("Etiketten"))
+        chk_datamodule  = QCheckBox(share.locales.tr("Datenmodul"))
+        chk_table       = QCheckBox(share.locales.tr("Tabelle"))
 
         # wie Screenshot: alle an
         for c in (chk_form, chk_report, chk_labels, chk_datamodule, chk_table):
@@ -4551,19 +4586,19 @@ class DesktopPropertiesDialog(QDialog):
             exp.addWidget(c)
 
         # --- Dateimenü (links unten) ---
-        gb_file = QGroupBox("Dateimenü", tab)
+        gb_file = QGroupBox(share.locales.tr("Dateimenü"), tab)
         fm = QGridLayout(gb_file)
         fm.setHorizontalSpacing(10)
         fm.setVerticalSpacing(8)
 
-        fm.addWidget(QLabel("Anzahl Dateien:"), 0, 0)
+        fm.addWidget(QLabel(share.locales.tr("Anzahl Dateien:")), 0, 0)
         sp_files = QSpinBox()
         sp_files.setRange(0, 99)
         sp_files.setValue(5)
         sp_files.setFixedWidth(80)
         fm.addWidget(sp_files, 0, 1, alignment=Qt.AlignLeft)
 
-        fm.addWidget(QLabel("Anzahl Projekte:"), 1, 0)
+        fm.addWidget(QLabel(share.locales.tr("Anzahl Projekte:")), 1, 0)
         sp_projects = QSpinBox()
         sp_projects.setRange(0, 99)
         sp_projects.setValue(5)
@@ -4571,24 +4606,24 @@ class DesktopPropertiesDialog(QDialog):
         fm.addWidget(sp_projects, 1, 1, alignment=Qt.AlignLeft)
 
         # --- Datenbank (rechts oben) ---
-        gb_db = QGroupBox("Datenbank", tab)
+        gb_db = QGroupBox(share.locales.tr("Datenbank"), tab)
         db = QVBoxLayout(gb_db)
         db.setSpacing(6)
 
-        chk_login = QCheckBox("Anmeldungen sichern")
-        chk_sqltrace = QCheckBox("SQL-Ablaufverfolgung")
+        chk_login    = QCheckBox(share.locales.tr("Anmeldungen sichern"))
+        chk_sqltrace = QCheckBox(share.locales.tr("SQL-Ablaufverfolgung"))
         chk_login.setChecked(True)
         db.addWidget(chk_login)
         db.addWidget(chk_sqltrace)
 
         # --- Fenster (rechts mitte) ---
-        gb_win = QGroupBox("Fenster", tab)
+        gb_win = QGroupBox(share.locales.tr("Fenster"), tab)
         win = QVBoxLayout(gb_win)
         win.setSpacing(6)
 
-        chk_fit = QCheckBox("Fenstergröße an Inhalt anpassen")
-        chk_anim = QCheckBox("Animationen endlos abspielen")
-        chk_ole = QCheckBox("Objekte als OLE 2.0 speichern")
+        chk_fit     = QCheckBox(share.locales.tr("Fenstergröße an Inhalt anpassen"))
+        chk_anim    = QCheckBox(share.locales.tr("Animationen endlos abspielen"))
+        chk_ole     = QCheckBox(share.locales.tr("Objekte als OLE 2.0 speichern"))
 
         # wie Screenshot: alle 3 an
         chk_fit.setChecked(True)
@@ -4600,11 +4635,11 @@ class DesktopPropertiesDialog(QDialog):
         win.addWidget(chk_ole)
 
         # --- Andere (rechts unten) ---
-        gb_other = QGroupBox("Andere", tab)
+        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
         other = QVBoxLayout(gb_other)
         other.setSpacing(6)
 
-        chk_splash = QCheckBox("Startbildschirm")
+        chk_splash = QCheckBox(share.locales.tr("Startbildschirm"))
         chk_splash.setChecked(True)
         other.addWidget(chk_splash)
 
@@ -4633,7 +4668,7 @@ class DesktopPropertiesDialog(QDialog):
         path.setHorizontalSpacing(10)
         path.setVerticalSpacing(8)
 
-        path.addWidget(QLabel("Aktuelles Verzeichnis:"), 0, 0, 1, 2)
+        path.addWidget(QLabel(share.locales.tr("Aktuelles Verzeichnis:")), 0, 0, 1, 2)
 
         # Zeile: Combo/Text + Folder Button
         self_cur_dir = QLineEdit(r"F:\Heinz\ext\irgl\...")
@@ -4644,7 +4679,7 @@ class DesktopPropertiesDialog(QDialog):
         path.addWidget(self_cur_dir, 1, 0)
         path.addWidget(btn_cur_browse, 1, 1, alignment=Qt.AlignLeft)
 
-        path.addWidget(QLabel("Suchpfad:"), 2, 0, 1, 2)
+        path.addWidget(QLabel(share.locales.tr("Suchpfad:")), 2, 0, 1, 2)
 
         self_search_path = QLineEdit("")
         btn_search_browse = QPushButton("📁")
@@ -4654,15 +4689,15 @@ class DesktopPropertiesDialog(QDialog):
         path.addWidget(btn_search_browse, 3, 1, alignment=Qt.AlignLeft)
 
         # ---------- Ausgabeprotokoll (links unten) ----------
-        gb_log = QGroupBox("Ausgabeprotokoll", tab)
+        gb_log = QGroupBox(share.locales.tr("Ausgabeprotokoll"), tab)
         log = QGridLayout(gb_log)
         log.setHorizontalSpacing(10)
         log.setVerticalSpacing(8)
 
-        chk_enable_log = QCheckBox("Protokoll anlegen")
+        chk_enable_log = QCheckBox(share.locales.tr("Protokoll anlegen"))
         log.addWidget(chk_enable_log, 0, 0, 1, 2)
 
-        log.addWidget(QLabel("Name der Protokolldatei:"), 1, 0, 1, 2)
+        log.addWidget(QLabel(share.locales.tr("Name der Protokolldatei:")), 1, 0, 1, 2)
 
         ed_logfile = QLineEdit("")
         ed_logfile.setEnabled(False)
@@ -4673,8 +4708,8 @@ class DesktopPropertiesDialog(QDialog):
         log.addWidget(ed_logfile, 2, 0)
         log.addWidget(btn_logfile, 2, 1, alignment=Qt.AlignLeft)
 
-        rb_overwrite = QRadioButton("Überschreiben")
-        rb_append = QRadioButton("Anhängen")
+        rb_overwrite = QRadioButton(share.locales.tr("Überschreiben"))
+        rb_append    = QRadioButton(share.locales.tr("Anhängen"))
         rb_overwrite.setEnabled(False)
         rb_append.setEnabled(False)
         rb_overwrite.setChecked(True)
@@ -4697,7 +4732,7 @@ class DesktopPropertiesDialog(QDialog):
         ed.setHorizontalSpacing(10)
         ed.setVerticalSpacing(8)
 
-        ed.addWidget(QLabel("Externer Quelltext-Editor:"), 0, 0, 1, 2)
+        ed.addWidget(QLabel(share.locales.tr("Externer Quelltext-Editor:")), 0, 0, 1, 2)
 
         ed_editor = QLineEdit("")
         btn_editor = QPushButton("✎")
@@ -4711,8 +4746,8 @@ class DesktopPropertiesDialog(QDialog):
         other = QVBoxLayout(gb_other)
         other.setSpacing(6)
 
-        chk_backup = QCheckBox("Sicherungsdateien")
-        chk_sessions = QCheckBox("Arbeitssitzungen")
+        chk_backup   = QCheckBox(share.locales.tr("Sicherungsdateien"))
+        chk_sessions = QCheckBox(share.locales.tr("Arbeitssitzungen"))
         other.addWidget(chk_backup)
         other.addWidget(chk_sessions)
 
@@ -4733,14 +4768,14 @@ class DesktopPropertiesDialog(QDialog):
         g.setVerticalSpacing(12)
 
         # ---------- Tastatur (links oben) ----------
-        gb_kbd = QGroupBox("Tastatur", tab)
+        gb_kbd = QGroupBox(share.locales.tr("Tastatur"), tab)
         kbd = QGridLayout(gb_kbd)
         kbd.setHorizontalSpacing(10)
         kbd.setVerticalSpacing(8)
 
-        chk_confirm = QCheckBox("Bestätigung")
-        chk_cua = QCheckBox("CUA-Eingabe")
-        chk_esc = QCheckBox("Escape")
+        chk_confirm = QCheckBox(share.locales.tr("Bestätigung"))
+        chk_cua     = QCheckBox(share.locales.tr("CUA-Eingabe"))
+        chk_esc     = QCheckBox(share.locales.tr("Escape"))
 
         # wie Screenshot: alle 3 an
         chk_confirm.setChecked(True)
@@ -4751,7 +4786,7 @@ class DesktopPropertiesDialog(QDialog):
         kbd.addWidget(chk_cua,     1, 0, 1, 2)
         kbd.addWidget(chk_esc,     2, 0, 1, 2)
 
-        kbd.addWidget(QLabel("Tastaturpuffer:"), 3, 0)
+        kbd.addWidget(QLabel(share.locales.tr("Tastaturpuffer:")), 3, 0)
         sp_buf = QSpinBox()
         sp_buf.setRange(0, 9999)
         sp_buf.setValue(49)
@@ -4759,12 +4794,12 @@ class DesktopPropertiesDialog(QDialog):
         kbd.addWidget(sp_buf, 3, 1, alignment=Qt.AlignLeft)
 
         # ---------- Andere (links unten) ----------
-        gb_other = QGroupBox("Andere", tab)
+        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
         other = QGridLayout(gb_other)
         other.setHorizontalSpacing(10)
         other.setVerticalSpacing(8)
 
-        other.addWidget(QLabel("Epoche:"), 0, 0)
+        other.addWidget(QLabel(share.locales.tr("Epoche:")), 0, 0)
         sp_epoch = QSpinBox()
         sp_epoch.setRange(0, 9999)
         sp_epoch.setValue(1950)
@@ -4772,30 +4807,30 @@ class DesktopPropertiesDialog(QDialog):
         other.addWidget(sp_epoch, 0, 1, alignment=Qt.AlignLeft)
 
         # ---------- Signalton (rechts) ----------
-        gb_beep = QGroupBox("Signalton", tab)
+        gb_beep = QGroupBox(share.locales.tr("Signalton"), tab)
         beep = QGridLayout(gb_beep)
         beep.setHorizontalSpacing(10)
         beep.setVerticalSpacing(8)
 
-        chk_beep = QCheckBox("Einschalten")
+        chk_beep = QCheckBox(share.locales.tr("Einschalten"))
         chk_beep.setChecked(True)
         beep.addWidget(chk_beep, 0, 0, 1, 2)
 
-        beep.addWidget(QLabel("Frequenz:"), 1, 0)
+        beep.addWidget(QLabel(share.locales.tr("Frequenz:")), 1, 0)
         sp_freq = QSpinBox()
         sp_freq.setRange(0, 20000)
         sp_freq.setValue(512)
         sp_freq.setFixedWidth(90)
         beep.addWidget(sp_freq, 1, 1, alignment=Qt.AlignLeft)
 
-        beep.addWidget(QLabel("Dauer:"), 2, 0)
+        beep.addWidget(QLabel(share.locales.tr("Dauer:")), 2, 0)
         sp_dur = QSpinBox()
         sp_dur.setRange(0, 10000)
         sp_dur.setValue(50)
         sp_dur.setFixedWidth(90)
         beep.addWidget(sp_dur, 2, 1, alignment=Qt.AlignLeft)
 
-        btn_test = QPushButton("Prüfen")
+        btn_test = QPushButton(share.locales.tr("Prüfen"))
         btn_test.setFixedWidth(95)
         beep.addWidget(btn_test, 3, 0, 1, 2, alignment=Qt.AlignLeft)
 
@@ -4832,35 +4867,35 @@ class DesktopPropertiesDialog(QDialog):
         g.setVerticalSpacing(12)
 
         # --- Befehlsausgabe (links oben) ---
-        gb_out = QGroupBox("Befehlsausgabe", tab)
+        gb_out = QGroupBox(share.locales.tr("Befehlsausgabe"), tab)
         out = QGridLayout(gb_out)
         out.setHorizontalSpacing(10)
         out.setVerticalSpacing(8)
 
-        out.addWidget(QLabel("Dezimalstellen:"), 0, 0)
+        out.addWidget(QLabel(share.locales.tr("Dezimalstellen:")), 0, 0)
         sp_dec = QSpinBox()
         sp_dec.setRange(0, 20)
         sp_dec.setValue(2)
         sp_dec.setFixedWidth(80)
         out.addWidget(sp_dec, 0, 1, alignment=Qt.AlignLeft)
 
-        out.addWidget(QLabel("Genauigkeit:"), 1, 0)
+        out.addWidget(QLabel(share.locales.tr("Genauigkeit:")), 1, 0)
         sp_prec = QSpinBox()
         sp_prec.setRange(0, 20)
         sp_prec.setValue(10)
         sp_prec.setFixedWidth(80)
         out.addWidget(sp_prec, 1, 1, alignment=Qt.AlignLeft)
 
-        out.addWidget(QLabel("Rand:"), 2, 0)
+        out.addWidget(QLabel(share.locales.tr("Rand:")), 2, 0)
         sp_margin = QSpinBox()
         sp_margin.setRange(0, 999)
         sp_margin.setValue(0)
         sp_margin.setFixedWidth(80)
         out.addWidget(sp_margin, 2, 1, alignment=Qt.AlignLeft)
 
-        chk_blank = QCheckBox("Leerzeichen")
-        chk_trace = QCheckBox("Ablaufverfolgung")
-        chk_fieldnames = QCheckBox("Feldnamen")
+        chk_blank       = QCheckBox(share.locales.tr("Leerzeichen"))
+        chk_trace       = QCheckBox(share.locales.tr("Ablaufverfolgung"))
+        chk_fieldnames  = QCheckBox(share.locales.tr("Feldnamen"))
 
         # wie Screenshot: Leerzeichen + Feldnamen an
         chk_blank.setChecked(True)
@@ -4871,13 +4906,13 @@ class DesktopPropertiesDialog(QDialog):
         out.addWidget(chk_fieldnames, 5, 0, 1, 2)
 
         # --- Programmentwicklung (rechts oben) ---
-        gb_dev = QGroupBox("Programmentwicklung", tab)
+        gb_dev = QGroupBox(share.locales.tr("Programmentwicklung"), tab)
         dev = QGridLayout(gb_dev)
         dev.setHorizontalSpacing(10)
         dev.setVerticalSpacing(8)
 
-        chk_fulltest = QCheckBox("Volltest")
-        chk_buildtime = QCheckBox("Erstellungszeit")
+        chk_fulltest  = QCheckBox(share.locales.tr("Volltest"))
+        chk_buildtime = QCheckBox(share.locales.tr("Erstellungszeit"))
         chk_buildtime.setChecked(True)
 
         dev.addWidget(chk_fulltest, 0, 0, 1, 2)
@@ -4889,10 +4924,10 @@ class DesktopPropertiesDialog(QDialog):
         other.setHorizontalSpacing(10)
         other.setVerticalSpacing(8)
 
-        chk_design = QCheckBox("Design")
-        chk_hiprec = QCheckBox("High Precision")
-        chk_protect = QCheckBox("Änderungsschutz")
-        chk_fullpath = QCheckBox("Vollständige Pfadangabe")
+        chk_design   = QCheckBox(share.locales.tr("Design"))
+        chk_hiprec   = QCheckBox(share.locales.tr("High Precision"))
+        chk_protect  = QCheckBox(share.locales.tr("Änderungsschutz"))
+        chk_fullpath = QCheckBox(share.locales.tr("Vollständige Pfadangabe"))
 
         # wie Screenshot: Design + Änderungsschutz an
         chk_design.setChecked(True)
@@ -4904,12 +4939,12 @@ class DesktopPropertiesDialog(QDialog):
         other.addWidget(chk_fullpath, 2, 0, 1, 2)
 
         # --- Error Handling (unten, über beide Spalten) ---
-        gb_err = QGroupBox("Error Handling", tab)
+        gb_err = QGroupBox(share.locales.tr("Error Handling"), tab)
         err = QGridLayout(gb_err)
         err.setHorizontalSpacing(10)
         err.setVerticalSpacing(8)
 
-        err.addWidget(QLabel("Error Action:"), 0, 0)
+        err.addWidget(QLabel(share.locales.tr("Error Action:")), 0, 0)
         cb_action = QComboBox()
         cb_action.addItems([
             "0 - Ignore",
@@ -4923,7 +4958,7 @@ class DesktopPropertiesDialog(QDialog):
         err.addWidget(cb_action, 0, 1, 1, 2)
 
         # Error Log File + browse button
-        err.addWidget(QLabel("Error Log File:"), 1, 0)
+        err.addWidget(QLabel(share.locales.tr("Error Log File:")), 1, 0)
         ed_log = QLineEdit("PLUSerr.log")
         err.addWidget(ed_log, 1, 1)
         btn_log = QPushButton("...")
@@ -4931,16 +4966,16 @@ class DesktopPropertiesDialog(QDialog):
         err.addWidget(btn_log, 1, 2, alignment=Qt.AlignLeft)
 
         # Maximum Size + unit label
-        err.addWidget(QLabel("Maximum Size:"), 2, 0)
+        err.addWidget(QLabel(share.locales.tr("Maximum Size:")), 2, 0)
         sp_max = QSpinBox()
         sp_max.setRange(0, 999999)
         sp_max.setValue(100)
         sp_max.setFixedWidth(90)
         err.addWidget(sp_max, 2, 1, alignment=Qt.AlignLeft)
-        err.addWidget(QLabel("Kilobytes"), 2, 2, alignment=Qt.AlignLeft)
+        err.addWidget(QLabel(share.locales.tr("Kilobytes")), 2, 2, alignment=Qt.AlignLeft)
 
         # HTML Error Template + browse button
-        err.addWidget(QLabel("HTML Error Template:"), 3, 0)
+        err.addWidget(QLabel(share.locales.tr("HTML Error Template:")), 3, 0)
         ed_tpl = QLineEdit("error.htm")
         err.addWidget(ed_tpl, 3, 1)
         btn_tpl = QPushButton("...")
@@ -4957,7 +4992,7 @@ class DesktopPropertiesDialog(QDialog):
         return tab
 
     def _help(self):
-        QMessageBox.information(self, "Help", "Hier könnte deine Hilfe stehen :)")
+        QMessageBox.information(self, share.locales.tr("Help"), "Hier könnte deine Hilfe stehen :)")
 
     # Damit Esc auch sauber schließt
     def reject(self):
@@ -4967,8 +5002,10 @@ class DesktopPropertiesDialog(QDialog):
 # Formular-Designer Dock (Objektinspector + Werkzeugpalette)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Ein einfacher Key-Value Editor (2 Spalten).
+# ---------------------------------------------------------------------------
 class _KeyValueTree(QTreeWidget):
-    """Ein einfacher Key-Value Editor (2 Spalten)."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setColumnCount(2)
@@ -4978,13 +5015,13 @@ class _KeyValueTree(QTreeWidget):
         self.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
         self.setRootIsDecorated(True)
 
+# ---------------------------------------------------------------------------
+# Werkzeug-Palette (links unten):
+# - 3 Tabs (Standard/Datenzugriff/Individuell)
+# - pro Tab ein IconView (QListWidget)
+# - bei Auswahl wird toolSelected(tool_name) emittiert
+# ---------------------------------------------------------------------------
 class _ToolPalette(QTabWidget):
-    """
-    Werkzeug-Palette (links unten):
-    - 3 Tabs (Standard/Datenzugriff/Individuell)
-    - pro Tab ein IconView (QListWidget)
-    - bei Auswahl wird toolSelected(tool_name) emittiert
-    """
     toolSelected = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -4995,9 +5032,9 @@ class _ToolPalette(QTabWidget):
         self.data = self._make_icon_view()
         self.custom = self._make_icon_view()
 
-        self.addTab(self.std, "Standard")
-        self.addTab(self.data, "Datenzugriff")
-        self.addTab(self.custom, "Individuell")
+        self.addTab(self.std,    share.locales.tr("Standard"))
+        self.addTab(self.data,   share.locales.tr("Datenzugriff"))
+        self.addTab(self.custom, share.locales.tr("Individuell"))
 
         self._fill_defaults()
 
@@ -5044,19 +5081,19 @@ class _ToolPalette(QTabWidget):
         ip = QFileIconProvider()
 
         # Standard Controls
-        self._add(self.std, "Label", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "Button", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "LineEdit", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "TextEdit", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "CheckBox", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "ComboBox", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "ListBox", ip.icon(QFileIconProvider.File))
-        self._add(self.std, "GroupBox", ip.icon(QFileIconProvider.File))
+        self._add(self.std, "Label",     ip.icon(QFileIconProvider.File))
+        self._add(self.std, "Button",    ip.icon(QFileIconProvider.File))
+        self._add(self.std, "LineEdit",  ip.icon(QFileIconProvider.File))
+        self._add(self.std, "TextEdit",  ip.icon(QFileIconProvider.File))
+        self._add(self.std, "CheckBox",  ip.icon(QFileIconProvider.File))
+        self._add(self.std, "ComboBox",  ip.icon(QFileIconProvider.File))
+        self._add(self.std, "ListBox",   ip.icon(QFileIconProvider.File))
+        self._add(self.std, "GroupBox",  ip.icon(QFileIconProvider.File))
         self._add(self.std, "TabWidget", ip.icon(QFileIconProvider.File))
 
         # Datenzugriff (Platzhalter/Start)
-        self._add(self.data, "TableView", ip.icon(QFileIconProvider.File))
-        self._add(self.data, "TreeView", ip.icon(QFileIconProvider.File))
+        self._add(self.data, "TableView",  ip.icon(QFileIconProvider.File))
+        self._add(self.data, "TreeView",   ip.icon(QFileIconProvider.File))
         self._add(self.data, "DataSource", ip.icon(QFileIconProvider.File))
 
         # Individuell (Platzhalter)
@@ -5138,8 +5175,10 @@ def apply_custom_dock_titlebar(dock: QDockWidget):
     # Optional: damit dein Titel immer sync bleibt
     dock.windowTitleChanged.connect(tb.setTitle)
 
+# ---------------------------------------------------------------------------
+# Dock: Objekt-Inspector (oben links).
+# ---------------------------------------------------------------------------
 class ObjectInspectorDock(QDockWidget):
-    """Dock: Objekt-Inspector (oben links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(share.locales.tr("Object Inspector"), parent)
         self.main_window = main_window
@@ -5151,8 +5190,10 @@ class ObjectInspectorDock(QDockWidget):
         main_window.object_inspector = inspector
         self.setWidget(inspector)
 
+# ---------------------------------------------------------------------------
+# Dock: Objektpalette (unten links).
+# ---------------------------------------------------------------------------
 class ObjectPaletteDock(QDockWidget):
-    """Dock: Objektpalette (unten links)."""
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(share.locales.tr("Object Palette"), parent)
         self.main_window = main_window
@@ -5170,18 +5211,18 @@ class ObjectPaletteDock(QDockWidget):
         except Exception:
             palette = QWidget(self)
             lay = QVBoxLayout(palette)
-            lay.addWidget(QLabel("ToolPalette nicht verfügbar", palette))
+            lay.addWidget(QLabel(share.locales.tr("ToolPalette nicht verfügbar"), palette))
 
         self.setWidget(palette)
 
+# ---------------------------------------------------------------------------
+# Design-Time Wrapper:
+# - enthält ein echtes Qt-Control (inner)
+# - zeichnet Auswahlrahmen + 8 Resize-Handles (außen am Rand)
+# - Move + Resize mit Grid-Snap
+# - inner ist mouse-transparent, damit Klicks immer den Wrapper selektieren
+# ---------------------------------------------------------------------------
 class DesignerControl(QWidget):
-    """
-    Design-Time Wrapper:
-    - enthält ein echtes Qt-Control (inner)
-    - zeichnet Auswahlrahmen + 8 Resize-Handles (außen am Rand)
-    - Move + Resize mit Grid-Snap
-    - inner ist mouse-transparent, damit Klicks immer den Wrapper selektieren
-    """
     HANDLE_SIZE = 7
     MARGIN = HANDLE_SIZE  # Platz für "außenliegende" Handles
 
@@ -5536,31 +5577,31 @@ class DesignerControl(QWidget):
 
         menu.addSeparator()
 
-        act_edit = QAction("Bearbeiten", self)
+        act_edit = QAction(share.locales.tr("Bearbeiten"), self)
         act_edit.triggered.connect(self._action_edit)
         menu.addAction(act_edit)
 
-        act_rename = QAction("Umbenennen", self)
+        act_rename = QAction(share.locales.tr("Umbenennen"), self)
         act_rename.triggered.connect(self._action_rename)
         menu.addAction(act_rename)
 
         menu.addSeparator()
 
-        act_copy = QAction("Kopieren", self)
+        act_copy = QAction(share.locales.tr("Kopieren"), self)
         act_copy.triggered.connect(lambda: self._clipboard_copy(cut=False))
         menu.addAction(act_copy)
 
-        act_cut = QAction("Ausschneiden", self)
+        act_cut = QAction(share.locales.tr("Ausschneiden"), self)
         act_cut.triggered.connect(lambda: self._clipboard_copy(cut=True))
         menu.addAction(act_cut)
 
-        act_del = QAction("Entfernen/Löschen", self)
+        act_del = QAction(share.locales.tr("Entfernen/Löschen"), self)
         act_del.triggered.connect(self._action_delete)
         menu.addAction(act_del)
 
         menu.addSeparator()
 
-        act_paste = QAction("Einfügen", self)
+        act_paste = QAction(share.locales.tr("Einfügen"), self)
         act_paste.setEnabled(bool(getattr(self.parent(), "_designer_clip", None)))
         act_paste.triggered.connect(lambda: self.parent().paste_from_clipboard(ev.globalPos()))
         menu.addAction(act_paste)
@@ -5593,7 +5634,10 @@ class DesignerControl(QWidget):
 
     def _action_rename(self):
         base = (self.tool_name or "Control").strip() or "Control"
-        new_name, ok = QInputDialog.getText(self, "Umbenennen", "Neuer Name:", text=(self.instance_name or base))
+        new_name, ok = QInputDialog.getText(self,
+            share.locales.tr("Umbenennen"),
+            share.locales.tr("Neuer Name:"),
+            text=(self.instance_name or base))
         if not ok:
             return
         new_name = (new_name or "").strip()
@@ -5601,13 +5645,14 @@ class DesignerControl(QWidget):
             return
         try:
             if hasattr(self.parent(), "is_name_used") and self.parent().is_name_used(new_name, except_ctrl=self):
-                QMessageBox.warning(self, "Umbenennen", "Name wird bereits verwendet.")
+                QMessageBox.warning(self,
+                    share.locales.tr("Umbenennen"),
+                    share.locales.tr("Name wird bereits verwendet."))
                 return
         except Exception:
             pass
         self.instance_name = new_name
         self.update()
-
 
 
     def _action_delete(self):
@@ -5617,24 +5662,22 @@ class DesignerControl(QWidget):
             self.deleteLater()
 
 
-
     def _clipboard_copy(self, cut: bool = False):
         try:
             self.parent().copy_to_clipboard(self, cut=cut)
         except Exception as e:
-            QMessageBox.warning(self, "Clipboard", str(e))
+            QMessageBox.warning(self, share.locales.tr("Clipboard"), str(e))
 
-
+# ---------------------------------------------------------------------------
+# Designer-Fläche mit Pixelgrid + Platzieren von DesignerControl.
+#
+# Workflow:
+# - In der Palette ein Tool anklicken (z.B. 'Button')
+# - Im Canvas: LMB drücken/ziehen -> Rahmen (RubberBand)
+# - LMB loslassen -> Control wird erzeugt
+# - Control: klicken = aktiv, ziehen = verschieben, Handles = resize
+# ---------------------------------------------------------------------------
 class PixelGridCanvas(QWidget):
-    """
-    Designer-Fläche mit Pixelgrid + Platzieren von DesignerControl.
-
-    Workflow:
-    - In der Palette ein Tool anklicken (z.B. 'Button')
-    - Im Canvas: LMB drücken/ziehen -> Rahmen (RubberBand)
-    - LMB loslassen -> Control wird erzeugt
-    - Control: klicken = aktiv, ziehen = verschieben, Handles = resize
-    """
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         # Referenz auf MainWindow (für Objektinspektor-Sync)
@@ -5954,8 +5997,10 @@ class PixelGridCanvas(QWidget):
         menu.addAction(act_paste)
         menu.exec_(ev.globalPos())
         
+# ---------------------------------------------------------------------------
+# Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid.
+# ---------------------------------------------------------------------------
 class FormDesignerWindow(QWidget):
-    """Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid."""
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
@@ -6034,13 +6079,13 @@ class FormDesignerWindow(QWidget):
         except Exception:
             pass
 
+# ---------------------------------------------------------------------------
+# Ersetzt das alte 'FormDesignerDock':
+#   - Objektinspektor (Dock links oben)
+#   - Objektpalette (Dock links unten)
+#   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
+# ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    """
-    Ersetzt das alte 'FormDesignerDock':
-    - Objektinspektor (Dock links oben)
-    - Objektpalette (Dock links unten)
-    - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
-    """
     # 1) Docks links
     try:
         main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
@@ -6073,9 +6118,10 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
+# ---------------------------------------------------------------------------
+# Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden.
+# ---------------------------------------------------------------------------
 class ObjectInspectorPanel(QWidget):
-    """Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden."""
-
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
@@ -6383,14 +6429,11 @@ class ArrowFontProxyStyle(QProxyStyle):
         painter.restore()
         
 
-
-
 # ---------------------------------------------------------------------------
 # Debug Console (split view: output + one-liner input with history)
+# Single-line-ish input with history (Up/Down) and Enter-to-submit.
 # ---------------------------------------------------------------------------
 class _CommandInputEdit(QPlainTextEdit):
-    """Single-line-ish input with history (Up/Down) and Enter-to-submit."""
-
     commandEntered = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -6547,16 +6590,20 @@ class DebugConsoleWidget(QWidget):
 
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Loads <lang>/LC_MESSAGES/dbase.mo from locales.zip and refreshes menu texts.
+    # ---------------------------------------------------------------------------
     def _set_language(self, lang: str):
-        """Loads <lang>/LC_MESSAGES/dbase.mo from locales.zip and refreshes menu texts."""
         try:
             share.locales.I18N.load_mo(lang)
         except Exception:
             pass
         self._retranslate_ui()
 
+    # ---------------------------------------------------------------------------
+    # Best-effort retranslate for main menu + window title.
+    # ---------------------------------------------------------------------------
     def _retranslate_ui(self):
-        """Best-effort retranslate for main menu + window title."""
         try:
             self.setWindowTitle(share.locales.tr(_runner_window_title()))
         except Exception:
@@ -6625,8 +6672,10 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    # ---------------------------------------------------------------------------
+    # Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...).
+    # ---------------------------------------------------------------------------
     def set_designer_tool(self, tool_name: str) -> None:
-        """Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...)."""
         self.designer_current_tool = (tool_name or "").strip()
         # optional: Statusbar
         try:
@@ -6639,8 +6688,10 @@ class MainWindow(QMainWindow):
 
 
     # --- Designer -> Objektinspektor Sync ---------------------------------
+    # ---------------------------------------------------------------------------
+    # Wird vom PixelGridCanvas gerufen, wenn sich die Auswahl ändert.
+    # ---------------------------------------------------------------------------
     def on_designer_selection_changed(self, ctrl):
-        """Wird vom PixelGridCanvas gerufen, wenn sich die Auswahl ändert."""
         try:
             oi = getattr(self, "object_inspector", None)
             if oi is not None:
@@ -6648,8 +6699,10 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    # ---------------------------------------------------------------------------
+    # Wird vom PixelGridCanvas gerufen, wenn Controls hinzugefügt/entfernt werden.
+    # ---------------------------------------------------------------------------
     def on_designer_controls_changed(self, controls):
-        """Wird vom PixelGridCanvas gerufen, wenn Controls hinzugefügt/entfernt werden."""
         try:
             oi = getattr(self, "object_inspector", None)
             if oi is not None:
@@ -6922,16 +6975,20 @@ class MainWindow(QMainWindow):
 
     # Debug Console als weiteres Sub-MDI (Split: Output/Input)
     # -------- INI / State --------
+    # ---------------------------------------------------------------------------
+    # INI file path (portable: next to script/exe).
+    # ---------------------------------------------------------------------------
     def _ini_path(self) -> str:
-        """INI file path (portable: next to script/exe)."""
         try:
             base = os.path.dirname(os.path.abspath(sys.argv[0]))
         except Exception:
             base = os.getcwd()
         return os.path.join(base, "dBaseRunner.ini")
 
+    # ---------------------------------------------------------------------------
+    # Creates (or focuses) the debug console MDI subwindow.
+    # ---------------------------------------------------------------------------
     def ensure_debug_console(self, focus: bool = True):
-        """Creates (or focuses) the debug console MDI subwindow."""
         try:
             existing = getattr(self, "_debug_console", None)
             if existing is not None:
@@ -7000,14 +7057,15 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
+    # ---------------------------------------------------------------------------
+    # Führt eine einzelne dBase-One-Liner-Eingabe aus und gibt die Ausgabe
+    # (stdout) zurück.
+    #
+    #  - Statements wie: WRITE "test"
+    #  - Expressions wie: 2 + 3 * 4  -> werden automatisch zu: WRITE (2 + 3 * 4)
+    #  - '?' wird als Kurzform für WRITE behandelt: ? "hi"
+    # ---------------------------------------------------------------------------
     def _execute_one_liner(self, code_line: str) -> str:
-        """
-        Führt eine einzelne dBase-One-Liner-Eingabe aus und gibt die Ausgabe (stdout) zurück.
-
-        - Statements wie: WRITE "test"
-        - Expressions wie: 2 + 3 * 4  -> werden automatisch zu: WRITE (2 + 3 * 4)
-        - '?' wird als Kurzform für WRITE behandelt: ? "hi"
-        """
         code_line = (code_line or "").strip()
         if not code_line:
             return ""
@@ -7108,13 +7166,14 @@ class MainWindow(QMainWindow):
 
         event.accept()
 
-            
+    # ---------------------------------------------------------------------------
+    # Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
+    #
+    #   Hintergrund: im Projekt existieren mehrere Editor-Typen (EditorWidget vs.
+    #   FileEditorWindow). Für "Ansicht -> Editor" und "Bearbeiten"
+    #   wollen wir IMMER den FileEditorWindow (Tabs).
+    # ---------------------------------------------------------------------------
     def ensure_code_editor_window(self, focus: bool = True):
-        """Stellt sicher, dass ein FileEditorWindow existiert (im MDI) und setzt Fokus.
-
-        Hintergrund: im Projekt existieren mehrere Editor-Typen (EditorWidget vs. FileEditorWindow).
-        Für „Ansicht -> Editor“ und „Bearbeiten“ wollen wir IMMER den FileEditorWindow (Tabs).
-        """
         # 1) aktives SubWindow
         try:
             sub = self.mdi.activeSubWindow() if hasattr(self, "mdi") else None
@@ -7194,8 +7253,10 @@ class MainWindow(QMainWindow):
             return None
         return None
     
+    # ---------------------------------------------------------------------------
+    # Best-effort: springt im aktiven Editor zu 'symbol' (oder legt Marker an).
+    # ---------------------------------------------------------------------------
     def jump_to_symbol(self, symbol: str):
-        """Best-effort: springt im aktiven Editor zu 'symbol' (oder legt Marker an)."""
         symbol = (symbol or "").strip()
         if not symbol:
             return
@@ -7363,8 +7424,10 @@ class MainWindow(QMainWindow):
             return
         sub.close()
 
+    # ---------------------------------------------------------------------------
+    # Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen.
+    # ---------------------------------------------------------------------------
     def on_action_file_open(self):
-        """Datei -> Öffnen: Quellcode-Datei(en) im FileEditorWindow als Tab öffnen."""
         try:
             dlg = QFileDialog(self, share.locales.tr("Open File..."))
             dlg.setFileMode(QFileDialog.ExistingFiles)
@@ -7512,8 +7575,10 @@ class MainWindow(QMainWindow):
         win.show()
         return win
 
+    # ---------------------------------------------------------------------------
+    # Erzeugt (falls nicht vorhanden) einen Eventhandler als Code.
+    # ---------------------------------------------------------------------------
     def insert_event_handler(self, handler_name: str):
-        """Erzeugt (falls nicht vorhanden) einen Eventhandler als Code."""
         handler_name = (handler_name or "").strip()
         if not handler_name:
             return
@@ -7583,10 +7648,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Fehler", f"Konnte Editor nicht öffnen:\n{e}")
 
+    # ---------------------------------------------------------------------------
+    # Projekt/Ordner öffnen und im RegieCenter (Programme) als aktuelles
+    # Verzeichnis setzen.
+    # ---------------------------------------------------------------------------
     def on_action_file_open_project(self):
-        """
-        Projekt/Ordner öffnen und im RegieCenter (Programme) als aktuelles Verzeichnis setzen.
-        """
         from PyQt5.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd())
         if not directory:
@@ -7682,8 +7748,11 @@ class MainWindow(QMainWindow):
         status.addWidget(self.status_left, 1)        # Stretch
         status.addPermanentWidget(self.status_mid, 0)
         status.addPermanentWidget(self.status_right, 0)
+    
+    # ---------------------------------------------------------------------------
+    # Update main titlebar when active MDI subwindow changes/maximizes.
+    # ---------------------------------------------------------------------------
     def _on_mdi_subwindow_activated(self, sub: 'QMdiSubWindow') -> None:
-        """Update main titlebar when active MDI subwindow changes/maximizes."""
         tb = getattr(self, "_main_titlebar", None)
         if tb is None:
             return
@@ -7782,10 +7851,10 @@ except Exception:
 # ---------------------------------------------------------------------------
 # SQL Builder (Canvas + Table)
 # ---------------------------------------------------------------------------
+# Read field names from a DBF header (dBASE III/IV style).
+# Best-effort: returns [] on errors.
+# ---------------------------------------------------------------------------
 def _read_dbf_fields(dbf_path: str) -> List[str]:
-    """Read field names from a DBF header (dBASE III/IV style).
-    Best-effort: returns [] on errors.
-    """
     try:
         with open(dbf_path, "rb") as f:
             hdr = f.read(32)
@@ -7814,10 +7883,11 @@ def _read_dbf_fields(dbf_path: str) -> List[str]:
         return []
 
 
+# ---------------------------------------------------------------------------
+# Return (table_name, [fields]) for a SQLite database file.
+# If multiple tables exist, asks user to pick later (handled by caller).
+# ---------------------------------------------------------------------------
 def _read_sqlite_fields(db_path: str) -> (str, List[str]):
-    """Return (table_name, [fields]) for a SQLite database file.
-    If multiple tables exist, asks user to pick later (handled by caller).
-    """
     # This helper only returns all tables; caller selects.
     con = sqlite3.connect(db_path)
     try:
@@ -7838,10 +7908,10 @@ class SqlConnection:
         self.dst_proxy = dst_proxy
         self.dst_field = dst_field
 
-
+# ---------------------------------------------------------------------------
+# A draggable proxy widget representing a table (DBF or SQLite table).
+# ---------------------------------------------------------------------------
 class SqlTableProxy(QFrame):
-    """A draggable proxy widget representing a table (DBF or SQLite table)."""
-
     request_delete = pyqtSignal(object)             # self
     request_connection = pyqtSignal(object, str, object, str)  # src_proxy, src_field, dst_proxy, dst_field
 
@@ -8021,10 +8091,10 @@ class SqlTableProxy(QFrame):
                 return False
         return super().eventFilter(obj, ev)
 
-
+# ---------------------------------------------------------------------------
+# A scrollable canvas that hosts SqlTableProxy widgets and draws connections.
+# ---------------------------------------------------------------------------
 class SqlCanvas(QFrame):
-    """A scrollable canvas that hosts SqlTableProxy widgets and draws connections."""
-
     selection_changed = pyqtSignal(object)  # reserved (future)
 
     def __init__(self, parent=None):
@@ -8160,9 +8230,11 @@ class SqlCanvas(QFrame):
                     return c
         return None
 
-
+    # ---------------------------------------------------------------------------
+    # Walk up the parent chain to find the SqlBuilderWindow (or wrapper) that
+    # owns this canvas.
+    # ---------------------------------------------------------------------------
     def _find_builder_host(self):
-        """Walk up the parent chain to find the SqlBuilderWindow (or wrapper) that owns this canvas."""
         w = self
         # parentWidget() is more reliable than window() here because the canvas lives inside a QScrollArea viewport
         while w is not None:
@@ -8300,10 +8372,10 @@ class SqlCanvas(QFrame):
             for a,b in zip(pts, pts[1:]):
                 p.drawLine(a,b)
 
-
+# ---------------------------------------------------------------------------
+# SQL Builder window: scrollable canvas on top, QTableWidget below.
+# ---------------------------------------------------------------------------
 class SqlBuilderWindow(QWidget):
-    """SQL Builder window: scrollable canvas on top, QTableWidget below."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._project_path = None

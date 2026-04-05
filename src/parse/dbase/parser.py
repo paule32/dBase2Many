@@ -219,26 +219,36 @@ def form_open(inst: share.common.Instance):
     if inst.backend is None:
         return
 
+    backend = inst.backend
+
     try:
         _ensure_escape_filter_installed()
     except Exception:
         pass
 
     try:
-        if hasattr(inst.backend, "setModal"):
-            inst.backend.setModal(False)
+        if hasattr(backend, "setModal"):
+            backend.setModal(False)
     except Exception:
         pass
 
     try:
-        if hasattr(inst.backend, "setWindowModality"):
-            inst.backend.setWindowModality(Qt.NonModal)
+        if hasattr(backend, "setWindowModality"):
+            backend.setWindowModality(Qt.NonModal)
+    except Exception:
+        pass
+
+    # QDialog/QWidget fuer MDI-Nutzung neutralisieren, damit das Fenster nicht
+    # als eigenes Top-Level-Fenster ausserhalb des MDI-Bereichs auftaucht.
+    try:
+        if isinstance(backend, QDialog):
+            backend.setWindowFlags(Qt.Widget)
     except Exception:
         pass
 
     sub = None
     try:
-        sub = share.common.MAINAPP.mdi.addSubWindow(inst.backend)
+        sub = share.common.MAINAPP.mdi.addSubWindow(backend)
     except Exception:
         sub = None
 
@@ -252,7 +262,7 @@ def form_open(inst: share.common.Instance):
         except Exception:
             pass
         try:
-            inst.backend.setProperty("_DBASE_ESCAPE_TARGET", True)
+            backend.setProperty("_DBASE_ESCAPE_TARGET", True)
         except Exception:
             pass
         try:
@@ -261,7 +271,7 @@ def form_open(inst: share.common.Instance):
             pass
         inst.props["_QT_SUBWINDOW"] = sub
         try:
-            inst.backend.show()
+            backend.show()
         except Exception:
             pass
         try:
@@ -271,14 +281,14 @@ def form_open(inst: share.common.Instance):
         return sub
 
     try:
-        inst.backend.setProperty("_DBASE_ESCAPE_TARGET", True)
+        backend.setProperty("_DBASE_ESCAPE_TARGET", True)
     except Exception:
         pass
     try:
-        inst.backend.show()
+        backend.show()
     except Exception:
         pass
-    return inst.backend
+    return backend
 
 # ---------------------------------------------------------------------------
 # Build QSS for CONTAINER (QFrame) from instance properties.
