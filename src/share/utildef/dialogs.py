@@ -3,8 +3,10 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from __future__   import annotations
-from share.common import *
+from __future__    import annotations
+
+from share.common  import *
+from share.locales import *
 
 class InputValueDialog(QDialog):
     def __init__(self, prompt: str = "", parent=None):
@@ -12,7 +14,7 @@ class InputValueDialog(QDialog):
         self._value = ""
         self._rc = 0
 
-        self.setWindowTitle("Eingabe")
+        self.setWindowTitle(share.locales.tr("Input"))
         self.setModal(True)
         self.setWindowModality(Qt.ApplicationModal)
         self.setFixedSize(360, 120)
@@ -29,8 +31,8 @@ class InputValueDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
 
-        self.btn_ok = QPushButton("OK", self)
-        self.btn_cancel = QPushButton("Cancel", self)
+        self.btn_ok     = QPushButton(share.locales.tr("OK"),     self)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self)
 
         self.btn_ok.clicked.connect(self._on_ok)
         self.btn_cancel.clicked.connect(self._on_cancel)
