@@ -160,12 +160,15 @@ jobs:
           "ANTLR_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Generate Lexer/Parser
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
 
           Write-Host "PARSE SUBDIR: $env:GRAMMAR_SUBDIR"
-          New-Item -ItemType Directory -Force -Path "src\parse\$env:GRAMMAR_SUBDIR" | Out-Null
+          dir src
+          New-Item -ItemType Directory -Force -Path "src\parse\$env:GRAMMAR_SUBDIR"
+          Write-Host "src\parse\$env:GRAMMAR_SUBDIR created"
+          dir src\gramm
 
           java -jar "$env:ANTLR_JAR" `
                -Dlanguage=Python3 `
