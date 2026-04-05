@@ -177,8 +177,8 @@ jobs:
               print("create parse subdir")
               parse.mkdir(parents=True, exist_ok=True)
 
-          lexer  = Path(gramm / os.environ["LEXER_FILE"]
-          parser = Path(gramm / os.environ["PARSER_FILE"]
+          lexer  = Path(gramm / os.environ["LEXER_FILE"])
+          parser = Path(gramm / os.environ["PARSER_FILE"])
 
           if not lexer.exists():
               print("lexer file don't exists")
