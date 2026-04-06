@@ -46,49 +46,49 @@ _RUNTIME_CONFIRM_ENABLED = False
 _RUNTIME_DELETE_ENABLED = False
 
 _VGA_COLOR_TABLE = {
-    0: {"name": "Schwarz", "hex": "#000000"},
-    1: {"name": "Blau", "hex": "#0000AA"},
-    2: {"name": "Gruen", "hex": "#00AA00"},
-    3: {"name": "Cyan", "hex": "#00AAAA"},
-    4: {"name": "Rot", "hex": "#AA0000"},
-    5: {"name": "Magenta", "hex": "#AA00AA"},
-    6: {"name": "Braun", "hex": "#AA5500"},
-    7: {"name": "Hellgrau", "hex": "#AAAAAA"},
-    8: {"name": "Dunkelgrau", "hex": "#555555"},
-    9: {"name": "Hellblau", "hex": "#5555FF"},
-    10: {"name": "Hellgruen", "hex": "#55FF55"},
-    11: {"name": "Hellcyan", "hex": "#55FFFF"},
-    12: {"name": "Hellrot", "hex": "#FF5555"},
-    13: {"name": "Hellmagenta", "hex": "#FF55FF"},
-    14: {"name": "Gelb", "hex": "#FFFF55"},
-    15: {"name": "Weiss", "hex": "#FFFFFF"},
+     0: {"name": share.locales.tr("Schwarz"),     "hex": "#000000"},
+     1: {"name": share.locales.tr("Blau"),        "hex": "#0000AA"},
+     2: {"name": share.locales.tr("Gruen"),       "hex": "#00AA00"},
+     3: {"name": share.locales.tr("Cyan"),        "hex": "#00AAAA"},
+     4: {"name": share.locales.tr("Rot"),         "hex": "#AA0000"},
+     5: {"name": share.locales.tr("Magenta"),     "hex": "#AA00AA"},
+     6: {"name": share.locales.tr("Braun"),       "hex": "#AA5500"},
+     7: {"name": share.locales.tr("Hellgrau"),    "hex": "#AAAAAA"},
+     8: {"name": share.locales.tr("Dunkelgrau"),  "hex": "#555555"},
+     9: {"name": share.locales.tr("Hellblau"),    "hex": "#5555FF"},
+    10: {"name": share.locales.tr("Hellgruen"),   "hex": "#55FF55"},
+    11: {"name": share.locales.tr("Hellcyan"),    "hex": "#55FFFF"},
+    12: {"name": share.locales.tr("Hellrot"),     "hex": "#FF5555"},
+    13: {"name": share.locales.tr("Hellmagenta"), "hex": "#FF55FF"},
+    14: {"name": share.locales.tr("Gelb"),        "hex": "#FFFF55"},
+    15: {"name": share.locales.tr("Weiss"),       "hex": "#FFFFFF"},
 }
 
 # ---------------------------------------------------------------------------
 # native base classes supported by dBase 2026
 # ---------------------------------------------------------------------------
 NATIVE_BASES = {
-    "FORM": QDialog,          # oder QDialog, wenn FORM per default Dialog sein soll
-    "DIALOG": QDialog,
-    "PUSHBUTTON": QPushButton,
-    "CONTAINER": QFrame,
-    "ENTRYFIELD": QLineEdit,
-    "RADIOBUTTON": QRadioButton,
-    "COMBOBOX": QComboBox,
-    "EDITOR": QPlainTextEdit,
-    "CHECKBOX": QCheckBox,
-    "LISTBOX": QListWidget,
-    "CHECKLISTBOX": QListWidget,
-    "IMAGE": QLabel,
-    "GRID": QTableWidget,
-    "PROGRESS": QProgressBar,
-    "PAINTBOX": QWidget,
-    "VSCROLLBAR": QScrollBar,
-    "HSCROLLBAR": QScrollBar,
-    "TEXT": QLabel,
-    "TREEVIEW": QTreeView,
-    "SPINBOX": QSpinBox,
-    "BROWSE": QTableView,
+    "FORM"          : QDialog,          # oder QDialog, wenn FORM per default Dialog sein soll
+    "DIALOG"        : QDialog,
+    "PUSHBUTTON"    : QPushButton,
+    "CONTAINER"     : QFrame,
+    "ENTRYFIELD"    : QLineEdit,
+    "RADIOBUTTON"   : QRadioButton,
+    "COMBOBOX"      : QComboBox,
+    "EDITOR"        : QPlainTextEdit,
+    "CHECKBOX"      : QCheckBox,
+    "LISTBOX"       : QListWidget,
+    "CHECKLISTBOX"  : QListWidget,
+    "IMAGE"         : QLabel,
+    "GRID"          : QTableWidget,
+    "PROGRESS"      : QProgressBar,
+    "PAINTBOX"      : QWidget,
+    "VSCROLLBAR"    : QScrollBar,
+    "HSCROLLBAR"    : QScrollBar,
+    "TEXT"          : QLabel,
+    "TREEVIEW"      : QTreeView,
+    "SPINBOX"       : QSpinBox,
+    "BROWSE"        : QTableView,
 }
 
 def _copy_runtime_color_style(style: dict[str, Any] | None) -> dict[str, Any]:
@@ -99,8 +99,8 @@ def _make_default_screen_style() -> dict[str, Any]:
         "attr": 7,
         "fg_index": 7,
         "bg_index": 0,
-        "fg_hex": _VGA_COLOR_TABLE[7]["hex"],
-        "bg_hex": _VGA_COLOR_TABLE[0]["hex"],
+        "fg_hex" : _VGA_COLOR_TABLE[7]["hex" ],
+        "bg_hex" : _VGA_COLOR_TABLE[0]["hex" ],
         "fg_name": _VGA_COLOR_TABLE[7]["name"],
         "bg_name": _VGA_COLOR_TABLE[0]["name"],
         "transparent_bg": False,
@@ -108,13 +108,13 @@ def _make_default_screen_style() -> dict[str, Any]:
 
 def _make_default_print_style() -> dict[str, Any]:
     return {
-        "attr": None,
-        "fg_index": 0,
-        "bg_index": None,
-        "fg_hex": "#000000",
-        "bg_hex": None,
-        "fg_name": "Schwarz",
-        "bg_name": "Transparent/Weiss",
+        "attr"      : None,
+        "fg_index"  : 0,
+        "bg_index"  : None,
+        "fg_hex"    : "#000000",
+        "bg_hex"    : None,
+        "fg_name"   : "Schwarz",
+        "bg_name"   : "Transparent/Weiss",
         "transparent_bg": True,
     }
 
@@ -180,7 +180,7 @@ def _style_from_vga_attr(value: Any) -> dict[str, Any]:
     }
 
 _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
-_RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
+_RUNTIME_PRINT_COLOR_STYLE  = _make_default_print_style()
 
 
 def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None):
@@ -190,24 +190,26 @@ def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None
     global _RUNTIME_PRINT_MARGINS, _RUNTIME_ESCAPE_ENABLED, _RUNTIME_CONFIRM_ENABLED, _RUNTIME_DELETE_ENABLED
     global _RUNTIME_SCREEN_COLOR_STYLE, _RUNTIME_PRINT_COLOR_STYLE
 
-    _RUNTIME_OUTPUT_FORMAT = "SCREEN"
-    _RUNTIME_PRINT_ENABLED = False
-    _RUNTIME_PRINT_LINES = []
-    _RUNTIME_PRINT_PDF_PATH = None
-    _RUNTIME_PRINT_STARTED_AT = datetime.datetime.now()
-    _RUNTIME_PRINT_MARGINS = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
-    _RUNTIME_ESCAPE_ENABLED = False
-    _RUNTIME_CONFIRM_ENABLED = False
-    _RUNTIME_DELETE_ENABLED = False
+    _RUNTIME_OUTPUT_FORMAT      = "SCREEN"
+    _RUNTIME_PRINT_ENABLED      = False
+    _RUNTIME_PRINT_LINES        = []
+    _RUNTIME_PRINT_PDF_PATH     = None
+    _RUNTIME_PRINT_STARTED_AT   = datetime.datetime.now()
+    _RUNTIME_PRINT_MARGINS      = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
+    _RUNTIME_ESCAPE_ENABLED     = False
+    _RUNTIME_CONFIRM_ENABLED    = False
+    _RUNTIME_DELETE_ENABLED     = False
     _RUNTIME_SCREEN_COLOR_STYLE = _make_default_screen_style()
-    _RUNTIME_PRINT_COLOR_STYLE = _make_default_print_style()
+    _RUNTIME_PRINT_COLOR_STYLE  = _make_default_print_style()
     try:
         _RUNTIME_PRINT_SCRIPT_PATH = Path(script_filename).resolve() if script_filename else None
     except Exception:
         _RUNTIME_PRINT_SCRIPT_PATH = None
 
+# ---------------------------------------------------------------------------
+# Accepts '#RRGGBB', 'red', 'rgb(...)'. Returns None if empty.
+# ---------------------------------------------------------------------------
 def _qss_color(v: Any) -> Optional[str]:
-    """Accepts '#RRGGBB', 'red', 'rgb(...)'. Returns None if empty."""
     if v is None:
         return None
     if isinstance(v, str):
@@ -238,8 +240,10 @@ def form_open(inst: share.common.Instance):
     except Exception:
         pass
 
+    # ---------------------------------------------------------------------------
     # QDialog/QWidget fuer MDI-Nutzung neutralisieren, damit das Fenster nicht
     # als eigenes Top-Level-Fenster ausserhalb des MDI-Bereichs auftaucht.
+    # ---------------------------------------------------------------------------
     try:
         if isinstance(backend, QDialog):
             backend.setWindowFlags(Qt.Widget)
@@ -374,12 +378,20 @@ def apply_property_to_qt(inst: share.common.Instance, prop: str, value: Any):
         value = int(value)
 
     # CONTAINER (QFrame) Stylesheet-Properties
-    if inst.class_name.upper() == "CONTAINER" and p in ("BACKCOLOR", "BORDERCOLOR", "BORDERWIDTH", "RADIUS", "STYLE"):
+    if inst.class_name.upper() == "CONTAINER" and p in (
+        "BACKCOLOR",
+        "BORDERCOLOR",
+        "BORDERWIDTH",
+        "RADIUS",
+        "STYLE"):
         qss = build_container_qss(inst)
         inst.backend.setStyleSheet(qss)
         return
-
-    # VALUE/STATE/ITEMS Mappings (Entryfield, Checkbox, Radiobutton, Combobox, Editor, Listbox, Progress, Scrollbar, Spinbox, Image, Text)
+    
+    # ---------------------------------------------------------------------------
+    # VALUE/STATE/ITEMS Mappings (Entryfield, Checkbox, Radiobutton, Combobox,
+    # Editor, Listbox, Progress, Scrollbar, Spinbox, Image, Text)
+    # ---------------------------------------------------------------------------
     if p in ("VALUE", "CHECKED"):
         b = inst.backend
         # QLineEdit
@@ -481,9 +493,13 @@ def apply_property_to_qt(inst: share.common.Instance, prop: str, value: Any):
         except Exception:
             pass
         return
+    
+    # ---------------------------------------------------------------------------
     # Geometry: Qt braucht Left/Top/Width/Height gemeinsam
     # Besonderheit: Wenn das Widget in einem QMdiSubWindow steckt, müssen wir
-    # sowohl das SubWindow (Position/Größe im MDI) als auch das eigentliche Widget anpassen.
+    # sowohl das SubWindow (Position/Größe im MDI) als auch das eigentliche
+    # Widget anpassen.
+    # ---------------------------------------------------------------------------
     if p in ("LEFT", "TOP", "WIDTH", "HEIGHT"):
         # Ausgangswerte aus den gespeicherten Properties
         left   = int(inst.props.get("LEFT",    0)   or 0)
@@ -494,9 +510,12 @@ def apply_property_to_qt(inst: share.common.Instance, prop: str, value: Any):
         mdi = share.common.find_mdi_subwindow(inst.backend)
 
         if mdi is not None:
-            # Für MDI: wenn der User das SubWindow verschoben hat, sind LEFT/TOP in props evtl. veraltet.
-            # Damit WIDTH/HEIGHT nicht auf alte Position zurückspringen, nehmen wir die aktuelle Position
-            # aus dem QMdiSubWindow, wenn nur die Größe geändert wird (und umgekehrt).
+            # ---------------------------------------------------------------------------
+            # Für MDI: wenn der User das SubWindow verschoben hat, sind LEFT/TOP in props
+            # evtl. veraltet. Damit WIDTH/HEIGHT nicht auf alte Position zurückspringen,
+            # nehmen wir die aktuelle Position aus dem QMdiSubWindow, wenn nur die Größe
+            # geändert wird (und umgekehrt).
+            # ---------------------------------------------------------------------------
             try:
                 g = mdi.geometry()
                 cur_left, cur_top, cur_w, cur_h = g.x(), g.y(), g.width(), g.height()
@@ -596,7 +615,10 @@ def _runtime_output_session_end():
         pass
 
 
-def _wrap_pdf_text_line(text: str, *, font_name: str, font_size: int, max_width: float) -> list[str]:
+def _wrap_pdf_text_line(text: str, *,
+    font_name: str,
+    font_size: int,
+    max_width: float) -> list[str]:
     text = ("" if text is None else str(text)).expandtabs(4)
     if text == "":
         return [""]
@@ -1062,31 +1084,33 @@ class ExecVisitor(dBaseParserVisitor):
         self.set_var("USE", self._builtin_USE)
         self.set_var("INPUT", self._builtin_INPUT)
         # interne Builtins aus der Vorverarbeitung
-        self.set_var("__DBASE_USE__", self._builtin_USE)
-        self.set_var("__DBASE_ERASE__", self._builtin_ERASE)
-        self.set_var("__DBASE_SET_FORMAT__", self._builtin_SET_FORMAT)
-        self.set_var("__DBASE_SET_PRINT__", self._builtin_SET_PRINT)
-        self.set_var("__DBASE_SET_MARGIN__", self._builtin_SET_MARGIN)
-        self.set_var("__DBASE_SET_COLOR__", self._builtin_SET_COLOR)
-        self.set_var("__DBASE_SET_ESCAPE__", self._builtin_SET_ESCAPE)
-        self.set_var("__DBASE_SET_CONFIRM__", self._builtin_SET_CONFIRM)
-        self.set_var("__DBASE_SET_DELETE__", self._builtin_SET_DELETE)
-        self.set_var("__DBASE_STORE__", self._builtin_STORE)
-        self.set_var("__DBASE_SAVE__", self._builtin_SAVE)
-        self.set_var("__DBASE_RESTORE__", self._builtin_RESTORE)
-        self.set_var("__DBASE_RELEASE__", self._builtin_RELEASE)
-        self.set_var("__DBASE_SELECT__", self._builtin_SELECT)
-        self.set_var("__DBASE_RENAME__", self._builtin_RENAME)
-        self.set_var("__DBASE_CLEAR_ALL__", self._builtin_CLEAR_ALL)
-        self.set_var("__DBASE_SKIP__", self._builtin_SKIP)
-        self.set_var("__DBASE_GOTO__", self._builtin_GOTO)
-        self.set_var("__DBASE_DELETE_RECORD__", self._builtin_DELETE_RECORD)
-        self.set_var("__DBASE_PACK__", self._builtin_PACK)
-        self.set_var("__DBASE_ZAP__", self._builtin_ZAP)
-        self.set_var("__DBASE_COUNT__", self._builtin_COUNT)
+        self.set_var("__DBASE_USE__"            , self._builtin_USE)
+        self.set_var("__DBASE_ERASE__"          , self._builtin_ERASE)
+        self.set_var("__DBASE_SET_FORMAT__"     , self._builtin_SET_FORMAT)
+        self.set_var("__DBASE_SET_PRINT__"      , self._builtin_SET_PRINT)
+        self.set_var("__DBASE_SET_MARGIN__"     , self._builtin_SET_MARGIN)
+        self.set_var("__DBASE_SET_COLOR__"      , self._builtin_SET_COLOR)
+        self.set_var("__DBASE_SET_ESCAPE__"     , self._builtin_SET_ESCAPE)
+        self.set_var("__DBASE_SET_CONFIRM__"    , self._builtin_SET_CONFIRM)
+        self.set_var("__DBASE_SET_DELETE__"     , self._builtin_SET_DELETE)
+        self.set_var("__DBASE_STORE__"          , self._builtin_STORE)
+        self.set_var("__DBASE_SAVE__"           , self._builtin_SAVE)
+        self.set_var("__DBASE_RESTORE__"        , self._builtin_RESTORE)
+        self.set_var("__DBASE_RELEASE__"        , self._builtin_RELEASE)
+        self.set_var("__DBASE_SELECT__"         , self._builtin_SELECT)
+        self.set_var("__DBASE_RENAME__"         , self._builtin_RENAME)
+        self.set_var("__DBASE_CLEAR_ALL__"      , self._builtin_CLEAR_ALL)
+        self.set_var("__DBASE_SKIP__"           , self._builtin_SKIP)
+        self.set_var("__DBASE_GOTO__"           , self._builtin_GOTO)
+        self.set_var("__DBASE_DELETE_RECORD__"  , self._builtin_DELETE_RECORD)
+        self.set_var("__DBASE_PACK__"           , self._builtin_PACK)
+        self.set_var("__DBASE_ZAP__"            , self._builtin_ZAP)
+        self.set_var("__DBASE_COUNT__"          , self._builtin_COUNT)
 
+        # -----------------------------------------------------------------------
         # DBF-Arbeitsbereiche immer sofort initialisieren, damit SELECT/USE
         # bereits im ersten Script-Lauf sicher funktionieren.
+        # -----------------------------------------------------------------------
         self._init_workareas()
     
     def _builtin_ERASE(self, *args):
@@ -1264,13 +1288,13 @@ class ExecVisitor(dBaseParserVisitor):
 
     def _workarea_empty(self) -> dict[str, object]:
         return {
-            "dbf_path": "",
-            "indexes": [],
-            "fields": [],
-            "records": [],
-            "pointer": 1,
-            "eof": True,
-            "version": 0x03,
+            "dbf_path"  : "",
+            "indexes"   : [],
+            "fields"    : [],
+            "records"   : [],
+            "pointer"   : 1,
+            "eof"       : True,
+            "version"   : 0x03,
         }
 
     def _workarea_state_file_path(self) -> Path:
@@ -1502,13 +1526,13 @@ class ExecVisitor(dBaseParserVisitor):
         record_len = 1 + sum(f.length for f in fields)
         today = datetime.date.today()
 
-        hdr = bytearray(32)
-        hdr[0] = int(ws.get("version", 0x03) or 0x03)
-        hdr[1] = today.year - 1900
-        hdr[2] = today.month
-        hdr[3] = today.day
-        hdr[4:8] = int(len(records)).to_bytes(4, "little", signed=False)
-        hdr[8:10] = int(header_len).to_bytes(2, "little", signed=False)
+        hdr        = bytearray(32)
+        hdr[0]     = int(ws.get("version", 0x03) or 0x03)
+        hdr[1]     = today.year - 1900
+        hdr[2]     = today.month
+        hdr[3]     = today.day
+        hdr[4:8]   = int(len(records)).to_bytes(4, "little", signed=False)
+        hdr[8:10]  = int(header_len).to_bytes(2, "little", signed=False)
         hdr[10:12] = int(record_len).to_bytes(2, "little", signed=False)
 
         out = bytearray()
@@ -3338,13 +3362,13 @@ class ExecVisitor(dBaseParserVisitor):
         if upper in ("F", ".F.", "N", ".N."):
             return False
 
-        source = InputStream(text)
-        lexer = dBaseLexer(source)
-        tokens = CommonTokenStream(lexer)
+        source   = InputStream(text)
+        lexer    = dBaseLexer(source)
+        tokens   = CommonTokenStream(lexer)
         tokens.fill()
-        parser = dBaseParser(tokens)
+        parser   = dBaseParser(tokens)
         listener = _attach_silent_antlr_errors(lexer, parser)
-        tree = parser.expr()
+        tree     = parser.expr()
 
         if parser.getNumberOfSyntaxErrors() > 0:
             msg = listener.messages[0] if listener.messages else "Ungültiger Ausdruck"
@@ -5317,10 +5341,12 @@ class ExecVisitor(dBaseParserVisitor):
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
             except FileNotFoundError:
-                debug_print("file not found.")
+                debug_print(share.locales.tr("file not found."))
                 pass
         try:
-            win = FileEditorWindow(parent=share.common.MAINAPP, initial_path=path, initial_text=text)
+            win = FileEditorWindow(parent = share.common.MAINAPP,
+                initial_path = path,
+                initial_text = text)
             win.resize(600, 500)
             sub = share.common.MAINAPP.mdi.addSubWindow(win)
             
@@ -5345,7 +5371,7 @@ class ExecVisitor(dBaseParserVisitor):
             debug_print(e)
 
 def _emit_runtime_output_line(text: str):
-    text = "" if text is None else str(text)
+    text  = "" if text is None else str(text)
     style = _get_runtime_current_color_style()
 
     # optional in-memory capture (used by one-liner console)
@@ -5374,7 +5400,9 @@ def _emit_runtime_output_line(text: str):
     # preferred sink: Debug Console in the main window
     try:
         if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
-            share.common.MAINAPP.append_debug_output(text, fg_hex=style.get("fg_hex"), bg_hex=style.get("bg_hex"))
+            share.common.MAINAPP.append_debug_output(text,
+                fg_hex=style.get("fg_hex"),
+                bg_hex=style.get("bg_hex"))
             return
     except Exception:
         pass
@@ -5500,8 +5528,8 @@ def _build_parser_input(pre: str) -> str:
 
 def _format_parse_error_with_context(messages: list[str], pre: str, dump_path: Path) -> str:
     lines = pre.splitlines()
-    out = []
-    msgs = messages[:10] if messages else ["Syntaxfehler im Quelltext"]
+    out   = []
+    msgs  = messages[:10] if messages else ["Syntaxfehler im Quelltext"]
     line_numbers = []
 
     for msg in msgs:
@@ -5516,8 +5544,8 @@ def _format_parse_error_with_context(messages: list[str], pre: str, dump_path: P
     seen = set()
     for line_no, col in line_numbers[:3]:
         start = max(1, line_no - 2)
-        end = min(len(lines), line_no + 2)
-        key = (start, end)
+        end   = min(len(lines), line_no + 2)
+        key   = (start, end)
         if key in seen:
             continue
         seen.add(key)
@@ -5537,7 +5565,7 @@ def _format_parse_error_with_context(messages: list[str], pre: str, dump_path: P
 def _count_collect_entities(visitor: "ExecVisitor") -> tuple[int, int]:
     native = set(NATIVE_BASES.keys()) | {"OBJECT", "PUSHBUTTON"}
 
-    class_count = 0
+    class_count  = 0
     method_count = 0
 
     for cname, cdef in (getattr(visitor, "classes", {}) or {}).items():
@@ -5562,11 +5590,11 @@ def parse(filename: str, show_collect_dialog: bool = True):
     _runtime_output_session_begin(filename)
 
     # 0 pre-procession
-    pp = Preprocessor(include_paths=[Path("includes")])
+    pp  = Preprocessor(include_paths=[Path("includes")])
     pre = pp.process(filename)
     if pre and not pre.endswith("\n"):
         pre += "\n"
-    dump_path = _write_preprocessed_dump(filename, pre)
+    dump_path    = _write_preprocessed_dump(filename, pre)
     parser_input = _build_parser_input(pre)
     if parser_input and not parser_input.endswith("\n"):
         parser_input += "\n"
@@ -5574,40 +5602,42 @@ def parse(filename: str, show_collect_dialog: bool = True):
 
     if show_collect_dialog and QApplication.instance() is not None:
         try:
-            collect_dlg = CollectProgressDialog(parent=share.common.MAINAPP if "MAINAPP" in globals() else None, filename=os.path.abspath(filename))
+            collect_dlg  = share.utildef.dialogs.CollectProgressDialog(
+                parent   = share.common.MAINAPP if "MAINAPP" in globals() else None,
+                filename = os.path.abspath(filename))
             collect_dlg.show()
-            lines = pre.splitlines()
-            total_lines = len(lines)
+            lines        = pre.splitlines()
+            total_lines  = len(lines)
             collect_dlg.set_total_lines(total_lines)
 
-            class_rx = re.compile(r'^\s*CLASS\b', re.IGNORECASE)
-            method_rx = re.compile(r'^\s*METHOD\b', re.IGNORECASE)
-            class_count = 0
+            class_rx     = re.compile(r'^\s*CLASS\b' , re.IGNORECASE)
+            method_rx    = re.compile(r'^\s*METHOD\b', re.IGNORECASE)
+            class_count  = 0
             method_count = 0
 
             for idx, raw in enumerate(lines, start=1):
                 if class_rx.search(raw):
-                    class_count += 1
+                    class_count  += 1
                 if method_rx.search(raw):
                     method_count += 1
                 if not collect_dlg.update_progress(
-                    line_no=idx,
-                    line_text=raw,
-                    class_count=class_count,
-                    method_count=method_count,
-                    line_count=idx,
-                    status="Collect-Phase: Quelltext wird durchsucht …"
+                    line_no      = idx,
+                    line_text    = raw,
+                    class_count  = class_count,
+                    method_count = method_count,
+                    line_count   = idx,
+                    status       = "Collect-Phase: Quelltext wird durchsucht …"
                 ):
                     _runtime_output_session_end()
                     return None
         except Exception:
             collect_dlg = None
 
-    source = InputStream(parser_input)
-    lexer  = dBaseLexer(source)
-    tokens = CommonTokenStream(lexer)
+    source   = InputStream(parser_input)
+    lexer    = dBaseLexer(source)
+    tokens   = CommonTokenStream(lexer)
     tokens.fill()
-    parser = dBaseParser(tokens)
+    parser   = dBaseParser(tokens)
     listener = _attach_silent_antlr_errors(lexer, parser)
 
     tree = parser.input_()
@@ -5660,16 +5690,16 @@ def parse(filename: str, show_collect_dialog: bool = True):
 
     global VISITOR
     VISITOR = ExecVisitor()
-    VISITOR._current_filename = os.path.abspath(filename)
-    VISITOR._pre_source = pre
+    VISITOR._current_filename  = os.path.abspath(filename)
+    VISITOR._pre_source        = pre
     VISITOR._class_line_ranges = None
-    VISITOR._parse_tree = tree
+    VISITOR._parse_tree        = tree
 
     if collect_dlg is not None:
         collect_dlg.update_progress(
-            line_no=0,
-            line_text="",
-            status="Collect-Phase: Klassen und Methoden werden eingesammelt …"
+            line_no   =  0,
+            line_text = "",
+            status    = share.locales.tr("Collect-Phase: Klassen und Methoden werden eingesammelt …")
         )
 
     VISITOR._mode = "collect"
@@ -5678,9 +5708,9 @@ def parse(filename: str, show_collect_dialog: bool = True):
     if collect_dlg is not None:
         class_count, method_count = _count_collect_entities(VISITOR)
         collect_dlg.set_ready(
-            class_count=class_count,
-            method_count=method_count,
-            line_count=len(pre.splitlines())
+            class_count  = class_count,
+            method_count = method_count,
+            line_count   = len(pre.splitlines())
         )
         res = collect_dlg.exec_()
         if res != QDialog.Accepted or collect_dlg.cancel_requested:
