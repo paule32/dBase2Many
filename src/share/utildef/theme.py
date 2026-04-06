@@ -10,6 +10,7 @@ def apply_theme_global(w: QMainWindow):
     app = QApplication.instance()
     pal = QPalette()
     
+    w.dark_mode = True
     if w.dark_mode:
         pal.setColor(QPalette.Window, QColor(40, 40, 40))
         pal.setColor(QPalette.WindowText, Qt.black)
@@ -103,7 +104,7 @@ def apply_theme_global(w: QMainWindow):
         tab_hover_bg            = "#f9f9f9"
         
         toolbar_bg              = "#f2f2f2"
-        toolbtn_bg              = "#e9e9e9"
+        toolbtn_bg              = "#192939"
         toolbtn_fg              = "#000000"
         toolbtn_hover           = "#dedede"
         toolbtn_pressed         = "#d2d2d2"
@@ -442,7 +443,7 @@ QMessageBox QTextEdit {{
 }}
 QMessageBox QMessageBox QPushButton {{
     background-color: #3a3a3a;
-    color: #f0f0f0;
+    color: #a0a0f0;
     border: 1px solid #555;
     border-radius: 8px;
     padding: 6px 12px;

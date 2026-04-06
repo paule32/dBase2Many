@@ -3,10 +3,11 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from __future__    import annotations
+from   __future__    import annotations
+from   share.common  import *
 
-from share.common  import *
-from share.locales import *
+from   share.locales import *
+import share.locales
 
 class InputValueDialog(QDialog):
     def __init__(self, prompt: str = "", parent=None):
@@ -42,6 +43,23 @@ class InputValueDialog(QDialog):
         btn_row.addWidget(self.btn_cancel)
         layout.addLayout(btn_row)
 
+        self.setStyleSheet("""
+        QLabel {
+            color: #ffffff
+        }
+        QPushButton {
+            background: #1a1a1a;
+            color: #ffd866;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            padding: 7px 12px;
+        }
+        QPushButton:hover {
+            background: #2a2a2a;
+        }
+        QPushButton:pressed {
+            background: #303030;
+        """)
         self.edit.setFocus()
 
     def _on_ok(self):

@@ -27,11 +27,11 @@ from   parse.dbase.parser           import *
 # ---------------------------------------------------------------------------
 if SystemInfo.is_windows():
     import ctypes
-    debug_print("Windows detected.")
+    debug_print(share.locales.tr("Windows detected."))
 elif SystemInfo.is_linux():
-    debug_print("Linux detected")
+    debug_print(share.locales.tr("Linux detected"))
 else:
-    debug_print("could not detect operating system,")
+    debug_print(share.locales.tr("could not detect operating system,"))
     sys.exit(1)
 
 if "_PDF_BACKEND_AVAILABLE" not in globals():
@@ -79,7 +79,7 @@ def excepthook(etype, value, tb):
     content = ""
     
     with open(share.common.LOG, "w", buffering=1) as f:
-        f.write("\n--- PYTHON UNCAUGHT EXCEPTION ---\n")
+        f.write(share.locales.tr("\n--- PYTHON UNCAUGHT EXCEPTION ---\n"))
         traceback.print_exception(etype, value, tb, file=f)
         f.close()
         
@@ -92,7 +92,7 @@ def excepthook(etype, value, tb):
                 content = f.read()
 
             dlg = share.excepts.ErrorMessage(
-                title    = "Laufzeitfehler",
+                title    = share.locales.tr("Laufzeitfehler"),
                 message  = content,
                 log_path = share.common.LOG,
                 parent   = None
@@ -105,18 +105,18 @@ def excepthook(etype, value, tb):
     sys.__excepthook__(etype, value, tb)
 
 sys.excepthook = excepthook
-debug_print("hook installed.")
+debug_print(share.locales.tr("hook installed."))
 
 APPINST = ensure_qt_app()
 if APPINST is None:
     if SystemInfo.is_windows():
         ctypes.windll.user32.MessageBoxW(0,
-            "Application could not be initialized.",
-            "Internal Error:",
+            share.locales.tr("Application could not be initialized."),
+            share.locales.tr("Internal Error:"),
             0)
         sys.exit(1)
     else:
-        debug_print("internal error")
+        debug_print(share.locales.tr("internal error"))
         sys.exit(1)
 
 base = Path(sys.argv[0]).resolve().parent
@@ -135,8 +135,8 @@ try:
 except Exception as e:
     if SystemInfo.is_windows():
         ctypes.windll.user32.MessageBoxW(0,
-            "Could not install Qt5 Message Handler.",
-            "Error:",0)
+            share.locales.tr("Could not install Qt5 Message Handler."),
+            share.locales.tr("Error:"),0)
         sys.exit(1)
     else:
         debug_print(e)
@@ -268,20 +268,20 @@ class CollectProgressDialog(QDialog):
         self.start_time = time.monotonic()
         self._recent_hits: list[str] = []
 
-        self.setWindowTitle("Collect-Phase")
+        self.setWindowTitle(share.locales.tr("Collect-Phase"))
         self.setModal(False)
         self.resize(560, 360)
 
         layout = QVBoxLayout(self)
 
-        self.lbl_status = QLabel("Sammle Informationen …")
-        self.lbl_file   = QLabel(f"Datei: {filename}")
-        self.lbl_line   = QLabel("Zeile: 0 / 0")
-        self.lbl_class  = QLabel("CLASS(en): 0")
-        self.lbl_method = QLabel("METHOD(en): 0")
-        self.lbl_count  = QLabel("Zeilen: 0")
-        self.lbl_time   = QLabel("Zeit: 0,0 s")
-        self.lbl_hit    = QLabel("Letzter Treffer: —")
+        self.lbl_status = QLabel(share.locales.tr("Sammle Informationen ..."))
+        self.lbl_file   = QLabel(share.locales.tr("File:")  + filename)
+        self.lbl_line   = QLabel(share.locales.tr("Zeile")  + ": 0 / 0")
+        self.lbl_class  = QLabel(share.locales.tr("CLASSs") + ": 0")
+        self.lbl_method = QLabel(share.locales.tr("METHOD") + ": 0")
+        self.lbl_count  = QLabel(share.locales.tr("Lines")  + ": 0")
+        self.lbl_time   = QLabel(share.locales.tr("Time")   + ": 0,0 s")
+        self.lbl_hit    = QLabel(share.locales.tr("Letzter Treffer: —"))
 
         layout.addWidget(self.lbl_status)
         layout.addWidget(self.lbl_file)
@@ -300,24 +300,24 @@ class CollectProgressDialog(QDialog):
         self.current_text = QPlainTextEdit(self)
         self.current_text.setReadOnly(True)
         self.current_text.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.current_text.setPlaceholderText("Aktuelle Zeile …")
+        self.current_text.setPlaceholderText(share.locales.tr("Aktuelle Zeile ..."))
         layout.addWidget(self.current_text, 1)
 
         self.recent_text = QPlainTextEdit(self)
         self.recent_text.setReadOnly(True)
         self.recent_text.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.recent_text.setMaximumHeight(90)
-        self.recent_text.setPlaceholderText("Letzte erkannte Einträge …")
+        self.recent_text.setPlaceholderText(share.locales.tr("Letzte erkannte Einträge ..."))
         layout.addWidget(self.recent_text)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
 
-        self.btn_ok = QPushButton("OK", self)
+        self.btn_ok = QPushButton(share.locales.tr("OK"), self)
         self.btn_ok.setEnabled(False)
         self.btn_ok.clicked.connect(self.accept)
 
-        self.btn_cancel = QPushButton("Cancel", self)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self)
         self.btn_cancel.clicked.connect(self._on_cancel)
 
         btn_row.addWidget(self.btn_ok)
@@ -356,7 +356,7 @@ class CollectProgressDialog(QDialog):
             return
         self._recent_hits.append(hit)
         self._recent_hits = self._recent_hits[-8:]
-        self.lbl_hit.setText(f"Letzter Treffer: {hit}")
+        self.lbl_hit.setText(f"{share.locales.tr("Letzter Treffer")}: {hit}")
         self.recent_text.setPlainText("\n".join(self._recent_hits))
 
     def _on_cancel(self):
@@ -367,8 +367,8 @@ class CollectProgressDialog(QDialog):
         self.total_lines = max(0, int(total or 0))
         self.progress.setMaximum(max(1, self.total_lines))
         self.progress.setValue(0)
-        self.lbl_line.setText(f"Zeile: 0 / {self.total_lines}")
-        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self.lbl_line.setText(f"{share.locales.tr("Line")}: 0 / {self.total_lines}")
+        self.lbl_time.setText(f"{share.locales.tr("Time")}: {self._format_elapsed()} s")
         self._pump()
 
     def update_progress(self, *, line_no: int = 0, line_text: str = "", class_count: int | None = None, method_count: int | None = None, line_count: int | None = None, status: str | None = None):
@@ -383,27 +383,27 @@ class CollectProgressDialog(QDialog):
             self.method_count = int(method_count)
         if line_count is None:
             line_count = self.current_lines
-        self.lbl_line.setText(f"Zeile: {self.current_lines} / {self.total_lines}")
-        self.lbl_class.setText(f"CLASS(en): {self.class_count}")
-        self.lbl_method.setText(f"METHOD(en): {self.method_count}")
-        self.lbl_count.setText(f"Zeilen: {int(line_count)}")
-        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self.lbl_line  .setText(f"{share.locales.tr("Line"  )}: {self.current_lines} / {self.total_lines}")
+        self.lbl_class .setText(f"{share.locales.tr("CLASS" )}: {self.class_count}")
+        self.lbl_method.setText(f"{share.locales.tr("METHOD")}: {self.method_count}")
+        self.lbl_count .setText(f"{share.locales.tr("Lines" )}: {int(line_count)}")
+        self.lbl_time  .setText(f"{share.locales.tr("Time"  )}: {self._format_elapsed()} s")
         self.current_text.setPlainText(line_text or "")
         self._append_hit(self._extract_hit(line_text))
         self._pump()
         return not self.cancel_requested
 
     def set_ready(self, *, class_count: int = 0, method_count: int = 0, line_count: int = 0):
-        self.class_count = int(class_count)
-        self.method_count = int(method_count)
+        self.class_count   = int(class_count)
+        self.method_count  = int(method_count)
         self.current_lines = max(self.current_lines, self.total_lines)
-        self.progress.setValue(self.progress.maximum())
-        self.lbl_status.setText("Collect-Phase abgeschlossen. Mit OK starten oder mit Cancel abbrechen.")
-        self.lbl_line.setText(f"Zeile: {self.current_lines} / {self.total_lines}")
-        self.lbl_class.setText(f"CLASS(en): {self.class_count}")
-        self.lbl_method.setText(f"METHOD(en): {self.method_count}")
-        self.lbl_count.setText(f"Zeilen: {int(line_count)}")
-        self.lbl_time.setText(f"Zeit: {self._format_elapsed()} s")
+        self.progress  .setValue(self.progress.maximum())
+        self.lbl_status.setText(share.locales.tr("Collect-Phase abgeschlossen. Mit OK starten oder mit Cancel abbrechen."))
+        self.lbl_line  .setText(f"{share.locales.tr("Line"  )}: {self.current_lines} / {self.total_lines}")
+        self.lbl_class .setText(f"{share.locales.tr("CLASS" )}: {self.class_count}")
+        self.lbl_method.setText(f"{share.locales.tr("METHOD")}: {self.method_count}")
+        self.lbl_count .setText(f"{share.locales.tr("Lines" )}: {int(line_count)}")
+        self.lbl_time  .setText(f"{share.locales.tr("Time"  )}: {self._format_elapsed()} s")
         self.btn_ok.setEnabled(True)
         self._pump()
 
@@ -906,7 +906,7 @@ class SourceAliasesTab(QWidget):
         root.setSpacing(12)
 
         # ---- Oben: Liste ----
-        gb_list = QGroupBox("Definierte Quell-Aliases", self)
+        gb_list = QGroupBox(share.locales.tr("Definierte Quell-Aliases"), self)
         v_list = QVBoxLayout(gb_list)
 
         self.lst = QListWidget()
@@ -914,7 +914,7 @@ class SourceAliasesTab(QWidget):
         v_list.addWidget(self.lst)
 
         # ---- Unten: Editor ----
-        gb_edit = QGroupBox("Quell-Alias bearbeiten", self)
+        gb_edit = QGroupBox(share.locales.tr("Quell-Alias bearbeiten"), self)
         e = QGridLayout(gb_edit)
         e.setHorizontalSpacing(10)
         e.setVerticalSpacing(8)
@@ -924,8 +924,8 @@ class SourceAliasesTab(QWidget):
         self.ed_alias.setMinimumWidth(220)
         e.addWidget(self.ed_alias, 0, 1)
 
-        self.btn_add = QPushButton("Hinzufügen")
-        self.btn_remove = QPushButton("Entfernen")
+        self.btn_add = QPushButton(share.locales.tr("Hinzufügen"))
+        self.btn_remove = QPushButton(share.locales.tr("Entfernen"))
         self.btn_add.setFixedWidth(95)
         self.btn_remove.setFixedWidth(95)
         e.addWidget(self.btn_add, 0, 2)
@@ -935,7 +935,7 @@ class SourceAliasesTab(QWidget):
         self.ed_path = QLineEdit()
         e.addWidget(self.ed_path, 1, 1, 1, 2)
 
-        self.btn_browse = QPushButton("…")
+        self.btn_browse = QPushButton("...")
         self.btn_browse.setFixedWidth(30)
         e.addWidget(self.btn_browse, 1, 3, alignment=Qt.AlignLeft)
 
@@ -1024,12 +1024,16 @@ class SourceAliasesTab(QWidget):
         path = (self.ed_path.text() or "").strip()
 
         if not alias:
-            QMessageBox.warning(self, "Fehler", "Bitte einen Alias-Namen eingeben.")
+            QMessageBox.warning(self,
+                share.locales.tr("Fehler"),
+                share.locales.tr("Bitte einen Alias-Namen eingeben."))
             self.ed_alias.setFocus()
             return
 
         if not path:
-            QMessageBox.warning(self, "Fehler", "Bitte einen Pfad eingeben oder auswählen.")
+            QMessageBox.warning(self,
+                share.locales.tr("Fehler"),
+                share.locales.tr("Bitte einen Pfad eingeben oder auswählen."))
             self.ed_path.setFocus()
             return
 
@@ -2166,11 +2170,11 @@ class TableDesignerDialog(QDialog):
             b.setFixedSize(QSize(42, 42))
             return b
 
-        self.btn_move_up   = _mk_tool_btn(QStyle.SP_ArrowUp, "Move up")
-        self.btn_move_down = _mk_tool_btn(QStyle.SP_ArrowDown, "Move down")
-        self.btn_new_row   = _mk_tool_btn(QStyle.SP_FileIcon, "Neu (Zeile hinzufügen)")
-        self.btn_delete    = _mk_tool_btn(QStyle.SP_DialogDiscardButton, "Löschen")
-        self.btn_save      = _mk_tool_btn(QStyle.SP_DialogSaveButton, "Speichern")
+        self.btn_move_up   = _mk_tool_btn(QStyle.SP_ArrowUp,             share.locales.tr("Move up"))
+        self.btn_move_down = _mk_tool_btn(QStyle.SP_ArrowDown,           share.locales.tr("Move down"))
+        self.btn_new_row   = _mk_tool_btn(QStyle.SP_FileIcon,            share.locales.tr("Neu (Zeile hinzufügen)"))
+        self.btn_delete    = _mk_tool_btn(QStyle.SP_DialogDiscardButton, share.locales.tr("Löschen"))
+        self.btn_save      = _mk_tool_btn(QStyle.SP_DialogSaveButton,    share.locales.tr("Speichern"))
 
         self.btn_move_up   . clicked.connect(lambda: self._action_move_row(-1))
         self.btn_move_down . clicked.connect(lambda: self._action_move_row(+1))
@@ -6945,6 +6949,7 @@ class MainWindow(QMainWindow):
         self._create_toolbar()
         self._create_statusbar()
         
+        self.dark_mode = True
         self.apply_theme()
         
         dlg = RegieCenter()
@@ -7830,7 +7835,7 @@ class MainWindow(QMainWindow):
         self._dlg_workplace.activateWindow()
         
     def apply_theme(self):
-        apply_theme_global(self)
+        share.utildef.theme.apply_theme_global(self)
         self.mdi.setBackground(QBrush(QColor("#373737")))
 
 # ---------------------------------------------------------------------------
@@ -8653,7 +8658,7 @@ def main():
         APPINST.setStyle(ArrowFontProxyStyle(APPINST.style()))
         global MAINAPP
         try:
-            MAINAPP = MainWindow(); apply_theme_global(MAINAPP)
+            MAINAPP = MainWindow()
             MAINAPP.show()
             center_on_screen(MAINAPP)
         except Exception:

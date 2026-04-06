@@ -253,6 +253,23 @@ def form_open(inst: share.common.Instance):
         sub = None
 
     if sub is not None:
+        sub.setStyleSheet("""
+        QLabel {
+            color: #ffffff;
+        }
+        QPushButton {
+            background: #1a1a1a;
+            color: #ffd866;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            padding: 7px 12px;
+        }
+        QPushButton:hover {
+            background: #2a2a2a;
+        }
+        QPushButton:pressed {
+            background: #303030;
+        """)
         try:
             sub.setAttribute(Qt.WA_DeleteOnClose, True)
         except Exception:
