@@ -3,11 +3,12 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from   __future__    import annotations
-from   share.common  import *
+from   __future__          import annotations
+from   share.common        import *
 
-from   share.locales import *
 import share.locales
+from   share.locales       import *
+from   share.utildef.theme import *
 
 class CollectProgressDialog(QDialog):
     def __init__(self, parent=None, filename: str = ""):
@@ -23,7 +24,8 @@ class CollectProgressDialog(QDialog):
 
         self.setWindowTitle(share.locales.tr("Collect-Phase"))
         self.setModal(False)
-        self.resize(560, 360)
+        self.resize(460, 360)
+        share.utildef.theme.apply_theme_global(self)
 
         layout = QVBoxLayout(self)
 
@@ -180,6 +182,7 @@ class InputValueDialog(QDialog):
         self.setModal(True)
         self.setWindowModality(Qt.ApplicationModal)
         self.setFixedSize(360, 120)
+        share.utildef.theme.apply_theme_global(self)
 
         layout = QVBoxLayout(self)
 
@@ -204,23 +207,6 @@ class InputValueDialog(QDialog):
         btn_row.addWidget(self.btn_cancel)
         layout.addLayout(btn_row)
 
-        self.setStyleSheet("""
-        QLabel {
-            color: #ffffff
-        }
-        QPushButton {
-            background: #1a1a1a;
-            color: #ffd866;
-            border: 2px solid #333333;
-            border-radius: 10px;
-            padding: 7px 12px;
-        }
-        QPushButton:hover {
-            background: #2a2a2a;
-        }
-        QPushButton:pressed {
-            background: #303030;
-        """)
         self.edit.setFocus()
 
     def _on_ok(self):

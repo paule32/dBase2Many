@@ -32,11 +32,16 @@ try:
          PredictionContextCache, ParseTreeListener, ParseTreeVisitor
     )
     from antlr4.error.ErrorListener import ErrorListener
+
+    import share.utildef.sysinfo
+    #from   share.utildef.sysinfo    import SystemInfo
     
     import mimetypes
+    import ctypes
 
     import traceback
     import re
+    import sys
     import pprint
     import datetime
     import time
@@ -146,7 +151,7 @@ except ImportError as e:
         ctypes.windll.user32.MessageBoxW(0, str(e), "Import Error:", 0)
         sys.exit(1)
 
-except ModuleNotFound as e:
+except ModuleNotFoundError as e:
     name = f"Module could not be found: {e.name}."
     if SystemInfo.is_windows():
         ctypes.windll.user32.MessageBoxW(0, name, "Module Error:", 0)
@@ -156,6 +161,7 @@ except Exception as e:
     if SystemInfo.is_windows():
         ctypes.windll.user32.MessageBoxW(0, "A common Exception occur",
         "Exception", 0)
+        print(e)
         sys.exit(1)
 
 

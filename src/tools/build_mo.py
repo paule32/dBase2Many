@@ -8,7 +8,9 @@
 from __future__ import annotations
 from pathlib    import Path
 
+import os
 import sys
+import zipfile
 import shutil
 import subprocess
 import polib
@@ -82,8 +84,66 @@ def build_all_locales(locale_root: str | Path, domain: str = "messages") -> None
         if po_file.exists():
             compile_po_to_mo(po_file, mo_file)
 
+def build_all_styles(style_root: str | Path, domain: str = "default") -> None:
+    style_root = Path(style_root)
+    
+    for style_dir in style_root.iterdir():
+        if not style_dir.is_dir():
+            continue
+            
+        po_file = style_dir / f"{domain}.po"
+        mo_file = style_dir / f"{domain}.mo"
+        
+        if po_file.exists():
+            compile_po_to_mo(po_file, mo_file)
+
 if __name__ == "__main__":
-    build_all_locales("../data/po/locales", "dbase")
-    build_all_locales("../data/po/locales", "cc")
-    build_all_locales("../data/po/locales", "lisp")
-    build_all_locales("../data/po/locales", "pascal")
+    build_all_locales("data/po/locales", "dbase")
+    build_all_locales("data/po/locales", "cc")
+    build_all_locales("data/po/locales", "lisp")
+    build_all_locales("data/po/locales", "pascal")
+    
+    build_all_styles ("data/po/styles", "light")
+    build_all_styles ("data/po/styles", "dark")
+    
+    base    = Path("data/po")
+
+    loc_dir = base / "locales"
+    css_dir = base / "styles"
+    
+    zip_out = Path("data/locales.zip")
+    css_out = Path("data/styles.zip")
+    
+    dat_mo  = [ "cc.mo", "dbase.mo", "pascal.mo", "lisp.mo" ]
+    loc_files = [
+        base / "locales" / "de" / "LC_MESSAGES",
+        base / "locales" / "en" / "LC_MESSAGES",
+    ]
+    css_files = [
+        base / "styles" / "default" / "light.mo",
+        base / "styles" / "default" / "dark.mo",
+    ]
+    
+    out_zip = Path("data/locales.zip")
+    out_css = Path("data/styles.zip")
+    
+    if out_zip.exists(): out_zip.unlink()
+    if out_css.exists(): out_css.unlink()
+
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for f in loc_files:
+            for dat in dat_mo:
+                mo = f / dat
+                if not mo.exists():
+                    raise SystemExit(f"Missing file for zip: {mo}")
+                zf.write(mo, mo.relative_to("data").as_posix())
+        zf.close()
+    print(f"Created {out_zip}")
+    
+    with zipfile.ZipFile(out_css, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for f in css_files:
+            if not f.exists():
+                raise SystemExit(f"Missing file for zip: {f}")
+            zf.write(mo, mo.relative_to("data").as_posix())
+        zf.close()
+    print(f"Created {out_css}")

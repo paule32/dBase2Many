@@ -3,11 +3,13 @@
 # \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # \note  : All rights reserved
 # ---------------------------------------------------------------------------
-from __future__ import annotations
-
+from   __future__ import annotations
 import os
-from pathlib import Path
-from typing  import Callable
+
+from   pathlib              import Path
+from   typing               import Callable
+from   share.locales        import *
+from   share.utildef.theme  import *
 
 # -----------------------------------------------------------------------
 # we use antlr4 for the lexer + parser generator ...
@@ -351,6 +353,7 @@ def run_language_app(profile_key: str) -> int:
 
         legacy.RegieCenter = _factory
         legacy.MAINAPP = ProfiledMainWindow(profile)
+        share.utildef.theme.apply_theme_global(legacy.MAINAPP)
         legacy.MAINAPP.show()
         legacy.center_on_screen(legacy.MAINAPP)
         rc = app.exec_()

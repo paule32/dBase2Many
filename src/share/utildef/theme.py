@@ -3,13 +3,15 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from __future__   import annotations
-from share.common import *
+from __future__    import annotations
 
-def apply_theme_global(w: QMainWindow):
+from share.common  import *
+from share.locales import *
+
+def apply_theme_global(w: QWidget):
     app = QApplication.instance()
     pal = QPalette()
-    
+    print(w)
     w.dark_mode = True
     if w.dark_mode:
         pal.setColor(QPalette.Window, QColor(40, 40, 40))
@@ -37,7 +39,7 @@ def apply_theme_global(w: QMainWindow):
         
         tab_bg                  = "#1c1c1c"
         tab_bar_bg              = "#161616"
-        tab_fg                  = "#eaeaea"
+        tab_fg                  = "#ffffff"
         tab_fg_active           = "#ffd866"
         tab_sel_bg              = "#242424"
         tab_hover_bg            = "#202020"
@@ -130,7 +132,7 @@ def apply_theme_global(w: QMainWindow):
     
     size = 21  # Win95 vibe
     w.setStyleSheet(f"""
-/* =========================
+/* ========================= 
    QCheckBox (Dark)
    ========================= */
 QCheckBox {{
@@ -608,4 +610,4 @@ QToolButton:hover {{
     border-radius: 3px;
 }}
 QWebEngineView {{background: {tree_bg};}}
-""")
+    """)

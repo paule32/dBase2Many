@@ -13,6 +13,7 @@ from   share.locales            import *
 
 from   share.utildef.sysinfo    import *
 from   share.utildef.dialogs    import *
+from   share.utildef.theme      import *
 
 from   parse.dbase.preprocessor import *
 
@@ -46,22 +47,22 @@ _RUNTIME_CONFIRM_ENABLED = False
 _RUNTIME_DELETE_ENABLED = False
 
 _VGA_COLOR_TABLE = {
-     0: {"name": share.locales.tr("Schwarz"),     "hex": "#000000"},
-     1: {"name": share.locales.tr("Blau"),        "hex": "#0000AA"},
-     2: {"name": share.locales.tr("Gruen"),       "hex": "#00AA00"},
-     3: {"name": share.locales.tr("Cyan"),        "hex": "#00AAAA"},
-     4: {"name": share.locales.tr("Rot"),         "hex": "#AA0000"},
-     5: {"name": share.locales.tr("Magenta"),     "hex": "#AA00AA"},
-     6: {"name": share.locales.tr("Braun"),       "hex": "#AA5500"},
-     7: {"name": share.locales.tr("Hellgrau"),    "hex": "#AAAAAA"},
-     8: {"name": share.locales.tr("Dunkelgrau"),  "hex": "#555555"},
-     9: {"name": share.locales.tr("Hellblau"),    "hex": "#5555FF"},
-    10: {"name": share.locales.tr("Hellgruen"),   "hex": "#55FF55"},
-    11: {"name": share.locales.tr("Hellcyan"),    "hex": "#55FFFF"},
-    12: {"name": share.locales.tr("Hellrot"),     "hex": "#FF5555"},
-    13: {"name": share.locales.tr("Hellmagenta"), "hex": "#FF55FF"},
-    14: {"name": share.locales.tr("Gelb"),        "hex": "#FFFF55"},
-    15: {"name": share.locales.tr("Weiss"),       "hex": "#FFFFFF"},
+     0: {"name": "Schwarz",     "hex": "#000000"},
+     1: {"name": "Blau",        "hex": "#0000AA"},
+     2: {"name": "Gruen",       "hex": "#00AA00"},
+     3: {"name": "Cyan",        "hex": "#00AAAA"},
+     4: {"name": "Rot",         "hex": "#AA0000"},
+     5: {"name": "Magenta",     "hex": "#AA00AA"},
+     6: {"name": "Braun",       "hex": "#AA5500"},
+     7: {"name": "Hellgrau",    "hex": "#AAAAAA"},
+     8: {"name": "Dunkelgrau",  "hex": "#555555"},
+     9: {"name": "Hellblau",    "hex": "#5555FF"},
+    10: {"name": "Hellgruen",   "hex": "#55FF55"},
+    11: {"name": "Hellcyan",    "hex": "#55FFFF"},
+    12: {"name": "Hellrot",     "hex": "#FF5555"},
+    13: {"name": "Hellmagenta", "hex": "#FF55FF"},
+    14: {"name": "Gelb",        "hex": "#FFFF55"},
+    15: {"name": "Weiss",       "hex": "#FFFFFF"},
 }
 
 # ---------------------------------------------------------------------------
@@ -257,23 +258,7 @@ def form_open(inst: share.common.Instance):
         sub = None
 
     if sub is not None:
-        sub.setStyleSheet("""
-        QLabel {
-            color: #ffffff;
-        }
-        QPushButton {
-            background: #1a1a1a;
-            color: #ffd866;
-            border: 2px solid #333333;
-            border-radius: 10px;
-            padding: 7px 12px;
-        }
-        QPushButton:hover {
-            background: #2a2a2a;
-        }
-        QPushButton:pressed {
-            background: #303030;
-        """)
+        #sub.setStyleSheet()
         try:
             sub.setAttribute(Qt.WA_DeleteOnClose, True)
         except Exception:
@@ -292,10 +277,12 @@ def form_open(inst: share.common.Instance):
             pass
         inst.props["_QT_SUBWINDOW"] = sub
         try:
+            share.utildef.theme.apply_theme_global(backend)
             backend.show()
         except Exception:
             pass
         try:
+            share.utildef.theme.apply_theme_global(sub)
             sub.show()
         except Exception:
             pass
@@ -306,6 +293,7 @@ def form_open(inst: share.common.Instance):
     except Exception:
         pass
     try:
+        share.utildef.theme.apply_theme_global(backend)
         backend.show()
     except Exception:
         pass
@@ -5351,6 +5339,7 @@ class ExecVisitor(dBaseParserVisitor):
             sub = share.common.MAINAPP.mdi.addSubWindow(win)
             
             # 1) immer sichtbar + Vordergrund
+            share.utildef.theme.apply_theme_global(win)
             win.show()
             win.raise_()
             win.activateWindow()
@@ -5605,6 +5594,7 @@ def parse(filename: str, show_collect_dialog: bool = True):
             collect_dlg  = share.utildef.dialogs.CollectProgressDialog(
                 parent   = share.common.MAINAPP if "MAINAPP" in globals() else None,
                 filename = os.path.abspath(filename))
+            share.utildef.theme.apply_theme_global(collect_dlg)
             collect_dlg.show()
             lines        = pre.splitlines()
             total_lines  = len(lines)

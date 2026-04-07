@@ -1336,9 +1336,13 @@ class TableRecordEditorDialog(QDialog):
         self._corner_overlay = QLabel(self.table)
         self._corner_overlay.setObjectName("TableCornerOverlay")
         self._corner_overlay.setText("")
-        self._corner_overlay.setStyleSheet(
-            "QLabel#TableCornerOverlay{background:#000000;border-right:1px solid #333333;border-bottom:1px solid #333333;}"
-        )
+        self._corner_overlay.setStyleSheet("""
+QLabel#TableCornerOverlay{
+	background:#000000;
+	color: white;
+	border-right:1px solid #333333;
+	border-bottom:1px solid #333333;
+}""")
         self._corner_overlay.hide()
         self._corner_overlay.raise_()
 
@@ -1775,9 +1779,10 @@ class TableRecordEditorDialog(QDialog):
         menu.addAction(act_new)
 
         edit_menu = menu.addMenu("Edit")
-        act_copy = QAction("Record Kopieren", self)
+        act_copy  = QAction("Record Kopieren", self)
         act_paste = QAction("Record Einfügen", self)
-        act_cut = QAction("Ausschneiden", self)
+        act_cut   = QAction("Ausschneiden", self)
+        
         edit_menu.addAction(act_copy)
         edit_menu.addAction(act_paste)
         edit_menu.addAction(act_cut)
@@ -2774,13 +2779,13 @@ class EditorWidget(QDialog):
         
         # Splitter: links Tree, rechts Editor
         self.splitter = QSplitter(Qt.Horizontal, self)
-        self.splitter.setStyleSheet(share.locales.css("EditorWindow_Splitter"))
-        self.setStyleSheet(share.locales.css("EditorWindow_Dialog"))
+#        self.splitter.setStyleSheet(share.locales.css("EditorWindow_Splitter"))
+#        self.setStyleSheet(share.locales.css("EditorWindow_Dialog"))
         
         # --- TreeView links ---
         self.tree = QTreeView(self.splitter)
 
-        self.tree.setStyleSheet(share.locales.css("EditoWidget"))
+#        self.tree.setStyleSheet(share.locales.css("EditoWidget"))
         
         # Dummy Model (später kannst du hier Klassen/Methoden/etc. einfüllen)
         model = QStandardItemModel()
@@ -6449,7 +6454,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------------------
     def _set_language(self, lang: str):
         try:
-            share.locales.I18N.load_mo(lang)
+            share.locales.I18N.load_mo("po/locales/" + lang)
         except Exception:
             pass
         self._retranslate_ui()
@@ -8505,7 +8510,7 @@ def main():
         #app.installEventFilter(f1filter)
         #app.setStyle(FontTriangleArrowsStyle(app.style(), color="#d7b300", font_family="Segoe UI Symbol"))
         
-        APPINST.setStyle(ArrowFontProxyStyle(APPINST.style()))
+        #APPINST.setStyle(ArrowFontProxyStyle(APPINST.style()))
         global MAINAPP
         try:
             MAINAPP = MainWindow()
