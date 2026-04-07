@@ -769,7 +769,7 @@ class SourceAliasesTab(QWidget):
         e.setHorizontalSpacing(10)
         e.setVerticalSpacing(8)
 
-        e.addWidget(QLabel("Alias:"), 0, 0)
+        e.addWidget(QLabel(share.locales.tr("Alias:")), 0, 0)
         self.ed_alias = QLineEdit()
         self.ed_alias.setMinimumWidth(220)
         e.addWidget(self.ed_alias, 0, 1)
@@ -781,7 +781,7 @@ class SourceAliasesTab(QWidget):
         e.addWidget(self.btn_add, 0, 2)
         e.addWidget(self.btn_remove, 0, 3)
 
-        e.addWidget(QLabel("Pfad:"), 1, 0)
+        e.addWidget(QLabel(share.locales.tr("Pfad:")), 1, 0)
         self.ed_path = QLineEdit()
         e.addWidget(self.ed_path, 1, 1, 1, 2)
 
@@ -1371,7 +1371,7 @@ QLabel#TableCornerOverlay{
         with open(path, "rb") as f:
             hdr = f.read(32)
             if len(hdr) < 32:
-                raise ValueError("DBF header too short")
+                raise ValueError(share.locales.tr("DBF header too short"))
             self.version = hdr[0]
             num_records = int.from_bytes(hdr[4:8], "little")
             self.header_len = int.from_bytes(hdr[8:10], "little")
@@ -1769,38 +1769,38 @@ QLabel#TableCornerOverlay{
     def _show_context_menu(self, pos):
         menu = QMenu(self)
 
-        act_help = QAction("Hilfe\tF1", self)
+        act_help = QAction(share.locales.tr("Hilfe\tF1"), self)
         act_help.setShortcut(QKeySequence("F1"))
         menu.addAction(act_help)
 
         menu.addSeparator()
 
-        act_new = QAction("Neuer Record", self)
+        act_new = QAction(share.locales.tr("Neuer Record"), self)
         menu.addAction(act_new)
 
-        edit_menu = menu.addMenu("Edit")
-        act_copy  = QAction("Record Kopieren", self)
-        act_paste = QAction("Record Einfügen", self)
-        act_cut   = QAction("Ausschneiden", self)
+        edit_menu = menu.addMenu(share.locales.tr("Edit"))
+        act_copy  = QAction(share.locales.tr("Record Kopieren"), self)
+        act_paste = QAction(share.locales.tr("Record Einfügen"), self)
+        act_cut   = QAction(share.locales.tr("Ausschneiden"   ), self)
         
         edit_menu.addAction(act_copy)
         edit_menu.addAction(act_paste)
         edit_menu.addAction(act_cut)
 
-        act_del = QAction("Record löschen", self)
+        act_del = QAction(share.locales.tr("Record löschen"), self)
         menu.addAction(act_del)
 
         menu.addSeparator()
 
-        act_save = QAction("Speichern", self)
-        act_save_as = QAction("Speichern unter...", self)
+        act_save    = QAction(share.locales.tr("Speichern"), self)
+        act_save_as = QAction(share.locales.tr("Speichern unter..."), self)
         menu.addAction(act_save)
         menu.addAction(act_save_as)
 
         menu.addSeparator()
 
-        act_design = QAction("Design Modus", self)
-        act_close = QAction("Schließen", self)
+        act_design = QAction(share.locales.tr("Design Modus"), self)
+        act_close  = QAction(share.locales.tr("Schließen"   ), self)
         menu.addAction(act_design)
         menu.addAction(act_close)
 
@@ -2192,45 +2192,45 @@ class TableDesignerDialog(QDialog):
     def _show_context_menu(self, pos):
         menu = QMenu(self)
 
-        act_help = QAction("Hilfe\tF1", self)
+        act_help = QAction(share.locales.tr("Hilfe\tF1"), self)
         act_help.setShortcut(QKeySequence("F1"))
         menu.addAction(act_help)
 
-        act_edit = QAction("Bearbeiten", self)
+        act_edit = QAction(share.locales.tr("Bearbeiten"), self)
         menu.addAction(act_edit)
 
         # requested: separator after help, then Neu/Open
         menu.addSeparator()
 
-        act_new = QAction("Neu", self)
-        act_open = QAction("Öffnen...", self)
+        act_new  = QAction(share.locales.tr("Neu"), self)
+        act_open = QAction(share.locales.tr("Öffnen..."), self)
         menu.addAction(act_new)
         menu.addAction(act_open)
 
         menu.addSeparator()
 
-        act_add = QAction("Hinzufügen", self)
-        act_del = QAction("Löschen", self)
+        act_add = QAction(share.locales.tr("Hinzufügen"), self)
+        act_del = QAction(share.locales.tr("Löschen"   ), self)
         menu.addAction(act_add)
         menu.addAction(act_del)
 
         menu.addSeparator()
 
-        act_save = QAction("Speichern", self)
-        act_save_as = QAction("Speichern unter...", self)
+        act_save    = QAction(share.locales.tr("Speichern"), self)
+        act_save_as = QAction(share.locales.tr("Speichern unter..."), self)
         menu.addAction(act_save)
         menu.addAction(act_save_as)
 
         menu.addSeparator()
 
-        act_up   = QAction("Nach oben verschieben", self)
-        act_down = QAction("Nach unten verschieben", self)
+        act_up   = QAction(share.locales.tr("Nach oben verschieben" ), self)
+        act_down = QAction(share.locales.tr("Nach unten verschieben"), self)
         menu.addAction(act_up)
         menu.addAction(act_down)
 
         menu.addSeparator()
 
-        act_close = QAction("Schließen", self)
+        act_close = QAction(share.locales.tr("Schließen"), self)
         menu.addAction(act_close)
 
         # enable/disable
@@ -2820,12 +2820,12 @@ class EditorWidget(QDialog):
         vlayout.addWidget(self.splitter)
 
         # Button
-        self.btn_run = share.widgets.button.glossy.GlossyPillButtonGreen("Ausführen" , self)
+        self.btn_run = share.widgets.button.glossy.GlossyPillButtonGreen(share.locales.tr("Ausführen"), self)
         self.btn_run.clicked.connect(self.on_button_run_clicked)
 
         # Run per F2 (auch ohne Kontextmenü)
         self.text.runRequested.connect(self.on_button_run_clicked)
-        self.act_run_f2 = QAction("Run1", self)
+        self.act_run_f2 = QAction(share.locales.tr("Run"), self)
         self.act_run_f2.setShortcut(QKeySequence(Qt.Key_F2))
         self.act_run_f2.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self.act_run_f2.triggered.connect(self.on_button_run_clicked)
@@ -2834,11 +2834,11 @@ class EditorWidget(QDialog):
         vlayout.addWidget(self.btn_run)
         
         h1layout = QHBoxLayout()
-        self.btn_gen_python = share.widgets.button.glossy.GlossyPillButtonBlue("Gen. Python Code" , self)
-        self.btn_gen_pascal = share.widgets.button.glossy.GlossyPillButtonBlue("Gen. Pascal Code" , self)
-        self.btn_gen_javout = share.widgets.button.glossy.GlossyPillButtonBlue("Gen. Jave Code"   , self)
-        self.btn_gen_gnucpp = share.widgets.button.glossy.GlossyPillButtonBlue("Gen. GNU C++ Code", self)
-        self.btn_gen_csharp = share.widgets.button.glossy.GlossyPillButtonBlue("Gen. C-Sharp Code", self)
+        self.btn_gen_python = share.widgets.button.glossy.GlossyPillButtonBlue(share.locales.tr("Gen. Python Code" ), self)
+        self.btn_gen_pascal = share.widgets.button.glossy.GlossyPillButtonBlue(share.locales.tr("Gen. Pascal Code" ), self)
+        self.btn_gen_javout = share.widgets.button.glossy.GlossyPillButtonBlue(share.locales.tr("Gen. Jave Code"   ), self)
+        self.btn_gen_gnucpp = share.widgets.button.glossy.GlossyPillButtonBlue(share.locales.tr("Gen. GNU C++ Code"), self)
+        self.btn_gen_csharp = share.widgets.button.glossy.GlossyPillButtonBlue(share.locales.tr("Gen. C-Sharp Code"), self)
         
         self.btn_gen_python.clicked.connect(self.on_button_gen_python_clicked)
         self.btn_gen_pascal.clicked.connect(self.on_button_gen_pascal_clicked)
@@ -2853,8 +2853,8 @@ class EditorWidget(QDialog):
         h1layout.addWidget(self.btn_gen_csharp)
         
         h2layout = QHBoxLayout()
-        self.btn_gen_vbaout = share.widgets.button.glossy.GlossyPillButtonGold("Gen. Visual-Basic Access Code", self)
-        self.btn_gen_javscr = share.widgets.button.glossy.GlossyPillButtonGold("Gen. Java Script Code", self)
+        self.btn_gen_vbaout = share.widgets.button.glossy.GlossyPillButtonGold(share.locales.tr("Gen. Visual-Basic Access Code"), self)
+        self.btn_gen_javscr = share.widgets.button.glossy.GlossyPillButtonGold(share.locales.tr("Gen. Java Script Code"), self)
         
         self.btn_gen_vbaout.clicked.connect(self.on_button_gen_vbaout_clicked)
         self.btn_gen_javscr.clicked.connect(self.on_button_gen_javscr_clicked)
@@ -3413,7 +3413,7 @@ class RegieCenter(QDialog):
         
         self.setFont(QFont("Arial", 10))
 
-        self.setWindowTitle("Regierzentrum")
+        self.setWindowTitle(share.locales.tr("Regierzentrum"))
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
 
@@ -3425,7 +3425,7 @@ class RegieCenter(QDialog):
         self.combo.setInsertPolicy(QComboBox.NoInsert)
         self.combo.currentTextChanged.connect(self._on_dir_changed)
 
-        self.btn_pick = QPushButton("Verzeichnis…")
+        self.btn_pick = QPushButton(share.locales.tr("Verzeichnis…"))
         self.btn_pick.clicked.connect(self.pick_directory_non_native)
 
         top = QHBoxLayout()
@@ -3652,15 +3652,15 @@ class UserBdeAliasesTab(QWidget):
         root.setSpacing(12)
 
         # -------- Oben: Liste --------
-        gb_list = QGroupBox("Definiert ein BDE Anschluss aller", self)
-        v_list = QVBoxLayout(gb_list)
+        gb_list  = QGroupBox(share.locales.tr("Definiert ein BDE Anschluss aller"), self)
+        v_list   = QVBoxLayout(gb_list)
 
         self.lst = QListWidget()
         self.lst.setMinimumHeight(220)
         v_list.addWidget(self.lst)
 
         # -------- Unten: Editor --------
-        gb_edit = QGroupBox("Benutzer BDE Alias bearbeiten", self)
+        gb_edit = QGroupBox(share.locales.tr("Benutzer BDE Alias bearbeiten"), self)
         e = QGridLayout(gb_edit)
         e.setHorizontalSpacing(10)
         e.setVerticalSpacing(8)
@@ -3670,14 +3670,14 @@ class UserBdeAliasesTab(QWidget):
         self.ed_alias.setMinimumWidth(230)
         e.addWidget(self.ed_alias, 0, 1)
 
-        self.btn_add = QPushButton("Hinzufügen")
-        self.btn_remove = QPushButton("Entfernen")
+        self.btn_add    = QPushButton(share.locales.tr("Hinzufügen"))
+        self.btn_remove = QPushButton(share.locales.tr("Entfernen"))
         self.btn_add.setFixedWidth(95)
         self.btn_remove.setFixedWidth(95)
         e.addWidget(self.btn_add, 0, 2)
         e.addWidget(self.btn_remove, 0, 3)
 
-        e.addWidget(QLabel("Driver:"), 1, 0)
+        e.addWidget(QLabel(share.locales.tr("Driver:")), 1, 0)
         self.cb_driver = QComboBox()
         self.cb_driver.setMinimumWidth(260)
         self.cb_driver.addItems([
@@ -3685,11 +3685,11 @@ class UserBdeAliasesTab(QWidget):
         ])
         e.addWidget(self.cb_driver, 1, 1, 1, 3)
 
-        e.addWidget(QLabel("Options:"), 2, 0)
+        e.addWidget(QLabel(share.locales.tr("Options:")), 2, 0)
         self.ed_options = QLineEdit()
         e.addWidget(self.ed_options, 2, 1, 1, 2)
 
-        self.btn_options = QPushButton("…")
+        self.btn_options = QPushButton("...")
         self.btn_options.setFixedWidth(30)
         e.addWidget(self.btn_options, 2, 3, alignment=Qt.AlignLeft)
 
@@ -3846,7 +3846,7 @@ class UserBdeAliasesTab(QWidget):
         if current.upper().startswith("PATH:"):
             start_dir = current[5:].strip()
 
-        dlg = QFileDialog(self, "Verzeichnis auswählen", start_dir)
+        dlg = QFileDialog(self, share.locales.tr("Verzeichnis auswählen"), start_dir)
         dlg.setFileMode(QFileDialog.Directory)
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
         dlg.setOption(QFileDialog.DontUseNativeDialog, True)  # <- NICHT NATIV
@@ -3917,7 +3917,7 @@ class SourceAliasesTab(QWidget):
         root.setSpacing(12)
 
         # ---- Oben: Liste ----
-        gb_list = QGroupBox("Definierte Quell-Aliases", self)
+        gb_list = QGroupBox(share.locales.tr("Definierte Quell-Aliases"), self)
         v_list = QVBoxLayout(gb_list)
 
         self.lst = QListWidget()
@@ -3925,7 +3925,7 @@ class SourceAliasesTab(QWidget):
         v_list.addWidget(self.lst)
 
         # ---- Unten: Editor ----
-        gb_edit = QGroupBox("Quell-Alias bearbeiten", self)
+        gb_edit = QGroupBox(share.locales.tr("Quell-Alias bearbeiten"), self)
         e = QGridLayout(gb_edit)
         e.setHorizontalSpacing(10)
         e.setVerticalSpacing(8)
@@ -3935,18 +3935,18 @@ class SourceAliasesTab(QWidget):
         self.ed_alias.setMinimumWidth(220)
         e.addWidget(self.ed_alias, 0, 1)
 
-        self.btn_add = QPushButton("Hinzufügen")
-        self.btn_remove = QPushButton("Entfernen")
+        self.btn_add    = QPushButton(share.locales.tr("Hinzufügen"))
+        self.btn_remove = QPushButton(share.locales.tr("Entfernen"))
         self.btn_add.setFixedWidth(95)
         self.btn_remove.setFixedWidth(95)
         e.addWidget(self.btn_add, 0, 2)
         e.addWidget(self.btn_remove, 0, 3)
 
-        e.addWidget(QLabel("Pfad:"), 1, 0)
+        e.addWidget(QLabel(share.locales.tr("Pfad:")), 1, 0)
         self.ed_path = QLineEdit()
         e.addWidget(self.ed_path, 1, 1, 1, 2)
 
-        self.btn_browse = QPushButton("…")
+        self.btn_browse = QPushButton("...")
         self.btn_browse.setFixedWidth(30)
         e.addWidget(self.btn_browse, 1, 3, alignment=Qt.AlignLeft)
 
@@ -4140,7 +4140,7 @@ class DesktopPropertiesDialog(QDialog):
         super().__init__(parent)
         self.parent = parent
 
-        self.setWindowTitle("Desktop Properties")
+        self.setWindowTitle(share.locales.tr("Desktop Properties"))
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
         
@@ -4214,72 +4214,72 @@ class DesktopPropertiesDialog(QDialog):
         g.setVerticalSpacing(12)
 
         # --- Zahlenwerte ---
-        gb_num = QGroupBox("Zahlenwerte", tab)
+        gb_num = QGroupBox(share.locales.tr("Zahlenwerte"), tab)
         num = QGridLayout(gb_num)
         num.setHorizontalSpacing(10)
         num.setVerticalSpacing(8)
 
-        num.addWidget(QLabel("Trennzeichen:"), 0, 0)
+        num.addWidget(QLabel(share.locales.tr("Trennzeichen:")), 0, 0)
         self.ed_thousand = QLineEdit(".")
         self.ed_thousand.setFixedWidth(34)
         num.addWidget(self.ed_thousand, 0, 1, alignment=Qt.AlignLeft)
 
-        num.addWidget(QLabel("Dezimalzeichen:"), 1, 0)
+        num.addWidget(QLabel(share.locales.tr("Dezimalzeichen:")), 1, 0)
         self.ed_decimal = QLineEdit(",")
         self.ed_decimal.setFixedWidth(34)
         num.addWidget(self.ed_decimal, 1, 1, alignment=Qt.AlignLeft)
 
-        num.addWidget(QLabel("Muster:"), 2, 0)
+        num.addWidget(QLabel(share.locales.tr("Muster:")), 2, 0)
         num.addWidget(QLabel("1.000.000,00"), 2, 1, 1, 2)
 
         # --- Währungssymbol ---
-        gb_cur = QGroupBox("Währungssymbol", tab)
+        gb_cur = QGroupBox(share.locales.tr("Währungssymbol"), tab)
         cur = QGridLayout(gb_cur)
         cur.setHorizontalSpacing(10)
         cur.setVerticalSpacing(8)
 
-        cur.addWidget(QLabel("Position:"), 0, 0)
-        self.rb_left = QRadioButton("Links")
-        self.rb_right = QRadioButton("Rechts")
+        cur.addWidget(QLabel(share.locales.tr("Position:")), 0, 0)
+        self.rb_left  = QRadioButton(share.locales.tr("Links" ))
+        self.rb_right = QRadioButton(share.locales.tr("Rechts"))
         self.rb_right.setChecked(True)
         cur.addWidget(self.rb_left, 0, 1)
         cur.addWidget(self.rb_right, 1, 1)
 
-        cur.addWidget(QLabel("Symbol:"), 2, 0)
+        cur.addWidget(QLabel(share.locales.tr("Symbol:")), 2, 0)
         self.ed_currency = QLineEdit("€")
         self.ed_currency.setFixedWidth(50)
         cur.addWidget(self.ed_currency, 2, 1, alignment=Qt.AlignLeft)
 
-        cur.addWidget(QLabel("Muster:"), 3, 0)
+        cur.addWidget(QLabel(share.locales.tr("Muster:")), 3, 0)
         cur.addWidget(QLabel("129,99 €"), 3, 1, 1, 2)
 
         # --- Datum ---
-        gb_date = QGroupBox("Datum", tab)
+        gb_date = QGroupBox(share.locales.tr("Datum"), tab)
         date = QGridLayout(gb_date)
         date.setHorizontalSpacing(10)
         date.setVerticalSpacing(8)
 
-        date.addWidget(QLabel("Datumsformat:"), 0, 0)
+        date.addWidget(QLabel(share.locales.tr("Datumsformat:")), 0, 0)
         self.cb_datefmt = QComboBox()
         self.cb_datefmt.addItems(["DMY", "MDY", "YMD", "ISO"])
         self.cb_datefmt.setCurrentText("DMY")
         self.cb_datefmt.setFixedWidth(120)
         date.addWidget(self.cb_datefmt, 0, 1, alignment=Qt.AlignLeft)
 
-        date.addWidget(QLabel("Datumszeichen:"), 1, 0)
+        date.addWidget(QLabel(share.locales.tr("Datumszeichen:")), 1, 0)
         self.ed_datesep = QLineEdit(".")
         self.ed_datesep.setFixedWidth(34)
         date.addWidget(self.ed_datesep, 1, 1, alignment=Qt.AlignLeft)
 
-        self.chk_century = QCheckBox("Jahrhundert")
+        self.chk_century = QCheckBox(share.locales.tr("Jahrhundert"))
         self.chk_century.setChecked(True)
         date.addWidget(self.chk_century, 2, 0, 1, 2)
 
-        date.addWidget(QLabel("Muster:"), 3, 0)
+        date.addWidget(QLabel(share.locales.tr("Muster:")), 3, 0)
         date.addWidget(QLabel("08.02.2026"), 3, 1, 1, 2)
 
         # --- Umgebungssprache ---
-        gb_ui = QGroupBox("Umgebungssprache", tab)
+        gb_ui = QGroupBox(share.locales.tr("Umgebungssprache"), tab)
         ui = QGridLayout(gb_ui)
         self.cb_lang = QComboBox()
         self.cb_lang.addItems(["DE - Deutsch", "EN - English", "FR - Français"])
@@ -4288,9 +4288,9 @@ class DesktopPropertiesDialog(QDialog):
         ui.addWidget(self.cb_lang, 0, 0)
 
         # --- Sprachtreiber ---
-        gb_drv = QGroupBox("Sprachtreiber", tab)
+        gb_drv = QGroupBox(share.locales.tr("Sprachtreiber"), tab)
         drv = QGridLayout(gb_drv)
-        self.chk_mismatch = QCheckBox("Warnung bei Konflikten")
+        self.chk_mismatch = QCheckBox(share.locales.tr("Warnung bei Konflikten"))
         drv.addWidget(self.chk_mismatch, 0, 0)
 
         # Positionierung wie Screenshot
@@ -4311,13 +4311,13 @@ class DesktopPropertiesDialog(QDialog):
         g.setVerticalSpacing(12)
 
         # --- Mehrplatz (links oben) ---
-        gb_multi = QGroupBox("Mehrplatz", tab)
+        gb_multi = QGroupBox(share.locales.tr("Mehrplatz"), tab)
         l_multi = QGridLayout(gb_multi)
         l_multi.setHorizontalSpacing(10)
         l_multi.setVerticalSpacing(8)
 
         self.chk_lock = QCheckBox(share.locales.tr("Lock"))
-        self.chk_exclusive = QCheckBox("Exklusiv")
+        self.chk_exclusive = QCheckBox(share.locales.tr("Exklusiv"))
 
         l_multi.addWidget(self.chk_lock, 0, 0, 1, 2)
         l_multi.addWidget(self.chk_exclusive, 1, 0, 1, 2)
@@ -4338,7 +4338,7 @@ class DesktopPropertiesDialog(QDialog):
         self.chk_lock.setChecked(True)
 
         # --- Standardtabellentyp (links mitte) ---
-        gb_default = QGroupBox("Standardtabellentyp", tab)
+        gb_default = QGroupBox(share.locales.tr("Standardtabellentyp"), tab)
         l_def = QVBoxLayout(gb_default)
         
         self.rb_dbase   = QRadioButton("dBASE")
@@ -4354,25 +4354,25 @@ class DesktopPropertiesDialog(QDialog):
         l_def.addWidget(self.rb_mysql)
 
         # --- Systemtabellen (links unten) ---
-        gb_system = QGroupBox("Systemtabellen", tab)
+        gb_system = QGroupBox(share.locales.tr("Systemtabellen"), tab)
         l_sys = QVBoxLayout(gb_system)
-        self.chk_system_show = QCheckBox("Anzeigen")
+        self.chk_system_show = QCheckBox(share.locales.tr("Anzeigen"))
         l_sys.addWidget(self.chk_system_show)
 
         # --- Blockgrößen (rechts oben) ---
-        gb_blocks = QGroupBox("Blockgrößen", tab)
+        gb_blocks = QGroupBox(share.locales.tr("Blockgrößen"), tab)
         l_blocks = QGridLayout(gb_blocks)
         l_blocks.setHorizontalSpacing(10)
         l_blocks.setVerticalSpacing(8)
 
-        l_blocks.addWidget(QLabel("Indexblock:"), 0, 0)
+        l_blocks.addWidget(QLabel(share.locales.tr("Indexblock:")), 0, 0)
         self.spin_indexblock = QSpinBox()
         self.spin_indexblock.setRange(1, 9999)
         self.spin_indexblock.setFixedWidth(80)
         self.spin_indexblock.setValue(1)
         l_blocks.addWidget(self.spin_indexblock, 0, 1, alignment=Qt.AlignLeft)
 
-        l_blocks.addWidget(QLabel("Memoblock:"), 1, 0)
+        l_blocks.addWidget(QLabel(share.locales.tr("Memoblock:")), 1, 0)
         self.spin_memoblock = QSpinBox()
         self.spin_memoblock.setRange(1, 9999)
         self.spin_memoblock.setFixedWidth(80)
@@ -4380,7 +4380,7 @@ class DesktopPropertiesDialog(QDialog):
         l_blocks.addWidget(self.spin_memoblock, 1, 1, alignment=Qt.AlignLeft)
 
         # --- Andere (rechts mitte) ---
-        gb_other = QGroupBox("Andere", tab)
+        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
         l_other = QGridLayout(gb_other)
         l_other.setHorizontalSpacing(10)
         l_other.setVerticalSpacing(6)
@@ -4586,7 +4586,7 @@ class DesktopPropertiesDialog(QDialog):
         chk_enable_log.toggled.connect(_toggle_log)
 
         # ---------- Editor (rechts oben) ----------
-        gb_editor = QGroupBox("Editor", tab)
+        gb_editor = QGroupBox(share.locales.tr("Editor"), tab)
         ed = QGridLayout(gb_editor)
         ed.setHorizontalSpacing(10)
         ed.setVerticalSpacing(8)
@@ -4601,7 +4601,7 @@ class DesktopPropertiesDialog(QDialog):
         ed.addWidget(btn_editor, 1, 1, alignment=Qt.AlignLeft)
 
         # ---------- Andere (rechts mitte) ----------
-        gb_other = QGroupBox("Andere", tab)
+        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
         other = QVBoxLayout(gb_other)
         other.setSpacing(6)
 
@@ -4778,7 +4778,7 @@ class DesktopPropertiesDialog(QDialog):
         dev.addWidget(chk_buildtime, 1, 0, 1, 2)
 
         # --- Andere (rechts mitte) ---
-        gb_other = QGroupBox("Andere", tab)
+        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
         other = QGridLayout(gb_other)
         other.setHorizontalSpacing(10)
         other.setVerticalSpacing(8)
@@ -5429,9 +5429,10 @@ class DesignerControl(QWidget):
 
         menu = QMenu(self)
 
-        act_help = QAction("Hilfe\tF1", self)
+        act_help = QAction(share.locales.tr("Hilfe\tF1"), self)
         act_help.setShortcut("F1")
-        act_help.triggered.connect(lambda: QMessageBox.information(self, "Hilfe", f"Komponente: {self.tool_name}"))
+        act_help.triggered.connect(lambda: QMessageBox.information(self,
+            share.locales.tr("Hilfe"), f"{share.locales.tr("Komponente")}: {self.tool_name}"))
         menu.addAction(act_help)
 
         menu.addSeparator()
@@ -5850,7 +5851,7 @@ class PixelGridCanvas(QWidget):
             return
 
         menu = QMenu(self)
-        act_paste = QAction("Einfügen", self)
+        act_paste = QAction(share.locales.tr("Einfügen"), self)
         act_paste.setEnabled(bool(self._designer_clip))
         act_paste.triggered.connect(lambda: self.paste_from_clipboard(ev.globalPos()))
         menu.addAction(act_paste)
@@ -6594,7 +6595,7 @@ class MainWindow(QMainWindow):
         def create_help():
             # Beispiel: irgendein HelpMainWindow / HelpWidget
             mw = share.utildef.helpwin.HelpMainWindow()
-            mw.setWindowTitle("Hilfe")
+            mw.setWindowTitle(share.locales.tr("Hilfe"))
             #mw.setCentralWidget(QLabel("Hier kommt die Hilfe rein"))
             return mw
 
@@ -6788,13 +6789,13 @@ class MainWindow(QMainWindow):
         self.menu_file.addAction(action_file_database)
         self.menu_file.addAction(action_file_exit)
         
-        action_workplace = QAction("Arbeitsplatz", self)
+        action_workplace = QAction(share.locales.tr("Arbeitsplatz"), self)
         action_workplace.triggered.connect(self.open_workplace_properties)
         
         self.menu_properties.addAction(action_workplace)
         
-        action_cascade = QAction("Kaskadieren",   self, triggered = self.mdi.cascadeSubWindows)
-        action_tile    = QAction("Nebeneinander", self, triggered = self.mdi.tileSubWindows)
+        action_cascade = QAction(share.locales.tr("Kaskadieren"  ), self, triggered = self.mdi.cascadeSubWindows)
+        action_tile    = QAction(share.locales.tr("Nebeneinander"), self, triggered = self.mdi.tileSubWindows)
         
         self.menu_windows.addAction(action_cascade)
         self.menu_windows.addAction(action_tile)
@@ -7562,22 +7563,22 @@ class MainWindow(QMainWindow):
         debug_print("file window app")
         
     def on_new(self):
-        self.status_left.setText("Neu angelegt")
+        self.status_left.setText(share.locales.tr("Neu angelegt"))
 
     def on_open(self):
-        self.status_left.setText("Öffnen...")
+        self.status_left.setText(share.locales.tr("Öffnen..."))
 
     def on_save(self):
-        self.status_left.setText("Gespeichert")
+        self.status_left.setText(share.locales.tr("Gespeichert"))
         
     def _create_toolbar(self):
         toolbar = QToolBar("Haupt-Toolbar", self)
         toolbar.setIconSize(QSize(40, 40))
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
-        act_new  = QAction(QIcon(":/icons/new.png" ), "Neu"      , self)
-        act_open = QAction(QIcon(":/icons/open.png"), "Öffnen"   , self)
-        act_save = QAction(QIcon(":/icons/save.png"), "Speichern", self)
+        act_new  = QAction(QIcon(":/icons/new.png" ), share.locales.tr("Neu")      , self)
+        act_open = QAction(QIcon(":/icons/open.png"), share.locales.tr("Öffnen")   , self)
+        act_save = QAction(QIcon(":/icons/save.png"), share.locales.tr("Speichern"), self)
 
         act_new .triggered.connect(self.on_new)
         act_open.triggered.connect(self.on_open)
@@ -7594,7 +7595,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status)
 
         # Panel 1 – linker Bereich (dehnbar)
-        self.status_left = QLabel("Bereit")
+        self.status_left = QLabel(share.locales.tr("Bereit"))
         self.status_left.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         # Panel 2 – Mitte
@@ -7814,7 +7815,7 @@ class SqlTableProxy(QFrame):
 
         lay.addLayout(hdr)
 
-        self.chk_all = QCheckBox("Alle wählen")
+        self.chk_all = QCheckBox(share.locales.tr("Alle wählen"))
         self.chk_all.stateChanged.connect(self._on_all_changed)
         lay.addWidget(self.chk_all)
 
@@ -7862,16 +7863,16 @@ class SqlTableProxy(QFrame):
 
     def _on_list_context_menu(self, pos):
         m = QMenu(self)
-        act_all = m.addAction("Alle wählen" if not self.chk_all.isChecked() else "Alle abwählen")
+        act_all = m.addAction(share.locales.tr("Alle wählen") if not self.chk_all.isChecked() else share.locales.tr("Alle abwählen"))
         act_all.triggered.connect(lambda: self.chk_all.setChecked(not self.chk_all.isChecked()))
         m.addSeparator()
-        act_del = m.addAction("Tabelle löschen")
+        act_del = m.addAction(share.locales.tr("Tabelle löschen"))
         act_del.triggered.connect(lambda: self.request_delete.emit(self))
         m.exec_(self.listw.mapToGlobal(pos))
 
     def contextMenuEvent(self, ev):
         m = QMenu(self)
-        act_del = m.addAction("Tabelle löschen")
+        act_del = m.addAction(share.locales.tr("Tabelle löschen"))
         act_del.triggered.connect(lambda: self.request_delete.emit(self))
         m.exec_(ev.globalPos())
 
@@ -8123,14 +8124,14 @@ class SqlCanvas(QFrame):
         c = self._hit_test_connection(ev.pos())
         if c is not None:
             m = QMenu(self)
-            act_help = m.addAction("Hilfe")
+            act_help = m.addAction(share.locales.tr("Hilfe"))
             act_help.setShortcut(QKeySequence("F1"))
-            act_preview = m.addAction("Vorschau")
+            act_preview = m.addAction(share.locales.tr("Vorschau"))
             m.addSeparator()
-            act_save = m.addAction("Speichern")
-            act_save_as = m.addAction("Speichern unter...")
+            act_save    = m.addAction(share.locales.tr("Speichern"))
+            act_save_as = m.addAction(share.locales.tr("Speichern unter..."))
             m.addSeparator()
-            act_del = m.addAction("Löschen")
+            act_del     = m.addAction(share.locales.tr("Löschen"))
 
             chosen = m.exec_(ev.globalPos())
             if chosen is act_del:
@@ -8150,17 +8151,17 @@ class SqlCanvas(QFrame):
 
         # canvas menu
         m = QMenu(self)
-        act_new = m.addAction("Neu")
-        act_load = m.addAction("Laden")
+        act_new  = m.addAction(share.locales.tr("Neu"))
+        act_load = m.addAction(share.locales.tr("Laden"))
         m.addSeparator()
-        act_add = m.addAction("Hinzufügen")
+        act_add  = m.addAction(share.locales.tr("Hinzufügen"))
         m.addSeparator()
-        act_save = m.addAction("Speichern")
-        act_save_as = m.addAction("Speichern unter...")
+        act_save = m.addAction(share.locales.tr("Speichern"))
+        act_save_as = m.addAction(share.locales.tr("Speichern unter..."))
         m.addSeparator()
-        act_help = m.addAction("Hilfe")
+        act_help = m.addAction(share.locales.tr("Hilfe"))
         act_help.setShortcut(QKeySequence("F1"))
-        act_preview = m.addAction("Vorschau")
+        act_preview = m.addAction(share.locales.tr("Vorschau"))
 
         chosen = m.exec_(ev.globalPos())
         w = self._find_builder_host()
@@ -8421,7 +8422,7 @@ class SqlBuilderWindow(QWidget):
             return
         self.table.setRowCount(1)
         self.table.setItem(0, 0, QTableWidgetItem(sql))
-        self.table.setItem(0, 1, QTableWidgetItem("Vorschau"))
+        self.table.setItem(0, 1, QTableWidgetItem(share.locales.tr("Vorschau")))
 
     def build_sql(self) -> str:
         if not self.canvas.proxies:
@@ -8527,9 +8528,10 @@ def main():
                 pass
             try:
                 QMessageBox.critical(
-                    None, "Startfehler",
-                    "Beim Start ist ein Fehler aufgetreten.\n" +
-                    "Details stehen in: webengine_crash.log")
+                    None,
+                    share.locales.tr("Startfehler"),
+                    share.locales.tr("Beim Start ist ein Fehler aufgetreten.") + "\n" +
+                    share.locales.tr("Details stehen in: webengine_crash.log"))
             except Exception:
                 pass
             return
@@ -8541,12 +8543,12 @@ def main():
     else:
         if SystemInfo.is_windows():
             ctypes.windll.user32.MessageBoxW(0,
-                "Qt5 could not be started",
-                "Qt5 Framework Error:", 0
+                share.locales.tr("Qt5 could not be started"),
+                share.locales.tr("Qt5 Framework Error:"), 0
             )
             sys.exit(1)
         else:
-            debug_print("Qt5 kann nicht gestartet werden.")
+            debug_print(share.locales.tr("Qt5 kann nicht gestartet werden."))
             sys.exit(1)
 
 if __name__ == "__main__":
