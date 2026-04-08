@@ -79,7 +79,7 @@ def apply_theme_global(w: QWidget):
 
         title_fg=         "#ffd866"
 
-        border=           "#2a2f3a"
+        border=           "#3a2f3a"
         border_hover=     "#3a4150"
         border_disabled=  "#242935"
 
@@ -490,7 +490,7 @@ QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
 QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
 QTreeView::item:selected {{background: {sel_bg};color: {sel_fg};}}
 QHeaderView::section {{background: {header_bg};color: {header_fg};padding: 6px;border: none;border-bottom: 1px solid {border};}}
-QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};border-radius: 10px;padding: 7px 12px;}}
+QPushButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 2px solid {border};border-radius: 10px;padding: 7px 12px;}}
 QPushButton:hover {{background: {toolbtn_hover};}}
 QPushButton:pressed {{background: {toolbtn_pressed};}}
 TopContainer {{ background: transparent; }}

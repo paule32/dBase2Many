@@ -8,9 +8,10 @@
 
 NOTE comment line
 
-SET ESCAPE OFF
-
 SET FORMAT TO SCREEN
+SET ESCAPE OFF
+write "ssss"
+
 SET MARGIN TO 10pt, 10pt
 
 #include "test.prg"         // test file include

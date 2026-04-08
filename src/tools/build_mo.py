@@ -144,6 +144,6 @@ if __name__ == "__main__":
         for f in css_files:
             if not f.exists():
                 raise SystemExit(f"Missing file for zip: {f}")
-            zf.write(mo, mo.relative_to("data").as_posix())
+            zf.write(f, f.relative_to("data").as_posix())
         zf.close()
     print(f"Created {out_css}")

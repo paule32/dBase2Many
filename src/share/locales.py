@@ -39,7 +39,7 @@ class TranslationManager:
         if self.mode == 0:
             inner = f"{lang}/LC_MESSAGES/{self.domain}.mo"
         elif self.mode == 1:
-            inner = f"default/{self.style_name}.mo"
+            inner = f"styles/default/{self.style_name}.mo"
         try:
             with zipfile.ZipFile(str(self.zip_path), "r") as zf:
                 data = zf.read(inner)  # bytes
