@@ -6616,6 +6616,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        global MAINAPP
+        try:
+            MAINAPP = self
+            share.common.MAINAPP = self
+        except Exception:
+            pass
+
         # INI Settings
         self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
         self._settings.setFallbacksEnabled(False)
@@ -8557,6 +8564,10 @@ def main():
         global MAINAPP
         try:
             MAINAPP = MainWindow()
+            try:
+                share.common.MAINAPP = MAINAPP
+            except Exception:
+                pass
             MAINAPP.show()
             center_on_screen(MAINAPP)
         except Exception:

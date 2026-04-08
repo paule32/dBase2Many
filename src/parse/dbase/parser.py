@@ -242,6 +242,13 @@ def form_open(inst: share.common.Instance):
         pass
 
     try:
+        if isinstance(backend, QDialog):
+            backend.setWindowFlag(Qt.Dialog, True)
+            backend.setWindowFlag(Qt.Window, True)
+    except Exception:
+        pass
+
+    try:
         backend.setProperty("_DBASE_ESCAPE_TARGET", True)
     except Exception:
         pass
@@ -259,70 +266,26 @@ def form_open(inst: share.common.Instance):
     except Exception:
         pass
 
-    # ---------------------------------------------------------------------------
-    # QDialog/QWidget fuer MDI-Nutzung neutralisieren, damit das Fenster nicht
-    # als eigenes Top-Level-Fenster ausserhalb des MDI-Bereichs auftaucht.
-    # ---------------------------------------------------------------------------
     try:
-        if isinstance(backend, QDialog):
-            backend.setWindowFlags(Qt.Widget)
+        inst.props["_QT_SUBWINDOW"] = None
     except Exception:
         pass
 
-    sub = None
     try:
-        sub = share.common.MAINAPP.mdi.addSubWindow(backend)
+        share.utildef.theme.apply_theme_global(backend)
     except Exception:
-        sub = None
+        pass
 
-    if sub is not None:
-        #sub.setStyleSheet()
+    try:
+        backend.show()
+        backend.raise_()
+        backend.activateWindow()
+    except Exception:
         try:
-            sub.setAttribute(Qt.WA_DeleteOnClose, True)
-        except Exception:
-            pass
-        try:
-            sub.resize(360, 400)
-        except Exception:
-            pass
-        try:
-            backend.setProperty("_DBASE_ESCAPE_TARGET", True)
-        except Exception:
-            pass
-        try:
-            sub.setProperty("_DBASE_ESCAPE_TARGET", True)
-        except Exception:
-            pass
-        try:
-            _install_runtime_escape_filter(sub, backend)
-        except Exception:
-            pass
-        inst.props["_QT_SUBWINDOW"] = sub
-        try:
-            share.utildef.theme.apply_theme_global(backend)
             backend.show()
         except Exception:
             pass
-        try:
-            share.utildef.theme.apply_theme_global(sub)
-            sub.show()
-        except Exception:
-            pass
-        return sub
 
-    try:
-        backend.setProperty("_DBASE_ESCAPE_TARGET", True)
-    except Exception:
-        pass
-    try:
-        _install_runtime_escape_filter(backend, backend)
-    except Exception:
-        pass
-    try:
-        share.utildef.theme.apply_theme_global(backend)
-        backend.show()
-    except Exception:
-        pass
     return backend
 
 # ---------------------------------------------------------------------------

@@ -378,6 +378,10 @@ def find_mdi_subwindow_robust(widget: Any):
 
     return None
 
+# Rueckwaertskompatibler Alias fuer aeltere Aufrufe.
+_find_mdi_subwindow_robust = find_mdi_subwindow_robust
+
+
 def mark_escape_protected(obj: Any) -> Any:
     try:
         if obj is not None and hasattr(obj, "setProperty"):
@@ -396,7 +400,7 @@ def _resolve_escape_block_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("ESCAPE_BLOCKED")) or w.__class__.__name__ in _ESCAPE_BLOCKED_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow_robust(w)
+                sub = find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -419,7 +423,7 @@ def _resolve_escape_close_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("ESCAPE_CLOSE")) or w.__class__.__name__ in _ESCAPE_CLOSE_WINDOW_CLASSES:
-                sub = _find_mdi_subwindow_robust(w)
+                sub = find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -443,7 +447,7 @@ def _resolve_escape_target(widget: Any):
     while w is not None:
         try:
             if bool(w.property("_DBASE_ESCAPE_TARGET")):
-                sub = _find_mdi_subwindow_robust(w)
+                sub = find_mdi_subwindow_robust(w)
                 return w, sub
         except Exception:
             pass
@@ -464,18 +468,12 @@ def _resolve_escape_target(widget: Any):
 def close_escape_target(widget: Any, sub: Any = None) -> bool:
     try:
         if sub is None:
-            sub = _find_mdi_subwindow_robust(widget)
+            sub = find_mdi_subwindow_robust(widget)
     except Exception:
         sub = None
 
     try:
         host_sub = sub
-        if host_sub is None and widget is not None:
-            try:
-                host_sub = _find_mdi_subwindow_robust(widget)
-            except Exception:
-                host_sub = None
-
         if host_sub is not None:
             try:
                 inner = host_sub.widget()
@@ -493,59 +491,12 @@ def close_escape_target(widget: Any, sub: Any = None) -> bool:
                 pass
 
             try:
-                mdi = host_sub.mdiArea()
-            except Exception:
-                mdi = None
-
-            # Wichtig: Das QMdiSubWindow selbst aus der MDI-Area entfernen.
-            # removeSubWindow(inner) fuehrt in diesem Szenario dazu, dass nur
-            # das eingebettete Widget verschwindet und die leere MDI-Huelle
-            # stehen bleibt.
-            if mdi is not None:
-                try:
-                    mdi.removeSubWindow(host_sub)
-                except Exception:
-                    try:
-                        if inner is not None:
-                            mdi.removeSubWindow(inner)
-                    except Exception:
-                        pass
-
-            try:
-                host_sub.hide()
-            except Exception:
-                pass
-            try:
                 host_sub.close()
             except Exception:
-                pass
-
-            if inner is not None:
                 try:
-                    host_sub.setWidget(None)
+                    host_sub.hide()
                 except Exception:
                     pass
-                try:
-                    inner.hide()
-                except Exception:
-                    pass
-                try:
-                    inner.close()
-                except Exception:
-                    pass
-                try:
-                    inner.setParent(None)
-                except Exception:
-                    pass
-                try:
-                    inner.deleteLater()
-                except Exception:
-                    pass
-
-            try:
-                host_sub.setParent(None)
-            except Exception:
-                pass
             try:
                 host_sub.deleteLater()
             except Exception:
@@ -558,17 +509,12 @@ def close_escape_target(widget: Any, sub: Any = None) -> bool:
             except Exception:
                 pass
             try:
-                widget.hide()
-            except Exception:
-                pass
-            try:
                 widget.close()
             except Exception:
-                pass
-            try:
-                widget.setParent(None)
-            except Exception:
-                pass
+                try:
+                    widget.hide()
+                except Exception:
+                    pass
             try:
                 widget.deleteLater()
             except Exception:
