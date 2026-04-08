@@ -171,6 +171,10 @@ ESCAPE_CLOSE_WINDOW_CLASSES   = set()
 ESCAPE_BLOCKED_WINDOW_CLASSES = {
     "DebugConsoleWidget",
 }
+# Interne Alias-Namen fuer die Escape-Hilfsfunktionen.
+# Die Resolver unten verwenden die underscored-Varianten.
+_ESCAPE_CLOSE_WINDOW_CLASSES   = ESCAPE_CLOSE_WINDOW_CLASSES
+_ESCAPE_BLOCKED_WINDOW_CLASSES = ESCAPE_BLOCKED_WINDOW_CLASSES
 
 BASE = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
 LOG  = BASE / "webengine_crash.log"

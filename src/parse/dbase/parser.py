@@ -24,6 +24,30 @@ from parse.dbase.dBaseLexer          import dBaseLexer
 from parse.dbase.dBaseParser         import dBaseParser
 from parse.dbase.dBaseParserVisitor  import dBaseParserVisitor
 
+
+def _pdf_backend_available() -> bool:
+    return bool(getattr(share.common, "_PDF_BACKEND_AVAILABLE", False))
+
+
+def _pdf_backend_import_error():
+    return getattr(share.common, "_PDF_BACKEND_IMPORT_ERROR", None)
+
+
+def _pdf_pagesize_a4():
+    return getattr(share.common, "A4", None)
+
+
+def _pdf_canvas_module():
+    return getattr(share.common, "canvas", None)
+
+
+def _pdf_colors_module():
+    return getattr(share.common, "rl_colors", None)
+
+
+def _pdf_metrics_module():
+    return getattr(share.common, "pdfmetrics", None)
+
 # ---------------------------------------------------------------------------
 # runtime output routing (WRITE/TEXT -> Debug Console or PDF printer)
 # ---------------------------------------------------------------------------
@@ -616,7 +640,10 @@ def _wrap_pdf_text_line(text: str, *,
     cur = ""
 
     def width_of(s: str) -> float:
-        return pdfmetrics.stringWidth(s, font_name, font_size)
+        metrics = _pdf_metrics_module()
+        if metrics is None:
+            return max(0.0, float(len(s)) * float(font_size) * 0.6)
+        return metrics.stringWidth(s, font_name, font_size)
 
     for part in parts:
         trial = cur + part
@@ -660,8 +687,9 @@ def _notify_pdf_backend_unavailable():
     _PDF_BACKEND_WARNING_EMITTED = True
     msg = "PDF-Ausgabe nicht verfügbar: Modul 'reportlab' wurde nicht gefunden. Ausgabe erfolgt im Debug-Fenster."
     try:
-        if _PDF_BACKEND_IMPORT_ERROR is not None:
-            msg += f" ({_PDF_BACKEND_IMPORT_ERROR})"
+        pdf_error = _pdf_backend_import_error()
+        if pdf_error is not None:
+            msg += f" ({pdf_error})"
     except Exception:
         pass
 
@@ -764,7 +792,7 @@ def _set_runtime_color(*args):
 def _render_runtime_output_pdf():
     global _RUNTIME_PRINT_PDF_PATH
 
-    if not _PDF_BACKEND_AVAILABLE:
+    if not _pdf_backend_available():
         _notify_pdf_backend_unavailable()
         return None
 
@@ -774,7 +802,14 @@ def _render_runtime_output_pdf():
     pdf_path = Path(_RUNTIME_PRINT_PDF_PATH)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-    page_w, page_h = A4
+    pagesize = _pdf_pagesize_a4()
+    pdf_canvas = _pdf_canvas_module()
+    pdf_colors = _pdf_colors_module()
+    if pagesize is None or pdf_canvas is None or pdf_colors is None:
+        _notify_pdf_backend_unavailable()
+        return None
+
+    page_w, page_h = pagesize
     margin_left = float(_RUNTIME_PRINT_MARGINS.get("left", _RUNTIME_PRINT_MARGIN_DEFAULTS["left"]))
     margin_right = float(_RUNTIME_PRINT_MARGINS.get("right", _RUNTIME_PRINT_MARGIN_DEFAULTS["right"]))
     margin_top = float(_RUNTIME_PRINT_MARGINS.get("top", _RUNTIME_PRINT_MARGIN_DEFAULTS["top"]))
@@ -784,7 +819,7 @@ def _render_runtime_output_pdf():
     line_height = 13
     max_width = max(20.0, page_w - margin_left - margin_right)
 
-    c = canvas.Canvas(str(pdf_path), pagesize=A4)
+    c = pdf_canvas.Canvas(str(pdf_path), pagesize=pagesize)
     c.setTitle(pdf_path.stem)
     c.setAuthor("dBaseRunner")
     c.setSubject("SET FORMAT TO PRINT")
@@ -817,13 +852,13 @@ def _render_runtime_output_pdf():
 
             if bg_hex:
                 try:
-                    c.setFillColor(rl_colors.HexColor(bg_hex))
+                    c.setFillColor(pdf_colors.HexColor(bg_hex))
                     c.rect(margin_left, y - 2, max_width, line_height, stroke=0, fill=1)
                 except Exception:
                     pass
 
             try:
-                c.setFillColor(rl_colors.HexColor(fg_hex))
+                c.setFillColor(pdf_colors.HexColor(fg_hex))
             except Exception:
                 c.setFillColorRGB(0, 0, 0)
 
@@ -857,7 +892,7 @@ def _set_runtime_output_format(mode: str):
     if mode not in ("SCREEN", "PRINT"):
         raise RuntimeError(f"SET FORMAT TO {mode} ist nicht unterstützt")
 
-    if mode == "PRINT" and not _PDF_BACKEND_AVAILABLE:
+    if mode == "PRINT" and not _pdf_backend_available():
         _notify_pdf_backend_unavailable()
         return 0
 
@@ -877,7 +912,7 @@ def _set_runtime_print_enabled(enabled: bool):
 
     enabled = bool(enabled)
     if enabled:
-        if not _PDF_BACKEND_AVAILABLE:
+        if not _pdf_backend_available():
             _notify_pdf_backend_unavailable()
             return 0
         _RUNTIME_OUTPUT_FORMAT = "PRINT"

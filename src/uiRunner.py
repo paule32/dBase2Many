@@ -21,6 +21,7 @@ from   share.utildef.theme          import *
 from   share.widgets.button.glossy  import *
 
 from   parse.dbase.parser           import *
+import parse.dbase.parser as _dbase_parser_runtime
 
 # ---------------------------------------------------------------------------
 # perform Windows 10/11 specifiec stuff ...
@@ -143,6 +144,51 @@ except Exception as e:
         pass
 
 
+def _runtime_escape_enabled_live() -> bool:
+    try:
+        return bool(getattr(_dbase_parser_runtime, "_RUNTIME_ESCAPE_ENABLED", False))
+    except Exception:
+        return False
+
+def _is_runtime_escape_target(candidate: Any = None, fallback_sub: Any = None) -> bool:
+    try:
+        w = candidate if isinstance(candidate, QWidget) else QApplication.focusWidget()
+    except Exception:
+        w = None
+
+    while w is not None:
+        try:
+            if bool(w.property("_DBASE_ESCAPE_TARGET")):
+                return True
+        except Exception:
+            pass
+        try:
+            w = w.parentWidget()
+        except Exception:
+            try:
+                w = w.parent()
+            except Exception:
+                w = None
+
+    try:
+        sub = fallback_sub if fallback_sub is not None else find_mdi_subwindow_robust(candidate)
+    except Exception:
+        sub = None
+
+    if sub is not None:
+        try:
+            inner = sub.widget()
+        except Exception:
+            inner = None
+        for probe in (sub, inner):
+            try:
+                if probe is not None and bool(probe.property("_DBASE_ESCAPE_TARGET")):
+                    return True
+            except Exception:
+                pass
+
+    return False
+
 class _GlobalEscapeCloseFilter(QObject):
     def _candidate_widget(self, obj):
         try:
@@ -199,7 +245,7 @@ class _GlobalEscapeCloseFilter(QObject):
                 event.accept()
             except Exception:
                 pass
-            if bool(_RUNTIME_ESCAPE_ENABLED):
+            if _runtime_escape_enabled_live():
                 if not close_escape_target(target_widget, sub):
                     try:
                         fallback_sub = find_mdi_subwindow_robust(candidate)
@@ -224,14 +270,10 @@ class _GlobalEscapeCloseFilter(QObject):
             except Exception:
                 pass
 
-            is_dbase_runtime_target = False
-            try:
-                is_dbase_runtime_target = bool(fallback_sub.property("_DBASE_ESCAPE_TARGET"))
-            except Exception:
-                is_dbase_runtime_target = False
+            is_dbase_runtime_target = _is_runtime_escape_target(candidate, fallback_sub)
 
             if is_dbase_runtime_target:
-                if bool(_RUNTIME_ESCAPE_ENABLED):
+                if _runtime_escape_enabled_live():
                     close_escape_target(candidate, fallback_sub)
                 return True
 
@@ -6574,6 +6616,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        global MAINAPP
+        MAINAPP = self
+        try:
+            share.common.MAINAPP = self
+        except Exception:
+            pass
+
         # INI Settings
         self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
         self._settings.setFallbacksEnabled(False)
@@ -8515,6 +8564,10 @@ def main():
         global MAINAPP
         try:
             MAINAPP = MainWindow()
+            try:
+                share.common.MAINAPP = MAINAPP
+            except Exception:
+                pass
             MAINAPP.show()
             center_on_screen(MAINAPP)
         except Exception:
