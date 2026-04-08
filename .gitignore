@@ -215,3 +215,9 @@ packed.7z
 src/sharee_.py
 src/tests/proto/protokoll_2026-04-08_14-38-15.pdf
 src/tests/proto/protokoll_2026-04-08_15-00-41.pdf
+src/tests/proto/protokoll_2026-04-08_15-18-54.pdf
+src/tests/proto/protokoll_2026-04-08_15-20-05.pdf
+src/tests/proto/protokoll_2026-04-08_15-21-22.pdf
+src/share/common.py.bak_20260408_154900
+src/uiRunner.py.bak_20260408_154900
+fix_escape_runtime.py

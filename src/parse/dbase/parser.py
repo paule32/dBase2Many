@@ -24,91 +24,6 @@ from parse.dbase.dBaseLexer          import dBaseLexer
 from parse.dbase.dBaseParser         import dBaseParser
 from parse.dbase.dBaseParserVisitor  import dBaseParserVisitor
 
-
-def _pdf_backend_available() -> bool:
-    return bool(getattr(share.common, "_PDF_BACKEND_AVAILABLE", False))
-
-
-def _pdf_backend_import_error():
-    return getattr(share.common, "_PDF_BACKEND_IMPORT_ERROR", None)
-
-
-def _pdf_pagesize_a4():
-    return getattr(share.common, "A4", None)
-
-
-def _pdf_canvas_module():
-    return getattr(share.common, "canvas", None)
-
-
-def _pdf_colors_module():
-    return getattr(share.common, "rl_colors", None)
-
-
-def _pdf_metrics_module():
-    return getattr(share.common, "pdfmetrics", None)
-
-
-def _resolve_runtime_mainapp():
-    seen = set()
-
-    def _iter_candidate(obj):
-        cur = obj
-        depth = 0
-        while cur is not None and depth < 16:
-            oid = id(cur)
-            if oid in seen:
-                break
-            seen.add(oid)
-            yield cur
-            try:
-                cur = cur.parent()
-            except Exception:
-                cur = None
-            depth += 1
-
-    base_candidates = []
-    try:
-        base_candidates.append(getattr(share.common, "MAINAPP", None))
-    except Exception:
-        pass
-    try:
-        base_candidates.append(globals().get("MAINAPP"))
-    except Exception:
-        pass
-
-    try:
-        app = QApplication.instance()
-    except Exception:
-        app = None
-
-    if app is not None:
-        try:
-            base_candidates.append(app.activeWindow())
-        except Exception:
-            pass
-        try:
-            fw = app.focusWidget()
-            if fw is not None:
-                base_candidates.append(fw)
-                try:
-                    base_candidates.append(fw.window())
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        try:
-            base_candidates.extend(list(app.topLevelWidgets()))
-        except Exception:
-            pass
-
-    for base in base_candidates:
-        for cand in _iter_candidate(base):
-            if hasattr(cand, "append_debug_output"):
-                return cand
-
-    return None
-
 # ---------------------------------------------------------------------------
 # runtime output routing (WRITE/TEXT -> Debug Console or PDF printer)
 # ---------------------------------------------------------------------------
@@ -326,6 +241,24 @@ def form_open(inst: share.common.Instance):
     except Exception:
         pass
 
+    try:
+        backend.setProperty("_DBASE_ESCAPE_TARGET", True)
+    except Exception:
+        pass
+    try:
+        _install_runtime_escape_filter(backend, backend)
+    except Exception:
+        pass
+    try:
+        for child in backend.findChildren(QWidget):
+            try:
+                child.setProperty("_DBASE_ESCAPE_TARGET", True)
+            except Exception:
+                pass
+            _install_runtime_escape_filter(child, backend)
+    except Exception:
+        pass
+
     # ---------------------------------------------------------------------------
     # QDialog/QWidget fuer MDI-Nutzung neutralisieren, damit das Fenster nicht
     # als eigenes Top-Level-Fenster ausserhalb des MDI-Bereichs auftaucht.
@@ -360,6 +293,10 @@ def form_open(inst: share.common.Instance):
             sub.setProperty("_DBASE_ESCAPE_TARGET", True)
         except Exception:
             pass
+        try:
+            _install_runtime_escape_filter(sub, backend)
+        except Exception:
+            pass
         inst.props["_QT_SUBWINDOW"] = sub
         try:
             share.utildef.theme.apply_theme_global(backend)
@@ -375,6 +312,10 @@ def form_open(inst: share.common.Instance):
 
     try:
         backend.setProperty("_DBASE_ESCAPE_TARGET", True)
+    except Exception:
+        pass
+    try:
+        _install_runtime_escape_filter(backend, backend)
     except Exception:
         pass
     try:
@@ -701,10 +642,7 @@ def _wrap_pdf_text_line(text: str, *,
     cur = ""
 
     def width_of(s: str) -> float:
-        metrics = _pdf_metrics_module()
-        if metrics is None:
-            return max(0.0, float(len(s)) * float(font_size) * 0.6)
-        return metrics.stringWidth(s, font_name, font_size)
+        return pdfmetrics.stringWidth(s, font_name, font_size)
 
     for part in parts:
         trial = cur + part
@@ -748,16 +686,14 @@ def _notify_pdf_backend_unavailable():
     _PDF_BACKEND_WARNING_EMITTED = True
     msg = "PDF-Ausgabe nicht verfügbar: Modul 'reportlab' wurde nicht gefunden. Ausgabe erfolgt im Debug-Fenster."
     try:
-        pdf_error = _pdf_backend_import_error()
-        if pdf_error is not None:
-            msg += f" ({pdf_error})"
+        if _PDF_BACKEND_IMPORT_ERROR is not None:
+            msg += f" ({_PDF_BACKEND_IMPORT_ERROR})"
     except Exception:
         pass
 
     try:
-        mainapp = _resolve_runtime_mainapp()
-        if mainapp is not None:
-            mainapp.append_debug_output(msg)
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
+            share.common.MAINAPP.append_debug_output(msg)
             return False
     except Exception:
         pass
@@ -854,7 +790,7 @@ def _set_runtime_color(*args):
 def _render_runtime_output_pdf():
     global _RUNTIME_PRINT_PDF_PATH
 
-    if not _pdf_backend_available():
+    if not _PDF_BACKEND_AVAILABLE:
         _notify_pdf_backend_unavailable()
         return None
 
@@ -864,14 +800,7 @@ def _render_runtime_output_pdf():
     pdf_path = Path(_RUNTIME_PRINT_PDF_PATH)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-    pagesize = _pdf_pagesize_a4()
-    pdf_canvas = _pdf_canvas_module()
-    pdf_colors = _pdf_colors_module()
-    if pagesize is None or pdf_canvas is None or pdf_colors is None:
-        _notify_pdf_backend_unavailable()
-        return None
-
-    page_w, page_h = pagesize
+    page_w, page_h = A4
     margin_left = float(_RUNTIME_PRINT_MARGINS.get("left", _RUNTIME_PRINT_MARGIN_DEFAULTS["left"]))
     margin_right = float(_RUNTIME_PRINT_MARGINS.get("right", _RUNTIME_PRINT_MARGIN_DEFAULTS["right"]))
     margin_top = float(_RUNTIME_PRINT_MARGINS.get("top", _RUNTIME_PRINT_MARGIN_DEFAULTS["top"]))
@@ -881,7 +810,7 @@ def _render_runtime_output_pdf():
     line_height = 13
     max_width = max(20.0, page_w - margin_left - margin_right)
 
-    c = pdf_canvas.Canvas(str(pdf_path), pagesize=pagesize)
+    c = canvas.Canvas(str(pdf_path), pagesize=A4)
     c.setTitle(pdf_path.stem)
     c.setAuthor("dBaseRunner")
     c.setSubject("SET FORMAT TO PRINT")
@@ -914,13 +843,13 @@ def _render_runtime_output_pdf():
 
             if bg_hex:
                 try:
-                    c.setFillColor(pdf_colors.HexColor(bg_hex))
+                    c.setFillColor(rl_colors.HexColor(bg_hex))
                     c.rect(margin_left, y - 2, max_width, line_height, stroke=0, fill=1)
                 except Exception:
                     pass
 
             try:
-                c.setFillColor(pdf_colors.HexColor(fg_hex))
+                c.setFillColor(rl_colors.HexColor(fg_hex))
             except Exception:
                 c.setFillColorRGB(0, 0, 0)
 
@@ -954,7 +883,7 @@ def _set_runtime_output_format(mode: str):
     if mode not in ("SCREEN", "PRINT"):
         raise RuntimeError(f"SET FORMAT TO {mode} ist nicht unterstützt")
 
-    if mode == "PRINT" and not _pdf_backend_available():
+    if mode == "PRINT" and not _PDF_BACKEND_AVAILABLE:
         _notify_pdf_backend_unavailable()
         return 0
 
@@ -974,7 +903,7 @@ def _set_runtime_print_enabled(enabled: bool):
 
     enabled = bool(enabled)
     if enabled:
-        if not _pdf_backend_available():
+        if not _PDF_BACKEND_AVAILABLE:
             _notify_pdf_backend_unavailable()
             return 0
         _RUNTIME_OUTPUT_FORMAT = "PRINT"
@@ -1006,6 +935,62 @@ def _set_runtime_delete_enabled(enabled: bool):
     global _RUNTIME_DELETE_ENABLED
     _RUNTIME_DELETE_ENABLED = bool(enabled)
     return 0
+
+
+class _RuntimeEscapeTargetFilter(QObject):
+    def __init__(self, owner: QObject | None = None, close_target: QWidget | None = None):
+        super().__init__(owner)
+        self._close_target = close_target
+
+    def eventFilter(self, obj, event):
+        try:
+            et = event.type()
+            if et not in (QEvent.ShortcutOverride, QEvent.KeyPress) or event.key() != Qt.Key_Escape:
+                return False
+        except Exception:
+            return False
+
+        try:
+            event.accept()
+        except Exception:
+            pass
+
+        if bool(_RUNTIME_ESCAPE_ENABLED):
+            target = self._close_target
+            if target is None:
+                try:
+                    target = obj if isinstance(obj, QWidget) else QApplication.focusWidget()
+                except Exception:
+                    target = None
+            try:
+                sub = find_mdi_subwindow_robust(target)
+            except Exception:
+                sub = None
+            try:
+                if not close_escape_target(target, sub) and target is not None:
+                    target.close()
+            except Exception:
+                try:
+                    if target is not None:
+                        target.close()
+                except Exception:
+                    pass
+
+        return True
+
+
+def _install_runtime_escape_filter(widget: Any, close_target: QWidget | None = None):
+    try:
+        if widget is None or not hasattr(widget, 'installEventFilter'):
+            return
+        if getattr(widget, '_dbase_runtime_escape_filter_installed', False):
+            return
+        filt = _RuntimeEscapeTargetFilter(widget, close_target if isinstance(close_target, QWidget) else None)
+        widget.installEventFilter(filt)
+        widget._dbase_runtime_escape_filter_ref = filt
+        widget._dbase_runtime_escape_filter_installed = True
+    except Exception:
+        pass
 
 
 class ScopeStack:
@@ -1207,27 +1192,10 @@ class ExecVisitor(dBaseParserVisitor):
     def _builtin_SET_FORMAT(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
             return 0
-
-        norm_args = []
-        for raw in args:
-            if isinstance(raw, str):
-                s = raw.strip()
-                if not s:
-                    continue
-                norm_args.append(s)
-            elif raw is not None:
-                norm_args.append(str(raw))
-
         mode = "SCREEN"
-        if norm_args:
-            upper_args = [s.upper() for s in norm_args]
-            if len(upper_args) >= 2 and upper_args[0] == "TO" and upper_args[1] in ("SCREEN", "PRINT"):
-                mode = upper_args[1]
-            elif upper_args[-1] in ("SCREEN", "PRINT"):
-                mode = upper_args[-1]
-            else:
-                mode = upper_args[0]
-
+        if args:
+            raw = args[0]
+            mode = raw if isinstance(raw, str) else str(raw)
         return _set_runtime_output_format(mode)
 
     def _builtin_SET_PRINT(self, *args):
@@ -5502,9 +5470,8 @@ def _emit_runtime_output_line(text: str):
 
     # preferred sink: Debug Console in the main window
     try:
-        mainapp = _resolve_runtime_mainapp()
-        if mainapp is not None:
-            mainapp.append_debug_output(text,
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
+            share.common.MAINAPP.append_debug_output(text,
                 fg_hex=style.get("fg_hex"),
                 bg_hex=style.get("bg_hex"))
             return
@@ -5520,9 +5487,8 @@ def _emit_runtime_output_line(text: str):
 
 def _clear_runtime_output():
     try:
-        mainapp = _resolve_runtime_mainapp()
-        if mainapp is not None and hasattr(mainapp, "clear_debug_output"):
-            mainapp.clear_debug_output()
+        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "clear_debug_output"):
+            share.common.MAINAPP.clear_debug_output()
             return
     except Exception:
         pass
