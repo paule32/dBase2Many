@@ -48,6 +48,67 @@ def _pdf_colors_module():
 def _pdf_metrics_module():
     return getattr(share.common, "pdfmetrics", None)
 
+
+def _resolve_runtime_mainapp():
+    seen = set()
+
+    def _iter_candidate(obj):
+        cur = obj
+        depth = 0
+        while cur is not None and depth < 16:
+            oid = id(cur)
+            if oid in seen:
+                break
+            seen.add(oid)
+            yield cur
+            try:
+                cur = cur.parent()
+            except Exception:
+                cur = None
+            depth += 1
+
+    base_candidates = []
+    try:
+        base_candidates.append(getattr(share.common, "MAINAPP", None))
+    except Exception:
+        pass
+    try:
+        base_candidates.append(globals().get("MAINAPP"))
+    except Exception:
+        pass
+
+    try:
+        app = QApplication.instance()
+    except Exception:
+        app = None
+
+    if app is not None:
+        try:
+            base_candidates.append(app.activeWindow())
+        except Exception:
+            pass
+        try:
+            fw = app.focusWidget()
+            if fw is not None:
+                base_candidates.append(fw)
+                try:
+                    base_candidates.append(fw.window())
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            base_candidates.extend(list(app.topLevelWidgets()))
+        except Exception:
+            pass
+
+    for base in base_candidates:
+        for cand in _iter_candidate(base):
+            if hasattr(cand, "append_debug_output"):
+                return cand
+
+    return None
+
 # ---------------------------------------------------------------------------
 # runtime output routing (WRITE/TEXT -> Debug Console or PDF printer)
 # ---------------------------------------------------------------------------
@@ -694,8 +755,9 @@ def _notify_pdf_backend_unavailable():
         pass
 
     try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
-            share.common.MAINAPP.append_debug_output(msg)
+        mainapp = _resolve_runtime_mainapp()
+        if mainapp is not None:
+            mainapp.append_debug_output(msg)
             return False
     except Exception:
         pass
@@ -1145,10 +1207,27 @@ class ExecVisitor(dBaseParserVisitor):
     def _builtin_SET_FORMAT(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
             return 0
+
+        norm_args = []
+        for raw in args:
+            if isinstance(raw, str):
+                s = raw.strip()
+                if not s:
+                    continue
+                norm_args.append(s)
+            elif raw is not None:
+                norm_args.append(str(raw))
+
         mode = "SCREEN"
-        if args:
-            raw = args[0]
-            mode = raw if isinstance(raw, str) else str(raw)
+        if norm_args:
+            upper_args = [s.upper() for s in norm_args]
+            if len(upper_args) >= 2 and upper_args[0] == "TO" and upper_args[1] in ("SCREEN", "PRINT"):
+                mode = upper_args[1]
+            elif upper_args[-1] in ("SCREEN", "PRINT"):
+                mode = upper_args[-1]
+            else:
+                mode = upper_args[0]
+
         return _set_runtime_output_format(mode)
 
     def _builtin_SET_PRINT(self, *args):
@@ -5423,8 +5502,9 @@ def _emit_runtime_output_line(text: str):
 
     # preferred sink: Debug Console in the main window
     try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
-            share.common.MAINAPP.append_debug_output(text,
+        mainapp = _resolve_runtime_mainapp()
+        if mainapp is not None:
+            mainapp.append_debug_output(text,
                 fg_hex=style.get("fg_hex"),
                 bg_hex=style.get("bg_hex"))
             return
@@ -5440,8 +5520,9 @@ def _emit_runtime_output_line(text: str):
 
 def _clear_runtime_output():
     try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "clear_debug_output"):
-            share.common.MAINAPP.clear_debug_output()
+        mainapp = _resolve_runtime_mainapp()
+        if mainapp is not None and hasattr(mainapp, "clear_debug_output"):
+            mainapp.clear_debug_output()
             return
     except Exception:
         pass
