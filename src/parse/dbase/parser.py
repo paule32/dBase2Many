@@ -45,6 +45,7 @@ _RUNTIME_ESCAPE_ENABLED = False
 _RUNTIME_ESCAPE_FILTER = None
 _RUNTIME_CONFIRM_ENABLED = False
 _RUNTIME_DELETE_ENABLED = False
+_PDF_BACKEND_WARNING_EMITTED = False
 
 _VGA_COLOR_TABLE = {
      0: {"name": "Schwarz",     "hex": "#000000"},
@@ -118,6 +119,90 @@ def _make_default_print_style() -> dict[str, Any]:
         "bg_name"   : "Transparent/Weiss",
         "transparent_bg": True,
     }
+
+
+
+def _get_runtime_mainapp():
+    try:
+        app = getattr(share.common, "MAINAPP", None)
+        if app is not None:
+            return app
+    except Exception:
+        pass
+    try:
+        return globals().get("MAINAPP", None)
+    except Exception:
+        return None
+
+
+def _append_runtime_debug_output(text: str, *, fg_hex=None, bg_hex=None) -> bool:
+    app = _get_runtime_mainapp()
+    if app is None or not hasattr(app, "append_debug_output"):
+        return False
+    try:
+        app.append_debug_output(text, fg_hex=fg_hex, bg_hex=bg_hex)
+        return True
+    except TypeError:
+        try:
+            app.append_debug_output(text)
+            return True
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+
+def _clear_runtime_debug_output() -> bool:
+    app = _get_runtime_mainapp()
+    if app is None or not hasattr(app, "clear_debug_output"):
+        return False
+    try:
+        app.clear_debug_output()
+        return True
+    except Exception:
+        return False
+
+
+def _runtime_pdf_backend_available() -> bool:
+    try:
+        return bool(getattr(share.common, "_PDF_BACKEND_AVAILABLE", False))
+    except Exception:
+        return False
+
+
+def _runtime_pdf_import_error():
+    try:
+        return getattr(share.common, "_PDF_BACKEND_IMPORT_ERROR", None)
+    except Exception:
+        return None
+
+
+def _runtime_pdf_A4():
+    try:
+        return getattr(share.common, "A4", None)
+    except Exception:
+        return None
+
+
+def _runtime_pdf_colors():
+    try:
+        return getattr(share.common, "rl_colors", None)
+    except Exception:
+        return None
+
+
+def _runtime_pdfmetrics():
+    try:
+        return getattr(share.common, "pdfmetrics", None)
+    except Exception:
+        return None
+
+
+def _runtime_canvas():
+    try:
+        return getattr(share.common, "canvas", None)
+    except Exception:
+        return None
 
 class _SilentAntlrErrorListener(ErrorListener):
     def __init__(self):
@@ -605,7 +690,10 @@ def _wrap_pdf_text_line(text: str, *,
     cur = ""
 
     def width_of(s: str) -> float:
-        return pdfmetrics.stringWidth(s, font_name, font_size)
+        metrics = _runtime_pdfmetrics()
+        if metrics is None:
+            return float(len(s) * font_size * 0.6)
+        return metrics.stringWidth(s, font_name, font_size)
 
     for part in parts:
         trial = cur + part
@@ -648,25 +736,21 @@ def _notify_pdf_backend_unavailable():
 
     _PDF_BACKEND_WARNING_EMITTED = True
     msg = "PDF-Ausgabe nicht verfügbar: Modul 'reportlab' wurde nicht gefunden. Ausgabe erfolgt im Debug-Fenster."
-    try:
-        if _PDF_BACKEND_IMPORT_ERROR is not None:
-            msg += f" ({_PDF_BACKEND_IMPORT_ERROR})"
-    except Exception:
-        pass
+    err = _runtime_pdf_import_error()
+    if err is not None:
+        try:
+            msg += f" ({err})"
+        except Exception:
+            pass
 
-    try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
-            share.common.MAINAPP.append_debug_output(msg)
-            return False
-    except Exception:
-        pass
+    if _append_runtime_debug_output(msg):
+        return False
 
     try:
         debug_print(msg)
     except Exception:
         pass
     return False
-
 
 def _coerce_margin_to_points(value: Any) -> float:
     if isinstance(value, (int, float)):
@@ -753,17 +837,24 @@ def _set_runtime_color(*args):
 def _render_runtime_output_pdf():
     global _RUNTIME_PRINT_PDF_PATH
 
-    if not _PDF_BACKEND_AVAILABLE:
+    if not _runtime_pdf_backend_available():
         _notify_pdf_backend_unavailable()
         return None
 
     if _RUNTIME_PRINT_PDF_PATH is None:
         return None
 
+    page_size = _runtime_pdf_A4()
+    colors_mod = _runtime_pdf_colors()
+    canvas_mod = _runtime_canvas()
+    if page_size is None or colors_mod is None or canvas_mod is None:
+        _notify_pdf_backend_unavailable()
+        return None
+
     pdf_path = Path(_RUNTIME_PRINT_PDF_PATH)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-    page_w, page_h = A4
+    page_w, page_h = page_size
     margin_left = float(_RUNTIME_PRINT_MARGINS.get("left", _RUNTIME_PRINT_MARGIN_DEFAULTS["left"]))
     margin_right = float(_RUNTIME_PRINT_MARGINS.get("right", _RUNTIME_PRINT_MARGIN_DEFAULTS["right"]))
     margin_top = float(_RUNTIME_PRINT_MARGINS.get("top", _RUNTIME_PRINT_MARGIN_DEFAULTS["top"]))
@@ -773,7 +864,7 @@ def _render_runtime_output_pdf():
     line_height = 13
     max_width = max(20.0, page_w - margin_left - margin_right)
 
-    c = canvas.Canvas(str(pdf_path), pagesize=A4)
+    c = canvas_mod.Canvas(str(pdf_path), pagesize=page_size)
     c.setTitle(pdf_path.stem)
     c.setAuthor("dBaseRunner")
     c.setSubject("SET FORMAT TO PRINT")
@@ -806,13 +897,13 @@ def _render_runtime_output_pdf():
 
             if bg_hex:
                 try:
-                    c.setFillColor(rl_colors.HexColor(bg_hex))
+                    c.setFillColor(colors_mod.HexColor(bg_hex))
                     c.rect(margin_left, y - 2, max_width, line_height, stroke=0, fill=1)
                 except Exception:
                     pass
 
             try:
-                c.setFillColor(rl_colors.HexColor(fg_hex))
+                c.setFillColor(colors_mod.HexColor(fg_hex))
             except Exception:
                 c.setFillColorRGB(0, 0, 0)
 
@@ -821,7 +912,6 @@ def _render_runtime_output_pdf():
 
     c.save()
     return pdf_path
-
 
 def _ensure_runtime_print_pdf_path() -> Path:
     global _RUNTIME_PRINT_PDF_PATH
@@ -842,11 +932,14 @@ def _ensure_runtime_print_pdf_path() -> Path:
 def _set_runtime_output_format(mode: str):
     global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
 
-    mode = (mode or "SCREEN").strip().upper()
+    mode = ("" if mode is None else str(mode)).strip().upper()
+    if mode.startswith("TO "):
+        mode = mode[3:].strip()
+
     if mode not in ("SCREEN", "PRINT"):
         raise RuntimeError(f"SET FORMAT TO {mode} ist nicht unterstützt")
 
-    if mode == "PRINT" and not _PDF_BACKEND_AVAILABLE:
+    if mode == "PRINT" and not _runtime_pdf_backend_available():
         _notify_pdf_backend_unavailable()
         return 0
 
@@ -860,13 +953,12 @@ def _set_runtime_output_format(mode: str):
 
     return 0
 
-
 def _set_runtime_print_enabled(enabled: bool):
     global _RUNTIME_OUTPUT_FORMAT, _RUNTIME_PRINT_ENABLED
 
     enabled = bool(enabled)
     if enabled:
-        if not _PDF_BACKEND_AVAILABLE:
+        if not _runtime_pdf_backend_available():
             _notify_pdf_backend_unavailable()
             return 0
         _RUNTIME_OUTPUT_FORMAT = "PRINT"
@@ -879,8 +971,6 @@ def _set_runtime_print_enabled(enabled: bool):
             _RUNTIME_OUTPUT_FORMAT = "SCREEN"
 
     return 0
-
-
 
 def _set_runtime_escape_enabled(enabled: bool):
     global _RUNTIME_ESCAPE_ENABLED
@@ -1155,10 +1245,31 @@ class ExecVisitor(dBaseParserVisitor):
     def _builtin_SET_FORMAT(self, *args):
         if getattr(self, "_mode", "exec") != "exec":
             return 0
-        mode = "SCREEN"
-        if args:
-            raw = args[0]
-            mode = raw if isinstance(raw, str) else str(raw)
+
+        tokens = []
+        for arg in args:
+            if arg is None:
+                continue
+            if isinstance(arg, str):
+                s = arg.strip()
+            else:
+                s = str(arg).strip()
+            if s:
+                tokens.append(s)
+
+        if not tokens:
+            mode = "SCREEN"
+        elif len(tokens) >= 2 and tokens[0].upper() == "TO":
+            mode = tokens[1]
+        elif len(tokens) == 1:
+            upper = tokens[0].upper()
+            if upper.startswith("TO "):
+                mode = tokens[0][3:].strip()
+            else:
+                mode = tokens[0]
+        else:
+            mode = tokens[-1]
+
         return _set_runtime_output_format(mode)
 
     def _builtin_SET_PRINT(self, *args):
@@ -5432,14 +5543,12 @@ def _emit_runtime_output_line(text: str):
         pass
 
     # preferred sink: Debug Console in the main window
-    try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "append_debug_output"):
-            share.common.MAINAPP.append_debug_output(text,
-                fg_hex=style.get("fg_hex"),
-                bg_hex=style.get("bg_hex"))
-            return
-    except Exception:
-        pass
+    if _append_runtime_debug_output(
+        text,
+        fg_hex=style.get("fg_hex"),
+        bg_hex=style.get("bg_hex"),
+    ):
+        return
 
     # fallback when no UI is available
     try:
@@ -5449,12 +5558,8 @@ def _emit_runtime_output_line(text: str):
 
 
 def _clear_runtime_output():
-    try:
-        if "MAINAPP" in globals() and share.common.MAINAPP is not None and hasattr(share.common.MAINAPP, "clear_debug_output"):
-            share.common.MAINAPP.clear_debug_output()
-            return
-    except Exception:
-        pass
+    if _clear_runtime_debug_output():
+        return
 
 @contextlib.contextmanager
 def capture_runtime_output(forward: bool = False):

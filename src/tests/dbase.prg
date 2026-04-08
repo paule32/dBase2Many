@@ -8,7 +8,7 @@
 
 NOTE comment line
 
-SET FORMAT TO SCREEN
+SET FORMAT TO PRINT
 SET ESCAPE OFF
 write "ssss"
 
