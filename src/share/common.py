@@ -391,7 +391,7 @@ def mark_escape_protected(obj: Any) -> Any:
     return obj
 
 
-def _resolve_escape_block_target(widget: Any):
+def resolve_escape_block_target(widget: Any):
     try:
         w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
     except Exception:
@@ -414,7 +414,7 @@ def _resolve_escape_block_target(widget: Any):
 
     return None, None
 
-def _resolve_escape_close_target(widget: Any):
+def resolve_escape_close_target(widget: Any):
     try:
         w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
     except Exception:
@@ -438,7 +438,7 @@ def _resolve_escape_close_target(widget: Any):
     return None, None
 
 
-def _resolve_escape_target(widget: Any):
+def resolve_escape_target(widget: Any):
     try:
         w = widget if isinstance(widget, QWidget) else QApplication.focusWidget()
     except Exception:
@@ -479,7 +479,6 @@ def close_escape_target(widget: Any, sub: Any = None) -> bool:
                 inner = host_sub.widget()
             except Exception:
                 inner = None
-
             try:
                 host_sub.setAttribute(Qt.WA_DeleteOnClose, True)
             except Exception:

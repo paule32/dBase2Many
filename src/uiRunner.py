@@ -214,7 +214,7 @@ class _GlobalEscapeCloseFilter(QObject):
 
         candidate = self._candidate_widget(obj)
 
-        blocked_widget, blocked_sub = _resolve_escape_block_target(candidate)
+        blocked_widget, blocked_sub = share.common.resolve_escape_block_target(candidate)
         if blocked_widget is not None or blocked_sub is not None:
             try:
                 event.accept()
@@ -222,7 +222,7 @@ class _GlobalEscapeCloseFilter(QObject):
                 pass
             return True
 
-        close_widget, close_sub = _resolve_escape_close_target(candidate)
+        close_widget, close_sub = share.common.resolve_escape_close_target(candidate)
         if close_widget is not None or close_sub is not None:
             try:
                 event.accept()
@@ -239,7 +239,7 @@ class _GlobalEscapeCloseFilter(QObject):
                     close_escape_target(candidate, fallback_sub)
             return True
 
-        target_widget, sub = _resolve_escape_target(candidate)
+        target_widget, sub = share.common.resolve_escape_target(candidate)
         if target_widget is not None or sub is not None:
             try:
                 event.accept()
@@ -285,10 +285,8 @@ class _GlobalEscapeCloseFilter(QObject):
 
 def _ensure_escape_filter_installed():
     global _RUNTIME_ESCAPE_FILTER
-
-    if _RUNTIME_ESCAPE_FILTER is not None:
-        return _RUNTIME_ESCAPE_FILTER
-
+    #if _RUNTIME_ESCAPE_FILTER is not None:
+    #    return _RUNTIME_ESCAPE_FILTER
     try:
         app = QApplication.instance()
         if app is None:
@@ -3528,7 +3526,7 @@ class RegieCenter(QDialog):
         root.addWidget(self.tabs, 1)
 
         self.resize(980, 640)
-
+    
     def open_in_table_editor(self, display_name: str, path: str):
         try:
             debug_print("table")

@@ -1002,7 +1002,7 @@ class _RuntimeEscapeTargetFilter(QObject):
                 return False
         except Exception:
             return False
-
+        print("ACCEPT")
         try:
             event.accept()
         except Exception:
@@ -1034,6 +1034,7 @@ class _RuntimeEscapeTargetFilter(QObject):
 
 def _install_runtime_escape_filter(widget: Any, close_target: QWidget | None = None):
     try:
+        print("FILTER")
         if widget is None or not hasattr(widget, 'installEventFilter'):
             return
         if getattr(widget, '_dbase_runtime_escape_filter_installed', False):
