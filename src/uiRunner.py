@@ -3049,16 +3049,23 @@ class EditorWidget(QDialog):
 # Meta-Info am Widget:
 #   - self.base_dir (und Qt Property 'directory')
 # ---------------------------------------------------------------------------
+
 class IconTab(QListWidget):
-    def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None):
+    ROLE_PATH = Qt.UserRole
+    ROLE_SPECIAL_KEY = Qt.UserRole + 1
+    ROLE_SPECIAL_TITLE = Qt.UserRole + 2
+
+    def __init__(self, include_exts=None, exclude_exts=None, parent=None, icon_provider=None,
+                 tab_key: str = "", special_items=None):
         super().__init__(parent)
 
         self.include_exts = [e.lower() for e in (include_exts or [])]
         self.exclude_exts = [e.lower() for e in (exclude_exts or [])]
         self.base_dir = ""
         self.icon_provider = icon_provider or QFileIconProvider()
+        self.tab_key = (tab_key or "").strip().lower()
+        self.special_items = list(special_items or [])
 
-        # IconView-Layout
         self.setViewMode(QListWidget.IconMode)
         self.setResizeMode(QListWidget.Adjust)
         self.setMovement(QListWidget.Static)
@@ -3070,18 +3077,15 @@ class IconTab(QListWidget):
         self.setGridSize(QSize(120, 92))
         self.setSpacing(8)
 
-        # Kontextmenü
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._on_context_menu)
 
-        # F2 = Ausführen
         self._act_run = QAction(share.locales.tr("Run - F2"), self)
         self._act_run.setShortcut(QKeySequence(Qt.Key_F2))
         self._act_run.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         self._act_run.triggered.connect(self._run_selected)
         self.addAction(self._act_run)
 
-        # Doppelklick: *.prg ausführen
         self.setFocusPolicy(Qt.StrongFocus)
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
@@ -3091,10 +3095,69 @@ class IconTab(QListWidget):
         self.setProperty("directory", directory)
         self.refresh()
 
+    def set_special_items(self, items):
+        self.special_items = list(items or [])
+        self.refresh()
+
+    def _special_item_icon(self, key: str) -> QIcon:
+        style = self.style() or QApplication.style()
+        mapping = {
+            "new_project": QStyle.SP_FileDialogNewFolder,
+            "new_program": QStyle.SP_FileIcon,
+            "table_designer": QStyle.SP_FileDialogDetailedView,
+            "table_expert": QStyle.SP_FileDialogListView,
+            "new_html": QStyle.SP_FileLinkIcon,
+            "new_css": QStyle.SP_FileLinkIcon,
+            "new_javascript": QStyle.SP_CommandLink,
+            "new_form_designer": QStyle.SP_DesktopIcon,
+            "new_user_form": QStyle.SP_FileIcon,
+            "new_form_expert": QStyle.SP_DialogHelpButton,
+        }
+        try:
+            return style.standardIcon(mapping.get(key, QStyle.SP_FileIcon))
+        except Exception:
+            return QIcon()
+
+    def _item_special_key(self, item: QListWidgetItem | None) -> str:
+        if item is None:
+            return ""
+        return (item.data(self.ROLE_SPECIAL_KEY) or "").strip()
+
+    def _item_path(self, item: QListWidgetItem | None) -> str:
+        if item is None:
+            return ""
+        return (item.data(self.ROLE_PATH) or "").strip()
+
+    def _is_special_item(self, item: QListWidgetItem | None) -> bool:
+        return bool(self._item_special_key(item))
+
+    def _add_special_items(self):
+        for spec in self.special_items:
+            title = (spec.get("title", "") or "").strip()
+            key = (spec.get("key", "") or "").strip()
+            if not title or not key:
+                continue
+            icon = spec.get("icon", None)
+            try:
+                if icon is None or icon.isNull():
+                    icon = self._special_item_icon(key)
+            except Exception:
+                icon = self._special_item_icon(key)
+            item = QListWidgetItem(icon, title)
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
+            item.setToolTip(title)
+            item.setData(self.ROLE_PATH, "")
+            item.setData(self.ROLE_SPECIAL_KEY, key)
+            item.setData(self.ROLE_SPECIAL_TITLE, title)
+            self.addItem(item)
+
     def refresh(self):
         self.setUpdatesEnabled(False)
         try:
             self.clear()
+            self._add_special_items()
             if not self.base_dir or not os.path.isdir(self.base_dir):
                 return
 
@@ -3111,7 +3174,6 @@ class IconTab(QListWidget):
 
             for name, full in entries:
                 ext = os.path.splitext(name)[1].lower()
-
                 if self.include_exts and ext not in self.include_exts:
                     continue
                 if self.exclude_exts and ext in self.exclude_exts:
@@ -3121,105 +3183,120 @@ class IconTab(QListWidget):
                 icon = self.icon_provider.icon(info)
                 item = QListWidgetItem(icon, name)
                 item.setToolTip(full)
-                item.setData(Qt.UserRole, full)
+                item.setData(self.ROLE_PATH, full)
+                item.setData(self.ROLE_SPECIAL_KEY, "")
                 self.addItem(item)
         finally:
             self.setUpdatesEnabled(True)
 
     def _selected_path(self) -> str:
-        it = self.currentItem()
-        if not it:
-            return ""
-        return it.data(Qt.UserRole) or ""
+        return self._item_path(self.currentItem())
+
+    def _selected_special_key(self) -> str:
+        return self._item_special_key(self.currentItem())
 
     def _run_selected(self):
-        path = self._selected_path()
+        item = self.currentItem()
+        if item is None:
+            return
+        special_key = self._item_special_key(item)
+        if special_key:
+            self._execute_special_action(special_key)
+            return
+        path = self._item_path(item)
         if path:
             self._run_file(path)
 
-    # ---------------------------------------------------------------------------
-    # Bei Doppelklick auf *.prg -> ausführen.
-    # ---------------------------------------------------------------------------
+    def _editable_text_path(self, path: str) -> bool:
+        ext = os.path.splitext(path)[1].lower()
+        return ext in {
+            ".prg", ".frm", ".wfm", ".sql", ".htm", ".html", ".css", ".js",
+            ".dpr", ".prj", ".proj", ".project", ".rep", ".rpt", ".report"
+        }
+
     def _on_item_double_clicked(self, item: QListWidgetItem):
         try:
-            path = item.data(Qt.UserRole) or ""
+            special_key = self._item_special_key(item)
+            if special_key:
+                self._execute_special_action(special_key)
+                return
+
+            path = self._item_path(item)
             if not path:
                 return
-            if os.path.splitext(path)[1].lower() == ".prg":
+
+            ext = os.path.splitext(path)[1].lower()
+            if ext == ".prg":
                 self._run_file(path)
+                return
+            if ext == ".dbf":
+                self._edit_in_editor(path)
+                return
+            if self._editable_text_path(path):
+                self._open_path_in_code_editor(path)
         except Exception:
-            # keine harte Fehlermeldung bei UI-Events
             pass
 
-    
     def _on_context_menu(self, pos: QPoint):
-        # Kontextmenü für die IconView (auch bei Rechtsklick auf leere Fläche).
         item = self.itemAt(pos)
         if item:
             self.setCurrentItem(item)
-            path = item.data(Qt.UserRole) or ""
-        else:
-            path = ""
-
         menu = QMenu(self)
 
-        # --- Neu Submenu (immer vorhanden) ---
         m_new = menu.addMenu(share.locales.tr("Neu"))
-        act_new_prg = QAction(share.locales.tr("Programm"), self)
-        act_new_prg.triggered.connect(self._new_program)
-        m_new.addAction(act_new_prg)
+        self._populate_new_menu(m_new)
 
-        act_new_table = QAction(share.locales.tr("Tabelle"), self)
-        act_new_table.triggered.connect(self._new_table)
-        m_new.addAction(act_new_table)
+        if item is None:
+            menu.exec_(self.viewport().mapToGlobal(pos))
+            return
 
-        act_new_sql = QAction(share.locales.tr("SQL Query"), self)
-        act_new_sql.triggered.connect(self._new_sql_query)
-        m_new.addAction(act_new_sql)
+        special_key = self._item_special_key(item)
+        path = self._item_path(item)
 
-        menu.addSeparator()
+        if special_key:
+            menu.addSeparator()
+            act_open_special = QAction(item.text(), self)
+            act_open_special.triggered.connect(lambda: self._execute_special_action(special_key))
+            menu.addAction(act_open_special)
+            menu.exec_(self.viewport().mapToGlobal(pos))
+            return
 
-        # --- Datei-Aktionen (nur wenn Item selektiert) ---
         if path:
             ext = os.path.splitext(path)[1].lower()
 
             act_run = QAction(share.locales.tr("Run - F2"), self)
             act_run.triggered.connect(lambda: self._run_file(path))
+            act_run.setEnabled(ext == ".prg")
             menu.addAction(act_run)
 
             act_edit = QAction(share.locales.tr("Edit"), self)
-            act_edit.triggered.connect(lambda: self._edit_in_editor(path))
-            
+            act_edit.triggered.connect(lambda: self._edit_or_open(path))
             menu.addAction(act_edit)
             menu.addSeparator()
-            
-            m_compile    = menu.addMenu(share.locales.tr("Compile"))
-            act_c_py     = QAction("Python",     self)
-            act_c_pascal = QAction("Pascal",     self)
-            act_c_cpp    = QAction("C++",        self)
-            act_c_csharp = QAction("C Sharp",    self)
-            act_c_java   = QAction("Java",       self)
+
+            m_compile = menu.addMenu(share.locales.tr("Compile"))
+            act_c_py = QAction("Python", self)
+            act_c_pascal = QAction("Pascal", self)
+            act_c_cpp = QAction("C++", self)
+            act_c_csharp = QAction("C Sharp", self)
+            act_c_java = QAction("Java", self)
             act_c_javscr = QAction("JavaScript", self)
-            
-            act_c_py    .setEnabled(ext == ".prg")
-            act_c_pascal.setEnabled(ext == ".prg")
-            act_c_cpp   .setEnabled(ext == ".prg")
-            act_c_csharp.setEnabled(ext == ".prg")
-            act_c_java  .setEnabled(ext == ".prg")
-            act_c_javscr.setEnabled(ext == ".prg")
-            
-            act_c_py    .triggered.connect(lambda: self._compile_to_python(path))
+
+            for act in (act_c_py, act_c_pascal, act_c_cpp, act_c_csharp, act_c_java, act_c_javscr):
+                act.setEnabled(ext == ".prg")
+
+            act_c_py.triggered.connect(lambda: self._compile_to_python(path))
             act_c_pascal.triggered.connect(lambda: self._compile_to_pascal(path))
-            act_c_cpp   .triggered.connect(lambda: self._compile_to_cpp   (path))
+            act_c_cpp.triggered.connect(lambda: self._compile_to_cpp(path))
             act_c_csharp.triggered.connect(lambda: self._compile_to_csharp(path))
-            act_c_java  .triggered.connect(lambda: self._compile_to_java  (path))
+            act_c_java.triggered.connect(lambda: self._compile_to_java(path))
             act_c_javscr.triggered.connect(lambda: self._compile_to_javscr(path))
-            
-            m_compile.addAction(act_c_py    )
+
+            m_compile.addAction(act_c_py)
             m_compile.addAction(act_c_pascal)
-            m_compile.addAction(act_c_cpp   )
+            m_compile.addAction(act_c_cpp)
             m_compile.addAction(act_c_csharp)
-            m_compile.addAction(act_c_java  )
+            m_compile.addAction(act_c_java)
             m_compile.addAction(act_c_javscr)
 
             menu.addSeparator()
@@ -3238,9 +3315,58 @@ class IconTab(QListWidget):
 
         menu.exec_(self.viewport().mapToGlobal(pos))
 
-    # ------------------------------------------------------------------
-    # Neu Aktionen (RegieCenter IconView)
-    # ------------------------------------------------------------------
+    def _populate_new_menu(self, menu: QMenu):
+        key = self.tab_key
+        if key in ("all", "programme"):
+            act = QAction("Neu Programm", self)
+            act.triggered.connect(self._new_program)
+            menu.addAction(act)
+
+        if key in ("all", "projekte"):
+            act = QAction("Neues Projekt", self)
+            act.triggered.connect(self._new_project)
+            menu.addAction(act)
+
+        if key in ("all", "tabellen"):
+            act_des = QAction("Designer", self)
+            act_des.triggered.connect(self._new_table)
+            menu.addAction(act_des)
+            act_exp = QAction("Experte", self)
+            act_exp.triggered.connect(self._open_table_expert)
+            menu.addAction(act_exp)
+
+        if key in ("all", "sql"):
+            act_sql = QAction("SQL Query", self)
+            act_sql.triggered.connect(self._new_sql_query)
+            menu.addAction(act_sql)
+
+        if key in ("all", "internet"):
+            act_html = QAction("Neu HTML", self)
+            act_html.triggered.connect(self._new_html)
+            menu.addAction(act_html)
+            act_css = QAction("Neu CSS", self)
+            act_css.triggered.connect(self._new_css)
+            menu.addAction(act_css)
+            act_js = QAction("Neu JavaScript", self)
+            act_js.triggered.connect(self._new_javascript)
+            menu.addAction(act_js)
+
+        if key in ("all", "formulare"):
+            act_designer = QAction("Neu Designer", self)
+            act_designer.triggered.connect(self._new_form_designer)
+            menu.addAction(act_designer)
+            act_user = QAction("Neu Benutzer Formular", self)
+            act_user.triggered.connect(self._new_user_form)
+            menu.addAction(act_user)
+            act_exp = QAction("Neu Experte", self)
+            act_exp.triggered.connect(self._open_form_expert)
+            menu.addAction(act_exp)
+
+        if menu.isEmpty():
+            act_fallback = QAction(share.locales.tr("Programm"), self)
+            act_fallback.triggered.connect(self._new_program)
+            menu.addAction(act_fallback)
+
     def _regiecenter_host(self):
         host = self.parent()
         while host is not None and host.__class__.__name__ != "RegieCenter":
@@ -3274,32 +3400,79 @@ class IconTab(QListWidget):
                 return candidate
             i += 1
 
-    def _new_program(self):
-        host = self._regiecenter_host()
-        directory = (getattr(self, "base_dir", "") or "").strip()
+    def _current_directory(self) -> str:
+        return (getattr(self, "base_dir", "") or "").strip()
+
+    def _ensure_current_directory(self) -> str:
+        directory = self._current_directory()
         if not directory or not os.path.isdir(directory):
             QMessageBox.information(self, "Neu", "Bitte zuerst ein Verzeichnis auswählen.")
-            return
+            return ""
+        return directory
 
-        path = self._unique_name_in_dir(directory, "unbenannt", ".prg")
-        if not path:
-            return
-
+    def _open_path_in_code_editor(self, path: str):
+        host = self._regiecenter_host()
         try:
-            tpl = "* unbenannt.prg\n\n"
+            if host is not None and hasattr(host, "open_in_code_editor"):
+                host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _edit_or_open(self, path: str):
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".dbf":
+            self._edit_in_editor(path)
+            return
+        if self._editable_text_path(path):
+            self._open_path_in_code_editor(path)
+            return
+        self._edit_in_editor(path)
+
+    def _create_text_file(self, base: str, ext: str, template: str, open_in_editor: bool = True):
+        directory = self._ensure_current_directory()
+        if not directory:
+            return ""
+        path = self._unique_name_in_dir(directory, base, ext)
+        if not path:
+            return ""
+        try:
             with open(path, "w", encoding="utf-8", errors="replace") as f:
-                f.write(tpl)
+                f.write(template)
         except Exception as e:
             QMessageBox.warning(self, "Neu", f"Konnte Datei nicht erstellen:\n{e}")
-            return
-
+            return ""
         self._refresh_all_icon_tabs()
+        if open_in_editor:
+            self._open_path_in_code_editor(path)
+        return path
 
-        if host is not None and hasattr(host, "open_in_code_editor"):
-            host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+    def _new_program(self):
+        tpl = "* unbenannt.prg\n\n"
+        self._create_text_file("unbenannt", ".prg", tpl, open_in_editor=True)
+
+    def _new_project(self):
+        tpl = "[project]\nname=NeuesProjekt\nworkdir=.\nstartup=main.prg\n"
+        self._create_text_file("projekt", ".prj", tpl, open_in_editor=True)
+
+    def _new_html(self):
+        tpl = "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"utf-8\">\n    <title>Neu HTML</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n<script src=\"script.js\"></script>\n</body>\n</html>\n"
+        self._create_text_file("index", ".html", tpl, open_in_editor=True)
+
+    def _new_css(self):
+        tpl = "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n"
+        self._create_text_file("style", ".css", tpl, open_in_editor=True)
+
+    def _new_javascript(self):
+        tpl = "function main() {\n    console.log('Neu JavaScript');\n}\n\nmain();\n"
+        self._create_text_file("script", ".js", tpl, open_in_editor=True)
+
+    def _new_user_form(self):
+        tpl = "# Neu Benutzer Formular\nname=Form1\ncaption=Neues Formular\nwidth=640\nheight=480\n"
+        self._create_text_file("formular", ".wfm", tpl, open_in_editor=True)
 
     def _new_table(self):
-        # neues Tabellen-Designer Fenster (ohne Records)
         try:
             if "MAINAPP" in globals() and hasattr(MAINAPP, "mdi_open_table_designer"):
                 MAINAPP.mdi_open_table_designer()
@@ -3308,8 +3481,20 @@ class IconTab(QListWidget):
             pass
         QMessageBox.information(self, "Neu", "Konnte Table-Designer nicht öffnen (Hook fehlt).")
 
+    def _new_form_designer(self):
+        try:
+            if "MAINAPP" in globals():
+                if hasattr(MAINAPP, "ensure_designer"):
+                    MAINAPP.ensure_designer(focus=True)
+                    return
+                if hasattr(MAINAPP, "on_action_view_designer"):
+                    MAINAPP.on_action_view_designer()
+                    return
+        except Exception:
+            pass
+        QMessageBox.information(self, "Neu", "Konnte Form-Designer nicht öffnen (Hook fehlt).")
+
     def _new_sql_query(self):
-        # SQL Builder öffnen
         try:
             if "MAINAPP" in globals():
                 if hasattr(MAINAPP, "mdi_open_sql_builder"):
@@ -3321,6 +3506,81 @@ class IconTab(QListWidget):
         except Exception:
             pass
         QMessageBox.information(self, "Neu", "Konnte SQL Builder nicht öffnen (Hook fehlt).")
+
+    def _open_helper_subwindow(self, title: str, lines):
+        try:
+            if "MAINAPP" not in globals() or not hasattr(MAINAPP, "mdi"):
+                raise RuntimeError("MDI host fehlt")
+            box = QWidget()
+            lay = QVBoxLayout(box)
+            lay.setContentsMargins(12, 12, 12, 12)
+            lay.setSpacing(10)
+
+            lbl_title = QLabel(f"<b>{title}</b>", box)
+            lbl_text = QLabel("\n".join(lines), box)
+            lbl_text.setWordWrap(True)
+            btn_close = QPushButton(share.locales.tr("Schließen"), box)
+
+            lay.addWidget(lbl_title)
+            lay.addWidget(lbl_text)
+            lay.addStretch(1)
+            lay.addWidget(btn_close, 0, Qt.AlignRight)
+
+            sub = MAINAPP.mdi.addSubWindow(box)
+            mark_escape_close(sub)
+            sub.setWindowTitle(title)
+            sub.resize(480, 260)
+            box.show()
+            sub.show()
+            btn_close.clicked.connect(sub.close)
+            MAINAPP.mdi.setActiveSubWindow(sub)
+            return
+        except Exception as e:
+            QMessageBox.information(self, title, f"{title} konnte nicht geöffnet werden.\n\n{e}")
+
+    def _open_table_expert(self):
+        self._open_helper_subwindow(
+            "Tabellen-Experte",
+            [
+                "Hier kann später ein Experten-Dialog für Tabellen aufgebaut werden.",
+                "Geplante Schritte:",
+                "1. Tabellenname eingeben",
+                "2. Felder definieren",
+                "3. Indizes auswählen",
+                "4. Tabelle erzeugen",
+            ],
+        )
+
+    def _open_form_expert(self):
+        self._open_helper_subwindow(
+            "Formular-Experte",
+            [
+                "Hier kann später ein Experten-Dialog für Formulare aufgebaut werden.",
+                "Geplante Schritte:",
+                "1. Formular-Typ wählen",
+                "2. Grundlayout festlegen",
+                "3. Steuerelemente auswählen",
+                "4. Formular erzeugen",
+            ],
+        )
+
+    def _execute_special_action(self, key: str):
+        key = (key or "").strip().lower()
+        mapping = {
+            "new_project": self._new_project,
+            "new_program": self._new_program,
+            "table_designer": self._new_table,
+            "table_expert": self._open_table_expert,
+            "new_html": self._new_html,
+            "new_css": self._new_css,
+            "new_javascript": self._new_javascript,
+            "new_form_designer": self._new_form_designer,
+            "new_user_form": self._new_user_form,
+            "new_form_expert": self._open_form_expert,
+        }
+        fn = mapping.get(key)
+        if fn is not None:
+            fn()
 
     def _close_regiecenter(self):
         host = self._regiecenter_host()
@@ -3334,22 +3594,10 @@ class IconTab(QListWidget):
     def _edit_in_editor(self, path: str) -> None:
         try:
             ext = os.path.splitext(path)[1].lower()
-            if not (ext == ".prg" or ext == ".dbf"):
-                return
-
             display_name = os.path.basename(path)
-            
-            # Host/RegieCenter finden (parent-chain)
             host = self.parent()
-            
-            if ext == ".prg":
-                while host is not None and not hasattr(host, "open_in_code_editor"):
-                    host = host.parent()
-                if host is not None and hasattr(host, "open_in_code_editor"):
-                    host.open_in_code_editor(display_name=display_name, path=path)
-                else:
-                    QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
-            elif ext == ".dbf":
+
+            if ext == ".dbf":
                 while host is not None and not hasattr(host, "open_in_table_editor"):
                     host = host.parent()
                 if host is not None and hasattr(host, "open_in_table_editor"):
@@ -3358,6 +3606,14 @@ class IconTab(QListWidget):
                     MDIHOST.open_in_table_editor(display_name=display_name, path=path)
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein TabellenEditor-Hook gefunden.")
+                return
+
+            while host is not None and not hasattr(host, "open_in_code_editor"):
+                host = host.parent()
+            if host is not None and hasattr(host, "open_in_code_editor"):
+                host.open_in_code_editor(display_name=display_name, path=path)
+            else:
+                QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
@@ -3367,6 +3623,40 @@ class IconTab(QListWidget):
         except Exception as e:
             QMessageBox.warning(self, "Kopieren", f"Konnte Pfad nicht kopieren:\n{e}")
 
+    def _rename_file(self, item: QListWidgetItem, path: str):
+        try:
+            old_name = os.path.basename(path)
+            new_name, ok = QInputDialog.getText(self, share.locales.tr("Rename"), share.locales.tr("Neuer Name:"), text=old_name)
+            if not ok:
+                return
+            new_name = (new_name or "").strip()
+            if not new_name or new_name == old_name:
+                return
+            new_path = os.path.join(os.path.dirname(path), new_name)
+            if os.path.exists(new_path):
+                QMessageBox.warning(self, share.locales.tr("Rename"), f"Datei existiert bereits:\n{new_path}")
+                return
+            os.rename(path, new_path)
+            self._refresh_all_icon_tabs()
+        except Exception as e:
+            QMessageBox.warning(self, share.locales.tr("Rename"), f"Konnte Datei nicht umbenennen:\n{e}")
+
+    def _delete_file(self, item: QListWidgetItem, path: str):
+        try:
+            r = QMessageBox.question(
+                self,
+                share.locales.tr("Delete"),
+                f"Datei wirklich löschen?\n\n{path}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if r != QMessageBox.Yes:
+                return
+            os.remove(path)
+            self._refresh_all_icon_tabs()
+        except Exception as e:
+            QMessageBox.warning(self, share.locales.tr("Delete"), f"Konnte Datei nicht löschen:\n{e}")
+
     def _run_file(self, path: str):
         try:
             ext = os.path.splitext(path)[1].lower()
@@ -3374,22 +3664,17 @@ class IconTab(QListWidget):
                 parse(path)
                 return
             if ext == ".dbf":
-                display_name = os.path.basename(path)
                 self._edit_in_editor(path)
                 return
-                
-            #if os.name == "nt":
-            #    os.startfile(path)  # noqa
-            #elif sys.platform == "darwin":
-            #    subprocess.Popen(["open", path])
-            #else:
-            #    subprocess.Popen(["xdg-open", path])
+            if self._editable_text_path(path):
+                self._open_path_in_code_editor(path)
+                return
         except Exception as e:
             QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
-    
+
     def _compile_output_path(self, src_path: str, lang_folder: str, ext: str) -> str:
         src_path = os.path.abspath(src_path)
-        src_dir  = os.path.dirname(src_path)
+        src_dir = os.path.dirname(src_path)
         src_name = os.path.splitext(os.path.basename(src_path))[0]
 
         out_dir = os.path.join(src_dir, "build", lang_folder)
@@ -3398,68 +3683,71 @@ class IconTab(QListWidget):
         return os.path.join(out_dir, src_name + ext)
 
     def _compile_to_vba(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "vba", ".cls")
-        codegen  = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
+        codegen = DBaseToVBAAccess(parser, class_name="GenProg", module_name="GenProg")
         codegen.generate(parser.tree, out_file)
         debug_print("gen vba ok:", out_file)
-        
+
     def _compile_to_javscr(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "javascript", ".js")
-        codegen  = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
+        codegen = DBaseToJavaScript(parser, class_name="GenProg", module_name=None)
         codegen.generate(parser.tree, out_file)
         debug_print("gen js ok:", out_file)
-        
+
     def _compile_to_csharp(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "csharp", ".cs")
-        codegen  = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
+        codegen = DBaseToCSharp(parser, class_name="GenProg", namespace=None)
         codegen.generate(parser.tree, out_file)
         debug_print("gen c-sharp ok:", out_file)
-        
+
     def _compile_to_java(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "java", ".java")
-        codegen  = DBaseToJava(parser, class_name="GenProg", package=None)
+        codegen = DBaseToJava(parser, class_name="GenProg", package=None)
         codegen.generate(parser.tree, out_file)
         debug_print("gen java ok:", out_file)
-    
+
     def _compile_to_python(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "python", ".py")
-        codegen  = DBaseToPython(parser.parser)
+        codegen = DBaseToPython(parser.parser)
         codegen.generate(parser.tree, out_file)
         debug_print("gen py ok:", out_file)
-        
+
     def _compile_to_cpp(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "cpp", ".cc")
-        codegen  = DBaseToCpp(parser, prog_name="genprog")
+        codegen = DBaseToCpp(parser, prog_name="genprog")
         codegen.generate(parser.tree, out_file)
         debug_print("gen c++ ok:", out_file)
-    
+
     def _compile_to_pascal(self, path: str):
-        parser   = DBaseParser(path)
+        parser = DBaseParser(path)
         out_file = self._compile_output_path(path, "pascal", ".pas")
-        codegen  = DBaseToPascal(parser, unit_name="GenProg")
+        codegen = DBaseToPascal(parser, unit_name="GenProg")
         codegen.generate(parser.tree, out_file)
         debug_print("gen pas ok:", out_file)
+
+
 
 class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         mark_escape_close(self)
         
+        print(type(self))
+        print(hasattr(self, "_save_recent_dirs"))
+        
         self.setFont(QFont("Arial", 10))
-
         self.setWindowTitle(share.locales.tr("Regierzentrum"))
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
 
         self.icon_provider = QFileIconProvider()
 
-        # --- Top controls ---
         self.combo = QComboBox()
         self.combo.setEditable(True)
         self.combo.setInsertPolicy(QComboBox.NoInsert)
@@ -3472,66 +3760,133 @@ class RegieCenter(QDialog):
         top.addWidget(self.combo, 1)
         top.addWidget(self.btn_pick, 0)
 
-                # --- Tabs ---
         self.tabs = QTabWidget()
         self.icon_lists = []
 
-        # Dateityp-Filter pro Tab (kannst du jederzeit anpassen)
-        ext_alltypes  = [
-            '.htm', '.html', '.css'   , '.js', '.url',
-            '.png', '.jpg' , '.jpeg'  , '.gif', '.bmp', '.svg', '.webp', '.ico',
-            '.sql',
-            '.dbf', '.csv' , '.xlsx'  , '.xls',
-            '.rep', '.rpt' , '.report',
-            '.frm', '.form', ".wfm"   ,
-            '.dpr', '.prj' , '.proj'  , '.project',
-            ".prg"
-        ]
         ext_programme = ['.prg']
-        ext_projekte  = ['.dpr', '.prj', '.proj', '.project']
-        ext_formulare = ['.frm', '.form', '.wfm']
-        ext_berichte  = ['.rep', '.rpt', '.report']
-        ext_tabellen  = ['.dbf', '.csv', '.xlsx', '.xls']
-        ext_sql       = ['.sql']
-        ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
-        ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
+        ext_projekte = ['.dpr', '.prj', '.proj', '.project']
+        ext_formulare = ['.frm', '.wfm']
+        ext_berichte = ['.rep', '.rpt', '.report']
+        ext_tabellen = ['.dbf']
+        ext_sql = ['.sql']
+        ext_grafiken = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
+        ext_internet = ['.htm', '.html', '.css', '.js']
+        ext_alltypes = ext_projekte + ext_programme + ext_formulare + ext_tabellen + ext_sql + ext_berichte + ext_grafiken + ext_internet
 
-        self.lw1 = IconTab(ext_alltypes,  parent=self, icon_provider=self.icon_provider)
+        projects_special = [
+            {"key": "new_project", "title": "Neues Projekt"},
+        ]
+        programs_special = [
+            {"key": "new_program", "title": "Neu Programm"},
+        ]
+        forms_special = [
+            {"key": "new_form_designer", "title": "Neu Designer"},
+            {"key": "new_user_form", "title": "Neu Benutzer Formular"},
+            {"key": "new_form_expert", "title": "Neu Experte"},
+        ]
+        tables_special = [
+            {"key": "table_designer", "title": "Designer"},
+            {"key": "table_expert", "title": "Experte"},
+        ]
+        internet_special = [
+            {"key": "new_html", "title": "Neu HTML"},
+            {"key": "new_css", "title": "Neu CSS"},
+            {"key": "new_javascript", "title": "Neu JavaScript"},
+        ]
+
+        self.lw1 = IconTab(ext_alltypes, parent=self, icon_provider=self.icon_provider, tab_key="all")
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, 'Alle Typen')
-        self.lw2 = IconTab(ext_projekte,  parent=self, icon_provider=self.icon_provider)
+        self.lw2 = IconTab(ext_projekte, parent=self, icon_provider=self.icon_provider, tab_key="projekte", special_items=projects_special)
         self.icon_lists.append(self.lw2); self.tabs.addTab(self.lw2, 'Projekte')
-        self.lw3 = IconTab(ext_programme, parent=self, icon_provider=self.icon_provider)
+        self.lw3 = IconTab(ext_programme, parent=self, icon_provider=self.icon_provider, tab_key="programme", special_items=programs_special)
         self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, 'Programme')
-        self.lw4 = IconTab(ext_formulare, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, 'Formulare')        
-        self.lw5 = IconTab(ext_tabellen,  parent=self, icon_provider=self.icon_provider)
+        self.lw4 = IconTab(ext_formulare, parent=self, icon_provider=self.icon_provider, tab_key="formulare", special_items=forms_special)
+        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, 'Formulare')
+        self.lw5 = IconTab(ext_tabellen, parent=self, icon_provider=self.icon_provider, tab_key="tabellen", special_items=tables_special)
         self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, 'Tabellen')
-        self.lw6 = IconTab(ext_sql,       parent=self, icon_provider=self.icon_provider)
+        self.lw6 = IconTab(ext_sql, parent=self, icon_provider=self.icon_provider, tab_key="sql")
         self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, 'SQL')
-        self.lw7 = IconTab(ext_berichte,  parent=self, icon_provider=self.icon_provider)
+        self.lw7 = IconTab(ext_berichte, parent=self, icon_provider=self.icon_provider, tab_key="berichte")
         self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, 'Berichte')
-        self.lw8 = IconTab(ext_grafiken,  parent=self, icon_provider=self.icon_provider)
+        self.lw8 = IconTab(ext_grafiken, parent=self, icon_provider=self.icon_provider, tab_key="grafiken")
         self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, 'Grafiken')
-        self.lw9 = IconTab(ext_internet,  parent=self, icon_provider=self.icon_provider)
+        self.lw9 = IconTab(ext_internet, parent=self, icon_provider=self.icon_provider, tab_key="internet", special_items=internet_special)
         self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, 'Internet')
 
-        # Sonstiges = alles, was in keinem der anderen Filter steckt
         ext_all_known = (ext_projekte + ext_formulare + ext_berichte + ext_programme +
-                        ext_tabellen + ext_sql + ext_grafiken + ext_internet)
-        self.lwA = IconTab(exclude_exts=ext_all_known, parent=self, icon_provider=self.icon_provider)
+                         ext_tabellen + ext_sql + ext_grafiken + ext_internet)
+        self.lwA = IconTab(exclude_exts=ext_all_known, parent=self, icon_provider=self.icon_provider, tab_key="sonstiges")
         self.icon_lists.append(self.lwA); self.tabs.addTab(self.lwA, 'Sonstiges')
-        # --- Layout ---
+
         root = QVBoxLayout(self)
         root.addLayout(top)
         root.addWidget(self.tabs, 1)
 
         self.resize(980, 640)
-    
+
+    def restore_from_settings(self, settings=None):
+        settings = settings or getattr(globals().get('MAINAPP', None), '_settings', None)
+        if settings is None:
+            return
+
+        try:
+            recent_dirs = settings.value('regiecenter/recent_dirs', [], type=list) or []
+        except Exception:
+            recent_dirs = []
+        try:
+            last_dir = (settings.value('regiecenter/workdir', '', type=str) or '').strip()
+        except Exception:
+            last_dir = ''
+
+        added = set()
+        self.combo.blockSignals(True)
+        try:
+            self.combo.clear()
+            for entry in recent_dirs:
+                entry = (entry or '').strip()
+                if entry and os.path.isdir(entry) and entry not in added:
+                    self.combo.addItem(entry)
+                    added.add(entry)
+            if last_dir and os.path.isdir(last_dir) and last_dir not in added:
+                self.combo.insertItem(0, last_dir)
+                added.add(last_dir)
+        finally:
+            self.combo.blockSignals(False)
+
+        if last_dir and os.path.isdir(last_dir):
+            self.combo.setCurrentText(last_dir)
+        elif self.combo.count() > 0:
+            self.combo.setCurrentIndex(0)
+        else:
+            self._on_dir_changed('')
+
+    def _save_recent_dirs(self, current_path: str):
+        try:
+            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
+                return
+
+            current_path = (current_path or "").strip()
+            items = []
+
+            if current_path and os.path.isdir(current_path):
+                items.append(current_path)
+
+            for i in range(self.combo.count()):
+                txt = (self.combo.itemText(i) or "").strip()
+                if txt and os.path.isdir(txt) and txt not in items:
+                    items.append(txt)
+
+            items = items[:15]
+
+            MAINAPP._settings.setValue("regiecenter/recent_dirs", items)
+            MAINAPP._settings.setValue("regiecenter/workdir", current_path)
+        except Exception:
+            pass
+
     def open_in_table_editor(self, display_name: str, path: str):
         try:
             debug_print("table")
             path = os.path.normpath(path)
-            # erst versuchen: aktives Editor-Fenster wiederverwenden
             sub = None
             win = None
             try:
@@ -3549,7 +3904,7 @@ class RegieCenter(QDialog):
                 except Exception:
                     pass
                 return
-            
+
             try:
                 dlg = TableRecordEditorDialog(MAINAPP, path)
                 sub = None
@@ -3569,18 +3924,14 @@ class RegieCenter(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, "Fehler", f"Konnte Bearbeiten-Modus nicht öffnen:\n{e}")
                 return
-                
+
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Tabellen-Editor nicht öffnen:\n{e}")
-            
-    # -----------------------------------------------------------
-    # Öffnet *path* im FileEditorWindow (CodeEditor) als Tab.
-    # -----------------------------------------------------------
+
     def open_in_code_editor(self, display_name: str, path: str):
         try:
             debug_print("editor")
             path = os.path.normpath(path)
-            # erst versuchen: aktives Editor-Fenster wiederverwenden
             sub = None
             win = None
             try:
@@ -3599,7 +3950,6 @@ class RegieCenter(QDialog):
                     pass
                 return
 
-            # sonst: neues Editor-Fenster im MDI anlegen
             text = ""
             try:
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -3639,41 +3989,25 @@ class RegieCenter(QDialog):
 
     def _add_and_select_dir(self, path: str):
         path = os.path.normpath(path)
-
-        # Wenn schon drin -> nur markieren
         idx = self.combo.findText(path, Qt.MatchExactly)
         if idx < 0:
             self.combo.addItem(path)
             idx = self.combo.findText(path, Qt.MatchExactly)
-
-        self.combo.setCurrentIndex(idx)  # markiert/selektiert
-        # _on_dir_changed() wird automatisch ausgelöst
+        self.combo.setCurrentIndex(idx)
+        self._save_recent_dirs(path)
 
     def _on_dir_changed(self, path: str):
-        path = (path or "").strip()
+        path = (path or '').strip()
         if not path or not os.path.isdir(path):
             for lw in self.icon_lists:
-                lw.set_directory("")
-                lw.clear()
+                lw.set_directory('')
             return
-
-        # Jede IconView rendert ihren eigenen Filter
+        
         for lw in self.icon_lists:
             lw.set_directory(path)
+        
+        self._save_recent_dirs(path)
 
-        # INI: Arbeitsverzeichnis merken
-        try:
-            if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
-                MAINAPP._settings.setValue('regiecenter/workdir', path)
-        except Exception:
-            pass
-
-            # INI: Arbeitsverzeichnis merken
-            try:
-                if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
-                    MAINAPP._settings.setValue('regiecenter/workdir', path)
-            except Exception:
-                pass
 
 # ---------------------------------------------------------------------------
 # Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht
@@ -6867,11 +7201,8 @@ class MainWindow(QMainWindow):
 
         # RegieCenter: zuletzt verwendetes Arbeitsverzeichnis (INI)
         try:
-            last_dir = (self._settings.value("regiecenter/workdir", "", type=str) or "").strip()
-            if last_dir:
-                if dlg.combo.findText(last_dir, Qt.MatchExactly) < 0:
-                    dlg.combo.addItem(last_dir)
-                dlg.combo.setCurrentText(last_dir)  # triggert refresh
+            if hasattr(dlg, "restore_from_settings"):
+                dlg.restore_from_settings(self._settings)
         except Exception:
             pass
         # CommandWindow (Debug Console) beim Start immer anzeigen
@@ -7226,6 +7557,11 @@ class MainWindow(QMainWindow):
             sub.move(30, 30)
             sub.setWindowTitle(share.locales.tr("Regiecenter"))
             dlg.show()
+            try:
+                if hasattr(dlg, "restore_from_settings"):
+                    dlg.restore_from_settings(self._settings)
+            except Exception:
+                pass
             if focus:
                 self.mdi.setActiveSubWindow(sub)
             return dlg

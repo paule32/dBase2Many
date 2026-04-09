@@ -243,6 +243,29 @@ class ProfiledRegieCenter(legacy.QDialog):
         root.addWidget(self.tabs, 1)
         self.resize(980, 640)
 
+    def _save_recent_dirs(self, current_path: str):
+        try:
+            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
+                return
+
+            current_path = (current_path or "").strip()
+            items = []
+
+            if current_path and os.path.isdir(current_path):
+                items.append(current_path)
+
+            for i in range(self.combo.count()):
+                txt = (self.combo.itemText(i) or "").strip()
+                if txt and os.path.isdir(txt) and txt not in items:
+                    items.append(txt)
+
+            items = items[:15]
+
+            MAINAPP._settings.setValue("regiecenter/recent_dirs", items)
+            MAINAPP._settings.setValue("regiecenter/workdir", current_path)
+        except Exception:
+            pass
+            
     # Reuse legacy methods without duplication.
     open_in_table_editor = legacy.RegieCenter.open_in_table_editor
     open_in_code_editor = legacy.RegieCenter.open_in_code_editor
