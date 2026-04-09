@@ -3737,10 +3737,7 @@ class RegieCenter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         mark_escape_close(self)
-        
-        print(type(self))
-        print(hasattr(self, "_save_recent_dirs"))
-        
+
         self.setFont(QFont("Arial", 10))
         self.setWindowTitle(share.locales.tr("Regierzentrum"))
         self.setModal(False)
@@ -3862,24 +3859,19 @@ class RegieCenter(QDialog):
 
     def _save_recent_dirs(self, current_path: str):
         try:
-            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
+            settings = getattr(globals().get('MAINAPP', None), '_settings', None)
+            if settings is None:
                 return
-
-            current_path = (current_path or "").strip()
+            current_path = (current_path or '').strip()
             items = []
-
             if current_path and os.path.isdir(current_path):
                 items.append(current_path)
-
             for i in range(self.combo.count()):
-                txt = (self.combo.itemText(i) or "").strip()
+                txt = (self.combo.itemText(i) or '').strip()
                 if txt and os.path.isdir(txt) and txt not in items:
                     items.append(txt)
-
-            items = items[:15]
-
-            MAINAPP._settings.setValue("regiecenter/recent_dirs", items)
-            MAINAPP._settings.setValue("regiecenter/workdir", current_path)
+            settings.setValue('regiecenter/workdir', current_path)
+            settings.setValue('regiecenter/recent_dirs', items[:15])
         except Exception:
             pass
 
@@ -3994,7 +3986,6 @@ class RegieCenter(QDialog):
             self.combo.addItem(path)
             idx = self.combo.findText(path, Qt.MatchExactly)
         self.combo.setCurrentIndex(idx)
-        self._save_recent_dirs(path)
 
     def _on_dir_changed(self, path: str):
         path = (path or '').strip()
@@ -4002,10 +3993,10 @@ class RegieCenter(QDialog):
             for lw in self.icon_lists:
                 lw.set_directory('')
             return
-        
+
         for lw in self.icon_lists:
             lw.set_directory(path)
-        
+
         self._save_recent_dirs(path)
 
 
