@@ -3674,7 +3674,7 @@ class RegieCenter(QDialog):
                     MAINAPP._settings.setValue('regiecenter/workdir', path)
             except Exception:
                 pass
-                
+
     def _restore_recent_dirs(self):
         try:
             if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
@@ -3696,7 +3696,7 @@ class RegieCenter(QDialog):
                 self.combo.setCurrentIndex(0)
         except Exception:
             pass
-            
+
 # ---------------------------------------------------------------------------
 # Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht
 # native Dialoge.
