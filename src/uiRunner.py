@@ -6008,7 +6008,7 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # 1) Docks links
+    # 1) Inspector + Palette erzeugen
     try:
         main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
         main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
@@ -6021,17 +6021,59 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
-    # Docks untereinander anordnen (Palette unter Inspector)
+    # 2) passenden linken Anker suchen: Sidebar / Launcher / FormDesigner-Dock
+    left_anchor = None
+    for attr_name in (
+        "sidebar_dock",
+        "quick_launch_dock",
+        "launcher_dock",
+        "form_designer_dock",
+    ):
+        dock = getattr(main_window, attr_name, None)
+        if dock is not None:
+            left_anchor = dock
+            break
+
+    # 3) Wenn es links schon eine Sidebar gibt:
+    #    Sidebar links lassen, Inspector rechts daneben
     try:
-        main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
+        if left_anchor is not None and hasattr(main_window, "obj_inspector_dock"):
+            main_window.splitDockWidget(left_anchor, main_window.obj_inspector_dock, Qt.Horizontal)
     except Exception:
         pass
 
-    # 2) Formular-Designer als extra MDI SubWindow
+    # 4) Palette unter Inspector
+    try:
+        if hasattr(main_window, "obj_inspector_dock") and hasattr(main_window, "obj_palette_dock"):
+            main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
+    except Exception:
+        pass
+
+    # 5) Größen sinnvoll setzen
+    try:
+        if left_anchor is not None:
+            main_window.resizeDocks(
+                [left_anchor, main_window.obj_inspector_dock],
+                [90, 280],
+                Qt.Horizontal
+            )
+    except Exception:
+        pass
+
+    try:
+        main_window.resizeDocks(
+            [main_window.obj_inspector_dock, main_window.obj_palette_dock],
+            [260, 220],
+            Qt.Vertical
+        )
+    except Exception:
+        pass
+
+    # 6) Formular-Designer als MDI-Fenster
     try:
         designer = FormDesignerWindow(main_window)
         main_window.form_designer_window = designer
-        main_window.designer_canvas = getattr(designer, 'canvas', None)
+        main_window.designer_canvas = getattr(designer, "canvas", None)
         sub = main_window.mdi.addSubWindow(designer)
         sub.setWindowTitle(share.locales.tr("Form Designer"))
         sub.resize(700, 520)
@@ -6039,7 +6081,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
         designer.show()
     except Exception:
         pass
-
+        
 # ---------------------------------------------------------------------------
 # Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden.
 # ---------------------------------------------------------------------------
@@ -7435,7 +7477,7 @@ class MainWindow(QMainWindow):
             if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
                 _init_designer_panels(self)
                 # restore saved dock positions (INI)
-                try:
+                """try:
                     st = self._settings.value("designer/main_state", None)
                     if st is not None:
                         self.restoreState(st)
@@ -7443,7 +7485,7 @@ class MainWindow(QMainWindow):
                     if geom is not None:
                         self.restoreGeometry(geom)
                 except Exception:
-                    pass
+                    pass"""
             try:
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
