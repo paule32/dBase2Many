@@ -5136,6 +5136,177 @@ class ObjectPaletteDock(QDockWidget):
 
         self.setWidget(palette)
 
+class SidebarToolButton(QToolButton):
+    clickedText = pyqtSignal(str)
+
+    def __init__(self, text: str, icon: QIcon | None = None, parent=None):
+        super().__init__(parent)
+        self._caption = (text or '').strip()
+        self.setText(self._caption)
+        if icon is not None:
+            self.setIcon(icon)
+        self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.setIconSize(QSize(28, 28))
+        self.setMinimumSize(84, 72)
+        self.setMaximumWidth(88)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.clicked.connect(lambda: self.clickedText.emit(self._caption))
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("""
+            QToolButton {
+                color: #ffd700;
+                background: #1f1f1f;
+                border: 1px solid #3a3a3a;
+                border-radius: 6px;
+                padding: 4px;
+                font: 10pt "Arial";
+            }
+            QToolButton:hover {
+                background: #2a2a2a;
+                border: 1px solid #666666;
+            }
+            QToolButton:pressed {
+                background: #111111;
+            }
+        """)
+
+
+class SidebarScrollWidget(QWidget):
+    itemClicked = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumWidth(100)
+        self.setMaximumWidth(100)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 4, 4)
+        root.setSpacing(4)
+
+        self.btn_up = QPushButton('▲\nOben', self)
+        self.btn_up.setFixedHeight(52)
+        self.btn_up.clicked.connect(self.scroll_up)
+
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+
+        self.inner = QWidget(self.scroll)
+        self.inner_layout = QVBoxLayout(self.inner)
+        self.inner_layout.setContentsMargins(2, 2, 2, 2)
+        self.inner_layout.setSpacing(6)
+        self.inner_layout.addStretch(1)
+        self.scroll.setWidget(self.inner)
+
+        self.btn_down = QPushButton('▼\nUnten', self)
+        self.btn_down.setFixedHeight(52)
+        self.btn_down.clicked.connect(self.scroll_down)
+
+        arrow_style = """
+            QPushButton {
+                color: #ffd700;
+                background: #1f1f1f;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                font: bold 10pt "Arial";
+            }
+            QPushButton:hover {
+                background: #2a2a2a;
+            }
+            QPushButton:pressed {
+                background: #111111;
+            }
+        """
+        self.btn_up.setStyleSheet(arrow_style)
+        self.btn_down.setStyleSheet(arrow_style)
+
+        root.addWidget(self.btn_up, 0)
+        root.addWidget(self.scroll, 1)
+        root.addWidget(self.btn_down, 0)
+
+    def add_item(self, text: str, icon: QIcon | None = None):
+        btn = SidebarToolButton(text, icon, self.inner)
+        btn.clickedText.connect(self.itemClicked.emit)
+        stretch_index = max(0, self.inner_layout.count() - 1)
+        self.inner_layout.insertWidget(stretch_index, btn)
+        return btn
+
+    def scroll_up(self):
+        bar = self.scroll.verticalScrollBar()
+        bar.setValue(bar.value() - 84)
+
+    def scroll_down(self):
+        bar = self.scroll.verticalScrollBar()
+        bar.setValue(bar.value() + 84)
+
+
+class SidebarDock(QDockWidget):
+    def __init__(self, main_window: "MainWindow", parent=None):
+        super().__init__(share.locales.tr("Sidebar"), parent)
+        self.main_window = main_window
+        self.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.setMinimumWidth(100)
+        self.setMaximumWidth(100)
+
+        self.sidebar_widget = SidebarScrollWidget(self)
+        self.sidebar_widget.itemClicked.connect(self._on_item_clicked)
+        self.sidebar_widget.setMinimumWidth(100)
+        self.sidebar_widget.setMaximumWidth(100)
+        self.setWidget(self.sidebar_widget)
+
+        self._populate_defaults()
+
+    def _populate_defaults(self):
+        style = self.style()
+        items = [
+            (share.locales.tr("Regiecenter"), style.standardIcon(QStyle.SP_DirHomeIcon)),
+            (share.locales.tr("Editor"), style.standardIcon(QStyle.SP_FileIcon)),
+            (share.locales.tr("Designer"), style.standardIcon(QStyle.SP_DesktopIcon)),
+            (share.locales.tr("Tabellen"), style.standardIcon(QStyle.SP_DriveHDIcon)),
+            (share.locales.tr("SQL"), style.standardIcon(QStyle.SP_DriveNetIcon)),
+            (share.locales.tr("Debug"), style.standardIcon(QStyle.SP_MessageBoxInformation)),
+            (share.locales.tr("Hilfe"), style.standardIcon(QStyle.SP_DialogHelpButton)),
+            (share.locales.tr("Einstellungen"), style.standardIcon(QStyle.SP_FileDialogDetailedView)),
+        ]
+        for text, icon in items:
+            self.sidebar_widget.add_item(text, icon)
+
+    def _on_item_clicked(self, text: str):
+        mw = self.main_window
+        t = (text or '').strip().lower()
+        try:
+            if t == share.locales.tr("Regiecenter").lower():
+                mw.ensure_regie_center(focus=True)
+                return
+            if t == share.locales.tr("Editor").lower():
+                mw.ensure_code_editor_window(focus=True)
+                return
+            if t == share.locales.tr("Designer").lower():
+                mw.ensure_designer(focus=True)
+                return
+            if t == share.locales.tr("Tabellen").lower():
+                mw.mdi_open_table_designer()
+                return
+            if t == share.locales.tr("SQL").lower():
+                mw.mdi_open_sql_builder()
+                return
+            if t == share.locales.tr("Debug").lower():
+                mw.ensure_debug_console(focus=True)
+                return
+            if t == share.locales.tr("Hilfe").lower():
+                help_mw = share.utildef.helpwin.HelpMainWindow()
+                open_helpwindow(mw.mdi, help_mw)
+                return
+            if t == share.locales.tr("Einstellungen").lower():
+                mw.open_workplace_properties()
+                return
+        except Exception as e:
+            QMessageBox.warning(self, share.locales.tr("Sidebar"), str(e))
+
+
 # ---------------------------------------------------------------------------
 # Design-Time Wrapper:
 # - enthält ein echtes Qt-Control (inner)
@@ -6008,21 +6179,8 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # alte Docks ggf. sauber schließen
-    for attr in ("obj_inspector_dock", "obj_palette_dock"):
-        try:
-            old = getattr(main_window, attr, None)
-            if old is not None:
-                old.hide()
-                old.close()
-        except Exception:
-            pass
-        try:
-            setattr(main_window, attr, None)
-        except Exception:
-            pass
+    left_anchor = getattr(main_window, 'sidebar_dock', None)
 
-    # 1) Inspector + Palette erzeugen
     try:
         main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
         main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
@@ -6035,71 +6193,39 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
-    # 2) linken Anker suchen: Sidebar / Launcher / QuickLaunch
-    left_anchor = None
-    for attr_name in ("sidebar_dock", "quick_launch_dock", "launcher_dock"):
-        dock = getattr(main_window, attr_name, None)
-        if dock is not None:
-            left_anchor = dock
-            break
-
-    # 3) Sidebar fest auf 100 px
     try:
-        if left_anchor is not None:
+        if left_anchor is not None and getattr(main_window, 'obj_inspector_dock', None) is not None:
             left_anchor.setMinimumWidth(100)
             left_anchor.setMaximumWidth(100)
-
-            w = left_anchor.widget()
-            if w is not None:
-                w.setMinimumWidth(100)
-                w.setMaximumWidth(100)
-    except Exception:
-        pass
-
-    # 4) Inspector rechts neben Sidebar
-    try:
-        if left_anchor is not None and main_window.obj_inspector_dock is not None:
             main_window.splitDockWidget(left_anchor, main_window.obj_inspector_dock, Qt.Horizontal)
     except Exception:
         pass
 
-    # 5) Palette unter Inspector
     try:
-        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
+        if getattr(main_window, 'obj_inspector_dock', None) is not None and getattr(main_window, 'obj_palette_dock', None) is not None:
             main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
     except Exception:
         pass
 
-    # 6) Inspector + Palette dynamisch, Startbreite 230
     try:
-        if left_anchor is not None and main_window.obj_inspector_dock is not None:
+        if left_anchor is not None and getattr(main_window, 'obj_inspector_dock', None) is not None:
             main_window.obj_inspector_dock.setMinimumWidth(180)
-            main_window.obj_palette_dock.setMinimumWidth(180)
-
-            main_window.resizeDocks(
-                [left_anchor, main_window.obj_inspector_dock],
-                [100, 230],
-                Qt.Horizontal
-            )
+            if getattr(main_window, 'obj_palette_dock', None) is not None:
+                main_window.obj_palette_dock.setMinimumWidth(180)
+            main_window.resizeDocks([left_anchor, main_window.obj_inspector_dock], [100, 230], Qt.Horizontal)
     except Exception:
         pass
 
-    # 7) Vertikale Anfangshöhen
     try:
-        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
-            main_window.resizeDocks(
-                [main_window.obj_inspector_dock, main_window.obj_palette_dock],
-                [230, 230],
-                Qt.Vertical
-            )
+        if getattr(main_window, 'obj_inspector_dock', None) is not None and getattr(main_window, 'obj_palette_dock', None) is not None:
+            main_window.resizeDocks([main_window.obj_inspector_dock, main_window.obj_palette_dock], [230, 230], Qt.Vertical)
     except Exception:
         pass
 
-    # 8) Formular-Designer als MDI-Fenster
     try:
         designer = FormDesignerWindow(main_window)
         main_window.form_designer_window = designer
-        main_window.designer_canvas = getattr(designer, "canvas", None)
+        main_window.designer_canvas = getattr(designer, 'canvas', None)
         sub = main_window.mdi.addSubWindow(designer)
         sub.setWindowTitle(share.locales.tr("Form Designer"))
         sub.resize(700, 520)
@@ -6107,7 +6233,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
         designer.show()
     except Exception:
         pass
-        
+
 # ---------------------------------------------------------------------------
 # Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden.
 # ---------------------------------------------------------------------------
@@ -6578,171 +6704,6 @@ class DebugConsoleWidget(QWidget):
             tb = traceback.format_exc()
             self.append_output(tb)
 
-
-class PopupActionLabel(QLabel):
-    clicked = pyqtSignal()
-
-    def __init__(self, text: str, parent=None):
-        super().__init__(text, parent)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumWidth(180)
-        self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.setMargin(8)
-        self.setStyleSheet("""
-QLabel {
-    color: #ffffff;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 6px 10px;
-}
-QLabel:hover {
-    background: #1e2a3a;
-    border: 1px solid #3b82f6;
-}
-""")
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-
-class BorderlessLabelPopup(QWidget):
-    def __init__(self, actions=None, parent=None):
-        super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_DeleteOnClose, False)
-        self.setObjectName('BorderlessLabelPopup')
-        self.setStyleSheet("""
-QWidget#BorderlessLabelPopup {
-    background: #0f1724;
-    border: 1px solid #32435a;
-    border-radius: 10px;
-}
-""")
-        self._actions = []
-
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 10, 10, 10)
-        lay.setSpacing(6)
-
-        for text, callback in (actions or []):
-            lbl = PopupActionLabel(str(text), self)
-            lbl.clicked.connect(self._wrap_callback(callback))
-            lay.addWidget(lbl)
-            self._actions.append(lbl)
-
-    def _wrap_callback(self, callback):
-        def _run():
-            try:
-                self.hide()
-            except Exception:
-                pass
-            if callable(callback):
-                callback()
-        return _run
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape:
-            self.hide()
-            event.accept()
-            return
-        super().keyPressEvent(event)
-
-    def popup_at(self, global_pos: QPoint):
-        self.adjustSize()
-        self.move(global_pos)
-        self.show()
-        self.raise_()
-        self.activateWindow()
-
-
-class QuickLaunchDock(QDockWidget):
-    def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__(share.locales.tr("Quick Launch"), parent)
-        self.main_window = main_window
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
-        self.setObjectName('QuickLaunchDock')
-
-        host = QWidget(self)
-        host.setObjectName('QuickLaunchDockHost')
-        host.setStyleSheet("""
-QWidget#QuickLaunchDockHost {
-    background: #101826;
-}
-QToolButton {
-    color: #ffffff;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 6px;
-}
-QToolButton:hover {
-    background: #172234;
-    border: 1px solid #355070;
-}
-""")
-
-        lay = QVBoxLayout(host)
-        lay.setContentsMargins(6, 8, 6, 8)
-        lay.setSpacing(8)
-
-        self.btn_popup = self._make_button(QStyle.SP_DesktopIcon, share.locales.tr('Aktionen'))
-        self.btn_regie = self._make_button(QStyle.SP_DirHomeIcon, share.locales.tr('RegieCenter'))
-        self.btn_debug = self._make_button(QStyle.SP_MessageBoxInformation, share.locales.tr('Debug'))
-        self.btn_editor = self._make_button(QStyle.SP_FileIcon, share.locales.tr('Editor'))
-        self.btn_forms = self._make_button(QStyle.SP_FileDialogDetailedView, share.locales.tr('Designer'))
-        self.btn_table = self._make_button(QStyle.SP_DriveHDIcon, share.locales.tr('Tabellen'))
-        self.btn_sql = self._make_button(QStyle.SP_DriveNetIcon, share.locales.tr('SQL'))
-
-        for btn in (self.btn_popup, self.btn_regie, self.btn_debug, self.btn_editor, self.btn_forms, self.btn_table, self.btn_sql):
-            lay.addWidget(btn, 0, Qt.AlignHCenter)
-        lay.addStretch(1)
-
-        self.setWidget(host)
-
-        self._popup = BorderlessLabelPopup([
-            (share.locales.tr('RegieCenter öffnen'), lambda: self.main_window.on_action_view_regiecenter()),
-            (share.locales.tr('Debug-Fenster öffnen'), lambda: self.main_window.on_action_view_debug_window()),
-            (share.locales.tr('Editor öffnen'), lambda: self.main_window.on_action_view_editor()),
-            (share.locales.tr('Designer öffnen'), lambda: self.main_window.on_action_view_designer()),
-            (share.locales.tr('Tabellen-Designer öffnen'), lambda: self.main_window.on_action_view_table_designer()),
-            (share.locales.tr('SQL-Builder öffnen'), lambda: self.main_window.on_action_view_sql_builder()),
-        ], self)
-
-        self.btn_popup.clicked.connect(self._show_popup)
-        self.btn_regie.clicked.connect(self.main_window.on_action_view_regiecenter)
-        self.btn_debug.clicked.connect(self.main_window.on_action_view_debug_window)
-        self.btn_editor.clicked.connect(self.main_window.on_action_view_editor)
-        self.btn_forms.clicked.connect(self.main_window.on_action_view_designer)
-        self.btn_table.clicked.connect(self.main_window.on_action_view_table_designer)
-        self.btn_sql.clicked.connect(self.main_window.on_action_view_sql_builder)
-
-    def _make_button(self, std_icon, text: str):
-        btn = QToolButton(self)
-        btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        btn.setAutoRaise(True)
-        btn.setIconSize(QSize(32, 32))
-        btn.setFixedSize(QSize(92, 72))
-        btn.setText(text)
-        try:
-            btn.setIcon(self.style().standardIcon(std_icon))
-        except Exception:
-            pass
-        return btn
-
-    def _show_popup(self):
-        try:
-            btn = self.btn_popup
-            pos = btn.mapToGlobal(QPoint(btn.width() + 8, 0))
-            self._popup.popup_at(pos)
-        except Exception:
-            pass
-
-
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -6815,11 +6776,6 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'obj_palette_dock') and self.obj_palette_dock is not None:
                 try:
                     self.obj_palette_dock.setWindowTitle(share.locales.tr("Object Palette"))
-                except Exception:
-                    pass
-            if hasattr(self, 'quick_launch_dock') and self.quick_launch_dock is not None:
-                try:
-                    self.quick_launch_dock.setWindowTitle(share.locales.tr("Quick Launch"))
                 except Exception:
                     pass
             try:
@@ -6897,6 +6853,11 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle(_runner_window_title())
         self.setCentralWidget(self.mdi)
+        self.sidebar_dock = None
+        try:
+            self._init_sidebar_dock()
+        except Exception:
+            pass
         
         # Factory: wie dein Help-Fenster erzeugt wird
         def create_help():
@@ -7111,10 +7072,6 @@ class MainWindow(QMainWindow):
         
         self._create_toolbar()
         self._create_statusbar()
-        try:
-            self._init_quick_launch_dock()
-        except Exception:
-            pass
         
         self.dark_mode = True
         self.apply_theme()
@@ -7503,7 +7460,7 @@ class MainWindow(QMainWindow):
             if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
                 _init_designer_panels(self)
                 # restore saved dock positions (INI)
-                """try:
+                try:
                     st = self._settings.value("designer/main_state", None)
                     if st is not None:
                         self.restoreState(st)
@@ -7511,7 +7468,7 @@ class MainWindow(QMainWindow):
                     if geom is not None:
                         self.restoreGeometry(geom)
                 except Exception:
-                    pass"""
+                    pass
             try:
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
@@ -7584,19 +7541,6 @@ class MainWindow(QMainWindow):
         pass
     def _create_statusbar(self):
         pass
-
-    def _init_quick_launch_dock(self):
-        if hasattr(self, 'quick_launch_dock') and self.quick_launch_dock is not None:
-            return self.quick_launch_dock
-        self.quick_launch_dock = QuickLaunchDock(self, self)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.quick_launch_dock)
-        try:
-            if hasattr(self, 'obj_inspector_dock') and self.obj_inspector_dock is not None:
-                self.splitDockWidget(self.quick_launch_dock, self.obj_inspector_dock, Qt.Vertical)
-        except Exception:
-            pass
-        return self.quick_launch_dock
-
     def on_action_file_close(self):
         # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen
         sub = self.mdi.activeSubWindow()
@@ -7721,6 +7665,22 @@ class MainWindow(QMainWindow):
         
     def on_action_file_new_project(self):
         debug_print("file new project")
+
+    def _init_sidebar_dock(self):
+        if getattr(self, 'sidebar_dock', None) is not None:
+            return self.sidebar_dock
+        self.sidebar_dock = SidebarDock(self, self)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.sidebar_dock)
+        try:
+            self.sidebar_dock.setMinimumWidth(100)
+            self.sidebar_dock.setMaximumWidth(100)
+            w = self.sidebar_dock.widget()
+            if w is not None:
+                w.setMinimumWidth(100)
+                w.setMaximumWidth(100)
+        except Exception:
+            pass
+        return self.sidebar_dock
 
     def _init_form_designer_dock(self):
         # Dock links anheften

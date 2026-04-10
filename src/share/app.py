@@ -244,7 +244,7 @@ class ProfiledRegieCenter(legacy.QDialog):
             special_items = [{
                 "title"   : "Neu Programm",
                 "action"  : "new_program",
-                "icon"    : "program",
+                "icon"    : "form",
                 "tooltip" : "Neues Programm anlegen",
             }])
         self.tabs.addTab(self.lw3, "Programm")
