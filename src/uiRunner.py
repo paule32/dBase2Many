@@ -6008,6 +6008,20 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
+    # alte Docks ggf. sauber schließen
+    for attr in ("obj_inspector_dock", "obj_palette_dock"):
+        try:
+            old = getattr(main_window, attr, None)
+            if old is not None:
+                old.hide()
+                old.close()
+        except Exception:
+            pass
+        try:
+            setattr(main_window, attr, None)
+        except Exception:
+            pass
+
     # 1) Inspector + Palette erzeugen
     try:
         main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
@@ -6021,55 +6035,67 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
-    # 2) passenden linken Anker suchen: Sidebar / Launcher / FormDesigner-Dock
+    # 2) linken Anker suchen: Sidebar / Launcher / QuickLaunch
     left_anchor = None
-    for attr_name in (
-        "sidebar_dock",
-        "quick_launch_dock",
-        "launcher_dock",
-        "form_designer_dock",
-    ):
+    for attr_name in ("sidebar_dock", "quick_launch_dock", "launcher_dock"):
         dock = getattr(main_window, attr_name, None)
         if dock is not None:
             left_anchor = dock
             break
 
-    # 3) Wenn es links schon eine Sidebar gibt:
-    #    Sidebar links lassen, Inspector rechts daneben
+    # 3) Sidebar fest auf 100 px
     try:
-        if left_anchor is not None and hasattr(main_window, "obj_inspector_dock"):
+        if left_anchor is not None:
+            left_anchor.setMinimumWidth(100)
+            left_anchor.setMaximumWidth(100)
+
+            w = left_anchor.widget()
+            if w is not None:
+                w.setMinimumWidth(100)
+                w.setMaximumWidth(100)
+    except Exception:
+        pass
+
+    # 4) Inspector rechts neben Sidebar
+    try:
+        if left_anchor is not None and main_window.obj_inspector_dock is not None:
             main_window.splitDockWidget(left_anchor, main_window.obj_inspector_dock, Qt.Horizontal)
     except Exception:
         pass
 
-    # 4) Palette unter Inspector
+    # 5) Palette unter Inspector
     try:
-        if hasattr(main_window, "obj_inspector_dock") and hasattr(main_window, "obj_palette_dock"):
+        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
             main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
     except Exception:
         pass
 
-    # 5) Größen sinnvoll setzen
+    # 6) Inspector + Palette dynamisch, Startbreite 230
     try:
-        if left_anchor is not None:
+        if left_anchor is not None and main_window.obj_inspector_dock is not None:
+            main_window.obj_inspector_dock.setMinimumWidth(180)
+            main_window.obj_palette_dock.setMinimumWidth(180)
+
             main_window.resizeDocks(
                 [left_anchor, main_window.obj_inspector_dock],
-                [90, 280],
+                [100, 230],
                 Qt.Horizontal
             )
     except Exception:
         pass
 
+    # 7) Vertikale Anfangshöhen
     try:
-        main_window.resizeDocks(
-            [main_window.obj_inspector_dock, main_window.obj_palette_dock],
-            [260, 220],
-            Qt.Vertical
-        )
+        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
+            main_window.resizeDocks(
+                [main_window.obj_inspector_dock, main_window.obj_palette_dock],
+                [230, 230],
+                Qt.Vertical
+            )
     except Exception:
         pass
 
-    # 6) Formular-Designer als MDI-Fenster
+    # 8) Formular-Designer als MDI-Fenster
     try:
         designer = FormDesignerWindow(main_window)
         main_window.form_designer_window = designer
