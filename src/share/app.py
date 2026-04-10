@@ -74,96 +74,102 @@ from . import legacy_api
 legacy = legacy_api.module
 
 
-class ProfiledIconTab(legacy.IconTab):
-    """Sprachspezifischer Wrapper um die bestehende IconTab-Implementierung."""
+import inspect
 
+# -----------------------------------------------------------------------
+# Sprachspezifischer Wrapper um die bestehende IconTab-Implementierung.
+# -----------------------------------------------------------------------
+class ProfiledIconTab(legacy.IconTab):
     def __init__(self, profile: LanguageProfile, *args, **kwargs):
         self.language_profile = profile
+
+        self.tab_name = (kwargs.get("tab_name", "") or "").strip()
+        self.special_items = list(kwargs.get("special_items", []) or [])
+
+        try:
+            sig = inspect.signature(legacy.IconTab.__init__)
+            self._legacy_supports_special_items = "special_items" in sig.parameters
+            self._legacy_supports_tab_name = "tab_name" in sig.parameters
+        except Exception:
+            self._legacy_supports_special_items = False
+            self._legacy_supports_tab_name = False
+
+        if not self._legacy_supports_special_items:
+            kwargs.pop("special_items", None)
+        if not self._legacy_supports_tab_name:
+            kwargs.pop("tab_name", None)
+
         super().__init__(*args, **kwargs)
 
-    def _new_program(self):
-        directory = (getattr(self, "base_dir", "") or "").strip()
-        if not directory or not os.path.isdir(directory):
-            legacy.QMessageBox.information(self, "Neu", "Bitte zuerst ein Verzeichnis auswählen.")
-            return
+        # Falls die Legacy-Klasse die neuen Parameter nicht kennt,
+        # trotzdem gleich die festen Icons anzeigen.
+        if self.special_items and not self._legacy_supports_special_items:
+            self.refresh()
 
-        ext = self.language_profile.default_source_extension
-        path = self._unique_name_in_dir(directory, "unbenannt", ext)
-        if not path:
-            return
-
+    def _special_icon(self, kind: str = "new") -> legacy.QIcon:
+        kind = (kind or "new").strip().lower()
+        style = self.style()
+        mapping = {
+            "project"   : legacy.QStyle.SP_DirHomeIcon,
+            "program"   : legacy.QStyle.SP_FileIcon,
+            "form"      : legacy.QStyle.SP_FileDialogDetailedView,
+            "designer"  : legacy.QStyle.SP_DesktopIcon,
+            "expert"    : legacy.QStyle.SP_CommandLink,
+            "table"     : legacy.QStyle.SP_DriveHDIcon,
+            "sql"       : legacy.QStyle.SP_DriveNetIcon,
+            "html"      : legacy.QStyle.SP_FileDialogContentsView,
+            "css"       : legacy.QStyle.SP_FileDialogListView,
+            "js"        : legacy.QStyle.SP_BrowserReload,
+            "new"       : legacy.QStyle.SP_FileIcon,
+        }
         try:
-            text = self.language_profile.new_file_template or ""
-            with open(path, "w", encoding="utf-8", errors="replace") as handle:
-                handle.write(text)
-        except Exception as exc:
-            legacy.QMessageBox.warning(self, "Neu", f"Konnte Datei nicht erstellen:\n{exc}")
+            return style.standardIcon(mapping.get(kind, legacy.QStyle.SP_FileIcon))
+        except Exception:
+            return legacy.QIcon()
+
+    def _add_special_items_fallback(self):
+        if not self.special_items:
             return
+        for idx, spec in enumerate(self.special_items):
+            title = str(spec.get("title", "")).strip()
+            if not title:
+                continue
+            icon = self._special_icon(spec.get("icon", "new"))
+            item = legacy.QListWidgetItem(icon, title)
+            item.setData(legacy.Qt.UserRole, "")
+            item.setData(legacy.Qt.UserRole + 1, dict(spec))
+            tip = str(spec.get("tooltip", title)).strip()
+            item.setToolTip(tip)
+            self.insertItem(idx, item)
 
-        self._refresh_all_icon_tabs()
+    def refresh(self):
+        super().refresh()
+        if not getattr(self, "_legacy_supports_special_items", False):
+            self._add_special_items_fallback()
 
-        host = self._regiecenter_host()
-        if host is not None and hasattr(host, "open_in_code_editor"):
-            host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+    def _run_selected(self):
+        it = self.currentItem()
+        if it is not None:
+            spec = it.data(legacy.Qt.UserRole + 1)
+            if isinstance(spec, dict) and spec.get("action"):
+                self._dispatch_special_action(spec)
+                return
+        return super()._run_selected()
 
-    def _edit_in_editor(self, path: str) -> None:
+    def _on_item_double_clicked(self, item):
         try:
-            ext = os.path.splitext(path)[1].lower()
-            if not (self.language_profile.matches_extension(ext) or ext == ".dbf"):
+            spec = item.data(legacy.Qt.UserRole + 1)
+            if isinstance(spec, dict) and spec.get("action"):
+                self._dispatch_special_action(spec)
                 return
+        except Exception:
+            pass
+        return super()._on_item_double_clicked(item)
 
-            display_name = os.path.basename(path)
-            host = self.parent()
-
-            if self.language_profile.matches_extension(ext):
-                while host is not None and not hasattr(host, "open_in_code_editor"):
-                    host = host.parent()
-                if host is not None and hasattr(host, "open_in_code_editor"):
-                    host.open_in_code_editor(display_name=display_name, path=path)
-                else:
-                    legacy.QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
-                return
-
-            if ext == ".dbf":
-                while host is not None and not hasattr(host, "open_in_table_editor"):
-                    host = host.parent()
-                if host is not None and hasattr(host, "open_in_table_editor"):
-                    host.open_in_table_editor(display_name=display_name, path=path)
-                else:
-                    legacy.QMessageBox.information(self, "Bearbeiten", "Kein TabellenEditor-Hook gefunden.")
-        except Exception as exc:
-            legacy.QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{exc}")
-
-    def _run_file(self, path: str):
-        ext = os.path.splitext(path)[1].lower()
-        try:
-            if ext == ".dbf":
-                self._edit_in_editor(path)
-                return
-
-            if ext == ".prg":
-                legacy.parse(path)
-                return
-
-            if self.language_profile.matches_extension(ext):
-                host = self._regiecenter_host()
-                if host is not None and hasattr(host, "run_source_file"):
-                    host.run_source_file(path)
-                    return
-                legacy.QMessageBox.information(
-                    self,
-                    self.language_profile.display_name,
-                    "Für diese Sprache ist der neue Parser/Lexer noch nicht verdrahtet. "
-                    "Die Oberfläche funktioniert bereits, die Laufzeitlogik ist noch Platzhalter.",
-                )
-                return
-        except Exception as exc:
-            legacy.QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{exc}")
-
-
+# -----------------------------------------------------------------------
+# RegieCenter mit Sprachprofil statt fest verdrahtetem .prg-Filter.
+# -----------------------------------------------------------------------
 class ProfiledRegieCenter(legacy.QDialog):
-    """RegieCenter mit Sprachprofil statt fest verdrahtetem .prg-Filter."""
-
     def __init__(self, profile: LanguageProfile, parent=None):
         super().__init__(parent)
         self.language_profile = profile
@@ -203,34 +209,152 @@ class ProfiledRegieCenter(legacy.QDialog):
             ".prg",
             *ext_programme,
         ]
-        ext_alltypes = list(dict.fromkeys(e.lower() for e in ext_alltypes))
-        ext_projekte = [".dpr", ".prj", ".proj", ".project"]
+        ext_alltypes  = list(dict.fromkeys(e.lower() for e in ext_alltypes))
+        ext_projekte  = [".pro", ".dpr", ".prj", ".proj", ".project"]
         ext_formulare = [".frm", ".form", ".wfm"]
-        ext_berichte = [".rep", ".rpt", ".report"]
-        ext_tabellen = [".dbf", ".csv", ".xlsx", ".xls"]
-        ext_sql = [".sql"]
-        ext_grafiken = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico"]
-        ext_internet = [".htm", ".html", ".css", ".js", ".url"]
+        ext_berichte  = [".rep", ".rpt", ".report"]
+        ext_tabellen  = [".dbf", ".csv", ".xlsx", ".xls"]
+        ext_sql       = [".sql"]
+        ext_grafiken  = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico"]
+        ext_internet  = [".htm", ".html", ".css", ".js", ".url"]
 
         self.lw1 = ProfiledIconTab(profile, ext_alltypes, parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, "Alle Typen")
-        self.lw2 = ProfiledIconTab(profile, ext_projekte, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw2); self.tabs.addTab(self.lw2, "Projekte")
-        self.lw3 = ProfiledIconTab(profile, ext_programme, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw3); self.tabs.addTab(self.lw3, profile.program_tab_title)
-        self.lw4 = ProfiledIconTab(profile, ext_formulare, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw4); self.tabs.addTab(self.lw4, "Formulare")
-        self.lw5 = ProfiledIconTab(profile, ext_tabellen, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw5); self.tabs.addTab(self.lw5, "Tabellen")
-        self.lw6 = ProfiledIconTab(profile, ext_sql, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw6); self.tabs.addTab(self.lw6, "SQL")
-        self.lw7 = ProfiledIconTab(profile, ext_berichte, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw7); self.tabs.addTab(self.lw7, "Berichte")
-        self.lw8 = ProfiledIconTab(profile, ext_grafiken, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, "Grafiken")
-        self.lw9 = ProfiledIconTab(profile, ext_internet, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, "Internet")
-
+        #self.lw2 = ProfiledIconTab(profile, ext_projekte, parent=self, icon_provider=self.icon_provider, special_items=[{'title':'Neues Projekt','action':'new_project','icon':'project','tooltip':'Neues Projekt anlegen'}])
+        
+        self.lw2 = ProfiledIconTab(
+            profile, ext_projekte,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Projekte",
+            special_items = [{
+                "title"   : "Neu Projekt",
+                "action"  : "new_project",
+                "icon"    : "project",
+                "tooltip" : "Neues Projekt anlegen",
+            }])
+        self.tabs.addTab(self.lw2, "Projekte")
+        self.icon_lists.append(self.lw2)
+        # ---------------------------------------------------
+        self.lw3 = ProfiledIconTab(
+            profile, ext_programme,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = profile.program_tab_title,
+            special_items = [{
+                "title"   : "Neu Programm",
+                "action"  : "new_program",
+                "icon"    : "program",
+                "tooltip" : "Neues Programm anlegen",
+            }])
+        self.tabs.addTab(self.lw3, "Programm")
+        self.icon_lists.append(self.lw3)
+        # ---------------------------------------------------
+        self.lw4 = ProfiledIconTab(
+            profile, ext_formulare,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Formulare",
+            special_items = [{
+                "title"   : "Neu Designer",
+                "action"  : "new_form_designer",
+                "icon"    : "form",
+                "tooltip" : "Neues Formular im Design-Modus anlegen",
+            },{
+                "title"   : "Neu Experte",
+                "action"  : "new_form_expert",
+                "icon"    : "form",
+                "tooltip" : "Neues Formular im Experten-Modus anlegen",
+            }])
+        self.tabs.addTab(self.lw4, "Formular")
+        self.icon_lists.append(self.lw4)
+        # ---------------------------------------------------
+        self.lw5 = ProfiledIconTab(
+            profile, ext_tabellen,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Tabellen",
+            special_items = [{
+                "title"   : "Neu Designer",
+                "action"  : "new_table_designer",
+                "icon"    : "form",
+                "tooltip" : "Neu Tabelle im Design-Modus anlegen",
+            },{
+                "title"   : "Neu Experte",
+                "action"  : "new_table_expert",
+                "icon"    : "form",
+                "tooltip" : "Neu Tabelle im Experten-Modus anlegen",
+            }])
+        self.tabs.addTab(self.lw5, "Tabellen")
+        self.icon_lists.append(self.lw5)
+        # ---------------------------------------------------
+        self.lw6 = ProfiledIconTab(
+            profile, ext_sql,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "SQL",
+            special_items = [{
+                "title"   : "Neu SQL",
+                "action"  : "new_sql_designer",
+                "icon"    : "form",
+                "tooltip" : "Neue Abfrage anlegen",
+            }])
+        self.tabs.addTab(self.lw6, "SQL")
+        self.icon_lists.append(self.lw6)
+        # ---------------------------------------------------
+        self.lw7 = ProfiledIconTab(
+            profile, ext_berichte,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Berichte",
+            special_items = [{
+                "title"   : "Neu Bericht",
+                "action"  : "new_report",
+                "icon"    : "form",
+                "tooltip" : "Neuen Bericht anlegen",
+            }])
+        self.tabs.addTab(self.lw7, "Berichte")
+        self.icon_lists.append(self.lw7)
+        # ---------------------------------------------------
+        self.lw8 = ProfiledIconTab(
+            profile, ext_grafiken,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Grafiken",
+            special_items = [{
+                "title"   : "Neu Grafik",
+                "action"  : "new_graphic",
+                "icon"    : "form",
+                "tooltip" : "Neue Grafik anlegen",
+            }])
+        self.tabs.addTab(self.lw8, "Grafiken")
+        self.icon_lists.append(self.lw8)
+        # ---------------------------------------------------
+        self.lw9 = ProfiledIconTab(
+            profile, ext_internet,
+            parent        = self,
+            icon_provider = self.icon_provider,
+            tab_name      = "Internet",
+            special_items = [{
+                "title"   : "Neu HTML",
+                "action"  : "new_webdoc_html",
+                "icon"    : "form",
+                "tooltip" : "Neues HTML-Dokument anlegen",
+            },{
+                "title"   : "Neu CSS",
+                "action"  : "new_webdoc_css",
+                "icon"    : "form",
+                "tooltip" : "Neues CSS-Dokument anlegen",
+            },{
+                "title"   : "Neu JavaScript",
+                "action"  : "new_webdoc_js",
+                "icon"    : "form",
+                "tooltip" : "Neues JavaScript-Dokument anlegen",
+            }])
+        self.tabs.addTab(self.lw9, "Internet")
+        self.icon_lists.append(self.lw9)
+        # ---------------------------------------------------
+        
         ext_all_known = (
             ext_projekte + ext_formulare + ext_berichte + ext_programme +
             ext_tabellen + ext_sql + ext_grafiken + ext_internet
@@ -241,6 +365,18 @@ class ProfiledRegieCenter(legacy.QDialog):
         root = legacy.QVBoxLayout(self)
         root.addLayout(top)
         root.addWidget(self.tabs, 1)
+
+        try:
+            for lw in self.icon_lists:
+                lw.refresh()
+        except Exception:
+            pass
+
+        try:
+            self._restore_recent_dirs()
+        except Exception:
+            pass
+
         self.resize(980, 640)
 
     def _save_recent_dirs(self, current_path: str):
@@ -271,6 +407,7 @@ class ProfiledRegieCenter(legacy.QDialog):
     open_in_code_editor = legacy.RegieCenter.open_in_code_editor
     pick_directory_non_native = legacy.RegieCenter.pick_directory_non_native
     _add_and_select_dir = legacy.RegieCenter._add_and_select_dir
+    _restore_recent_dirs = legacy.RegieCenter._restore_recent_dirs
     _on_dir_changed = legacy.RegieCenter._on_dir_changed
     run_source_file: Callable[[str], None] | None = None
 

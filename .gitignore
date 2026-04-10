@@ -224,3 +224,5 @@ fix_escape_runtime.py
 src/tests/proto/protokoll_2026-04-08_17-59-06.pdf
 src/2
 src/3
+src/tests/test_parser_input_dump.prg
+src/tests/test_parse_input_dump.prg
