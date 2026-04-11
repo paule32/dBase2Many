@@ -3526,6 +3526,11 @@ class RegieCenter(QDialog):
         root.addWidget(self.tabs, 1)
 
         self.resize(980, 640)
+
+        try:
+            self._restore_recent_dirs()
+        except Exception:
+            pass
     
     def open_in_table_editor(self, display_name: str, path: str):
         try:
@@ -3625,6 +3630,51 @@ class RegieCenter(QDialog):
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
+    def _save_recent_dirs(self, current_path: str):
+        try:
+            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
+                return
+
+            current_path = (current_path or '').strip()
+            items = []
+
+            if current_path and os.path.isdir(current_path):
+                items.append(current_path)
+
+            for i in range(self.combo.count()):
+                txt = (self.combo.itemText(i) or '').strip()
+                if txt and os.path.isdir(txt) and txt not in items:
+                    items.append(txt)
+
+            items = items[:15]
+            MAINAPP._settings.setValue('regiecenter/recent_dirs', items)
+            MAINAPP._settings.setValue('regiecenter/workdir', current_path)
+        except Exception:
+            pass
+
+    def _restore_recent_dirs(self):
+        try:
+            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
+                return
+
+            recent_dirs = MAINAPP._settings.value('regiecenter/recent_dirs', [], type=list) or []
+            workdir = (MAINAPP._settings.value('regiecenter/workdir', '', type=str) or '').strip()
+
+            for entry in recent_dirs:
+                entry = (entry or '').strip()
+                if entry and os.path.isdir(entry):
+                    if self.combo.findText(entry, Qt.MatchExactly) < 0:
+                        self.combo.addItem(entry)
+
+            if workdir and os.path.isdir(workdir):
+                if self.combo.findText(workdir, Qt.MatchExactly) < 0:
+                    self.combo.insertItem(0, workdir)
+                self.combo.setCurrentText(workdir)
+            elif self.combo.count() > 0:
+                self.combo.setCurrentIndex(0)
+        except Exception:
+            pass
+
     def pick_directory_non_native(self):
         dlg = QFileDialog(self, "Verzeichnis auswählen")
         dlg.setFileMode(QFileDialog.Directory)
@@ -3647,6 +3697,10 @@ class RegieCenter(QDialog):
             idx = self.combo.findText(path, Qt.MatchExactly)
 
         self.combo.setCurrentIndex(idx)  # markiert/selektiert
+        try:
+            self._save_recent_dirs(path)
+        except Exception:
+            pass
         # _on_dir_changed() wird automatisch ausgelöst
 
     def _on_dir_changed(self, path: str):
@@ -3668,35 +3722,11 @@ class RegieCenter(QDialog):
         except Exception:
             pass
 
-            # INI: Arbeitsverzeichnis merken
-            try:
-                if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
-                    MAINAPP._settings.setValue('regiecenter/workdir', path)
-            except Exception:
-                pass
-
-    def _restore_recent_dirs(self):
         try:
-            if 'MAINAPP' not in globals() or not hasattr(MAINAPP, '_settings'):
-                return
-
-            recent_dirs = MAINAPP._settings.value('regiecenter/recent_dirs', [], type=list) or []
-            workdir = (MAINAPP._settings.value('regiecenter/workdir', '', type=str) or '').strip()
-
-            for path in recent_dirs:
-                path = (path or '').strip()
-                if path and os.path.isdir(path) and self.combo.findText(path, legacy.Qt.MatchExactly) < 0:
-                    self.combo.addItem(path)
-
-            if workdir and os.path.isdir(workdir):
-                if self.combo.findText(workdir, legacy.Qt.MatchExactly) < 0:
-                    self.combo.insertItem(0, workdir)
-                self.combo.setCurrentText(workdir)
-            elif self.combo.count() > 0:
-                self.combo.setCurrentIndex(0)
+            self._save_recent_dirs(path)
         except Exception:
             pass
-            
+
 # ---------------------------------------------------------------------------
 # Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht
 # native Dialoge.
@@ -6008,41 +6038,107 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # 1) Docks links
+    # feste Sidebar links sicherstellen
+    try:
+        if not hasattr(main_window, 'form_designer_dock') or main_window.form_designer_dock is None:
+            main_window._init_form_designer_dock()
+    except Exception:
+        pass
+
+    try:
+        sidebar = getattr(main_window, 'form_designer_dock', None)
+        if sidebar is not None:
+            sidebar.setAllowedAreas(Qt.LeftDockWidgetArea)
+            sidebar.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            sidebar.setFloating(False)
+            sidebar.show()
+            sidebar.raise_()
+            sidebar.setMinimumWidth(100)
+            sidebar.setMaximumWidth(100)
+            try:
+                w = sidebar.widget()
+                if w is not None:
+                    w.setMinimumWidth(100)
+                    w.setMaximumWidth(100)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    for attr in ('obj_inspector_dock', 'obj_palette_dock'):
+        try:
+            old = getattr(main_window, attr, None)
+            if old is not None:
+                old.hide()
+                old.close()
+        except Exception:
+            pass
+        try:
+            setattr(main_window, attr, None)
+        except Exception:
+            pass
+
     try:
         main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
+        main_window.obj_inspector_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        main_window.obj_inspector_dock.setMinimumWidth(232)
         main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
     except Exception:
         pass
 
     try:
         main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
+        main_window.obj_palette_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        main_window.obj_palette_dock.setMinimumWidth(232)
         main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
     except Exception:
         pass
 
-    # Docks untereinander anordnen (Palette unter Inspector)
     try:
-        main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
+        sidebar = getattr(main_window, 'form_designer_dock', None)
+        if sidebar is not None and main_window.obj_inspector_dock is not None:
+            main_window.splitDockWidget(sidebar, main_window.obj_inspector_dock, Qt.Horizontal)
     except Exception:
         pass
 
-    # 2) Formular-Designer als extra MDI SubWindow
     try:
-        designer = FormDesignerWindow(main_window)
-        main_window.form_designer_window = designer
-        main_window.designer_canvas = getattr(designer, 'canvas', None)
-        sub = main_window.mdi.addSubWindow(designer)
-        sub.setWindowTitle(share.locales.tr("Form Designer"))
-        sub.resize(700, 520)
-        sub.move(220, 40)
-        designer.show()
+        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
+            main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
     except Exception:
         pass
 
-# ---------------------------------------------------------------------------
-# Einfacher Objektinspektor mit Tabs: Properties / Events / Methoden.
-# ---------------------------------------------------------------------------
+    try:
+        sidebar = getattr(main_window, 'form_designer_dock', None)
+        if sidebar is not None and main_window.obj_inspector_dock is not None:
+            main_window.resizeDocks([sidebar, main_window.obj_inspector_dock], [100, 232], Qt.Horizontal)
+        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
+            main_window.resizeDocks([main_window.obj_inspector_dock, main_window.obj_palette_dock], [320, 240], Qt.Vertical)
+    except Exception:
+        pass
+
+    try:
+        main_window.obj_inspector_dock.show()
+        main_window.obj_palette_dock.show()
+        sidebar = getattr(main_window, 'form_designer_dock', None)
+        if sidebar is not None:
+            sidebar.show()
+            sidebar.raise_()
+    except Exception:
+        pass
+
+    try:
+        fw = getattr(main_window, 'form_designer_window', None)
+        if fw is None:
+            designer = FormDesignerWindow(main_window)
+            main_window.form_designer_window = designer
+            main_window.designer_canvas = getattr(designer, 'canvas', None)
+            sub = main_window.mdi.addSubWindow(designer)
+            sub.setWindowTitle(share.locales.tr("Form Designer"))
+            sub.resize(700, 520)
+            sub.move(220, 40)
+            designer.show()
+    except Exception:
+        pass
 class ObjectInspectorPanel(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -6638,30 +6734,65 @@ class FormDesignerDock(QDockWidget):
         host.setMinimumWidth(100)
         host.setMaximumWidth(100)
 
-        lay = QVBoxLayout(host)
-        lay.setContentsMargins(6, 6, 6, 6)
+        outer = QVBoxLayout(host)
+        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(6)
+
+        self.btn_up = QPushButton("▲\nOben", host)
+        self.btn_down = QPushButton("▼\nUnten", host)
+        for b in (self.btn_up, self.btn_down):
+            b.setFixedHeight(52)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setStyleSheet("""
+                QPushButton {
+                    color: #ffd866;
+                    background: #1f1f1f;
+                    border: 1px solid #555555;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: #2a2a2a;
+                }
+                QPushButton:pressed {
+                    background: #111111;
+                }
+            """)
+
+        self.scroll = QScrollArea(host)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+
+        inner = QWidget(self.scroll)
+        inner.setMinimumWidth(90)
+        inner.setMaximumWidth(90)
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
         st = self.style()
         self.btn_actions = SidebarIconButton(
             "Actions",
             st.standardIcon(QStyle.SP_FileDialogDetailedView),
-            host,
+            inner,
         )
         self.btn_help = SidebarIconButton(
             "Hilfe",
             st.standardIcon(QStyle.SP_MessageBoxInformation),
-            host,
+            inner,
         )
         self.btn_convert = SidebarIconButton(
             "Convert",
             st.standardIcon(QStyle.SP_BrowserReload),
-            host,
+            inner,
         )
         self.btn_settings = SidebarIconButton(
             "Einstellungen",
             st.standardIcon(QStyle.SP_FileDialogContentsView),
-            host,
+            inner,
         )
 
         lay.addWidget(self.btn_actions, 0, Qt.AlignTop | Qt.AlignHCenter)
@@ -6670,12 +6801,34 @@ class FormDesignerDock(QDockWidget):
         lay.addWidget(self.btn_settings, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addStretch(1)
 
+        self.scroll.setWidget(inner)
+
+        outer.addWidget(self.btn_up, 0)
+        outer.addWidget(self.scroll, 1)
+        outer.addWidget(self.btn_down, 0)
+
         self.setWidget(host)
 
+        self.btn_up.clicked.connect(self._scroll_up)
+        self.btn_down.clicked.connect(self._scroll_down)
         self.btn_actions.clicked.connect(self._toggle_actions_popup)
         self.btn_help.clicked.connect(self._show_help)
         self.btn_convert.clicked.connect(self._toggle_convert_popup)
         self.btn_settings.clicked.connect(self._open_settings)
+
+    def _scroll_up(self):
+        try:
+            bar = self.scroll.verticalScrollBar()
+            bar.setValue(bar.value() - 80)
+        except Exception:
+            pass
+
+    def _scroll_down(self):
+        try:
+            bar = self.scroll.verticalScrollBar()
+            bar.setValue(bar.value() + 80)
+        except Exception:
+            pass
 
     def _close_other_popups(self, keep=None):
         for popup in (self._actions_popup, self._convert_popup):
@@ -7510,21 +7663,23 @@ class MainWindow(QMainWindow):
     def ensure_designer(self, focus: bool = True):
         # DockWindows + Form-Designer sicherstellen
         try:
-            if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
+            need_init = (
+                not hasattr(self, 'form_designer_dock') or self.form_designer_dock is None or
+                not hasattr(self, 'obj_inspector_dock') or self.obj_inspector_dock is None or
+                not hasattr(self, 'obj_palette_dock') or self.obj_palette_dock is None
+            )
+            if need_init:
                 _init_designer_panels(self)
-                # restore saved dock positions (INI)
-                try:
-                    st = self._settings.value("designer/main_state", None)
-                    if st is not None:
-                        self.restoreState(st)
-                    geom = self._settings.value("designer/main_geom", None)
-                    if geom is not None:
-                        self.restoreGeometry(geom)
-                except Exception:
-                    pass
             try:
+                self.form_designer_dock.show()
+                self.form_designer_dock.raise_()
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
+                sidebar = getattr(self, 'form_designer_dock', None)
+                if sidebar is not None and self.obj_inspector_dock is not None:
+                    self.splitDockWidget(sidebar, self.obj_inspector_dock, Qt.Horizontal)
+                    self.resizeDocks([sidebar, self.obj_inspector_dock], [100, 232], Qt.Horizontal)
+                    self.resizeDocks([self.obj_inspector_dock, self.obj_palette_dock], [320, 240], Qt.Vertical)
             except Exception:
                 pass
         except Exception as e:
@@ -7544,7 +7699,6 @@ class MainWindow(QMainWindow):
 
             fw = FormDesignerWindow(self)
             self.form_designer_window = fw
-            # Canvas referenz merken
             try:
                 self.designer_canvas = fw.canvas
             except Exception:
