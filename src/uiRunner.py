@@ -6094,11 +6094,338 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
+class _InspectorTreeDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._font = QFont("Arial", 10)
+
+    def createEditor(self, parent, option, index):
+        editor = super().createEditor(parent, option, index)
+        try:
+            if isinstance(editor, QLineEdit):
+                editor.setFont(self._font)
+                editor.setTextMargins(0, 0, 0, 0)
+                editor.setStyleSheet("QLineEdit { padding: 0px; margin: 0px; }")
+            elif isinstance(editor, QComboBox):
+                editor.setFont(self._font)
+                editor.setStyleSheet("QComboBox { padding: 0px; margin: 0px; }")
+            elif hasattr(editor, "setFont"):
+                editor.setFont(self._font)
+        except Exception:
+            pass
+        return editor
+
+
+class _EventCodeHighlighter(QSyntaxHighlighter):
+    def __init__(self, document):
+        super().__init__(document)
+        self._rules = []
+
+        kw_fmt = QTextCharFormat()
+        kw_fmt.setForeground(QColor("#ffd866"))
+        kw_fmt.setFontWeight(QFont.Bold)
+
+        str_fmt = QTextCharFormat()
+        str_fmt.setForeground(QColor("#a6e22e"))
+
+        com_fmt = QTextCharFormat()
+        com_fmt.setForeground(QColor("#7f848e"))
+        com_fmt.setFontItalic(True)
+
+        num_fmt = QTextCharFormat()
+        num_fmt.setForeground(QColor("#66d9ef"))
+
+        keywords = [
+            "METHOD", "FUNCTION", "PROCEDURE", "RETURN", "IF", "ELSE", "ENDIF",
+            "DO", "CASE", "ENDCASE", "WHILE", "ENDDO", "FOR", "NEXT", "LOCAL",
+            "PRIVATE", "PUBLIC", "CLASS", "ENDCLASS", "THIS", "SET", "WRITE",
+            "PRINT", "ON", "OFF", "TO", "SCREEN", "SQL", "FORM", "TABLE"
+        ]
+        for kw in keywords:
+            self._rules.append((re.compile(rf"\b{re.escape(kw)}\b", re.IGNORECASE), kw_fmt))
+
+        self._rules.append((re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"'), str_fmt))
+        self._rules.append((re.compile(r"'[^'\\]*(?:\\.[^'\\]*)*'"), str_fmt))
+        self._rules.append((re.compile(r"\b\d+(?:\.\d+)?\b"), num_fmt))
+        self._rules.append((re.compile(r"(?:&&|//|\*\*).*$"), com_fmt))
+
+    def highlightBlock(self, text):
+        for rx, fmt in self._rules:
+            for m in rx.finditer(text):
+                self.setFormat(m.start(), m.end() - m.start(), fmt)
+
+
+class _EventCodeLineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self._editor = editor
+
+    def sizeHint(self):
+        return QSize(self._editor.line_number_area_width(), 0)
+
+    def paintEvent(self, event):
+        self._editor.line_number_area_paint_event(event)
+
+
+class _EventCodeEditor(QPlainTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._line_number_area = _EventCodeLineNumberArea(self)
+        self._highlighter = _EventCodeHighlighter(self.document())
+
+        self.blockCountChanged.connect(self.update_line_number_area_width)
+        self.updateRequest.connect(self.update_line_number_area)
+        self.cursorPositionChanged.connect(self.highlight_current_line)
+
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.setTabStopDistance(QFontMetrics(self.font()).horizontalAdvance(" ") * 4)
+        self.setStyleSheet(
+            "QPlainTextEdit {"
+            " background: #1e1e1e; color: #e6e6e6; border: 1px solid #444;"
+            " selection-background-color: #264f78; padding-left: 4px; }"
+        )
+
+        self.update_line_number_area_width(0)
+        self.highlight_current_line()
+
+    def line_number_area_width(self):
+        digits = max(2, len(str(max(1, self.blockCount()))))
+        return 10 + self.fontMetrics().horizontalAdvance("9") * digits
+
+    def update_line_number_area_width(self, _):
+        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+
+    def update_line_number_area(self, rect, dy):
+        if dy:
+            self._line_number_area.scroll(0, dy)
+        else:
+            self._line_number_area.update(0, rect.y(), self._line_number_area.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self.update_line_number_area_width(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self._line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height()))
+
+    def line_number_area_paint_event(self, event):
+        painter = QPainter(self._line_number_area)
+        painter.fillRect(event.rect(), QColor("#252526"))
+
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                painter.setPen(QColor("#8a8a8a"))
+                painter.drawText(
+                    0, top,
+                    self._line_number_area.width() - 4,
+                    self.fontMetrics().height(),
+                    Qt.AlignRight,
+                    str(block_number + 1)
+                )
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    def highlight_current_line(self):
+        extra = []
+        if not self.isReadOnly():
+            sel = QTextEdit.ExtraSelection()
+            sel.format.setBackground(QColor("#2d2d30"))
+            sel.format.setProperty(QTextFormat.FullWidthSelection, True)
+            sel.cursor = self.textCursor()
+            sel.cursor.clearSelection()
+            extra.append(sel)
+        self.setExtraSelections(extra)
+
+
+class EventEditorWindow(QWidget):
+    def __init__(self, main_window, control, event_name: str, item: QTreeWidgetItem | None = None, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.control = control
+        self.item = item
+        self._subwindow = None
+
+        mark_escape_close(self)
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+
+        self._object_name = self._sanitize_object_name(
+            getattr(control, "instance_name", "") or "Form"
+        )
+        self._initial_event_name = (event_name or "").strip() or "OnClick"
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        top = QHBoxLayout()
+        top.addWidget(QLabel("Event Name:", self), 0)
+
+        self.ed_event_name = QLineEdit(self._initial_event_name, self)
+        self.ed_event_name.setFont(QFont("Arial", 10))
+        self.ed_event_name.setTextMargins(1, 0, 1, 0)
+        top.addWidget(self.ed_event_name, 1)
+
+        root.addLayout(top)
+
+        self.editor = _EventCodeEditor(self)
+        self.editor.setFont(QFont("Consolas", 10))
+        root.addWidget(self.editor, 1)
+
+        btns = QHBoxLayout()
+        btns.addStretch(1)
+
+        self.btn_apply = QPushButton("Apply", self)
+        self.btn_help = QPushButton("Help", self)
+        self.btn_cancel = QPushButton("Cancel", self)
+
+        btns.addWidget(self.btn_apply)
+        btns.addWidget(self.btn_help)
+        btns.addWidget(self.btn_cancel)
+        root.addLayout(btns)
+
+        self.btn_apply.clicked.connect(self._apply)
+        self.btn_help.clicked.connect(self._help)
+        self.btn_cancel.clicked.connect(self.close)
+
+        self._load_existing_code()
+
+    def set_subwindow(self, sub):
+        self._subwindow = sub
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            self.close()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def _sanitize_object_name(self, name: str) -> str:
+        name = re.sub(r"\W+", "_", (name or "").strip())
+        return name or "Form"
+
+    def _current_method_name(self) -> str:
+        ev = re.sub(r"\W+", "_", (self.ed_event_name.text() or self._initial_event_name).strip())
+        ev = ev or "OnClick"
+        return f"{self._object_name}_{ev}"
+
+    def _resolve_editor_widget(self):
+        mw = self.main_window
+        if mw is None or not hasattr(mw, "ensure_code_editor_window"):
+            return None
+
+        win = mw.ensure_code_editor_window(focus=True)
+        if win is None:
+            return None
+
+        for attr in ("current_editor", "editor", "code_editor", "text_edit"):
+            if hasattr(win, attr):
+                try:
+                    ed = getattr(win, attr)()
+                except TypeError:
+                    ed = getattr(win, attr)
+                if ed is not None:
+                    return ed
+        return None
+
+    def _method_regex(self, method_name: str):
+        return re.compile(
+            rf"(?ims)^\s*METHOD\s+{re.escape(method_name)}\b.*?(?=^\s*METHOD\b|\Z)"
+        )
+
+    def _load_existing_code(self):
+        ed = self._resolve_editor_widget()
+        if ed is None:
+            return
+
+        try:
+            text = ed.document().toPlainText()
+        except Exception:
+            return
+
+        method_name = self._current_method_name()
+        m = self._method_regex(method_name).search(text)
+        if not m:
+            self.editor.setPlainText("")
+            return
+
+        block = m.group(0)
+        lines = block.splitlines()
+        body = []
+        for line in lines[1:]:
+            if line.strip().upper() == "RETURN":
+                continue
+            body.append(line)
+
+        self.editor.setPlainText("\n".join(body).rstrip())
+
+    def _apply(self):
+        method_name = self._current_method_name()
+        code = (self.editor.toPlainText() or "").rstrip()
+
+        snippet_lines = [f"METHOD {method_name}"]
+        if code:
+            snippet_lines.append(code)
+        snippet_lines.append("RETURN")
+        snippet = "\n".join(snippet_lines) + "\n"
+
+        ed = self._resolve_editor_widget()
+        if ed is None:
+            QMessageBox.warning(self, "Apply", "Kein Editor-Fenster verfügbar.")
+            return
+
+        try:
+            doc_text = ed.document().toPlainText()
+            rx = self._method_regex(method_name)
+
+            if rx.search(doc_text):
+                new_text = rx.sub(snippet.rstrip(), doc_text, count=1)
+            else:
+                sep = "" if doc_text.endswith("\n") or not doc_text else "\n\n"
+                new_text = doc_text + sep + snippet
+
+            ed.setPlainText(new_text)
+        except Exception as exc:
+            QMessageBox.warning(self, "Apply", str(exc))
+            return
+
+        if self.item is not None:
+            try:
+                self.item.setText(1, method_name)
+            except Exception:
+                pass
+
+        try:
+            if hasattr(self.main_window, "jump_to_symbol"):
+                self.main_window.jump_to_symbol(method_name)
+        except Exception:
+            pass
+
+        self.close()
+
+    def _help(self):
+        try:
+            if hasattr(self.main_window, "mdi") and hasattr(self.main_window, "help_mainwindow"):
+                open_helpwindow(self.main_window.mdi, self.main_window.help_mainwindow)
+                return
+        except Exception:
+            pass
+        QMessageBox.information(self, "Help", "Keine Hilfe verfügbar.")
+
 class ObjectInspectorPanel(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
         self.main_window = main_window
         self._current_ctrl = None
+        self._event_buttons = []
+        self._tree_delegate = _InspectorTreeDelegate(self)
+        self._ui_font = QFont("Arial", 10)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
@@ -6106,32 +6433,46 @@ class ObjectInspectorPanel(QWidget):
 
         self.obj_combo = QComboBox(self)
         self.obj_combo.setEditable(False)
+        self.obj_combo.setFont(self._ui_font)
         self.obj_combo.currentIndexChanged.connect(self._on_combo_changed)
         lay.addWidget(self.obj_combo)
 
         self.tabs = QTabWidget(self)
+        self.tabs.setFont(self._ui_font)
         lay.addWidget(self.tabs, 1)
 
-        # Properties (Name/Wert)
         self.tree_props = QTreeWidget(self)
+        self.tree_props.setFont(self._ui_font)
+        self.tree_props.setIndentation(16)
+        self.tree_props.setItemDelegate(self._tree_delegate)
+        self.tree_props.header().setFont(self._ui_font)
         self.tree_props.setColumnCount(2)
+        self.tree_props.setRootIsDecorated(True)
         self.tree_props.setHeaderLabels(["Key", "Value"])
         self.tree_props.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_props.header().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabs.addTab(self.tree_props, share.locales.tr("Properties"))
         self.tree_props.itemChanged.connect(self._on_prop_changed)
+        self.tabs.addTab(self.tree_props, share.locales.tr("Properties"))
 
-        # Events (Event/Handler)
         self.tree_events = QTreeWidget(self)
-        self.tree_events.setColumnCount(2)
-        self.tree_events.setHeaderLabels(["Event", "Handler"])
+        self.tree_events.setFont(self._ui_font)
+        self.tree_events.setIndentation(1)
+        self.tree_events.setItemDelegate(self._tree_delegate)
+        self.tree_events.header().setFont(self._ui_font)
+        self.tree_events.setColumnCount(3)
+        self.tree_events.setHeaderLabels(["Event", "Handler", ""])
         self.tree_events.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_events.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tree_events.header().setSectionResizeMode(2, QHeaderView.Fixed)
+        self.tree_events.header().resizeSection(2, 30)
         self.tree_events.itemDoubleClicked.connect(self._on_event_double_clicked)
         self.tabs.addTab(self.tree_events, "Events")
 
-        # Methoden (Methode/Override)
         self.tree_methods = QTreeWidget(self)
+        self.tree_methods.setFont(self._ui_font)
+        self.tree_methods.setIndentation(1)
+        self.tree_methods.setItemDelegate(self._tree_delegate)
+        self.tree_methods.header().setFont(self._ui_font)
         self.tree_methods.setColumnCount(2)
         self.tree_methods.setHeaderLabels(["Methode", "Override"])
         self.tree_methods.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -6141,21 +6482,59 @@ class ObjectInspectorPanel(QWidget):
 
         self._fill_static_events_methods()
 
+    def _clear_event_buttons(self):
+        self._event_buttons = []
+        try:
+            for i in range(self.tree_events.topLevelItemCount()):
+                item = self.tree_events.topLevelItem(i)
+                if item is not None:
+                    self.tree_events.removeItemWidget(item, 2)
+        except Exception:
+            pass
+
+    def _make_event_button(self, item):
+        host = QWidget(self.tree_events)
+        host.setContentsMargins(0, 0, 0, 0)
+
+        lay = QHBoxLayout(host)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        lay.addStretch(1)
+
+        btn = QPushButton("E", host)
+        btn.setFixedSize(20, 18)
+        btn.setFont(QFont("Arial", 8, QFont.Bold))
+        btn.setStyleSheet(
+            "QPushButton { color: #ffff00; background: #303030; border: 1px solid #666666; padding: 0px; margin: 0px; }"
+            "QPushButton:hover { background: #404040; }"
+        )
+        btn.clicked.connect(lambda _=False, it=item: self._open_event_editor_for_item(it))
+        lay.addWidget(btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+
+        self._event_buttons.append(btn)
+        return host
+
     def _fill_static_events_methods(self):
+        self._clear_event_buttons()
+
         self.tree_events.clear()
         for ev in ["OnClick", "OnDblClick", "OnKeyDown", "OnKeyUp", "OnCreate", "OnDestroy"]:
-            it = QTreeWidgetItem([ev, ""])
+            it = QTreeWidgetItem([ev, "", ""])
             it.setFlags(it.flags() | Qt.ItemIsEditable)
+            it.setFont(0, self._ui_font)
+            it.setFont(1, self._ui_font)
             self.tree_events.addTopLevelItem(it)
+            self.tree_events.setItemWidget(it, 2, self._make_event_button(it))
 
         self.tree_methods.clear()
         for m in ["Init", "Show", "Hide", "Enable", "Disable", "Resize", "Move"]:
             it = QTreeWidgetItem([m, ""])
             it.setFlags(it.flags() | Qt.ItemIsEditable)
+            it.setFont(0, self._ui_font)
+            it.setFont(1, self._ui_font)
             self.tree_methods.addTopLevelItem(it)
 
     def set_controls_list(self, controls):
-        # Combo füllen
         self.obj_combo.blockSignals(True)
         self.obj_combo.clear()
         self.obj_combo.addItem("(Form)", None)
@@ -6166,7 +6545,6 @@ class ObjectInspectorPanel(QWidget):
 
     def set_current(self, ctrl):
         self._current_ctrl = ctrl
-        # Combo sync
         if ctrl is None:
             self.obj_combo.setCurrentIndex(0)
         else:
@@ -6175,7 +6553,6 @@ class ObjectInspectorPanel(QWidget):
             if idx >= 0:
                 self.obj_combo.setCurrentIndex(idx)
         self._refresh_properties()
-
 
     def _get_ctrl_text(self, c) -> str:
         try:
@@ -6193,7 +6570,6 @@ class ObjectInspectorPanel(QWidget):
         return ""
 
     def _refresh_properties(self):
-        # Rebuild property tree with categories (ähnlich dBase IDE)
         self.tree_props.blockSignals(True)
         self.tree_props.setUpdatesEnabled(False)
         try:
@@ -6201,6 +6577,7 @@ class ObjectInspectorPanel(QWidget):
             c = self._current_ctrl
             if c is None:
                 return
+
             cr = c._content_rect_global()
             groups = {
                 "Name": [
@@ -6223,11 +6600,14 @@ class ObjectInspectorPanel(QWidget):
                 top = QTreeWidgetItem([gname, ""])
                 top.setFirstColumnSpanned(True)
                 top.setFlags(top.flags() & ~Qt.ItemIsEditable)
+                top.setFont(0, self._ui_font)
                 self.tree_props.addTopLevelItem(top)
 
                 for k, v in rows:
                     it = QTreeWidgetItem([k, str(v)])
                     it.setFlags(it.flags() | Qt.ItemIsEditable)
+                    it.setFont(0, self._ui_font)
+                    it.setFont(1, self._ui_font)
                     top.addChild(it)
                 top.setExpanded(True)
         except Exception:
@@ -6237,39 +6617,38 @@ class ObjectInspectorPanel(QWidget):
             self.tree_props.blockSignals(False)
 
     def _on_prop_changed(self, item: QTreeWidgetItem, col: int):
-        # nur Value-Spalte behandeln
         if col != 1:
             return
         c = self._current_ctrl
         if c is None:
             return
-        # Kategorien (Top-Level) sind nicht editierbar
+
         try:
             if item.parent() is None and item.childCount() > 0:
                 return
         except Exception:
             pass
+
         key = (item.text(0) or "").strip()
         val = item.text(1)
 
         try:
             if key.lower() == "name":
-                # Instance-Name ändern
                 c.instance_name = val.strip()
-                # Repaint damit Name im Control neu gerendert wird
                 try:
                     c.update()
                 except Exception:
                     pass
-                # ComboBox aktualisieren
                 try:
-                    self.set_controls_list(getattr(self.main_window, "designer_controls", []) or getattr(getattr(self.main_window, "designer_canvas", None), "_controls", []))
+                    self.set_controls_list(
+                        getattr(self.main_window, "designer_controls", [])
+                        or getattr(getattr(self.main_window, "designer_canvas", None), "_controls", [])
+                    )
                     self.set_current(c)
                 except Exception:
                     pass
                 return
 
-            # Geometrie
             if key.lower() in ("left", "top", "width", "height"):
                 try:
                     n = int(float(val))
@@ -6285,14 +6664,13 @@ class ObjectInspectorPanel(QWidget):
                 elif key.lower() == "height":
                     g.setHeight(max(1, n))
                 c.setGeometry(g)
-                # Wrapper ggf. neu synchronisieren
                 try:
-                    if hasattr(c, '_sync_inner'):
+                    if hasattr(c, "_sync_inner"):
                         c._sync_inner()
                 except Exception:
                     pass
                 try:
-                    if hasattr(c.parent(), 'update_canvas_size'):
+                    if hasattr(c.parent(), "update_canvas_size"):
                         c.parent().update_canvas_size()
                 except Exception:
                     pass
@@ -6300,14 +6678,12 @@ class ObjectInspectorPanel(QWidget):
                     c.update()
                 except Exception:
                     pass
-                # UI sofort aktualisieren
                 try:
                     self._refresh_properties()
                 except Exception:
                     pass
                 return
 
-            # Inner-Widget: Text
             if key.lower() in ("text", "caption", "title"):
                 w = getattr(c, "inner", None)
                 if w is not None:
@@ -6323,13 +6699,13 @@ class ObjectInspectorPanel(QWidget):
     def _on_combo_changed(self, idx):
         ctrl = self.obj_combo.itemData(idx)
         if ctrl is None:
-            # Form gewählt
             try:
                 self.main_window.activate_form()
             except Exception:
                 pass
             self.set_current(None)
             return
+
         try:
             canvas = getattr(self.main_window, "designer_canvas", None)
             if canvas is not None:
@@ -6337,19 +6713,43 @@ class ObjectInspectorPanel(QWidget):
         except Exception:
             pass
 
-    def _on_event_double_clicked(self, item, col):
-        # Doppelklick auf Handler: Stub erzeugen und hinspringen
-        if col != 1:
+    def _open_event_editor_for_item(self, item):
+        if item is None:
             return
+
+        ev_name = (item.text(0) or "").strip() or "OnClick"
+        try:
+            mw = self.main_window
+            editor_win = EventEditorWindow(mw, self._current_ctrl, ev_name, item=item)
+            if hasattr(mw, "mdi") and mw.mdi is not None:
+                sub = mw.mdi.addSubWindow(editor_win)
+                mark_escape_close(sub)
+                editor_win.set_subwindow(sub)
+                sub.setWindowTitle(f"Event Editor - {ev_name}")
+                sub.resize(640, 420)
+                sub.show()
+                mw.mdi.setActiveSubWindow(sub)
+            else:
+                editor_win.show()
+        except Exception as exc:
+            QMessageBox.warning(self, "Events", str(exc))
+
+    def _on_event_double_clicked(self, item, col):
+        if item is None:
+            return
+
+        if col == 2:
+            self._open_event_editor_for_item(item)
+            return
+
         handler = (item.text(1) or "").strip()
         if not handler:
-            # Vorschlag generieren
             base = getattr(self._current_ctrl, "instance_name", "Control") or "Control"
             handler = f"{base}_{item.text(0)}"
             item.setText(1, handler)
+
         try:
             self.main_window.ensure_code_editor_window(focus=True)
-            # best-effort: springe/marker
             self.main_window.jump_to_symbol(handler)
         except Exception:
             pass
@@ -6357,11 +6757,13 @@ class ObjectInspectorPanel(QWidget):
     def _on_method_double_clicked(self, item, col):
         if col != 1:
             return
+
         name = (item.text(1) or "").strip()
         if not name:
             base = getattr(self._current_ctrl, "instance_name", "Control") or "Control"
             name = f"{base}_{item.text(0)}"
             item.setText(1, name)
+
         try:
             self.main_window.ensure_code_editor_window(focus=True)
             self.main_window.jump_to_symbol(name)
