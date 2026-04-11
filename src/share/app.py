@@ -222,8 +222,8 @@ class ProfiledRegieCenter(legacy.QDialog):
         self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, "Alle Typen")
         #self.lw2 = ProfiledIconTab(profile, ext_projekte, parent=self, icon_provider=self.icon_provider, special_items=[{'title':'Neues Projekt','action':'new_project','icon':'project','tooltip':'Neues Projekt anlegen'}])
         
-        self.lw1 = ProfiledIconTab(profile, ext_alltypes, parent=self, icon_provider=self.icon_provider)
-        self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, "Alle Typen")
+        #self.lw1 = ProfiledIconTab(profile, ext_alltypes, parent=self, icon_provider=self.icon_provider)
+        #self.icon_lists.append(self.lw1); self.tabs.addTab(self.lw1, "Alle Typen")
         #self.lw2 = ProfiledIconTab(profile, ext_projekte, parent=self, icon_provider=self.icon_provider, special_items=[{'title':'Neues Projekt','action':'new_project','icon':'project','tooltip':'Neues Projekt anlegen'}])
         
         self.lw2 = ProfiledIconTab(

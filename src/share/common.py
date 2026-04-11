@@ -79,7 +79,7 @@ try:
         QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
         qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
         QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
-        QBuffer, QSettings
+        QBuffer, QSettings, QDateTime
     )
     from PyQt5.QtGui     import (
         QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
@@ -102,7 +102,7 @@ try:
         QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
         QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
-        QScrollArea, QAbstractButton
+        QScrollArea, QAbstractButton, QButtonGroup
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,

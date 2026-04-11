@@ -8,6 +8,7 @@ from __future__  import annotations
 import sys
 import os
 import builtins
+import re
 
 from   share.common                 import *
 from   share.excepts                import *
@@ -5990,7 +5991,6 @@ class FormDesignerWindow(QWidget):
             dock = getattr(mw, 'obj_inspector_dock', None) if mw is not None else None
             if dock is not None:
                 dock.hide()
-                dock.close()
         except Exception:
             pass
 
@@ -5998,7 +5998,13 @@ class FormDesignerWindow(QWidget):
             dock = getattr(mw, 'obj_palette_dock', None) if mw is not None else None
             if dock is not None:
                 dock.hide()
-                dock.close()
+        except Exception:
+            pass
+
+        try:
+            host = getattr(mw, 'designer_panels_host', None) if mw is not None else None
+            if host is not None:
+                host.hide()
         except Exception:
             pass
 
@@ -6038,45 +6044,105 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # vorhandene Docks wiederverwenden
+    # rechte Designer-Leiste neben der Sidebar wiederverwenden
     try:
+        host = getattr(main_window, "designer_panels_host", None)
+        splitter = getattr(main_window, "designer_splitter", None)
+
+        if host is None:
+            host = QWidget(main_window._central_host)
+            host.setObjectName("DesignerPanelsHost")
+            host.setMinimumWidth(220)
+            host.setMaximumWidth(420)
+            host.hide()
+
+            host_layout = QVBoxLayout(host)
+            host_layout.setContentsMargins(0, 0, 0, 0)
+            host_layout.setSpacing(0)
+
+            splitter = QSplitter(Qt.Vertical, host)
+            splitter.setObjectName("DesignerPanelsSplitter")
+            splitter.setChildrenCollapsible(False)
+            host_layout.addWidget(splitter, 1)
+
+            main_window.designer_panels_host = host
+            main_window.designer_panels_layout = host_layout
+            main_window.designer_splitter = splitter
+
+            if hasattr(main_window, "designer_outer_splitter") and main_window.designer_outer_splitter is not None:
+                try:
+                    if main_window.designer_outer_splitter.indexOf(host) < 0:
+                        main_window.designer_outer_splitter.insertWidget(0, host)
+                except Exception:
+                    pass
+            else:
+                try:
+                    main_window._central_host_layout.insertWidget(1, host, 0)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        splitter = getattr(main_window, "designer_splitter", None)
+
         if getattr(main_window, "obj_inspector_dock", None) is None:
-            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
-            main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
+            parent = splitter or main_window
+            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, parent)
+        else:
+            try:
+                main_window.obj_inspector_dock.setParent(splitter or main_window)
+            except Exception:
+                pass
+
+        if splitter is not None:
+            try:
+                if splitter.indexOf(main_window.obj_inspector_dock) < 0:
+                    splitter.addWidget(main_window.obj_inspector_dock)
+            except Exception:
+                pass
     except Exception:
         pass
 
     try:
+        splitter = getattr(main_window, "designer_splitter", None)
+
         if getattr(main_window, "obj_palette_dock", None) is None:
-            main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
-            main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
+            parent = splitter or main_window
+            main_window.obj_palette_dock = ObjectPaletteDock(main_window, parent)
+        else:
+            try:
+                main_window.obj_palette_dock.setParent(splitter or main_window)
+            except Exception:
+                pass
+
+        if splitter is not None:
+            try:
+                if splitter.indexOf(main_window.obj_palette_dock) < 0:
+                    splitter.addWidget(main_window.obj_palette_dock)
+            except Exception:
+                pass
     except Exception:
         pass
 
-    # feste Startbreiten / dynamisch danach
+    # nur rechte Seitenleiste sichtbar machen, nicht links andocken
     try:
         main_window.obj_inspector_dock.setMinimumWidth(180)
         main_window.obj_palette_dock.setMinimumWidth(180)
-    except Exception:
-        pass
 
-    # Palette unter Inspector
-    try:
-        main_window.splitDockWidget(
-            main_window.obj_inspector_dock,
-            main_window.obj_palette_dock,
-            Qt.Vertical
-        )
-    except Exception:
-        pass
+        if getattr(main_window, "designer_panels_host", None) is not None:
+            main_window.designer_panels_host.setMinimumWidth(220)
+            main_window.designer_panels_host.show()
 
-    # Startgrößen für den vertikalen Splitter
-    try:
-        main_window.resizeDocks(
-            [main_window.obj_inspector_dock, main_window.obj_palette_dock],
-            [260, 220],
-            Qt.Vertical
-        )
+        if getattr(main_window, "designer_splitter", None) is not None:
+            main_window.designer_splitter.show()
+            main_window.designer_splitter.setSizes([260, 220])
+
+        if getattr(main_window, "designer_outer_splitter", None) is not None:
+            try:
+                main_window.designer_outer_splitter.setSizes([320, max(600, main_window.width() - 460)])
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -6094,6 +6160,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
     except Exception:
         pass
 
+
 class _InspectorTreeDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -6104,11 +6171,15 @@ class _InspectorTreeDelegate(QStyledItemDelegate):
         try:
             if isinstance(editor, QLineEdit):
                 editor.setFont(self._font)
-                editor.setTextMargins(0, 0, 0, 0)
-                editor.setStyleSheet("QLineEdit { padding: 0px; margin: 0px; }")
+                editor.setTextMargins(1, 0, 1, 0)
+                editor.setStyleSheet(
+                    "QLineEdit { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }"
+                )
             elif isinstance(editor, QComboBox):
                 editor.setFont(self._font)
-                editor.setStyleSheet("QComboBox { padding: 0px; margin: 0px; }")
+                editor.setStyleSheet(
+                    "QComboBox { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }"
+                )
             elif hasattr(editor, "setFont"):
                 editor.setFont(self._font)
         except Exception:
@@ -6434,6 +6505,7 @@ class ObjectInspectorPanel(QWidget):
         self.obj_combo = QComboBox(self)
         self.obj_combo.setEditable(False)
         self.obj_combo.setFont(self._ui_font)
+        self.obj_combo.setStyleSheet("QComboBox { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }")
         self.obj_combo.currentIndexChanged.connect(self._on_combo_changed)
         lay.addWidget(self.obj_combo)
 
@@ -6443,11 +6515,11 @@ class ObjectInspectorPanel(QWidget):
 
         self.tree_props = QTreeWidget(self)
         self.tree_props.setFont(self._ui_font)
-        self.tree_props.setIndentation(16)
+        self.tree_props.setIndentation(20)
+        self.tree_props.setRootIsDecorated(True)
         self.tree_props.setItemDelegate(self._tree_delegate)
         self.tree_props.header().setFont(self._ui_font)
         self.tree_props.setColumnCount(2)
-        self.tree_props.setRootIsDecorated(True)
         self.tree_props.setHeaderLabels(["Key", "Value"])
         self.tree_props.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_props.header().setSectionResizeMode(1, QHeaderView.Stretch)
@@ -6456,7 +6528,8 @@ class ObjectInspectorPanel(QWidget):
 
         self.tree_events = QTreeWidget(self)
         self.tree_events.setFont(self._ui_font)
-        self.tree_events.setIndentation(1)
+        self.tree_events.setIndentation(20)
+        self.tree_events.setRootIsDecorated(True)
         self.tree_events.setItemDelegate(self._tree_delegate)
         self.tree_events.header().setFont(self._ui_font)
         self.tree_events.setColumnCount(3)
@@ -6464,13 +6537,14 @@ class ObjectInspectorPanel(QWidget):
         self.tree_events.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.tree_events.header().setSectionResizeMode(1, QHeaderView.Stretch)
         self.tree_events.header().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.tree_events.header().resizeSection(2, 30)
+        self.tree_events.header().resizeSection(2, 34)
         self.tree_events.itemDoubleClicked.connect(self._on_event_double_clicked)
         self.tabs.addTab(self.tree_events, "Events")
 
         self.tree_methods = QTreeWidget(self)
         self.tree_methods.setFont(self._ui_font)
-        self.tree_methods.setIndentation(1)
+        self.tree_methods.setIndentation(20)
+        self.tree_methods.setRootIsDecorated(True)
         self.tree_methods.setItemDelegate(self._tree_delegate)
         self.tree_methods.header().setFont(self._ui_font)
         self.tree_methods.setColumnCount(2)
@@ -6494,23 +6568,21 @@ class ObjectInspectorPanel(QWidget):
 
     def _make_event_button(self, item):
         host = QWidget(self.tree_events)
-        host.setContentsMargins(0, 0, 0, 0)
-
-        lay = QHBoxLayout(host)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(0)
-        lay.addStretch(1)
+        host_layout = QHBoxLayout(host)
+        host_layout.setContentsMargins(0, 0, 0, 0)
+        host_layout.setSpacing(0)
+        host_layout.addStretch(1)
 
         btn = QPushButton("E", host)
         btn.setFixedSize(20, 18)
         btn.setFont(QFont("Arial", 8, QFont.Bold))
         btn.setStyleSheet(
-            "QPushButton { color: #ffff00; background: #303030; border: 1px solid #666666; padding: 0px; margin: 0px; }"
+            "QPushButton { color: #ffff00; background: #303030; border: 1px solid #666666; padding: 0px; }"
             "QPushButton:hover { background: #404040; }"
         )
         btn.clicked.connect(lambda _=False, it=item: self._open_event_editor_for_item(it))
-        lay.addWidget(btn, 0, Qt.AlignRight | Qt.AlignVCenter)
 
+        host_layout.addWidget(btn, 0, Qt.AlignRight | Qt.AlignVCenter)
         self._event_buttons.append(btn)
         return host
 
@@ -7044,6 +7116,59 @@ class SidebarPopupWidget(QFrame):
         self.activateWindow()
 
 
+
+
+class SidebarHoverActionLabel(SidebarActionLabel):
+    hoverEntered = pyqtSignal()
+    hoverLeft = pyqtSignal()
+
+    def enterEvent(self, event):
+        try:
+            self.hoverEntered.emit()
+        except Exception:
+            pass
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        try:
+            self.hoverLeft.emit()
+        except Exception:
+            pass
+        super().leaveEvent(event)
+
+
+class SidebarTrackedPopupWidget(SidebarPopupWidget):
+    hoverEntered = pyqtSignal()
+    hoverLeft = pyqtSignal()
+    popupHidden = pyqtSignal()
+
+    def __init__(self, parent=None, title: str = "", popup_mode: bool = True):
+        super().__init__(parent, title=title)
+        self._popup_mode = bool(popup_mode)
+        self.setWindowFlags((Qt.Popup if self._popup_mode else Qt.Tool) | Qt.FramelessWindowHint)
+        self.hide()
+
+    def enterEvent(self, event):
+        try:
+            self.hoverEntered.emit()
+        except Exception:
+            pass
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        try:
+            self.hoverLeft.emit()
+        except Exception:
+            pass
+        super().leaveEvent(event)
+
+    def hideEvent(self, event):
+        try:
+            self.popupHidden.emit()
+        except Exception:
+            pass
+        super().hideEvent(event)
+
 class SidebarIconButton(QToolButton):
     def __init__(self, text: str, icon: QIcon = None, parent=None):
         super().__init__(parent)
@@ -7073,12 +7198,21 @@ class SidebarIconButton(QToolButton):
         """)
 
 
+
 class FormDesignerDock(QDockWidget):
     def __init__(self, main_window, parent=None):
         super().__init__("", parent)
         self.main_window = main_window
         self._actions_popup = None
+        self._projects_popup = None
         self._convert_popup = None
+        self._tools_popup = None
+        self._doxygen_popup = None
+        self._tools_doxygen_label = None
+        self._doxygen_hide_timer = QTimer(self)
+        self._doxygen_hide_timer.setSingleShot(True)
+        self._doxygen_hide_timer.setInterval(180)
+        self._doxygen_hide_timer.timeout.connect(self._hide_doxygen_popup)
 
         self.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
@@ -7136,6 +7270,11 @@ class FormDesignerDock(QDockWidget):
             st.standardIcon(QStyle.SP_FileDialogDetailedView),
             inner,
         )
+        self.btn_projects = SidebarIconButton(
+            "Projects",
+            st.standardIcon(QStyle.SP_DirOpenIcon),
+            inner,
+        )
         self.btn_help = SidebarIconButton(
             "Hilfe",
             st.standardIcon(QStyle.SP_MessageBoxInformation),
@@ -7151,11 +7290,18 @@ class FormDesignerDock(QDockWidget):
             st.standardIcon(QStyle.SP_FileDialogContentsView),
             inner,
         )
+        self.btn_tools = SidebarIconButton(
+            "Tools",
+            st.standardIcon(QStyle.SP_ComputerIcon),
+            inner,
+        )
 
         lay.addWidget(self.btn_actions, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addWidget(self.btn_projects, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_help, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_convert, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_settings, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addWidget(self.btn_tools, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addStretch(1)
 
         self.scroll.setWidget(inner)
@@ -7169,9 +7315,11 @@ class FormDesignerDock(QDockWidget):
         self.btn_up.clicked.connect(self._scroll_up)
         self.btn_down.clicked.connect(self._scroll_down)
         self.btn_actions.clicked.connect(self._toggle_actions_popup)
+        self.btn_projects.clicked.connect(self._toggle_projects_popup)
         self.btn_help.clicked.connect(self._show_help)
         self.btn_convert.clicked.connect(self._toggle_convert_popup)
         self.btn_settings.clicked.connect(self._open_settings)
+        self.btn_tools.clicked.connect(self._toggle_tools_popup)
 
     def _scroll_up(self):
         try:
@@ -7188,7 +7336,7 @@ class FormDesignerDock(QDockWidget):
             pass
 
     def _close_other_popups(self, keep=None):
-        for popup in (self._actions_popup, self._convert_popup):
+        for popup in (self._actions_popup, self._projects_popup, self._convert_popup, self._tools_popup, self._doxygen_popup):
             try:
                 if popup is not None and popup is not keep and popup.isVisible():
                     popup.hide()
@@ -7209,6 +7357,29 @@ class FormDesignerDock(QDockWidget):
         p.add_action("Neu SQL", lambda: self._run_and_close(p, self.main_window.mdi_open_sql_builder))
         p.add_action("Neu Internet-Dokument", lambda: self._run_and_close(p, lambda: self.main_window.ensure_code_editor_window(focus=True)))
         self._actions_popup = p
+        return p
+
+    def _ensure_projects_popup(self):
+        p = self._projects_popup
+        if p is None:
+            p = SidebarPopupWidget(self, title="Projects")
+            self._projects_popup = p
+        while p._items_layout.count():
+            item = p._items_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        entries = []
+        try:
+            entries = list(self.main_window.recent_project_directories(limit=5))
+        except Exception:
+            entries = []
+        if not entries:
+            p.add_action("Keine Projekte", lambda: p.hide())
+            return p
+        for directory in entries:
+            title = os.path.basename(directory.rstrip('/\\')) or directory
+            p.add_action(title, lambda d=directory: self._run_and_close(p, lambda: self.main_window.open_project_directory(d)))
         return p
 
     def _ensure_convert_popup(self):
@@ -7234,6 +7405,111 @@ class FormDesignerDock(QDockWidget):
             except Exception:
                 pass
 
+
+    def _clear_popup_items(self, popup):
+        try:
+            while popup is not None and popup._items_layout.count():
+                item = popup._items_layout.takeAt(0)
+                w = item.widget()
+                if w is not None:
+                    w.deleteLater()
+        except Exception:
+            pass
+
+    def _run_doxygen_and_close(self, popup, callback):
+        try:
+            if callable(callback):
+                callback()
+        finally:
+            try:
+                popup.hide()
+            except Exception:
+                pass
+            try:
+                if self._tools_popup is not None:
+                    self._tools_popup.hide()
+            except Exception:
+                pass
+
+    def _cancel_doxygen_hide(self):
+        try:
+            self._doxygen_hide_timer.stop()
+        except Exception:
+            pass
+
+    def _schedule_doxygen_hide(self):
+        try:
+            self._doxygen_hide_timer.start()
+        except Exception:
+            pass
+
+    def _hide_doxygen_popup(self):
+        try:
+            if self._doxygen_popup is not None:
+                self._doxygen_popup.hide()
+        except Exception:
+            pass
+
+    def _ensure_tools_popup(self):
+        p = self._tools_popup
+        if p is None:
+            p = SidebarTrackedPopupWidget(self, title="Tools", popup_mode=True)
+            p.popupHidden.connect(self._hide_doxygen_popup)
+            self._tools_popup = p
+        self._clear_popup_items(p)
+        p.add_action("Localize", lambda: self._run_and_close(p, lambda: self.main_window.ensure_localize_tool(focus=True)))
+        lbl = SidebarHoverActionLabel("DoxyGen", callback=lambda: self._show_doxygen_popup_for_label(lbl), parent=p)
+        lbl.hoverEntered.connect(lambda: self._show_doxygen_popup_for_label(lbl))
+        lbl.hoverLeft.connect(self._schedule_doxygen_hide)
+        p._items_layout.addWidget(lbl)
+        self._tools_doxygen_label = lbl
+        return p
+
+    def _ensure_doxygen_popup(self):
+        p = self._doxygen_popup
+        if p is None:
+            p = SidebarTrackedPopupWidget(self, title="DoxyGen", popup_mode=False)
+            p.hoverEntered.connect(self._cancel_doxygen_hide)
+            p.hoverLeft.connect(self._schedule_doxygen_hide)
+            self._doxygen_popup = p
+        self._clear_popup_items(p)
+        p.add_action("New Project", lambda: self._run_doxygen_and_close(p, self.main_window.new_doxygen_project))
+        p.add_action("Open Project", lambda: self._run_doxygen_and_close(p, self.main_window.open_doxygen_project_dialog))
+        entries = []
+        try:
+            entries = list(self.main_window.recent_doxygen_projects(limit=5))
+        except Exception:
+            entries = []
+        if entries:
+            for project_path in entries:
+                title = os.path.basename(project_path.rstrip('/\\')) or project_path
+                p.add_action(title, lambda pp=project_path: self._run_doxygen_and_close(p, lambda: self.main_window.open_doxygen_project(pp)))
+        else:
+            p.add_action("Keine Projekte", lambda: p.hide())
+        return p
+
+    def _show_doxygen_popup_for_label(self, label=None):
+        self._cancel_doxygen_hide()
+        if label is None:
+            label = getattr(self, '_tools_doxygen_label', None)
+        if label is None:
+            return
+        tools_popup = self._ensure_tools_popup()
+        if not tools_popup.isVisible():
+            self._close_other_popups(keep=tools_popup)
+            tools_popup.popup_next_to(self.btn_tools)
+        popup = self._ensure_doxygen_popup()
+        popup.popup_next_to(label, x_offset=6)
+
+    def _toggle_tools_popup(self):
+        popup = self._ensure_tools_popup()
+        self._close_other_popups(keep=popup)
+        if popup.isVisible():
+            popup.hide()
+            self._hide_doxygen_popup()
+        else:
+            popup.popup_next_to(self.btn_tools)
+
     def _toggle_actions_popup(self):
         popup = self._ensure_actions_popup()
         self._close_other_popups(keep=popup)
@@ -7241,6 +7517,14 @@ class FormDesignerDock(QDockWidget):
             popup.hide()
         else:
             popup.popup_next_to(self.btn_actions)
+
+    def _toggle_projects_popup(self):
+        popup = self._ensure_projects_popup()
+        self._close_other_popups(keep=popup)
+        if popup.isVisible():
+            popup.hide()
+        else:
+            popup.popup_next_to(self.btn_projects)
 
     def _toggle_convert_popup(self):
         popup = self._ensure_convert_popup()
@@ -7252,12 +7536,19 @@ class FormDesignerDock(QDockWidget):
 
     def _show_help(self):
         try:
+            if hasattr(self.main_window, 'status_left'):
+                self.main_window.status_left.setText('Hilfe wird geladen...')
+                QApplication.processEvents()
             help_mw = share.utildef.helpwin.HelpMainWindow()
             open_helpwindow(self.main_window.mdi, help_mw)
-            return
         except Exception:
-            pass
-        self._placeholder_message("Hilfe", "Keine Hilfe verfügbar.")
+            self._placeholder_message("Hilfe", "Keine Hilfe verfügbar.")
+        finally:
+            try:
+                if hasattr(self.main_window, 'status_left'):
+                    self.main_window.status_left.setText('Ready')
+            except Exception:
+                pass
 
     def _open_settings(self):
         try:
@@ -7266,6 +7557,877 @@ class FormDesignerDock(QDockWidget):
         except Exception:
             pass
         self._placeholder_message("Einstellungen", "Platzhalter: Einstellungen")
+
+# ---------------------------------------------------------------------------
+# Kompatibilitäts-Alias für den festen Sidebar-Bereich.
+#
+# MainWindow verwendet in diesem Stand bereits `FixedSidebarWidget(...)`,
+# während die konkrete Implementierung oben noch `FormDesignerDock` heißt.
+# Damit der bestehende Code unverändert weiterlaufen kann, bleibt beides gültig.
+# ---------------------------------------------------------------------------
+class FixedSidebarWidget(FormDesignerDock):
+    pass
+
+
+
+class SearchDialogWidget(QWidget):
+    def __init__(self, main_window, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(10)
+        left = QVBoxLayout()
+        left.setSpacing(6)
+        left.addWidget(QLabel("Search Text:", self))
+        self.ed_text = QLineEdit(self)
+        left.addWidget(self.ed_text)
+        left.addWidget(QLabel("RegEx:", self))
+        self.ed_regex = QLineEdit(self)
+        left.addWidget(self.ed_regex)
+        self.chk_regex = QCheckBox("Use RegEx", self)
+        left.addWidget(self.chk_regex)
+        self.lbl_result = QLabel("Ready", self)
+        left.addWidget(self.lbl_result)
+        gb = QGroupBox("Fortführung", self)
+        gb_l = QVBoxLayout(gb)
+        self.rb_forward = QRadioButton("Suche vorwärts vom Anfang fortführen", gb)
+        self.rb_backward = QRadioButton("Suche rückwärts vom Ende fortführen", gb)
+        self.rb_forward.setChecked(True)
+        gb_l.addWidget(self.rb_forward)
+        gb_l.addWidget(self.rb_backward)
+        left.addWidget(gb)
+        left.addStretch(1)
+        right = QVBoxLayout()
+        right.setSpacing(6)
+        self.btn_search = QPushButton("Search", self)
+        self.btn_next = QPushButton("Next", self)
+        self.btn_cancel = QPushButton("Cancel", self)
+        right.addWidget(self.btn_search)
+        right.addWidget(self.btn_next)
+        right.addWidget(self.btn_cancel)
+        right.addStretch(1)
+        root.addLayout(left, 1)
+        root.addLayout(right, 0)
+        self.btn_search.clicked.connect(lambda: self._do_search(restart=True))
+        self.btn_next.clicked.connect(lambda: self._do_search(restart=False))
+        self.btn_cancel.clicked.connect(self.close)
+        self.ed_text.returnPressed.connect(lambda: self._do_search(restart=True))
+        self.ed_regex.returnPressed.connect(lambda: self._do_search(restart=True))
+
+    def _pattern(self):
+        if self.chk_regex.isChecked():
+            return (self.ed_regex.text() or self.ed_text.text() or '').strip(), True
+        return (self.ed_text.text() or '').strip(), False
+
+    def _do_search(self, restart: bool):
+        pattern, use_regex = self._pattern()
+        if not pattern:
+            self.lbl_result.setText("Text was not found")
+            return
+        backward = self.rb_backward.isChecked()
+        ok = False
+        try:
+            ok = bool(self.main_window.find_in_active_editor(pattern, use_regex=use_regex, restart=restart, backward=backward))
+        except Exception:
+            ok = False
+        self.lbl_result.setText("Text was found" if ok else "Text was not found")
+
+
+class ReplaceDialogWidget(QWidget):
+    def __init__(self, main_window, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(6)
+        root.addWidget(QLabel("Search Text:", self))
+        self.ed_search = QLineEdit(self)
+        root.addWidget(self.ed_search)
+        root.addWidget(QLabel("Replace With:", self))
+        self.ed_replace = QLineEdit(self)
+        root.addWidget(self.ed_replace)
+        self.chk_regex = QCheckBox("Use RegEx", self)
+        root.addWidget(self.chk_regex)
+        self.lbl_result = QLabel("Ready", self)
+        root.addWidget(self.lbl_result)
+        btns = QHBoxLayout()
+        btns.addStretch(1)
+        self.btn_apply = QPushButton("Replace", self)
+        self.btn_cancel = QPushButton("Cancel", self)
+        btns.addWidget(self.btn_apply)
+        btns.addWidget(self.btn_cancel)
+        root.addLayout(btns)
+        self.btn_apply.clicked.connect(self._do_replace)
+        self.btn_cancel.clicked.connect(self.close)
+
+    def _do_replace(self):
+        pattern = (self.ed_search.text() or '').strip()
+        repl = self.ed_replace.text() or ''
+        if not pattern:
+            self.lbl_result.setText("Text was not found")
+            return
+        ok = False
+        try:
+            ok = bool(self.main_window.replace_in_active_editor(pattern, repl, use_regex=self.chk_regex.isChecked()))
+        except Exception:
+            ok = False
+        self.lbl_result.setText("Text was found" if ok else "Text was not found")
+
+
+
+class _LocalizeLineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.code_editor = editor
+
+    def sizeHint(self):
+        return QSize(self.code_editor.lineNumberAreaWidth(), 0)
+
+    def paintEvent(self, event):
+        self.code_editor.lineNumberAreaPaintEvent(event)
+
+
+class LocalizeCodeEditor(QPlainTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._line_number_area = _LocalizeLineNumberArea(self)
+        try:
+            self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
+            self.updateRequest.connect(self.updateLineNumberArea)
+            self.cursorPositionChanged.connect(self.highlightCurrentLine)
+        except Exception:
+            pass
+        self.updateLineNumberAreaWidth(0)
+        self.highlightCurrentLine()
+        self.setFont(QFont("Arial", 10))
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+    def lineNumberAreaWidth(self):
+        digits = 1
+        maximum = max(1, self.blockCount())
+        while maximum >= 10:
+            maximum //= 10
+            digits += 1
+        return 10 + self.fontMetrics().horizontalAdvance('9') * digits
+
+    def updateLineNumberAreaWidth(self, _):
+        self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
+
+    def updateLineNumberArea(self, rect, dy):
+        if dy:
+            self._line_number_area.scroll(0, dy)
+        else:
+            self._line_number_area.update(0, rect.y(), self._line_number_area.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self.updateLineNumberAreaWidth(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self._line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height()))
+
+    def lineNumberAreaPaintEvent(self, event):
+        painter = QPainter(self._line_number_area)
+        painter.fillRect(event.rect(), QColor(28, 28, 28))
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.setPen(QColor(170, 170, 170))
+                painter.drawText(0, top, self._line_number_area.width() - 4, self.fontMetrics().height(), Qt.AlignRight, number)
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    def highlightCurrentLine(self):
+        extra = []
+        if not self.isReadOnly():
+            sel = QTextEdit.ExtraSelection()
+            line_color = QColor(255, 216, 102, 28)
+            sel.format.setBackground(line_color)
+            sel.format.setProperty(QTextFormat.FullWidthSelection, True)
+            sel.cursor = self.textCursor()
+            sel.cursor.clearSelection()
+            extra.append(sel)
+        self.setExtraSelections(extra)
+
+
+class LocalizeToolWindow(QWidget):
+    LANGUAGE_CODES = [
+        ("ENU", "English (USA)"),
+        ("ENG", "English"),
+        ("DEU", "Deutsch"),
+        ("FRE", "Français"),
+        ("ESP", "Español"),
+        ("ITA", "Italiano"),
+        ("NLD", "Nederlands"),
+        ("PTB", "Português"),
+        ("PLK", "Polski"),
+        ("RUS", "Русский"),
+    ]
+
+    HEADER_FIELDS = [
+        "Project-Id-Version",
+        "Report-Msgid-Bugs-To",
+        "POT-Creation-Date",
+        "PO-Revision-Date",
+        "Last-Translator",
+        "Language-Team",
+        "Language",
+        "MIME-Version",
+        "Content-Type",
+        "Content-Transfer-Encoding",
+    ]
+
+    def __init__(self, main_window, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+        self.entries = []
+        self._current_index = -1
+        self._block_lang_sync = False
+        self.setFont(QFont("Arial", 10))
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
+        self._build_ui()
+        self._load_state()
+        self._apply_default_headers()
+        self._sync_language_buttons()
+        self._refresh_msgid_list()
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
+
+        self.tabs = QTabWidget(self)
+        root.addWidget(self.tabs, 1)
+
+        self.tabs.addTab(self._build_entries_tab(), "Entries")
+        self.tabs.addTab(self._build_settings_tab(), "Settings")
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        self.btn_create = QPushButton("Create", self)
+        self.btn_help   = QPushButton("Help", self)
+        self.btn_cancel = QPushButton("Cancel", self)
+        for b in (self.btn_create, self.btn_help, self.btn_cancel):
+            b.setMinimumWidth(95)
+            btn_row.addWidget(b)
+        root.addLayout(btn_row)
+
+        self.btn_create.clicked.connect(self._create_mo_file)
+        self.btn_help  .clicked.connect(self._show_help)
+        self.btn_cancel.clicked.connect(self._close_self)
+
+    def _build_entries_tab(self):
+        content = QWidget()
+        outer = QHBoxLayout(content)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(12)
+
+        left_col = QVBoxLayout()
+        left_col.setSpacing(10)
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(8)
+
+        self.gb_source  = QGroupBox("Source", content)
+        self.gb_dest    = QGroupBox("Destination", content)
+        self.src_group  = QButtonGroup(self)
+        self.dst_group  = QButtonGroup(self)
+        self.src_radios = {}
+        self.dst_radios = {}
+
+        src_lay = QVBoxLayout(self.gb_source)
+        dst_lay = QVBoxLayout(self.gb_dest)
+        src_lay.setSpacing(4)
+        dst_lay.setSpacing(4)
+        for code, title in self.LANGUAGE_CODES:
+            rb_src = QRadioButton(code, self.gb_source)
+            rb_src.setToolTip(title)
+            self.src_group.addButton(rb_src)
+            self.src_radios[code] = rb_src
+            src_lay.addWidget(rb_src)
+            rb_dst = QRadioButton(code, self.gb_dest)
+            rb_dst.setToolTip(title)
+            self.dst_group.addButton(rb_dst)
+            self.dst_radios[code] = rb_dst
+            dst_lay.addWidget(rb_dst)
+        lang_row.addWidget(self.gb_source)
+        lang_row.addWidget(self.gb_dest)
+        left_col.addLayout(lang_row)
+
+        self.msgid_list = QListWidget(content)
+        self.msgid_list.setMinimumWidth(240)
+        left_col.addWidget(self.msgid_list, 1)
+
+        editor_col = QVBoxLayout()
+        editor_col.setSpacing(6)
+        editor_col.addWidget(QLabel("MSGID:", content))
+        self.ed_msgid = QLineEdit(content)
+        self.ed_msgid.setFont(QFont("Arial", 10))
+        editor_col.addWidget(self.ed_msgid)
+        editor_col.addWidget(QLabel("MSGSTR:", content))
+        self.text_msgstr = LocalizeCodeEditor(content)
+        self.text_msgstr.setMinimumSize(420, 340)
+        editor_col.addWidget(self.text_msgstr, 1)
+
+        btn_col = QVBoxLayout()
+        btn_col.setSpacing(6)
+        
+        self.btn_insert       = QPushButton(share.locales.tr("Insert")        , content)
+        self.btn_apply        = QPushButton(share.locales.tr("Apply")         , content)
+        self.btn_delete_msgid = QPushButton(share.locales.tr("Delete MSGID")  , content)
+        #
+        self.btn_open_po      = QPushButton(share.locales.tr("Open")          , content)
+        #
+        self.btn_save_po      = QPushButton(share.locales.tr("Save")          , content)
+        self.btn_save_as_po   = QPushButton(share.locales.tr("Save As ...")   , content)
+        #
+        self.btn_paste        = QPushButton(share.locales.tr("Paste")         , content)
+        self.btn_cut          = QPushButton(share.locales.tr("Cut")           , content)
+        self.btn_delete_text  = QPushButton(share.locales.tr("Delete")        , content)
+
+        for b in (
+            self.btn_insert,
+            self.btn_apply,
+            self.btn_delete_msgid,
+            #
+            self.btn_open_po,
+            #
+            self.btn_save_po,
+            self.btn_save_as_po,
+            #
+            self.btn_paste,
+            self.btn_cut,
+            self.btn_delete_text,
+        ):
+            b.setMinimumWidth(110)
+        
+        btn_col.addWidget(self.btn_insert)
+        btn_col.addWidget(self.btn_apply)
+        btn_col.addWidget(self.btn_delete_msgid)
+        btn_col.addSpacing(2)
+        
+        btn_col.addWidget(self.btn_open_po)
+        btn_col.addWidget(self.btn_save_po)
+        btn_col.addWidget(self.btn_save_as_po)
+        btn_col.addSpacing(2)
+        
+        btn_col.addWidget(self.btn_paste)
+        btn_col.addWidget(self.btn_cut)
+        btn_col.addWidget(self.btn_delete_text)
+        btn_col.addSpacing(2)
+
+        outer.addLayout(left_col, 0)
+        outer.addLayout(editor_col, 1)
+        outer.addLayout(btn_col, 0)
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(content)
+        
+        self.msgid_list         .currentRowChanged.connect(self._on_msgid_selection_changed)
+        
+        self.src_group          .buttonClicked.connect(self._sync_language_buttons)
+        self.dst_group          .buttonClicked.connect(self._sync_language_buttons)
+        
+        self.btn_save_po        .clicked.connect(self._save_po)
+        self.btn_save_as_po     .clicked.connect(self._save_po_as)
+        
+        self.btn_open_po.clicked.connect(self._choose_and_open_po)
+        self.btn_paste.clicked  .connect(self._paste_into_focused)
+        self.btn_cut.clicked    .connect(self._cut_from_focused)
+        
+        self.btn_delete_text    .clicked.connect(self._delete_in_focused)
+        self.btn_delete_msgid   .clicked.connect(self._delete_selected_entry)
+        
+        self.btn_insert.clicked .connect(self._insert_entry)
+        self.btn_apply.clicked  .connect(self._apply_entry)
+        
+        return scroll
+
+    def _build_settings_tab(self):
+        content = QWidget()
+        lay = QGridLayout(content)
+        lay.setContentsMargins(10, 10, 10, 10)
+        lay.setHorizontalSpacing(8)
+        lay.setVerticalSpacing(8)
+
+        row = 0
+        lay.addWidget(QLabel("Input file (*.po):", content), row, 0)
+        self.ed_po_path = QLineEdit(content)
+        self.ed_po_path.setFont(QFont("Arial", 10))
+        lay.addWidget(self.ed_po_path, row, 1)
+        self.btn_load_po_path = QPushButton("Load", content)
+        lay.addWidget(self.btn_load_po_path, row, 2)
+        row += 1
+
+        lay.addWidget(QLabel("Output file (*.mo):", content), row, 0)
+        self.ed_mo_path = QLineEdit(content)
+        self.ed_mo_path.setFont(QFont("Arial", 10))
+        lay.addWidget(self.ed_mo_path, row, 1)
+        self.btn_load_mo_path = QPushButton("Load", content)
+        lay.addWidget(self.btn_load_mo_path, row, 2)
+        row += 1
+
+        self.header_edits = {}
+        for header in self.HEADER_FIELDS:
+            lay.addWidget(QLabel(header + ":", content), row, 0)
+            ed = QLineEdit(content)
+            ed.setFont(QFont("Arial", 10))
+            self.header_edits[header] = ed
+            lay.addWidget(ed, row, 1, 1, 2)
+            row += 1
+
+        lay.setColumnStretch(1, 1)
+        lay.setRowStretch(row, 1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(content)
+
+        self.btn_load_po_path.clicked.connect(self._choose_and_open_po)
+        self.btn_load_mo_path.clicked.connect(self._choose_mo_path)
+        return scroll
+
+    def _focused_text_widget(self):
+        fw = QApplication.focusWidget()
+        if isinstance(fw, (QLineEdit, QTextEdit, QPlainTextEdit)):
+            return fw
+        return self.text_msgstr
+
+    def _paste_into_focused(self):
+        w = self._focused_text_widget()
+        try:
+            w.paste()
+        except Exception:
+            pass
+
+    def _cut_from_focused(self):
+        w = self._focused_text_widget()
+        try:
+            w.cut()
+        except Exception:
+            pass
+
+    def _delete_in_focused(self):
+        w = self._focused_text_widget()
+        try:
+            if isinstance(w, QLineEdit):
+                if w.hasSelectedText():
+                    txt = w.text()
+                    a = w.selectionStart()
+                    b = a + len(w.selectedText())
+                    w.setText(txt[:a] + txt[b:])
+                    w.setCursorPosition(a)
+                else:
+                    w.clear()
+            else:
+                tc = w.textCursor()
+                if tc.hasSelection():
+                    tc.removeSelectedText()
+                    w.setTextCursor(tc)
+                else:
+                    tc.select(QTextCursor.LineUnderCursor)
+                    tc.removeSelectedText()
+                    w.setTextCursor(tc)
+        except Exception:
+            pass
+
+    def _normalize_text(self, text):
+        return (text or "").replace("\r\n", "\n").replace("\r", "\n")
+
+    def _escape_po_text(self, text):
+        return (text or "").replace('\\', '\\\\').replace('"', '\\"').replace('\t', '\\t')
+
+    def _serialize_po_lines(self, text):
+        text = self._normalize_text(text)
+        parts = text.split('\n')
+        if parts == ['']:
+            return ['""']
+        out = []
+        for idx, part in enumerate(parts):
+            suffix = '\\n' if idx < len(parts) - 1 else ''
+            out.append(f'"{self._escape_po_text(part)}{suffix}"')
+        return out or ['""']
+
+    def _metadata(self):
+        data = {}
+        for key, ed in self.header_edits.items():
+            data[key] = (ed.text() or "").strip()
+        data["Language"] = self._current_destination_code()
+        return data
+
+    def _serialize_po_content(self):
+        meta = self._metadata()
+        lines = []
+        lines.append('msgid ""')
+        lines.append('msgstr ""')
+        for key in self.HEADER_FIELDS:
+            value = meta.get(key, "")
+            value = f"{key}: {value}" if value else f"{key}:"
+            lines.append(f'"{self._escape_po_text(value)}\\n"')
+        lines.append("")
+        for entry in self.entries:
+            msgid = self._normalize_text(entry.get('msgid', ''))
+            msgstr = self._normalize_text(entry.get('msgstr', ''))
+            lines.append('msgid ""')
+            lines.extend(self._serialize_po_lines(msgid))
+            lines.append('msgstr ""')
+            lines.extend(self._serialize_po_lines(msgstr))
+            lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
+    def _find_entry_index(self, msgid):
+        msgid = self._normalize_text(msgid)
+        for idx, entry in enumerate(self.entries):
+            if self._normalize_text(entry.get('msgid', '')) == msgid:
+                return idx
+        return -1
+
+    def _refresh_msgid_list(self, select_index=None):
+        self.msgid_list.blockSignals(True)
+        self.msgid_list.clear()
+        for entry in self.entries:
+            title = self._normalize_text(entry.get('msgid', ''))
+            title = title.replace('\n', ' ⏎ ')
+            self.msgid_list.addItem(title)
+        self.msgid_list.blockSignals(False)
+        if self.entries:
+            if select_index is None:
+                select_index = 0 if self._current_index < 0 else min(self._current_index, len(self.entries) - 1)
+            self.msgid_list.setCurrentRow(max(0, min(select_index, len(self.entries) - 1)))
+        else:
+            self._current_index = -1
+            self.ed_msgid.clear()
+            self.text_msgstr.clear()
+
+    def _on_msgid_selection_changed(self, row):
+        if row < 0 or row >= len(self.entries):
+            self._current_index = -1
+            return
+        self._current_index = row
+        entry = self.entries[row]
+        self.ed_msgid.setText(self._normalize_text(entry.get('msgid', '')))
+        self.text_msgstr.setPlainText(self._normalize_text(entry.get('msgstr', '')))
+
+    def _insert_entry(self):
+        msgid = self._normalize_text(self.ed_msgid.text())
+        msgstr = self._normalize_text(self.text_msgstr.toPlainText())
+        if not msgid:
+            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine MSGID eingeben.')
+            self.ed_msgid.setFocus()
+            return
+        idx = self._find_entry_index(msgid)
+        if idx >= 0:
+            self.entries[idx]['msgstr'] = msgstr
+            self._current_index = idx
+        else:
+            self.entries.append({'msgid': msgid, 'msgstr': msgstr})
+            self._current_index = len(self.entries) - 1
+        self._refresh_msgid_list(select_index=self._current_index)
+
+    def _apply_entry(self):
+        if self._current_index < 0 or self._current_index >= len(self.entries):
+            self._insert_entry()
+            return
+        msgid = self._normalize_text(self.ed_msgid.text())
+        msgstr = self._normalize_text(self.text_msgstr.toPlainText())
+        if not msgid:
+            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine MSGID eingeben.')
+            return
+        old_msgid = self._normalize_text(self.entries[self._current_index].get('msgid', ''))
+        other = self._find_entry_index(msgid)
+        if other >= 0 and other != self._current_index and msgid != old_msgid:
+            QMessageBox.warning(self, 'Localize', 'Die MSGID existiert bereits.')
+            return
+        self.entries[self._current_index] = {'msgid': msgid, 'msgstr': msgstr}
+        self._refresh_msgid_list(select_index=self._current_index)
+
+    def _delete_selected_entry(self):
+        row = self.msgid_list.currentRow()
+        if row < 0 or row >= len(self.entries):
+            return
+        del self.entries[row]
+        self._current_index = -1
+        self._refresh_msgid_list(select_index=min(row, len(self.entries) - 1))
+
+    def _choose_and_open_po(self):
+        start = self.ed_po_path.text().strip() or os.getcwd()
+        path, _ = QFileDialog.getOpenFileName(self, 'PO-Datei öffnen', start, 'PO Dateien (*.po);;Alle Dateien (*.*)')
+        path = (path or '').strip()
+        if not path:
+            return
+        self.ed_po_path.setText(path)
+        self._open_po(path)
+
+    def _choose_mo_path(self):
+        start = self.ed_mo_path.text().strip() or os.getcwd()
+        path, _ = QFileDialog.getSaveFileName(self, 'MO-Datei auswählen', start, 'MO Dateien (*.mo);;Alle Dateien (*.*)')
+        path = (path or '').strip()
+        if not path:
+            return
+        self.ed_mo_path.setText(path)
+
+    def _open_po(self, path):
+        path = os.path.normpath((path or '').strip())
+        if not path:
+            return
+        try:
+            import polib
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'polib konnte nicht geladen werden:\n{e}')
+            return
+        try:
+            po = polib.pofile(path)
+            self.entries = []
+            for entry in po:
+                if getattr(entry, 'obsolete', False):
+                    continue
+                self.entries.append({'msgid': self._normalize_text(entry.msgid), 'msgstr': self._normalize_text(entry.msgstr)})
+            for key in self.HEADER_FIELDS:
+                self.header_edits[key].setText(po.metadata.get(key, ''))
+            self._apply_language_schema(po.metadata.get('Language', ''), fallback_to_default=True)
+            self._refresh_msgid_list(select_index=0)
+            self._save_state()
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht geladen werden:\n{e}')
+
+    def _write_po_file(self, path):
+        path = os.path.normpath((path or '').strip())
+        if not path:
+            raise ValueError('Kein Dateiname für die Eingabedatei (*.po) angegeben.')
+        self.header_edits['Language'].setText(self._language_schema_value())
+        folder = os.path.dirname(path) or os.getcwd()
+        os.makedirs(folder, exist_ok=True)
+        with open(path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(self._serialize_po_content())
+        self.ed_po_path.setText(path)
+        self._save_state()
+
+    def _save_po(self):
+        path = self.ed_po_path.text().strip()
+        if not path:
+            return self._save_po_as()
+        try:
+            self._write_po_file(path)
+            QMessageBox.information(self, 'Localize', 'PO-Datei wurde gespeichert.')
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht gespeichert werden:\n{e}')
+
+    def _save_po_as(self):
+        start = self.ed_po_path.text().strip() or os.path.join(os.getcwd(), 'messages.po')
+        path, _ = QFileDialog.getSaveFileName(self, 'PO-Datei speichern', start, 'PO Dateien (*.po);;Alle Dateien (*.*)')
+        path = (path or '').strip()
+        if not path:
+            return
+        try:
+            self._write_po_file(path)
+            QMessageBox.information(self, 'Localize', 'PO-Datei wurde gespeichert.')
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht gespeichert werden:\n{e}')
+
+    def _ensure_output_writable(self, path):
+        folder = os.path.dirname(path) or os.getcwd()
+        os.makedirs(folder, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(prefix='localize_', suffix='.tmp', dir=folder)
+        os.close(fd)
+        os.remove(tmp_path)
+
+    def _create_mo_file(self):
+        po_path = self.ed_po_path.text().strip()
+        mo_path = self.ed_mo_path.text().strip()
+        if not po_path:
+            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine Eingabedatei (*.po) angeben.')
+            self.tabs.setCurrentIndex(1)
+            self.ed_po_path.setFocus()
+            return
+        if not mo_path:
+            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine Ausgabedatei (*.mo) angeben.')
+            self.tabs.setCurrentIndex(1)
+            self.ed_mo_path.setFocus()
+            return
+        try:
+            self._write_po_file(po_path)
+            self._ensure_output_writable(mo_path)
+            import polib
+            po = polib.pofile(po_path)
+            po.save_as_mofile(mo_path)
+            QMessageBox.information(self, 'Localize', 'MO-Datei wurde erzeugt.')
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'MO-Datei konnte nicht erzeugt werden:\n{e}')
+
+    def _show_help(self):
+        try:
+            help_mw = share.utildef.helpwin.HelpMainWindow()
+            open_helpwindow(self.main_window.mdi, help_mw)
+        except Exception:
+            QMessageBox.information(self, 'Help', 'Keine Hilfe verfügbar.')
+
+    def _close_self(self):
+        try:
+            self._save_state()
+        except Exception:
+            pass
+        try:
+            host = self.parent()
+            if isinstance(host, QMdiSubWindow):
+                host.close()
+                return
+        except Exception:
+            pass
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def closeEvent(self, event):
+        try:
+            self._save_state()
+        except Exception:
+            pass
+        super().closeEvent(event)
+
+    def _current_source_code(self):
+        for code, rb in self.src_radios.items():
+            if rb.isChecked():
+                return code
+        return 'ENU'
+
+    def _current_destination_code(self):
+        for code, rb in self.dst_radios.items():
+            if rb.isChecked():
+                return code
+        return 'DEU'
+
+    def _default_language_schema(self):
+        return 'ENU:DEU'
+
+    def _language_schema_value(self):
+        return f"{self._current_source_code()}:{self._current_destination_code()}"
+
+    def _parse_language_schema(self, value):
+        value = (value or '').strip().upper()
+        m = re.match(r'^([A-Z]{3}):([A-Z]{3})$', value)
+        if not m:
+            return ('ENU', 'DEU')
+        src, dst = m.group(1), m.group(2)
+        if src not in self.src_radios or dst not in self.dst_radios or src == dst:
+            return ('ENU', 'DEU')
+        return (src, dst)
+
+    def _set_language_pair(self, src, dst):
+        src, dst = self._parse_language_schema(f'{src}:{dst}')
+        self._block_lang_sync = True
+        try:
+            if src in self.src_radios:
+                self.src_radios[src].setChecked(True)
+            else:
+                self.src_radios['ENU'].setChecked(True)
+            if dst in self.dst_radios and dst != self._current_source_code():
+                self.dst_radios[dst].setChecked(True)
+            else:
+                fallback = 'DEU' if self._current_source_code() != 'DEU' else 'ENU'
+                self.dst_radios[fallback].setChecked(True)
+        finally:
+            self._block_lang_sync = False
+        self._sync_language_buttons()
+
+    def _apply_language_schema(self, value, fallback_to_default=True):
+        raw = (value or '').strip()
+        if raw:
+            src, dst = self._parse_language_schema(raw)
+        elif fallback_to_default:
+            src, dst = ('ENU', 'DEU')
+        else:
+            return
+        self._set_language_pair(src, dst)
+        self.header_edits['Language'].setText(self._language_schema_value())
+
+    def _sync_language_buttons(self):
+        if self._block_lang_sync:
+            return
+        self._block_lang_sync = True
+        try:
+            src = self._current_source_code()
+            dst = self._current_destination_code()
+            for code, rb in self.src_radios.items():
+                rb.setEnabled(code != dst)
+            for code, rb in self.dst_radios.items():
+                rb.setEnabled(code != src)
+            if src == dst:
+                fallback = 'DEU' if src != 'DEU' else 'ENU'
+                if fallback in self.dst_radios:
+                    self.dst_radios[fallback].setChecked(True)
+                    dst = fallback
+                else:
+                    for code, rb in self.dst_radios.items():
+                        if code != src and rb.isEnabled():
+                            rb.setChecked(True)
+                            dst = code
+                            break
+            self.header_edits['Language'].setText(f'{src}:{dst}')
+        finally:
+            self._block_lang_sync = False
+
+    def _apply_default_headers(self):
+        now = QDateTime.currentDateTime().toString('yyyy-MM-dd HH:mmZ')
+        defaults = {
+            'Project-Id-Version': '1.0',
+            'Report-Msgid-Bugs-To': '',
+            'POT-Creation-Date': now,
+            'PO-Revision-Date': now,
+            'Last-Translator': '',
+            'Language-Team': '',
+            'Language': self._language_schema_value(),
+            'MIME-Version': '1.0',
+            'Content-Type': 'text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding': '8bit',
+        }
+        for key, value in defaults.items():
+            if not self.header_edits[key].text().strip():
+                self.header_edits[key].setText(value)
+
+    def _load_state(self):
+        try:
+            src = (self.main_window._settings.value('localize/source_lang', 'ENU', type=str) or 'ENU').strip()
+            dst = (self.main_window._settings.value('localize/dest_lang', 'DEU', type=str) or 'DEU').strip()
+            self.ed_po_path.setText((self.main_window._settings.value('localize/po_path', '', type=str) or '').strip())
+            self.ed_mo_path.setText((self.main_window._settings.value('localize/mo_path', '', type=str) or '').strip())
+            for key in self.HEADER_FIELDS:
+                self.header_edits[key].setText((self.main_window._settings.value(f'localize/header/{key}', '', type=str) or '').strip())
+            schema = self.header_edits['Language'].text().strip()
+            if schema:
+                self._apply_language_schema(schema, fallback_to_default=True)
+            else:
+                self._set_language_pair(src, dst)
+                self.header_edits['Language'].setText(self._language_schema_value())
+        except Exception:
+            try:
+                self._set_language_pair('ENU', 'DEU')
+                self.header_edits['Language'].setText(self._default_language_schema())
+            except Exception:
+                pass
+
+    def _save_state(self):
+        try:
+            self.header_edits['Language'].setText(self._language_schema_value())
+            self.main_window._settings.setValue('localize/source_lang'  , self._current_source_code())
+            self.main_window._settings.setValue('localize/dest_lang'    , self._current_destination_code())
+            self.main_window._settings.setValue('localize/po_path'      , self.ed_po_path.text().strip())
+            self.main_window._settings.setValue('localize/mo_path'      , self.ed_mo_path.text().strip())
+            for key in self.HEADER_FIELDS:
+                self.main_window._settings.setValue(f'localize/header/{key}', self.header_edits[key].text().strip())
+        except Exception:
+            pass
 
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
@@ -7293,10 +8455,11 @@ class MainWindow(QMainWindow):
             if hasattr(self, "menu_file"):       self.menu_file      .setTitle(share.locales.tr("File"))
             if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(share.locales.tr("Edit"))
             if hasattr(self, "menu_display"):    self.menu_display   .setTitle(share.locales.tr("View"))
-            if hasattr(self, "menu_properties"): self.menu_properties.setTitle(share.locales.tr("Properties"))
+            if hasattr(self, "menu_properties") and self.menu_properties is not None: self.menu_properties.setTitle(share.locales.tr("Properties"))
             if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(share.locales.tr("Window"))
             if hasattr(self, "menu_help"):       self.menu_help      .setTitle(share.locales.tr("Help"))
             if hasattr(self, "menu_language"):   self.menu_language  .setTitle(share.locales.tr("Language"))
+            if hasattr(self, "action_workplace"): self.action_workplace.setText(share.locales.tr("Eigenschaften"))
         except Exception:
             pass
 
@@ -7415,7 +8578,47 @@ class MainWindow(QMainWindow):
         self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
         
         self.setWindowTitle(_runner_window_title())
-        self.setCentralWidget(self.mdi)
+
+        self._central_host = QWidget(self)
+        self._central_host_layout = QHBoxLayout(self._central_host)
+        self._central_host_layout.setContentsMargins(0, 0, 0, 0)
+        self._central_host_layout.setSpacing(0)
+
+        self.sidebar_widget = FixedSidebarWidget(self, self._central_host)
+        self.sidebar_widget.setMinimumWidth(100)
+        self.sidebar_widget.setMaximumWidth(100)
+
+        self.designer_panels_host = QWidget(self._central_host)
+        self.designer_panels_host.setObjectName("DesignerPanelsHost")
+        self.designer_panels_host.setMinimumWidth(220)
+        self.designer_panels_host.setMaximumWidth(420)
+        self.designer_panels_host.hide()
+
+        self.designer_panels_layout = QVBoxLayout(self.designer_panels_host)
+        self.designer_panels_layout.setContentsMargins(0, 0, 0, 0)
+        self.designer_panels_layout.setSpacing(0)
+
+        self.designer_splitter = QSplitter(Qt.Vertical, self.designer_panels_host)
+        self.designer_splitter.setObjectName("DesignerPanelsSplitter")
+        self.designer_splitter.setChildrenCollapsible(False)
+        self.designer_panels_layout.addWidget(self.designer_splitter, 1)
+
+        self.designer_outer_splitter = QSplitter(Qt.Horizontal, self._central_host)
+        self.designer_outer_splitter.setObjectName("DesignerOuterSplitter")
+        self.designer_outer_splitter.setChildrenCollapsible(False)
+        self.designer_outer_splitter.addWidget(self.designer_panels_host)
+        self.designer_outer_splitter.addWidget(self.mdi)
+        self.designer_outer_splitter.setStretchFactor(0, 0)
+        self.designer_outer_splitter.setStretchFactor(1, 1)
+        try:
+            self.designer_outer_splitter.setSizes([320, 1200])
+        except Exception:
+            pass
+
+        self._central_host_layout.addWidget(self.sidebar_widget, 0)
+        self._central_host_layout.addWidget(self.designer_outer_splitter, 1)
+
+        self.setCentralWidget(self._central_host)
         
         # Factory: wie dein Help-Fenster erzeugt wird
         def create_help():
@@ -7473,32 +8676,35 @@ class MainWindow(QMainWindow):
 
         self.menu_file       = menubar.addMenu(share.locales.tr("File"))
         self.menu_file.setFont(f2)
-        
+
         self.menu_edit       = menubar.addMenu(share.locales.tr("Edit"))
         self.menu_edit.setFont(f2)
-        
-        self.act_edit_minimap = QAction(share.locales.tr("Mini-Map"), self, checkable=True, checked=True)
-        self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
-        
-        self.menu_edit.addAction(self.act_edit_minimap)
-        
+
         self.menu_display    = menubar.addMenu(share.locales.tr("View"))
         self.menu_display.setFont(f2)
-        
-        # Ansicht/Anzeige: mindestens eine Action hinzufügen, sonst öffnet Qt das Menü nicht (leeres Menü => unsichtbar)
+
+        self.menu_properties = QMenu(share.locales.tr("Properties"), self)
+        self.menu_windows    = menubar.addMenu(share.locales.tr("Window"))
+        self.menu_help       = menubar.addMenu(share.locales.tr("Help"))
+
+        self.action_workplace = QAction(share.locales.tr("Eigenschaften"), self)
+        self.action_workplace.triggered.connect(self.open_workplace_properties)
+        self.menu_display.addAction(self.action_workplace)
+        self.menu_display.addSeparator()
+
         self.act_view_debug_window = QAction(share.locales.tr("Debug Window"), self)
         self.act_view_regie        = QAction(share.locales.tr("Control Center"), self)
-        self.act_view_designer     = QAction(share.locales.tr("Designer")      , self)
-        self.act_view_editor       = QAction(share.locales.tr("Editor")        , self)
+        self.act_view_designer     = QAction(share.locales.tr("Designer"), self)
+        self.act_view_editor       = QAction(share.locales.tr("Editor"), self)
         self.act_view_table        = QAction(share.locales.tr("Table Designer"), self)
-
-        self.act_view_sql = QAction(share.locales.tr("SQL Builder"), self)
+        self.act_view_sql          = QAction(share.locales.tr("SQL Builder"), self)
+        self.act_edit_minimap      = QAction(share.locales.tr("Mini-Map"), self, checkable=True, checked=True)
+        self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
         self.act_view_debug_window.triggered.connect(self.on_action_view_debug_window)
-        self.act_view_regie       .triggered.connect(self.on_action_view_regiecenter)
-        self.act_view_designer    .triggered.connect(self.on_action_view_designer)
-        self.act_view_editor      .triggered.connect(self.on_action_view_editor)
-        self.act_view_table       .triggered.connect(self.on_action_view_table_designer)
-
+        self.act_view_regie.triggered.connect(self.on_action_view_regiecenter)
+        self.act_view_designer.triggered.connect(self.on_action_view_designer)
+        self.act_view_editor.triggered.connect(self.on_action_view_editor)
+        self.act_view_table.triggered.connect(self.on_action_view_table_designer)
         self.act_view_sql.triggered.connect(self.on_action_view_sql_builder)
         self.menu_display.addAction(self.act_view_debug_window)
         self.menu_display.addSeparator()
@@ -7509,85 +8715,90 @@ class MainWindow(QMainWindow):
         self.menu_display.addAction(self.act_view_table)
         self.menu_display.addSeparator()
         self.menu_display.addAction(self.act_view_sql)
+        self.menu_display.addSeparator()
+        self.menu_display.addAction(self.act_edit_minimap)
 
-        # --- Ansicht -> Sprache ---
         self.menu_language = self.menu_display.addMenu(share.locales.tr("Language"))
         try:
             from PyQt5.QtWidgets import QActionGroup
         except Exception:
             QActionGroup = None
-
         self.act_lang_en = QAction("English", self)
         self.act_lang_de = QAction("Deutsch", self)
         self.act_lang_en.setCheckable(True)
         self.act_lang_de.setCheckable(True)
-
         if QActionGroup is not None:
             grp = QActionGroup(self)
             grp.setExclusive(True)
             grp.addAction(self.act_lang_en)
             grp.addAction(self.act_lang_de)
-
-        # Default checked
-        if (share.locales.I18N.lang or "").lower().startswith("de"):
+        if (share.locales.I18N.lang or '').lower().startswith('de'):
             self.act_lang_de.setChecked(True)
         else:
             self.act_lang_en.setChecked(True)
-            
-        self._set_language("de")
-        self.act_lang_en.triggered.connect(lambda: self._set_language("en"))
-        self.act_lang_de.triggered.connect(lambda: self._set_language("de"))
-
+        self._set_language('de')
+        self.act_lang_en.triggered.connect(lambda: self._set_language('en'))
+        self.act_lang_de.triggered.connect(lambda: self._set_language('de'))
         self.menu_language.addAction(self.act_lang_en)
         self.menu_language.addAction(self.act_lang_de)
 
-        self.menu_properties = menubar.addMenu(share.locales.tr("Properties"))
-        self.menu_windows    = menubar.addMenu(share.locales.tr("Window"))
-        self.menu_help       = menubar.addMenu(share.locales.tr("Help"))
-        
-        menu_file_new               = self.menu_file.addMenu(share.locales.tr("New"))
+        self.act_edit_undo = QAction('Undo', self, shortcut=QKeySequence('Ctrl+Z'))
+        self.act_edit_redo = QAction('Redo', self, shortcut=QKeySequence('Ctrl+Y'))
+        self.act_edit_paste = QAction('Paste', self, shortcut=QKeySequence('Ctrl+V'))
+        self.act_edit_copy = QAction('Copy', self, shortcut=QKeySequence('Ctrl+C'))
+        self.act_edit_cut = QAction('Cut', self, shortcut=QKeySequence('Ctrl+X'))
+        self.act_edit_replace = QAction('Replace', self, shortcut=QKeySequence('Ctrl+H'))
+        self.act_edit_search = QAction('Search', self, shortcut=QKeySequence('Ctrl+F'))
+        self.act_edit_undo.triggered.connect(self.on_action_edit_undo)
+        self.act_edit_redo.triggered.connect(self.on_action_edit_redo)
+        self.act_edit_paste.triggered.connect(self.on_action_edit_paste)
+        self.act_edit_copy.triggered.connect(self.on_action_edit_copy)
+        self.act_edit_cut.triggered.connect(self.on_action_edit_cut)
+        self.act_edit_replace.triggered.connect(self.on_action_edit_replace)
+        self.act_edit_search.triggered.connect(self.on_action_edit_search)
+        self.menu_edit.addAction(self.act_edit_undo)
+        self.menu_edit.addAction(self.act_edit_redo)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_edit_paste)
+        self.menu_edit.addAction(self.act_edit_copy)
+        self.menu_edit.addAction(self.act_edit_cut)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_edit_replace)
+        self.menu_edit.addAction(self.act_edit_search)
+
+        menu_file_new = self.menu_file.addMenu(share.locales.tr("New"))
         menu_file_new.setFont(f2)
-        
-        self.action_file_open            = QAction(share.locales.tr("Open"), self)
-        self.action_file_close           = QAction(share.locales.tr("Close"), self)
-        
+        self.action_file_open = QAction(share.locales.tr("Open"), self)
+        self.action_file_close = QAction(share.locales.tr("Close"), self)
         self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
         self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
-        
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
-        
-        action_file_new_project     = QAction(share.locales.tr("New Project"), self)
-        action_file_open_project    = QAction(share.locales.tr("Open Project"), self)
-        action_file_print           = QAction(share.locales.tr("Print"), self)
-
+        action_file_new_project = QAction(share.locales.tr("New Project"), self)
+        action_file_open_project = QAction(share.locales.tr("Open Project"), self)
+        action_file_print = QAction(share.locales.tr("Print"), self)
         action_file_print.setShortcut(QKeySequence("Ctrl+P"))
-        
-        action_file_new_project .triggered.connect(self.on_action_file_new_project)
+        action_file_new_project.triggered.connect(self.on_action_file_new_project)
         action_file_open_project.triggered.connect(self.on_action_file_open_project)
-        
-        action_file_print_preview   = QAction(share.locales.tr("Print Preview")        , self)
-        action_file_window_app      = QAction(share.locales.tr("One-Click Application"), self)
-        action_file_web_wizard      = QAction(share.locales.tr("Web Wizard")           , self)
-        action_file_database        = QAction(share.locales.tr("Database Manager")     , self)
-        action_file_exit            = QAction(share.locales.tr("Exit")                 , self)
-        
-        action_file_print        .triggered.connect(self.on_action_file_print)
+        action_file_print_preview = QAction(share.locales.tr("Print Preview"), self)
+        action_file_window_app = QAction(share.locales.tr("One-Click Application"), self)
+        action_file_web_wizard = QAction(share.locales.tr("Web Wizard"), self)
+        action_file_database = QAction(share.locales.tr("Database Manager"), self)
+        action_file_exit = QAction(share.locales.tr("Exit"), self)
+        action_file_print.triggered.connect(self.on_action_file_print)
         action_file_print_preview.triggered.connect(self.on_action_file_print_preview)
-        action_file_window_app   .triggered.connect(self.on_action_file_window_app)
-        action_file_web_wizard   .triggered.connect(self.on_action_file_web_wizard)
-        action_file_database     .triggered.connect(self.on_action_file_database)
-        action_file_exit         .triggered.connect(self.on_action_file_exit)
-        
-        action_file_new_form        = QAction(share.locales.tr("Forms")     , self)
-        action_file_new_menu        = QAction(share.locales.tr("Menue")     , self)
-        action_file_new_popupmenu   = QAction(share.locales.tr("Popup-Menu"), self)
-        action_file_new_report      = QAction(share.locales.tr("Reports")   , self)
-        action_file_new_labels      = QAction(share.locales.tr("Labels")    , self)
-        action_file_new_program     = QAction(share.locales.tr("Programs")  , self)
-        action_file_new_table       = QAction(share.locales.tr("Tables")    , self)
-        action_file_new_sql         = QAction(share.locales.tr("Queries")   , self)
-        
+        action_file_window_app.triggered.connect(self.on_action_file_window_app)
+        action_file_web_wizard.triggered.connect(self.on_action_file_web_wizard)
+        action_file_database.triggered.connect(self.on_action_file_database)
+        action_file_exit.triggered.connect(self.on_action_file_exit)
+        action_file_new_form = QAction(share.locales.tr("Forms"), self)
+        action_file_new_menu = QAction(share.locales.tr("Menue"), self)
+        action_file_new_popupmenu = QAction(share.locales.tr("Popup-Menu"), self)
+        action_file_new_report = QAction(share.locales.tr("Reports"), self)
+        action_file_new_labels = QAction(share.locales.tr("Labels"), self)
+        action_file_new_program = QAction(share.locales.tr("Programs"), self)
+        action_file_new_table = QAction(share.locales.tr("Tables"), self)
+        action_file_new_sql = QAction(share.locales.tr("Queries"), self)
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
         menu_file_new.addAction(action_file_new_popupmenu)
@@ -7599,7 +8810,6 @@ class MainWindow(QMainWindow):
         menu_file_new.addSeparator()
         menu_file_new.addAction(action_file_new_table)
         menu_file_new.addAction(action_file_new_sql)
-        
         self.menu_file.addAction(self.action_file_open)
         self.menu_file.addAction(self.action_file_close)
         self.menu_file.addSeparator()
@@ -7614,19 +8824,18 @@ class MainWindow(QMainWindow):
         self.menu_file.addSeparator()
         self.menu_file.addAction(action_file_database)
         self.menu_file.addAction(action_file_exit)
-        
-        action_workplace = QAction(share.locales.tr("Arbeitsplatz"), self)
-        action_workplace.triggered.connect(self.open_workplace_properties)
-        
-        self.menu_properties.addAction(action_workplace)
-        
-        action_cascade = QAction(share.locales.tr("Kaskadieren"  ), self, triggered = self.mdi.cascadeSubWindows)
-        action_tile    = QAction(share.locales.tr("Nebeneinander"), self, triggered = self.mdi.tileSubWindows)
-        
-        self.menu_windows.addAction(action_cascade)
-        self.menu_windows.addAction(action_tile)
+
+        self.action_window_cascade = QAction('Cascade', self, triggered=self.mdi.cascadeSubWindows)
+        self.action_window_tile = QAction('Tiled', self, triggered=self.mdi.tileSubWindows)
+        self.action_window_close_all = QAction('Alle schließen', self, triggered=self.close_all_mdi_subwindows)
+        try:
+            self.menu_windows.aboutToShow.connect(self.rebuild_windows_menu)
+            self.mdi.subWindowActivated.connect(lambda _=None: self.rebuild_windows_menu())
+        except Exception:
+            pass
 
         self._dlg_workplace = None  # Dialog-Instanz merken (nicht jedes Mal neu)
+
         
         self._create_toolbar()
         self._create_statusbar()
@@ -8017,31 +9226,38 @@ class MainWindow(QMainWindow):
             return None
 
     
+
     def ensure_designer(self, focus: bool = True):
         # DockWindows + Form-Designer sicherstellen
         try:
             need_init = (
-                not hasattr(self, 'form_designer_dock') or self.form_designer_dock is None or
                 not hasattr(self, 'obj_inspector_dock') or self.obj_inspector_dock is None or
                 not hasattr(self, 'obj_palette_dock') or self.obj_palette_dock is None
             )
             if need_init:
                 _init_designer_panels(self)
             try:
-                self.form_designer_dock.show()
-                self.form_designer_dock.raise_()
+                if hasattr(self, 'sidebar_widget') and self.sidebar_widget is not None:
+                    self.sidebar_widget.show()
+                if hasattr(self, 'designer_panels_host') and self.designer_panels_host is not None:
+                    self.designer_panels_host.show()
+                if hasattr(self, 'designer_splitter') and self.designer_splitter is not None:
+                    self.designer_splitter.show()
+                    try:
+                        self.designer_splitter.setSizes([260, 220])
+                    except Exception:
+                        pass
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
-                sidebar = getattr(self, 'form_designer_dock', None)
-                if sidebar is not None and self.obj_inspector_dock is not None:
-                    self.splitDockWidget(sidebar, self.obj_inspector_dock, Qt.Horizontal)
-                    self.resizeDocks([sidebar, self.obj_inspector_dock], [100, 232], Qt.Horizontal)
-                    self.resizeDocks([self.obj_inspector_dock, self.obj_palette_dock], [320, 240], Qt.Vertical)
+                if hasattr(self, 'designer_outer_splitter') and self.designer_outer_splitter is not None:
+                    try:
+                        self.designer_outer_splitter.setSizes([320, max(600, self.width() - 460)])
+                    except Exception:
+                        pass
             except Exception:
                 pass
         except Exception as e:
             QMessageBox.warning(self, "Designer", f"Designer-Docks konnten nicht erstellt werden:\n{e}")
-
         # FormDesignerWindow im MDI suchen/erzeugen
         try:
             fw = getattr(self, "form_designer_window", None)
@@ -8085,11 +9301,417 @@ class MainWindow(QMainWindow):
         self.mdi_open_table_designer()
 
 
+    def _active_text_editor_widget(self):
+        try:
+            sub = self.mdi.activeSubWindow()
+            w = sub.widget() if sub else None
+        except Exception:
+            w = None
+
+        candidates = []
+        if w is not None:
+            candidates.append(w)
+            for attr in ("current_editor", "editor", "code_editor", "text_edit", "text"):
+                if hasattr(w, attr):
+                    try:
+                        obj = getattr(w, attr)()
+                    except TypeError:
+                        obj = getattr(w, attr)
+                    except Exception:
+                        obj = None
+                    if obj is not None:
+                        candidates.append(obj)
+
+        fw = QApplication.focusWidget()
+        if fw is not None:
+            candidates.append(fw)
+
+        for cand in candidates:
+            try:
+                if isinstance(cand, (QPlainTextEdit, QTextEdit, QLineEdit)):
+                    return cand
+            except Exception:
+                pass
+        return None
+
+    def _editor_action(self, name: str):
+        ed = self._active_text_editor_widget()
+        if ed is None:
+            return
+        fn = getattr(ed, name, None)
+        if callable(fn):
+            try:
+                fn()
+            except Exception:
+                pass
+
+    def on_action_edit_undo(self): self._editor_action("undo")
+    def on_action_edit_redo(self): self._editor_action("redo")
+    def on_action_edit_copy(self): self._editor_action("copy")
+    def on_action_edit_cut(self): self._editor_action("cut")
+    def on_action_edit_paste(self): self._editor_action("paste")
+
+    def _open_mdi_tool_widget(self, widget: QWidget, title: str, size: QSize = QSize(460, 220)):
+        sub = self.mdi.addSubWindow(widget)
+        mark_escape_close(sub)
+        sub.setWindowTitle(title)
+        sub.resize(size)
+        widget.show()
+        sub.show()
+        self.mdi.setActiveSubWindow(sub)
+        return sub, widget
+
+    def on_action_edit_search(self):
+        widget = SearchDialogWidget(self)
+        self._open_mdi_tool_widget(widget, "Search", QSize(520, 240))
+
+    def on_action_edit_replace(self):
+        widget = ReplaceDialogWidget(self)
+        self._open_mdi_tool_widget(widget, "Replace", QSize(520, 200))
+
+    def find_in_active_editor(self, pattern: str, use_regex: bool = False, restart: bool = False, backward: bool = False) -> bool:
+        ed = self._active_text_editor_widget()
+        if ed is None:
+            return False
+
+        try:
+            full_text = ed.toPlainText() if hasattr(ed, "toPlainText") else ed.text()
+        except Exception:
+            return False
+
+        cursor = ed.textCursor() if hasattr(ed, "textCursor") else None
+        if cursor is None:
+            return False
+
+        if restart:
+            start_pos = len(full_text) if backward else 0
+        else:
+            start_pos = cursor.selectionStart() if backward else cursor.selectionEnd()
+
+        match_start = -1
+        match_end = -1
+
+        try:
+            if use_regex:
+                rx = re.compile(pattern, re.MULTILINE)
+                if backward:
+                    matches = list(rx.finditer(full_text[:start_pos]))
+                    if matches:
+                        m = matches[-1]
+                        match_start, match_end = m.start(), m.end()
+                else:
+                    m = rx.search(full_text, max(0, start_pos))
+                    if m:
+                        match_start, match_end = m.start(), m.end()
+            else:
+                if backward:
+                    match_start = full_text.rfind(pattern, 0, max(0, start_pos))
+                else:
+                    match_start = full_text.find(pattern, max(0, start_pos))
+                if match_start >= 0:
+                    match_end = match_start + len(pattern)
+        except re.error:
+            return False
+
+        if match_start < 0 or match_end < 0:
+            return False
+
+        try:
+            tc = ed.textCursor()
+            tc.setPosition(match_start)
+            tc.setPosition(match_end, QTextCursor.KeepAnchor)
+            ed.setTextCursor(tc)
+            if hasattr(ed, "centerCursor"):
+                ed.centerCursor()
+            ed.setFocus()
+        except Exception:
+            return False
+        return True
+
+    def replace_in_active_editor(self, pattern: str, replacement: str, use_regex: bool = False) -> bool:
+        ed = self._active_text_editor_widget()
+        if ed is None:
+            return False
+
+        try:
+            tc = ed.textCursor()
+            selected = tc.selectedText()
+        except Exception:
+            return False
+
+        if not pattern:
+            return False
+
+        replaced = False
+        try:
+            if use_regex:
+                if selected:
+                    new_text, count = re.subn(pattern, replacement, selected, count=1)
+                    if count:
+                        tc.insertText(new_text)
+                        replaced = True
+                if not replaced:
+                    if self.find_in_active_editor(pattern, use_regex=True, restart=False, backward=False):
+                        return self.replace_in_active_editor(pattern, replacement, use_regex=True)
+            else:
+                if selected == pattern:
+                    tc.insertText(replacement)
+                    replaced = True
+                if not replaced:
+                    if self.find_in_active_editor(pattern, use_regex=False, restart=False, backward=False):
+                        return self.replace_in_active_editor(pattern, replacement, use_regex=False)
+        except re.error:
+            return False
+        return replaced
+
+    def rebuild_windows_menu(self):
+        self.menu_windows.clear()
+        windows = []
+        try:
+            windows = self.mdi.subWindowList()
+        except Exception:
+            windows = []
+
+        active = None
+        try:
+            active = self.mdi.activeSubWindow()
+        except Exception:
+            active = None
+
+        for idx, sub in enumerate(windows, 1):
+            title = sub.windowTitle() or f"Window {idx}"
+            act = QAction(title, self, checkable=True)
+            act.setChecked(sub is active)
+            act.triggered.connect(lambda checked=False, s=sub: self._activate_mdi_subwindow(s))
+            self.menu_windows.addAction(act)
+
+        if windows:
+            self.menu_windows.addSeparator()
+
+        self.menu_windows.addAction(self.action_window_cascade)
+        self.menu_windows.addAction(self.action_window_tile)
+        self.menu_windows.addSeparator()
+        self.menu_windows.addAction(self.action_window_close_all)
+
+    def _activate_mdi_subwindow(self, sub):
+        try:
+            if sub is not None:
+                self.mdi.setActiveSubWindow(sub)
+                sub.showNormal()
+                sub.raise_()
+        except Exception:
+            pass
+
+    def close_all_mdi_subwindows(self):
+        try:
+            self.mdi.closeAllSubWindows()
+        except Exception:
+            pass
+
+    def open_project_directory(self, directory: str):
+        directory = (directory or "").strip()
+        if not directory or not os.path.isdir(directory):
+            return
+        try:
+            self.record_project_directory(directory)
+        except Exception:
+            pass
+        rc = self.ensure_regie_center(focus=True)
+        if rc is None:
+            return
+        try:
+            rc._add_and_select_dir(directory)
+        except Exception:
+            try:
+                if rc.combo.findText(directory, Qt.MatchExactly) < 0:
+                    rc.combo.addItem(directory)
+                rc.combo.setCurrentText(directory)
+            except Exception:
+                pass
+
+
+
+    def record_project_directory(self, directory: str):
+        directory = (directory or '').strip()
+        if not directory or not os.path.isdir(directory):
+            return
+        try:
+            items = self._settings.value('projects/recent_dirs', [], type=list) or []
+        except Exception:
+            items = []
+        items = [d for d in items if d and os.path.isdir(d) and os.path.normpath(d) != os.path.normpath(directory)]
+        items.insert(0, os.path.normpath(directory))
+        items = items[:5]
+        try:
+            self._settings.setValue('projects/recent_dirs', items)
+        except Exception:
+            pass
+
+    def recent_project_directories(self, limit: int = 5):
+        try:
+            items = self._settings.value('projects/recent_dirs', [], type=list) or []
+        except Exception:
+            items = []
+        out = []
+        for d in items:
+            d = (d or '').strip()
+            if d and os.path.isdir(d) and d not in out:
+                out.append(d)
+            if len(out) >= max(1, int(limit or 5)):
+                break
+        return out
+
+
+    def ensure_localize_tool(self, focus: bool = True):
+        try:
+            existing = getattr(self, '_localize_tool_window', None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+        try:
+            widget = LocalizeToolWindow(self)
+            self._localize_tool_window = widget
+            sub = self.mdi.addSubWindow(widget)
+            mark_escape_close(sub)
+            sub.setWindowTitle('Localize')
+            sub.resize(856, 580)
+            widget.show()
+            sub.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            try:
+                widget.destroyed.connect(lambda *_: setattr(self, '_localize_tool_window', None))
+            except Exception:
+                pass
+            return widget
+        except Exception as e:
+            QMessageBox.warning(self, 'Localize', f'Localize konnte nicht geöffnet werden:\n{e}')
+            return None
+
+    def record_doxygen_project(self, project_path: str):
+        project_path = os.path.normpath((project_path or '').strip())
+        if not project_path:
+            return
+        try:
+            items = self._settings.value('doxygen/recent_projects', [], type=list) or []
+        except Exception:
+            items = []
+        clean = []
+        for entry in items:
+            entry = os.path.normpath((entry or '').strip())
+            if entry and entry != project_path and entry not in clean:
+                clean.append(entry)
+        clean.insert(0, project_path)
+        clean = clean[:8]
+        try:
+            self._settings.setValue('doxygen/recent_projects', clean)
+        except Exception:
+            pass
+
+    def recent_doxygen_projects(self, limit: int = 5):
+        try:
+            items = self._settings.value('doxygen/recent_projects', [], type=list) or []
+        except Exception:
+            items = []
+        out = []
+        for entry in items:
+            entry = os.path.normpath((entry or '').strip())
+            if entry and entry not in out:
+                out.append(entry)
+            if len(out) >= max(1, int(limit or 5)):
+                break
+        return out
+
+    def _open_text_file_in_editor(self, path: str):
+        path = os.path.normpath((path or '').strip())
+        if not path or not os.path.isfile(path):
+            return False
+        try:
+            sub = self.mdi.activeSubWindow() if hasattr(self, 'mdi') else None
+            win = sub.widget() if sub else None
+        except Exception:
+            sub = None
+            win = None
+        try:
+            if isinstance(win, FileEditorWindow):
+                win.open_path_in_tab(path)
+                win.raise_()
+                try:
+                    win.activateWindow()
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+        try:
+            new_win = FileEditorWindow(parent=self, initial_path='', initial_text='')
+            subw = self.mdi.addSubWindow(new_win)
+            mark_escape_close(subw)
+            new_win.resize(700, 500)
+            new_win.show()
+            new_win.open_path_in_tab(path)
+            self.mdi.setActiveSubWindow(subw)
+            return True
+        except Exception:
+            return False
+
+    def new_doxygen_project(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            'Neues DoxyGen Projekt',
+            os.path.join(os.getcwd(), 'Doxyfile'),
+            'Doxygen Projekt (*.doxy *.cfg *.conf *.txt);;Alle Dateien (*.*)'
+        )
+        path = (path or '').strip()
+        if not path:
+            return
+        try:
+            if not os.path.exists(path):
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write('PROJECT_NAME = "New Project"\n')
+                    f.write('OUTPUT_DIRECTORY = out\n')
+                    f.write('INPUT = .\n')
+                    f.write('RECURSIVE = YES\n')
+                    f.write('GENERATE_HTML = YES\n')
+            self.record_doxygen_project(path)
+            self._open_text_file_in_editor(path)
+        except Exception as e:
+            QMessageBox.warning(self, 'DoxyGen', f'Konnte Projektdatei nicht anlegen:\n{e}')
+
+    def open_doxygen_project(self, project_path: str):
+        project_path = os.path.normpath((project_path or '').strip())
+        if not project_path:
+            return
+        self.record_doxygen_project(project_path)
+        if os.path.isfile(project_path):
+            if self._open_text_file_in_editor(project_path):
+                return
+        QMessageBox.information(self, 'DoxyGen', project_path)
+
+    def open_doxygen_project_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            'DoxyGen Projekt öffnen',
+            os.getcwd(),
+            'Doxygen Projekt (*.doxy *.cfg *.conf *.txt);;Alle Dateien (*.*)'
+        )
+        path = (path or '').strip()
+        if not path:
+            return
+        self.open_doxygen_project(path)
+
     def on_action_view_sql_builder(self):
         self.mdi_open_sql_builder()
 
     def on_action_file_open_project(self):
-        pass
+        self.open_project_directory(QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd()))
         
     def on_action_file_print(self):
         pass
@@ -8231,15 +9853,12 @@ class MainWindow(QMainWindow):
         debug_print("file new project")
 
     def _init_form_designer_dock(self):
+        # Die feste Sidebar ist bereits Teil des zentralen Layouts.
+        # Hier kein zusätzliches Dock-Fenster mehr erzeugen.
         try:
-            old = getattr(self, 'form_designer_dock', None)
-            if old is not None:
-                old.hide()
-                old.close()
+            self.form_designer_dock = getattr(self, 'sidebar_widget', None)
         except Exception:
-            pass
-        self.form_designer_dock = FormDesignerDock(self, self)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.form_designer_dock)
+            self.form_designer_dock = None
 
     def _active_file_editor_window(self):
         try:
@@ -8352,45 +9971,10 @@ class MainWindow(QMainWindow):
     # Verzeichnis setzen.
     # ---------------------------------------------------------------------------
     def on_action_file_open_project(self):
-        from PyQt5.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd())
         if not directory:
             return
-
-        # RegieCenter existiert?
-        rc = getattr(self, "regie_center", None)
-
-        # Falls nicht vorhanden, versuche ein vorhandenes RegieCenter im MDI zu finden
-        if rc is None:
-            for sub in self.mdi.subWindowList():
-                w = sub.widget()
-                if w is None:
-                    continue
-                if w.__class__.__name__ == "RegieCenter":
-                    rc = w
-                    self.regie_center = w
-                    break
-
-        if rc is None:
-            QMessageBox.information(self, "Hinweis", "RegieCenter ist nicht geöffnet.")
-            return
-
-        # Falls RegieCenter eine Pfad-Combo hat, setzen wir sie (und triggern Refresh)
-        if hasattr(rc, "path_combo"):
-            # optional: Duplikate vermeiden
-            if rc.path_combo.findText(directory) < 0:
-                rc.path_combo.insertItem(0, directory)
-            rc.path_combo.setCurrentText(directory)
-        elif hasattr(rc, "set_project_directory"):
-            rc.set_project_directory(directory)
-        else:
-            # Fallback: direkt an die IconTabs geben, wenn vorhanden
-            if hasattr(rc, "icon_tabs"):
-                try:
-                    rc.icon_tabs.set_directory_for_all(directory)
-                except Exception:
-                    pass
-            QMessageBox.information(self, "Hinweis", "Projektpfad gesetzt, aber UI-Bindung unbekannt.")
+        self.open_project_directory(directory)
     def on_action_file_print(self):
         debug_print("file print")
     def on_action_file_print_preview(self):
@@ -8433,7 +10017,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status)
 
         # Panel 1 – linker Bereich (dehnbar)
-        self.status_left = QLabel(share.locales.tr("Bereit"))
+        self.status_left = QLabel("Ready")
         self.status_left.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         # Panel 2 – Mitte
@@ -8479,6 +10063,11 @@ class MainWindow(QMainWindow):
                 self.setWindowTitle(f"{active.windowTitle()} - dBase Runner")
             else:
                 self.setWindowTitle("dBase Runner")
+        except Exception:
+            pass
+
+        try:
+            self.status_mid.setText(f"MDI: {len(self.mdi.subWindowList())} Fenster")
         except Exception:
             pass
 
