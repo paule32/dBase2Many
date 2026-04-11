@@ -6038,100 +6038,54 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # feste Sidebar links sicherstellen
+    # vorhandene Docks wiederverwenden
     try:
-        if not hasattr(main_window, 'form_designer_dock') or main_window.form_designer_dock is None:
-            main_window._init_form_designer_dock()
+        if getattr(main_window, "obj_inspector_dock", None) is None:
+            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
+            main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
     except Exception:
         pass
 
     try:
-        sidebar = getattr(main_window, 'form_designer_dock', None)
-        if sidebar is not None:
-            sidebar.setAllowedAreas(Qt.LeftDockWidgetArea)
-            sidebar.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            sidebar.setFloating(False)
-            sidebar.show()
-            sidebar.raise_()
-            sidebar.setMinimumWidth(100)
-            sidebar.setMaximumWidth(100)
-            try:
-                w = sidebar.widget()
-                if w is not None:
-                    w.setMinimumWidth(100)
-                    w.setMaximumWidth(100)
-            except Exception:
-                pass
+        if getattr(main_window, "obj_palette_dock", None) is None:
+            main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
+            main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
     except Exception:
         pass
 
-    for attr in ('obj_inspector_dock', 'obj_palette_dock'):
-        try:
-            old = getattr(main_window, attr, None)
-            if old is not None:
-                old.hide()
-                old.close()
-        except Exception:
-            pass
-        try:
-            setattr(main_window, attr, None)
-        except Exception:
-            pass
-
+    # feste Startbreiten / dynamisch danach
     try:
-        main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
-        main_window.obj_inspector_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-        main_window.obj_inspector_dock.setMinimumWidth(232)
-        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
+        main_window.obj_inspector_dock.setMinimumWidth(180)
+        main_window.obj_palette_dock.setMinimumWidth(180)
     except Exception:
         pass
 
+    # Palette unter Inspector
     try:
-        main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
-        main_window.obj_palette_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-        main_window.obj_palette_dock.setMinimumWidth(232)
-        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
+        main_window.splitDockWidget(
+            main_window.obj_inspector_dock,
+            main_window.obj_palette_dock,
+            Qt.Vertical
+        )
     except Exception:
         pass
 
+    # Startgrößen für den vertikalen Splitter
     try:
-        sidebar = getattr(main_window, 'form_designer_dock', None)
-        if sidebar is not None and main_window.obj_inspector_dock is not None:
-            main_window.splitDockWidget(sidebar, main_window.obj_inspector_dock, Qt.Horizontal)
+        main_window.resizeDocks(
+            [main_window.obj_inspector_dock, main_window.obj_palette_dock],
+            [260, 220],
+            Qt.Vertical
+        )
     except Exception:
         pass
 
+    # Formular-Designer als MDI-Fenster nur einmal erzeugen
     try:
-        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
-            main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
-    except Exception:
-        pass
-
-    try:
-        sidebar = getattr(main_window, 'form_designer_dock', None)
-        if sidebar is not None and main_window.obj_inspector_dock is not None:
-            main_window.resizeDocks([sidebar, main_window.obj_inspector_dock], [100, 232], Qt.Horizontal)
-        if main_window.obj_inspector_dock is not None and main_window.obj_palette_dock is not None:
-            main_window.resizeDocks([main_window.obj_inspector_dock, main_window.obj_palette_dock], [320, 240], Qt.Vertical)
-    except Exception:
-        pass
-
-    try:
-        main_window.obj_inspector_dock.show()
-        main_window.obj_palette_dock.show()
-        sidebar = getattr(main_window, 'form_designer_dock', None)
-        if sidebar is not None:
-            sidebar.show()
-            sidebar.raise_()
-    except Exception:
-        pass
-
-    try:
-        fw = getattr(main_window, 'form_designer_window', None)
-        if fw is None:
+        if getattr(main_window, "form_designer_window", None) is None:
             designer = FormDesignerWindow(main_window)
             main_window.form_designer_window = designer
-            main_window.designer_canvas = getattr(designer, 'canvas', None)
+            main_window.designer_canvas = getattr(designer, "canvas", None)
             sub = main_window.mdi.addSubWindow(designer)
             sub.setWindowTitle(share.locales.tr("Form Designer"))
             sub.resize(700, 520)
@@ -6139,6 +6093,7 @@ def _init_designer_panels(main_window: "MainWindow") -> None:
             designer.show()
     except Exception:
         pass
+
 class ObjectInspectorPanel(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
