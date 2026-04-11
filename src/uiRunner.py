@@ -3696,7 +3696,7 @@ class RegieCenter(QDialog):
                 self.combo.setCurrentIndex(0)
         except Exception:
             pass
-
+            
 # ---------------------------------------------------------------------------
 # Tab 'Benutzer BDE Aliases' wie Screenshot, inkl. Add/Remove/Edit + nicht
 # native Dialoge.
@@ -5920,117 +5920,6 @@ class PixelGridCanvas(QWidget):
         menu.exec_(ev.globalPos())
         
 # ---------------------------------------------------------------------------
-# Feste Sidebar links im Hauptfenster (kein Dock-Fenster).
-# Behaelt 100 px Breite und enthaelt eine scrollbare Icon-Liste.
-# ---------------------------------------------------------------------------
-class FixedSidebarPanel(QWidget):
-    def __init__(self, main_window: "MainWindow", parent=None):
-        super().__init__(parent)
-        self.main_window = main_window
-        self.setObjectName("FixedSidebarPanel")
-        self.setMinimumWidth(100)
-        self.setMaximumWidth(100)
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(4, 4, 4, 4)
-        root.setSpacing(4)
-
-        self.btn_up = QPushButton("▲\nOben", self)
-        self.btn_down = QPushButton("▼\nUnten", self)
-        for btn in (self.btn_up, self.btn_down):
-            btn.setFixedHeight(52)
-            btn.setStyleSheet("""
-                QPushButton {
-                    color: #ffd700;
-                    background: #1f1f1f;
-                    border: 1px solid #555555;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background: #2a2a2a;
-                }
-                QPushButton:pressed {
-                    background: #111111;
-                }
-            """)
-
-        self.scroll = QScrollArea(self)
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll.setFrameShape(QFrame.NoFrame)
-
-        self.inner = QWidget(self.scroll)
-        self.inner.setMinimumWidth(90)
-        self.inner.setMaximumWidth(90)
-        self.inner_layout = QVBoxLayout(self.inner)
-        self.inner_layout.setContentsMargins(2, 2, 2, 2)
-        self.inner_layout.setSpacing(6)
-        self.inner_layout.addStretch(1)
-        self.scroll.setWidget(self.inner)
-
-        self.btn_up.clicked.connect(self.scroll_up)
-        self.btn_down.clicked.connect(self.scroll_down)
-
-        root.addWidget(self.btn_up, 0)
-        root.addWidget(self.scroll, 1)
-        root.addWidget(self.btn_down, 0)
-
-        self._fill_defaults()
-
-    def _make_button(self, text: str, icon: QIcon = None) -> QToolButton:
-        btn = QToolButton(self.inner)
-        btn.setText(text)
-        if icon is not None:
-            btn.setIcon(icon)
-        btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        btn.setIconSize(QSize(32, 32))
-        btn.setFixedWidth(88)
-        btn.setMinimumHeight(72)
-        btn.setStyleSheet("""
-            QToolButton {
-                color: #ffd700;
-                background: #1f1f1f;
-                border: 1px solid #3a3a3a;
-                border-radius: 6px;
-                padding: 4px;
-            }
-            QToolButton:hover {
-                background: #2a2a2a;
-                border: 1px solid #666666;
-            }
-            QToolButton:pressed {
-                background: #111111;
-            }
-        """)
-        return btn
-
-    def _add_item(self, text: str, icon: QIcon = None):
-        btn = self._make_button(text, icon)
-        idx = max(0, self.inner_layout.count() - 1)
-        self.inner_layout.insertWidget(idx, btn)
-
-    def _fill_defaults(self):
-        st = self.style()
-        self._add_item("Start", st.standardIcon(QStyle.SP_DesktopIcon))
-        self._add_item("Datei", st.standardIcon(QStyle.SP_FileIcon))
-        self._add_item("Ordner", st.standardIcon(QStyle.SP_DirIcon))
-        self._add_item("Form", st.standardIcon(QStyle.SP_FileDialogDetailedView))
-        self._add_item("Tabelle", st.standardIcon(QStyle.SP_DriveHDIcon))
-        self._add_item("SQL", st.standardIcon(QStyle.SP_DriveNetIcon))
-        self._add_item("Hilfe", st.standardIcon(QStyle.SP_MessageBoxInformation))
-
-    def scroll_up(self):
-        bar = self.scroll.verticalScrollBar()
-        bar.setValue(bar.value() - 80)
-
-    def scroll_down(self):
-        bar = self.scroll.verticalScrollBar()
-        bar.setValue(bar.value() + 80)
-
-# ---------------------------------------------------------------------------
 # Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid.
 # ---------------------------------------------------------------------------
 class FormDesignerWindow(QWidget):
@@ -6119,56 +6008,35 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    dock_host = getattr(main_window, "workspace", main_window)
-
-    # Feste Sidebar sicherstellen und sichtbar halten
+    # 1) Docks links
     try:
-        main_window._init_form_designer_dock()
-        if getattr(main_window, "form_designer_sidebar", None) is not None:
-            main_window.form_designer_sidebar.show()
+        main_window.obj_inspector_dock = ObjectInspectorDock(main_window, main_window)
+        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
     except Exception:
         pass
 
-    # Inspector-Dock links im Workspace (also rechts neben der Sidebar)
     try:
-        if getattr(main_window, "obj_inspector_dock", None) is None:
-            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, dock_host)
-        dock_host.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_inspector_dock)
-        main_window.obj_inspector_dock.show()
-    except Exception:
-        pass
-
-    # Palette-Dock ebenfalls links im Workspace
-    try:
-        if getattr(main_window, "obj_palette_dock", None) is None:
-            main_window.obj_palette_dock = ObjectPaletteDock(main_window, dock_host)
-        dock_host.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
-        main_window.obj_palette_dock.show()
+        main_window.obj_palette_dock = ObjectPaletteDock(main_window, main_window)
+        main_window.addDockWidget(Qt.LeftDockWidgetArea, main_window.obj_palette_dock)
     except Exception:
         pass
 
     # Docks untereinander anordnen (Palette unter Inspector)
     try:
-        if getattr(main_window, "obj_inspector_dock", None) is not None and getattr(main_window, "obj_palette_dock", None) is not None:
-            dock_host.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
-            main_window.obj_inspector_dock.setMinimumWidth(180)
-            main_window.obj_palette_dock.setMinimumWidth(180)
-            dock_host.resizeDocks([main_window.obj_inspector_dock], [230], Qt.Horizontal)
-            dock_host.resizeDocks([main_window.obj_inspector_dock, main_window.obj_palette_dock], [230, 230], Qt.Vertical)
+        main_window.splitDockWidget(main_window.obj_inspector_dock, main_window.obj_palette_dock, Qt.Vertical)
     except Exception:
         pass
 
-    # Formular-Designer als extra MDI SubWindow
+    # 2) Formular-Designer als extra MDI SubWindow
     try:
-        if getattr(main_window, "form_designer_window", None) is None:
-            designer = FormDesignerWindow(main_window)
-            main_window.form_designer_window = designer
-            main_window.designer_canvas = getattr(designer, 'canvas', None)
-            sub = main_window.mdi.addSubWindow(designer)
-            sub.setWindowTitle(share.locales.tr("Form Designer"))
-            sub.resize(700, 520)
-            sub.move(220, 40)
-            designer.show()
+        designer = FormDesignerWindow(main_window)
+        main_window.form_designer_window = designer
+        main_window.designer_canvas = getattr(designer, 'canvas', None)
+        sub = main_window.mdi.addSubWindow(designer)
+        sub.setWindowTitle(share.locales.tr("Form Designer"))
+        sub.resize(700, 520)
+        sub.move(220, 40)
+        designer.show()
     except Exception:
         pass
 
@@ -6642,6 +6510,253 @@ class DebugConsoleWidget(QWidget):
             tb = traceback.format_exc()
             self.append_output(tb)
 
+
+
+class SidebarActionLabel(QLabel):
+    def __init__(self, text: str, callback=None, parent=None):
+        super().__init__(text, parent)
+        self._callback = callback
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMargin(8)
+        self.setStyleSheet("""
+            QLabel {
+                color: #ffd866;
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 6px 8px;
+            }
+            QLabel:hover {
+                background: #2a2a2a;
+                border: 1px solid #555555;
+            }
+        """)
+
+    def mousePressEvent(self, event):
+        try:
+            if callable(self._callback):
+                self._callback()
+        finally:
+            super().mousePressEvent(event)
+
+
+class SidebarPopupWidget(QFrame):
+    def __init__(self, parent=None, title: str = ""):
+        super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint)
+        self.setObjectName("SidebarPopupWidget")
+        self.setFrameShape(QFrame.NoFrame)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
+        self.setStyleSheet("""
+            QFrame#SidebarPopupWidget {
+                background: #1f1f1f;
+                color: #ffd866;
+                border: 1px solid #555555;
+                border-radius: 8px;
+            }
+            QLabel {
+                color: #ffd866;
+            }
+        """)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 10, 10, 10)
+        lay.setSpacing(4)
+
+        if title:
+            lbl = QLabel(title, self)
+            f = QFont("Arial", 10)
+            f.setBold(True)
+            lbl.setFont(f)
+            lay.addWidget(lbl)
+
+        self._items_layout = QVBoxLayout()
+        self._items_layout.setContentsMargins(0, 0, 0, 0)
+        self._items_layout.setSpacing(2)
+        lay.addLayout(self._items_layout)
+
+    def add_action(self, text: str, callback):
+        lbl = SidebarActionLabel(text, callback=callback, parent=self)
+        self._items_layout.addWidget(lbl)
+        return lbl
+
+    def popup_next_to(self, anchor: QWidget, x_offset: int = 8):
+        if anchor is None:
+            self.show()
+            return
+        self.adjustSize()
+        gp = anchor.mapToGlobal(QPoint(anchor.width() + x_offset, 0))
+        self.move(gp)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+
+class SidebarIconButton(QToolButton):
+    def __init__(self, text: str, icon: QIcon = None, parent=None):
+        super().__init__(parent)
+        self.setText(text)
+        if icon is not None:
+            self.setIcon(icon)
+        self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.setIconSize(QSize(32, 32))
+        self.setFixedWidth(88)
+        self.setMinimumHeight(76)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("""
+            QToolButton {
+                color: #ffd866;
+                background: #1f1f1f;
+                border: 1px solid #3a3a3a;
+                border-radius: 6px;
+                padding: 6px 4px;
+            }
+            QToolButton:hover {
+                background: #2a2a2a;
+                border: 1px solid #666666;
+            }
+            QToolButton:pressed {
+                background: #111111;
+            }
+        """)
+
+
+class FormDesignerDock(QDockWidget):
+    def __init__(self, main_window, parent=None):
+        super().__init__("", parent)
+        self.main_window = main_window
+        self._actions_popup = None
+        self._convert_popup = None
+
+        self.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.setFloating(False)
+        self.setTitleBarWidget(QWidget(self))
+        self.setMinimumWidth(100)
+        self.setMaximumWidth(100)
+
+        host = QWidget(self)
+        host.setMinimumWidth(100)
+        host.setMaximumWidth(100)
+
+        lay = QVBoxLayout(host)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(8)
+
+        st = self.style()
+        self.btn_actions = SidebarIconButton(
+            "Actions",
+            st.standardIcon(QStyle.SP_FileDialogDetailedView),
+            host,
+        )
+        self.btn_help = SidebarIconButton(
+            "Hilfe",
+            st.standardIcon(QStyle.SP_MessageBoxInformation),
+            host,
+        )
+        self.btn_convert = SidebarIconButton(
+            "Convert",
+            st.standardIcon(QStyle.SP_BrowserReload),
+            host,
+        )
+        self.btn_settings = SidebarIconButton(
+            "Einstellungen",
+            st.standardIcon(QStyle.SP_FileDialogContentsView),
+            host,
+        )
+
+        lay.addWidget(self.btn_actions, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addWidget(self.btn_help, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addWidget(self.btn_convert, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addWidget(self.btn_settings, 0, Qt.AlignTop | Qt.AlignHCenter)
+        lay.addStretch(1)
+
+        self.setWidget(host)
+
+        self.btn_actions.clicked.connect(self._toggle_actions_popup)
+        self.btn_help.clicked.connect(self._show_help)
+        self.btn_convert.clicked.connect(self._toggle_convert_popup)
+        self.btn_settings.clicked.connect(self._open_settings)
+
+    def _close_other_popups(self, keep=None):
+        for popup in (self._actions_popup, self._convert_popup):
+            try:
+                if popup is not None and popup is not keep and popup.isVisible():
+                    popup.hide()
+            except Exception:
+                pass
+
+    def _placeholder_message(self, title: str, text: str):
+        QMessageBox.information(self.main_window, title, text)
+
+    def _ensure_actions_popup(self):
+        if self._actions_popup is not None:
+            return self._actions_popup
+        p = SidebarPopupWidget(self, title="Actions")
+        p.add_action("Neu Tabelle", lambda: self._run_and_close(p, self.main_window.mdi_open_table_designer))
+        p.add_action("Neu Formular", lambda: self._run_and_close(p, lambda: self.main_window.ensure_designer(focus=True)))
+        p.add_action("Neu Programm", lambda: self._run_and_close(p, lambda: self.main_window.ensure_code_editor_window(focus=True)))
+        p.add_action("Neu Bericht", lambda: self._run_and_close(p, lambda: self._placeholder_message("Bericht", "Platzhalter: Neuer Bericht")))
+        p.add_action("Neu SQL", lambda: self._run_and_close(p, self.main_window.mdi_open_sql_builder))
+        p.add_action("Neu Internet-Dokument", lambda: self._run_and_close(p, lambda: self.main_window.ensure_code_editor_window(focus=True)))
+        self._actions_popup = p
+        return p
+
+    def _ensure_convert_popup(self):
+        if self._convert_popup is not None:
+            return self._convert_popup
+        p = SidebarPopupWidget(self, title="Convert")
+        p.add_action("Convert to Python", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Python")))
+        p.add_action("Convert to Pascal", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Pascal")))
+        p.add_action("Convert to JavaScript", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to JavaScript")))
+        p.add_action("Convert to Java", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Java")))
+        p.add_action("Convert to C/C++", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to C/C++")))
+        p.add_action("Convert to Visual Basic", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Visual Basic")))
+        self._convert_popup = p
+        return p
+
+    def _run_and_close(self, popup, callback):
+        try:
+            if callable(callback):
+                callback()
+        finally:
+            try:
+                popup.hide()
+            except Exception:
+                pass
+
+    def _toggle_actions_popup(self):
+        popup = self._ensure_actions_popup()
+        self._close_other_popups(keep=popup)
+        if popup.isVisible():
+            popup.hide()
+        else:
+            popup.popup_next_to(self.btn_actions)
+
+    def _toggle_convert_popup(self):
+        popup = self._ensure_convert_popup()
+        self._close_other_popups(keep=popup)
+        if popup.isVisible():
+            popup.hide()
+        else:
+            popup.popup_next_to(self.btn_convert)
+
+    def _show_help(self):
+        try:
+            help_mw = share.utildef.helpwin.HelpMainWindow()
+            open_helpwindow(self.main_window.mdi, help_mw)
+            return
+        except Exception:
+            pass
+        self._placeholder_message("Hilfe", "Keine Hilfe verfügbar.")
+
+    def _open_settings(self):
+        try:
+            self.main_window.open_workplace_properties()
+            return
+        except Exception:
+            pass
+        self._placeholder_message("Einstellungen", "Platzhalter: Einstellungen")
+
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -6788,28 +6903,10 @@ class MainWindow(QMainWindow):
         
         self.mdi.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
-
-        # Feste Sidebar links + separater Workspace rechts, damit
-        # Inspector/Palette rechts neben der Sidebar andocken koennen.
-        self.workspace = QMainWindow(self)
-        self.workspace.setDockNestingEnabled(True)
-        self.workspace.setCentralWidget(self.mdi)
-
-        self.form_designer_sidebar = FixedSidebarPanel(self, self)
-        self.form_designer_sidebar.setMinimumWidth(100)
-        self.form_designer_sidebar.setMaximumWidth(100)
-
-        self._central_host = QWidget(self)
-        self._central_host_layout = QHBoxLayout(self._central_host)
-        self._central_host_layout.setContentsMargins(0, 0, 0, 0)
-        self._central_host_layout.setSpacing(0)
-        self._central_host_layout.addWidget(self.form_designer_sidebar, 0)
-        self._central_host_layout.addWidget(self.workspace, 1)
         
         self.setWindowTitle(_runner_window_title())
-        self.setCentralWidget(self._central_host)
-
-        # Factory: wie dein Help-Fenster erzeugt wird
+        self.setCentralWidget(self.mdi)
+        
         # Factory: wie dein Help-Fenster erzeugt wird
         def create_help():
             # Beispiel: irgendein HelpMainWindow / HelpWidget
@@ -7026,6 +7123,11 @@ class MainWindow(QMainWindow):
         
         self.dark_mode = True
         self.apply_theme()
+
+        try:
+            self._init_form_designer_dock()
+        except Exception:
+            pass
         
         dlg = RegieCenter()
         self.regie_center = dlg
@@ -7406,15 +7508,20 @@ class MainWindow(QMainWindow):
 
     
     def ensure_designer(self, focus: bool = True):
-        # Sidebar + DockWindows + Form-Designer sicherstellen
+        # DockWindows + Form-Designer sicherstellen
         try:
-            self._init_form_designer_dock()
-            if getattr(self, "obj_inspector_dock", None) is None or getattr(self, "obj_palette_dock", None) is None:
+            if not hasattr(self, "obj_inspector_dock") or not hasattr(self, "obj_palette_dock"):
                 _init_designer_panels(self)
-            try:
-                self.form_designer_sidebar.show()
-            except Exception:
-                pass
+                # restore saved dock positions (INI)
+                try:
+                    st = self._settings.value("designer/main_state", None)
+                    if st is not None:
+                        self.restoreState(st)
+                    geom = self._settings.value("designer/main_geom", None)
+                    if geom is not None:
+                        self.restoreGeometry(geom)
+                except Exception:
+                    pass
             try:
                 self.obj_inspector_dock.show()
                 self.obj_palette_dock.show()
@@ -7613,19 +7720,15 @@ class MainWindow(QMainWindow):
         debug_print("file new project")
 
     def _init_form_designer_dock(self):
-        # Feste Sidebar links sicherstellen (kein Dock-Fenster mehr)
         try:
-            if getattr(self, "form_designer_sidebar", None) is None:
-                self.form_designer_sidebar = FixedSidebarPanel(self, self)
-                self.form_designer_sidebar.setMinimumWidth(100)
-                self.form_designer_sidebar.setMaximumWidth(100)
-                if hasattr(self, "_central_host_layout"):
-                    self._central_host_layout.insertWidget(0, self.form_designer_sidebar, 0)
-            self.form_designer_sidebar.show()
-            # Kompatibilitaets-Alias fuer bestehenden Code
-            self.form_designer_dock = self.form_designer_sidebar
+            old = getattr(self, 'form_designer_dock', None)
+            if old is not None:
+                old.hide()
+                old.close()
         except Exception:
             pass
+        self.form_designer_dock = FormDesignerDock(self, self)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.form_designer_dock)
 
     def _active_file_editor_window(self):
         try:
