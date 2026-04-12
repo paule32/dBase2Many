@@ -98,15 +98,15 @@ def build_all_styles(style_root: str | Path, domain: str = "default") -> None:
             compile_po_to_mo(po_file, mo_file)
 
 if __name__ == "__main__":
-    build_all_locales("data/po/locales", "dbase")
-    build_all_locales("data/po/locales", "cc")
-    build_all_locales("data/po/locales", "lisp")
-    build_all_locales("data/po/locales", "pascal")
+    build_all_locales("../data/po/locales", "dbase")
+    build_all_locales("../data/po/locales", "cc")
+    build_all_locales("../data/po/locales", "lisp")
+    build_all_locales("../data/po/locales", "pascal")
     
-    build_all_styles ("data/po/styles", "light")
-    build_all_styles ("data/po/styles", "dark")
+    build_all_styles ("../data/po/styles", "light")
+    build_all_styles ("../data/po/styles", "dark")
     
-    base    = Path("data/po")
+    base    = Path("../data/po")
 
     loc_dir = base / "locales"
     css_dir = base / "styles"
