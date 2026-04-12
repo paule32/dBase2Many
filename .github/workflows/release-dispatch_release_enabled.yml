@@ -1,0 +1,223 @@
+name: Dispatch selected release build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release-Tag, z. B. v1.0.0"
+        required: true
+        default: "v0.0.1"
+        type: string
+
+      build_mode:
+        description: "PyInstaller-Modus"
+        required: true
+        type: choice
+        default: "onefile"
+        options:
+          - onefile
+          - onedir
+
+      target_language:
+        description: "Welche Sprache bauen?"
+        required: true
+        type: choice
+        default: "Build All"
+        options:
+          - Build All
+          - dbase
+          - pascal
+          - cc
+          - lisp
+
+      target_os:
+        description: "Welches Betriebssystem bauen?"
+        required: true
+        type: choice
+        default: "windows"
+        options:
+          - windows
+          - linux
+          - both
+
+      python_version:
+        description: "Python-Version"
+        required: true
+        default: "3.14"
+        type: string
+
+      java_version:
+        description: "Java-Version für ANTLR"
+        required: true
+        default: "17"
+        type: string
+
+      antlr_tool_version:
+        description: "ANTLR Tool Version"
+        required: true
+        default: "4.13.2"
+        type: string
+
+      antlr_runtime_version:
+        description: "ANTLR4 Python Runtime Version"
+        required: true
+        default: "4.13.2"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.make.outputs.matrix }}
+    steps:
+      - id: make
+        shell: python
+        run: |
+          import json
+          import os
+
+          lang_in = "${{ inputs.target_language }}"
+          os_in   = "${{ inputs.target_os }}"
+
+          if lang_in == "Build All":
+              langs = ["dbase", "pascal", "cc", "lisp"]
+          else:
+              langs = [lang_in]
+
+          if os_in == "both":
+              os_list = [
+                  {"label": "windows", "runner": "windows-latest"},
+                  {"label": "linux",   "runner": "ubuntu-latest"},
+              ]
+          elif os_in == "windows":
+              os_list = [{"label": "windows", "runner": "windows-latest"}]
+          else:
+              os_list = [{"label": "linux", "runner": "ubuntu-latest"}]
+
+          include = []
+          for lang in langs:
+              for os_item in os_list:
+                  include.append({
+                      "language": lang,
+                      "os_label": os_item["label"],
+                      "runner_os": os_item["runner"],
+                  })
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"matrix={json.dumps({'include': include})}\n")
+
+  build-selected:
+    needs: prepare-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare-matrix.outputs.matrix) }}
+
+    uses: ./.github/workflows/release-build.yml
+    with:
+      tag: ${{ inputs.tag }}
+      build_mode: ${{ inputs.build_mode }}
+      language: ${{ matrix.language }}
+      runner_os: ${{ matrix.runner_os }}
+      os_label: ${{ matrix.os_label }}
+      python_version: ${{ inputs.python_version }}
+      java_version: ${{ inputs.java_version }}
+      antlr_tool_version: ${{ inputs.antlr_tool_version }}
+      antlr_runtime_version: ${{ inputs.antlr_runtime_version }}
+    secrets: inherit
+
+  publish-release:
+    needs: build-selected
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+
+      - name: Package artifacts for GitHub Releases
+        shell: python
+        run: |
+          from pathlib import Path
+          import os
+          import zipfile
+
+          src_root = Path("release-assets")
+          out_root = Path("release-packages")
+          out_root.mkdir(parents=True, exist_ok=True)
+
+          if not src_root.exists():
+              raise SystemExit("No artifacts directory found.")
+
+          artifact_dirs = [p for p in src_root.iterdir() if p.is_dir()]
+          if not artifact_dirs:
+              raise SystemExit("No downloaded artifacts found.")
+
+          created = []
+          for artifact_dir in artifact_dirs:
+              zip_path = out_root / f"{artifact_dir.name}.zip"
+              with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                  for item in artifact_dir.rglob("*"):
+                      if item.is_file():
+                          zf.write(item, item.relative_to(artifact_dir).as_posix())
+              created.append(zip_path)
+
+          if not created:
+              raise SystemExit("No release packages were created.")
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          BUILD_MODE: ${{ inputs.build_mode }}
+          TARGET_LANGUAGE: ${{ inputs.target_language }}
+          TARGET_OS: ${{ inputs.target_os }}
+        shell: python
+        run: |
+          import os
+          import subprocess
+
+          tag = os.environ["RELEASE_TAG"]
+          title = f"{tag}"
+          notes = (
+              f"Automatisch erzeugtes Release\n\n"
+              f"- Build-Modus: {os.environ['BUILD_MODE']}\n"
+              f"- Sprache: {os.environ['TARGET_LANGUAGE']}\n"
+              f"- Zielsystem: {os.environ['TARGET_OS']}\n"
+          )
+
+          view = subprocess.run(
+              ["gh", "release", "view", tag],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          )
+
+          if view.returncode != 0:
+              subprocess.run(
+                  ["gh", "release", "create", tag, "--title", title, "--notes", notes, "--target", os.environ["GITHUB_SHA"]],
+                  check=True,
+              )
+          else:
+              subprocess.run(
+                  ["gh", "release", "edit", tag, "--title", title, "--notes", notes],
+                  check=True,
+              )
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(release-packages/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Keine Release-Dateien gefunden."
+            exit 1
+          fi
+          gh release upload "${RELEASE_TAG}" "${files[@]}" --clobber
