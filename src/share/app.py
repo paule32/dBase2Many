@@ -142,10 +142,56 @@ class ProfiledIconTab(legacy.IconTab):
             item.setToolTip(tip)
             self.insertItem(idx, item)
 
+    def _matches_include(self, name: str) -> bool:
+        lower = (name or "").lower()
+        if not self.include_exts:
+            return True
+        for ext in self.include_exts:
+            if lower.endswith((ext or "").lower()):
+                return True
+        return False
+
+    def _matches_exclude(self, name: str) -> bool:
+        lower = (name or "").lower()
+        if not self.exclude_exts:
+            return False
+        for ext in self.exclude_exts:
+            if lower.endswith((ext or "").lower()):
+                return True
+        return False
+
     def refresh(self):
-        super().refresh()
-        if not getattr(self, "_legacy_supports_special_items", False):
-            self._add_special_items_fallback()
+        self.setUpdatesEnabled(False)
+        try:
+            self.clear()
+            base_dir = (getattr(self, "base_dir", "") or "").strip()
+            if base_dir and os.path.isdir(base_dir):
+                entries = []
+                try:
+                    for name in os.listdir(base_dir):
+                        full = os.path.join(base_dir, name)
+                        if os.path.isfile(full):
+                            entries.append((name, full))
+                except Exception:
+                    entries = []
+
+                entries.sort(key=lambda t: t[0].lower())
+                for name, full in entries:
+                    if not self._matches_include(name):
+                        continue
+                    if self._matches_exclude(name):
+                        continue
+                    info = legacy.QFileInfo(full)
+                    icon = self.icon_provider.icon(info) if self.icon_provider is not None else legacy.QIcon()
+                    item = legacy.QListWidgetItem(icon, name)
+                    item.setToolTip(full)
+                    item.setData(legacy.Qt.UserRole, full)
+                    self.addItem(item)
+
+            if self.special_items and not getattr(self, "_legacy_supports_special_items", False):
+                self._add_special_items_fallback()
+        finally:
+            self.setUpdatesEnabled(True)
 
     def _run_selected(self):
         it = self.currentItem()
@@ -165,6 +211,21 @@ class ProfiledIconTab(legacy.IconTab):
         except Exception:
             pass
         return super()._on_item_double_clicked(item)
+
+
+    def _run_file(self, path: str):
+        lower = (path or "").lower()
+        if lower.endswith(".sqlb.json"):
+            host = self.parent()
+            while host is not None and not hasattr(host, "open_in_sql_builder"):
+                try:
+                    host = host.parent()
+                except Exception:
+                    host = None
+            if host is not None and hasattr(host, "open_in_sql_builder"):
+                host.open_in_sql_builder(display_name=os.path.basename(path), path=path)
+                return
+        return super()._run_file(path)
 
 # -----------------------------------------------------------------------
 # RegieCenter mit Sprachprofil statt fest verdrahtetem .prg-Filter.
@@ -201,7 +262,7 @@ class ProfiledRegieCenter(legacy.QDialog):
         ext_alltypes = [
             ".htm", ".html", ".css", ".js", ".url",
             ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico",
-            ".sql",
+            ".sql", ".sqlb.json",
             ".dbf", ".csv", ".xlsx", ".xls",
             ".rep", ".rpt", ".report",
             ".frm", ".form", ".wfm",
@@ -214,7 +275,7 @@ class ProfiledRegieCenter(legacy.QDialog):
         ext_formulare = [".frm", ".form", ".wfm"]
         ext_berichte  = [".rep", ".rpt", ".report"]
         ext_tabellen  = [".dbf", ".csv", ".xlsx", ".xls"]
-        ext_sql       = [".sql"]
+        ext_sql       = [".sql", ".sqlb.json"]
         ext_grafiken  = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico"]
         ext_internet  = [".htm", ".html", ".css", ".js", ".url"]
 
@@ -409,6 +470,24 @@ class ProfiledRegieCenter(legacy.QDialog):
     # Reuse legacy methods without duplication.
     open_in_table_editor = legacy.RegieCenter.open_in_table_editor
     open_in_code_editor = legacy.RegieCenter.open_in_code_editor
+
+    def open_in_sql_builder(self, display_name: str, path: str):
+        try:
+            path = os.path.normpath(path)
+            mw = getattr(legacy, "MAINAPP", None)
+            if mw is None:
+                try:
+                    mw = self.window()
+                except Exception:
+                    mw = None
+            if mw is not None and hasattr(mw, "mdi_open_sql_builder"):
+                mw.mdi_open_sql_builder(path)
+                return
+        except Exception as exc:
+            legacy.QMessageBox.warning(self, "Bearbeiten", f"Konnte SQL-Builder nicht öffnen:\n{exc}")
+            return
+        legacy.QMessageBox.information(self, "Bearbeiten", "Kein SQL-Builder-Hook gefunden.")
+
     pick_directory_non_native = legacy.RegieCenter.pick_directory_non_native
     _add_and_select_dir = legacy.RegieCenter._add_and_select_dir
     _restore_recent_dirs = legacy.RegieCenter._restore_recent_dirs
@@ -451,6 +530,28 @@ class ProfiledMainWindow(legacy.MainWindow):
             f"aber der Parser/Lexer für {self.language_profile.program_extensions_label} "
             "ist noch nicht angebunden.",
         )
+
+    def mdi_open_sql_builder(self, project_path: str = ""):
+        try:
+            dlg = legacy.SqlBuilderWindow(self)
+            if project_path:
+                if hasattr(dlg, "_load_builder_project"):
+                    dlg._load_builder_project(project_path)
+                elif hasattr(dlg, "load_builder_from_path"):
+                    dlg.load_builder_from_path(project_path)
+            sub = self.mdi.addSubWindow(dlg)
+            legacy.mark_escape_close(sub)
+            sub.resize(900, 520)
+            sub.move(40, 60)
+            if project_path:
+                try:
+                    sub.setWindowTitle(os.path.basename(project_path))
+                except Exception:
+                    pass
+            sub.show()
+            self.mdi.setActiveSubWindow(sub)
+        except Exception as exc:
+            legacy.QMessageBox.warning(self, "SQL Builder", f"Konnte Projekt nicht laden:\n{exc}")
 
     def on_action_file_open(self):
         dlg = legacy.QFileDialog(self, legacy._tr("Open File..."))

@@ -1,0 +1,47 @@
+{
+  "tables": [
+    {
+      "id": "t0",
+      "name": "stdcolor",
+      "source_path": "T:/GitHub/dBase2Many/src/tests/stdcolor.dbf",
+      "source_kind": "dbf",
+      "x": 52,
+      "y": 56,
+      "fields": [
+        "INDEX",
+        "NAME",
+        "VALUE"
+      ],
+      "all": true,
+      "checked": [
+        "NAME",
+        "VALUE"
+      ]
+    },
+    {
+      "id": "t1",
+      "name": "vga256",
+      "source_path": "T:/GitHub/dBase2Many/src/tests/vga256.dbf",
+      "source_kind": "dbf",
+      "x": 400,
+      "y": 28,
+      "fields": [
+        "INDEX",
+        "FG",
+        "BG"
+      ],
+      "all": false,
+      "checked": [
+        "INDEX"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "src_id": "t1",
+      "src_field": "INDEX",
+      "dst_id": "t0",
+      "dst_field": "INDEX"
+    }
+  ]
+}

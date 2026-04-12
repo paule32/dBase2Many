@@ -330,6 +330,15 @@ SVG_PAGE = r"""
 </svg>
 """
 
+SVG_SQL = r"""
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <rect x="6" y="4" width="26" height="36" rx="4" fill="#e5e7eb" stroke="#334155" stroke-width="2"/>
+  <path d="M26 4v8h8" fill="#cbd5e1"/>
+  <rect x="10" y="18" width="28" height="18" rx="6" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
+  <text x="24" y="31" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">SQL</text>
+</svg>
+"""
+
 def icon_from_svg(svg: str, size: int = 16) -> QIcon:
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
     pix = QPixmap(size, size)
@@ -442,20 +451,22 @@ class FontTriangleArrowsStyle(QProxyStyle):
                 self._draw_triangle(painter, arrow_rect, Qt.DownArrow)
         
 
-def open_helpwindow(mdi_area, mw: 'QMainWindow', topic: str | None = None):
+def open_helpwindow(mdi_area, mw: 'QMainWindow', topic=None):
     # wichtig: nicht als eigenes Top-Level laufen
     mw.setWindowFlags(Qt.Widget)
     mw.setParent(mdi_area)
     
     mode = "dark" if share.common.AppMode.dark else "light"
     lang = "de"   if share.common.AppMode.lang else "en"
-    _ = (mode, lang)
     
     # mw.open_from_args(f"./dBaseHelp_{mode}_{lang}.chm", "index.html")
     try:
         mw.open_from_args("hlp/help.chm", topic or None)
     except Exception:
-        mw.open_from_args("hlp/help.chm", None)
+        try:
+            mw.open_from_args("hlp/help.chm", None)
+        except Exception:
+            pass
 
     sub = QMdiSubWindow()
     sub.setWidget(mw)
@@ -466,7 +477,6 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow', topic: str | None = None):
     sub.show()
     return sub
 
-
 _HELP_PROP_ID = "_DBASE_HELP_ID"
 _HELP_PROP_TITLE = "_DBASE_HELP_TITLE"
 _HELP_PROP_TOPIC = "_DBASE_HELP_TOPIC"
@@ -474,113 +484,29 @@ _HELP_PROP_TEXT = "_DBASE_HELP_TEXT"
 _HELP_PROP_KEYWORDS = "_DBASE_HELP_KEYWORDS"
 
 _KNOWN_QT_WIDGET_HELP = {
-    "QPushButton": {
-        "help_id": "qt.widgets.QPushButton",
-        "title": "QPushButton",
-        "text": "Klickbarer Druckknopf für Befehle und Aktionen.",
-    },
-    "QLabel": {
-        "help_id": "qt.widgets.QLabel",
-        "title": "QLabel",
-        "text": "Anzeige statischer Texte oder Bilder.",
-    },
-    "QLineEdit": {
-        "help_id": "qt.widgets.QLineEdit",
-        "title": "QLineEdit",
-        "text": "Einzeiliges Eingabefeld für Textwerte.",
-    },
-    "QTextEdit": {
-        "help_id": "qt.widgets.QTextEdit",
-        "title": "QTextEdit",
-        "text": "Mehrzeiliges Texteingabefeld.",
-    },
-    "QPlainTextEdit": {
-        "help_id": "qt.widgets.QPlainTextEdit",
-        "title": "QPlainTextEdit",
-        "text": "Editor für mehrzeiligen Klartext.",
-    },
-    "QCheckBox": {
-        "help_id": "qt.widgets.QCheckBox",
-        "title": "QCheckBox",
-        "text": "Ankreuzfeld für boolesche Zustände.",
-    },
-    "QRadioButton": {
-        "help_id": "qt.widgets.QRadioButton",
-        "title": "QRadioButton",
-        "text": "Optionsfeld für gegenseitig ausschließende Auswahl.",
-    },
-    "QComboBox": {
-        "help_id": "qt.widgets.QComboBox",
-        "title": "QComboBox",
-        "text": "Kombinationsfeld mit Liste und optionaler Eingabe.",
-    },
-    "QListWidget": {
-        "help_id": "qt.widgets.QListWidget",
-        "title": "QListWidget",
-        "text": "Listenansicht auf Basis von QListWidgetItem.",
-    },
-    "QTreeWidget": {
-        "help_id": "qt.widgets.QTreeWidget",
-        "title": "QTreeWidget",
-        "text": "Baumansicht für hierarchische Einträge.",
-    },
-    "QTreeView": {
-        "help_id": "qt.widgets.QTreeView",
-        "title": "QTreeView",
-        "text": "Modellbasierte Baumansicht.",
-    },
-    "QTableWidget": {
-        "help_id": "qt.widgets.QTableWidget",
-        "title": "QTableWidget",
-        "text": "Tabellarische Widget-Ansicht mit eingebautem Modell.",
-    },
-    "QTableView": {
-        "help_id": "qt.widgets.QTableView",
-        "title": "QTableView",
-        "text": "Modellbasierte Tabellenansicht.",
-    },
-    "QTabWidget": {
-        "help_id": "qt.widgets.QTabWidget",
-        "title": "QTabWidget",
-        "text": "Registerkarten-Container für mehrere Seiten.",
-    },
-    "QGroupBox": {
-        "help_id": "qt.widgets.QGroupBox",
-        "title": "QGroupBox",
-        "text": "Gruppiert logisch zusammengehörige Steuerelemente.",
-    },
-    "QDockWidget": {
-        "help_id": "qt.widgets.QDockWidget",
-        "title": "QDockWidget",
-        "text": "Andockbares Fenster für Werkzeuge und Panels.",
-    },
-    "QMdiArea": {
-        "help_id": "qt.widgets.QMdiArea",
-        "title": "QMdiArea",
-        "text": "Container für mehrere MDI-Unterfenster.",
-    },
-    "DesignerControl": {
-        "help_id": "designer.DesignerControl",
-        "title": "DesignerControl",
-        "text": "Entwurfs-Wrapper mit Auswahlrahmen und Resize-Handles.",
-    },
-    "PixelGridCanvas": {
-        "help_id": "designer.PixelGridCanvas",
-        "title": "PixelGridCanvas",
-        "text": "Entwurfsfläche zum Platzieren und Bearbeiten visueller Komponenten.",
-    },
-    "ObjectInspectorPanel": {
-        "help_id": "designer.ObjectInspectorPanel",
-        "title": "Object Inspector",
-        "text": "Zeigt Eigenschaften, Events und Methoden des aktuell gewählten Objekts.",
-    },
-    "_ToolPalette": {
-        "help_id": "designer.ToolPalette",
-        "title": "Tool Palette",
-        "text": "Palette zum Auswählen neuer Designer-Komponenten.",
-    },
+    "QMainWindow": {"help_id": "qt.widgets.QMainWindow", "title": "QMainWindow", "text": "Qt-Hauptfenster der Anwendung."},
+    "QDialog": {"help_id": "qt.widgets.QDialog", "title": "QDialog", "text": "Dialogfenster für Eingaben und Einstellungen."},
+    "QPushButton": {"help_id": "qt.widgets.QPushButton", "title": "QPushButton", "text": "Schaltfläche zum Auslösen einer Aktion."},
+    "QLabel": {"help_id": "qt.widgets.QLabel", "title": "QLabel", "text": "Beschriftung zur Anzeige von Texten oder Hinweisen."},
+    "QLineEdit": {"help_id": "qt.widgets.QLineEdit", "title": "QLineEdit", "text": "Einzeiliges Eingabefeld."},
+    "QPlainTextEdit": {"help_id": "qt.widgets.QPlainTextEdit", "title": "QPlainTextEdit", "text": "Mehrzeiliges Textfeld für Klartext."},
+    "QTextEdit": {"help_id": "qt.widgets.QTextEdit", "title": "QTextEdit", "text": "Mehrzeiliger Texteditor mit Formatierungsunterstützung."},
+    "QCheckBox": {"help_id": "qt.widgets.QCheckBox", "title": "QCheckBox", "text": "Option zum Ein- oder Ausschalten eines Zustands."},
+    "QComboBox": {"help_id": "qt.widgets.QComboBox", "title": "QComboBox", "text": "Auswahlliste mit optionaler Texteingabe."},
+    "QListWidget": {"help_id": "qt.widgets.QListWidget", "title": "QListWidget", "text": "Listenansicht mit Einträgen."},
+    "QTreeView": {"help_id": "qt.widgets.QTreeView", "title": "QTreeView", "text": "Baumansicht für hierarchische Daten."},
+    "QTableView": {"help_id": "qt.widgets.QTableView", "title": "QTableView", "text": "Tabellenansicht für Datensätze und Modelle."},
+    "QTabWidget": {"help_id": "qt.widgets.QTabWidget", "title": "QTabWidget", "text": "Registerkarten-Steuerelement."},
+    "QDockWidget": {"help_id": "qt.widgets.QDockWidget", "title": "QDockWidget", "text": "Andockbares Werkzeugfenster."},
+    "QMdiArea": {"help_id": "qt.widgets.QMdiArea", "title": "QMdiArea", "text": "Container für mehrere MDI-Unterfenster."},
+    "CodeEditor": {"help_id": "editor.CodeEditor", "title": "CodeEditor", "text": "Editor zum Bearbeiten von Quelltext."},
+    "MiniMap": {"help_id": "editor.MiniMap", "title": "MiniMap", "text": "Miniaturansicht des aktuellen Editors."},
+    "RegieCenter": {"help_id": "app.RegieCenter", "title": "RegieCenter", "text": "Datei- und Projektübersicht der Anwendung."},
+    "SqlBuilderWindow": {"help_id": "sql.SqlBuilderWindow", "title": "SQL Builder", "text": "Visueller Designer für SQL-Abfragen."},
+    "TableDesignerDialog": {"help_id": "table.TableDesignerDialog", "title": "Table Designer", "text": "Designer zum Anlegen und Bearbeiten von Tabellenstrukturen."},
+    "TableRecordEditorDialog": {"help_id": "table.TableRecordEditorDialog", "title": "Tabellen-Editor", "text": "Editor zum Bearbeiten der Datensätze einer DBF-Tabelle."},
+    "FormDesignerWindow": {"help_id": "designer.FormDesignerWindow", "title": "Form Designer", "text": "Designer für Formulare und Steuerelemente."},
 }
-
 
 def attach_widget_help(widget, help_id=None, title=None, topic=None, text=None, keywords=None, extra=None):
     if widget is None:
@@ -601,7 +527,6 @@ def attach_widget_help(widget, help_id=None, title=None, topic=None, text=None, 
     except Exception:
         pass
     return widget
-
 
 def _widget_display_name(widget):
     try:
@@ -627,7 +552,6 @@ def _widget_display_name(widget):
     except Exception:
         return "QWidget"
 
-
 def _class_based_help_meta(widget):
     if widget is None:
         return None
@@ -641,9 +565,8 @@ def _class_based_help_meta(widget):
     meta.setdefault("title", _widget_display_name(widget))
     meta.setdefault("help_id", f"qt.widgets.{cls_name}")
     meta.setdefault("topic", None)
-    meta.setdefault("text", "Für dieses Widget ist eine allgemeine Qt-Hilfe verfügbar.")
+    meta.setdefault("text", "Für dieses Widget ist eine allgemeine Hilfe verfügbar.")
     return meta
-
 
 def resolve_widget_help(widget):
     probe = widget
@@ -786,65 +709,13 @@ class F1Filter(QObject):
         super().__init__(parent)
         self.mdi_area       = mdi_area
         self.create_help_mw = create_help_mw
-        self.main_window    = parent
         self._help_sub      = None  # optional: merken, damit wir nicht 100 Fenster öffnen
-
-    def _resolve_click_widget(self, obj, event):
-        widget = None
-        try:
-            gp = event.globalPos()
-            widget = QApplication.widgetAt(gp)
-        except Exception:
-            widget = None
-        if widget is None:
-            try:
-                if isinstance(obj, QWidget):
-                    widget = obj
-            except Exception:
-                widget = None
-        return widget
-
-    def _should_ignore_whatis_target(self, widget) -> bool:
-        if widget is None:
-            return True
-        try:
-            if isinstance(widget, (QMenu, QMessageBox)):
-                return True
-        except Exception:
-            pass
-        try:
-            w = widget.window()
-            if isinstance(w, QMessageBox):
-                return True
-        except Exception:
-            pass
-        return False
 
     def eventFilter(self, obj, event):
         try:
             et = event.type()
         except Exception:
             return super().eventFilter(obj, event)
-
-        try:
-            if et == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-                mw = getattr(self, "main_window", None)
-                if mw is not None and bool(getattr(mw, "_whatis_help_mode", False)) and not bool(getattr(mw, "_whatis_help_busy", False)):
-                    target = self._resolve_click_widget(obj, event)
-                    if target is not None and not self._should_ignore_whatis_target(target):
-                        handled = False
-                        try:
-                            handled = bool(mw.handle_whatis_click(target))
-                        except Exception:
-                            handled = False
-                        if handled:
-                            try:
-                                event.accept()
-                            except Exception:
-                                pass
-                            return True
-        except Exception:
-            pass
 
         # Ctrl+O / Ctrl+S global und kontextabhaengig
         try:
@@ -868,10 +739,6 @@ class F1Filter(QObject):
 
         if et == QEvent.KeyPress and event.key() == Qt.Key_F1:
             debug_print("F1 global abgefangen")
-            mw = getattr(self, "main_window", None)
-            if mw is not None and hasattr(mw, "_open_help_topic"):
-                return bool(mw._open_help_topic(None))
-
             # optional: wenn schon offen, nur nach vorne holen
             if self._help_sub is not None and not self._help_sub.isHidden():
                 self.mdi_area.setActiveSubWindow(self._help_sub)
@@ -3367,7 +3234,7 @@ class IconTab(QListWidget):
         self._act_run.triggered.connect(self._run_selected)
         self.addAction(self._act_run)
 
-        # Doppelklick: *.prg ausführen
+        # Doppelklick: Standardaktion fuer unterstuetzte Dateien ausfuehren
         self.setFocusPolicy(Qt.StrongFocus)
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
@@ -3376,6 +3243,41 @@ class IconTab(QListWidget):
         self.base_dir = directory
         self.setProperty("directory", directory)
         self.refresh()
+
+    def _suffix_match(self, lower_name: str, ext: str) -> bool:
+        lower_name = (lower_name or "").lower()
+        ext = (ext or "").lower().strip()
+        if not ext:
+            return False
+        if lower_name.endswith(ext):
+            return True
+        try:
+            suffixes = ''.join(Path(lower_name).suffixes)
+            if suffixes.endswith(ext):
+                return True
+        except Exception:
+            pass
+        if ext == '.sqlb.json':
+            return lower_name.endswith('.json') and '.sqlb.' in lower_name
+        return False
+
+    def _matches_include(self, name: str) -> bool:
+        lower = (name or "").lower()
+        if not self.include_exts:
+            return True
+        for ext in self.include_exts:
+            if self._suffix_match(lower, ext):
+                return True
+        return False
+
+    def _matches_exclude(self, name: str) -> bool:
+        lower = (name or "").lower()
+        if not self.exclude_exts:
+            return False
+        for ext in self.exclude_exts:
+            if self._suffix_match(lower, ext):
+                return True
+        return False
 
     def refresh(self):
         self.setUpdatesEnabled(False)
@@ -3396,15 +3298,24 @@ class IconTab(QListWidget):
             entries.sort(key=lambda t: t[0].lower())
 
             for name, full in entries:
-                ext = os.path.splitext(name)[1].lower()
-
-                if self.include_exts and ext not in self.include_exts:
+                if not self._matches_include(name):
                     continue
-                if self.exclude_exts and ext in self.exclude_exts:
+                if self._matches_exclude(name):
                     continue
 
                 info = QFileInfo(full)
-                icon = self.icon_provider.icon(info)
+                lower_name = name.lower()
+                is_sql_file = self._suffix_match(lower_name, '.sql') or self._suffix_match(lower_name, '.sqlb.json')
+                if is_sql_file:
+                    try:
+                        icon = icon_from_svg(SVG_SQL, 48)
+                    except Exception:
+                        try:
+                            icon = icon_from_svg(SVG_PAGE, 48)
+                        except Exception:
+                            icon = self.icon_provider.icon(info)
+                else:
+                    icon = self.icon_provider.icon(info)
                 item = QListWidgetItem(icon, name)
                 item.setToolTip(full)
                 item.setData(Qt.UserRole, full)
@@ -3424,14 +3335,15 @@ class IconTab(QListWidget):
             self._run_file(path)
 
     # ---------------------------------------------------------------------------
-    # Bei Doppelklick auf *.prg -> ausführen.
+    # Bei Doppelklick auf unterstuetzte Dateien -> passende Standardaktion.
     # ---------------------------------------------------------------------------
     def _on_item_double_clicked(self, item: QListWidgetItem):
         try:
             path = item.data(Qt.UserRole) or ""
             if not path:
                 return
-            if os.path.splitext(path)[1].lower() == ".prg":
+            lower = path.lower()
+            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json"):
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
@@ -3619,8 +3531,11 @@ class IconTab(QListWidget):
 
     def _edit_in_editor(self, path: str) -> None:
         try:
-            ext = os.path.splitext(path)[1].lower()
-            if not (ext == ".prg" or ext == ".dbf"):
+            lower = path.lower()
+            is_prg = lower.endswith('.prg')
+            is_dbf = lower.endswith('.dbf')
+            is_sql_builder = lower.endswith('.sqlb.json')
+            if not (is_prg or is_dbf or is_sql_builder):
                 return
 
             display_name = os.path.basename(path)
@@ -3628,14 +3543,14 @@ class IconTab(QListWidget):
             # Host/RegieCenter finden (parent-chain)
             host = self.parent()
             
-            if ext == ".prg":
+            if is_prg:
                 while host is not None and not hasattr(host, "open_in_code_editor"):
                     host = host.parent()
                 if host is not None and hasattr(host, "open_in_code_editor"):
                     host.open_in_code_editor(display_name=display_name, path=path)
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
-            elif ext == ".dbf":
+            elif is_dbf:
                 while host is not None and not hasattr(host, "open_in_table_editor"):
                     host = host.parent()
                 if host is not None and hasattr(host, "open_in_table_editor"):
@@ -3644,6 +3559,13 @@ class IconTab(QListWidget):
                     MDIHOST.open_in_table_editor(display_name=display_name, path=path)
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein TabellenEditor-Hook gefunden.")
+            elif is_sql_builder:
+                while host is not None and not hasattr(host, "open_in_sql_builder"):
+                    host = host.parent()
+                if host is not None and hasattr(host, "open_in_sql_builder"):
+                    host.open_in_sql_builder(display_name=display_name, path=path)
+                else:
+                    QMessageBox.information(self, "Bearbeiten", "Kein SQL-Builder-Hook gefunden.")
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
@@ -3655,12 +3577,14 @@ class IconTab(QListWidget):
 
     def _run_file(self, path: str):
         try:
-            ext = os.path.splitext(path)[1].lower()
-            if ext == ".prg":
+            lower = path.lower()
+            if lower.endswith(".prg"):
                 parse(path)
                 return
-            if ext == ".dbf":
-                display_name = os.path.basename(path)
+            if lower.endswith(".dbf"):
+                self._edit_in_editor(path)
+                return
+            if lower.endswith(".sqlb.json"):
                 self._edit_in_editor(path)
                 return
                 
@@ -3766,7 +3690,7 @@ class RegieCenter(QDialog):
         ext_alltypes  = [
             '.htm', '.html', '.css'   , '.js', '.url',
             '.png', '.jpg' , '.jpeg'  , '.gif', '.bmp', '.svg', '.webp', '.ico',
-            '.sql',
+            '.sql', '.sqlb.json',
             '.dbf', '.csv' , '.xlsx'  , '.xls',
             '.rep', '.rpt' , '.report',
             '.frm', '.form', ".wfm"   ,
@@ -3778,7 +3702,7 @@ class RegieCenter(QDialog):
         ext_formulare = ['.frm', '.form', '.wfm']
         ext_berichte  = ['.rep', '.rpt', '.report']
         ext_tabellen  = ['.dbf', '.csv', '.xlsx', '.xls']
-        ext_sql       = ['.sql']
+        ext_sql       = ['.sql', '.sqlb.json']
         ext_grafiken  = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp', '.ico']
         ext_internet  = ['.htm', '.html', '.css', '.js', '.url']
 
@@ -3915,6 +3839,18 @@ class RegieCenter(QDialog):
                 pass
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
+
+    def open_in_sql_builder(self, display_name: str, path: str):
+        try:
+            debug_print("sqlbuilder")
+            path = os.path.normpath(path)
+            if "MAINAPP" in globals() and hasattr(MAINAPP, "mdi_open_sql_builder"):
+                MAINAPP.mdi_open_sql_builder(path)
+                return
+        except Exception as e:
+            QMessageBox.warning(self, "Bearbeiten", f"Konnte SQL-Builder nicht öffnen:\n{e}")
+            return
+        QMessageBox.information(self, "Bearbeiten", "Kein SQL-Builder-Hook gefunden.")
 
     def _save_recent_dirs(self, current_path: str):
         try:
@@ -6080,13 +6016,6 @@ class DesignerControl(QWidget):
         # echtes Control als Kind
         self.inner = self._create_inner(self.tool_name)
         self.inner.setParent(self)
-        attach_widget_help(
-            self,
-            help_id=f"designer.{self.tool_name}",
-            title=self.tool_name,
-            text="Designer-Komponente mit Auswahl- und Größenänderungslogik.",
-            extra={"designer_tool": self.tool_name},
-        )
         # Proxy: inner bekommt keine Mouse-Events, der Wrapper fängt alles ab
         self.inner.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
@@ -6163,13 +6092,6 @@ class DesignerControl(QWidget):
             w.setStyleSheet("background: rgb(75,75,75);")
         except Exception:
             pass
-        attach_widget_help(
-            w,
-            help_id=f"qt.widgets.{w.__class__.__name__}",
-            title=w.__class__.__name__,
-            text=f"Designer-Control vom Typ {w.__class__.__name__}.",
-            extra={"designer_tool": name},
-        )
         return w
 
     def _snap(self, v: int) -> int:
@@ -6541,12 +6463,6 @@ class PixelGridCanvas(QWidget):
             except Exception:
                 self.main_window = None
         self.main_window = main_window
-        attach_widget_help(
-            self,
-            help_id="designer.PixelGridCanvas",
-            title="PixelGridCanvas",
-            text="Entwurfsfläche zum Zeichnen, Platzieren und Selektieren von Komponenten.",
-        )
 
         self.grid = 8
         self.show_origin = True
@@ -9266,8 +9182,11 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
 
-            help_mw = self._create_help_mainwindow()
-            sub = open_helpwindow(self.mdi, help_mw, topic)
+            help_widget = getattr(self, "help_mainwindow", None)
+            if help_widget is None:
+                help_widget = self._create_help_mainwindow()
+                self.help_mainwindow = help_widget
+            sub = open_helpwindow(self.mdi, help_widget, topic)
             try:
                 sub.dark_mode = True
             except Exception:
@@ -9346,6 +9265,7 @@ class MainWindow(QMainWindow):
                 self._open_help_topic(topic)
         finally:
             self._whatis_help_busy = False
+            self.set_whatis_mode(False)
         return True
 
     def on_action_help_contents(self):
@@ -9362,6 +9282,20 @@ class MainWindow(QMainWindow):
             f"{share.locales.tr('Anwendung zum Bearbeiten und Ausführen von dBase-Projekten.')}"
         )
         QMessageBox.about(self, title, text)
+
+    def eventFilter(self, obj, event):
+        try:
+            if bool(getattr(self, "_whatis_help_mode", False)) and event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                if isinstance(obj, QWidget):
+                    if self.handle_whatis_click(obj):
+                        try:
+                            event.accept()
+                        except Exception:
+                            pass
+                        return True
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
 
     # ---------------------------------------------------------------------------
     # Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...).
@@ -9429,6 +9363,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(_runner_window_title())
         self._whatis_help_mode = False
         self._whatis_help_busy = False
+        self.help_mainwindow = None
 
         self._central_host = QWidget(self)
         self._central_host_layout = QHBoxLayout(self._central_host)
@@ -9445,8 +9380,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._central_host)
         
         # Factory: wie dein Help-Fenster erzeugt wird
-        self.f1filter = F1Filter(self.mdi, self._create_help_mainwindow, self)
+        def create_help():
+            # Beispiel: irgendein HelpMainWindow / HelpWidget
+            mw = self._create_help_mainwindow()
+            self.help_mainwindow = mw
+            return mw
+
+        self.f1filter = F1Filter(self.mdi, create_help, self)
         QApplication.instance().installEventFilter(self.f1filter)
+        try:
+            QApplication.instance().installEventFilter(self)
+        except Exception:
+            pass
         try:
             _ensure_escape_filter_installed()
         except Exception:
@@ -10811,12 +10756,22 @@ class MainWindow(QMainWindow):
         sub.show()
 
 
-    def mdi_open_sql_builder(self):
+    def mdi_open_sql_builder(self, project_path: str = ""):
         dlg = SqlBuilderWindow(self)
+        if project_path:
+            try:
+                dlg._load_builder_project(project_path)
+            except Exception as e:
+                QMessageBox.warning(self, "SQL Builder", f"Konnte Projekt nicht laden:\n{e}")
         sub = self.mdi.addSubWindow(dlg)
         mark_escape_close(sub)
         sub.resize(900, 520)
         sub.move(40, 60)
+        try:
+            if project_path:
+                sub.setWindowTitle(os.path.basename(project_path))
+        except Exception:
+            pass
         sub.show()
     
     def open_workplace_properties(self):
@@ -11486,11 +11441,18 @@ class SqlBuilderWindow(QWidget):
         fn, _ = QFileDialog.getOpenFileName(self, "SQL Builder laden", "", "SQL Builder Projekt (*.sqlb.json *.json);;Alle Dateien (*.*)")
         if not fn:
             return
+        self._load_builder_project(fn)
+
+    def load_builder_from_path(self, fn: str):
+        self._load_builder_project(fn)
+
+    def _load_builder_project(self, fn: str):
         try:
             data = json.loads(Path(fn).read_text(encoding="utf-8"))
         except Exception as e:
             QMessageBox.warning(self, "Laden", f"Konnte Projekt nicht laden:\n{e}")
-            return
+            return False
+
         self.new_builder()
         self._project_path = fn
 
@@ -11503,7 +11465,10 @@ class SqlBuilderWindow(QWidget):
             skind = rec.get("source_kind", "dbf")
             pos = QPoint(int(rec.get("x", 40)), int(rec.get("y", 40)))
             pr = self.canvas.add_table_proxy(name, fields, source_path=spath, source_kind=skind, pos=pos)
-            pr.chk_all.setChecked(bool(rec.get("all", False)))
+            try:
+                pr.chk_all.setChecked(bool(rec.get("all", False)))
+            except Exception:
+                pass
             checks = set(rec.get("checked", []))
             for i in range(pr.listw.count()):
                 it = pr.listw.item(i)
@@ -11520,6 +11485,7 @@ class SqlBuilderWindow(QWidget):
 
         self.canvas.proxy_moved_or_resized()
         self.canvas.update()
+        return True
 
     def _save_to_path(self, fn: str):
         try:
