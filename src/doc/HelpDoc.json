@@ -1,0 +1,41 @@
+{
+  "project": {
+    "file": "T:/GitHub/dBase2Many/src/doc/dBase2Many.hnd",
+    "title": "dBase2Many Hilfe",
+    "author": "Jens Kallup",
+    "version": "1.0",
+    "languageLcid": 1031,
+    "chmOutput": "T:/GitHub/dBase2Many/src/doc/out/dBase2Many.chm",
+    "chmBuildName": "CHM"
+  },
+  "conditions": [
+    "lang_de",
+    "lang_en",
+    "theme_dark",
+    "theme_light"
+  ],
+  "topics": [
+    {
+      "helpId": "editor.CodeEditor",
+      "caption": "CodeEditor",
+      "helpContext": 1001,
+      "html_de_dark": "editor/code-editor.de.dark.html",
+      "html_de_light": "editor/code-editor.de.light.html",
+      "html_en_dark": "editor/code-editor.en.dark.html",
+      "html_en_light": "editor/code-editor.en.light.html",
+      "widgetClass": "CodeEditor",
+      "category": "Editor"
+    },
+    {
+      "helpId": "designer.FormDesignerWindow",
+      "caption": "Form Designer",
+      "helpContext": 1002,
+      "html_de_dark": "designer/form-designer-window.de.dark.html",
+      "html_de_light": "designer/form-designer-window.de.light.html",
+      "html_en_dark": "designer/form-designer-window.en.dark.html",
+      "html_en_light": "designer/form-designer-window.en.light.html",
+      "widgetClass": "FormDesignerWindow",
+      "category": "Designer"
+    }
+  ]
+}

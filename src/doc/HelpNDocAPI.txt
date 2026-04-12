@@ -1,0 +1,1685 @@
+Stand: 2026-04-12
+
+Liste der Objekte:
+
+HndUtils - Various utility methods
+HndBuilds - Properties and methods for Builds.
+HndBuildsEx - Additional properties and methods for Builds.
+HndBuildsActions - Handle pre- and post- build actions
+HndBuildsAssets - Handle builds assets
+HndBuildsAssetsContent - Handle builds assets content
+HndBuildsAssetsMeta - Access to builds assets meta data
+HndBuildsLibraryOverrides - API functions to manage library overrides for individual builds
+HndBuildsMeta - Access to builds meta data
+HndBuildsMetaEx - Additional methods related to builds meta data
+HndBuildsStatus - Handle relationship between builds and statuses
+HndBuildsStatusEx - Additional methods to handle relationship between builds and statuses
+HndBuildsStyles - Handle overridden styles for each builds
+HndBuildsTags - Handle relationship between builds and tags
+HndBuildsTagsEx - Additional methods to handle relationship between builds and tags
+HndDictionaries - Manage dictionaries and live spell check
+HndEditor - Create and manage a topic editor
+HndEditorHelper - Additional methods to manage a topic editor
+HndJsSearchEngine - Methods to manage the JavaScript search engine
+HndKeywords - Properties and methods for keywords
+HndKeywordsEx - Additional properties and methods for Keywords
+HndKeywordsMeta - Access to topics meta data
+HndLibraryItems - Properties and methods for library items
+HndLibraryItemsEx - Additional properties and methods for library items
+HndLibraryItemsMeta - Access to library items meta data
+HndProjects - Properties and methods for projects
+HndProjectsEx - Additional properties and methods for projects.
+HndProjectsMeta - Access to project meta data
+HndProjectsMetaEx - Additional methods to access project meta data
+HndSecrets - Properties and methods for Secrets
+HndStatus - Properties and methods for Statuses
+HndTags - Properties and methods for Tags
+HndTemplates - Properties and methods for Templates
+HndTemplatesEx - Additional properties and methods for Templates
+HndTopics - Create, edit and manage topics within the current project.
+HndTopicsEx - Additional properties and methods for Topics
+HndTopicsKeywords - Handle relationship between topics and keywords
+HndTopicsKeywordsEx - Additional properties and methods to handle relationship between topics and keywords
+HndTopicsMeta - Access to topics meta data
+HndTopicsProperties - Handle relationship between topics and properties
+HndTopicsTags - Handle relationship between topics and tags
+HndUI - Methods and properties of HelpNDoc's user interface.
+
+
+Globale Typen:
+
+THndBuildInfo - Information about a specific build
+THndBuildInfoArray - Array of THndBuildInfo
+THndBuildActionInstanceInfo - Information about a specific build action
+THndBuildActionInstanceInfoArray - List of build action info
+THndBuildAssetInfo - Build asset entry information
+THndBuildAssetInfoArray - List of build asset info
+PHndBuildLibraryOverrideInfo - Pointer to THndBuildLibraryOverrideInfo
+THndBuildLibraryOverrideInfo - Information about a specific build library override
+THndBuildLibraryOverrideInfoArray - Array of THndBuildLibraryOverrideInfo
+THndBuildStyleInfo
+THndBuildStyleInfoArray
+THndDictionaryInfo - Information about a specific dictionary
+THndDictionaryInfoArray - Array of THndDictionaryInfo
+THndCaretMovement - Caret movement
+THndVAlign - Vertical alignment of a picture
+THndHVAlignment - Table cell alignment
+THndHyperlinkKind - Kind of hyperlink
+THndHyperlinkInfo - Information about a hyperlink
+THndGeneratorInfo - Information and actions over the current generation
+THndKeywordsAttachMode - Specify how the moved keyword will be attached: - hkamAdd: Adds a node at the same level as the existing node. - hkamAddChild: Adds a child node to the existing node.
+THndKeywordsInfo - Minimal keyword information. Used by the THndKeywordsInfoArray
+THndKeywordsInfoArray - Array of minimal keyword information
+THndLibraryItemAttachMode - Specify how the moved library item will be attached: - hlamAdd: Adds a node at the same level as the existing node and makes the new node last. - hlamAddFirst: Adds a node at the same level as the existing node and makes the new node first. - hlamAddChild: Adds a child node to the existing node and makes the new node last. - hlamAddChildFirst: Adds a child node to the existing node and makes the new node first. - hlamInsert: Inserts a node at the same level just before the existing node.
+THndLibraryItemsInfo - Minimal library item information. Used by the THndLibraryItemsInfoArray
+THndLibraryItemsInfoArray - Array of minimal library item information
+THndProjectSettings - Various project settings
+THndProjectDateTimeFormat - Date and Time format for a project
+THndStatusInfo - Information about a specific status
+THndStatusInfoArray - Array of THndStatusInfo
+THndTopicsAttachMode - Specify how the moved topic will be attached: - htamAdd: Adds a node at the same level as the existing node and makes the new node last. - htamAddFirst: Adds a node at the same level as the existing node and makes the new node first. - htamAddChild: Adds a child node to the existing node and makes the new node last. - htamAddChildFirst: Adds a child node to the existing node and makes the new node first. - htamInsert: Inserts a node at the same level just before the existing node.
+THndTopicsPropertyInfo - Information about a specific property
+THndTopicsPropertyInfoArray - Array of THndTopicsPropertyInfo
+TUIControlType - Reference to a specific UI control: uiMainForm, uiTreeToc, uiTreeKeywords, uiTreeLibrary, uiTopicEditor
+THndSelectedExecMethod - Method run for each selected node. Return True to break the loop: function(aSelectedId: string): Boolean;
+
+
+
+HndUtils
+Various utility methods
+
+function FilterAlphaNumericString(aStr: string; const doKeepSpaces: Boolean; const doKeepUnderscore: Boolean; const doKeepDash: Boolean): string;
+Filter a string to make it alpha-numeric only. Converts accented characters too.
+function HexToTColor(sColor: string): TColor;
+Converts an hexadecimal value to a TColor
+function HTMLDecode(S: string): string;
+Converts a string that has been HTML-encoded into a decoded string
+function HTMLEncode(S: string): string;
+Converts a string into an HTML-encoded string
+function HTMLEscape(S: string): string;
+Escape HTML entities so that they can be included in HTML text or attribute
+function HTMLToText(HtmlInput: string): string;
+Converts a HTML content to simple text without any tags
+function IdnEncode(S: string): string;
+Performs a International Domain Name (IDNA) Punycode encoding
+function IdnDecode(S: string): string;
+Performs a International Domain Name (IDNA) Punycode decoding
+function JSEncode(S: string): string;
+Encodes a string for use in a JavaScript string literal
+function JSEscapeQuote(S: string): string;
+Escape single and double quotes in a JavaScript string literal
+function MarkdownSlugify(const Title: string): string; overload;
+Slugiffy a title to make it a GitHub compatible anchor
+function MarkdownSlugify(const Title: string; var Seen: TStringDynArray): string; overload;
+Slugiffy a title to make it a GitHub compatible anchor, making each titles unique for the Seen array
+function TColorToHex(Color: string): string; overload;
+Converts a TColor string value to a heaxadecimal string
+function TColorToHex(Color: TColor): string; overload;
+Converts a TColor value to a heaxadecimal string
+function UrlEncode(S: string): string;
+Performs a URL percent encoding
+function UrlDecode(S: string): string;
+Performs a URL percent decoding
+
+
+
+THndBuildInfo
+Information about a specific build
+
+Id: string;
+Unique identifier of the build.
+Kind: string;
+Kind of the build: code, chm, epub, html, kindle, pdf, qthelp, word
+Name: string;
+Name of the build.
+Enabled: Boolean;
+Is the build enabled ?
+Order: Integer;
+Order of the build in the list. Greater will be built later.
+Output: string;
+Output path of the build.
+Template: string;
+Template name used for this build.
+
+
+
+THndBuildInfoArray
+Array of THndBuildInfo
+
+
+
+HndBuilds
+Properties and methods for Builds.
+
+function CreateBuild: string;
+Create a new build.
+procedure DeleteAllBuilds;
+Delete all builds for the current project.
+procedure DeleteBuild(const aBuildId: string);
+Delete a specific build.
+function GetBuildEnabled(const aBuildId: string): Boolean;
+Returns true if a build is enabled.
+function GetBuildFirst: string;
+Returns the first build in the build list.
+function GetBuildFirstOfKind(const aBuildKind: string): string;
+Returns the first build of the specified kind.
+function GetBuildKind(const aBuildId: string): string;
+Returns the kind of the build (CHM, HTML...).
+function GetBuildLast: string;
+Returns the last build in the build list.
+function GetBuildList: THndBuildInfoArray;
+Get a list of all builds in the project.
+function GetBuildName(const aBuildId: string): string;
+Returns the name of a specific build.
+function GetBuildNext(const aBuildId: string): string;
+Get the next build.
+function GetBuildOrder(const aBuildId: string): Integer;
+Returns the order of a specific build.
+function GetBuildOutput(const aBuildId: string): string;
+Returns the output path/file of a build.
+function GetBuildPrevious(const aBuildId: string): string;
+Returns the previous build.
+function GetBuildTemplate(const aBuildId: string): string;
+Returns the template used by this build.
+function GetBuildWithName(const aBuildName: string): string;
+Returns the first build with the specified name. This method is case-insensitive.
+procedure MoveBuildAfter(const aBuildId: string; const aAfterBuildId: string);
+Move a build after another one.
+procedure MoveBuildBefore(const aBuildId: string; const aBeforeBuildId: string);
+Move a build before another one.
+procedure MoveBuildFirst(const aBuildId: string);
+Move a build first in the list.
+procedure MoveBuildLast(const aBuildId: string);
+Move a build last in the list.
+procedure SetBuildEnabled(const aBuildId: string; const aIsEnabled: Boolean);
+Set the enabled state for a build.
+procedure SetBuildKind(const aBuildId: string; const aBuildKind: string);
+Sets the kind of the build (CHM, HTML...).
+procedure SetBuildName(const aBuildId: string; const aName: string);
+Set the name of a specific build.
+procedure SetBuildOutput(const aBuildId: string; const aOutput: string);
+Set the output path/file of a build.
+procedure SetBuildTemplate(const aBuildId: string; const aTemplateName: string);
+Set the template used by this build.
+
+
+
+HndBuildsEx
+Additional properties and methods for Builds.
+
+function DuplicateBuild(const aBuildId: string): string;
+Duplicate a specific build (including build, meta, status and tags). Returns the new build's ID
+function GetBuildListFilteredByName(const aOnlyBuildsNamed: TStringList = nil; aExceptBuildsNamed: TStringList = nil): THndBuildInfoArray;
+Returns a list of builds filtered by name (case insensitive)
+function GetBuildTemplateOrDefault(const aBuildId: string): string;
+Returns the template for a specific build or the default template for this build kind.
+function GetValidBuildOutput(const aBuildId: string; const aBuildOutput: string): string;
+Returns a build output which is not empty.
+
+
+
+THndBuildActionInstanceInfo
+Information about a specific build action
+
+id: string;
+name: string;
+description: string;
+actiontype: string;
+content: string;
+kind: Integer;
+enabled: Boolean;
+order: Integer;
+
+
+
+THndBuildActionInstanceInfoArray
+List of build action info
+
+
+
+HndBuildsActions
+Handle pre- and post- build actions
+
+function CreateBuildAction(aBuildId: string): string;
+Create a new action for a specific build. Returns its unique ID
+procedure DeleteAllBuildActions(aBuildId: string);
+Delete all actions associated with a specific build
+function DeleteBuildAction(aBuildActionId: string): Boolean;
+Delete a specific build action
+procedure CopyBuildActionsToBuild(const aSourceBuildId: string; const aDestBuildId: string);
+Copy all build styles for a specific build to another build
+function GetBuildActionInfo(aBuildActionId: string): THndBuildActionInstanceInfo;
+Get a detailed information for a specific build action
+function GetBuildActionsList(aBuildId: string; doIncludePreBuildActions: Boolean; doIncludePostBuildActions: Boolean): THndBuildActionInstanceInfoArray;
+Get a detailed list of all actions for a specific build
+procedure MoveBuildActionUp(aBuildActionId: string);
+Move a build action up: execute it earlier
+procedure MoveBuildActionDown(aBuildActionId: string);
+Move a build action down: execute it later
+procedure MoveBuildActionFirst(aBuildActionId: string);
+Move a build action last: first one executed
+procedure MoveBuildActionLast(aBuildActionId: string);
+Move a build action last: last one executed
+procedure MoveBuildActionAfter(const aBuildActionId: string; const aAfterBuildActionId: string);
+Move a build action after another one.
+procedure MoveBuildActionBefore(const aBuildActionId: string; const aBeforeBuildActionId: string);
+Move a build action before another one.
+function GetBuildActionFirst(aBuildId: string; doIncludePreBuildActions: Boolean; doIncludePostBuildActions: Boolean): string;
+Get the first build action for a specific build
+function GetBuildActionNext(aBuildActionId: string; doIncludePreBuildActions: Boolean; doIncludePostBuildActions: Boolean): string;
+Get the build action next to the one specified
+function GetBuildActionPrevious(aBuildActionId: string; doIncludePreBuildActions: Boolean; doIncludePostBuildActions: Boolean): string;
+Get the build action previous to the one specified
+function GetBuildActionName(aBuildActionId: string): string;
+Get the name of a specific build action
+function GetBuildActionDescription(aBuildActionId: string): string;
+Get the description of a specific build action
+function GetBuildActionContent(aBuildActionId: string): string;
+Get the content of a specific build action
+function GetBuildActionActionType(aBuildActionId: string): string;
+Get the type of action of a specific build action
+function GetBuildActionKind(aBuildActionId: string): Integer;
+Get the kind of a specific build action (0: pre-build; 1: post-build)
+function GetBuildActionEnabled(aBuildActionId: string): Boolean;
+Get the enabled status of a specific build action
+function GetBuildActionOrder(aBuildActionId: string): Integer;
+Get the order of a specific build action
+procedure SetBuildActionName(aBuildActionId: string; aBuildActionName: string);
+Set the name of a specific build action
+procedure SetBuildActionDescription(aBuildActionId: string; aBuildActionDescription: string);
+Set the description of a specific build action
+procedure SetBuildActionContent(aBuildActionId: string; aBuildActionContent: string);
+Set the content of a specific build action
+procedure SetBuildActionActionType(aBuildActionId: string; aBuildActionActionType: string);
+Set the action type of a specific build action
+procedure SetBuildActionKind(aBuildActionId: string; aBuildActionKind: Integer);
+Set the kind of a specific build action (0: pre-build; 1: post-build)
+procedure SetBuildActionEnabled(aBuildActionId: string; aBuildActionEnabled: Boolean);
+Set the enabled status of a specific build action
+
+
+
+THndBuildAssetInfo
+Build asset entry information
+
+idbuildasset: string;
+idbuild: string;
+outputpath: string;
+sourcepath: string;
+source: Integer;
+
+
+
+THndBuildAssetInfoArray
+List of build asset info
+
+
+
+HndBuildsAssets
+Handle builds assets
+
+function CreateBuildAsset(aBuildId: string): string;
+Create a new build asset for a specific build. Returns its unique ID
+procedure DeleteAllBuildAssets(aBuildId: string);
+Delete all assets associated with a specific build
+function DeleteBuildAsset(aBuildAssetId: string): Boolean;
+Delete a specific build asset
+function GetBuildAssetInfo(aBuildAssetId: string): THndBuildAssetInfo;
+Get a detailed information for a specific build asset
+function GetBuildAssetInfoList(aBuildId: string): THndBuildAssetInfoArray;
+Get a detailed list of all assets for a specific build
+function GetBuildAssetContent(aBuildAssetId: string): TMemoryStream;
+Get the content of a specific build asset
+function GetBuildAssetContentChecksum(const aBuildAssetId: string): string;
+Returns the checksum (MD5) of a build asset's content. Useful for comparison purposes.
+function GetBuildAssetOutputPath(aBuildAssetId: string): string;
+Get the output path of a specific build asset
+function GetBuildAssetSourcePath(aBuildAssetId: string): string;
+Get the source path of a specific build asset
+function GetBuildAssetSource(aBuildAssetId: string): Integer;
+Get the source of a specific build asset
+procedure SetBuildAssetContent(const aBuildAssetId: string; const aContentStream: TStream);
+Set the build asset's content.
+procedure SetBuildAssetOutputPath(aBuildAssetId: string; aOutputPath: string);
+Get the output path of a specific build asset
+procedure SetBuildAssetSourcePath(aBuildAssetId: string; aSourcePath: string);
+Get the source path of a specific build asset
+procedure SetBuildAssetSource(aBuildAssetId: string; aSource: Integer);
+Get the source of a specific build asset
+
+
+
+HndBuildsAssetsContent
+Handle builds assets content
+
+procedure DeleteItem(const aBuildAssetId: string);
+Delete an existing item.
+function GetBuildAssetContent(const aBuildAssetId: string): TMemoryStream;
+Returns the content of the specified build asset.
+function GetBuildAssetContentChecksum(const aBuildAssetId: string): string;
+Returns the checksum (MD5) of a build asset's content. Useful for comparison purposes.
+procedure SetBuildAssetContent(const aBuildAssetId: string; const aContentStream: TStream);
+Set the build asset's content.
+
+
+
+HndBuildsAssetsMeta
+Access to builds assets meta data
+
+
+
+PHndBuildLibraryOverrideInfo
+Pointer to THndBuildLibraryOverrideInfo
+
+
+
+THndBuildLibraryOverrideInfo
+Information about a specific build library override
+
+idBuild: string;
+idLibraryItem: string;
+isEnabled: Boolean;
+Properties: string;
+
+
+
+THndBuildLibraryOverrideInfoArray
+Array of THndBuildLibraryOverrideInfo
+
+
+
+HndBuildsLibraryOverrides
+API functions to manage library overrides for individual builds
+
+function GetBuildLibraryOverrideInfo(const idBuild: string; const idLibraryItem: string): THndBuildLibraryOverrideInfo;
+Return build library override info for specific item
+procedure SetBuildLibraryOverrideInfo(const idBuild: string; const idLibraryItem: string; const isEnabled: Boolean; const Properties: string);
+Set build library override info for specific item
+procedure SetBuildLibraryOverrideEnabled(const idBuild: string; const idLibraryItem: string; const isEnabled: Boolean);
+Set build library override is enabled for specific item
+procedure SetBuildLibraryOverrideProperties(const idBuild: string; const idLibraryItem: string; const Properties: string);
+Set build library override properties for specific item
+procedure DeleteLibraryOverride(const idBuild: string; const idLibraryItem: string);
+Delete library override info, content and source for specific item
+procedure DeleteAllLibraryOverridesForBuild(const idBuild: string);
+Delete all library overrides info, content and source for a build
+procedure DeleteAllLibraryOverridesForLibraryItem(const idLibraryItem: string);
+Delete all library overrides info, content and source for a library item
+function GetBuildLibraryOverrideInfoListForBuild(const idBuild: string): THndBuildLibraryOverrideInfoArray;
+Return list of build library override info for specific build
+function GetBuildLibraryOverrideInfoListForLibraryItem(const idLibraryItem: string): THndBuildLibraryOverrideInfoArray;
+Return list of build library override info for specific library item
+function GetBuildLibraryOverrideContent(const idBuild: string; const idLibraryItem: string): TMemoryStream;
+Return content of library override for specific item
+function GetBuildLibraryOverrideContentChecksum(const idBuild: string; const idLibraryItem: string): string;
+Return content's checksum of library override for specific item
+procedure SetBuildLibraryOverrideContent(const idBuild: string; const idLibraryItem: string; aContentStream: TMemoryStream);
+Set content of library override for specific item
+function GetBuildLibraryOverrideSource(const idBuild: string; const idLibraryItem: string): TMemoryStream;
+Return source of library override for specific item
+function GetBuildLibraryOverrideSourceChecksum(const idBuild: string; const idLibraryItem: string): string;
+Return source's checksum of library override for specific item
+procedure SetBuildLibraryOverrideSource(const idBuild: string; const idLibraryItem: string; aSourceStream: TMemoryStream);
+Set source of library override for specific item
+
+
+
+HndBuildsMeta
+Access to builds meta data
+
+
+
+HndBuildsMetaEx
+Additional methods related to builds meta data
+
+function GetChmButtonVisibilityHex(const aBuildId: string): string;
+Return the CHM button visibility as an hexadecimal string.
+function GetChmNavigationPaneStyleHex(const aBuildId: string): string;
+Returns the CHM navigation pane style as an Hexadecimal string.
+function GetProjectDateTimeFormatOverrides(const aBuildId: string; const doIncludeDefaultProjectFormat: Boolean): THndProjectDateTimeFormat;
+Returns overriden project date / time formats
+function GetProjectSettingsOverrides(const aBuildId: string; const doIncludeDefaultProjectSettings: Boolean): THndProjectSettings;
+Get project settings overrides for the specified build
+procedure ResetProjectDateTimeFormatOverrides(const aBuildId: string);
+Reset project date/time overrides for the specified build
+procedure ResetProjectSettingsOverrides(const aBuildId: string);
+Reset project settings overrides for the specified build
+procedure SetProjectDateTimeOverrides(const aBuildId: string; const aDateTimeFormat: THndProjectDateTimeFormat);
+Set the project date time overrides for the specified build
+procedure SetProjectSettingsOverrides(const aBuildId: string; const aProjectSettings: THndProjectSettings);
+Set project settings overrides for the specified build
+
+
+
+HndBuildsStatus
+Handle relationship between builds and statuses
+
+function AreBuildAndStatusAssociated(const aBuildId: string; const aStatusId: string): Boolean;
+Indicates whether the specified build and status are associated.
+function AssociateBuildWithStatus(const aBuildId: string; const aStatusId: string): Boolean;
+Link a specific build to a specific Status.
+procedure DissociateAllForStatus(const aStatusId: string);
+Remove any association with the specified status.
+procedure DissociateAllForBuild(const aBuildId: string);
+Remove any association with the specified builds.
+function DissociateBuildFromStatus(const aBuildId: string; const aStatusId: string): Boolean;
+Remove the association between the specified build and status.
+function GetStatusAssociatedWithBuild(const aBuildId: string): TStringDynArray;
+Get a list of status Ids associated with a specific build.
+function GetBuildsAssociatedWithStatus(const aStatusId: string): TStringDynArray;
+Get a list of build Ids associated with a specific status.
+
+
+
+HndBuildsStatusEx
+Additional methods to handle relationship between builds and statuses
+
+function IsTopicIncludedInBuild(const aTopicId: string; const aBuildId: string): Boolean;
+Returns true if a topic can be included in the specified build (including correct build status).
+
+
+
+THndBuildStyleInfo
+Name: string;
+Enabled: Boolean;
+Content: string;
+
+
+
+THndBuildStyleInfoArray
+
+
+
+HndBuildsStyles
+Handle overridden styles for each builds
+
+procedure CopyBuildStylesToBuild(const aSourceBuildId: string; const aDestBuildId: string);
+Copy all build styles for a specific build to another build
+procedure DeleteAllBuildStyles(const aBuildId: string);
+Delete all build styles for a specific build ID
+procedure DeleteBuildStyle(const aBuildId: string; const aStyleName: string);
+Delete a specific build's overridden style
+function GetBuildStyleContent(const aBuildId: string; const aStyleName: string): string;
+Get the content of a specific build's overridden style
+function GetBuildStyleEnabled(const aBuildId: string; const aStyleName: string): Boolean;
+Get the enabled status of a specific build's overridden style. If not found, returns false.
+function GetBuildStyleList(const aBuildId: string): THndBuildStyleInfoArray;
+Get a list of overridden styles for a secific build
+procedure SetBuildStyleContent(const aBuildId: string; const aStyleName: string; const aContent: string);
+Set the content of a specific build's overridden style. Creates it if needed.
+procedure SetBuildStyleEnabled(const aBuildId: string; const aStyleName: string; const isEnabled: Boolean);
+Set the enabled status of a specific build's overridden style. Creates it if needed.
+
+
+
+HndBuildsTags
+Handle relationship between builds and tags
+
+function AreBuildAndTagAssociated(const aBuildId: string; const aTagName: string): Boolean;
+Indicates wether the specified build and tag are associated.
+function AssociateBuildWithTag(const aBuildId: string; const aTagName: string): Boolean;
+Link a specific build to a specific Tag.
+procedure DissociateAllForTag(const aTagName: string);
+Remove any association with the specified tag.
+procedure DissociateAllForBuild(const aBuildId: string);
+Remove any association with the specified builds.
+function DissociateBuildFromTag(const aBuildId: string; const aTagName: string): Boolean;
+Remove the association between the specified build and tag.
+function GetTagsAssociatedWithBuild(const aBuildId: string): TStringDynArray;
+Get a list of tag Ids associated with a specific build.
+function GetBuildsAssociatedWithTag(const aTagName: string): TStringDynArray;
+Get a list of build Ids associated with a specific tag.
+
+
+
+HndBuildsTagsEx
+Additional methods to handle relationship between builds and tags
+
+procedure ConditionAdd(aCondition: string; var aConditionList: TStringList);
+Add condition to the list.
+procedure ConditionInvert(var aConditionList: TStringList);
+Invert condition in the list.
+function ConditionRemove(aCondition: string; var aConditionList: TStringList): Boolean;
+Remove condition from the list.
+procedure ConditionReset(var aConditionList: TStringList);
+Reset condition list.
+function IsTopicIncludedInBuild(const aTopicId: string; const aBuildId: string): Boolean;
+Returns true if a topic can be included in the specified build (including correct build tags).
+
+
+
+THndDictionaryInfo
+Information about a specific dictionary
+
+name: string;
+description: string;
+author: string;
+updated: TDate;
+localeid: Cardinal;
+dictionaryfile: string;
+grammarfile: string;
+active: Boolean;
+
+
+
+THndDictionaryInfoArray
+Array of THndDictionaryInfo
+
+
+
+HndDictionaries
+Manage dictionaries and live spell check
+
+procedure ClearDictionaries;
+Clears the loaded dictionaries list and disable the spell checker component.
+procedure DisableAllDictionaries;
+Disable all the dictionaries.
+function EnableDictionaries(const aLocalIdList: TStringList; const DisabledOthers: Boolean): Boolean;
+Enable a list of dictionaries. Disable the other ones if needed.
+function EnableDictionary(const aLocaleId: Cardinal; const DisabledOthers: Boolean): Boolean;
+Enable the specific dictionary and disables others if asked.
+function GetActiveDictionariesCount: Integer;
+Returns the number of currently active dictionaries.
+function GetActiveDictionariesList: THndDictionaryInfoArray;
+Returns the list of currently active dictionaries.
+function GetDictionariesCount: Integer;
+Get the number of dictionaries.
+function GetDictionariesList: THndDictionaryInfoArray;
+Get a list of dictionaries.
+function GetDictionaryInfo(const aLocalId: Cardinal): THndDictionaryInfo;
+Returns information about the specific locale.
+function InstallOOoDictionay(const aFileName: string): Boolean;
+Installs a new OpenOffice.org dictionary.
+procedure PauseLiveSpell;
+Pause live spell in all possible controls.
+function ReloadDictionaries: Boolean;
+Reload the dictionary list from the disk.
+procedure SwitchDictionaryStatus(const aLocalId: Cardinal);
+If dictionary is enable, then disable it and vice-versa.
+procedure UpdateLiveSpell;
+Resume the live spell after it has been paused.
+
+
+
+THndCaretMovement
+Caret movement
+
+hcmUp
+hcmDown
+hcmLeft
+hcmRight
+hcmTop
+hcmBottom
+hcmHome
+hcmEnd
+hcmParaBeginning
+hcmNextParaBeginning
+
+
+
+THndVAlign
+Vertical alignment of a picture
+
+hndVaBaseline
+hndVaMiddle
+hndVaAbsTop
+hndVaAbsBottom
+hndVaAbsMiddle
+hndVaLeft
+hndVaRight
+
+
+
+THndHVAlignment
+Table cell alignment
+
+hndHVaTopLeft
+hndHVaTopCenter
+hndHVaTopRight
+hndHVaCenterLeft
+hndHVaCenter
+hndHVaCenterRight
+hndHVaBottomLeft
+hndHVaBottomCenter
+hndHVaBottomRight
+
+
+
+THndHyperlinkKind
+Kind of hyperlink
+
+hlkTopic
+hlkNavigation
+hlkInternetMail
+hlkFile
+hlkCounter
+
+
+
+THndHyperlinkInfo
+Information about a hyperlink
+
+Kind: THndHyperlinkKind;
+Param1: string;
+Param2: string;
+Param3: string;
+Initialize(out Dest: THndHyperlinkInfo);
+
+
+
+HndEditor
+Create and manage a topic editor
+
+procedure ApplyStyleToSelection(const anEditor: TObject; const aStyleId: Integer);
+Apply the specified style to the selection.
+procedure Clear(const anEditor: TObject);
+Clears the content of the specified editor.
+procedure ConvertParagraphBreaksToLineBreaks(const anEditor: TObject; doProcessSelectionOnly: Boolean);
+Convert paragraph breaks to soft line breaks
+function ConvertSelectionToSnippet(const anEditor: TObject; const doReplaceSelection: Boolean; var nbItemsConverted: Integer; var nbItemsDeleted: Integer): string;
+Convert the currently selected content to a snippet and return it ID. Replace the selection by the snippet if doReplaceSelection is True
+function CreateTemporaryEditor: TObject;
+Creates a new temporary editor.
+function CreateTemporaryReportHelper: TObject;
+Create a new temporary report helper.
+function CreateTemporaryViewer: TObject;
+Creates a new temporary viewer.
+procedure DestroyTemporaryEditor(const anEditor: TObject);
+Destroys a previously created temporary editor.
+procedure DestroyTemporaryReportHelper(const aReportHelper: TObject);
+Destroys a previously created temporary report helper.
+procedure DestroyTemporaryViewer(const aViewer: TObject);
+Destroys a previously created temporary viewer.
+function GetAnchorList(const anEditor: TObject): TStringList;
+Retrieves the list of anchors in the specified editor.
+function GetContentAsHtml(const anEditor: TObject; out aCssContent: string): string;
+Returns the editor content as HTML.
+procedure GetContentAsStream(const anEditor: TObject; aStream: TMemoryStream);
+Returns the editor content as Stream.
+function GetContentAsText(const anEditor: TObject): string;
+Returns the editor content as text.
+function GetCurrentAnchorName(const anEditor: TObject): string;
+Returns the name of the current checkpoint or an empty string if there isn't any.
+function GetCurrentItem(const anEditor: TObject): TObject;
+Returns the currently selected item.
+function GetCurrentPictureAltText(const anEditor: TObject): string;
+Return the currently selected picture's alternative text.
+function GetCurrentPictureBackColor(const anEditor: TObject): TColor;
+Returns the background color of the currently selected picture.
+function GetCurrentPictureClassNames(const anEditor: TObject): string;
+Return the currently selected picture's class names.
+function GetCurrentPictureHeight(const anEditor: TObject; const DoConvertTo96Dpi: Boolean): Integer;
+Returns the currently selected picture's height.
+function GetCurrentPictureId(const anEditor: TObject): string;
+Return the currently selected picture's ID.
+function GetCurrentPictureMarginLeftRight(const anEditor: TObject): Integer;
+Get the current picture left/right margins.
+function GetCurrentPictureMarginTopBottom(const anEditor: TObject): Integer;
+Get the current picture top/bottom margins.
+function GetCurrentPicturePadding(const anEditor: TObject): Integer;
+Get the current picture padding.
+function GetCurrentPictureVAlign(const anEditor: TObject): THndVAlign;
+Return the currently selected picture's vertical alignment.
+function GetCurrentPictureWidth(const anEditor: TObject; const DoConvertTo96Dpi: Boolean): Integer;
+Returns the currently selected picture's width.
+function GetCurrentTable(const anEditor: TObject): TObject;
+Returns the currently selected table or nil if not tables are selected.
+function GetUsedLibraryItems(const anEditor: TObject): TStringList;
+Returns a list of library items used in that document
+procedure InsertAnchorBeforeCurrentItem(const anEditor: TObject; const aName: string);
+Inserts a checkpoint at the current cursor position.
+procedure InsertCondition(const anEditor: TObject; const anOperation: string; const aCondition: string);
+Insert a condition item at the current cursor position.
+procedure InsertContentFromHTML(anEditor: TObject; aHtmlContent: string);
+Insert HTML content in the editor
+function InsertFile(anEditor: TObject; aFile: string): Boolean;
+Inserts a file in the editor.
+function InsertFileFromLibraryItem(const anEditor: TObject; const aLibraryItem: string; const doImportNewImagesToLibrary: Boolean): Boolean;
+Insert the content of the library item.
+procedure InsertHyperLinkToTopicId(const anEditor: TObject; const aText: string; const aLinkedTopicId: string; const aLinkedAnchor: string = '');
+Inserts an hyperlink to a specific topic ID (and optionally anchor in that topic) using the provided caption.
+procedure InsertHyperLinkToUrl(const anEditor: TObject; const aText: string; const anUrl: string);
+Inserts an hyperlink to a specific URL.
+function InsertLibraryItem(const anEditor: TObject; const aLibraryItem: string; const OnlyReplaceContent: Boolean): TObject;
+Insert a library item object in the specified editor at the current cursor position.
+function InsertLibraryItemContent(const anEditor: TObject; const aLibraryItem: string): Boolean;
+Insert the content of a library item in the specified editor at the current cursor position.
+procedure InsertPageBreakBeforeCurrentItem(const anEditor: TObject);
+Inserts a page break at the current cursor position.
+function InsertStream(const anEditor: TObject; const aStream: TStream): Boolean;
+Insert the content of the specified stream in the specified editor.
+procedure InsertTopicContent(const anEditor: TObject; const aTopicId: string);
+Insert the content of the specified topic in the specified editor.
+function IsEmpty(const anEditor: TObject): Boolean;
+Returns true if the editor is empty
+procedure MoveCaret(anEditor: TObject; aDirection: THndCaretMovement; doMakeSelection: Boolean);
+Move the editor's caret to the specified direction. Extends selection if doMakeSelection is True
+procedure MoveCaretTo(anEditor: TObject; X: Integer; Y: Integer);
+Move the specified editor's caret to another location.
+procedure MoveCaretToEnd(const anEditor: TObject);
+Move the specified editor's caret to the end.
+procedure MoveSelectedTableRows(const anEditor: TObject; const doMoveDown: Boolean);
+Move the selected table's rows up or down. If rows are partially selected, the whole row is moved
+procedure ProcessConditionalsForCurrentBuild(const anEditor: TObject);
+Removes any conditional items based on current build setting.
+procedure RemoveCurrentAnchor(const anEditor: TObject);
+Remove the current checkpoint in the specified Editor.
+function ReplaceLibraryItems(const anEditor: TObject): Boolean;
+Replace the library items by their actual content.
+procedure SetAsTopicContent(const anEditor: TObject; const aTopicId: string);
+Set the specific topic's content as the current editor's content.
+function SetContent(const anEditor: TObject; const aContentStream: TStream): Boolean;
+Set the content from a stream.
+procedure SetCurrentCellsAlignment(const anEditor: TObject; const anHVAlignment: THndHVAlignment);
+Sets the currently selected cells horizontal and vertical alignment.
+procedure SetCurrentPictureAltText(const anEditor: TObject; const anAltText: string);
+Set the currently selected picture's alternative text.
+procedure SetCurrentPictureBackColor(const anEditor: TObject; const aColor: TColor);
+Set the currently selected picture's background color.
+procedure SetCurrentPictureClassNames(const anEditor: TObject; const aClassNames: string);
+Set the currently selected picture's class names.
+procedure SetCurrentPictureHeight(const anEditor: TObject; const aNewHeight: Integer; const doConstrainProportions: Boolean);
+Defines the currently selected picture's height.
+procedure SetCurrentPictureId(const anEditor: TObject; const anId: string);
+Set the currently selected picture's ID.
+procedure SetCurrentPictureMarginLeftRight(const anEditor: TObject; const aNewMargin: Integer);
+Set the currently selected picture's left/right margins.
+procedure SetCurrentPictureMarginTopBottom(const anEditor: TObject; const aNewMargin: Integer);
+Set the currently selected picture's top/bottom margins.
+procedure SetCurrentPicturePadding(const anEditor: TObject; const aNewSpacing: Integer);
+Set the currently selected picture's padding.
+procedure SetCurrentPictureVAlign(const anEditor: TObject; const aNewVAlign: THndVAlign);
+Defines the currently selected picture's vertical alignment.
+procedure SetCurrentPictureWidth(const anEditor: TObject; const aNewWidth: Integer; const doConstrainProportions: Boolean);
+Defines the currently selected picture's width.
+procedure SyntaxHighlightSelection(const anEditor: TObject; const aLanguageCode: string);
+Syntax highlight the selected content based on the language
+procedure TogglePageBreak(const anEditor: TObject);
+Create or remove the current page break.
+procedure UpdateLibraryItem(const anEditor: TObject; anItemId: string);
+Update a library item's visual appearance in the editor.
+
+
+
+HndEditorHelper
+Additional methods to manage a topic editor
+
+procedure CleanContent(const anEditor: TObject);
+Cleans the content of the editor by removing any un-needed items. This will not alter the content of the editor but could make its size on disk/memory smaller
+procedure GetCurrentStyleTemplateInfo(const anEditor: TObject; var aStyleTemplateId: Integer; var aStyleTemplateName: string);
+Returns information about the current style template.
+function GetHyperlinkDetailedTextFromString(const aString: string): string;
+Returns a detailed text from an hyperlink string.
+function GetHyperlinkInfoFromString(const aString: string): THndHyperlinkInfo;
+Extract the hyperlink information from a string.
+procedure GetHyperlinkTargetExtraFromString(const aString: string; var Target: string; var Extras: string);
+Returns the Target and Extra values from hyperlink data.
+procedure ImportImagesToLibrary(const anEditor: TObject);
+Import the images to library.
+procedure ReplaceAnchorsToLowercase(const anEditor: TObject);
+Modify all anchors to lowercase.
+procedure ScrollToSelection(const anEditor: TObject);
+Scrolls to make selection visible
+function SetHyperlinkInfoToString(const anHyperLinkInfo: THndHyperlinkInfo): string;
+Constructs a string based in hyperlink info.
+procedure SetupEditorProperties(const anEditor: TObject);
+Defines default editor properties and events.
+
+
+
+THndGeneratorInfo
+Information and actions over the current generation
+
+BOMOutput: Boolean;
+Add BOM to currently generated file
+ForceOutputEncoding: Boolean;
+Force output encoding for the currently generated file
+HelpNDocVersion: string;
+Current HelpNDoc version
+OutputDir: string;
+Output directory of the current generator
+OutputFile: string;
+Output file name for the current generator
+function GetAssetsList: TStringDynArray;
+Returns a list of template assets
+function GetCustomSettingValue(const aCustomSetting: string): Variant;
+Returns the user-defined value of a custom setting.
+function GetGeneratedFiles: TStringDynArray;
+List of files that have been generated so far.
+property CurrentBuildId: string;
+Current build Id being executed.
+property CurrentFile: string;
+Currently generated file
+property CurrentTopic: string;
+Current topic ID which is being worked on.
+property LogInfoCount: Integer;
+How many INFO log occurred while generating.
+property LogWarningCount: Integer;
+How many WARNING log occurred while generating.
+property LogErrorCount: Integer;
+How many ERROR log occurred while generating.
+property OutputDirLib: string;
+Output sub-directory where library items are generated. Always a valid HTML path
+property SeenTopics: TStringDynArray;
+List of topics which have been seen. Usually used by the Markdown single page template's Help ID hook and MarkdownSlugify
+property TemplateInfo: THndTemplateInfo;
+Information about the currently used template.
+
+
+
+HndJsSearchEngine
+Methods to manage the JavaScript search engine
+
+procedure AddSearchData(const aSearchData: string; const aAssociatedTopicId: string; const nMinWordLength: Integer = 3);
+Add search data and associate it to a specific topic.
+procedure ClearSearchData;
+Clear the current search data.
+function GetJsData: string;
+Get the JavaScript search data.
+
+
+
+THndKeywordsAttachMode
+Specify how the moved keyword will be attached: - hkamAdd: Adds a node at the same level as the existing node. - hkamAddChild: Adds a child node to the existing node.
+
+hkamAdd
+hkamAddFirst
+hkamAddChild
+hkamAddChildFirst
+hkamInsert
+
+
+
+THndKeywordsInfo
+Minimal keyword information. Used by the THndKeywordsInfoArray
+
+Id: string;
+Caption: string;
+ParentId: string;
+
+
+
+THndKeywordsInfoArray
+Array of minimal keyword information
+
+
+
+HndKeywords
+Properties and methods for keywords
+
+function CreateKeyword: string;
+Create a new keyword. The new keyword will be placed at the bottom of the list.
+procedure DeleteAllKeywords;
+Delete all the keywords in the project, except the root project keyword.
+function DeleteKeyword(const aKeywordId: string): Boolean;
+Delete a specific keyword and its children.
+function GenerateUniqueCaption(anInitialCaption: string; aParentId: string; const aFilteredItems: array of string): string;
+Generates a unique caption within the specified parent.
+function GetKeywordByCaption(aCaption: string; aParentId: string): string;
+Returns the ID of the keyword with the specified case-insensitive caption with the specified parent.
+function GetKeywordCaption(const aKeywordId: string): string;
+Get the caption of a specific keyword.
+function GetKeywordDirectChildrenCount(const aKeywordId: string): Integer;
+Returns the number of children for the specified keyword.
+function GetKeywordDirectChildrenList(const aParentId: string): THndKeywordsInfoArray;
+Returns a list of all the children keywords.
+function GetKeywordLevel(const aKeywordId: string): Integer;
+Returns the level of the specified keyword.
+function GetKeywordList(const aIncludingProjectKeyword: Boolean): THndKeywordsInfoArray;
+Returns a list of all the keywords.
+function GetKeywordNext(const aKeywordId: string): string;
+Get the next keyword in line. Could be a child or the next keyword.
+function GetKeywordNextSibbling(const aKeywordId: string): string;
+Returns the next sibling of a specific keyword.
+function GetKeywordParent(const aKeywordId: string): string;
+Returns the parent keyword of a specific keyword.
+function GetKeywordPreviousSibbling(const aKeywordId: string): string;
+Get the previous sibling keyword.
+function GetProjectKeyword: string;
+Returns the root project keyword.
+function MoveKeyword(const aKeywordId: string; const aReferencedKeywordId: string; const oAttachMode: THndKeywordsAttachMode): Boolean;
+Move the keyword to a new position in reference to nReferencedKeywordsId.
+function MoveKeywordLeft(const aKeywordId: string): Boolean;
+Move the specific keyword left in the hierarchy.
+function MoveKeywordRight(const aKeywordId: string): Boolean;
+Move the specific keyword right in the hierarchy.
+function SetKeywordCaption(const aKeywordId: string; const sNewCaption: string): string;
+Defines the specific keyword' caption.
+
+
+
+HndKeywordsEx
+Additional properties and methods for Keywords
+
+
+
+HndKeywordsMeta
+Access to topics meta data
+
+
+
+THndLibraryItemAttachMode
+Specify how the moved library item will be attached: - hlamAdd: Adds a node at the same level as the existing node and makes the new node last. - hlamAddFirst: Adds a node at the same level as the existing node and makes the new node first. - hlamAddChild: Adds a child node to the existing node and makes the new node last. - hlamAddChildFirst: Adds a child node to the existing node and makes the new node first. - hlamInsert: Inserts a node at the same level just before the existing node.
+
+hlamAdd
+hlamAddFirst
+hlamAddChild
+hlamAddChildFirst
+hlamInsert
+
+
+
+THndLibraryItemsInfo
+Minimal library item information. Used by the THndLibraryItemsInfoArray
+
+Id: string;
+Caption: string;
+Extension: string;
+Kind: Integer;
+Source: Integer;
+
+
+
+THndLibraryItemsInfoArray
+Array of minimal library item information
+
+
+
+HndLibraryItems
+Properties and methods for library items
+
+function CreateItem: string;
+Creates a new unspecified item to the library.
+function DeleteItem(const anItemId: string): Boolean;
+Delete a specific library item.
+function GetItemByCaption(const aCaption: string): string;
+Returns the item with the given caption.
+function GetItemCaption(const anItemId: string): string;
+Gets the caption of a specific item.
+function GetItemContent(const anItemId: string): TMemoryStream;
+Get the content of the item as a stream. Caller must free the stream after using it.
+function GetItemContentAsText(const anItemId: string): string;
+Get the content of an item as a text.
+function GetItemContentChecksum(const anItemId: string): string;
+Returns the checksum (MD5) of a library item content. Useful for comparison purposes.
+function GetItemExtension(const anItemId: string): string;
+Get the item's file extension.
+function GetItemIsLocked(const anItemId: string; out aLockUser: string; out aLockDateTime: TDateTime): Boolean;
+Returns True if a library item is locked, as well as lock data
+function GetItemKind(const anItemId: string): Integer;
+Gets the kind of the specific item (1 => picture, 2 => movie, 3 => document, 4 => system variable, 5 => variable, 6 => HTML, 7 => snippet, 8 => folder, 9 => image map, 10 => bar code, 11 => counter).
+function GetItemList(const aIncludingKinds: array of Integer): THndLibraryItemsInfoArray;
+Returns a list of items filtered by aIncludingKinds. For example GetItemList([1,2]) lists only images and movies. Leave blank to list everything.
+function GetItemParent(const anItemId: string): string;
+Returns the parent item of a specific item.
+function GetItemSource(const anItemId: string): Integer;
+Gets the source of a specific library item (1 => included, 2 => external file, 3 => URL).
+function GetItemSourceContent(const anItemId: string): TMemoryStream;
+Get the source content of the item as a stream. Caller must free the stream after using it.
+function GetItemSourceContentChecksum(const anItemId: string): string;
+Returns the checksum (MD5) of a library item's source content. Useful for comparison purposes.
+function GetItemsWithSameContent(const anItemId: string; const aFilteredItems: array of string): THndLibraryItemsInfoArray;
+Returns the items with the same content as the specified one.
+function GetItemUrlFile(const anItemId: string): string;
+Gets the URL File of a specified library item.
+function GetItemUrlFileAbsolute(const anItemId: string): string;
+Gets the URL of a specified library item: use project path if relative.
+function GetItemUrlLink(const anItemId: string): string;
+Gets the URL Link of a specified library item.
+function GetProjectItem: string;
+Returns the root project library item.
+function MoveItem(const anItemId: string; const aReferencedItemId: string; const oAttachMode: THndLibraryItemAttachMode): Boolean;
+Move the library item to a new position in reference to aReferencedItemId.
+function SetItemCaption(const anItemId: string; const aCaption: string): string;
+Sets the caption of a specific item.
+function SetItemContent(const anItemId: string; const aContent: TStream): Boolean;
+Sets the content stream of a specified item.
+function SetItemContentFromBytes(const anItemId: string; const aContent: TBytes): Boolean;
+Sets the content of the item from an array of Bytes.
+function SetItemContentFromFile(const anItemId: string; const aContentFile: string): Boolean;
+Set the content of the item from an existing file.
+function SetItemContentFromText(const anItemId: string; const aContentText: string): Boolean;
+Sets the content as text of a specific item.
+function SetItemExtension(const anItemId: string; const anExtension: string): Boolean;
+Set the item's file extension.
+function SetItemKind(const anItemId: string; const aKind: Integer): Boolean;
+Sets the kind of a specific item. See GetItemKind for kind value
+function SetItemSource(const anItemId: string; const aSource: Integer): Boolean;
+Sets the source of a specific library item (1 => included, 2 => external file, 3 => URL).
+function SetItemSourceContent(const anItemId: string; const aContent: TStream): Boolean;
+Sets the source content stream of a specified item.
+function SetItemUrlFile(const anItemId: string; const anUrlFile: string): Boolean;
+Sets the URL File of a specified library item.
+function SetItemUrlLink(const anItemId: string; const anUrlLink: string): Boolean;
+Sets the URL Link of a specified library item.
+
+
+
+HndLibraryItemsEx
+Additional properties and methods for library items
+
+function FilterCaptionString(const aCaption: string): string;
+function GetItemContentGraphic(const anItemId: string; anEditorDisplayWidth: Integer = 0; anEditorDisplayHeight: Integer = 0): TGraphic;
+function SetItemContentGraphic(const anItemId: string; const aGraphic: TGraphic): Boolean;
+procedure SetVariableValueByName(const aVariableName: string; const aVariableValue: string);
+
+
+
+HndLibraryItemsMeta
+Access to library items meta data
+
+
+
+THndProjectSettings
+Various project settings
+
+Title: string;
+Author: string;
+DefaultTopic: string;
+Version: string;
+Copyright: string;
+Summary: string;
+Comment: string;
+Language: Integer;
+Charset: Integer;
+
+
+
+HndProjects
+Properties and methods for projects
+
+function BackupProject(const aBackupLocation: string): Boolean;
+Backup the project to the specified location
+procedure CloseProject;
+Closes the currently opened project.
+function CopyProject(const aNewProjectName: string; const OpenNewOne: Boolean): Boolean;
+Copy the project to a new location and open the new one if needed.
+function DeleteProject: Boolean;
+Physically delete the currently opened project.
+function GetProjectAuthor: string;
+Returns the author of the project.
+function GetProjectBusy: Boolean;
+Project is currently busy: creating, loading or closing.
+function GetProjectCharset: Integer;
+Returns the project current charset.
+function GetProjectCharsetAsHtml: string;
+Returns the project current charset as HTML charset value.
+function GetProjectClosing: Boolean;
+Project is currently closing.
+function GetProjectComment: string;
+Return the current project's comment.
+function GetProjectCopyright: string;
+Returns the project copyright.
+function GetProjectCreating: Boolean;
+Project is currently being created.
+function GetProjectCssContent: string;
+Returns the CSS content of the current project. Can only be returned when generating an HTML related format.
+function GetProjectDefaultTopic: string;
+Returns the Id of the default topic.
+function GetProjectId: string;
+Returns the currently open project id.
+function GetProjectIsOpen: Boolean;
+Returns True if a project is open.
+function GetProjectLanguage: Integer;
+Returns the project current language as a Local ID (LCID).
+function GetProjectLanguageCode: string;
+Returns the project language code (eg: en-us)
+function GetProjectLanguageCodeAsHtml(const ShortFormat: Boolean): string;
+Returns the project language code as HTML (eg: en)
+function GetProjectModified: Boolean;
+Indicates whether or no the current project has been modified since last save.
+function GetProjectName: string;
+Returns the current project name (or file name).
+function GetProjectNeverSaved: Boolean;
+Indicates whether the project as already been saved or not.
+function GetProjectOpenning: Boolean;
+Returns True if the project is currently opening.
+function GetProjectSummary: string;
+Returns the project summary.
+function GetProjectTitle: string;
+Gets the title of the specified project.
+function GetProjectVersion: string;
+Return the current project's version number.
+function LockResource(const aResourceType: HndResourceType; const aResourceId: string; const doForceLock: Boolean): Boolean;
+Lock a specific resource
+function MoveProject(const aNewProjectName: string): Boolean;
+Move the project to a new location.
+function NewProject(const aProjectName: string = ''): string;
+Creates a new project and returns its unique id.
+function OpenProject(const aProjectName: string; const doApplyMigrations: Boolean): string;
+Open an existing project and returns its unique id.
+procedure SaveProject;
+Saves the project to a file.
+procedure SetProjectAuthor(const anAuthor: string);
+Defines the project author.
+procedure SetProjectCharset(const aCharSet: Integer);
+Defines the project charset.
+procedure SetProjectComment(const aComment: string);
+Set the current project comment.
+procedure SetProjectCopyright(const aCopyrightValue: string);
+Defines the project copyright.
+function SetProjectDefaultTopic(const aDefaultTopic: string): string;
+Defines the project's default topic.
+procedure SetProjectLanguage(const aLanguage: Integer);
+Defines the project language. Refer to the language ID from this Microsoft document: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/70feba9f-294e-491e-b6eb-56532684c37f
+procedure SetProjectModified(const IsModified: Boolean);
+Mark the current project as being modified since last save.
+procedure SetProjectNeverSaved(const IsProjectNeverSaved: Boolean);
+Mark the project as being never saved.
+procedure SetProjectSummary(const aSummary: string);
+Set the project summary.
+procedure SetProjectTitle(const aProjectTitle: string);
+Sets the title of the specified project.
+procedure SetProjectVersion(const aProjectVersion: string);
+Sets the version of the current project.
+procedure UnlockResource(const aResourceType: HndResourceType; const aResourceId: string);
+Unlock a specific resource
+function VacuumProject: Boolean;
+Clean the project and lower its file size by removing unneeded information.
+
+
+
+HndProjectsEx
+Additional properties and methods for projects.
+
+function GetProjectSettings: THndProjectSettings;
+procedure SetProjectSettings(const aProjectSettings: THndProjectSettings);
+
+
+
+THndProjectDateTimeFormat
+Date and Time format for a project
+
+CurrentDateTime: string;
+Date: string;
+DateLong: string;
+Day: string;
+DayLong: string;
+Month: string;
+MonthLong: string;
+Time: string;
+TimeLong: string;
+Year: string;
+YearLong: string;
+
+
+
+HndProjectsMeta
+Access to project meta data
+
+
+
+HndProjectsMetaEx
+Additional methods to access project meta data
+
+function GetProjectDateTimeFormat: THndProjectDateTimeFormat;
+Returns project date / time formats
+procedure SetProjectDateTimeFormat(const aDateTimeFormat: THndProjectDateTimeFormat);
+Set project date / time formats
+
+
+
+HndSecrets
+Properties and methods for Secrets
+
+procedure DeleteSecret(const aKey: string);
+Delete a secret and its value
+function GetSecret(const aKey: string; const aPassword: string = ''): string;
+Get a secret's value. Value will be decrypted using the password specified, or HelpNDoc's internal password. Returns an empty string is the password is incorrect
+procedure SetSecret(const aKey: string; const aValue: string; const aPassword: string = '');
+Set a secret value. Value will be encrypted using the password specified, or HelpNDoc's internal password (less secured)
+
+
+
+THndStatusInfo
+Information about a specific status
+
+Id: string;
+Caption: string;
+Color: TColor;
+Order: Integer;
+
+
+
+THndStatusInfoArray
+Array of THndStatusInfo
+
+
+
+HndStatus
+Properties and methods for Statuses
+
+function CreateStatus: string;
+Create a new status
+procedure DeleteAllStatus;
+Delete all statuses
+function DeleteStatus(const aStatusId: string): Boolean;
+Delete a specific status
+function GetStatusByCaption(const aCaption: string): string;
+Returns a status ID based on its caption
+function GetStatusCaption(const aStatusId: string): string;
+Get the caption of a status
+function GetStatusColor(const aStatusId: string): TColor;
+Get the color of a status
+function GetStatusCount: Integer;
+Return the number of available statuses.
+function GetStatusExists(const aStatusId: string): Boolean;
+Returns true is a specific status exists.
+function GetStatusFirst: string;
+Returns the first status in the statuses list.
+function GetStatusList: THndStatusInfoArray;
+Get a list of statuses.
+function GetStatusNext(const aStatusId: string): string;
+Get the next status.
+function GetStatusOrder(const aStatusId: string): Integer;
+Returns the order of a specific status.
+function GetStatusPrevious(const aStatusId: string): string;
+Returns the previous status.
+procedure MoveStatusAfter(const aStatusId: string; const aAfterStatusId: string);
+Move a status after another one.
+procedure MoveStatusBefore(const aStatusId: string; const aBeforeStatusId: string);
+Move a status before another one.
+procedure MoveStatusFirst(const aStatusId: string);
+Move the status first in the list.
+procedure MoveStatusLast(const aStatusId: string);
+Move the status last in the list.
+procedure SetStatusCaption(const aStatusId: string; const aCaption: string);
+Set the caption of a status.
+procedure SetStatusColor(const aStatusId: string; const aColor: TColor);
+Set the color of a status.
+
+
+
+HndTags
+Properties and methods for Tags
+
+function CreateTag(aTagName: string): string;
+Create a new tag. Returns the created tag name.
+procedure DeleteAllCustomTags;
+Delete all custom tags for the current project.
+procedure DeleteCustomTag(aTagName: string);
+Delete a specific custom tag.
+function GetTagCount(const doIncludeSystemTags: Boolean): Integer;
+Returns the number of tags, including or not system tags.
+function GetTagListAll: TStringList;
+Returns a list of all system and custom tags.
+function GetTagListCustom: TStringList;
+Get a list of custom tags.
+function GetTagListSystem: TStringList;
+Get a list of system tags.
+function IsSystemTag(aTagName: string): Boolean;
+Returns True if the specified tag is a system tag
+
+
+
+HndTemplates
+Properties and methods for Templates
+
+function GetDefaultTemplateFor(const aTemplateKind: string): THndTemplateInfo;
+Get the default template info for the specified kind.
+function GetTemplateCategoryHierarchy: THndTemplateHierarchyArray;
+Returns the full category hierarchy of available templates.
+function GetTemplateFromName(const aTemplateName: string; const aTemplateKind: string): THndTemplateInfo;
+Returns a specific template based on its name and kind.
+function GetTemplateList: THndTemplateInfoArray;
+Returns a list of available templates on specified kind, or all kinds if none specified.
+procedure UpdateTemplateList;
+Retrieves the templates from the hard drive.
+
+
+
+HndTemplatesEx
+Additional properties and methods for Templates
+
+function CopyAndMergeTemplateToFolder(const aTemplateInfo: THndTemplateInfo; const aFolder: string): Boolean;
+Copy the template to the specific folder, merging its info file with existing template in that folder.
+function GetTemplateInfoFromPath(const aTemplatePath: string): THndTemplateInfo;
+Get template info from its path.
+function GetTemplateKindFromPath(const aTemplatePath: string): string;
+Returns the kind of template available at the specified path.
+function GetTemplateRawNameFromPath(aTemplatePath: string): string;
+Returns the template directory name from path.
+
+
+
+THndTopicsAttachMode
+Specify how the moved topic will be attached: - htamAdd: Adds a node at the same level as the existing node and makes the new node last. - htamAddFirst: Adds a node at the same level as the existing node and makes the new node first. - htamAddChild: Adds a child node to the existing node and makes the new node last. - htamAddChildFirst: Adds a child node to the existing node and makes the new node first. - htamInsert: Inserts a node at the same level just before the existing node.
+
+htamAdd
+htamAddFirst
+htamAddChild
+htamAddChildFirst
+htamInsert
+
+
+
+HndTopics
+Create, edit and manage topics within the current project.
+
+procedure CopyTopicToClipboard(const aTopicId: string; const isCut: Boolean);
+Copy the specified topic to clipboard.
+procedure CreateMultipleTopics(const aTopicList: TStrings; const aParentTopic: string = ''; const aGeneratedIds: TStrings = nil);
+Creates multiple child topics of the specified parent based on a tabular lists.
+function CreateTopic: string;
+Create a new topic. The topic will be placed at the bottom of the topic list.
+procedure DeleteAllTopics;
+Delete all the topics in the project, except the parent topic.
+function DeleteTopic(const aTopicId: string): Boolean;
+Delete a specific topic and its children. Project topic can't be deleted.
+function GenerateUniqueHelpContext(const aBaseHelpContext: Integer; const aFilteredTopics: array of string): Integer;
+Generates a unique help context among all the topics except the filtered ones.
+function GenerateUniqueHelpId(const aBaseHelpId: string; const aFilteredTopics: array of string): string;
+Generates a unique help id among all the topics except the filtered ones.
+function GetCurrentTopic: string;
+Returns the ID of the currently edited topic.
+function GetProjectTopic: string;
+Returns the root project topic.
+function GetTopicCaption(const aTopicId: string): string;
+Get the caption of a specific topic.
+function GetTopicContent(const aTopicId: string): TMemoryStream;
+Returns the content of the specified topic.
+function GetTopicContentChecksum(const aTopicId: string): string;
+Returns the checksum (MD5) of a topic's content. Useful for comparison purposes.
+function GetTopicContentAsHtml(const aTopicId: string): string;
+Get the topic's content as HTML. Only available when generating an HTML related documentation.
+function GetTopicCount: Integer;
+Returns the number of topics available in the current project.
+function GetTopicCreationDateTime(const aTopicId: string): TDateTime;
+Returns the date and time when the topics was created.
+function GetTopicDescription(const aTopicId: string): string;
+Returns the description of the topic
+function GetTopicDirectChildrenCount(const aParentId: string): Integer;
+Returns the number of direct children a topic has.
+function GetTopicDirectChildrenList(const aParentId: string): THndTopicsInfoArray;
+Returns a list of direct children of the specified topic.
+function GetTopicFirst: string;
+Returns the first topic in the project.
+function GetTopicFooterKind(const aTopicId: string): Integer;
+Returns the topic's kind of footer text: normal, custom, hidden.
+function GetTopicFooterText(const aTopicId: string): string;
+Returns the custom topic footer text.
+function GetTopicFooterTextCalculated(const aTopicId: string): string;
+Returns the footer text based on the header kind: project caption, custom text or empty text for hidden footer.
+function GetTopicHeaderKind(const aTopicId: string): Integer;
+Returns the topic's kind of header text: normal, custom, hidden.
+function GetTopicHeaderText(const aTopicId: string): string;
+Returns the custom topic header text.
+function GetTopicHeaderTextCalculated(const aTopicId: string): string;
+Returns the header text based on the header kind: topic title, custom text or empty text for hidden header.
+function GetTopicHelpContext(const aTopicId: string): Integer;
+Get a specific topic's help context.
+function GetTopicHelpId(const aTopicId: string): string;
+Get a specific topic's help id.
+function GetTopicIconIndex(const aTopicId: string): Integer;
+Get the icon index for a specific topic.
+function GetTopicIndex(const aTopicId: string; const isZeroBased: Boolean): Integer;
+Returns the index of the topic from its parent.
+function GetTopicIndexHierarchy(const aTopicId: string; const isZeroBased: Boolean): THndIntegerArray;
+Returns an array representing the topic's index hierarchy. Ex: [1,0,3,4] for 1.0.3.4.
+function GetTopicInfo(const aTopicId: string): THndTopicsInfo;
+Returns info about a specific topic
+function GetTopicIsLocked(const aTopicId: string; out aLockUser: string; out aLockDateTime: TDateTime): Boolean;
+Returns True if a topic is locked, as well as lock data
+function GetTopicKind(const aTopicId: string): Integer;
+Returns the kind of the specific topic (0: normal; 1: empty; 2: Link to URL; 3: Link to file).
+function GetTopicLast: string;
+Returns the last topic in the project.
+function GetTopicLevel(const aTopicId: string): Integer;
+Returns the level of the specified topic.
+function GetTopicList(const aIncludingProjectTopic: Boolean): THndTopicsInfoArray;
+Returns a list of topics and their associated ID as object.
+function GetTopicListWithCaption(const aCaption: string; const isPartialCaption: Boolean): THndTopicsInfoArray;
+Returns a list of topics with a specific caption.
+function GetTopicModificationDateTime(const aTopicId: string): TDateTime;
+Returns the date and time when the topic was last modified.
+function GetTopicNext(const aTopicId: string): string;
+Get the next topic in line. Could be a child or a sibling topic.
+function GetTopicNextSibbling(const aTopicId: string): string;
+Get the next sibling topic.
+function GetTopicOrder(const aTopicId: string): Integer;
+Returns the order of the topic based on sibling topics.
+function GetTopicParent(const aTopicId: string): string;
+Returns the parent topic of a topic.
+function GetTopicPrevious(const aTopicId: string): string;
+Returns a list of topics and their associated ID as object.
+function GetTopicPreviousSibbling(const aTopicId: string): string;
+Get the previous sibling topic.
+function GetTopicStatusId(const aTopicId: string): string;
+Get the status id of a topic
+function GetTopicUrlFile(const aTopicId: string): string;
+Returns the topic's URL file property.
+function GetTopicUrlLink(const aTopicId: string): string;
+Returns the topic's URL link property.
+function GetTopicVisibility(const aTopicId: string): integer;
+Returns the topic's visibility.
+function MoveTopic(const aTopicId: string; const aReferencedTopicId: string; const oAttachMode: THndTopicsAttachMode): Boolean;
+Move the topic to a new position in reference to nReferencedTopicsId.
+function MoveTopicDown(const aTopicId: string): Boolean;
+Move the specific topic bellow the next sibling.
+function MoveTopicLeft(const aTopicId: string): Boolean;
+Move the specific topic left in the hierarchy.
+function MoveTopicRight(const aTopicId: string): Boolean;
+Move the specific topic right in the hierarchy.
+function MoveTopicUp(const aTopicId: string): Boolean;
+Move the specific topic above the previous sibling.
+procedure PasteTopicFromClipboard(aParentId: string);
+Paste the topic from clipboard as a child of the parent specified or as a child of the project topic.
+function SetCurrentTopic(const aTopicId: string): Boolean;
+Defines the currently selected topic.
+procedure SetTopicCaption(const aTopicId: string; const sNewCaption: string);
+Defines the specific topic's caption.
+procedure SetTopicContent(const aTopicId: string; const aContentStream: TStream);
+Set the topic's content.
+procedure SetTopicDescription(const aTopicId: string; const aDescription: string);
+Set the topic's description.
+procedure SetTopicFooterKind(const aTopicId: string; const aFooterKind: Integer);
+Sets the topic footer kind.
+function SetTopicFooterText(const aTopicId: string; const aFooterText: string): string;
+Sets the custom text for the topic footer.
+procedure SetTopicHeaderKind(const aTopicId: string; const anHeaderKind: Integer);
+Sets the topic header kind.
+function SetTopicHeaderText(const aTopicId: string; const anHeaderText: string): string;
+Sets the custom text for the topic header.
+function SetTopicHelpContext(const aTopicId: string; const aHelpContext: Integer): Integer;
+Set a specific topic's help context. Returns the corrected context.
+function SetTopicHelpId(const aTopicId: string; const aHelpId: string): string;
+Set a specific topic's help id. Returns the corrected string.
+procedure SetTopicIconIndex(const aTopicId: string; const nIconIndex: Integer);
+Set the icon index of a specific topic.
+function SetTopicKind(const aTopicId: string; const aNewKind: Integer): Integer;
+Set the topic kind (0: normal; 1: empty; 2: Link to URL; 3: Link to file)
+procedure SetTopicStatusId(const aTopicId: string; const aStatusId: string);
+Set the topic status ID
+procedure SetTopicUrlFile(const aTopicId: string; const anUrlFile: string);
+Set the topic's URL file.
+procedure SetTopicUrlLink(const aTopicId: string; const anUrlLink: string);
+Set the topic's URL link.
+procedure SetTopicVisibility(const aTopicId: string; const aVisibility: Integer);
+Set the visibility for the topic
+
+
+
+HndTopicsEx
+Additional properties and methods for Topics
+
+function FindTopicWithHelpContext(const aHelpContext: Integer): string;
+Returns the topic with the specific Help Context.
+function FindTopicWithHelpId(const aHelpId: string): string;
+Returns the topic with the specific Help Id.
+function GetTopicCaptionHierarchy(const aTopicId: string; const aIncludingProjectTopic: Boolean): TStringDynArray;
+Returns the captions of all parent topics of the specified topic
+function GetTopicDirectChildrenCountGenerated(const aParentId: string; const doExcludeHiddenInToc: Boolean): Integer;
+Returns the number of direct generated children a topic has.
+function GetTopicDirectChildrenListGenerated(const aParentId: string; const doExcludeHiddenInToc: Boolean): THndTopicsInfoArray;
+Returns a list of direct generated children of the specified topic.
+function GetTopicIndexGenerated(const aTopicId: string; const isZeroBased: Boolean; const doExcludeHiddenInToc: Boolean): Integer;
+Returns the index of the topic from its parent. Considering only generated topics.
+function GetTopicIndexHierarchyGenerated(const aTopicId: string; const isZeroBased: Boolean; const doExcludeHiddenInToc: Boolean): THndIntegerArray;
+Returns an array representing the topic's index hierarchy. Ex: [1,0,3,4] for 1.0.3.4. Considering only generated topics
+function GetTopicIsGenerated(const aTopicId: string; const doExcludeHiddenInToc: Boolean; const doCheckParentVisibilityToo: Boolean): Boolean;
+Returns True if a topic is generated: visible and exported in current build.
+function GetTopicIsGeneratedForBuild(const aTopicId: string; const aBuildId: string; const doExcludeHiddenInToc: Boolean; const doCheckParentVisibilityToo: Boolean): Boolean;
+Returns True if a topic is generated for a specific build: visible and exported in that build.
+function GetTopicListGenerated(const doExcludeHiddenInToc: Boolean; const aIncludingProjectTopic: Boolean): THndTopicsInfoArray;
+Returns a list of generated topics and their associated ID as object.
+function GetTopicNextGenerated(const aTopicId: string; const doExcludeHiddenInToc: Boolean): string;
+Returns the next generated topic.
+function GetTopicNextSibblingGenerated(const aTopicId: string; const doExcludeHiddenInToc: Boolean): string;
+Returns the next generated sibling topic.
+function GetTopicPreviousGenerated(const aTopicId: string; const doExcludeHiddenInToc: Boolean): string;
+Returns the previous generated topic.
+function GetTopicPreviousSibblingGenerated(const aTopicId: string; const doExcludeHiddenInToc: Boolean): string;
+Returns the previous generated sibling topic.
+procedure SynchronizeAllHelpIds;
+Overwrite all topic's help Ids based on caption.
+
+
+
+HndTopicsKeywords
+Handle relationship between topics and keywords
+
+function AreTopicAndKeywordAssociated(const aTopicId: string; const aKeywordId: string): Boolean;
+Indicates whether the specified topic and keyword are associated.
+function AssociateTopicWithKeyword(const aTopicId: string; const aKeywordId: string): Boolean;
+Link a specific topic to a specific keyword.
+function DissociateKeywordFromAllTopics(const aKeywordId: string): Boolean;
+Check all topics and if they are associated with this keyword, dissociate them.
+function DissociateTopicFromAllKeywords(const aTopicId: string): Boolean;
+Check all keywords and if they are associated with this topic, dissociate them.
+function DissociateTopicFromKeyword(const aTopicId: string; const aKeywordId: string): Boolean;
+Remove the association between the specified topic and keyword.
+function GetKeywordsAssociatedWithTopic(const aTopicId: string): TStringDynArray;
+Get a list of keyword Ids associated with a specific topic.
+function GetTopicsAssociatedWithKeyword(const aKeywordId: string): TStringDynArray;
+Get a list of topic Ids associated with a specific keyword.
+
+
+
+HndTopicsKeywordsEx
+Additional properties and methods to handle relationship between topics and keywords
+
+function GetGeneratedTopicsAssociatedWithKeyword(const aKeywordId: string): TStringDynArray;
+Get a list of generated topic Ids associated with a specific keyword.
+
+
+
+HndTopicsMeta
+Access to topics meta data
+
+
+
+THndTopicsPropertyInfo
+Information about a specific property
+
+key: string;
+value: string;
+topicid: string;
+
+
+
+THndTopicsPropertyInfoArray
+Array of THndTopicsPropertyInfo
+
+
+
+HndTopicsProperties
+Handle relationship between topics and properties
+
+procedure DeleteAllTopicCustomProperties(const aTopicId: string);
+Delete all custom properties for a specific topic
+procedure DeleteTopicCustomProperty(const aTopicId: string; const aCustomPropertyName: string);
+Delete a custom property for a specific topic
+function GetTopicCustomPropertiesList(const aTopicId: string): THndTopicsPropertyInfoArray;
+Returns a list of custom properties for this topic
+function GetTopicCustomPropertyExists(const aTopicId: string; const aCustomPropertyName: string): Boolean;
+Returns true if a custom property with that name exists
+function GetTopicCustomPropertyValue(const aTopicId: string; const aCustomPropertyName: string): string;
+Returns the value of a custom property
+function RenameTopicCustomProperty(const aTopicId: string; const aOldCustomPropertyName: string; const aNewCustomPropertyName: string): Boolean;
+Rename a custom property
+procedure SetTopicCustomPropertyValue(const aTopicId: string; const aCustomPropertyName: string; const aValue: string);
+Set the value of a custom property
+
+
+
+HndTopicsTags
+Handle relationship between topics and tags
+
+function AreTopicAndTagAssociated(const aTopicId: string; const aTagName: string): Boolean;
+Indicates whether the specified topic and tag are associated.
+function AssociateTopicWithTag(const aTopicId: string; const aTagName: string): Boolean;
+Link a specific topic to a specific Tag.
+procedure DissociateAllForTag(const aTagName: string);
+Remove any association with the specified tag.
+procedure DissociateAllForTopic(const aTopicId: string);
+Remove any association with the specified topics.
+function DissociateTopicFromTag(const aTopicId: string; const aTagName: string): Boolean;
+Remove the association between the specified topic and tag.
+function GetTagsAssociatedWithTopic(const aTopicId: string): TStringDynArray;
+Get a list of tag Ids associated with a specific topic.
+function GetTopicsAssociatedWithTag(const aTagName: string): TStringDynArray;
+Get a list of topic Ids associated with a specific tag.
+
+
+
+TUIControlType
+Reference to a specific UI control: uiMainForm, uiTreeToc, uiTreeKeywords, uiTreeLibrary, uiTopicEditor
+
+
+
+THndSelectedExecMethod
+Method run for each selected node. Return True to break the loop: function(aSelectedId: string): Boolean;
+
+
+
+HndUI
+Methods and properties of HelpNDoc's user interface.
+
+procedure CancelEditTree(aTree: TUIControlType);
+Cancel any edition being done on one of the trees (toc, library, keywords)
+function EditSnippetContent(const aSnippetId: string; const aSelStart: Integer; const aSelLength: Integer; const aLinearPos: Integer): Boolean;
+Show the snippet content editor. Return true if edit was successful. If selection arguments are defined: selection is performed
+procedure FocusFirstTopic(const doExpandAll: Boolean);
+Focus the first topic, right after the project topic
+procedure ForEachSelectedKeywordDo(aSelectedExecMethod: THndSelectedExecMethod);
+Call the specified method for each keyword selected in the keywords tree
+procedure ForEachSelectedLibraryItemDo(aSelectedExecMethod: THndSelectedExecMethod);
+Call the specified method for each library item selected in the library tree
+procedure ForEachSelectedTopicDo(aSelectedExecMethod: THndSelectedExecMethod);
+Call the specified method for each topic selected in the table of contents tree
+function GetControl(const aControlType: TUIControlType): TObject;
+Returns a specific UI control
+function GetCurrentControl: TObject;
+Returns the currently active control
+function GetCurrentFrame: TObject;
+Returns the currently visible frame in the UI (e.g. topic editor, topic options...)
+function GetCurrentKeyword: string;
+Returns the currently selected keyword in the UI.
+function GetCurrentLibraryItemId: string;
+Returns the currently selected library item in the UI.
+function GetCurrentTopic: string;
+Returns the currently selected topic in the UI.
+function GetTopicEditorObject: TObject;
+Returns the topic editor object, which can be manipulated using HndEditor methods.
+function IsDarkSkin: Boolean;
+Returns true if the current skin is a dark skin
+procedure SaveCurrentFrame();
+Save the currently edited content to project file
+procedure SetApplicationSkin(aSkinName: string);
+Set the global application's skin
+function SetCurrentKeyword(const aKeywordId: string): Boolean;
+Select the specified keyword in the UI.
+function SetCurrentTopic(const aTopicId: string): Boolean;
+Select the specified topic in the UI.
+procedure SetCurrentTopicAndPlaceCursor(const aTopicId: string; aLinearPos: Integer);
+Select the specified topic in the UI and place the cursor where specified.
+procedure SetCurrentTopicAndSelect(const aTopicId: string; aSelectionStart: Integer; aSelectionLength: Integer);
+Select the specified topic in the UI and select a specific part of that topic.
+procedure SetCurrentTopicAndShowCheckpoint(const aTopicId: string; const aCheckpointName: string);
+Select the specified topic in the UI and show the checkpoint specified.
+function SetCurrentTopicByHelpContext(const aHelpContext: Integer): Boolean;
+Select the topic with the specified help context
+function SetCurrentTopicByHelpId(const aHelpId: string): Boolean;
+Select the topic with the specified help ID
+procedure ShowHideBackstageView(const doShow: Boolean);
+Show or hide the backstage view (File menu)
