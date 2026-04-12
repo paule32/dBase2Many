@@ -111,8 +111,8 @@ if __name__ == "__main__":
     loc_dir = base / "locales"
     css_dir = base / "styles"
     
-    zip_out = Path("data/locales.zip")
-    css_out = Path("data/styles.zip")
+    zip_out = Path("../data/locales.zip")
+    css_out = Path("../data/styles.zip")
     
     dat_mo  = [ "cc.mo", "dbase.mo", "pascal.mo", "lisp.mo" ]
     loc_files = [
@@ -124,8 +124,8 @@ if __name__ == "__main__":
         base / "styles" / "default" / "dark.mo",
     ]
     
-    out_zip = Path("data/locales.zip")
-    out_css = Path("data/styles.zip")
+    out_zip = Path("../data/locales.zip")
+    out_css = Path("../data/styles.zip")
     
     if out_zip.exists(): out_zip.unlink()
     if out_css.exists(): out_css.unlink()
