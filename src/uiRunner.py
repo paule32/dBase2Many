@@ -9,6 +9,9 @@ import sys
 import os
 import builtins
 import re
+import tempfile
+from PyQt5.QtWidgets import QButtonGroup
+from PyQt5.QtCore import QDateTime
 
 from   share.common                 import *
 from   share.excepts                import *
@@ -4236,67 +4239,779 @@ class DesktopPropertiesDialog(QDialog):
         self.setWindowTitle(share.locales.tr("Desktop Properties"))
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
-        
-        self.setFont(QFont("Arial",10))
+        self.setFont(QFont("Arial", 10))
 
         root = QVBoxLayout(self)
-
-        # Tabs
         self.tabs = QTabWidget(self)
         root.addWidget(self.tabs)
 
-        # Platzhalter-Tabs (wie im Bild)
-        self.tabs.addTab(self._build_tab_country (), share.locales.tr("Country"))
-        self.tabs.addTab(self._build_tab_table   (), share.locales.tr("Table"))
-        self.tabs.addTab(self._build_tab_data    (), share.locales.tr("Data Entry"))
-        self.tabs.addTab(self._build_tab_files   (), share.locales.tr("Files"))
-        self.tabs.addTab(self._build_tab_app     (), share.locales.tr("Application"))
-        self.tabs.addTab(self._build_tab_prog    (), share.locales.tr("Programming"))
-        self.tabs.addTab(self._build_tab_aliase  (), share.locales.tr("Source Aliases"))
-        self.tabs.addTab(self._build_tab_usrbde  (), share.locales.tr("User-BDE-Aliases"))
-        
-        # Bottom buttons: OK / Abbrechen / Hilfe / Übernehmen
+        self.tabs.addTab(self._build_tab_country(), share.locales.tr("Country"))
+        self.tabs.addTab(self._build_tab_table(), share.locales.tr("Table"))
+        self.tabs.addTab(self._build_tab_data(), share.locales.tr("Data Entry"))
+        self.tabs.addTab(self._build_tab_files(), share.locales.tr("Files"))
+        self.tabs.addTab(self._build_tab_app(), share.locales.tr("Application"))
+        self.tabs.addTab(self._build_tab_prog(), share.locales.tr("Programming"))
+        self.tabs.addTab(self._build_tab_aliase(), share.locales.tr("Source Aliases"))
+        self.tabs.addTab(self._build_tab_usrbde(), share.locales.tr("User-BDE-Aliases"))
+
         btn_row = QHBoxLayout()
         btn_row.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        self.btn_ok     = QPushButton(share.locales.tr("OK"))
+        self.btn_ok = QPushButton(share.locales.tr("OK"))
         self.btn_cancel = QPushButton(share.locales.tr("Cancel"))
-        self.btn_help   = QPushButton(share.locales.tr("Help"))
-        self.btn_apply  = QPushButton(share.locales.tr("Apply"))
+        self.btn_help = QPushButton(share.locales.tr("Help"))
+        self.btn_apply = QPushButton(share.locales.tr("Apply"))
 
         for b in (self.btn_ok, self.btn_cancel, self.btn_help, self.btn_apply):
             b.setFixedWidth(95)
 
-        self.btn_ok    .clicked.connect(self.onbtn_accept)
+        self.btn_ok.clicked.connect(self.onbtn_accept)
         self.btn_cancel.clicked.connect(self.onbtn_cancel)
-        self.btn_help  .clicked.connect(lambda: None)   # später füllen
-        self.btn_apply .clicked.connect(lambda: None)  # später füllen
+        self.btn_help.clicked.connect(self._help)
+        self.btn_apply.clicked.connect(self._apply_desktop_properties)
 
         btn_row.addWidget(self.btn_ok)
         btn_row.addWidget(self.btn_cancel)
         btn_row.addWidget(self.btn_help)
         btn_row.addWidget(self.btn_apply)
-
         root.addLayout(btn_row)
 
+        self._country_syncing = False
+        self._load_desktop_properties()
         self.resize(520, 360)
-    
+
     def onbtn_accept(self):
+        self._apply_desktop_properties()
         self.accept()
-        self.mdi.close()
-        
+        try:
+            self.mdi.close()
+        except Exception:
+            pass
+
     def onbtn_cancel(self):
         self.reject()
-        self.mdi.close()
+        try:
+            self.mdi.close()
+        except Exception:
+            pass
+
+    def _desktop_settings(self):
+        try:
+            if self.parent is not None and hasattr(self.parent, '_settings'):
+                return self.parent._settings
+        except Exception:
+            pass
+        try:
+            if 'MAINAPP' in globals() and hasattr(MAINAPP, '_settings'):
+                return MAINAPP._settings
+        except Exception:
+            pass
+        return None
+
+    def _country_defaults(self) -> dict:
+        return {
+            'thousand_sep': '.',
+            'decimal_sep': ',',
+            'currency_position': 'right',
+            'currency_display': 'EUR  €',
+            'currency_symbol': '€',
+            'currency_code': 'EUR',
+            'currency_format_short': False,
+            'date_format': 'DMY',
+            'date_sep': '.',
+            'century': True,
+            'ui_lang': 'DE - Deutsch',
+            'warn_mismatch': False,
+        }
+
+    def _allowed_country_separators(self):
+        return {'.', ',', "'"}
+
+    def _allowed_date_separators(self):
+        return {'.', '/', '-', ':'}
+
+    def _currency_choices(self):
+        return [
+            ('EUR', '€'), ('USD', '$'), ('GBP', '£'), ('JPY', '¥'), ('CHF', 'CHF'),
+            ('SEK', 'kr'), ('NOK', 'kr'), ('DKK', 'kr'), ('PLN', 'zł'), ('CZK', 'Kč'),
+            ('HUF', 'Ft'), ('TRY', '₺'), ('RUB', '₽'), ('INR', '₹'), ('CNY', '¥'),
+            ('KRW', '₩'), ('UAH', '₴'),
+        ]
+
+    def _extract_currency_symbol(self, text: str) -> str:
+        txt = (text or '').strip()
+        if not txt:
+            return self._country_defaults()['currency_symbol']
+        parts = txt.split()
+        return parts[-1] if len(parts) >= 2 else txt
+
+    def _extract_currency_code(self, text: str) -> str:
+        txt = (text or '').strip()
+        if not txt:
+            return self._country_defaults()['currency_code']
+        parts = txt.split()
+        return parts[0] if len(parts) >= 2 else txt
+
+    def _update_country_currency_format_checkbox(self):
+        try:
+            self.chk_currency_format.setText('kurz' if self.chk_currency_format.isChecked() else 'lang')
+        except Exception:
+            pass
+
+    def _set_currency_combo_text(self, text: str):
+        txt = (text or '').strip() or self._country_defaults()['currency_display']
+        idx = self.cb_currency.findText(txt, Qt.MatchExactly)
+        if idx >= 0:
+            self.cb_currency.setCurrentIndex(idx)
+        else:
+            self.cb_currency.setEditText(txt)
+
+    def _set_currency_combo_from_symbol(self, symbol: str):
+        sym = (symbol or '').strip() or self._country_defaults()['currency_symbol']
+        for code, item_symbol in self._currency_choices():
+            if item_symbol == sym:
+                self._set_currency_combo_text(f'{code}  {item_symbol}')
+                return
+        self.cb_currency.setEditText(sym)
+
+    def _update_country_number_preview(self):
+        thousand = (self.ed_thousand.text() or '').strip() or self._country_defaults()['thousand_sep']
+        decimal = (self.ed_decimal.text() or '').strip() or self._country_defaults()['decimal_sep']
+        self.lbl_num_pattern.setText(f'1{thousand}000{thousand}000{decimal}00')
+        self._update_country_currency_preview()
+
+    def _update_country_date_preview(self):
+        try:
+            today = datetime.date.today()
+        except Exception:
+            today = None
+
+        if today is None:
+            yyyy, yy, mm, dd = '2026', '26', '04', '12'
+        else:
+            yyyy = f"{today.year:04d}"
+            yy = f"{today.year % 100:02d}"
+            mm = f"{today.month:02d}"
+            dd = f"{today.day:02d}"
+
+        sep = (self.ed_datesep.text() or '').strip() or self._country_defaults()['date_sep']
+        fmt = (self.cb_datefmt.currentText() or self._country_defaults()['date_format']).strip().upper()
+        year_text = yyyy if self.chk_century.isChecked() else yy
+
+        if fmt == 'MDY':
+            pattern = f"{mm}{sep}{dd}{sep}{year_text}"
+        elif fmt in ('YMD', 'ISO'):
+            pattern = f"{year_text}{sep}{mm}{sep}{dd}"
+        else:
+            pattern = f"{dd}{sep}{mm}{sep}{year_text}"
+
+        try:
+            self.lbl_date_pattern.setText(pattern)
+        except Exception:
+            pass
+
+    def _update_country_currency_preview(self):
+        self._update_country_currency_format_checkbox()
+        symbol = self._extract_currency_symbol(self.cb_currency.currentText())
+        code = self._extract_currency_code(self.cb_currency.currentText())
+        marker = symbol if self.chk_currency_format.isChecked() else code
+        number = self.lbl_num_pattern.text().strip() or '129,99'
+        number = number.replace('1.000.000,00', '129,99')
+        number = number.replace('1,000,000.00', '129.99')
+        number = number.replace("1'000'000,00", '129,99')
+        number = number.replace("1'000'000.00", '129.99')
+        self.lbl_currency_pattern.setText(f'{marker} {number}' if self.rb_left.isChecked() else f'{number} {marker}')
+
+    def _normalize_separator_edit(self, which: str):
+        if self._country_syncing:
+            return
+        defaults = self._country_defaults()
+        edit = self.ed_thousand if which == 'thousand' else self.ed_decimal
+        default_value = defaults['thousand_sep'] if which == 'thousand' else defaults['decimal_sep']
+        value = (edit.text() or '').strip()
+        if value == '':
+            self._country_syncing = True
+            try:
+                edit.setText(default_value)
+            finally:
+                self._country_syncing = False
+        elif value not in self._allowed_country_separators():
+            QApplication.beep()
+            self._country_syncing = True
+            try:
+                edit.setText(default_value)
+            finally:
+                self._country_syncing = False
+        self._update_country_number_preview()
+
+    def _normalize_date_separator_edit(self):
+        if self._country_syncing:
+            return
+        defaults = self._country_defaults()
+        default_value = defaults['date_sep']
+        value = (self.ed_datesep.text() or '').strip()
+        if value == '':
+            self._country_syncing = True
+            try:
+                self.ed_datesep.setText(default_value)
+            finally:
+                self._country_syncing = False
+        elif value not in self._allowed_date_separators():
+            QApplication.beep()
+            self._country_syncing = True
+            try:
+                self.ed_datesep.setText(default_value)
+            finally:
+                self._country_syncing = False
+        self._update_country_date_preview()
+
+    def _sync_country_currency_from_combo(self):
+        if not self._country_syncing:
+            self._update_country_currency_preview()
+
+    def _table_defaults(self) -> dict:
+        return {
+            'lock': True,
+            'exclusive': False,
+            'refresh': 0,
+            'retry': 0,
+            'default_type': 'dbase',
+            'indexblock': 1,
+            'memoblock': 8,
+            'autosave': False,
+            'deleted': True,
+            'encrypt': True,
+            'ident': False,
+            'approx': False,
+            'autonull': True,
+            'system_show': False,
+        }
+
+    def _data_entry_defaults(self) -> dict:
+        return {
+            'confirm': True,
+            'cua': True,
+            'escape': True,
+            'keyboard_buffer': 49,
+            'epoch': 1950,
+            'beep_enabled': True,
+            'frequency': 512,
+            'duration': 50,
+        }
+
+    def _files_defaults(self) -> dict:
+        workdir = ''
+        try:
+            settings = self._desktop_settings()
+            if settings is not None:
+                workdir = (settings.value('regiecenter/workdir', '', type=str) or '').strip()
+        except Exception:
+            workdir = ''
+        if not workdir:
+            try:
+                workdir = os.getcwd()
+            except Exception:
+                workdir = ''
+        return {
+            'current_dir': workdir,
+            'search_path': '',
+            'log_enabled': False,
+            'logfile': '',
+            'log_mode': 'overwrite',
+            'external_editor': '',
+            'backup': False,
+            'sessions': False,
+        }
+
+    def _app_defaults(self) -> dict:
+        return {
+            'show_form': True,
+            'show_report': True,
+            'show_labels': True,
+            'show_datamodule': True,
+            'show_table': True,
+            'file_menu_files': 5,
+            'file_menu_projects': 5,
+            'db_save_logins': True,
+            'db_sql_trace': False,
+            'win_fit_to_content': True,
+            'win_loop_animations': True,
+            'win_save_as_ole2': True,
+            'show_splash': True,
+        }
+
+    def _programming_defaults(self) -> dict:
+        return {
+            'decimals': 2,
+            'precision': 10,
+            'margin': 0,
+            'blank': True,
+            'trace': False,
+            'fieldnames': True,
+            'fulltest': False,
+            'buildtime': True,
+            'design': True,
+            'high_precision': False,
+            'protect': True,
+            'fullpath': False,
+            'error_action': '4 - Show Error Dialog',
+            'error_log_file': 'PLUSerr.log',
+            'max_size_kb': 100,
+            'html_template': 'error.htm',
+        }
+
+    def _load_desktop_properties(self):
+        settings = self._desktop_settings()
+        defaults = self._country_defaults()
+        if settings is None:
+            self._update_country_number_preview()
+            self._update_country_date_preview()
+            self._update_country_currency_preview()
+            self._toggle_data_entry_beep_controls(self.chk_beep.isChecked())
+            self._toggle_files_log_controls(self.chk_enable_log.isChecked())
+            return
+        self._country_syncing = True
+        try:
+            thousand = (settings.value('desktop/country/thousand_sep', defaults['thousand_sep'], type=str) or defaults['thousand_sep']).strip()
+            decimal = (settings.value('desktop/country/decimal_sep', defaults['decimal_sep'], type=str) or defaults['decimal_sep']).strip()
+            if thousand not in self._allowed_country_separators():
+                thousand = defaults['thousand_sep']
+            if decimal not in self._allowed_country_separators():
+                decimal = defaults['decimal_sep']
+            self.ed_thousand.setText(thousand)
+            self.ed_decimal.setText(decimal)
+            pos = (settings.value('desktop/country/currency_position', defaults['currency_position'], type=str) or defaults['currency_position']).strip().lower()
+            self.rb_left.setChecked(pos == 'left')
+            self.rb_right.setChecked(pos != 'left')
+            currency_display = (settings.value('desktop/country/currency_display', defaults['currency_display'], type=str) or defaults['currency_display']).strip()
+            currency_symbol = (settings.value('desktop/country/currency_symbol', defaults['currency_symbol'], type=str) or defaults['currency_symbol']).strip()
+            currency_code = (settings.value('desktop/country/currency_code', defaults['currency_code'], type=str) or defaults['currency_code']).strip()
+            currency_format_short = bool(settings.value('desktop/country/currency_format_short', defaults['currency_format_short'], type=bool))
+            self.chk_currency_format.setChecked(currency_format_short)
+            if currency_display:
+                self._set_currency_combo_text(currency_display)
+            elif currency_code and currency_symbol:
+                self._set_currency_combo_text(f'{currency_code}  {currency_symbol}')
+            else:
+                self._set_currency_combo_from_symbol(currency_symbol)
+            date_format = (settings.value('desktop/country/date_format', defaults['date_format'], type=str) or defaults['date_format']).strip().upper()
+            if date_format not in ('DMY', 'MDY', 'YMD', 'ISO'):
+                date_format = defaults['date_format']
+            self.cb_datefmt.setCurrentText(date_format)
+            date_sep = (settings.value('desktop/country/date_sep', defaults['date_sep'], type=str) or defaults['date_sep']).strip()[:1] or defaults['date_sep']
+            if date_sep not in self._allowed_date_separators():
+                date_sep = defaults['date_sep']
+            self.ed_datesep.setText(date_sep)
+            self.chk_century.setChecked(bool(settings.value('desktop/country/century', defaults['century'], type=bool)))
+            ui_lang = (settings.value('desktop/country/ui_lang', defaults['ui_lang'], type=str) or defaults['ui_lang']).strip()
+            idx = self.cb_lang.findText(ui_lang, Qt.MatchExactly)
+            if idx >= 0:
+                self.cb_lang.setCurrentIndex(idx)
+            self.chk_mismatch.setChecked(bool(settings.value('desktop/country/warn_mismatch', defaults['warn_mismatch'], type=bool)))
+        finally:
+            self._country_syncing = False
+        self._update_country_number_preview()
+        self._update_country_date_preview()
+        self._update_country_currency_preview()
+        self._load_table_properties()
+        self._load_data_entry_properties()
+        self._load_files_properties()
+        self._load_app_properties()
+        self._load_programming_properties()
+
+    def _save_desktop_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        self._normalize_separator_edit('thousand')
+        self._normalize_separator_edit('decimal')
+        currency_display = (self.cb_currency.currentText() or '').strip()
+        currency_symbol = self._extract_currency_symbol(currency_display)
+        currency_code = self._extract_currency_code(currency_display)
+        settings.setValue('desktop/country/thousand_sep', (self.ed_thousand.text() or '').strip() or self._country_defaults()['thousand_sep'])
+        settings.setValue('desktop/country/decimal_sep', (self.ed_decimal.text() or '').strip() or self._country_defaults()['decimal_sep'])
+        settings.setValue('desktop/country/currency_position', 'left' if self.rb_left.isChecked() else 'right')
+        settings.setValue('desktop/country/currency_display', currency_display)
+        settings.setValue('desktop/country/currency_symbol', currency_symbol)
+        settings.setValue('desktop/country/currency_code', currency_code)
+        settings.setValue('desktop/country/currency_format_short', bool(self.chk_currency_format.isChecked()))
+        self._normalize_date_separator_edit()
+        settings.setValue('desktop/country/date_format', self.cb_datefmt.currentText().strip())
+        settings.setValue('desktop/country/date_sep', (self.ed_datesep.text() or '').strip()[:1] or self._country_defaults()['date_sep'])
+        settings.setValue('desktop/country/century', bool(self.chk_century.isChecked()))
+        settings.setValue('desktop/country/ui_lang', self.cb_lang.currentText().strip())
+        settings.setValue('desktop/country/warn_mismatch', bool(self.chk_mismatch.isChecked()))
+        self._save_table_properties()
+        self._save_data_entry_properties()
+        self._save_files_properties()
+        self._save_app_properties()
+        self._save_programming_properties()
+        try:
+            settings.sync()
+        except Exception:
+            pass
+
+    def _load_table_properties(self):
+        defaults = self._table_defaults()
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        try:
+            self.chk_lock.setChecked(bool(settings.value('desktop/table/lock', defaults['lock'], type=bool)))
+            self.chk_exclusive.setChecked(bool(settings.value('desktop/table/exclusive', defaults['exclusive'], type=bool)))
+            self.spin_refresh.setValue(int(settings.value('desktop/table/refresh', defaults['refresh'], type=int)))
+            self.spin_retry.setValue(int(settings.value('desktop/table/retry', defaults['retry'], type=int)))
+            default_type = (settings.value('desktop/table/default_type', defaults['default_type'], type=str) or defaults['default_type']).strip().lower()
+            self.rb_dbase.setChecked(default_type == 'dbase')
+            self.rb_paradox.setChecked(default_type == 'paradox')
+            self.rb_sqlite3.setChecked(default_type == 'sqlite3')
+            self.rb_mysql.setChecked(default_type == 'mysql')
+            if not any((self.rb_dbase.isChecked(), self.rb_paradox.isChecked(), self.rb_sqlite3.isChecked(), self.rb_mysql.isChecked())):
+                self.rb_dbase.setChecked(True)
+            self.spin_indexblock.setValue(int(settings.value('desktop/table/indexblock', defaults['indexblock'], type=int)))
+            self.spin_memoblock.setValue(int(settings.value('desktop/table/memoblock', defaults['memoblock'], type=int)))
+            self.chk_autosave.setChecked(bool(settings.value('desktop/table/autosave', defaults['autosave'], type=bool)))
+            self.chk_deleted.setChecked(bool(settings.value('desktop/table/deleted', defaults['deleted'], type=bool)))
+            self.chk_encrypt.setChecked(bool(settings.value('desktop/table/encrypt', defaults['encrypt'], type=bool)))
+            self.chk_ident.setChecked(bool(settings.value('desktop/table/ident', defaults['ident'], type=bool)))
+            self.chk_approx.setChecked(bool(settings.value('desktop/table/approx', defaults['approx'], type=bool)))
+            self.chk_autonull.setChecked(bool(settings.value('desktop/table/autonull', defaults['autonull'], type=bool)))
+            self.chk_system_show.setChecked(bool(settings.value('desktop/table/system_show', defaults['system_show'], type=bool)))
+        except Exception:
+            pass
+
+    def _save_table_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        default_type = 'dbase'
+        if self.rb_paradox.isChecked():
+            default_type = 'paradox'
+        elif self.rb_sqlite3.isChecked():
+            default_type = 'sqlite3'
+        elif self.rb_mysql.isChecked():
+            default_type = 'mysql'
+        settings.setValue('desktop/table/lock', bool(self.chk_lock.isChecked()))
+        settings.setValue('desktop/table/exclusive', bool(self.chk_exclusive.isChecked()))
+        settings.setValue('desktop/table/refresh', int(self.spin_refresh.value()))
+        settings.setValue('desktop/table/retry', int(self.spin_retry.value()))
+        settings.setValue('desktop/table/default_type', default_type)
+        settings.setValue('desktop/table/indexblock', int(self.spin_indexblock.value()))
+        settings.setValue('desktop/table/memoblock', int(self.spin_memoblock.value()))
+        settings.setValue('desktop/table/autosave', bool(self.chk_autosave.isChecked()))
+        settings.setValue('desktop/table/deleted', bool(self.chk_deleted.isChecked()))
+        settings.setValue('desktop/table/encrypt', bool(self.chk_encrypt.isChecked()))
+        settings.setValue('desktop/table/ident', bool(self.chk_ident.isChecked()))
+        settings.setValue('desktop/table/approx', bool(self.chk_approx.isChecked()))
+        settings.setValue('desktop/table/autonull', bool(self.chk_autonull.isChecked()))
+        settings.setValue('desktop/table/system_show', bool(self.chk_system_show.isChecked()))
+
+    def _toggle_data_entry_beep_controls(self, on: bool):
+        try:
+            self.sp_freq.setEnabled(bool(on))
+            self.sp_dur.setEnabled(bool(on))
+            self.btn_test_beep.setEnabled(bool(on))
+        except Exception:
+            pass
+
+    def _load_data_entry_properties(self):
+        defaults = self._data_entry_defaults()
+        settings = self._desktop_settings()
+        if settings is None:
+            self._toggle_data_entry_beep_controls(self.chk_beep.isChecked())
+            return
+        try:
+            self.chk_confirm.setChecked(bool(settings.value('desktop/data_entry/confirm', defaults['confirm'], type=bool)))
+            self.chk_cua.setChecked(bool(settings.value('desktop/data_entry/cua', defaults['cua'], type=bool)))
+            self.chk_esc.setChecked(bool(settings.value('desktop/data_entry/escape', defaults['escape'], type=bool)))
+            self.sp_buf.setValue(int(settings.value('desktop/data_entry/keyboard_buffer', defaults['keyboard_buffer'], type=int)))
+            self.sp_epoch.setValue(int(settings.value('desktop/data_entry/epoch', defaults['epoch'], type=int)))
+            self.chk_beep.setChecked(bool(settings.value('desktop/data_entry/beep_enabled', defaults['beep_enabled'], type=bool)))
+            self.sp_freq.setValue(int(settings.value('desktop/data_entry/frequency', defaults['frequency'], type=int)))
+            self.sp_dur.setValue(int(settings.value('desktop/data_entry/duration', defaults['duration'], type=int)))
+        except Exception:
+            pass
+        self._toggle_data_entry_beep_controls(self.chk_beep.isChecked())
+
+    def _save_data_entry_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        settings.setValue('desktop/data_entry/confirm', bool(self.chk_confirm.isChecked()))
+        settings.setValue('desktop/data_entry/cua', bool(self.chk_cua.isChecked()))
+        settings.setValue('desktop/data_entry/escape', bool(self.chk_esc.isChecked()))
+        settings.setValue('desktop/data_entry/keyboard_buffer', int(self.sp_buf.value()))
+        settings.setValue('desktop/data_entry/epoch', int(self.sp_epoch.value()))
+        settings.setValue('desktop/data_entry/beep_enabled', bool(self.chk_beep.isChecked()))
+        settings.setValue('desktop/data_entry/frequency', int(self.sp_freq.value()))
+        settings.setValue('desktop/data_entry/duration', int(self.sp_dur.value()))
+
+    def _quote_path_if_needed(self, value: str) -> str:
+        txt = (value or '').strip()
+        if not txt:
+            return ''
+        if len(txt) >= 2 and txt.startswith('"') and txt.endswith('"'):
+            return txt
+        return f'"{txt}"' if any(ch.isspace() for ch in txt) else txt
+
+    def _toggle_files_log_controls(self, on: bool):
+        enabled = bool(on)
+        try:
+            self.ed_logfile.setEnabled(enabled)
+            self.btn_logfile.setEnabled(enabled)
+            self.rb_log_overwrite.setEnabled(enabled)
+            self.rb_log_append.setEnabled(enabled)
+        except Exception:
+            pass
+
+    def _browse_files_current_dir(self):
+        start_dir = (self.ed_files_current_dir.text() or '').strip() or os.getcwd()
+        dlg = QFileDialog(self, share.locales.tr('Verzeichnis auswählen'), start_dir)
+        dlg.setFileMode(QFileDialog.Directory)
+        dlg.setOption(QFileDialog.ShowDirsOnly, True)
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self.ed_files_current_dir.setText(os.path.normpath(selected[0]))
+
+    def _append_search_path_entry(self, entry: str):
+        value = self._quote_path_if_needed(os.path.normpath(entry or ''))
+        if not value:
+            return
+        current = (self.ed_files_search_path.text() or '').strip()
+        if not current:
+            self.ed_files_search_path.setText(value)
+            return
+        parts = [p.strip() for p in current.split(';') if p.strip()]
+        if value in parts:
+            return
+        self.ed_files_search_path.setText(current + ';' + value)
+
+    def _browse_files_search_path(self):
+        current = (self.ed_files_search_path.text() or '').strip()
+        start_dir = (self.ed_files_current_dir.text() or '').strip() or os.getcwd()
+        if current:
+            last = current.split(';')[-1].strip()
+            if len(last) >= 2 and last.startswith('"') and last.endswith('"'):
+                last = last[1:-1]
+            if last:
+                start_dir = last
+        dlg = QFileDialog(self, share.locales.tr('Verzeichnis auswählen'), start_dir)
+        dlg.setFileMode(QFileDialog.Directory)
+        dlg.setOption(QFileDialog.ShowDirsOnly, True)
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self._append_search_path_entry(selected[0])
+
+    def _browse_external_editor(self):
+        start_file = (self.ed_external_editor.text() or '').strip()
+        if len(start_file) >= 2 and start_file.startswith('"') and start_file.endswith('"'):
+            start_file = start_file[1:-1]
+        dlg = QFileDialog(self, share.locales.tr('Editor auswählen'), start_file or os.getcwd())
+        dlg.setAcceptMode(QFileDialog.AcceptOpen)
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.setNameFilters(['Programme (*.exe *.bat *.cmd *.com)', 'Alle Dateien (*.*)'])
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self.ed_external_editor.setText(self._quote_path_if_needed(os.path.normpath(selected[0])))
+
+    def _browse_log_file(self):
+        start_file = (self.ed_logfile.text() or '').strip()
+        dlg = QFileDialog(self, share.locales.tr('Protokolldatei auswählen'), start_file or os.getcwd())
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        dlg.setFileMode(QFileDialog.AnyFile)
+        dlg.setDefaultSuffix('log')
+        dlg.setNameFilters(['Log-Dateien (*.log *.txt)', 'Alle Dateien (*.*)'])
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self.ed_logfile.setText(os.path.normpath(selected[0]))
+
+    def _load_files_properties(self):
+        defaults = self._files_defaults()
+        settings = self._desktop_settings()
+        if settings is None:
+            self._toggle_files_log_controls(self.chk_enable_log.isChecked())
+            return
+        try:
+            self.ed_files_current_dir.setText((settings.value('desktop/files/current_dir', defaults['current_dir'], type=str) or defaults['current_dir']).strip())
+            self.ed_files_search_path.setText((settings.value('desktop/files/search_path', defaults['search_path'], type=str) or defaults['search_path']).strip())
+            self.chk_enable_log.setChecked(bool(settings.value('desktop/files/log_enabled', defaults['log_enabled'], type=bool)))
+            self.ed_logfile.setText((settings.value('desktop/files/logfile', defaults['logfile'], type=str) or defaults['logfile']).strip())
+            log_mode = (settings.value('desktop/files/log_mode', defaults['log_mode'], type=str) or defaults['log_mode']).strip().lower()
+            self.rb_log_append.setChecked(log_mode == 'append')
+            self.rb_log_overwrite.setChecked(log_mode != 'append')
+            self.ed_external_editor.setText((settings.value('desktop/files/external_editor', defaults['external_editor'], type=str) or defaults['external_editor']).strip())
+            self.chk_backup.setChecked(bool(settings.value('desktop/files/backup', defaults['backup'], type=bool)))
+            self.chk_sessions.setChecked(bool(settings.value('desktop/files/sessions', defaults['sessions'], type=bool)))
+        except Exception:
+            pass
+        self._toggle_files_log_controls(self.chk_enable_log.isChecked())
+
+    def _save_files_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        current_dir = (self.ed_files_current_dir.text() or '').strip()
+        search_path = (self.ed_files_search_path.text() or '').strip()
+        external_editor = (self.ed_external_editor.text() or '').strip()
+        logfile = (self.ed_logfile.text() or '').strip()
+        settings.setValue('desktop/files/current_dir', current_dir)
+        settings.setValue('desktop/files/search_path', search_path)
+        settings.setValue('desktop/files/log_enabled', bool(self.chk_enable_log.isChecked()))
+        settings.setValue('desktop/files/logfile', logfile)
+        settings.setValue('desktop/files/log_mode', 'append' if self.rb_log_append.isChecked() else 'overwrite')
+        settings.setValue('desktop/files/external_editor', external_editor)
+        settings.setValue('desktop/files/backup', bool(self.chk_backup.isChecked()))
+        settings.setValue('desktop/files/sessions', bool(self.chk_sessions.isChecked()))
+        try:
+            if current_dir:
+                settings.setValue('regiecenter/workdir', current_dir)
+        except Exception:
+            pass
+
+    def _load_app_properties(self):
+        defaults = self._app_defaults()
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        try:
+            self.chk_app_form.setChecked(bool(settings.value('desktop/application/show_form', defaults['show_form'], type=bool)))
+            self.chk_app_report.setChecked(bool(settings.value('desktop/application/show_report', defaults['show_report'], type=bool)))
+            self.chk_app_labels.setChecked(bool(settings.value('desktop/application/show_labels', defaults['show_labels'], type=bool)))
+            self.chk_app_datamodule.setChecked(bool(settings.value('desktop/application/show_datamodule', defaults['show_datamodule'], type=bool)))
+            self.chk_app_table.setChecked(bool(settings.value('desktop/application/show_table', defaults['show_table'], type=bool)))
+            self.sp_app_files.setValue(int(settings.value('desktop/application/file_menu_files', defaults['file_menu_files'], type=int)))
+            self.sp_app_projects.setValue(int(settings.value('desktop/application/file_menu_projects', defaults['file_menu_projects'], type=int)))
+            self.chk_app_save_logins.setChecked(bool(settings.value('desktop/application/db_save_logins', defaults['db_save_logins'], type=bool)))
+            self.chk_app_sql_trace.setChecked(bool(settings.value('desktop/application/db_sql_trace', defaults['db_sql_trace'], type=bool)))
+            self.chk_app_fit.setChecked(bool(settings.value('desktop/application/win_fit_to_content', defaults['win_fit_to_content'], type=bool)))
+            self.chk_app_anim.setChecked(bool(settings.value('desktop/application/win_loop_animations', defaults['win_loop_animations'], type=bool)))
+            self.chk_app_ole.setChecked(bool(settings.value('desktop/application/win_save_as_ole2', defaults['win_save_as_ole2'], type=bool)))
+            self.chk_app_splash.setChecked(bool(settings.value('desktop/application/show_splash', defaults['show_splash'], type=bool)))
+        except Exception:
+            pass
+
+    def _save_app_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        settings.setValue('desktop/application/show_form', bool(self.chk_app_form.isChecked()))
+        settings.setValue('desktop/application/show_report', bool(self.chk_app_report.isChecked()))
+        settings.setValue('desktop/application/show_labels', bool(self.chk_app_labels.isChecked()))
+        settings.setValue('desktop/application/show_datamodule', bool(self.chk_app_datamodule.isChecked()))
+        settings.setValue('desktop/application/show_table', bool(self.chk_app_table.isChecked()))
+        settings.setValue('desktop/application/file_menu_files', int(self.sp_app_files.value()))
+        settings.setValue('desktop/application/file_menu_projects', int(self.sp_app_projects.value()))
+        settings.setValue('desktop/application/db_save_logins', bool(self.chk_app_save_logins.isChecked()))
+        settings.setValue('desktop/application/db_sql_trace', bool(self.chk_app_sql_trace.isChecked()))
+        settings.setValue('desktop/application/win_fit_to_content', bool(self.chk_app_fit.isChecked()))
+        settings.setValue('desktop/application/win_loop_animations', bool(self.chk_app_anim.isChecked()))
+        settings.setValue('desktop/application/win_save_as_ole2', bool(self.chk_app_ole.isChecked()))
+        settings.setValue('desktop/application/show_splash', bool(self.chk_app_splash.isChecked()))
+
+    def _browse_programming_error_log(self):
+        start_file = (self.ed_prog_error_log.text() or '').strip()
+        dlg = QFileDialog(self, share.locales.tr('Error Log File auswählen'), start_file or os.getcwd())
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        dlg.setFileMode(QFileDialog.AnyFile)
+        dlg.setDefaultSuffix('log')
+        dlg.setNameFilters(['Log-Dateien (*.log *.txt)', 'Alle Dateien (*.*)'])
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self.ed_prog_error_log.setText(os.path.normpath(selected[0]))
+
+    def _browse_programming_html_template(self):
+        start_file = (self.ed_prog_html_template.text() or '').strip()
+        dlg = QFileDialog(self, share.locales.tr('HTML Error Template auswählen'), start_file or os.getcwd())
+        dlg.setAcceptMode(QFileDialog.AcceptOpen)
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.setNameFilters(['HTML-Dateien (*.htm *.html)', 'Alle Dateien (*.*)'])
+        dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+        if dlg.exec_():
+            selected = dlg.selectedFiles()
+            if selected:
+                self.ed_prog_html_template.setText(os.path.normpath(selected[0]))
+
+    def _load_programming_properties(self):
+        defaults = self._programming_defaults()
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        try:
+            self.sp_prog_decimals.setValue(int(settings.value('desktop/programming/decimals', defaults['decimals'], type=int)))
+            self.sp_prog_precision.setValue(int(settings.value('desktop/programming/precision', defaults['precision'], type=int)))
+            self.sp_prog_margin.setValue(int(settings.value('desktop/programming/margin', defaults['margin'], type=int)))
+            self.chk_prog_blank.setChecked(bool(settings.value('desktop/programming/blank', defaults['blank'], type=bool)))
+            self.chk_prog_trace.setChecked(bool(settings.value('desktop/programming/trace', defaults['trace'], type=bool)))
+            self.chk_prog_fieldnames.setChecked(bool(settings.value('desktop/programming/fieldnames', defaults['fieldnames'], type=bool)))
+            self.chk_prog_fulltest.setChecked(bool(settings.value('desktop/programming/fulltest', defaults['fulltest'], type=bool)))
+            self.chk_prog_buildtime.setChecked(bool(settings.value('desktop/programming/buildtime', defaults['buildtime'], type=bool)))
+            self.chk_prog_design.setChecked(bool(settings.value('desktop/programming/design', defaults['design'], type=bool)))
+            self.chk_prog_high_precision.setChecked(bool(settings.value('desktop/programming/high_precision', defaults['high_precision'], type=bool)))
+            self.chk_prog_protect.setChecked(bool(settings.value('desktop/programming/protect', defaults['protect'], type=bool)))
+            self.chk_prog_fullpath.setChecked(bool(settings.value('desktop/programming/fullpath', defaults['fullpath'], type=bool)))
+            action = (settings.value('desktop/programming/error_action', defaults['error_action'], type=str) or defaults['error_action']).strip()
+            idx = self.cb_prog_error_action.findText(action, Qt.MatchExactly)
+            if idx >= 0:
+                self.cb_prog_error_action.setCurrentIndex(idx)
+            else:
+                self.cb_prog_error_action.setCurrentText(defaults['error_action'])
+            self.ed_prog_error_log.setText((settings.value('desktop/programming/error_log_file', defaults['error_log_file'], type=str) or defaults['error_log_file']).strip())
+            self.sp_prog_max_size.setValue(int(settings.value('desktop/programming/max_size_kb', defaults['max_size_kb'], type=int)))
+            self.ed_prog_html_template.setText((settings.value('desktop/programming/html_template', defaults['html_template'], type=str) or defaults['html_template']).strip())
+        except Exception:
+            pass
+
+    def _save_programming_properties(self):
+        settings = self._desktop_settings()
+        if settings is None:
+            return
+        settings.setValue('desktop/programming/decimals', int(self.sp_prog_decimals.value()))
+        settings.setValue('desktop/programming/precision', int(self.sp_prog_precision.value()))
+        settings.setValue('desktop/programming/margin', int(self.sp_prog_margin.value()))
+        settings.setValue('desktop/programming/blank', bool(self.chk_prog_blank.isChecked()))
+        settings.setValue('desktop/programming/trace', bool(self.chk_prog_trace.isChecked()))
+        settings.setValue('desktop/programming/fieldnames', bool(self.chk_prog_fieldnames.isChecked()))
+        settings.setValue('desktop/programming/fulltest', bool(self.chk_prog_fulltest.isChecked()))
+        settings.setValue('desktop/programming/buildtime', bool(self.chk_prog_buildtime.isChecked()))
+        settings.setValue('desktop/programming/design', bool(self.chk_prog_design.isChecked()))
+        settings.setValue('desktop/programming/high_precision', bool(self.chk_prog_high_precision.isChecked()))
+        settings.setValue('desktop/programming/protect', bool(self.chk_prog_protect.isChecked()))
+        settings.setValue('desktop/programming/fullpath', bool(self.chk_prog_fullpath.isChecked()))
+        settings.setValue('desktop/programming/error_action', self.cb_prog_error_action.currentText().strip())
+        settings.setValue('desktop/programming/error_log_file', (self.ed_prog_error_log.text() or '').strip())
+        settings.setValue('desktop/programming/max_size_kb', int(self.sp_prog_max_size.value()))
+        settings.setValue('desktop/programming/html_template', (self.ed_prog_html_template.text() or '').strip())
+
+    def _apply_desktop_properties(self):
+        self._save_desktop_properties()
+        self._update_country_number_preview()
+        self._update_country_date_preview()
+        self._update_country_currency_preview()
+        self._toggle_data_entry_beep_controls(self.chk_beep.isChecked())
+        self._toggle_files_log_controls(self.chk_enable_log.isChecked())
 
     def _build_tab_aliase(self) -> QWidget:
         tab = QWidget()
-        SourceAliasesTab(tab)
+        lay = QVBoxLayout(tab)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(SourceAliasesTab(tab))
         return tab
-    
+
     def _build_tab_usrbde(self) -> QWidget:
         tab = QWidget()
-        UserBdeAliasesTab(tab)
+        lay = QVBoxLayout(tab)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(UserBdeAliasesTab(tab))
         return tab
 
     def _build_tab_country(self) -> QWidget:
@@ -4306,96 +5021,117 @@ class DesktopPropertiesDialog(QDialog):
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(12)
 
-        # --- Zahlenwerte ---
-        gb_num = QGroupBox(share.locales.tr("Zahlenwerte"), tab)
+        gb_num = QGroupBox(share.locales.tr('Zahlenwerte'), tab)
         num = QGridLayout(gb_num)
         num.setHorizontalSpacing(10)
         num.setVerticalSpacing(8)
-
-        num.addWidget(QLabel(share.locales.tr("Trennzeichen:")), 0, 0)
-        self.ed_thousand = QLineEdit(".")
+        num.addWidget(QLabel(share.locales.tr('Trennzeichen:')), 0, 0)
+        self.ed_thousand = QLineEdit('.')
         self.ed_thousand.setFixedWidth(34)
+        self.ed_thousand.setMaxLength(1)
         num.addWidget(self.ed_thousand, 0, 1, alignment=Qt.AlignLeft)
-
-        num.addWidget(QLabel(share.locales.tr("Dezimalzeichen:")), 1, 0)
-        self.ed_decimal = QLineEdit(",")
+        num.addWidget(QLabel(share.locales.tr('Dezimalzeichen:')), 1, 0)
+        self.ed_decimal = QLineEdit(',')
         self.ed_decimal.setFixedWidth(34)
+        self.ed_decimal.setMaxLength(1)
         num.addWidget(self.ed_decimal, 1, 1, alignment=Qt.AlignLeft)
+        num.addWidget(QLabel(share.locales.tr('Muster:')), 2, 0)
+        self.lbl_num_pattern = QLabel('1.000.000,00')
+        num.addWidget(self.lbl_num_pattern, 2, 1, 1, 2)
 
-        num.addWidget(QLabel(share.locales.tr("Muster:")), 2, 0)
-        num.addWidget(QLabel("1.000.000,00"), 2, 1, 1, 2)
-
-        # --- Währungssymbol ---
-        gb_cur = QGroupBox(share.locales.tr("Währungssymbol"), tab)
+        gb_cur = QGroupBox(share.locales.tr('Währungssymbol'), tab)
         cur = QGridLayout(gb_cur)
         cur.setHorizontalSpacing(10)
         cur.setVerticalSpacing(8)
-
-        cur.addWidget(QLabel(share.locales.tr("Position:")), 0, 0)
-        self.rb_left  = QRadioButton(share.locales.tr("Links" ))
-        self.rb_right = QRadioButton(share.locales.tr("Rechts"))
+        cur.addWidget(QLabel(share.locales.tr('Position:')), 0, 0)
+        self.rb_left = QRadioButton(share.locales.tr('Links'))
+        self.rb_right = QRadioButton(share.locales.tr('Rechts'))
         self.rb_right.setChecked(True)
         cur.addWidget(self.rb_left, 0, 1)
         cur.addWidget(self.rb_right, 1, 1)
+        cur.addWidget(QLabel(share.locales.tr('Format:')), 2, 0)
+        self.chk_currency_format = QCheckBox('lang')
+        self.chk_currency_format.setChecked(False)
+        cur.addWidget(self.chk_currency_format, 2, 1, alignment=Qt.AlignLeft)
+        cur.addWidget(QLabel(share.locales.tr('Symbol:')), 3, 0)
+        self.cb_currency = QComboBox()
+        self.cb_currency.setEditable(True)
+        self.cb_currency.setInsertPolicy(QComboBox.NoInsert)
+        self.cb_currency.setMinimumWidth(170)
+        try:
+            self.cb_currency.setFont(QFont('Consolas', 10))
+            if self.cb_currency.lineEdit() is not None:
+                self.cb_currency.lineEdit().setFont(QFont('Consolas', 10))
+        except Exception:
+            pass
+        for code, symbol in self._currency_choices():
+            self.cb_currency.addItem(f'{code}  {symbol}')
+            try:
+                self.cb_currency.setItemData(self.cb_currency.count() - 1, QFont('Consolas', 10), Qt.FontRole)
+            except Exception:
+                pass
+        self._set_currency_combo_from_symbol('€')
+        cur.addWidget(self.cb_currency, 3, 1, alignment=Qt.AlignLeft)
+        cur.addWidget(QLabel(share.locales.tr('Muster:')), 4, 0)
+        self.lbl_currency_pattern = QLabel('129,99 EUR')
+        cur.addWidget(self.lbl_currency_pattern, 4, 1, 1, 2)
 
-        cur.addWidget(QLabel(share.locales.tr("Symbol:")), 2, 0)
-        self.ed_currency = QLineEdit("€")
-        self.ed_currency.setFixedWidth(50)
-        cur.addWidget(self.ed_currency, 2, 1, alignment=Qt.AlignLeft)
-
-        cur.addWidget(QLabel(share.locales.tr("Muster:")), 3, 0)
-        cur.addWidget(QLabel("129,99 €"), 3, 1, 1, 2)
-
-        # --- Datum ---
-        gb_date = QGroupBox(share.locales.tr("Datum"), tab)
+        gb_date = QGroupBox(share.locales.tr('Datum'), tab)
         date = QGridLayout(gb_date)
         date.setHorizontalSpacing(10)
         date.setVerticalSpacing(8)
-
-        date.addWidget(QLabel(share.locales.tr("Datumsformat:")), 0, 0)
+        date.addWidget(QLabel(share.locales.tr('Datumsformat:')), 0, 0)
         self.cb_datefmt = QComboBox()
-        self.cb_datefmt.addItems(["DMY", "MDY", "YMD", "ISO"])
-        self.cb_datefmt.setCurrentText("DMY")
+        self.cb_datefmt.addItems(['DMY', 'MDY', 'YMD', 'ISO'])
+        self.cb_datefmt.setCurrentText('DMY')
         self.cb_datefmt.setFixedWidth(120)
         date.addWidget(self.cb_datefmt, 0, 1, alignment=Qt.AlignLeft)
-
-        date.addWidget(QLabel(share.locales.tr("Datumszeichen:")), 1, 0)
-        self.ed_datesep = QLineEdit(".")
+        date.addWidget(QLabel(share.locales.tr('Datumszeichen:')), 1, 0)
+        self.ed_datesep = QLineEdit('.')
         self.ed_datesep.setFixedWidth(34)
+        self.ed_datesep.setMaxLength(1)
         date.addWidget(self.ed_datesep, 1, 1, alignment=Qt.AlignLeft)
-
-        self.chk_century = QCheckBox(share.locales.tr("Jahrhundert"))
+        self.chk_century = QCheckBox(share.locales.tr('Jahrhundert'))
         self.chk_century.setChecked(True)
         date.addWidget(self.chk_century, 2, 0, 1, 2)
+        date.addWidget(QLabel(share.locales.tr('Muster:')), 3, 0)
+        self.lbl_date_pattern = QLabel('12.04.2026')
+        date.addWidget(self.lbl_date_pattern, 3, 1, 1, 2)
 
-        date.addWidget(QLabel(share.locales.tr("Muster:")), 3, 0)
-        date.addWidget(QLabel("08.02.2026"), 3, 1, 1, 2)
-
-        # --- Umgebungssprache ---
-        gb_ui = QGroupBox(share.locales.tr("Umgebungssprache"), tab)
+        gb_ui = QGroupBox(share.locales.tr('Umgebungssprache'), tab)
         ui = QGridLayout(gb_ui)
         self.cb_lang = QComboBox()
-        self.cb_lang.addItems(["DE - Deutsch", "EN - English", "FR - Français"])
-        self.cb_lang.setCurrentText("DE - Deutsch")
+        self.cb_lang.addItems(['DE - Deutsch', 'EN - English', 'FR - Français'])
+        self.cb_lang.setCurrentText('DE - Deutsch')
         self.cb_lang.setFixedWidth(160)
         ui.addWidget(self.cb_lang, 0, 0)
 
-        # --- Sprachtreiber ---
-        gb_drv = QGroupBox(share.locales.tr("Sprachtreiber"), tab)
+        gb_drv = QGroupBox(share.locales.tr('Sprachtreiber'), tab)
         drv = QGridLayout(gb_drv)
-        self.chk_mismatch = QCheckBox(share.locales.tr("Warnung bei Konflikten"))
+        self.chk_mismatch = QCheckBox(share.locales.tr('Warnung bei Konflikten'))
         drv.addWidget(self.chk_mismatch, 0, 0)
 
-        # Positionierung wie Screenshot
+        self.ed_thousand.textChanged.connect(lambda _=None: self._normalize_separator_edit('thousand'))
+        self.ed_decimal.textChanged.connect(lambda _=None: self._normalize_separator_edit('decimal'))
+        self.ed_thousand.editingFinished.connect(lambda: self._normalize_separator_edit('thousand'))
+        self.ed_decimal.editingFinished.connect(lambda: self._normalize_separator_edit('decimal'))
+        self.cb_currency.currentTextChanged.connect(lambda _=None: self._sync_country_currency_from_combo())
+        self.chk_currency_format.toggled.connect(lambda _=None: self._update_country_currency_preview())
+        self.rb_left.toggled.connect(lambda _=None: self._update_country_currency_preview())
+        self.rb_right.toggled.connect(lambda _=None: self._update_country_currency_preview())
+        self.cb_datefmt.currentTextChanged.connect(lambda _=None: self._update_country_date_preview())
+        self.ed_datesep.textChanged.connect(lambda _=None: self._normalize_date_separator_edit())
+        self.ed_datesep.editingFinished.connect(self._normalize_date_separator_edit)
+        self.chk_century.toggled.connect(lambda _=None: self._update_country_date_preview())
+
         g.addWidget(gb_num, 0, 0)
         g.addWidget(gb_date, 0, 1)
         g.addWidget(gb_cur, 1, 0)
         g.addWidget(gb_ui, 1, 1)
         g.addWidget(gb_drv, 2, 1)
-
         g.setRowStretch(3, 1)
         return tab
-    
+
     def _build_tab_table(self) -> QWidget:
         tab = QWidget()
         g = QGridLayout(tab)
@@ -4403,315 +5139,92 @@ class DesktopPropertiesDialog(QDialog):
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(12)
 
-        # --- Mehrplatz (links oben) ---
-        gb_multi = QGroupBox(share.locales.tr("Mehrplatz"), tab)
+        gb_multi = QGroupBox(share.locales.tr('Mehrplatz'), tab)
         l_multi = QGridLayout(gb_multi)
         l_multi.setHorizontalSpacing(10)
         l_multi.setVerticalSpacing(8)
-
-        self.chk_lock = QCheckBox(share.locales.tr("Lock"))
-        self.chk_exclusive = QCheckBox(share.locales.tr("Exklusiv"))
-
+        self.chk_lock = QCheckBox(share.locales.tr('Lock'))
+        self.chk_exclusive = QCheckBox(share.locales.tr('Exklusiv'))
         l_multi.addWidget(self.chk_lock, 0, 0, 1, 2)
         l_multi.addWidget(self.chk_exclusive, 1, 0, 1, 2)
-
-        l_multi.addWidget(QLabel(share.locales.tr("Refresh:")), 2, 0)
+        l_multi.addWidget(QLabel(share.locales.tr('Refresh:')), 2, 0)
         self.spin_refresh = QSpinBox()
         self.spin_refresh.setRange(0, 9999)
         self.spin_refresh.setFixedWidth(70)
         l_multi.addWidget(self.spin_refresh, 2, 1, alignment=Qt.AlignLeft)
-
-        l_multi.addWidget(QLabel(share.locales.tr("Replay:")), 3, 0)
+        l_multi.addWidget(QLabel(share.locales.tr('Replay:')), 3, 0)
         self.spin_retry = QSpinBox()
         self.spin_retry.setRange(0, 9999)
         self.spin_retry.setFixedWidth(70)
         l_multi.addWidget(self.spin_retry, 3, 1, alignment=Qt.AlignLeft)
-
-        # default wie Screenshot
         self.chk_lock.setChecked(True)
 
-        # --- Standardtabellentyp (links mitte) ---
-        gb_default = QGroupBox(share.locales.tr("Standardtabellentyp"), tab)
+        gb_default = QGroupBox(share.locales.tr('Standardtabellentyp'), tab)
         l_def = QVBoxLayout(gb_default)
-        
-        self.rb_dbase   = QRadioButton("dBASE")
-        self.rb_paradox = QRadioButton("Paradox")
-        self.rb_sqlite3 = QRadioButton("SQLite 3")
-        self.rb_mysql   = QRadioButton("MySQL")
-        
+        self.rb_dbase = QRadioButton('dBASE')
+        self.rb_paradox = QRadioButton('Paradox')
+        self.rb_sqlite3 = QRadioButton('SQLite 3')
+        self.rb_mysql = QRadioButton('MySQL')
         self.rb_dbase.setChecked(True)
-        
         l_def.addWidget(self.rb_dbase)
         l_def.addWidget(self.rb_paradox)
         l_def.addWidget(self.rb_sqlite3)
         l_def.addWidget(self.rb_mysql)
 
-        # --- Systemtabellen (links unten) ---
-        gb_system = QGroupBox(share.locales.tr("Systemtabellen"), tab)
+        gb_system = QGroupBox(share.locales.tr('Systemtabellen'), tab)
         l_sys = QVBoxLayout(gb_system)
-        self.chk_system_show = QCheckBox(share.locales.tr("Anzeigen"))
+        self.chk_system_show = QCheckBox(share.locales.tr('Anzeigen'))
         l_sys.addWidget(self.chk_system_show)
 
-        # --- Blockgrößen (rechts oben) ---
-        gb_blocks = QGroupBox(share.locales.tr("Blockgrößen"), tab)
+        gb_blocks = QGroupBox(share.locales.tr('Blockgrößen'), tab)
         l_blocks = QGridLayout(gb_blocks)
         l_blocks.setHorizontalSpacing(10)
         l_blocks.setVerticalSpacing(8)
-
-        l_blocks.addWidget(QLabel(share.locales.tr("Indexblock:")), 0, 0)
+        l_blocks.addWidget(QLabel(share.locales.tr('Indexblock:')), 0, 0)
         self.spin_indexblock = QSpinBox()
         self.spin_indexblock.setRange(1, 9999)
         self.spin_indexblock.setFixedWidth(80)
         self.spin_indexblock.setValue(1)
         l_blocks.addWidget(self.spin_indexblock, 0, 1, alignment=Qt.AlignLeft)
-
-        l_blocks.addWidget(QLabel(share.locales.tr("Memoblock:")), 1, 0)
+        l_blocks.addWidget(QLabel(share.locales.tr('Memoblock:')), 1, 0)
         self.spin_memoblock = QSpinBox()
         self.spin_memoblock.setRange(1, 9999)
         self.spin_memoblock.setFixedWidth(80)
         self.spin_memoblock.setValue(8)
         l_blocks.addWidget(self.spin_memoblock, 1, 1, alignment=Qt.AlignLeft)
 
-        # --- Andere (rechts mitte) ---
-        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
+        gb_other = QGroupBox(share.locales.tr('Andere'), tab)
         l_other = QGridLayout(gb_other)
         l_other.setHorizontalSpacing(10)
         l_other.setVerticalSpacing(6)
-
-        self.chk_autosave   = QCheckBox(share.locales.tr("Automatische Speicherung"))
-        self.chk_deleted    = QCheckBox(share.locales.tr("Löschmarken"))
-        self.chk_encrypt    = QCheckBox(share.locales.tr("Verschlüsselung"))
-        self.chk_ident      = QCheckBox(share.locales.tr("Identisch"))
-        self.chk_approx     = QCheckBox(share.locales.tr("Annähernd"))
-        self.chk_autonull   = QCheckBox(share.locales.tr("AutoNullFields"))
-
-        # wie Screenshot: Löschmarken + Verschlüsselung + AutoNullFields aktiv
+        self.chk_autosave = QCheckBox(share.locales.tr('Automatische Speicherung'))
+        self.chk_deleted = QCheckBox(share.locales.tr('Löschmarken'))
+        self.chk_encrypt = QCheckBox(share.locales.tr('Verschlüsselung'))
+        self.chk_ident = QCheckBox(share.locales.tr('Identisch'))
+        self.chk_approx = QCheckBox(share.locales.tr('Annähernd'))
+        self.chk_autonull = QCheckBox(share.locales.tr('AutoNullFields'))
         self.chk_deleted.setChecked(True)
         self.chk_encrypt.setChecked(True)
         self.chk_autonull.setChecked(True)
-
         l_other.addWidget(self.chk_autosave, 0, 0, 1, 2)
         l_other.addWidget(self.chk_deleted, 1, 0, 1, 2)
         l_other.addWidget(self.chk_encrypt, 2, 0, 1, 2)
         l_other.addWidget(self.chk_ident, 3, 0)
         l_other.addWidget(self.chk_approx, 4, 0)
         l_other.addWidget(self.chk_autonull, 3, 1)
-
-        self.btn_components = QPushButton(share.locales.tr("Komponententypen zuordnen..."))
+        self.btn_components = QPushButton(share.locales.tr('Komponententypen zuordnen...'))
         self.btn_components.setFixedWidth(220)
         l_other.addWidget(self.btn_components, 5, 0, 1, 2, alignment=Qt.AlignLeft)
 
-        # Positionen im Grid wie im Bild
-        g.addWidget(gb_multi,   0, 0)
-        g.addWidget(gb_blocks,  0, 1)
+        g.addWidget(gb_multi, 0, 0)
+        g.addWidget(gb_blocks, 0, 1)
         g.addWidget(gb_default, 1, 0)
-        g.addWidget(gb_other,   1, 1)
-        g.addWidget(gb_system,  2, 0)
-
-        # etwas Luft nach unten/rechts
+        g.addWidget(gb_other, 1, 1)
+        g.addWidget(gb_system, 2, 0)
         g.setRowStretch(3, 1)
         g.setColumnStretch(2, 1)
-        
         return tab
-    
-    def _build_tab_app(self) -> QWidget:
-        tab = QWidget()
-        g = QGridLayout(tab)
-        g.setContentsMargins(12, 12, 12, 12)
-        g.setHorizontalSpacing(18)
-        g.setVerticalSpacing(12)
 
-        # --- Experten anzeigen (links oben) ---
-        gb_exp = QGroupBox(share.locales.tr("Experten anzeigen"), tab)
-        exp = QVBoxLayout(gb_exp)
-        exp.setSpacing(6)
-
-        chk_form        = QCheckBox(share.locales.tr("Formular"))
-        chk_report      = QCheckBox(share.locales.tr("Report"))
-        chk_labels      = QCheckBox(share.locales.tr("Etiketten"))
-        chk_datamodule  = QCheckBox(share.locales.tr("Datenmodul"))
-        chk_table       = QCheckBox(share.locales.tr("Tabelle"))
-
-        # wie Screenshot: alle an
-        for c in (chk_form, chk_report, chk_labels, chk_datamodule, chk_table):
-            c.setChecked(True)
-            exp.addWidget(c)
-
-        # --- Dateimenü (links unten) ---
-        gb_file = QGroupBox(share.locales.tr("Dateimenü"), tab)
-        fm = QGridLayout(gb_file)
-        fm.setHorizontalSpacing(10)
-        fm.setVerticalSpacing(8)
-
-        fm.addWidget(QLabel(share.locales.tr("Anzahl Dateien:")), 0, 0)
-        sp_files = QSpinBox()
-        sp_files.setRange(0, 99)
-        sp_files.setValue(5)
-        sp_files.setFixedWidth(80)
-        fm.addWidget(sp_files, 0, 1, alignment=Qt.AlignLeft)
-
-        fm.addWidget(QLabel(share.locales.tr("Anzahl Projekte:")), 1, 0)
-        sp_projects = QSpinBox()
-        sp_projects.setRange(0, 99)
-        sp_projects.setValue(5)
-        sp_projects.setFixedWidth(80)
-        fm.addWidget(sp_projects, 1, 1, alignment=Qt.AlignLeft)
-
-        # --- Datenbank (rechts oben) ---
-        gb_db = QGroupBox(share.locales.tr("Datenbank"), tab)
-        db = QVBoxLayout(gb_db)
-        db.setSpacing(6)
-
-        chk_login    = QCheckBox(share.locales.tr("Anmeldungen sichern"))
-        chk_sqltrace = QCheckBox(share.locales.tr("SQL-Ablaufverfolgung"))
-        chk_login.setChecked(True)
-        db.addWidget(chk_login)
-        db.addWidget(chk_sqltrace)
-
-        # --- Fenster (rechts mitte) ---
-        gb_win = QGroupBox(share.locales.tr("Fenster"), tab)
-        win = QVBoxLayout(gb_win)
-        win.setSpacing(6)
-
-        chk_fit     = QCheckBox(share.locales.tr("Fenstergröße an Inhalt anpassen"))
-        chk_anim    = QCheckBox(share.locales.tr("Animationen endlos abspielen"))
-        chk_ole     = QCheckBox(share.locales.tr("Objekte als OLE 2.0 speichern"))
-
-        # wie Screenshot: alle 3 an
-        chk_fit.setChecked(True)
-        chk_anim.setChecked(True)
-        chk_ole.setChecked(True)
-
-        win.addWidget(chk_fit)
-        win.addWidget(chk_anim)
-        win.addWidget(chk_ole)
-
-        # --- Andere (rechts unten) ---
-        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
-        other = QVBoxLayout(gb_other)
-        other.setSpacing(6)
-
-        chk_splash = QCheckBox(share.locales.tr("Startbildschirm"))
-        chk_splash.setChecked(True)
-        other.addWidget(chk_splash)
-
-        # Layout wie im Screenshot:
-        # links: Experten anzeigen + Dateimenü
-        # rechts: Datenbank + Fenster + Andere
-        g.addWidget(gb_exp,   0, 0)
-        g.addWidget(gb_db,    0, 1)
-        g.addWidget(gb_file,  1, 0)
-        g.addWidget(gb_win,   1, 1)
-        g.addWidget(gb_other, 2, 1)
-
-        g.setRowStretch(3, 1)
-        return tab
-    
-    def _build_tab_files(self) -> QWidget:
-        tab = QWidget()
-        g = QGridLayout(tab)
-        g.setContentsMargins(12, 12, 12, 12)
-        g.setHorizontalSpacing(18)
-        g.setVerticalSpacing(12)
-
-        # ---------- Pfad (links oben) ----------
-        gb_path = QGroupBox("Pfad", tab)
-        path = QGridLayout(gb_path)
-        path.setHorizontalSpacing(10)
-        path.setVerticalSpacing(8)
-
-        path.addWidget(QLabel(share.locales.tr("Aktuelles Verzeichnis:")), 0, 0, 1, 2)
-
-        # Zeile: Combo/Text + Folder Button
-        self_cur_dir = QLineEdit(r"F:\Heinz\ext\irgl\...")
-        self_cur_dir.setMinimumWidth(240)
-        btn_cur_browse = QPushButton("📁")
-        btn_cur_browse.setFixedWidth(30)
-
-        path.addWidget(self_cur_dir, 1, 0)
-        path.addWidget(btn_cur_browse, 1, 1, alignment=Qt.AlignLeft)
-
-        path.addWidget(QLabel(share.locales.tr("Suchpfad:")), 2, 0, 1, 2)
-
-        self_search_path = QLineEdit("")
-        btn_search_browse = QPushButton("📁")
-        btn_search_browse.setFixedWidth(30)
-
-        path.addWidget(self_search_path, 3, 0)
-        path.addWidget(btn_search_browse, 3, 1, alignment=Qt.AlignLeft)
-
-        # ---------- Ausgabeprotokoll (links unten) ----------
-        gb_log = QGroupBox(share.locales.tr("Ausgabeprotokoll"), tab)
-        log = QGridLayout(gb_log)
-        log.setHorizontalSpacing(10)
-        log.setVerticalSpacing(8)
-
-        chk_enable_log = QCheckBox(share.locales.tr("Protokoll anlegen"))
-        log.addWidget(chk_enable_log, 0, 0, 1, 2)
-
-        log.addWidget(QLabel(share.locales.tr("Name der Protokolldatei:")), 1, 0, 1, 2)
-
-        ed_logfile = QLineEdit("")
-        ed_logfile.setEnabled(False)
-        btn_logfile = QPushButton("✎")
-        btn_logfile.setFixedWidth(30)
-        btn_logfile.setEnabled(False)
-
-        log.addWidget(ed_logfile, 2, 0)
-        log.addWidget(btn_logfile, 2, 1, alignment=Qt.AlignLeft)
-
-        rb_overwrite = QRadioButton(share.locales.tr("Überschreiben"))
-        rb_append    = QRadioButton(share.locales.tr("Anhängen"))
-        rb_overwrite.setEnabled(False)
-        rb_append.setEnabled(False)
-        rb_overwrite.setChecked(True)
-
-        log.addWidget(rb_overwrite, 3, 0, 1, 2)
-        log.addWidget(rb_append, 4, 0, 1, 2)
-
-        # Enable/Disable abhängig von Checkbox
-        def _toggle_log(on: bool):
-            ed_logfile.setEnabled(on)
-            btn_logfile.setEnabled(on)
-            rb_overwrite.setEnabled(on)
-            rb_append.setEnabled(on)
-
-        chk_enable_log.toggled.connect(_toggle_log)
-
-        # ---------- Editor (rechts oben) ----------
-        gb_editor = QGroupBox(share.locales.tr("Editor"), tab)
-        ed = QGridLayout(gb_editor)
-        ed.setHorizontalSpacing(10)
-        ed.setVerticalSpacing(8)
-
-        ed.addWidget(QLabel(share.locales.tr("Externer Quelltext-Editor:")), 0, 0, 1, 2)
-
-        ed_editor = QLineEdit("")
-        btn_editor = QPushButton("✎")
-        btn_editor.setFixedWidth(30)
-
-        ed.addWidget(ed_editor, 1, 0)
-        ed.addWidget(btn_editor, 1, 1, alignment=Qt.AlignLeft)
-
-        # ---------- Andere (rechts mitte) ----------
-        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
-        other = QVBoxLayout(gb_other)
-        other.setSpacing(6)
-
-        chk_backup   = QCheckBox(share.locales.tr("Sicherungsdateien"))
-        chk_sessions = QCheckBox(share.locales.tr("Arbeitssitzungen"))
-        other.addWidget(chk_backup)
-        other.addWidget(chk_sessions)
-
-        # Layout wie Screenshot
-        g.addWidget(gb_path,   0, 0)
-        g.addWidget(gb_editor, 0, 1)
-        g.addWidget(gb_log,    1, 0)
-        g.addWidget(gb_other,  1, 1)
-
-        g.setRowStretch(2, 1)
-        return tab
-    
     def _build_tab_data(self) -> QWidget:
         tab = QWidget()
         g = QGridLayout(tab)
@@ -4719,98 +5232,218 @@ class DesktopPropertiesDialog(QDialog):
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(12)
 
-        # ---------- Tastatur (links oben) ----------
-        gb_kbd = QGroupBox(share.locales.tr("Tastatur"), tab)
+        gb_kbd = QGroupBox(share.locales.tr('Tastatur'), tab)
         kbd = QGridLayout(gb_kbd)
         kbd.setHorizontalSpacing(10)
         kbd.setVerticalSpacing(8)
+        self.chk_confirm = QCheckBox(share.locales.tr('Bestätigung'))
+        self.chk_cua = QCheckBox(share.locales.tr('CUA-Eingabe'))
+        self.chk_esc = QCheckBox(share.locales.tr('Escape'))
+        self.chk_confirm.setChecked(True)
+        self.chk_cua.setChecked(True)
+        self.chk_esc.setChecked(True)
+        kbd.addWidget(self.chk_confirm, 0, 0, 1, 2)
+        kbd.addWidget(self.chk_cua, 1, 0, 1, 2)
+        kbd.addWidget(self.chk_esc, 2, 0, 1, 2)
+        kbd.addWidget(QLabel(share.locales.tr('Tastaturpuffer:')), 3, 0)
+        self.sp_buf = QSpinBox()
+        self.sp_buf.setRange(0, 9999)
+        self.sp_buf.setValue(49)
+        self.sp_buf.setFixedWidth(90)
+        kbd.addWidget(self.sp_buf, 3, 1, alignment=Qt.AlignLeft)
 
-        chk_confirm = QCheckBox(share.locales.tr("Bestätigung"))
-        chk_cua     = QCheckBox(share.locales.tr("CUA-Eingabe"))
-        chk_esc     = QCheckBox(share.locales.tr("Escape"))
-
-        # wie Screenshot: alle 3 an
-        chk_confirm.setChecked(True)
-        chk_cua.setChecked(True)
-        chk_esc.setChecked(True)
-
-        kbd.addWidget(chk_confirm, 0, 0, 1, 2)
-        kbd.addWidget(chk_cua,     1, 0, 1, 2)
-        kbd.addWidget(chk_esc,     2, 0, 1, 2)
-
-        kbd.addWidget(QLabel(share.locales.tr("Tastaturpuffer:")), 3, 0)
-        sp_buf = QSpinBox()
-        sp_buf.setRange(0, 9999)
-        sp_buf.setValue(49)
-        sp_buf.setFixedWidth(90)
-        kbd.addWidget(sp_buf, 3, 1, alignment=Qt.AlignLeft)
-
-        # ---------- Andere (links unten) ----------
-        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
+        gb_other = QGroupBox(share.locales.tr('Andere'), tab)
         other = QGridLayout(gb_other)
         other.setHorizontalSpacing(10)
         other.setVerticalSpacing(8)
+        other.addWidget(QLabel(share.locales.tr('Epoche:')), 0, 0)
+        self.sp_epoch = QSpinBox()
+        self.sp_epoch.setRange(0, 9999)
+        self.sp_epoch.setValue(1950)
+        self.sp_epoch.setFixedWidth(90)
+        other.addWidget(self.sp_epoch, 0, 1, alignment=Qt.AlignLeft)
 
-        other.addWidget(QLabel(share.locales.tr("Epoche:")), 0, 0)
-        sp_epoch = QSpinBox()
-        sp_epoch.setRange(0, 9999)
-        sp_epoch.setValue(1950)
-        sp_epoch.setFixedWidth(90)
-        other.addWidget(sp_epoch, 0, 1, alignment=Qt.AlignLeft)
-
-        # ---------- Signalton (rechts) ----------
-        gb_beep = QGroupBox(share.locales.tr("Signalton"), tab)
+        gb_beep = QGroupBox(share.locales.tr('Signalton'), tab)
         beep = QGridLayout(gb_beep)
         beep.setHorizontalSpacing(10)
         beep.setVerticalSpacing(8)
+        self.chk_beep = QCheckBox(share.locales.tr('Einschalten'))
+        self.chk_beep.setChecked(True)
+        beep.addWidget(self.chk_beep, 0, 0, 1, 2)
+        beep.addWidget(QLabel(share.locales.tr('Frequenz:')), 1, 0)
+        self.sp_freq = QSpinBox()
+        self.sp_freq.setRange(0, 20000)
+        self.sp_freq.setValue(512)
+        self.sp_freq.setFixedWidth(90)
+        beep.addWidget(self.sp_freq, 1, 1, alignment=Qt.AlignLeft)
+        beep.addWidget(QLabel(share.locales.tr('Dauer:')), 2, 0)
+        self.sp_dur = QSpinBox()
+        self.sp_dur.setRange(0, 10000)
+        self.sp_dur.setValue(50)
+        self.sp_dur.setFixedWidth(90)
+        beep.addWidget(self.sp_dur, 2, 1, alignment=Qt.AlignLeft)
+        self.btn_test_beep = QPushButton(share.locales.tr('Prüfen'))
+        self.btn_test_beep.setFixedWidth(95)
+        beep.addWidget(self.btn_test_beep, 3, 0, 1, 2, alignment=Qt.AlignLeft)
+        self.chk_beep.toggled.connect(self._toggle_data_entry_beep_controls)
+        self.btn_test_beep.clicked.connect(lambda: QApplication.beep())
+        self._toggle_data_entry_beep_controls(True)
 
-        chk_beep = QCheckBox(share.locales.tr("Einschalten"))
-        chk_beep.setChecked(True)
-        beep.addWidget(chk_beep, 0, 0, 1, 2)
-
-        beep.addWidget(QLabel(share.locales.tr("Frequenz:")), 1, 0)
-        sp_freq = QSpinBox()
-        sp_freq.setRange(0, 20000)
-        sp_freq.setValue(512)
-        sp_freq.setFixedWidth(90)
-        beep.addWidget(sp_freq, 1, 1, alignment=Qt.AlignLeft)
-
-        beep.addWidget(QLabel(share.locales.tr("Dauer:")), 2, 0)
-        sp_dur = QSpinBox()
-        sp_dur.setRange(0, 10000)
-        sp_dur.setValue(50)
-        sp_dur.setFixedWidth(90)
-        beep.addWidget(sp_dur, 2, 1, alignment=Qt.AlignLeft)
-
-        btn_test = QPushButton(share.locales.tr("Prüfen"))
-        btn_test.setFixedWidth(95)
-        beep.addWidget(btn_test, 3, 0, 1, 2, alignment=Qt.AlignLeft)
-
-        # Aktivieren/Deaktivieren je nach Einschalten
-        def _toggle_beep(on: bool):
-            sp_freq.setEnabled(on)
-            sp_dur.setEnabled(on)
-            btn_test.setEnabled(on)
-
-        chk_beep.toggled.connect(_toggle_beep)
-        _toggle_beep(True)
-
-        # Optional: wirklich piepen
-        def _do_beep():
-            # QApplication.beep() ist plattformabhängig, reicht aber als "Test"
-            from PyQt5.QtWidgets import QApplication
-            QApplication.beep()
-
-        btn_test.clicked.connect(_do_beep)
-
-        # Layout wie Screenshot
-        g.addWidget(gb_kbd,   0, 0)
-        g.addWidget(gb_beep,  0, 1, 2, 1)
+        g.addWidget(gb_kbd, 0, 0)
+        g.addWidget(gb_beep, 0, 1, 2, 1)
         g.addWidget(gb_other, 1, 0)
-
         g.setRowStretch(2, 1)
         return tab
-    
+
+    def _build_tab_files(self) -> QWidget:
+        tab = QWidget()
+        g = QGridLayout(tab)
+        g.setContentsMargins(12, 12, 12, 12)
+        g.setHorizontalSpacing(18)
+        g.setVerticalSpacing(12)
+
+        gb_path = QGroupBox('Pfad', tab)
+        path = QGridLayout(gb_path)
+        path.setHorizontalSpacing(10)
+        path.setVerticalSpacing(8)
+        path.addWidget(QLabel(share.locales.tr('Aktuelles Verzeichnis:')), 0, 0, 1, 2)
+        self.ed_files_current_dir = QLineEdit('')
+        self.ed_files_current_dir.setMinimumWidth(240)
+        self.btn_files_current_dir = QPushButton('...')
+        self.btn_files_current_dir.setFixedWidth(30)
+        path.addWidget(self.ed_files_current_dir, 1, 0)
+        path.addWidget(self.btn_files_current_dir, 1, 1, alignment=Qt.AlignLeft)
+        path.addWidget(QLabel(share.locales.tr('Suchpfad:')), 2, 0, 1, 2)
+        self.ed_files_search_path = QLineEdit('')
+        self.btn_files_search_path = QPushButton('...')
+        self.btn_files_search_path.setFixedWidth(30)
+        path.addWidget(self.ed_files_search_path, 3, 0)
+        path.addWidget(self.btn_files_search_path, 3, 1, alignment=Qt.AlignLeft)
+
+        gb_log = QGroupBox(share.locales.tr('Ausgabeprotokoll'), tab)
+        log = QGridLayout(gb_log)
+        log.setHorizontalSpacing(10)
+        log.setVerticalSpacing(8)
+        self.chk_enable_log = QCheckBox(share.locales.tr('Protokoll anlegen'))
+        log.addWidget(self.chk_enable_log, 0, 0, 1, 2)
+        log.addWidget(QLabel(share.locales.tr('Name der Protokolldatei:')), 1, 0, 1, 2)
+        self.ed_logfile = QLineEdit('')
+        self.btn_logfile = QPushButton('...')
+        self.btn_logfile.setFixedWidth(30)
+        log.addWidget(self.ed_logfile, 2, 0)
+        log.addWidget(self.btn_logfile, 2, 1, alignment=Qt.AlignLeft)
+        self.rb_log_overwrite = QRadioButton(share.locales.tr('Überschreiben'))
+        self.rb_log_append = QRadioButton(share.locales.tr('Anhängen'))
+        self.rb_log_overwrite.setChecked(True)
+        log.addWidget(self.rb_log_overwrite, 3, 0, 1, 2)
+        log.addWidget(self.rb_log_append, 4, 0, 1, 2)
+        self.chk_enable_log.toggled.connect(self._toggle_files_log_controls)
+        self.btn_logfile.clicked.connect(self._browse_log_file)
+
+        gb_editor = QGroupBox(share.locales.tr('Editor'), tab)
+        ed = QGridLayout(gb_editor)
+        ed.setHorizontalSpacing(10)
+        ed.setVerticalSpacing(8)
+        ed.addWidget(QLabel(share.locales.tr('Externer Quelltext-Editor:')), 0, 0, 1, 2)
+        self.ed_external_editor = QLineEdit('')
+        self.btn_external_editor = QPushButton('...')
+        self.btn_external_editor.setFixedWidth(30)
+        ed.addWidget(self.ed_external_editor, 1, 0)
+        ed.addWidget(self.btn_external_editor, 1, 1, alignment=Qt.AlignLeft)
+
+        gb_other = QGroupBox(share.locales.tr('Andere'), tab)
+        other = QVBoxLayout(gb_other)
+        other.setSpacing(6)
+        self.chk_backup = QCheckBox(share.locales.tr('Sicherungsdateien'))
+        self.chk_sessions = QCheckBox(share.locales.tr('Arbeitssitzungen'))
+        other.addWidget(self.chk_backup)
+        other.addWidget(self.chk_sessions)
+
+        self.btn_files_current_dir.clicked.connect(self._browse_files_current_dir)
+        self.btn_files_search_path.clicked.connect(self._browse_files_search_path)
+        self.btn_external_editor.clicked.connect(self._browse_external_editor)
+        self._toggle_files_log_controls(False)
+
+        g.addWidget(gb_path, 0, 0)
+        g.addWidget(gb_editor, 0, 1)
+        g.addWidget(gb_log, 1, 0)
+        g.addWidget(gb_other, 1, 1)
+        g.setRowStretch(2, 1)
+        return tab
+
+    def _build_tab_app(self) -> QWidget:
+        tab = QWidget()
+        g = QGridLayout(tab)
+        g.setContentsMargins(12, 12, 12, 12)
+        g.setHorizontalSpacing(18)
+        g.setVerticalSpacing(12)
+
+        gb_exp = QGroupBox(share.locales.tr('Experten anzeigen'), tab)
+        exp = QVBoxLayout(gb_exp)
+        exp.setSpacing(6)
+        self.chk_app_form = QCheckBox(share.locales.tr('Formular'))
+        self.chk_app_report = QCheckBox(share.locales.tr('Report'))
+        self.chk_app_labels = QCheckBox(share.locales.tr('Etiketten'))
+        self.chk_app_datamodule = QCheckBox(share.locales.tr('Datenmodul'))
+        self.chk_app_table = QCheckBox(share.locales.tr('Tabelle'))
+        for c in (self.chk_app_form, self.chk_app_report, self.chk_app_labels, self.chk_app_datamodule, self.chk_app_table):
+            c.setChecked(True)
+            exp.addWidget(c)
+
+        gb_file = QGroupBox(share.locales.tr('Dateimenü'), tab)
+        fm = QGridLayout(gb_file)
+        fm.setHorizontalSpacing(10)
+        fm.setVerticalSpacing(8)
+        fm.addWidget(QLabel(share.locales.tr('Anzahl Dateien:')), 0, 0)
+        self.sp_app_files = QSpinBox()
+        self.sp_app_files.setRange(0, 99)
+        self.sp_app_files.setValue(5)
+        self.sp_app_files.setFixedWidth(80)
+        fm.addWidget(self.sp_app_files, 0, 1, alignment=Qt.AlignLeft)
+        fm.addWidget(QLabel(share.locales.tr('Anzahl Projekte:')), 1, 0)
+        self.sp_app_projects = QSpinBox()
+        self.sp_app_projects.setRange(0, 99)
+        self.sp_app_projects.setValue(5)
+        self.sp_app_projects.setFixedWidth(80)
+        fm.addWidget(self.sp_app_projects, 1, 1, alignment=Qt.AlignLeft)
+
+        gb_db = QGroupBox(share.locales.tr('Datenbank'), tab)
+        db = QVBoxLayout(gb_db)
+        db.setSpacing(6)
+        self.chk_app_save_logins = QCheckBox(share.locales.tr('Anmeldungen sichern'))
+        self.chk_app_sql_trace = QCheckBox(share.locales.tr('SQL-Ablaufverfolgung'))
+        self.chk_app_save_logins.setChecked(True)
+        db.addWidget(self.chk_app_save_logins)
+        db.addWidget(self.chk_app_sql_trace)
+
+        gb_win = QGroupBox(share.locales.tr('Fenster'), tab)
+        win = QVBoxLayout(gb_win)
+        win.setSpacing(6)
+        self.chk_app_fit = QCheckBox(share.locales.tr('Fenstergröße an Inhalt anpassen'))
+        self.chk_app_anim = QCheckBox(share.locales.tr('Animationen endlos abspielen'))
+        self.chk_app_ole = QCheckBox(share.locales.tr('Objekte als OLE 2.0 speichern'))
+        self.chk_app_fit.setChecked(True)
+        self.chk_app_anim.setChecked(True)
+        self.chk_app_ole.setChecked(True)
+        win.addWidget(self.chk_app_fit)
+        win.addWidget(self.chk_app_anim)
+        win.addWidget(self.chk_app_ole)
+
+        gb_other = QGroupBox(share.locales.tr('Andere'), tab)
+        other = QVBoxLayout(gb_other)
+        other.setSpacing(6)
+        self.chk_app_splash = QCheckBox(share.locales.tr('Startbildschirm'))
+        self.chk_app_splash.setChecked(True)
+        other.addWidget(self.chk_app_splash)
+
+        g.addWidget(gb_exp, 0, 0)
+        g.addWidget(gb_db, 0, 1)
+        g.addWidget(gb_file, 1, 0)
+        g.addWidget(gb_win, 1, 1)
+        g.addWidget(gb_other, 2, 1)
+        g.setRowStretch(3, 1)
+        return tab
+
     def _build_tab_prog(self) -> QWidget:
         tab = QWidget()
         g = QGridLayout(tab)
@@ -4818,140 +5451,111 @@ class DesktopPropertiesDialog(QDialog):
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(12)
 
-        # --- Befehlsausgabe (links oben) ---
-        gb_out = QGroupBox(share.locales.tr("Befehlsausgabe"), tab)
+        gb_out = QGroupBox(share.locales.tr('Befehlsausgabe'), tab)
         out = QGridLayout(gb_out)
         out.setHorizontalSpacing(10)
         out.setVerticalSpacing(8)
+        out.addWidget(QLabel(share.locales.tr('Dezimalstellen:')), 0, 0)
+        self.sp_prog_decimals = QSpinBox()
+        self.sp_prog_decimals.setRange(0, 20)
+        self.sp_prog_decimals.setValue(2)
+        self.sp_prog_decimals.setFixedWidth(80)
+        out.addWidget(self.sp_prog_decimals, 0, 1, alignment=Qt.AlignLeft)
+        out.addWidget(QLabel(share.locales.tr('Genauigkeit:')), 1, 0)
+        self.sp_prog_precision = QSpinBox()
+        self.sp_prog_precision.setRange(0, 20)
+        self.sp_prog_precision.setValue(10)
+        self.sp_prog_precision.setFixedWidth(80)
+        out.addWidget(self.sp_prog_precision, 1, 1, alignment=Qt.AlignLeft)
+        out.addWidget(QLabel(share.locales.tr('Rand:')), 2, 0)
+        self.sp_prog_margin = QSpinBox()
+        self.sp_prog_margin.setRange(0, 999)
+        self.sp_prog_margin.setValue(0)
+        self.sp_prog_margin.setFixedWidth(80)
+        out.addWidget(self.sp_prog_margin, 2, 1, alignment=Qt.AlignLeft)
+        self.chk_prog_blank = QCheckBox(share.locales.tr('Leerzeichen'))
+        self.chk_prog_trace = QCheckBox(share.locales.tr('Ablaufverfolgung'))
+        self.chk_prog_fieldnames = QCheckBox(share.locales.tr('Feldnamen'))
+        self.chk_prog_blank.setChecked(True)
+        self.chk_prog_fieldnames.setChecked(True)
+        out.addWidget(self.chk_prog_blank, 3, 0, 1, 2)
+        out.addWidget(self.chk_prog_trace, 4, 0, 1, 2)
+        out.addWidget(self.chk_prog_fieldnames, 5, 0, 1, 2)
 
-        out.addWidget(QLabel(share.locales.tr("Dezimalstellen:")), 0, 0)
-        sp_dec = QSpinBox()
-        sp_dec.setRange(0, 20)
-        sp_dec.setValue(2)
-        sp_dec.setFixedWidth(80)
-        out.addWidget(sp_dec, 0, 1, alignment=Qt.AlignLeft)
-
-        out.addWidget(QLabel(share.locales.tr("Genauigkeit:")), 1, 0)
-        sp_prec = QSpinBox()
-        sp_prec.setRange(0, 20)
-        sp_prec.setValue(10)
-        sp_prec.setFixedWidth(80)
-        out.addWidget(sp_prec, 1, 1, alignment=Qt.AlignLeft)
-
-        out.addWidget(QLabel(share.locales.tr("Rand:")), 2, 0)
-        sp_margin = QSpinBox()
-        sp_margin.setRange(0, 999)
-        sp_margin.setValue(0)
-        sp_margin.setFixedWidth(80)
-        out.addWidget(sp_margin, 2, 1, alignment=Qt.AlignLeft)
-
-        chk_blank       = QCheckBox(share.locales.tr("Leerzeichen"))
-        chk_trace       = QCheckBox(share.locales.tr("Ablaufverfolgung"))
-        chk_fieldnames  = QCheckBox(share.locales.tr("Feldnamen"))
-
-        # wie Screenshot: Leerzeichen + Feldnamen an
-        chk_blank.setChecked(True)
-        chk_fieldnames.setChecked(True)
-
-        out.addWidget(chk_blank, 3, 0, 1, 2)
-        out.addWidget(chk_trace, 4, 0, 1, 2)
-        out.addWidget(chk_fieldnames, 5, 0, 1, 2)
-
-        # --- Programmentwicklung (rechts oben) ---
-        gb_dev = QGroupBox(share.locales.tr("Programmentwicklung"), tab)
+        gb_dev = QGroupBox(share.locales.tr('Programmentwicklung'), tab)
         dev = QGridLayout(gb_dev)
         dev.setHorizontalSpacing(10)
         dev.setVerticalSpacing(8)
+        self.chk_prog_fulltest = QCheckBox(share.locales.tr('Volltest'))
+        self.chk_prog_buildtime = QCheckBox(share.locales.tr('Erstellungszeit'))
+        self.chk_prog_buildtime.setChecked(True)
+        dev.addWidget(self.chk_prog_fulltest, 0, 0, 1, 2)
+        dev.addWidget(self.chk_prog_buildtime, 1, 0, 1, 2)
 
-        chk_fulltest  = QCheckBox(share.locales.tr("Volltest"))
-        chk_buildtime = QCheckBox(share.locales.tr("Erstellungszeit"))
-        chk_buildtime.setChecked(True)
-
-        dev.addWidget(chk_fulltest, 0, 0, 1, 2)
-        dev.addWidget(chk_buildtime, 1, 0, 1, 2)
-
-        # --- Andere (rechts mitte) ---
-        gb_other = QGroupBox(share.locales.tr("Andere"), tab)
+        gb_other = QGroupBox(share.locales.tr('Andere'), tab)
         other = QGridLayout(gb_other)
         other.setHorizontalSpacing(10)
         other.setVerticalSpacing(8)
+        self.chk_prog_design = QCheckBox(share.locales.tr('Design'))
+        self.chk_prog_high_precision = QCheckBox(share.locales.tr('High Precision'))
+        self.chk_prog_protect = QCheckBox(share.locales.tr('Änderungsschutz'))
+        self.chk_prog_fullpath = QCheckBox(share.locales.tr('Vollständige Pfadangabe'))
+        self.chk_prog_design.setChecked(True)
+        self.chk_prog_protect.setChecked(True)
+        other.addWidget(self.chk_prog_design, 0, 0)
+        other.addWidget(self.chk_prog_high_precision, 0, 1)
+        other.addWidget(self.chk_prog_protect, 1, 0, 1, 2)
+        other.addWidget(self.chk_prog_fullpath, 2, 0, 1, 2)
 
-        chk_design   = QCheckBox(share.locales.tr("Design"))
-        chk_hiprec   = QCheckBox(share.locales.tr("High Precision"))
-        chk_protect  = QCheckBox(share.locales.tr("Änderungsschutz"))
-        chk_fullpath = QCheckBox(share.locales.tr("Vollständige Pfadangabe"))
-
-        # wie Screenshot: Design + Änderungsschutz an
-        chk_design.setChecked(True)
-        chk_protect.setChecked(True)
-
-        other.addWidget(chk_design, 0, 0)
-        other.addWidget(chk_hiprec, 0, 1)
-        other.addWidget(chk_protect, 1, 0, 1, 2)
-        other.addWidget(chk_fullpath, 2, 0, 1, 2)
-
-        # --- Error Handling (unten, über beide Spalten) ---
-        gb_err = QGroupBox(share.locales.tr("Error Handling"), tab)
+        gb_err = QGroupBox(share.locales.tr('Error Handling'), tab)
         err = QGridLayout(gb_err)
         err.setHorizontalSpacing(10)
         err.setVerticalSpacing(8)
+        err.addWidget(QLabel(share.locales.tr('Error Action:')), 0, 0)
+        self.cb_prog_error_action = QComboBox()
+        self.cb_prog_error_action.addItems(['0 - Ignore', '1 - Message', '2 - Log', '3 - Abort', '4 - Show Error Dialog'])
+        self.cb_prog_error_action.setCurrentText('4 - Show Error Dialog')
+        self.cb_prog_error_action.setMinimumWidth(260)
+        err.addWidget(self.cb_prog_error_action, 0, 1, 1, 2)
+        err.addWidget(QLabel(share.locales.tr('Error Log File:')), 1, 0)
+        self.ed_prog_error_log = QLineEdit('PLUSerr.log')
+        err.addWidget(self.ed_prog_error_log, 1, 1)
+        self.btn_prog_error_log = QPushButton('...')
+        self.btn_prog_error_log.setFixedWidth(28)
+        err.addWidget(self.btn_prog_error_log, 1, 2, alignment=Qt.AlignLeft)
+        err.addWidget(QLabel(share.locales.tr('Maximum Size:')), 2, 0)
+        self.sp_prog_max_size = QSpinBox()
+        self.sp_prog_max_size.setRange(0, 999999)
+        self.sp_prog_max_size.setValue(100)
+        self.sp_prog_max_size.setFixedWidth(90)
+        err.addWidget(self.sp_prog_max_size, 2, 1, alignment=Qt.AlignLeft)
+        err.addWidget(QLabel(share.locales.tr('Kilobytes')), 2, 2, alignment=Qt.AlignLeft)
+        err.addWidget(QLabel(share.locales.tr('HTML Error Template:')), 3, 0)
+        self.ed_prog_html_template = QLineEdit('error.htm')
+        err.addWidget(self.ed_prog_html_template, 3, 1)
+        self.btn_prog_html_template = QPushButton('...')
+        self.btn_prog_html_template.setFixedWidth(28)
+        err.addWidget(self.btn_prog_html_template, 3, 2, alignment=Qt.AlignLeft)
+        self.btn_prog_error_log.clicked.connect(self._browse_programming_error_log)
+        self.btn_prog_html_template.clicked.connect(self._browse_programming_html_template)
 
-        err.addWidget(QLabel(share.locales.tr("Error Action:")), 0, 0)
-        cb_action = QComboBox()
-        cb_action.addItems([
-            "0 - Ignore",
-            "1 - Message",
-            "2 - Log",
-            "3 - Abort",
-            "4 - Show Error Dialog",
-        ])
-        cb_action.setCurrentText("4 - Show Error Dialog")
-        cb_action.setMinimumWidth(260)
-        err.addWidget(cb_action, 0, 1, 1, 2)
-
-        # Error Log File + browse button
-        err.addWidget(QLabel(share.locales.tr("Error Log File:")), 1, 0)
-        ed_log = QLineEdit("PLUSerr.log")
-        err.addWidget(ed_log, 1, 1)
-        btn_log = QPushButton("...")
-        btn_log.setFixedWidth(28)
-        err.addWidget(btn_log, 1, 2, alignment=Qt.AlignLeft)
-
-        # Maximum Size + unit label
-        err.addWidget(QLabel(share.locales.tr("Maximum Size:")), 2, 0)
-        sp_max = QSpinBox()
-        sp_max.setRange(0, 999999)
-        sp_max.setValue(100)
-        sp_max.setFixedWidth(90)
-        err.addWidget(sp_max, 2, 1, alignment=Qt.AlignLeft)
-        err.addWidget(QLabel(share.locales.tr("Kilobytes")), 2, 2, alignment=Qt.AlignLeft)
-
-        # HTML Error Template + browse button
-        err.addWidget(QLabel(share.locales.tr("HTML Error Template:")), 3, 0)
-        ed_tpl = QLineEdit("error.htm")
-        err.addWidget(ed_tpl, 3, 1)
-        btn_tpl = QPushButton("...")
-        btn_tpl.setFixedWidth(28)
-        err.addWidget(btn_tpl, 3, 2, alignment=Qt.AlignLeft)
-
-        # Layout wie Screenshot
-        g.addWidget(gb_out,   0, 0)
-        g.addWidget(gb_dev,   0, 1)
+        g.addWidget(gb_out, 0, 0)
+        g.addWidget(gb_dev, 0, 1)
         g.addWidget(gb_other, 1, 1)
-        g.addWidget(gb_err,   2, 0, 1, 2)
-
+        g.addWidget(gb_err, 2, 0, 1, 2)
         g.setRowStretch(3, 1)
         return tab
 
     def _help(self):
-        QMessageBox.information(self, share.locales.tr("Help"), "Hier könnte deine Hilfe stehen :)")
+        QMessageBox.information(self, share.locales.tr('Help'), 'Hier könnte deine Hilfe stehen :)')
 
-    # Damit Esc auch sauber schließt
     def reject(self):
         super().reject()
-        
+
+
 # ---------------------------------------------------------------------------
 # Formular-Designer Dock (Objektinspector + Werkzeugpalette)
+
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -6002,9 +6606,15 @@ class FormDesignerWindow(QWidget):
             pass
 
         try:
-            host = getattr(mw, 'designer_panels_host', None) if mw is not None else None
+            panel = getattr(mw, '_designer_panel_splitter', None) if mw is not None else None
+            host = getattr(mw, '_designer_host_splitter', None) if mw is not None else None
+            if panel is not None:
+                panel.hide()
             if host is not None:
-                host.hide()
+                try:
+                    host.setSizes([0, max(1, host.sizes()[-1] if host.sizes() else 1000)])
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -6044,122 +6654,85 @@ class FormDesignerWindow(QWidget):
 #   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
 # ---------------------------------------------------------------------------
 def _init_designer_panels(main_window: "MainWindow") -> None:
-    # rechte Designer-Leiste neben der Sidebar wiederverwenden
     try:
-        host = getattr(main_window, "designer_panels_host", None)
-        splitter = getattr(main_window, "designer_splitter", None)
-
-        if host is None:
-            host = QWidget(main_window._central_host)
-            host.setObjectName("DesignerPanelsHost")
-            host.setMinimumWidth(220)
-            host.setMaximumWidth(420)
-            host.hide()
-
-            host_layout = QVBoxLayout(host)
-            host_layout.setContentsMargins(0, 0, 0, 0)
-            host_layout.setSpacing(0)
-
-            splitter = QSplitter(Qt.Vertical, host)
-            splitter.setObjectName("DesignerPanelsSplitter")
-            splitter.setChildrenCollapsible(False)
-            host_layout.addWidget(splitter, 1)
-
-            main_window.designer_panels_host = host
-            main_window.designer_panels_layout = host_layout
-            main_window.designer_splitter = splitter
-
-            if hasattr(main_window, "designer_outer_splitter") and main_window.designer_outer_splitter is not None:
-                try:
-                    if main_window.designer_outer_splitter.indexOf(host) < 0:
-                        main_window.designer_outer_splitter.insertWidget(0, host)
-                except Exception:
-                    pass
-            else:
-                try:
-                    main_window._central_host_layout.insertWidget(1, host, 0)
-                except Exception:
-                    pass
+        if getattr(main_window, '_designer_host_splitter', None) is None:
+            layout = getattr(main_window, '_central_host_layout', None)
+            if layout is not None:
+                for i in range(layout.count() - 1, -1, -1):
+                    item = layout.itemAt(i)
+                    if item is not None and item.widget() is getattr(main_window, 'mdi', None):
+                        layout.takeAt(i)
+                        break
+            host_splitter = QSplitter(Qt.Horizontal, main_window._central_host)
+            host_splitter.setChildrenCollapsible(False)
+            host_splitter.setHandleWidth(6)
+            panel_splitter = QSplitter(Qt.Vertical, host_splitter)
+            panel_splitter.setChildrenCollapsible(False)
+            panel_splitter.setHandleWidth(6)
+            panel_splitter.setMinimumWidth(180)
+            panel_splitter.hide()
+            host_splitter.addWidget(panel_splitter)
+            host_splitter.addWidget(main_window.mdi)
+            host_splitter.setStretchFactor(0, 0)
+            host_splitter.setStretchFactor(1, 1)
+            try:
+                host_splitter.setSizes([0, 1200])
+            except Exception:
+                pass
+            main_window._central_host_layout.addWidget(host_splitter, 1)
+            main_window._designer_host_splitter = host_splitter
+            main_window._designer_panel_splitter = panel_splitter
     except Exception:
         pass
 
     try:
-        splitter = getattr(main_window, "designer_splitter", None)
+        panel = getattr(main_window, '_designer_panel_splitter', None)
+        if panel is None:
+            return
 
-        if getattr(main_window, "obj_inspector_dock", None) is None:
-            parent = splitter or main_window
-            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, parent)
-        else:
-            try:
-                main_window.obj_inspector_dock.setParent(splitter or main_window)
-            except Exception:
-                pass
+        if getattr(main_window, 'obj_inspector_dock', None) is None:
+            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, panel)
+            main_window.obj_inspector_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            panel.addWidget(main_window.obj_inspector_dock)
+        elif main_window.obj_inspector_dock.parent() is not panel:
+            panel.addWidget(main_window.obj_inspector_dock)
 
-        if splitter is not None:
-            try:
-                if splitter.indexOf(main_window.obj_inspector_dock) < 0:
-                    splitter.addWidget(main_window.obj_inspector_dock)
-            except Exception:
-                pass
+        if getattr(main_window, 'obj_palette_dock', None) is None:
+            main_window.obj_palette_dock = ObjectPaletteDock(main_window, panel)
+            main_window.obj_palette_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            panel.addWidget(main_window.obj_palette_dock)
+        elif main_window.obj_palette_dock.parent() is not panel:
+            panel.addWidget(main_window.obj_palette_dock)
     except Exception:
         pass
 
-    try:
-        splitter = getattr(main_window, "designer_splitter", None)
-
-        if getattr(main_window, "obj_palette_dock", None) is None:
-            parent = splitter or main_window
-            main_window.obj_palette_dock = ObjectPaletteDock(main_window, parent)
-        else:
-            try:
-                main_window.obj_palette_dock.setParent(splitter or main_window)
-            except Exception:
-                pass
-
-        if splitter is not None:
-            try:
-                if splitter.indexOf(main_window.obj_palette_dock) < 0:
-                    splitter.addWidget(main_window.obj_palette_dock)
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # nur rechte Seitenleiste sichtbar machen, nicht links andocken
     try:
         main_window.obj_inspector_dock.setMinimumWidth(180)
         main_window.obj_palette_dock.setMinimumWidth(180)
-
-        if getattr(main_window, "designer_panels_host", None) is not None:
-            main_window.designer_panels_host.setMinimumWidth(220)
-            main_window.designer_panels_host.show()
-
-        if getattr(main_window, "designer_splitter", None) is not None:
-            main_window.designer_splitter.show()
-            main_window.designer_splitter.setSizes([260, 220])
-
-        if getattr(main_window, "designer_outer_splitter", None) is not None:
-            try:
-                main_window.designer_outer_splitter.setSizes([320, max(600, main_window.width() - 460)])
-            except Exception:
-                pass
     except Exception:
         pass
 
-    # Formular-Designer als MDI-Fenster nur einmal erzeugen
     try:
-        if getattr(main_window, "form_designer_window", None) is None:
+        main_window._designer_panel_splitter.show()
+        main_window.obj_inspector_dock.show()
+        main_window.obj_palette_dock.show()
+        main_window._designer_panel_splitter.setSizes([260, 220])
+        main_window._designer_host_splitter.setSizes([280, 1200])
+    except Exception:
+        pass
+
+    try:
+        if getattr(main_window, 'form_designer_window', None) is None:
             designer = FormDesignerWindow(main_window)
             main_window.form_designer_window = designer
-            main_window.designer_canvas = getattr(designer, "canvas", None)
+            main_window.designer_canvas = getattr(designer, 'canvas', None)
             sub = main_window.mdi.addSubWindow(designer)
-            sub.setWindowTitle(share.locales.tr("Form Designer"))
+            sub.setWindowTitle(share.locales.tr('Form Designer'))
             sub.resize(700, 520)
             sub.move(220, 40)
             designer.show()
     except Exception:
         pass
-
 
 class _InspectorTreeDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -6172,14 +6745,10 @@ class _InspectorTreeDelegate(QStyledItemDelegate):
             if isinstance(editor, QLineEdit):
                 editor.setFont(self._font)
                 editor.setTextMargins(1, 0, 1, 0)
-                editor.setStyleSheet(
-                    "QLineEdit { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }"
-                )
+                editor.setStyleSheet("QLineEdit { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }")
             elif isinstance(editor, QComboBox):
                 editor.setFont(self._font)
-                editor.setStyleSheet(
-                    "QComboBox { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }"
-                )
+                editor.setStyleSheet("QComboBox { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }")
             elif hasattr(editor, "setFont"):
                 editor.setFont(self._font)
         except Exception:
@@ -6581,8 +7150,7 @@ class ObjectInspectorPanel(QWidget):
             "QPushButton:hover { background: #404040; }"
         )
         btn.clicked.connect(lambda _=False, it=item: self._open_event_editor_for_item(it))
-
-        host_layout.addWidget(btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+        host_layout.addWidget(btn, 0, Qt.AlignRight)
         self._event_buttons.append(btn)
         return host
 
@@ -7116,59 +7684,6 @@ class SidebarPopupWidget(QFrame):
         self.activateWindow()
 
 
-
-
-class SidebarHoverActionLabel(SidebarActionLabel):
-    hoverEntered = pyqtSignal()
-    hoverLeft = pyqtSignal()
-
-    def enterEvent(self, event):
-        try:
-            self.hoverEntered.emit()
-        except Exception:
-            pass
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        try:
-            self.hoverLeft.emit()
-        except Exception:
-            pass
-        super().leaveEvent(event)
-
-
-class SidebarTrackedPopupWidget(SidebarPopupWidget):
-    hoverEntered = pyqtSignal()
-    hoverLeft = pyqtSignal()
-    popupHidden = pyqtSignal()
-
-    def __init__(self, parent=None, title: str = "", popup_mode: bool = True):
-        super().__init__(parent, title=title)
-        self._popup_mode = bool(popup_mode)
-        self.setWindowFlags((Qt.Popup if self._popup_mode else Qt.Tool) | Qt.FramelessWindowHint)
-        self.hide()
-
-    def enterEvent(self, event):
-        try:
-            self.hoverEntered.emit()
-        except Exception:
-            pass
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        try:
-            self.hoverLeft.emit()
-        except Exception:
-            pass
-        super().leaveEvent(event)
-
-    def hideEvent(self, event):
-        try:
-            self.popupHidden.emit()
-        except Exception:
-            pass
-        super().hideEvent(event)
-
 class SidebarIconButton(QToolButton):
     def __init__(self, text: str, icon: QIcon = None, parent=None):
         super().__init__(parent)
@@ -7207,12 +7722,6 @@ class FormDesignerDock(QDockWidget):
         self._projects_popup = None
         self._convert_popup = None
         self._tools_popup = None
-        self._doxygen_popup = None
-        self._tools_doxygen_label = None
-        self._doxygen_hide_timer = QTimer(self)
-        self._doxygen_hide_timer.setSingleShot(True)
-        self._doxygen_hide_timer.setInterval(180)
-        self._doxygen_hide_timer.timeout.connect(self._hide_doxygen_popup)
 
         self.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.setFeatures(QDockWidget.NoDockWidgetFeatures)
@@ -7336,7 +7845,7 @@ class FormDesignerDock(QDockWidget):
             pass
 
     def _close_other_popups(self, keep=None):
-        for popup in (self._actions_popup, self._projects_popup, self._convert_popup, self._tools_popup, self._doxygen_popup):
+        for popup in (self._actions_popup, self._projects_popup, self._convert_popup, self._tools_popup):
             try:
                 if popup is not None and popup is not keep and popup.isVisible():
                     popup.hide()
@@ -7395,6 +7904,27 @@ class FormDesignerDock(QDockWidget):
         self._convert_popup = p
         return p
 
+    def _ensure_tools_popup(self):
+        p = self._tools_popup
+        if p is None:
+            p = SidebarPopupWidget(self, title="Tools")
+            self._tools_popup = p
+        while p._items_layout.count():
+            item = p._items_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        p.add_action("Localize", lambda: self._run_and_close(p, lambda: self.main_window.ensure_localize_tool(focus=True)))
+        return p
+
+    def _toggle_tools_popup(self):
+        popup = self._ensure_tools_popup()
+        self._close_other_popups(keep=popup)
+        if popup.isVisible():
+            popup.hide()
+        else:
+            popup.popup_next_to(self.btn_tools)
+
     def _run_and_close(self, popup, callback):
         try:
             if callable(callback):
@@ -7404,111 +7934,6 @@ class FormDesignerDock(QDockWidget):
                 popup.hide()
             except Exception:
                 pass
-
-
-    def _clear_popup_items(self, popup):
-        try:
-            while popup is not None and popup._items_layout.count():
-                item = popup._items_layout.takeAt(0)
-                w = item.widget()
-                if w is not None:
-                    w.deleteLater()
-        except Exception:
-            pass
-
-    def _run_doxygen_and_close(self, popup, callback):
-        try:
-            if callable(callback):
-                callback()
-        finally:
-            try:
-                popup.hide()
-            except Exception:
-                pass
-            try:
-                if self._tools_popup is not None:
-                    self._tools_popup.hide()
-            except Exception:
-                pass
-
-    def _cancel_doxygen_hide(self):
-        try:
-            self._doxygen_hide_timer.stop()
-        except Exception:
-            pass
-
-    def _schedule_doxygen_hide(self):
-        try:
-            self._doxygen_hide_timer.start()
-        except Exception:
-            pass
-
-    def _hide_doxygen_popup(self):
-        try:
-            if self._doxygen_popup is not None:
-                self._doxygen_popup.hide()
-        except Exception:
-            pass
-
-    def _ensure_tools_popup(self):
-        p = self._tools_popup
-        if p is None:
-            p = SidebarTrackedPopupWidget(self, title="Tools", popup_mode=True)
-            p.popupHidden.connect(self._hide_doxygen_popup)
-            self._tools_popup = p
-        self._clear_popup_items(p)
-        p.add_action("Localize", lambda: self._run_and_close(p, lambda: self.main_window.ensure_localize_tool(focus=True)))
-        lbl = SidebarHoverActionLabel("DoxyGen", callback=lambda: self._show_doxygen_popup_for_label(lbl), parent=p)
-        lbl.hoverEntered.connect(lambda: self._show_doxygen_popup_for_label(lbl))
-        lbl.hoverLeft.connect(self._schedule_doxygen_hide)
-        p._items_layout.addWidget(lbl)
-        self._tools_doxygen_label = lbl
-        return p
-
-    def _ensure_doxygen_popup(self):
-        p = self._doxygen_popup
-        if p is None:
-            p = SidebarTrackedPopupWidget(self, title="DoxyGen", popup_mode=False)
-            p.hoverEntered.connect(self._cancel_doxygen_hide)
-            p.hoverLeft.connect(self._schedule_doxygen_hide)
-            self._doxygen_popup = p
-        self._clear_popup_items(p)
-        p.add_action("New Project", lambda: self._run_doxygen_and_close(p, self.main_window.new_doxygen_project))
-        p.add_action("Open Project", lambda: self._run_doxygen_and_close(p, self.main_window.open_doxygen_project_dialog))
-        entries = []
-        try:
-            entries = list(self.main_window.recent_doxygen_projects(limit=5))
-        except Exception:
-            entries = []
-        if entries:
-            for project_path in entries:
-                title = os.path.basename(project_path.rstrip('/\\')) or project_path
-                p.add_action(title, lambda pp=project_path: self._run_doxygen_and_close(p, lambda: self.main_window.open_doxygen_project(pp)))
-        else:
-            p.add_action("Keine Projekte", lambda: p.hide())
-        return p
-
-    def _show_doxygen_popup_for_label(self, label=None):
-        self._cancel_doxygen_hide()
-        if label is None:
-            label = getattr(self, '_tools_doxygen_label', None)
-        if label is None:
-            return
-        tools_popup = self._ensure_tools_popup()
-        if not tools_popup.isVisible():
-            self._close_other_popups(keep=tools_popup)
-            tools_popup.popup_next_to(self.btn_tools)
-        popup = self._ensure_doxygen_popup()
-        popup.popup_next_to(label, x_offset=6)
-
-    def _toggle_tools_popup(self):
-        popup = self._ensure_tools_popup()
-        self._close_other_popups(keep=popup)
-        if popup.isVisible():
-            popup.hide()
-            self._hide_doxygen_popup()
-        else:
-            popup.popup_next_to(self.btn_tools)
 
     def _toggle_actions_popup(self):
         popup = self._ensure_actions_popup()
@@ -7675,8 +8100,6 @@ class ReplaceDialogWidget(QWidget):
         except Exception:
             ok = False
         self.lbl_result.setText("Text was found" if ok else "Text was not found")
-
-
 
 class _LocalizeLineNumberArea(QWidget):
     def __init__(self, editor):
@@ -7996,6 +8419,10 @@ class LocalizeToolWindow(QWidget):
 
         self.btn_load_po_path.clicked.connect(self._choose_and_open_po)
         self.btn_load_mo_path.clicked.connect(self._choose_mo_path)
+        try:
+            self.header_edits['Language'].editingFinished.connect(self._apply_language_from_header)
+        except Exception:
+            pass
         return scroll
 
     def _focused_text_widget(self):
@@ -8059,11 +8486,44 @@ class LocalizeToolWindow(QWidget):
             out.append(f'"{self._escape_po_text(part)}{suffix}"')
         return out or ['""']
 
+    def _language_schema_value(self):
+        return f"{self._current_source_code()}:{self._current_destination_code()}"
+
+    def _parse_language_schema(self, value):
+        text = (value or '').strip().upper()
+        if ':' not in text:
+            return 'ENU', 'DEU'
+        src, dst = [part.strip() for part in text.split(':', 1)]
+        if src not in self.src_radios or dst not in self.dst_radios or src == dst:
+            return 'ENU', 'DEU'
+        return src, dst
+
+    def _set_language_pair(self, src, dst):
+        src, dst = self._parse_language_schema(f"{src}:{dst}")
+        self._block_lang_sync = True
+        try:
+            if src in self.src_radios:
+                self.src_radios[src].setChecked(True)
+            else:
+                self.src_radios['ENU'].setChecked(True)
+            if dst in self.dst_radios:
+                self.dst_radios[dst].setChecked(True)
+            else:
+                self.dst_radios['DEU'].setChecked(True)
+        finally:
+            self._block_lang_sync = False
+        self._sync_language_buttons()
+
+    def _apply_language_from_header(self):
+        value = self.header_edits.get('Language', QLineEdit()).text().strip()
+        src, dst = self._parse_language_schema(value)
+        self._set_language_pair(src, dst)
+
     def _metadata(self):
         data = {}
         for key, ed in self.header_edits.items():
             data[key] = (ed.text() or "").strip()
-        data["Language"] = self._current_destination_code()
+        data["Language"] = self._language_schema_value()
         return data
 
     def _serialize_po_content(self):
@@ -8195,7 +8655,10 @@ class LocalizeToolWindow(QWidget):
                 self.entries.append({'msgid': self._normalize_text(entry.msgid), 'msgstr': self._normalize_text(entry.msgstr)})
             for key in self.HEADER_FIELDS:
                 self.header_edits[key].setText(po.metadata.get(key, ''))
-            self._apply_language_schema(po.metadata.get('Language', ''), fallback_to_default=True)
+            schema = (self.header_edits.get('Language', QLineEdit()).text() or '').strip()
+            src, dst = self._parse_language_schema(schema)
+            self._set_language_pair(src, dst)
+            self.header_edits['Language'].setText(self._language_schema_value())
             self._refresh_msgid_list(select_index=0)
             self._save_state()
         except Exception as e:
@@ -8205,7 +8668,6 @@ class LocalizeToolWindow(QWidget):
         path = os.path.normpath((path or '').strip())
         if not path:
             raise ValueError('Kein Dateiname für die Eingabedatei (*.po) angegeben.')
-        self.header_edits['Language'].setText(self._language_schema_value())
         folder = os.path.dirname(path) or os.getcwd()
         os.makedirs(folder, exist_ok=True)
         with open(path, 'w', encoding='utf-8', newline='\n') as f:
@@ -8308,50 +8770,6 @@ class LocalizeToolWindow(QWidget):
                 return code
         return 'DEU'
 
-    def _default_language_schema(self):
-        return 'ENU:DEU'
-
-    def _language_schema_value(self):
-        return f"{self._current_source_code()}:{self._current_destination_code()}"
-
-    def _parse_language_schema(self, value):
-        value = (value or '').strip().upper()
-        m = re.match(r'^([A-Z]{3}):([A-Z]{3})$', value)
-        if not m:
-            return ('ENU', 'DEU')
-        src, dst = m.group(1), m.group(2)
-        if src not in self.src_radios or dst not in self.dst_radios or src == dst:
-            return ('ENU', 'DEU')
-        return (src, dst)
-
-    def _set_language_pair(self, src, dst):
-        src, dst = self._parse_language_schema(f'{src}:{dst}')
-        self._block_lang_sync = True
-        try:
-            if src in self.src_radios:
-                self.src_radios[src].setChecked(True)
-            else:
-                self.src_radios['ENU'].setChecked(True)
-            if dst in self.dst_radios and dst != self._current_source_code():
-                self.dst_radios[dst].setChecked(True)
-            else:
-                fallback = 'DEU' if self._current_source_code() != 'DEU' else 'ENU'
-                self.dst_radios[fallback].setChecked(True)
-        finally:
-            self._block_lang_sync = False
-        self._sync_language_buttons()
-
-    def _apply_language_schema(self, value, fallback_to_default=True):
-        raw = (value or '').strip()
-        if raw:
-            src, dst = self._parse_language_schema(raw)
-        elif fallback_to_default:
-            src, dst = ('ENU', 'DEU')
-        else:
-            return
-        self._set_language_pair(src, dst)
-        self.header_edits['Language'].setText(self._language_schema_value())
-
     def _sync_language_buttons(self):
         if self._block_lang_sync:
             return
@@ -8364,17 +8782,16 @@ class LocalizeToolWindow(QWidget):
             for code, rb in self.dst_radios.items():
                 rb.setEnabled(code != src)
             if src == dst:
-                fallback = 'DEU' if src != 'DEU' else 'ENU'
-                if fallback in self.dst_radios:
-                    self.dst_radios[fallback].setChecked(True)
-                    dst = fallback
-                else:
-                    for code, rb in self.dst_radios.items():
-                        if code != src and rb.isEnabled():
-                            rb.setChecked(True)
-                            dst = code
-                            break
-            self.header_edits['Language'].setText(f'{src}:{dst}')
+                src, dst = self._parse_language_schema('ENU:DEU')
+                if src in self.src_radios:
+                    self.src_radios[src].setChecked(True)
+                if dst in self.dst_radios:
+                    self.dst_radios[dst].setChecked(True)
+                for code, rb in self.src_radios.items():
+                    rb.setEnabled(code != dst)
+                for code, rb in self.dst_radios.items():
+                    rb.setEnabled(code != src)
+            self.header_edits.get('Language', QLineEdit()).setText(self._language_schema_value())
         finally:
             self._block_lang_sync = False
 
@@ -8398,22 +8815,22 @@ class LocalizeToolWindow(QWidget):
 
     def _load_state(self):
         try:
-            src = (self.main_window._settings.value('localize/source_lang', 'ENU', type=str) or 'ENU').strip()
-            dst = (self.main_window._settings.value('localize/dest_lang', 'DEU', type=str) or 'DEU').strip()
+            schema = (self.main_window._settings.value('localize/header/Language', '', type=str) or '').strip()
+            if not schema:
+                src_saved = (self.main_window._settings.value('localize/source_lang', 'ENU', type=str) or 'ENU').strip()
+                dst_saved = (self.main_window._settings.value('localize/dest_lang', 'DEU', type=str) or 'DEU').strip()
+                schema = f"{src_saved}:{dst_saved}"
+            src, dst = self._parse_language_schema(schema)
+            self._set_language_pair(src, dst)
             self.ed_po_path.setText((self.main_window._settings.value('localize/po_path', '', type=str) or '').strip())
             self.ed_mo_path.setText((self.main_window._settings.value('localize/mo_path', '', type=str) or '').strip())
             for key in self.HEADER_FIELDS:
                 self.header_edits[key].setText((self.main_window._settings.value(f'localize/header/{key}', '', type=str) or '').strip())
-            schema = self.header_edits['Language'].text().strip()
-            if schema:
-                self._apply_language_schema(schema, fallback_to_default=True)
-            else:
-                self._set_language_pair(src, dst)
-                self.header_edits['Language'].setText(self._language_schema_value())
+            self.header_edits['Language'].setText(self._language_schema_value())
         except Exception:
             try:
                 self._set_language_pair('ENU', 'DEU')
-                self.header_edits['Language'].setText(self._default_language_schema())
+                self.header_edits['Language'].setText(self._language_schema_value())
             except Exception:
                 pass
 
@@ -8588,35 +9005,8 @@ class MainWindow(QMainWindow):
         self.sidebar_widget.setMinimumWidth(100)
         self.sidebar_widget.setMaximumWidth(100)
 
-        self.designer_panels_host = QWidget(self._central_host)
-        self.designer_panels_host.setObjectName("DesignerPanelsHost")
-        self.designer_panels_host.setMinimumWidth(220)
-        self.designer_panels_host.setMaximumWidth(420)
-        self.designer_panels_host.hide()
-
-        self.designer_panels_layout = QVBoxLayout(self.designer_panels_host)
-        self.designer_panels_layout.setContentsMargins(0, 0, 0, 0)
-        self.designer_panels_layout.setSpacing(0)
-
-        self.designer_splitter = QSplitter(Qt.Vertical, self.designer_panels_host)
-        self.designer_splitter.setObjectName("DesignerPanelsSplitter")
-        self.designer_splitter.setChildrenCollapsible(False)
-        self.designer_panels_layout.addWidget(self.designer_splitter, 1)
-
-        self.designer_outer_splitter = QSplitter(Qt.Horizontal, self._central_host)
-        self.designer_outer_splitter.setObjectName("DesignerOuterSplitter")
-        self.designer_outer_splitter.setChildrenCollapsible(False)
-        self.designer_outer_splitter.addWidget(self.designer_panels_host)
-        self.designer_outer_splitter.addWidget(self.mdi)
-        self.designer_outer_splitter.setStretchFactor(0, 0)
-        self.designer_outer_splitter.setStretchFactor(1, 1)
-        try:
-            self.designer_outer_splitter.setSizes([320, 1200])
-        except Exception:
-            pass
-
         self._central_host_layout.addWidget(self.sidebar_widget, 0)
-        self._central_host_layout.addWidget(self.designer_outer_splitter, 1)
+        self._central_host_layout.addWidget(self.mdi, 1)
 
         self.setCentralWidget(self._central_host)
         
@@ -9228,36 +9618,33 @@ class MainWindow(QMainWindow):
     
 
     def ensure_designer(self, focus: bool = True):
-        # DockWindows + Form-Designer sicherstellen
         try:
             need_init = (
                 not hasattr(self, 'obj_inspector_dock') or self.obj_inspector_dock is None or
-                not hasattr(self, 'obj_palette_dock') or self.obj_palette_dock is None
+                not hasattr(self, 'obj_palette_dock') or self.obj_palette_dock is None or
+                not hasattr(self, '_designer_panel_splitter') or self._designer_panel_splitter is None or
+                not hasattr(self, '_designer_host_splitter') or self._designer_host_splitter is None
             )
             if need_init:
                 _init_designer_panels(self)
-            try:
-                if hasattr(self, 'sidebar_widget') and self.sidebar_widget is not None:
-                    self.sidebar_widget.show()
-                if hasattr(self, 'designer_panels_host') and self.designer_panels_host is not None:
-                    self.designer_panels_host.show()
-                if hasattr(self, 'designer_splitter') and self.designer_splitter is not None:
-                    self.designer_splitter.show()
-                    try:
-                        self.designer_splitter.setSizes([260, 220])
-                    except Exception:
-                        pass
-                self.obj_inspector_dock.show()
-                self.obj_palette_dock.show()
-                if hasattr(self, 'designer_outer_splitter') and self.designer_outer_splitter is not None:
-                    try:
-                        self.designer_outer_splitter.setSizes([320, max(600, self.width() - 460)])
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+            if hasattr(self, 'sidebar_widget') and self.sidebar_widget is not None:
+                self.sidebar_widget.show()
+            if hasattr(self, '_designer_panel_splitter') and self._designer_panel_splitter is not None:
+                self._designer_panel_splitter.show()
+                try:
+                    self._designer_panel_splitter.setSizes([260, 220])
+                except Exception:
+                    pass
+            if hasattr(self, '_designer_host_splitter') and self._designer_host_splitter is not None:
+                try:
+                    self._designer_host_splitter.setSizes([280, 1200])
+                except Exception:
+                    pass
+            self.obj_inspector_dock.show()
+            self.obj_palette_dock.show()
         except Exception as e:
             QMessageBox.warning(self, "Designer", f"Designer-Docks konnten nicht erstellt werden:\n{e}")
+
         # FormDesignerWindow im MDI suchen/erzeugen
         try:
             fw = getattr(self, "form_designer_window", None)
@@ -9561,7 +9948,20 @@ class MainWindow(QMainWindow):
                 break
         return out
 
+    def on_action_view_sql_builder(self):
+        self.mdi_open_sql_builder()
 
+    def on_action_file_open_project(self):
+        self.open_project_directory(QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd()))
+        
+    def on_action_file_print(self):
+        pass
+    def on_action_file_print_preview(self):
+        pass
+    def on_action_file_window_app(self):
+        pass
+    def on_action_file_web_wizard(self):
+        pass
     def ensure_localize_tool(self, focus: bool = True):
         try:
             existing = getattr(self, '_localize_tool_window', None)
@@ -9595,132 +9995,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Localize', f'Localize konnte nicht geöffnet werden:\n{e}')
             return None
 
-    def record_doxygen_project(self, project_path: str):
-        project_path = os.path.normpath((project_path or '').strip())
-        if not project_path:
-            return
-        try:
-            items = self._settings.value('doxygen/recent_projects', [], type=list) or []
-        except Exception:
-            items = []
-        clean = []
-        for entry in items:
-            entry = os.path.normpath((entry or '').strip())
-            if entry and entry != project_path and entry not in clean:
-                clean.append(entry)
-        clean.insert(0, project_path)
-        clean = clean[:8]
-        try:
-            self._settings.setValue('doxygen/recent_projects', clean)
-        except Exception:
-            pass
-
-    def recent_doxygen_projects(self, limit: int = 5):
-        try:
-            items = self._settings.value('doxygen/recent_projects', [], type=list) or []
-        except Exception:
-            items = []
-        out = []
-        for entry in items:
-            entry = os.path.normpath((entry or '').strip())
-            if entry and entry not in out:
-                out.append(entry)
-            if len(out) >= max(1, int(limit or 5)):
-                break
-        return out
-
-    def _open_text_file_in_editor(self, path: str):
-        path = os.path.normpath((path or '').strip())
-        if not path or not os.path.isfile(path):
-            return False
-        try:
-            sub = self.mdi.activeSubWindow() if hasattr(self, 'mdi') else None
-            win = sub.widget() if sub else None
-        except Exception:
-            sub = None
-            win = None
-        try:
-            if isinstance(win, FileEditorWindow):
-                win.open_path_in_tab(path)
-                win.raise_()
-                try:
-                    win.activateWindow()
-                except Exception:
-                    pass
-                return True
-        except Exception:
-            pass
-        try:
-            new_win = FileEditorWindow(parent=self, initial_path='', initial_text='')
-            subw = self.mdi.addSubWindow(new_win)
-            mark_escape_close(subw)
-            new_win.resize(700, 500)
-            new_win.show()
-            new_win.open_path_in_tab(path)
-            self.mdi.setActiveSubWindow(subw)
-            return True
-        except Exception:
-            return False
-
-    def new_doxygen_project(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            'Neues DoxyGen Projekt',
-            os.path.join(os.getcwd(), 'Doxyfile'),
-            'Doxygen Projekt (*.doxy *.cfg *.conf *.txt);;Alle Dateien (*.*)'
-        )
-        path = (path or '').strip()
-        if not path:
-            return
-        try:
-            if not os.path.exists(path):
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write('PROJECT_NAME = "New Project"\n')
-                    f.write('OUTPUT_DIRECTORY = out\n')
-                    f.write('INPUT = .\n')
-                    f.write('RECURSIVE = YES\n')
-                    f.write('GENERATE_HTML = YES\n')
-            self.record_doxygen_project(path)
-            self._open_text_file_in_editor(path)
-        except Exception as e:
-            QMessageBox.warning(self, 'DoxyGen', f'Konnte Projektdatei nicht anlegen:\n{e}')
-
-    def open_doxygen_project(self, project_path: str):
-        project_path = os.path.normpath((project_path or '').strip())
-        if not project_path:
-            return
-        self.record_doxygen_project(project_path)
-        if os.path.isfile(project_path):
-            if self._open_text_file_in_editor(project_path):
-                return
-        QMessageBox.information(self, 'DoxyGen', project_path)
-
-    def open_doxygen_project_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            'DoxyGen Projekt öffnen',
-            os.getcwd(),
-            'Doxygen Projekt (*.doxy *.cfg *.conf *.txt);;Alle Dateien (*.*)'
-        )
-        path = (path or '').strip()
-        if not path:
-            return
-        self.open_doxygen_project(path)
-
-    def on_action_view_sql_builder(self):
-        self.mdi_open_sql_builder()
-
-    def on_action_file_open_project(self):
-        self.open_project_directory(QFileDialog.getExistingDirectory(self, "Projektordner öffnen", os.getcwd()))
-        
-    def on_action_file_print(self):
-        pass
-    def on_action_file_print_preview(self):
-        pass
-    def on_action_file_window_app(self):
-        pass
-    def on_action_file_web_wizard(self):
-        pass
     def open_workplace_properties(self):
         pass
     def _create_toolbar(self):

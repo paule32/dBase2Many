@@ -228,3 +228,5 @@ src/tests/test_parser_input_dump.prg
 src/tests/test_parse_input_dump.prg
 src/z
 src/z1
+src/z2
+src/z4

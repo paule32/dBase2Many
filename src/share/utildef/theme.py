@@ -610,4 +610,73 @@ QToolButton:hover {{
     border-radius: 3px;
 }}
 QWebEngineView {{background: {tree_bg};}}
-    """)
+
+QSpinBox, QDoubleSpinBox {{
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 2px 20px 2px 6px;
+    font-family: Arial;
+    font-size: 10pt;
+    selection-background-color: #3d6ea8;
+    selection-color: #ffffff;
+}}
+
+QSpinBox:hover, QDoubleSpinBox:hover {{
+    border: 1px solid #666666;
+    background-color: #252525;
+}}
+
+QSpinBox:focus, QDoubleSpinBox:focus {{
+    border: 1px solid #d7b300;
+    background-color: #202020;
+}}
+
+QSpinBox:disabled, QDoubleSpinBox:disabled {{
+    background-color: #2a2a2a;
+    color: #777777;
+    border: 1px solid #3a3a3a;
+}}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 18px;
+    border-left: 1px solid #444444;
+    border-bottom: 1px solid #444444;
+    background-color: #2b2b2b;
+    border-top-right-radius: 4px;
+}}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 18px;
+    border-left: 1px solid #444444;
+    background-color: #2b2b2b;
+    border-bottom-right-radius: 4px;
+}}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background-color: #3a3a3a;
+}}
+
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{
+    background-color: #505050;
+}}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: none;
+    width: 0px;
+    height: 0px;
+}}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    image: none;
+    width: 0px;
+    height: 0px;
+}}
+""")
