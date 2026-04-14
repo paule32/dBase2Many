@@ -9026,6 +9026,108 @@ class LocalizeToolWindow(QWidget):
         except Exception:
             pass
 
+class ProjectDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(share.locales.tr("Project"))
+        self.resize(980, 680)
+
+        root_layout = QVBoxLayout(self)
+
+        self.tabs = QTabWidget(self)
+
+        # ------------------------------------------------------------------
+        # Tab 1: Allgemein
+        # ------------------------------------------------------------------
+        self.tab_general = QWidget(self)
+        self.tab_general.setObjectName("project_tab_general")
+        general_layout = QVBoxLayout(self.tab_general)
+
+        self.split_vertical = QSplitter(Qt.Vertical, self.tab_general)
+        self.split_vertical.setObjectName("project_splitter_vertical")
+
+        self.split_horizontal = QSplitter(Qt.Horizontal, self.split_vertical)
+        self.split_horizontal.setObjectName("project_splitter_horizontal")
+
+        self.tree_project = QTreeView(self.split_horizontal)
+        self.tree_project.setObjectName("project_tree")
+
+        right_side = QWidget(self.split_horizontal)
+        right_side.setObjectName("project_right_side")
+        right_side_layout = QHBoxLayout(right_side)
+        right_side_layout.setContentsMargins(0, 0, 0, 0)
+        right_side_layout.setSpacing(6)
+
+        self.list_items = QListWidget(right_side)
+        self.list_items.setObjectName("project_list")
+
+        self.button_panel = QWidget(right_side)
+        self.button_panel.setObjectName("project_button_panel")
+        button_layout = QVBoxLayout(self.button_panel)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(6)
+
+        self.btn_load = QPushButton(share.locales.tr("Laden"), self.button_panel)
+        self.btn_save = QPushButton(share.locales.tr("Speichern"), self.button_panel)
+        self.btn_save_as = QPushButton(share.locales.tr("Speichern unter"), self.button_panel)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self.button_panel)
+
+        self.btn_load.setObjectName("project_btn_load")
+        self.btn_save.setObjectName("project_btn_save")
+        self.btn_save_as.setObjectName("project_btn_save_as")
+        self.btn_cancel.setObjectName("project_btn_cancel")
+
+        button_layout.addWidget(self.btn_load)
+        button_layout.addWidget(self.btn_save)
+        button_layout.addWidget(self.btn_save_as)
+        button_layout.addWidget(self.btn_cancel)
+        button_layout.addStretch(1)
+
+        right_side_layout.addWidget(self.list_items, 1)
+        right_side_layout.addWidget(self.button_panel, 0)
+
+        self.split_horizontal.setStretchFactor(0, 1)
+        self.split_horizontal.setStretchFactor(1, 2)
+
+        self.editor_notes = QPlainTextEdit(self.split_vertical)
+        self.editor_notes.setObjectName("project_editor")
+
+        self.split_vertical.setStretchFactor(0, 3)
+        self.split_vertical.setStretchFactor(1, 2)
+
+        general_layout.addWidget(self.split_vertical, 1)
+
+        self.tabs.addTab(self.tab_general, share.locales.tr("Allgemein"))
+
+        # ------------------------------------------------------------------
+        # Tab 2: Platzhalter
+        # ------------------------------------------------------------------
+        self.tab_more = QWidget(self)
+        self.tab_more.setObjectName("project_tab_more")
+        more_layout = QVBoxLayout(self.tab_more)
+        self.lbl_more = QLabel(share.locales.tr("Weitere Komponenten folgen später."), self.tab_more)
+        self.lbl_more.setObjectName("project_tab_more_label")
+        more_layout.addWidget(self.lbl_more)
+        more_layout.addStretch(1)
+
+        self.tabs.addTab(self.tab_more, share.locales.tr("Tab 2"))
+
+        root_layout.addWidget(self.tabs, 1)
+
+        self.btn_cancel.clicked.connect(self.reject)
+
+        try:
+            self.split_horizontal.setSizes([280, 520])
+        except Exception:
+            pass
+        try:
+            self.split_vertical.setSizes([420, 180])
+        except Exception:
+            pass
+
+
+
+
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -10471,6 +10573,11 @@ class MainWindow(QMainWindow):
         
     def on_action_file_new_project(self):
         debug_print("file new project")
+        try:
+            dlg = ProjectDialog(self)
+            dlg.exec_()
+        except Exception as e:
+            QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Projekt-Dialog konnte nicht geöffnet werden.')}\n{e}")
 
     def _init_form_designer_dock(self):
         # Die feste Sidebar ist bereits Teil des zentralen Layouts.
