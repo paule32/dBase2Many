@@ -3187,7 +3187,22 @@ class IconTab(QListWidget):
         it = self.currentItem()
         if not it:
             return ""
-        return it.data(Qt.UserRole) or ""
+        path = it.data(Qt.UserRole) or ""
+        if not path:
+            try:
+                tip = (it.toolTip() or "").strip()
+                if tip and os.path.isfile(tip):
+                    path = tip
+            except Exception:
+                path = ""
+        if not path:
+            try:
+                candidate = os.path.join(self.base_dir or "", it.text())
+                if os.path.isfile(candidate):
+                    path = candidate
+            except Exception:
+                path = ""
+        return path
 
     def _run_selected(self):
         path = self._selected_path()
@@ -3200,6 +3215,13 @@ class IconTab(QListWidget):
     def _on_item_double_clicked(self, item: QListWidgetItem):
         try:
             path = item.data(Qt.UserRole) or ""
+            if not path:
+                try:
+                    tip = (item.toolTip() or "").strip()
+                    if tip and os.path.isfile(tip):
+                        path = tip
+                except Exception:
+                    path = ""
             if not path:
                 try:
                     candidate = os.path.join(self.base_dir or "", item.text())
@@ -3223,6 +3245,20 @@ class IconTab(QListWidget):
         if item:
             self.setCurrentItem(item)
             path = item.data(Qt.UserRole) or ""
+            if not path:
+                try:
+                    tip = (item.toolTip() or "").strip()
+                    if tip and os.path.isfile(tip):
+                        path = tip
+                except Exception:
+                    path = ""
+            if not path:
+                try:
+                    candidate = os.path.join(self.base_dir or "", item.text())
+                    if os.path.isfile(candidate):
+                        path = candidate
+                except Exception:
+                    path = ""
         else:
             path = ""
 
@@ -3241,6 +3277,10 @@ class IconTab(QListWidget):
         act_new_sql = QAction(share.locales.tr("SQL Query"), self)
         act_new_sql.triggered.connect(self._new_sql_query)
         m_new.addAction(act_new_sql)
+
+        act_new_localize = QAction(share.locales.tr("Localize"), self)
+        act_new_localize.triggered.connect(self._new_localize)
+        m_new.addAction(act_new_localize)
 
         menu.addSeparator()
 
@@ -3386,6 +3426,19 @@ class IconTab(QListWidget):
         except Exception:
             pass
         QMessageBox.information(self, "Neu", "Konnte SQL Builder nicht öffnen (Hook fehlt).")
+
+    def _new_localize(self):
+        # Localize-Dialog öffnen
+        try:
+            if "MAINAPP" in globals() and hasattr(MAINAPP, "ensure_localize_tool"):
+                try:
+                    MAINAPP.ensure_localize_tool(focus=True, po_path="")
+                except TypeError:
+                    MAINAPP.ensure_localize_tool(focus=True)
+                return
+        except Exception:
+            pass
+        QMessageBox.information(self, "Neu", "Konnte Localize nicht öffnen (Hook fehlt).")
 
     def _close_regiecenter(self):
         host = self._regiecenter_host()
