@@ -451,7 +451,7 @@ class FontTriangleArrowsStyle(QProxyStyle):
                 self._draw_triangle(painter, arrow_rect, Qt.DownArrow)
         
 
-def open_helpwindow(mdi_area, mw: 'QMainWindow', topic=None):
+def open_helpwindow(mdi_area, mw: 'QMainWindow'):
     # wichtig: nicht als eigenes Top-Level laufen
     mw.setWindowFlags(Qt.Widget)
     mw.setParent(mdi_area)
@@ -460,13 +460,7 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow', topic=None):
     lang = "de"   if share.common.AppMode.lang else "en"
     
     # mw.open_from_args(f"./dBaseHelp_{mode}_{lang}.chm", "index.html")
-    try:
-        mw.open_from_args("hlp/help.chm", topic or None)
-    except Exception:
-        try:
-            mw.open_from_args("hlp/help.chm", None)
-        except Exception:
-            pass
+    mw.open_from_args("hlp/help.chm", None)
 
     sub = QMdiSubWindow()
     sub.setWidget(mw)
@@ -476,140 +470,6 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow', topic=None):
     sub.resize(mw.sizeHint())
     sub.show()
     return sub
-
-_HELP_PROP_ID = "_DBASE_HELP_ID"
-_HELP_PROP_TITLE = "_DBASE_HELP_TITLE"
-_HELP_PROP_TOPIC = "_DBASE_HELP_TOPIC"
-_HELP_PROP_TEXT = "_DBASE_HELP_TEXT"
-_HELP_PROP_KEYWORDS = "_DBASE_HELP_KEYWORDS"
-
-_KNOWN_QT_WIDGET_HELP = {
-    "QMainWindow": {"help_id": "qt.widgets.QMainWindow", "title": "QMainWindow", "text": "Qt-Hauptfenster der Anwendung."},
-    "QDialog": {"help_id": "qt.widgets.QDialog", "title": "QDialog", "text": "Dialogfenster für Eingaben und Einstellungen."},
-    "QPushButton": {"help_id": "qt.widgets.QPushButton", "title": "QPushButton", "text": "Schaltfläche zum Auslösen einer Aktion."},
-    "QLabel": {"help_id": "qt.widgets.QLabel", "title": "QLabel", "text": "Beschriftung zur Anzeige von Texten oder Hinweisen."},
-    "QLineEdit": {"help_id": "qt.widgets.QLineEdit", "title": "QLineEdit", "text": "Einzeiliges Eingabefeld."},
-    "QPlainTextEdit": {"help_id": "qt.widgets.QPlainTextEdit", "title": "QPlainTextEdit", "text": "Mehrzeiliges Textfeld für Klartext."},
-    "QTextEdit": {"help_id": "qt.widgets.QTextEdit", "title": "QTextEdit", "text": "Mehrzeiliger Texteditor mit Formatierungsunterstützung."},
-    "QCheckBox": {"help_id": "qt.widgets.QCheckBox", "title": "QCheckBox", "text": "Option zum Ein- oder Ausschalten eines Zustands."},
-    "QComboBox": {"help_id": "qt.widgets.QComboBox", "title": "QComboBox", "text": "Auswahlliste mit optionaler Texteingabe."},
-    "QListWidget": {"help_id": "qt.widgets.QListWidget", "title": "QListWidget", "text": "Listenansicht mit Einträgen."},
-    "QTreeView": {"help_id": "qt.widgets.QTreeView", "title": "QTreeView", "text": "Baumansicht für hierarchische Daten."},
-    "QTableView": {"help_id": "qt.widgets.QTableView", "title": "QTableView", "text": "Tabellenansicht für Datensätze und Modelle."},
-    "QTabWidget": {"help_id": "qt.widgets.QTabWidget", "title": "QTabWidget", "text": "Registerkarten-Steuerelement."},
-    "QDockWidget": {"help_id": "qt.widgets.QDockWidget", "title": "QDockWidget", "text": "Andockbares Werkzeugfenster."},
-    "QMdiArea": {"help_id": "qt.widgets.QMdiArea", "title": "QMdiArea", "text": "Container für mehrere MDI-Unterfenster."},
-    "CodeEditor": {"help_id": "editor.CodeEditor", "title": "CodeEditor", "text": "Editor zum Bearbeiten von Quelltext."},
-    "MiniMap": {"help_id": "editor.MiniMap", "title": "MiniMap", "text": "Miniaturansicht des aktuellen Editors."},
-    "RegieCenter": {"help_id": "app.RegieCenter", "title": "RegieCenter", "text": "Datei- und Projektübersicht der Anwendung."},
-    "SqlBuilderWindow": {"help_id": "sql.SqlBuilderWindow", "title": "SQL Builder", "text": "Visueller Designer für SQL-Abfragen."},
-    "TableDesignerDialog": {"help_id": "table.TableDesignerDialog", "title": "Table Designer", "text": "Designer zum Anlegen und Bearbeiten von Tabellenstrukturen."},
-    "TableRecordEditorDialog": {"help_id": "table.TableRecordEditorDialog", "title": "Tabellen-Editor", "text": "Editor zum Bearbeiten der Datensätze einer DBF-Tabelle."},
-    "FormDesignerWindow": {"help_id": "designer.FormDesignerWindow", "title": "Form Designer", "text": "Designer für Formulare und Steuerelemente."},
-}
-
-def attach_widget_help(widget, help_id=None, title=None, topic=None, text=None, keywords=None, extra=None):
-    if widget is None:
-        return widget
-    try:
-        if help_id:
-            widget.setProperty(_HELP_PROP_ID, str(help_id))
-        if title:
-            widget.setProperty(_HELP_PROP_TITLE, str(title))
-        if topic:
-            widget.setProperty(_HELP_PROP_TOPIC, str(topic))
-        if text:
-            widget.setProperty(_HELP_PROP_TEXT, str(text))
-        if keywords:
-            widget.setProperty(_HELP_PROP_KEYWORDS, str(keywords))
-        if extra is not None:
-            widget.setProperty("_DBASE_HELP_EXTRA", repr(extra))
-    except Exception:
-        pass
-    return widget
-
-def _widget_display_name(widget):
-    try:
-        txt = widget.windowTitle()
-        if txt:
-            return str(txt)
-    except Exception:
-        pass
-    try:
-        txt = widget.text()
-        if txt:
-            return str(txt)
-    except Exception:
-        pass
-    try:
-        name = widget.objectName()
-        if name:
-            return str(name)
-    except Exception:
-        pass
-    try:
-        return widget.__class__.__name__
-    except Exception:
-        return "QWidget"
-
-def _class_based_help_meta(widget):
-    if widget is None:
-        return None
-    try:
-        cls_name = widget.__class__.__name__
-    except Exception:
-        cls_name = "QWidget"
-    meta = dict(_KNOWN_QT_WIDGET_HELP.get(cls_name, {}))
-    if not meta:
-        return None
-    meta.setdefault("title", _widget_display_name(widget))
-    meta.setdefault("help_id", f"qt.widgets.{cls_name}")
-    meta.setdefault("topic", None)
-    meta.setdefault("text", "Für dieses Widget ist eine allgemeine Hilfe verfügbar.")
-    return meta
-
-def resolve_widget_help(widget):
-    probe = widget
-    while probe is not None:
-        try:
-            help_id = probe.property(_HELP_PROP_ID)
-            title = probe.property(_HELP_PROP_TITLE)
-            topic = probe.property(_HELP_PROP_TOPIC)
-            text = probe.property(_HELP_PROP_TEXT)
-            keywords = probe.property(_HELP_PROP_KEYWORDS)
-            extra = probe.property("_DBASE_HELP_EXTRA")
-        except Exception:
-            help_id = title = topic = text = keywords = extra = None
-
-        if help_id or title or topic or text or keywords or extra is not None:
-            meta = {
-                "help_id": str(help_id) if help_id else None,
-                "title": str(title) if title else _widget_display_name(probe),
-                "topic": str(topic) if topic else None,
-                "text": str(text) if text else None,
-                "keywords": str(keywords) if keywords else None,
-                "extra": extra,
-                "widget": probe,
-                "class_name": probe.__class__.__name__,
-            }
-            if not meta["help_id"]:
-                meta["help_id"] = f"qt.widgets.{meta['class_name']}"
-            return meta
-
-        fallback = _class_based_help_meta(probe)
-        if fallback:
-            fallback["widget"] = probe
-            fallback["class_name"] = probe.__class__.__name__
-            return fallback
-
-        try:
-            probe = probe.parentWidget()
-        except Exception:
-            try:
-                probe = probe.parent()
-            except Exception:
-                probe = None
-    return None
 
 def _global_shortcut_focus_widget(obj: Any):
     try:
@@ -3341,9 +3201,16 @@ class IconTab(QListWidget):
         try:
             path = item.data(Qt.UserRole) or ""
             if not path:
+                try:
+                    candidate = os.path.join(self.base_dir or "", item.text())
+                    if os.path.isfile(candidate):
+                        path = candidate
+                except Exception:
+                    path = ""
+            if not path:
                 return
             lower = path.lower()
-            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json"):
+            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json") or lower.endswith(".po"):
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
@@ -3535,14 +3402,15 @@ class IconTab(QListWidget):
             is_prg = lower.endswith('.prg')
             is_dbf = lower.endswith('.dbf')
             is_sql_builder = lower.endswith('.sqlb.json')
-            if not (is_prg or is_dbf or is_sql_builder):
+            is_po = lower.endswith('.po')
+            if not (is_prg or is_dbf or is_sql_builder or is_po):
                 return
 
             display_name = os.path.basename(path)
-            
+
             # Host/RegieCenter finden (parent-chain)
             host = self.parent()
-            
+
             if is_prg:
                 while host is not None and not hasattr(host, "open_in_code_editor"):
                     host = host.parent()
@@ -3566,6 +3434,13 @@ class IconTab(QListWidget):
                     host.open_in_sql_builder(display_name=display_name, path=path)
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein SQL-Builder-Hook gefunden.")
+            elif is_po:
+                while host is not None and not hasattr(host, "open_in_localize"):
+                    host = host.parent()
+                if host is not None and hasattr(host, "open_in_localize"):
+                    host.open_in_localize(display_name=display_name, path=path)
+                else:
+                    QMessageBox.information(self, "Bearbeiten", "Kein Localize-Hook gefunden.")
         except Exception as e:
             QMessageBox.warning(self, "Bearbeiten", f"Konnte Editor nicht öffnen:\n{e}")
 
@@ -3587,7 +3462,10 @@ class IconTab(QListWidget):
             if lower.endswith(".sqlb.json"):
                 self._edit_in_editor(path)
                 return
-                
+            if lower.endswith(".po"):
+                self._edit_in_editor(path)
+                return
+
             #if os.name == "nt":
             #    os.startfile(path)  # noqa
             #elif sys.platform == "darwin":
@@ -3851,6 +3729,33 @@ class RegieCenter(QDialog):
             QMessageBox.warning(self, "Bearbeiten", f"Konnte SQL-Builder nicht öffnen:\n{e}")
             return
         QMessageBox.information(self, "Bearbeiten", "Kein SQL-Builder-Hook gefunden.")
+
+
+    def open_in_localize(self, display_name: str, path: str):
+        try:
+            debug_print("localize")
+            path = os.path.normpath(path)
+            if "MAINAPP" in globals() and hasattr(MAINAPP, "ensure_localize_tool"):
+                try:
+                    MAINAPP.ensure_localize_tool(focus=True, po_path=path)
+                except TypeError:
+                    widget = MAINAPP.ensure_localize_tool(focus=True)
+                    if widget is not None and path:
+                        try:
+                            if hasattr(widget, "ed_po_path"):
+                                widget.ed_po_path.setText(path)
+                        except Exception:
+                            pass
+                        try:
+                            if hasattr(widget, "_open_po"):
+                                widget._open_po(path)
+                        except Exception:
+                            pass
+                return
+        except Exception as e:
+            QMessageBox.warning(self, "Bearbeiten", f"Konnte Localize nicht öffnen:\n{e}")
+            return
+        QMessageBox.information(self, "Bearbeiten", "Kein Localize-Hook gefunden.")
 
     def _save_recent_dirs(self, current_path: str):
         try:
@@ -8438,7 +8343,11 @@ class LocalizeToolWindow(QWidget):
         self._build_ui()
         self._load_state()
         self._apply_default_headers()
-        self._sync_language_buttons()
+        try:
+            if hasattr(self, "_sync_language_buttons"):
+                self._sync_language_buttons()
+        except Exception:
+            pass
         self._refresh_msgid_list()
 
     def _build_ui(self):
@@ -9111,6 +9020,9 @@ class MainWindow(QMainWindow):
                 ("act_view_table", "Table Designer"),
                 ("act_view_sql", "SQL Builder"),
                 ("act_edit_minimap", "Mini-Map"),
+                ("action_help_contents", "Contents"),
+                ("action_help_whatis", "What is ... ?"),
+                ("action_help_about", "About ..."),
             ]:
                 act = getattr(self, name, None)
                 if act is not None:
@@ -9121,14 +9033,6 @@ class MainWindow(QMainWindow):
                     self.act_lang_de.setText(share.locales.tr("German"))
                 except Exception:
                     pass
-            for name, msgid in [
-                ("action_help_contents", "Contents"),
-                ("action_help_whatis", "What is ... ?"),
-                ("action_help_about", "About ..."),
-            ]:
-                act = getattr(self, name, None)
-                if act is not None:
-                    act.setText(share.locales.tr(msgid))
             if hasattr(self, '_debug_console') and self._debug_console is not None:
                 try:
                     for sub in self.mdi.subWindowList():
@@ -9156,146 +9060,6 @@ class MainWindow(QMainWindow):
                 pass
         except Exception:
             pass
-
-    def _create_help_mainwindow(self):
-        mw = share.utildef.helpwin.HelpMainWindow()
-        mw.setWindowTitle(share.locales.tr("Hilfe"))
-        return mw
-
-    def _open_help_topic(self, topic=None):
-        try:
-            help_filter = getattr(self, "f1filter", None)
-            help_sub = getattr(help_filter, "_help_sub", None)
-            if help_sub is not None:
-                try:
-                    if not help_sub.isHidden():
-                        self.mdi.setActiveSubWindow(help_sub)
-                        help_sub.showNormal()
-                        help_sub.raise_()
-                        help_widget = help_sub.widget()
-                        if help_widget is not None and hasattr(help_widget, "open_from_args"):
-                            try:
-                                help_widget.open_from_args("hlp/help.chm", topic or None)
-                            except Exception:
-                                pass
-                        return True
-                except Exception:
-                    pass
-
-            help_widget = getattr(self, "help_mainwindow", None)
-            if help_widget is None:
-                help_widget = self._create_help_mainwindow()
-                self.help_mainwindow = help_widget
-            sub = open_helpwindow(self.mdi, help_widget, topic)
-            try:
-                sub.dark_mode = True
-            except Exception:
-                pass
-            if help_filter is not None:
-                help_filter._help_sub = sub
-                try:
-                    sub.destroyed.connect(lambda *_: setattr(help_filter, "_help_sub", None))
-                except Exception:
-                    pass
-            return True
-        except Exception:
-            QMessageBox.information(self, share.locales.tr("Help"), share.locales.tr("Keine Hilfe verfügbar."))
-            return False
-
-    def set_whatis_mode(self, enabled: bool):
-        self._whatis_help_mode = bool(enabled)
-        act = getattr(self, "action_help_whatis", None)
-        if act is not None and act.isChecked() != self._whatis_help_mode:
-            block = act.blockSignals(True)
-            act.setChecked(self._whatis_help_mode)
-            act.blockSignals(block)
-        try:
-            if self._whatis_help_mode:
-                self.statusBar().showMessage(share.locales.tr("What is ... ? aktiv: Bitte eine Komponente mit der linken Maustaste anklicken."))
-            else:
-                self.statusBar().clearMessage()
-        except Exception:
-            pass
-
-    def on_action_help_whatis(self, checked=False):
-        self.set_whatis_mode(bool(checked))
-
-    def handle_whatis_click(self, widget):
-        if not bool(getattr(self, "_whatis_help_mode", False)):
-            return False
-        meta = resolve_widget_help(widget)
-        if not meta:
-            return False
-
-        title = meta.get("title") or _widget_display_name(widget)
-        help_id = meta.get("help_id") or f"qt.widgets.{meta.get('class_name') or widget.__class__.__name__}"
-        topic = meta.get("topic") or None
-        text = meta.get("text") or share.locales.tr("Für dieses Objekt sind noch keine speziellen Hilfetexte hinterlegt.")
-        class_name = meta.get("class_name") or widget.__class__.__name__
-        object_name = ""
-        try:
-            object_name = widget.objectName() or ""
-        except Exception:
-            object_name = ""
-
-        self._whatis_help_busy = True
-        try:
-            box = QMessageBox(self)
-            box.setIcon(QMessageBox.Information)
-            box.setWindowTitle(share.locales.tr("What is ... ?"))
-            main_text = f"{title}\n\n{text}"
-            details = [
-                f"Class: {class_name}",
-                f"Help-ID: {help_id}",
-            ]
-            if object_name:
-                details.append(f"ObjectName: {object_name}")
-            if topic:
-                details.append(f"Topic: {topic}")
-            extra = meta.get("extra")
-            if extra:
-                details.append(f"Meta: {extra}")
-            box.setText(main_text)
-            box.setDetailedText("\n".join(details))
-            box.setInformativeText(share.locales.tr("Mit 'In Hilfe öffnen' wird die CHM-Hilfe geöffnet. Ohne konkrete Topic-Zuordnung wird die Hauptseite angezeigt."))
-            btn_open = box.addButton(share.locales.tr("In Hilfe öffnen"), QMessageBox.AcceptRole)
-            box.addButton(QMessageBox.Close)
-            box.exec_()
-            if box.clickedButton() is btn_open:
-                self._open_help_topic(topic)
-        finally:
-            self._whatis_help_busy = False
-            self.set_whatis_mode(False)
-        return True
-
-    def on_action_help_contents(self):
-        self._open_help_topic(None)
-
-    def on_action_help_about(self):
-        title = share.locales.tr("About ...")
-        app_name = _runner_window_title()
-        text = (
-            f"{app_name}\n\n"
-            f"(c) 2024, 2025, 2026 Jens Kallup - paule32\n"
-            f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
-            f"Qt / PyQt5\n\n"
-            f"{share.locales.tr('Anwendung zum Bearbeiten und Ausführen von dBase-Projekten.')}"
-        )
-        QMessageBox.about(self, title, text)
-
-    def eventFilter(self, obj, event):
-        try:
-            if bool(getattr(self, "_whatis_help_mode", False)) and event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-                if isinstance(obj, QWidget):
-                    if self.handle_whatis_click(obj):
-                        try:
-                            event.accept()
-                        except Exception:
-                            pass
-                        return True
-        except Exception:
-            pass
-        return super().eventFilter(obj, event)
 
     # ---------------------------------------------------------------------------
     # Aktuelles Werkzeug aus der Objektpalette setzen (z.B. 'Button', 'Label', ...).
@@ -9336,6 +9100,122 @@ class MainWindow(QMainWindow):
             pass
 
 
+    def _create_help_mainwindow(self):
+        mw = share.utildef.helpwin.HelpMainWindow()
+        try:
+            mw.setWindowTitle(share.locales.tr("Help"))
+        except Exception:
+            pass
+        return mw
+
+    def _open_help_topic(self, topic=None):
+        try:
+            help_widget = self._create_help_mainwindow()
+            open_helpwindow(self.mdi, help_widget, topic)
+            return True
+        except Exception:
+            QMessageBox.information(self, share.locales.tr("Help"), share.locales.tr("Keine Hilfe verfügbar."))
+            return False
+
+    def set_whatis_mode(self, enabled: bool):
+        self._whatis_help_mode = bool(enabled)
+        act = getattr(self, "action_help_whatis", None)
+        if act is not None and act.isChecked() != self._whatis_help_mode:
+            block = act.blockSignals(True)
+            act.setChecked(self._whatis_help_mode)
+            act.blockSignals(block)
+        try:
+            if self._whatis_help_mode:
+                self.statusBar().showMessage(share.locales.tr("What is ... ? aktiv: Bitte eine Komponente mit der linken Maustaste anklicken."))
+            else:
+                self.statusBar().clearMessage()
+        except Exception:
+            pass
+
+    def on_action_help_whatis(self, checked=False):
+        self.set_whatis_mode(bool(checked))
+
+    def handle_whatis_click(self, widget):
+        if not bool(getattr(self, "_whatis_help_mode", False)):
+            return False
+        if bool(getattr(self, "_whatis_help_busy", False)):
+            return True
+
+        meta = resolve_widget_help(widget)
+        if not meta:
+            self.set_whatis_mode(False)
+            return False
+
+        title = meta.get("title") or _widget_display_name(widget)
+        help_id = meta.get("help_id") or f"qt.widgets.{meta.get('class_name') or widget.__class__.__name__}"
+        topic = meta.get("topic") or None
+        text = meta.get("text") or share.locales.tr("Für dieses Objekt sind noch keine speziellen Hilfetexte hinterlegt.")
+        class_name = meta.get("class_name") or widget.__class__.__name__
+        object_name = ""
+        try:
+            object_name = widget.objectName() or ""
+        except Exception:
+            object_name = ""
+
+        self._whatis_help_busy = True
+        self.set_whatis_mode(False)
+        try:
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Information)
+            box.setWindowTitle(share.locales.tr("What is ... ?"))
+            box.setText(f"{title}\n\n{text}")
+            details = [
+                f"Class: {class_name}",
+                f"Help-ID: {help_id}",
+            ]
+            if object_name:
+                details.append(f"ObjectName: {object_name}")
+            if topic:
+                details.append(f"Topic: {topic}")
+            extra = meta.get("extra")
+            if extra:
+                details.append(f"Meta: {extra}")
+            box.setDetailedText("\n".join(details))
+            box.setInformativeText(share.locales.tr("Mit 'In Hilfe öffnen' wird die CHM-Hilfe geöffnet. Ohne konkrete Topic-Zuordnung wird die Hauptseite angezeigt."))
+            btn_open = box.addButton(share.locales.tr("In Hilfe öffnen"), QMessageBox.AcceptRole)
+            box.addButton(QMessageBox.Close)
+            box.exec_()
+            if box.clickedButton() is btn_open:
+                self._open_help_topic(topic)
+        finally:
+            self._whatis_help_busy = False
+        return True
+
+    def on_action_help_contents(self):
+        self._open_help_topic(None)
+
+    def on_action_help_about(self):
+        title = share.locales.tr("About ...")
+        app_name = _runner_window_title()
+        text = (
+            f"{app_name}\n\n"
+            f"(c) 2024, 2025, 2026 Jens Kallup - paule32\n"
+            f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n"
+            f"Qt / PyQt5\n\n"
+            f"{share.locales.tr('Anwendung zum Bearbeiten und Ausführen von dBase-Projekten.')}"
+        )
+        QMessageBox.about(self, title, text)
+
+    def eventFilter(self, obj, event):
+        try:
+            if bool(getattr(self, "_whatis_help_mode", False)) and event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                if isinstance(obj, QWidget):
+                    if self.handle_whatis_click(obj):
+                        try:
+                            event.accept()
+                        except Exception:
+                            pass
+                        return True
+        except Exception:
+            pass
+        return super().eventFilter(obj, event)
+
+
     def __init__(self):
         super().__init__()
 
@@ -9350,6 +9230,10 @@ class MainWindow(QMainWindow):
         self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
         self._settings.setFallbacksEnabled(False)
 
+        self._whatis_help_mode = False
+        self._whatis_help_busy = False
+        self.help_mainwindow = None
+
         self.mdi = QMdiArea(self)
         
         pal = self.mdi.palette()
@@ -9361,9 +9245,6 @@ class MainWindow(QMainWindow):
         self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
         
         self.setWindowTitle(_runner_window_title())
-        self._whatis_help_mode = False
-        self._whatis_help_busy = False
-        self.help_mainwindow = None
 
         self._central_host = QWidget(self)
         self._central_host_layout = QHBoxLayout(self._central_host)
@@ -9382,8 +9263,9 @@ class MainWindow(QMainWindow):
         # Factory: wie dein Help-Fenster erzeugt wird
         def create_help():
             # Beispiel: irgendein HelpMainWindow / HelpWidget
-            mw = self._create_help_mainwindow()
-            self.help_mainwindow = mw
+            mw = share.utildef.helpwin.HelpMainWindow()
+            mw.setWindowTitle(share.locales.tr("Hilfe"))
+            #mw.setCentralWidget(QLabel("Hier kommt die Hilfe rein"))
             return mw
 
         self.f1filter = F1Filter(self.mdi, create_help, self)
@@ -9448,15 +9330,18 @@ class MainWindow(QMainWindow):
         self.menu_properties = QMenu(share.locales.tr("Properties"), self)
         self.menu_windows    = menubar.addMenu(share.locales.tr("Window"))
         self.menu_help       = menubar.addMenu(share.locales.tr("Help"))
+        self.menu_help.setFont(f2)
 
         self.action_help_contents = QAction(share.locales.tr("Contents"), self)
-        self.action_help_contents.setShortcut(QKeySequence(Qt.Key_F1))
+        self.action_help_contents.setShortcut(QKeySequence("F1"))
         self.action_help_contents.triggered.connect(self.on_action_help_contents)
         self.menu_help.addAction(self.action_help_contents)
+
         self.action_help_whatis = QAction(share.locales.tr("What is ... ?"), self)
         self.action_help_whatis.setCheckable(True)
         self.action_help_whatis.toggled.connect(self.on_action_help_whatis)
         self.menu_help.addAction(self.action_help_whatis)
+
         self.menu_help.addSeparator()
         self.action_help_about = QAction(share.locales.tr("About ..."), self)
         self.action_help_about.triggered.connect(self.on_action_help_about)
@@ -10347,12 +10232,24 @@ class MainWindow(QMainWindow):
         pass
     def on_action_file_web_wizard(self):
         pass
-    def ensure_localize_tool(self, focus: bool = True):
+    def ensure_localize_tool(self, focus: bool = True, po_path: str = ""):
+        po_path = os.path.normpath((po_path or '').strip()) if po_path else ''
         try:
             existing = getattr(self, '_localize_tool_window', None)
             if existing is not None:
                 for sub in self.mdi.subWindowList():
                     if sub.widget() is existing:
+                        if po_path:
+                            try:
+                                if hasattr(existing, 'ed_po_path'):
+                                    existing.ed_po_path.setText(po_path)
+                            except Exception:
+                                pass
+                            try:
+                                if hasattr(existing, '_open_po'):
+                                    existing._open_po(po_path)
+                            except Exception:
+                                pass
                         existing.show()
                         existing.raise_()
                         if focus:
@@ -10367,6 +10264,17 @@ class MainWindow(QMainWindow):
             mark_escape_close(sub)
             sub.setWindowTitle('Localize')
             sub.resize(856, 580)
+            if po_path:
+                try:
+                    if hasattr(widget, 'ed_po_path'):
+                        widget.ed_po_path.setText(po_path)
+                except Exception:
+                    pass
+                try:
+                    if hasattr(widget, '_open_po'):
+                        widget._open_po(po_path)
+                except Exception:
+                    pass
             widget.show()
             sub.show()
             if focus:
@@ -11352,14 +11260,15 @@ class SqlBuilderWindow(QWidget):
 
         root.addWidget(self.scroll, 3)
 
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["SQL", "Info"])
+        self.sql_editor = LocalizeCodeEditor(self)
+        self.sql_editor.setObjectName("SqlBuilderPreviewEditor")
+        self.sql_editor.setPlaceholderText("SELECT * FROM ...")
+        self.sql_editor.setReadOnly(False)
         try:
-            self.table.horizontalHeader().setStretchLastSection(True)
-            self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            self.sql_editor.setTabStopDistance(self.fontMetrics().horizontalAdvance(" ") * 4)
         except Exception:
             pass
-        root.addWidget(self.table, 2)
+        root.addWidget(self.sql_editor, 2)
 
         # F1 help
         act_help = QAction(self)
@@ -11524,12 +11433,14 @@ class SqlBuilderWindow(QWidget):
         self._set_table_preview(sql)
 
     def _set_table_preview(self, sql: str):
-        self.table.setRowCount(0)
-        if not sql:
-            return
-        self.table.setRowCount(1)
-        self.table.setItem(0, 0, QTableWidgetItem(sql))
-        self.table.setItem(0, 1, QTableWidgetItem(share.locales.tr("Vorschau")))
+        try:
+            self.sql_editor.blockSignals(True)
+            self.sql_editor.setPlainText(sql or "")
+        finally:
+            try:
+                self.sql_editor.blockSignals(False)
+            except Exception:
+                pass
 
     def build_sql(self) -> str:
         if not self.canvas.proxies:
