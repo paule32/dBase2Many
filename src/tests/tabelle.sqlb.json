@@ -14,6 +14,7 @@
       ],
       "all": true,
       "checked": [
+        "INDEX",
         "NAME",
         "VALUE"
       ]
@@ -23,8 +24,8 @@
       "name": "vga256",
       "source_path": "T:/GitHub/dBase2Many/src/tests/vga256.dbf",
       "source_kind": "dbf",
-      "x": 400,
-      "y": 28,
+      "x": 431,
+      "y": 80,
       "fields": [
         "INDEX",
         "FG",
@@ -42,6 +43,12 @@
       "src_field": "INDEX",
       "dst_id": "t0",
       "dst_field": "INDEX"
+    },
+    {
+      "src_id": "t0",
+      "src_field": "VALUE",
+      "dst_id": "t1",
+      "dst_field": "FG"
     }
   ]
 }

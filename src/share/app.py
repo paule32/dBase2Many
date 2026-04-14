@@ -162,7 +162,7 @@ class ProfiledIconTab(legacy.IconTab):
 
         if action in ("new_locales", "new_localize"):
             try:
-                mw = globals().get("MAINAPP", None)
+                mw = getattr(legacy, "MAINAPP", None)
             except Exception:
                 mw = None
             if mw is not None and hasattr(mw, "ensure_localize_tool"):
@@ -174,7 +174,7 @@ class ProfiledIconTab(legacy.IconTab):
             return False
 
         try:
-            mw = globals().get("MAINAPP", None)
+            mw = getattr(legacy, "MAINAPP", None)
         except Exception:
             mw = None
 
@@ -486,7 +486,7 @@ class ProfiledRegieCenter(legacy.QDialog):
 
     def open_in_localize(self, display_name: str = "", path: str = ""):
         try:
-            mw = globals().get("MAINAPP", None)
+            mw = getattr(legacy, "MAINAPP", None)
         except Exception:
             mw = None
 
