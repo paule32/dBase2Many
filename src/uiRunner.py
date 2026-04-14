@@ -9053,12 +9053,12 @@ class ProjectDialog(QDialog):
         self.split_horizontal = QSplitter(Qt.Horizontal, self.split_vertical)
         self.split_horizontal.setObjectName("project_splitter_horizontal")
 
-        self.tree_project = QTreeView(self.split_horizontal)
+        self.tree_project = QTreeWidget(self.split_horizontal)
         self.tree_project.setObjectName("project_tree")
         self.tree_project.setHeaderHidden(True)
+        self.tree_project.setColumnCount(1)
+        self.tree_project.setMinimumWidth(220)
 
-        self.tree_model = QStandardItemModel(self.tree_project)
-        self.tree_model.setHorizontalHeaderLabels([share.locales.tr("Projekt")])
         for caption in [
             share.locales.tr("Formulare"),
             share.locales.tr("Programme"),
@@ -9069,8 +9069,8 @@ class ProjectDialog(QDialog):
             share.locales.tr("Grafiken"),
             share.locales.tr("Sonstiges"),
         ]:
-            self.tree_model.appendRow(QStandardItem(caption))
-        self.tree_project.setModel(self.tree_model)
+            self.tree_project.addTopLevelItem(QTreeWidgetItem([caption]))
+
         try:
             self.tree_project.expandAll()
         except Exception:
@@ -9084,6 +9084,7 @@ class ProjectDialog(QDialog):
 
         list_panel = QWidget(right_side)
         list_panel.setObjectName("project_list_panel")
+        list_panel.setMinimumWidth(300)
         list_panel_layout = QVBoxLayout(list_panel)
         list_panel_layout.setContentsMargins(0, 0, 0, 0)
         list_panel_layout.setSpacing(6)
@@ -9121,6 +9122,7 @@ class ProjectDialog(QDialog):
         right_side_layout.addWidget(list_panel, 1)
         right_side_layout.addWidget(self.button_panel, 0)
 
+        self.split_horizontal.setChildrenCollapsible(False)
         self.split_horizontal.setStretchFactor(0, 1)
         self.split_horizontal.setStretchFactor(1, 2)
 
