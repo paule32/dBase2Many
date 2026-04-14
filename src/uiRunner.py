@@ -9030,7 +9030,7 @@ class ProjectDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(share.locales.tr("Project"))
-        self.resize(980, 680)
+        self.resize(760, 540)
 
         root_layout = QVBoxLayout(self)
 
@@ -9043,6 +9043,10 @@ class ProjectDialog(QDialog):
         self.tab_general.setObjectName("project_tab_general")
         general_layout = QVBoxLayout(self.tab_general)
 
+        self.ed_path = QLineEdit(self.tab_general)
+        self.ed_path.setObjectName("project_path_edit")
+        general_layout.addWidget(self.ed_path, 0)
+
         self.split_vertical = QSplitter(Qt.Vertical, self.tab_general)
         self.split_vertical.setObjectName("project_splitter_vertical")
 
@@ -9051,6 +9055,26 @@ class ProjectDialog(QDialog):
 
         self.tree_project = QTreeView(self.split_horizontal)
         self.tree_project.setObjectName("project_tree")
+        self.tree_project.setHeaderHidden(True)
+
+        self.tree_model = QStandardItemModel(self.tree_project)
+        self.tree_model.setHorizontalHeaderLabels([share.locales.tr("Projekt")])
+        for caption in [
+            share.locales.tr("Formulare"),
+            share.locales.tr("Programme"),
+            share.locales.tr("Berichte"),
+            share.locales.tr("Abfragen"),
+            share.locales.tr("Internet"),
+            share.locales.tr("Localize"),
+            share.locales.tr("Grafiken"),
+            share.locales.tr("Sonstiges"),
+        ]:
+            self.tree_model.appendRow(QStandardItem(caption))
+        self.tree_project.setModel(self.tree_model)
+        try:
+            self.tree_project.expandAll()
+        except Exception:
+            pass
 
         right_side = QWidget(self.split_horizontal)
         right_side.setObjectName("project_right_side")
@@ -9058,8 +9082,19 @@ class ProjectDialog(QDialog):
         right_side_layout.setContentsMargins(0, 0, 0, 0)
         right_side_layout.setSpacing(6)
 
-        self.list_items = QListWidget(right_side)
+        list_panel = QWidget(right_side)
+        list_panel.setObjectName("project_list_panel")
+        list_panel_layout = QVBoxLayout(list_panel)
+        list_panel_layout.setContentsMargins(0, 0, 0, 0)
+        list_panel_layout.setSpacing(6)
+
+        self.ed_filter = QLineEdit(list_panel)
+        self.ed_filter.setObjectName("project_filter_edit")
+        list_panel_layout.addWidget(self.ed_filter, 0)
+
+        self.list_items = QListWidget(list_panel)
         self.list_items.setObjectName("project_list")
+        list_panel_layout.addWidget(self.list_items, 1)
 
         self.button_panel = QWidget(right_side)
         self.button_panel.setObjectName("project_button_panel")
@@ -9083,7 +9118,7 @@ class ProjectDialog(QDialog):
         button_layout.addWidget(self.btn_cancel)
         button_layout.addStretch(1)
 
-        right_side_layout.addWidget(self.list_items, 1)
+        right_side_layout.addWidget(list_panel, 1)
         right_side_layout.addWidget(self.button_panel, 0)
 
         self.split_horizontal.setStretchFactor(0, 1)
@@ -9114,14 +9149,14 @@ class ProjectDialog(QDialog):
 
         root_layout.addWidget(self.tabs, 1)
 
-        self.btn_cancel.clicked.connect(self.reject)
+        self.btn_cancel.clicked.connect(self.close)
 
         try:
-            self.split_horizontal.setSizes([280, 520])
+            self.split_horizontal.setSizes([250, 470])
         except Exception:
             pass
         try:
-            self.split_vertical.setSizes([420, 180])
+            self.split_vertical.setSizes([360, 160])
         except Exception:
             pass
 
@@ -10575,9 +10610,20 @@ class MainWindow(QMainWindow):
         debug_print("file new project")
         try:
             dlg = ProjectDialog(self)
-            dlg.exec_()
+            sub = self.mdi.addSubWindow(dlg)
+            mark_escape_close(sub)
+            sub.setWindowTitle(share.locales.tr("Project"))
+            sub.setMinimumSize(800, 600)
+            sub.setMaximumSize(800, 600)
+            sub.resize(800, 600)
+            dlg.show()
+            sub.show()
+            try:
+                self.mdi.setActiveSubWindow(sub)
+            except Exception:
+                pass
         except Exception as e:
-            QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Projekt-Dialog konnte nicht geöffnet werden.')}\n{e}")
+            QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Projekt-Fenster konnte nicht geöffnet werden.')}\n{e}")
 
     def _init_form_designer_dock(self):
         # Die feste Sidebar ist bereits Teil des zentralen Layouts.
