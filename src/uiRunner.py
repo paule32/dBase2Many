@@ -10805,30 +10805,69 @@ class MainWindow(QMainWindow):
             need_init = (
                 not hasattr(self, 'obj_inspector_dock') or self.obj_inspector_dock is None or
                 not hasattr(self, 'obj_palette_dock') or self.obj_palette_dock is None or
-                not hasattr(self, '_designer_panel_splitter') or self._designer_panel_splitter is None or
-                not hasattr(self, '_designer_host_splitter') or self._designer_host_splitter is None
+                not hasattr(self, '_designer_panel_splitter') or self._designer_panel_splitter is None
             )
+
             if need_init:
-                _init_designer_panels(self)
+                host = getattr(self, "_central_host", None)
+                layout = getattr(self, "_central_host_layout", None)
+                if host is None or layout is None:
+                    raise RuntimeError("Designer-Host/Layout nicht verfügbar")
+
+                panel_splitter = QSplitter(Qt.Vertical, host)
+                panel_splitter.setObjectName("designer_panel_splitter")
+                panel_splitter.setChildrenCollapsible(False)
+                panel_splitter.setMinimumWidth(280)
+
+                self.obj_inspector_dock = ObjectInspectorDock(self, panel_splitter)
+                self.obj_palette_dock = ObjectPaletteDock(self, panel_splitter)
+
+                try:
+                    apply_custom_dock_titlebar(self.obj_inspector_dock)
+                except Exception:
+                    pass
+                try:
+                    apply_custom_dock_titlebar(self.obj_palette_dock)
+                except Exception:
+                    pass
+
+                panel_splitter.addWidget(self.obj_inspector_dock)
+                panel_splitter.addWidget(self.obj_palette_dock)
+                try:
+                    panel_splitter.setSizes([260, 220])
+                except Exception:
+                    pass
+
+                panel_splitter.hide()
+                self.obj_inspector_dock.hide()
+                self.obj_palette_dock.hide()
+
+                try:
+                    layout.insertWidget(1, panel_splitter, 0)
+                except Exception:
+                    layout.addWidget(panel_splitter, 0)
+
+                self._designer_panel_splitter = panel_splitter
+                self._designer_host_splitter = None
+
             if hasattr(self, 'sidebar_widget') and self.sidebar_widget is not None:
                 self.sidebar_widget.show()
+
             if hasattr(self, '_designer_panel_splitter') and self._designer_panel_splitter is not None:
+                self._designer_panel_splitter.setMinimumWidth(280)
                 self._designer_panel_splitter.show()
                 try:
                     self._designer_panel_splitter.setSizes([260, 220])
                 except Exception:
                     pass
-            if hasattr(self, '_designer_host_splitter') and self._designer_host_splitter is not None:
-                try:
-                    self._designer_host_splitter.setSizes([280, 1200])
-                except Exception:
-                    pass
-            self.obj_inspector_dock.show()
-            self.obj_palette_dock.show()
+
+            if hasattr(self, 'obj_inspector_dock') and self.obj_inspector_dock is not None:
+                self.obj_inspector_dock.show()
+            if hasattr(self, 'obj_palette_dock') and self.obj_palette_dock is not None:
+                self.obj_palette_dock.show()
         except Exception as e:
             QMessageBox.warning(self, "Designer", f"Designer-Docks konnten nicht erstellt werden:\n{e}")
 
-        # FormDesignerWindow im MDI suchen/erzeugen
         try:
             fw = getattr(self, "form_designer_window", None)
             if fw is not None:
