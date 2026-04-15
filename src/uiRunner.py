@@ -9,6 +9,7 @@ import sys
 import os
 import builtins
 import re
+import json
 import tempfile
 
 from   share.common                 import *
@@ -6493,9 +6494,13 @@ class PixelGridCanvas(QWidget):
 
     def on_designer_controls_changed(self, controls):
         try:
+            self.designer_controls = list(controls or [])
+        except Exception:
+            self.designer_controls = []
+        try:
             oi = getattr(self, "object_inspector", None)
             if oi is not None:
-                oi.set_controls_list(controls)
+                oi.set_controls_list(self.designer_controls)
         except Exception:
             pass
 
@@ -6569,7 +6574,17 @@ class PixelGridCanvas(QWidget):
             if tool and r.width() >= 16 and r.height() >= 16:
                 ctrl = DesignerControl(tool, self, r)
                 ctrl.show()
+                if ctrl not in self._controls:
+                    self._controls.append(ctrl)
+                try:
+                    mw = getattr(self, "main_window", None) or self.window()
+                    if mw is not None and hasattr(mw, "on_designer_controls_changed"):
+                        mw.on_designer_controls_changed(self._controls)
+                except Exception:
+                    pass
                 self.set_active(ctrl)
+                self.update_canvas_size()
+                self.ensure_visible_control(ctrl)
             ev.accept()
             return
         super().mouseReleaseEvent(ev)
@@ -6625,6 +6640,14 @@ class PixelGridCanvas(QWidget):
         ctrl.deleteLater()
         self.update()
         self.update_canvas_size()
+        try:
+            mw = getattr(self, "main_window", None) or self.window()
+            if mw is not None and hasattr(mw, "on_designer_controls_changed"):
+                mw.on_designer_controls_changed(self._controls)
+            if mw is not None and hasattr(mw, "on_designer_selection_changed"):
+                mw.on_designer_selection_changed(None)
+        except Exception:
+            pass
 
     def is_name_used(self, name: str, except_ctrl=None) -> bool:
         name = (name or "").strip()
@@ -6740,7 +6763,6 @@ class PixelGridCanvas(QWidget):
         menu.addAction(act_paste)
 
         menu.addSeparator()
-
         host = self.parent() if self.parent() is not None else None
 
         act_load = QAction(share.locales.tr("Laden..."), self)
@@ -6762,15 +6784,11 @@ class PixelGridCanvas(QWidget):
 # ---------------------------------------------------------------------------
 
 class FormDesignerWindow(QWidget):
-    _form_counter = 0
-
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
         self.current_form_path = ""
-        FormDesignerWindow._form_counter += 1
-        self.form_class_name = f"Form{FormDesignerWindow._form_counter}"
-
+        self.form_class_name = "Form"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
 
@@ -6800,17 +6818,18 @@ class FormDesignerWindow(QWidget):
     def _form_geometry_for_save(self):
         host = self._designer_host_widget()
         if host is None:
-            return 640, 480, 0, 0
+            return 700, 520, 40, 220
         try:
             g = host.geometry()
             return int(g.width()), int(g.height()), int(g.y()), int(g.x())
         except Exception:
-            return 640, 480, 0, 0
+            return 700, 520, 40, 220
 
     def _serialize_form_text(self) -> str:
         width, height, top, left = self._form_geometry_for_save()
+        form_name = (self.form_class_name or "Form").strip() or "Form"
         lines = [
-            f"CLASS  {self.form_class_name} OF FORM",
+            f"CLASS  {form_name} OF FORM",
             "\tWITH (this)",
             f"\t\twidth = {width}",
             f"\t\theight = {height}",
@@ -6820,12 +6839,21 @@ class FormDesignerWindow(QWidget):
             "ENDCLASS",
             "",
         ]
-
         for ctrl in list(getattr(self.canvas, "_controls", [])):
             try:
                 r = ctrl._content_rect_global()
                 name = getattr(ctrl, "instance_name", "") or getattr(ctrl, "tool_name", "Control")
                 tool = getattr(ctrl, "tool_name", "Control")
+                text_value = ""
+                try:
+                    inner = getattr(ctrl, "inner", None)
+                    if inner is not None:
+                        if hasattr(inner, "text"):
+                            text_value = inner.text() or ""
+                        elif hasattr(inner, "windowTitle"):
+                            text_value = inner.windowTitle() or ""
+                except Exception:
+                    text_value = ""
                 lines.extend([
                     f"OBJECT  {name} AS {tool}",
                     "\tWITH (this)",
@@ -6833,19 +6861,18 @@ class FormDesignerWindow(QWidget):
                     f"\t\theight = {int(r.height())}",
                     f"\t\ttop = {int(r.y())}",
                     f"\t\tleft = {int(r.x())}",
+                    f"\t\ttext = {json.dumps(text_value, ensure_ascii=False)}",
                     "\tENDWITH",
                     "ENDOBJECT",
                     "",
                 ])
             except Exception:
                 pass
-
         return "\n".join(lines).rstrip() + "\n"
 
     def _write_form_file(self, file_path: str):
-        content = self._serialize_form_text()
         with open(file_path, "w", encoding="utf-8") as fh:
-            fh.write(content)
+            fh.write(self._serialize_form_text())
         self.current_form_path = file_path
 
     def _clear_designer_controls(self):
@@ -6857,7 +6884,6 @@ class FormDesignerWindow(QWidget):
         self.canvas._controls = []
         self.canvas.set_active(None)
         try:
-            self.canvas.update()
             self.canvas.update_canvas_size()
         except Exception:
             pass
@@ -6893,8 +6919,8 @@ class FormDesignerWindow(QWidget):
         self._clear_designer_controls()
 
         object_pattern = re.compile(
-            r"OBJECT\s+([A-Za-z_][A-Za-z0-9_]*)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?ENDWITH\s+ENDOBJECT",
-            re.IGNORECASE | re.MULTILINE,
+            r"OBJECT\s+([A-Za-z_][A-Za-z0-9_]*)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?\t?text\s*=\s*(.+?)\s+\t?ENDWITH\s+ENDOBJECT",
+            re.IGNORECASE | re.MULTILINE | re.DOTALL,
         )
         for m in object_pattern.finditer(content):
             name = m.group(1)
@@ -6903,12 +6929,27 @@ class FormDesignerWindow(QWidget):
             height = int(m.group(4))
             top = int(m.group(5))
             left = int(m.group(6))
+            text_value = ""
+            try:
+                text_value = json.loads((m.group(7) or "").strip())
+            except Exception:
+                text_value = ""
             rect = QRect(left, top, max(16, width), max(16, height))
             ctrl = DesignerControl(tool, self.canvas, rect)
             ctrl.instance_name = name
+            try:
+                inner = getattr(ctrl, "inner", None)
+                if inner is not None:
+                    if hasattr(inner, "setText"):
+                        inner.setText(text_value)
+                    elif hasattr(inner, "setWindowTitle"):
+                        inner.setWindowTitle(text_value)
+            except Exception:
+                pass
             ctrl.show()
             self.canvas._controls.append(ctrl)
 
+        self.current_form_path = file_path
         try:
             self.canvas.update_canvas_size()
         except Exception:
@@ -6917,9 +6958,10 @@ class FormDesignerWindow(QWidget):
             mw = getattr(self, "main_window", None)
             if mw is not None and hasattr(mw, "on_designer_controls_changed"):
                 mw.on_designer_controls_changed(self.canvas._controls)
+            if mw is not None and hasattr(mw, "on_designer_selection_changed"):
+                mw.on_designer_selection_changed(None)
         except Exception:
             pass
-        self.current_form_path = file_path
 
     def _action_save_form_as(self):
         file_path, _ = QFileDialog.getSaveFileName(
@@ -7009,7 +7051,6 @@ class FormDesignerWindow(QWidget):
 
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
-        # Bei Fenster-Resize: Canvas-MinSize neu berechnen und Objektinspektor updaten
         try:
             if hasattr(self.canvas, "update_canvas_size"):
                 self.canvas.update_canvas_size()
@@ -7018,97 +7059,10 @@ class FormDesignerWindow(QWidget):
         try:
             mw = getattr(self, "main_window", None)
             oi = getattr(mw, "object_inspector", None) if mw is not None else None
-            if oi is not None and getattr(oi, "_current_ctrl", None) is not None:
+            if oi is not None:
                 oi._refresh_properties()
         except Exception:
             pass
-
-# ---------------------------------------------------------------------------
-# Ersetzt das alte 'FormDesignerDock':
-#   - Objektinspektor (Dock links oben)
-#   - Objektpalette (Dock links unten)
-#   - Formular-Designer als eigenes MDI-Fenster (Pixelgrid)
-# ---------------------------------------------------------------------------
-def _init_designer_panels(main_window: "MainWindow") -> None:
-    try:
-        if getattr(main_window, '_designer_host_splitter', None) is None:
-            layout = getattr(main_window, '_central_host_layout', None)
-            if layout is not None:
-                for i in range(layout.count() - 1, -1, -1):
-                    item = layout.itemAt(i)
-                    if item is not None and item.widget() is getattr(main_window, 'mdi', None):
-                        layout.takeAt(i)
-                        break
-            host_splitter = QSplitter(Qt.Horizontal, main_window._central_host)
-            host_splitter.setChildrenCollapsible(False)
-            host_splitter.setHandleWidth(6)
-            panel_splitter = QSplitter(Qt.Vertical, host_splitter)
-            panel_splitter.setChildrenCollapsible(False)
-            panel_splitter.setHandleWidth(6)
-            panel_splitter.setMinimumWidth(180)
-            panel_splitter.hide()
-            host_splitter.addWidget(panel_splitter)
-            host_splitter.addWidget(main_window.mdi)
-            host_splitter.setStretchFactor(0, 0)
-            host_splitter.setStretchFactor(1, 1)
-            try:
-                host_splitter.setSizes([0, 1200])
-            except Exception:
-                pass
-            main_window._central_host_layout.addWidget(host_splitter, 1)
-            main_window._designer_host_splitter = host_splitter
-            main_window._designer_panel_splitter = panel_splitter
-    except Exception:
-        pass
-
-    try:
-        panel = getattr(main_window, '_designer_panel_splitter', None)
-        if panel is None:
-            return
-
-        if getattr(main_window, 'obj_inspector_dock', None) is None:
-            main_window.obj_inspector_dock = ObjectInspectorDock(main_window, panel)
-            main_window.obj_inspector_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            panel.addWidget(main_window.obj_inspector_dock)
-        elif main_window.obj_inspector_dock.parent() is not panel:
-            panel.addWidget(main_window.obj_inspector_dock)
-
-        if getattr(main_window, 'obj_palette_dock', None) is None:
-            main_window.obj_palette_dock = ObjectPaletteDock(main_window, panel)
-            main_window.obj_palette_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            panel.addWidget(main_window.obj_palette_dock)
-        elif main_window.obj_palette_dock.parent() is not panel:
-            panel.addWidget(main_window.obj_palette_dock)
-    except Exception:
-        pass
-
-    try:
-        main_window.obj_inspector_dock.setMinimumWidth(180)
-        main_window.obj_palette_dock.setMinimumWidth(180)
-    except Exception:
-        pass
-
-    try:
-        main_window._designer_panel_splitter.show()
-        main_window.obj_inspector_dock.show()
-        main_window.obj_palette_dock.show()
-        main_window._designer_panel_splitter.setSizes([260, 220])
-        main_window._designer_host_splitter.setSizes([280, 1200])
-    except Exception:
-        pass
-
-    try:
-        if getattr(main_window, 'form_designer_window', None) is None:
-            designer = FormDesignerWindow(main_window)
-            main_window.form_designer_window = designer
-            main_window.designer_canvas = getattr(designer, 'canvas', None)
-            sub = main_window.mdi.addSubWindow(designer)
-            sub.setWindowTitle(share.locales.tr('Form Designer'))
-            sub.resize(700, 520)
-            sub.move(220, 40)
-            designer.show()
-    except Exception:
-        pass
 
 class _InspectorTreeDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -7552,17 +7506,29 @@ class ObjectInspectorPanel(QWidget):
 
     def set_controls_list(self, controls):
         self.obj_combo.blockSignals(True)
+        current_text = self.obj_combo.currentText()
         self.obj_combo.clear()
-        self.obj_combo.addItem("(Form)", None)
+        form_name = "Form"
+        try:
+            fw = getattr(self.main_window, "form_designer_window", None)
+            if fw is not None:
+                form_name = (getattr(fw, "form_class_name", "") or "Form").strip() or "Form"
+        except Exception:
+            pass
+        self.obj_combo.addItem(form_name, None)
         for c in controls or []:
             name = getattr(c, "instance_name", "") or getattr(c, "tool_name", "Control")
             self.obj_combo.addItem(name, c)
         self.obj_combo.blockSignals(False)
+        idx = self.obj_combo.findText(current_text)
+        if idx >= 0:
+            self.obj_combo.setCurrentIndex(idx)
 
     def set_current(self, ctrl):
         self._current_ctrl = ctrl
         if ctrl is None:
-            self.obj_combo.setCurrentIndex(0)
+            if self.obj_combo.count() > 0:
+                self.obj_combo.setCurrentIndex(0)
         else:
             name = getattr(ctrl, "instance_name", "")
             idx = self.obj_combo.findText(name)
@@ -7592,40 +7558,82 @@ class ObjectInspectorPanel(QWidget):
             self.tree_props.clear()
             c = self._current_ctrl
             if c is None:
-                return
+                fw = getattr(self.main_window, "form_designer_window", None)
+                host = None
+                try:
+                    host = fw.parentWidget() if fw is not None else None
+                except Exception:
+                    host = None
+                if host is None and fw is not None:
+                    try:
+                        host = fw.window()
+                    except Exception:
+                        host = None
+                width = 700
+                height = 520
+                top = 0
+                left = 0
+                title = ""
+                form_name = "Form"
+                try:
+                    if host is not None:
+                        g = host.geometry()
+                        width = int(g.width())
+                        height = int(g.height())
+                        top = int(g.y())
+                        left = int(g.x())
+                        title = host.windowTitle() or ""
+                except Exception:
+                    pass
+                try:
+                    if fw is not None:
+                        form_name = (getattr(fw, "form_class_name", "") or "Form").strip() or "Form"
+                except Exception:
+                    pass
 
-            cr = c._content_rect_global()
-            groups = {
-                "Name": [
-                    ("Name", getattr(c, "instance_name", "")),
-                    ("Type", getattr(c, "tool_name", "")),
-                ],
-                "Anzeige": [
-                    ("Left", str(cr.x())),
-                    ("Top", str(cr.y())),
-                    ("Width", str(cr.width())),
-                    ("Height", str(cr.height())),
-                ],
-                "Beschriftung": [
-                    ("Text", self._get_ctrl_text(c)),
-                ],
-            }
+                groups = {
+                    "Form": [
+                        ("Name", form_name),
+                        ("Width", str(width)),
+                        ("Height", str(height)),
+                        ("Top", str(top)),
+                        ("Left", str(left)),
+                        ("Title", title),
+                    ],
+                }
+            else:
+                cr = c._content_rect_global()
+                groups = {
+                    "Name": [
+                        ("Name", getattr(c, "instance_name", "")),
+                        ("Type", getattr(c, "tool_name", "")),
+                    ],
+                    "Anzeige": [
+                        ("Left", str(cr.x())),
+                        ("Top", str(cr.y())),
+                        ("Width", str(cr.width())),
+                        ("Height", str(cr.height())),
+                    ],
+                    "Beschriftung": [
+                        ("Text", self._get_ctrl_text(c)),
+                    ],
+                }
 
             self.tree_props.setRootIsDecorated(True)
             for gname, rows in groups.items():
-                top = QTreeWidgetItem([gname, ""])
-                top.setFirstColumnSpanned(True)
-                top.setFlags(top.flags() & ~Qt.ItemIsEditable)
-                top.setFont(0, self._ui_font)
-                self.tree_props.addTopLevelItem(top)
+                top_item = QTreeWidgetItem([gname, ""])
+                top_item.setFirstColumnSpanned(True)
+                top_item.setFlags(top_item.flags() & ~Qt.ItemIsEditable)
+                top_item.setFont(0, self._ui_font)
+                self.tree_props.addTopLevelItem(top_item)
 
                 for k, v in rows:
                     it = QTreeWidgetItem([k, str(v)])
                     it.setFlags(it.flags() | Qt.ItemIsEditable)
                     it.setFont(0, self._ui_font)
                     it.setFont(1, self._ui_font)
-                    top.addChild(it)
-                top.setExpanded(True)
+                    top_item.addChild(it)
+                top_item.setExpanded(True)
         except Exception:
             pass
         finally:
@@ -7636,8 +7644,6 @@ class ObjectInspectorPanel(QWidget):
         if col != 1:
             return
         c = self._current_ctrl
-        if c is None:
-            return
 
         try:
             if item.parent() is None and item.childCount() > 0:
@@ -7647,6 +7653,46 @@ class ObjectInspectorPanel(QWidget):
 
         key = (item.text(0) or "").strip()
         val = item.text(1)
+
+        if c is None:
+            fw = getattr(self.main_window, "form_designer_window", None)
+            host = None
+            try:
+                host = fw.parentWidget() if fw is not None else None
+            except Exception:
+                host = None
+            if host is None and fw is not None:
+                try:
+                    host = fw.window()
+                except Exception:
+                    host = None
+            try:
+                if key.lower() == "name" and fw is not None:
+                    fw.form_class_name = val.strip() or "Form"
+                    self.obj_combo.setItemText(0, fw.form_class_name)
+                    self.obj_combo.setCurrentIndex(0)
+                    return
+                if key.lower() in ("left", "top", "width", "height") and host is not None:
+                    n = int(float(val))
+                    g = host.geometry()
+                    if key.lower() == "left":
+                        g.moveLeft(n)
+                    elif key.lower() == "top":
+                        g.moveTop(n)
+                    elif key.lower() == "width":
+                        g.setWidth(max(1, n))
+                    elif key.lower() == "height":
+                        g.setHeight(max(1, n))
+                    host.setGeometry(g)
+                    self._refresh_properties()
+                    return
+                if key.lower() == "title" and host is not None:
+                    host.setWindowTitle(val)
+                    self._refresh_properties()
+                    return
+            except Exception:
+                pass
+            return
 
         try:
             if key.lower() == "name":
@@ -7714,20 +7760,14 @@ class ObjectInspectorPanel(QWidget):
 
     def _on_combo_changed(self, idx):
         ctrl = self.obj_combo.itemData(idx)
-        if ctrl is None:
-            try:
-                self.main_window.activate_form()
-            except Exception:
-                pass
-            self.set_current(None)
-            return
-
         try:
             canvas = getattr(self.main_window, "designer_canvas", None)
             if canvas is not None:
                 canvas.set_active(ctrl)
         except Exception:
             pass
+        self._current_ctrl = ctrl
+        self._refresh_properties()
 
     def _open_event_editor_for_item(self, item):
         if item is None:
