@@ -22,8 +22,8 @@ from   share.utildef.helpwin        import *
 from   share.utildef.theme          import *
 from   share.widgets.button.glossy  import *
 
-from   share.parsers.dbase.parser   import *
-import share.parsers.dbase.parser as _dbase_parser_runtime
+from   parse.dbase.parser           import *
+import parse.dbase.parser as _dbase_parser_runtime
 
 # ---------------------------------------------------------------------------
 # perform Windows 10/11 specifiec stuff ...
@@ -4416,8 +4416,20 @@ class DesktopPropertiesDialog(QDialog):
         self.setFont(QFont("Arial", 10))
 
         root = QVBoxLayout(self)
-        self.tabs = QTabWidget(self)
-        root.addWidget(self.tabs)
+
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setObjectName("desktop_properties_scroll_area")
+        root.addWidget(self.scroll_area, 1)
+
+        self.scroll_widget = QWidget(self.scroll_area)
+        self.scroll_widget.setObjectName("desktop_properties_scroll_widget")
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.tabs = QTabWidget(self.scroll_widget)
+        self.scroll_layout.addWidget(self.tabs, 1)
+        self.scroll_area.setWidget(self.scroll_widget)
 
         self.tabs.addTab(self._build_tab_country(), share.locales.tr("Country"))
         self.tabs.addTab(self._build_tab_table(), share.locales.tr("Table"))
@@ -4452,7 +4464,7 @@ class DesktopPropertiesDialog(QDialog):
 
         self._country_syncing = False
         self._load_desktop_properties()
-        self.resize(520, 360)
+        self.resize(620, 520)
 
     def onbtn_accept(self):
         self._apply_desktop_properties()
@@ -11373,6 +11385,7 @@ class MainWindow(QMainWindow):
         if self._dlg_workplace is None:
             self._dlg_workplace = DesktopPropertiesDialog(self)
             sub = MAINAPP.mdi.addSubWindow(self._dlg_workplace)
+            sub.resize(650, 500)
             # Wenn Benutzer das Fenster schließt, Instanz wieder freigeben
             self._dlg_workplace.mdi = sub
             self._dlg_workplace.finished.connect(lambda _=0: setattr(self, "_dlg_workplace", None))

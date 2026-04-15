@@ -40,19 +40,19 @@
         "win11": false
       },
       "active_codepage": "",
-      "supported_architectures": "x86",
+      "supported_architectures": "x64",
       "consolePolicies": {
         "v2": true,
-        "force_v1": true,
+        "force_v1": false,
         "terminal_level_aware": true,
         "wrap_text_at_eol": true
       }
     },
     "github": {
       "owner": "",
-      "repository": "",
+      "repository": "aa",
       "branch": "",
-      "token": "",
+      "token": "sss",
       "log": "oooo\nppp"
     },
     "notes": "",
