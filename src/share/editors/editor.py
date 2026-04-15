@@ -3,13 +3,13 @@
 # \author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # \note  : All rights reserved
 # ---------------------------------------------------------------------------
-from __future__ import annotations
+from   __future__ import annotations
 
 import share.common
 from   share.common                  import *
-from   share.editors.dbase.highlight import *
 
-from parse.dbase.parser import *
+from   share.editors.dbase.highlight import *
+from   share.parsers.dbase.parser    import *
 
 class BreakpointArea(QWidget):
     def __init__(self, editor: "CodeEditor"):

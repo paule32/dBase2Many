@@ -10,8 +10,6 @@ import os
 import builtins
 import re
 import tempfile
-from PyQt5.QtWidgets import QButtonGroup
-from PyQt5.QtCore import QDateTime
 
 from   share.common                 import *
 from   share.excepts                import *
@@ -24,8 +22,8 @@ from   share.utildef.helpwin        import *
 from   share.utildef.theme          import *
 from   share.widgets.button.glossy  import *
 
-from   parse.dbase.parser           import *
-import parse.dbase.parser as _dbase_parser_runtime
+from   share.parsers.dbase.parser   import *
+import share.parsers.dbase.parser as _dbase_parser_runtime
 
 # ---------------------------------------------------------------------------
 # perform Windows 10/11 specifiec stuff ...
