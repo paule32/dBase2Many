@@ -6738,15 +6738,39 @@ class PixelGridCanvas(QWidget):
         act_paste.setEnabled(bool(self._designer_clip))
         act_paste.triggered.connect(lambda: self.paste_from_clipboard(ev.globalPos()))
         menu.addAction(act_paste)
+
+        menu.addSeparator()
+
+        host = self.parent() if self.parent() is not None else None
+
+        act_load = QAction(share.locales.tr("Laden..."), self)
+        act_load.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
+        menu.addAction(act_load)
+
+        act_save = QAction(share.locales.tr("Speichern"), self)
+        act_save.triggered.connect(lambda: getattr(host, "_action_save_form", lambda: None)())
+        menu.addAction(act_save)
+
+        act_save_as = QAction(share.locales.tr("Speichern unter..."), self)
+        act_save_as.triggered.connect(lambda: getattr(host, "_action_save_form_as", lambda: None)())
+        menu.addAction(act_save_as)
+
         menu.exec_(ev.globalPos())
         
 # ---------------------------------------------------------------------------
 # Extra Fenster (MDI SubWindow) für den Formular-Designer mit Pixelgrid.
 # ---------------------------------------------------------------------------
+
 class FormDesignerWindow(QWidget):
+    _form_counter = 0
+
     def __init__(self, main_window: "MainWindow", parent=None):
         super().__init__(parent)
         self.main_window = main_window
+        self.current_form_path = ""
+        FormDesignerWindow._form_counter += 1
+        self.form_class_name = f"Form{FormDesignerWindow._form_counter}"
+
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
 
@@ -6760,6 +6784,172 @@ class FormDesignerWindow(QWidget):
         self.canvas.set_scroll_area(self.scroll_area)
 
         lay.addWidget(self.scroll_area, 1)
+
+    def _designer_host_widget(self):
+        try:
+            host = self.parentWidget()
+            if host is not None:
+                return host
+        except Exception:
+            pass
+        try:
+            return self.window()
+        except Exception:
+            return None
+
+    def _form_geometry_for_save(self):
+        host = self._designer_host_widget()
+        if host is None:
+            return 640, 480, 0, 0
+        try:
+            g = host.geometry()
+            return int(g.width()), int(g.height()), int(g.y()), int(g.x())
+        except Exception:
+            return 640, 480, 0, 0
+
+    def _serialize_form_text(self) -> str:
+        width, height, top, left = self._form_geometry_for_save()
+        lines = [
+            f"CLASS  {self.form_class_name} OF FORM",
+            "\tWITH (this)",
+            f"\t\twidth = {width}",
+            f"\t\theight = {height}",
+            f"\t\ttop = {top}",
+            f"\t\tleft = {left}",
+            "\tENDWITH",
+            "ENDCLASS",
+            "",
+        ]
+
+        for ctrl in list(getattr(self.canvas, "_controls", [])):
+            try:
+                r = ctrl._content_rect_global()
+                name = getattr(ctrl, "instance_name", "") or getattr(ctrl, "tool_name", "Control")
+                tool = getattr(ctrl, "tool_name", "Control")
+                lines.extend([
+                    f"OBJECT  {name} AS {tool}",
+                    "\tWITH (this)",
+                    f"\t\twidth = {int(r.width())}",
+                    f"\t\theight = {int(r.height())}",
+                    f"\t\ttop = {int(r.y())}",
+                    f"\t\tleft = {int(r.x())}",
+                    "\tENDWITH",
+                    "ENDOBJECT",
+                    "",
+                ])
+            except Exception:
+                pass
+
+        return "\n".join(lines).rstrip() + "\n"
+
+    def _write_form_file(self, file_path: str):
+        content = self._serialize_form_text()
+        with open(file_path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        self.current_form_path = file_path
+
+    def _clear_designer_controls(self):
+        for ctrl in list(getattr(self.canvas, "_controls", [])):
+            try:
+                ctrl.deleteLater()
+            except Exception:
+                pass
+        self.canvas._controls = []
+        self.canvas.set_active(None)
+        try:
+            self.canvas.update()
+            self.canvas.update_canvas_size()
+        except Exception:
+            pass
+        try:
+            mw = getattr(self, "main_window", None)
+            if mw is not None and hasattr(mw, "on_designer_controls_changed"):
+                mw.on_designer_controls_changed(self.canvas._controls)
+        except Exception:
+            pass
+
+    def _load_from_form_file(self, file_path: str):
+        with open(file_path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+
+        class_match = re.search(
+            r"CLASS\s+([A-Za-z_][A-Za-z0-9_]*)\s+OF\s+FORM\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?ENDWITH\s+ENDCLASS",
+            content,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        if class_match:
+            self.form_class_name = class_match.group(1)
+            width = int(class_match.group(2))
+            height = int(class_match.group(3))
+            top = int(class_match.group(4))
+            left = int(class_match.group(5))
+            host = self._designer_host_widget()
+            if host is not None:
+                try:
+                    host.setGeometry(left, top, width, height)
+                except Exception:
+                    pass
+
+        self._clear_designer_controls()
+
+        object_pattern = re.compile(
+            r"OBJECT\s+([A-Za-z_][A-Za-z0-9_]*)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?ENDWITH\s+ENDOBJECT",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        for m in object_pattern.finditer(content):
+            name = m.group(1)
+            tool = m.group(2)
+            width = int(m.group(3))
+            height = int(m.group(4))
+            top = int(m.group(5))
+            left = int(m.group(6))
+            rect = QRect(left, top, max(16, width), max(16, height))
+            ctrl = DesignerControl(tool, self.canvas, rect)
+            ctrl.instance_name = name
+            ctrl.show()
+            self.canvas._controls.append(ctrl)
+
+        try:
+            self.canvas.update_canvas_size()
+        except Exception:
+            pass
+        try:
+            mw = getattr(self, "main_window", None)
+            if mw is not None and hasattr(mw, "on_designer_controls_changed"):
+                mw.on_designer_controls_changed(self.canvas._controls)
+        except Exception:
+            pass
+        self.current_form_path = file_path
+
+    def _action_save_form_as(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            share.locales.tr("Formular speichern unter"),
+            self.current_form_path or f"{self.form_class_name}.wfm",
+            "Formulare (*.wfm *.frm);;WFM (*.wfm);;FRM (*.frm);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith((".wfm", ".frm")):
+            file_path += ".wfm"
+        self._write_form_file(file_path)
+
+    def _action_save_form(self):
+        if not self.current_form_path:
+            self._action_save_form_as()
+            return
+        self._write_form_file(self.current_form_path)
+
+    def _action_load_form(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            share.locales.tr("Formular laden"),
+            "",
+            "Formulare (*.wfm *.frm);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        self._load_from_form_file(file_path)
 
     def closeEvent(self, ev):
         mw = getattr(self, 'main_window', None)
