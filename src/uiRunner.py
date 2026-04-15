@@ -9059,22 +9059,30 @@ class ProjectDialog(QDialog):
         self.tree_project.setColumnCount(1)
         self.tree_project.setMinimumWidth(220)
 
-        for caption in [
-            share.locales.tr("Formulare"),
-            share.locales.tr("Programme"),
-            share.locales.tr("Berichte"),
-            share.locales.tr("Abfragen"),
-            share.locales.tr("Internet"),
-            share.locales.tr("Localize"),
-            share.locales.tr("Grafiken"),
-            share.locales.tr("Sonstiges"),
+        self.project_roots = {}
+        for key, caption in [
+            ("forms", share.locales.tr("Formulare")),
+            ("programs", share.locales.tr("Programme")),
+            ("reports", share.locales.tr("Berichte")),
+            ("queries", share.locales.tr("Abfragen")),
+            ("internet", share.locales.tr("Internet")),
+            ("localize", share.locales.tr("Localize")),
+            ("graphics", share.locales.tr("Grafiken")),
+            ("misc", share.locales.tr("Sonstiges")),
         ]:
-            self.tree_project.addTopLevelItem(QTreeWidgetItem([caption]))
+            item = QTreeWidgetItem([caption])
+            item.setData(0, Qt.UserRole, {"kind": "root", "root_key": key})
+            self.tree_project.addTopLevelItem(item)
+            self.project_roots[key] = item
 
         try:
             self.tree_project.expandAll()
         except Exception:
             pass
+
+        self._project_clipboard = None
+        self.tree_project.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree_project.customContextMenuRequested.connect(self._on_project_tree_context_menu)
 
         right_side = QWidget(self.split_horizontal)
         right_side.setObjectName("project_right_side")
@@ -9161,6 +9169,189 @@ class ProjectDialog(QDialog):
             self.split_vertical.setSizes([360, 160])
         except Exception:
             pass
+
+    def _project_root(self, key: str):
+        return self.project_roots.get(key)
+
+    def _tree_item_payload(self, item):
+        try:
+            data = item.data(0, Qt.UserRole)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _add_files_to_root(self, root_key: str, title: str, file_filter: str):
+        root_item = self._project_root(root_key)
+        if root_item is None:
+            return
+
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            share.locales.tr(title),
+            "",
+            file_filter,
+        )
+        if not files:
+            return
+
+        existing = set()
+        for i in range(root_item.childCount()):
+            child = root_item.child(i)
+            payload = self._tree_item_payload(child)
+            path = payload.get("path") or ""
+            if path:
+                existing.add(os.path.normcase(os.path.normpath(path)))
+
+        for file_path in files:
+            norm = os.path.normcase(os.path.normpath(file_path))
+            if norm in existing:
+                continue
+            node = QTreeWidgetItem([os.path.basename(file_path)])
+            node.setData(0, Qt.UserRole, {
+                "kind": "file",
+                "root_key": root_key,
+                "path": file_path,
+            })
+            root_item.addChild(node)
+            existing.add(norm)
+
+        root_item.setExpanded(True)
+
+    def _copy_selected_tree_item(self):
+        item = self.tree_project.currentItem()
+        if item is None:
+            return
+        payload = self._tree_item_payload(item)
+        if payload.get("kind") != "file":
+            return
+        self._project_clipboard = {
+            "text": item.text(0),
+            "payload": dict(payload),
+        }
+
+    def _paste_tree_item(self):
+        clip = self._project_clipboard
+        if not isinstance(clip, dict):
+            return
+
+        item = self.tree_project.currentItem()
+        target_root = None
+        if item is not None:
+            payload = self._tree_item_payload(item)
+            if payload.get("kind") == "root":
+                target_root = item
+            elif item.parent() is not None:
+                target_root = item.parent()
+
+        if target_root is None:
+            target_root = self._project_root(clip.get("payload", {}).get("root_key", ""))
+
+        if target_root is None:
+            return
+
+        new_payload = dict(clip.get("payload") or {})
+        node = QTreeWidgetItem([clip.get("text") or ""])
+        node.setData(0, Qt.UserRole, new_payload)
+        target_root.addChild(node)
+        target_root.setExpanded(True)
+
+    def _delete_selected_tree_item(self):
+        item = self.tree_project.currentItem()
+        if item is None:
+            return
+        payload = self._tree_item_payload(item)
+        if payload.get("kind") == "root":
+            return
+        parent = item.parent()
+        if parent is None:
+            return
+        parent.removeChild(item)
+
+    def _on_project_tree_context_menu(self, pos):
+        menu = QMenu(self.tree_project)
+
+        m_add = menu.addMenu(share.locales.tr("Hinzufügen"))
+
+        act_add_program = QAction(share.locales.tr("Programm"), self.tree_project)
+        act_add_program.triggered.connect(
+            lambda: self._add_files_to_root(
+                "programs",
+                "Datei laden",
+                "Programme (*.prg);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_program)
+
+        act_add_form = QAction(share.locales.tr("Formular"), self.tree_project)
+        act_add_form.triggered.connect(
+            lambda: self._add_files_to_root(
+                "forms",
+                "Datei laden",
+                "Formulare (*.wfm *.frm);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_form)
+
+        act_add_report = QAction(share.locales.tr("Bericht"), self.tree_project)
+        act_add_report.triggered.connect(
+            lambda: self._add_files_to_root(
+                "reports",
+                "Datei laden",
+                "Berichte (*.rep *.rpt *.frx *.rtm);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_report)
+
+        act_add_sql = QAction(share.locales.tr("SQL"), self.tree_project)
+        act_add_sql.triggered.connect(
+            lambda: self._add_files_to_root(
+                "queries",
+                "Datei laden",
+                "SQL Dateien (*.sql *.sqlb.json);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_sql)
+
+        act_add_graphic = QAction(share.locales.tr("Grafik"), self.tree_project)
+        act_add_graphic.triggered.connect(
+            lambda: self._add_files_to_root(
+                "graphics",
+                "Datei laden",
+                "Grafiken (*.png *.jpg *.jpeg *.bmp *.gif *.svg *.ico *.webp);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_graphic)
+
+        act_add_misc = QAction(share.locales.tr("Sonstiges"), self.tree_project)
+        act_add_misc.triggered.connect(
+            lambda: self._add_files_to_root(
+                "misc",
+                "Datei laden",
+                "Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_misc)
+
+        menu.addSeparator()
+
+        current_item = self.tree_project.itemAt(pos)
+        if current_item is not None:
+            self.tree_project.setCurrentItem(current_item)
+        payload = self._tree_item_payload(self.tree_project.currentItem()) if self.tree_project.currentItem() else {}
+
+        act_copy = menu.addAction(share.locales.tr("Kopieren"))
+        act_copy.setEnabled(payload.get("kind") == "file")
+        act_copy.triggered.connect(self._copy_selected_tree_item)
+
+        act_paste = menu.addAction(share.locales.tr("Einfügen"))
+        act_paste.setEnabled(isinstance(self._project_clipboard, dict))
+        act_paste.triggered.connect(self._paste_tree_item)
+
+        act_delete = menu.addAction(share.locales.tr("Löschen"))
+        act_delete.setEnabled(payload.get("kind") == "file")
+        act_delete.triggered.connect(self._delete_selected_tree_item)
+
+        menu.exec_(self.tree_project.viewport().mapToGlobal(pos))
 
 
 
