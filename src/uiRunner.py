@@ -31,7 +31,7 @@ import parse.dbase.parser as _dbase_parser_runtime
 # ---------------------------------------------------------------------------
 if SystemInfo.is_windows():
     import ctypes
-    debug_print(share.locales.tr("Windows detected."))
+    debug_print(share.locales.tr("Windows detected"))
 elif SystemInfo.is_linux():
     debug_print(share.locales.tr("Linux detected"))
 else:
