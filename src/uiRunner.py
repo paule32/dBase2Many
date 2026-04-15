@@ -9026,14 +9026,15 @@ class LocalizeToolWindow(QWidget):
         except Exception:
             pass
 
+
 class ProjectDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(share.locales.tr("Project"))
-        self.resize(760, 540)
+        self.resize(760, 440)
+        self._project_file_path = ""
 
         root_layout = QVBoxLayout(self)
-
         self.tabs = QTabWidget(self)
 
         # ------------------------------------------------------------------
@@ -9075,11 +9076,6 @@ class ProjectDialog(QDialog):
             self.tree_project.addTopLevelItem(item)
             self.project_roots[key] = item
 
-        try:
-            self.tree_project.expandAll()
-        except Exception:
-            pass
-
         self._project_clipboard = None
         self.tree_project.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_project.customContextMenuRequested.connect(self._on_project_tree_context_menu)
@@ -9090,20 +9086,108 @@ class ProjectDialog(QDialog):
         right_side_layout.setContentsMargins(0, 0, 0, 0)
         right_side_layout.setSpacing(6)
 
-        list_panel = QWidget(right_side)
-        list_panel.setObjectName("project_list_panel")
-        list_panel.setMinimumWidth(300)
-        list_panel_layout = QVBoxLayout(list_panel)
-        list_panel_layout.setContentsMargins(0, 0, 0, 0)
-        list_panel_layout.setSpacing(6)
+        scroll_host = QWidget(right_side)
+        scroll_host.setObjectName("project_scroll_host")
+        scroll_host.setMinimumWidth(330)
+        scroll_host_layout = QVBoxLayout(scroll_host)
+        scroll_host_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_host_layout.setSpacing(0)
 
-        self.ed_filter = QLineEdit(list_panel)
-        self.ed_filter.setObjectName("project_filter_edit")
-        list_panel_layout.addWidget(self.ed_filter, 0)
+        self.scroll_area = QScrollArea(scroll_host)
+        self.scroll_area.setObjectName("project_scroll_area")
+        self.scroll_area.setWidgetResizable(True)
 
-        self.list_items = QListWidget(list_panel)
-        self.list_items.setObjectName("project_list")
-        list_panel_layout.addWidget(self.list_items, 1)
+        self.scroll_widget = QWidget(self.scroll_area)
+        self.scroll_widget.setObjectName("project_scroll_widget")
+        self.scroll_form_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_form_layout.setContentsMargins(6, 6, 6, 6)
+        self.scroll_form_layout.setSpacing(8)
+
+        manifest_form = QFormLayout()
+        self.ed_manifest_version = QLineEdit(self.scroll_widget)
+        self.ed_manifest_version.setObjectName("project_manifest_version")
+        manifest_form.addRow(share.locales.tr("Manifest-Version"), self.ed_manifest_version)
+        self.scroll_form_layout.addLayout(manifest_form)
+
+        self.gb_identity = QGroupBox(share.locales.tr("Identity"), self.scroll_widget)
+        identity_form = QFormLayout(self.gb_identity)
+        self.ed_identity_type = QLineEdit(self.gb_identity)
+        self.ed_identity_name = QLineEdit(self.gb_identity)
+        self.ed_identity_language = QLineEdit(self.gb_identity)
+        self.ed_identity_arch = QLineEdit(self.gb_identity)
+        self.ed_identity_version = QLineEdit(self.gb_identity)
+        self.ed_identity_public_key = QLineEdit(self.gb_identity)
+        identity_form.addRow(share.locales.tr("Art"), self.ed_identity_type)
+        identity_form.addRow(share.locales.tr("Name"), self.ed_identity_name)
+        identity_form.addRow(share.locales.tr("Sprache"), self.ed_identity_language)
+        identity_form.addRow(share.locales.tr("Prozessor-Architektur"), self.ed_identity_arch)
+        identity_form.addRow(share.locales.tr("Version"), self.ed_identity_version)
+        identity_form.addRow(share.locales.tr("publicKeyToken"), self.ed_identity_public_key)
+        self.scroll_form_layout.addWidget(self.gb_identity)
+
+        self.gb_compat = QGroupBox(share.locales.tr("Kompatibilität"), self.scroll_widget)
+        compat_layout = QVBoxLayout(self.gb_compat)
+
+        self.gb_application = QGroupBox(share.locales.tr("Anwendung"), self.gb_compat)
+        application_layout = QVBoxLayout(self.gb_application)
+
+        self.gb_supported_os = QGroupBox(share.locales.tr("Unterstützte OS"), self.gb_application)
+        os_layout = QVBoxLayout(self.gb_supported_os)
+        self.chk_os_xp = QCheckBox("Windows XP", self.gb_supported_os)
+        self.chk_os_vista = QCheckBox("Windows Vista", self.gb_supported_os)
+        self.chk_os_7 = QCheckBox("Windows 7", self.gb_supported_os)
+        self.chk_os_8 = QCheckBox("Windows 8", self.gb_supported_os)
+        self.chk_os_81 = QCheckBox("Windows 8.1", self.gb_supported_os)
+        self.chk_os_10 = QCheckBox("Windows 10", self.gb_supported_os)
+        self.chk_os_11 = QCheckBox("Windows 11", self.gb_supported_os)
+        for chk in [
+            self.chk_os_xp,
+            self.chk_os_vista,
+            self.chk_os_7,
+            self.chk_os_8,
+            self.chk_os_81,
+            self.chk_os_10,
+            self.chk_os_11,
+        ]:
+            os_layout.addWidget(chk)
+        application_layout.addWidget(self.gb_supported_os)
+
+        app_form = QFormLayout()
+        self.ed_active_codepage = QLineEdit(self.gb_application)
+        self.cb_supported_arch = QComboBox(self.gb_application)
+        self.cb_supported_arch.addItems([
+            "",
+            "x86",
+            "x64",
+            "arm64",
+            "x86,x64",
+            "x86,x64,arm64",
+        ])
+        app_form.addRow(share.locales.tr("Aktive CodePage"), self.ed_active_codepage)
+        app_form.addRow(share.locales.tr("supported Architectures"), self.cb_supported_arch)
+        application_layout.addLayout(app_form)
+
+        self.gb_console_policies = QGroupBox("consolePolicies", self.gb_application)
+        console_layout = QVBoxLayout(self.gb_console_policies)
+        self.chk_console_v2 = QCheckBox("V2", self.gb_console_policies)
+        self.chk_console_force_v1 = QCheckBox("ForceV1", self.gb_console_policies)
+        self.chk_console_terminal = QCheckBox("TerminalLevelAware", self.gb_console_policies)
+        self.chk_console_wrap = QCheckBox("WrapTextAtEOL", self.gb_console_policies)
+        for chk in [
+            self.chk_console_v2,
+            self.chk_console_force_v1,
+            self.chk_console_terminal,
+            self.chk_console_wrap,
+        ]:
+            console_layout.addWidget(chk)
+        application_layout.addWidget(self.gb_console_policies)
+
+        compat_layout.addWidget(self.gb_application)
+        self.scroll_form_layout.addWidget(self.gb_compat)
+        self.scroll_form_layout.addStretch(1)
+
+        self.scroll_area.setWidget(self.scroll_widget)
+        scroll_host_layout.addWidget(self.scroll_area, 1)
 
         self.button_panel = QWidget(right_side)
         self.button_panel.setObjectName("project_button_panel")
@@ -9127,7 +9211,7 @@ class ProjectDialog(QDialog):
         button_layout.addWidget(self.btn_cancel)
         button_layout.addStretch(1)
 
-        right_side_layout.addWidget(list_panel, 1)
+        right_side_layout.addWidget(scroll_host, 1)
         right_side_layout.addWidget(self.button_panel, 0)
 
         self.split_horizontal.setChildrenCollapsible(False)
@@ -9141,32 +9225,60 @@ class ProjectDialog(QDialog):
         self.split_vertical.setStretchFactor(1, 2)
 
         general_layout.addWidget(self.split_vertical, 1)
-
         self.tabs.addTab(self.tab_general, share.locales.tr("Allgemein"))
 
         # ------------------------------------------------------------------
-        # Tab 2: Platzhalter
+        # Tab 2: GitHub
         # ------------------------------------------------------------------
-        self.tab_more = QWidget(self)
-        self.tab_more.setObjectName("project_tab_more")
-        more_layout = QVBoxLayout(self.tab_more)
-        self.lbl_more = QLabel(share.locales.tr("Weitere Komponenten folgen später."), self.tab_more)
-        self.lbl_more.setObjectName("project_tab_more_label")
-        more_layout.addWidget(self.lbl_more)
-        more_layout.addStretch(1)
+        self.tab_github = QWidget(self)
+        self.tab_github.setObjectName("project_tab_github")
+        github_layout = QVBoxLayout(self.tab_github)
 
-        self.tabs.addTab(self.tab_more, share.locales.tr("Tab 2"))
+        self.gb_github_repo = QGroupBox("GitHub", self.tab_github)
+        gh_form = QFormLayout(self.gb_github_repo)
+        self.ed_gh_owner = QLineEdit(self.gb_github_repo)
+        self.ed_gh_repo = QLineEdit(self.gb_github_repo)
+        self.ed_gh_branch = QLineEdit(self.gb_github_repo)
+        self.ed_gh_token = QLineEdit(self.gb_github_repo)
+        self.ed_gh_token.setEchoMode(QLineEdit.Password)
+        gh_form.addRow(share.locales.tr("Owner"), self.ed_gh_owner)
+        gh_form.addRow(share.locales.tr("Repository"), self.ed_gh_repo)
+        gh_form.addRow(share.locales.tr("Branch"), self.ed_gh_branch)
+        gh_form.addRow(share.locales.tr("Token"), self.ed_gh_token)
+        github_layout.addWidget(self.gb_github_repo)
 
+        gh_button_row = QHBoxLayout()
+        self.btn_gh_init = QPushButton(share.locales.tr("Einrichten"), self.tab_github)
+        self.btn_gh_upload = QPushButton(share.locales.tr("Hochladen"), self.tab_github)
+        self.btn_gh_download = QPushButton(share.locales.tr("Herunterladen"), self.tab_github)
+        gh_button_row.addWidget(self.btn_gh_init)
+        gh_button_row.addWidget(self.btn_gh_upload)
+        gh_button_row.addWidget(self.btn_gh_download)
+        gh_button_row.addStretch(1)
+        github_layout.addLayout(gh_button_row)
+
+        self.memo_github = QPlainTextEdit(self.tab_github)
+        self.memo_github.setObjectName("project_github_log")
+        github_layout.addWidget(self.memo_github, 1)
+
+        self.tabs.addTab(self.tab_github, "GitHub")
         root_layout.addWidget(self.tabs, 1)
 
         self.btn_cancel.clicked.connect(self.close)
+        self.btn_load.clicked.connect(self._on_load_project)
+        self.btn_save.clicked.connect(self._on_save_project)
+        self.btn_save_as.clicked.connect(self._on_save_project_as)
 
         try:
-            self.split_horizontal.setSizes([250, 470])
+            self.split_horizontal.setSizes([240, 480])
         except Exception:
             pass
         try:
-            self.split_vertical.setSizes([360, 160])
+            self.split_vertical.setSizes([300, 110])
+        except Exception:
+            pass
+        try:
+            self.tree_project.expandAll()
         except Exception:
             pass
 
@@ -9179,6 +9291,185 @@ class ProjectDialog(QDialog):
             return data if isinstance(data, dict) else {}
         except Exception:
             return {}
+
+    def _clear_project_children(self):
+        for root in self.project_roots.values():
+            while root.childCount():
+                root.removeChild(root.child(0))
+
+    def _collect_tree_data(self):
+        data = {}
+        for key, root in self.project_roots.items():
+            files = []
+            for i in range(root.childCount()):
+                child = root.child(i)
+                payload = self._tree_item_payload(child)
+                files.append({
+                    "text": child.text(0),
+                    "path": payload.get("path", ""),
+                })
+            data[key] = files
+        return data
+
+    def _metadata_to_dict(self):
+        return {
+            "manifest_version": self.ed_manifest_version.text(),
+            "identity": {
+                "type": self.ed_identity_type.text(),
+                "name": self.ed_identity_name.text(),
+                "language": self.ed_identity_language.text(),
+                "processor_architecture": self.ed_identity_arch.text(),
+                "version": self.ed_identity_version.text(),
+                "publicKeyToken": self.ed_identity_public_key.text(),
+            },
+            "application": {
+                "supported_os": {
+                    "xp": self.chk_os_xp.isChecked(),
+                    "vista": self.chk_os_vista.isChecked(),
+                    "win7": self.chk_os_7.isChecked(),
+                    "win8": self.chk_os_8.isChecked(),
+                    "win81": self.chk_os_81.isChecked(),
+                    "win10": self.chk_os_10.isChecked(),
+                    "win11": self.chk_os_11.isChecked(),
+                },
+                "active_codepage": self.ed_active_codepage.text(),
+                "supported_architectures": self.cb_supported_arch.currentText(),
+                "consolePolicies": {
+                    "v2": self.chk_console_v2.isChecked(),
+                    "force_v1": self.chk_console_force_v1.isChecked(),
+                    "terminal_level_aware": self.chk_console_terminal.isChecked(),
+                    "wrap_text_at_eol": self.chk_console_wrap.isChecked(),
+                },
+            },
+            "github": {
+                "owner": self.ed_gh_owner.text(),
+                "repository": self.ed_gh_repo.text(),
+                "branch": self.ed_gh_branch.text(),
+                "token": self.ed_gh_token.text(),
+                "log": self.memo_github.toPlainText(),
+            },
+            "notes": self.editor_notes.toPlainText(),
+            "path_hint": self.ed_path.text(),
+        }
+
+    def _apply_metadata(self, meta: dict):
+        meta = meta or {}
+        identity = meta.get("identity") or {}
+        application = meta.get("application") or {}
+        supported_os = application.get("supported_os") or {}
+        console = application.get("consolePolicies") or {}
+        github = meta.get("github") or {}
+
+        self.ed_manifest_version.setText(meta.get("manifest_version", ""))
+        self.ed_identity_type.setText(identity.get("type", ""))
+        self.ed_identity_name.setText(identity.get("name", ""))
+        self.ed_identity_language.setText(identity.get("language", ""))
+        self.ed_identity_arch.setText(identity.get("processor_architecture", ""))
+        self.ed_identity_version.setText(identity.get("version", ""))
+        self.ed_identity_public_key.setText(identity.get("publicKeyToken", ""))
+
+        self.chk_os_xp.setChecked(bool(supported_os.get("xp")))
+        self.chk_os_vista.setChecked(bool(supported_os.get("vista")))
+        self.chk_os_7.setChecked(bool(supported_os.get("win7")))
+        self.chk_os_8.setChecked(bool(supported_os.get("win8")))
+        self.chk_os_81.setChecked(bool(supported_os.get("win81")))
+        self.chk_os_10.setChecked(bool(supported_os.get("win10")))
+        self.chk_os_11.setChecked(bool(supported_os.get("win11")))
+
+        self.ed_active_codepage.setText(application.get("active_codepage", ""))
+        idx = self.cb_supported_arch.findText(application.get("supported_architectures", ""))
+        self.cb_supported_arch.setCurrentIndex(idx if idx >= 0 else 0)
+
+        self.chk_console_v2.setChecked(bool(console.get("v2")))
+        self.chk_console_force_v1.setChecked(bool(console.get("force_v1")))
+        self.chk_console_terminal.setChecked(bool(console.get("terminal_level_aware")))
+        self.chk_console_wrap.setChecked(bool(console.get("wrap_text_at_eol")))
+
+        self.ed_gh_owner.setText(github.get("owner", ""))
+        self.ed_gh_repo.setText(github.get("repository", ""))
+        self.ed_gh_branch.setText(github.get("branch", ""))
+        self.ed_gh_token.setText(github.get("token", ""))
+        self.memo_github.setPlainText(github.get("log", ""))
+
+        self.editor_notes.setPlainText(meta.get("notes", ""))
+        self.ed_path.setText(meta.get("path_hint", ""))
+
+    def _project_to_dict(self):
+        return {
+            "project_file": self._project_file_path,
+            "tree": self._collect_tree_data(),
+            "meta": self._metadata_to_dict(),
+        }
+
+    def _apply_project_dict(self, data: dict):
+        self._clear_project_children()
+
+        tree = (data or {}).get("tree") or {}
+        for key, items in tree.items():
+            root = self._project_root(key)
+            if root is None:
+                continue
+            for entry in items or []:
+                file_path = entry.get("path", "")
+                text = entry.get("text") or (os.path.basename(file_path) if file_path else "")
+                node = QTreeWidgetItem([text])
+                node.setData(0, Qt.UserRole, {
+                    "kind": "file",
+                    "root_key": key,
+                    "path": file_path,
+                })
+                root.addChild(node)
+            root.setExpanded(True)
+
+        self._apply_metadata((data or {}).get("meta") or {})
+        try:
+            self.tree_project.expandAll()
+        except Exception:
+            pass
+
+    def _save_project_to_file(self, file_path: str):
+        data = self._project_to_dict()
+        with open(file_path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, ensure_ascii=False)
+        self._project_file_path = file_path
+        self.ed_path.setText(file_path)
+
+    def _load_project_from_file(self, file_path: str):
+        with open(file_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self._project_file_path = file_path
+        self.ed_path.setText(file_path)
+        self._apply_project_dict(data)
+
+    def _on_save_project_as(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            share.locales.tr("Projekt speichern unter"),
+            self._project_file_path or "projekt.pro",
+            "Projektdateien (*.pro);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith(".pro"):
+            file_path += ".pro"
+        self._save_project_to_file(file_path)
+
+    def _on_save_project(self):
+        if not self._project_file_path:
+            self._on_save_project_as()
+            return
+        self._save_project_to_file(self._project_file_path)
+
+    def _on_load_project(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            share.locales.tr("Projekt laden"),
+            "",
+            "Projektdateien (*.pro);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        self._load_project_from_file(file_path)
 
     def _add_files_to_root(self, root_key: str, title: str, file_filter: str):
         root_item = self._project_root(root_key)
@@ -9352,7 +9643,6 @@ class ProjectDialog(QDialog):
         act_delete.triggered.connect(self._delete_selected_tree_item)
 
         menu.exec_(self.tree_project.viewport().mapToGlobal(pos))
-
 
 
 
@@ -10806,9 +11096,9 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(dlg)
             mark_escape_close(sub)
             sub.setWindowTitle(share.locales.tr("Project"))
-            sub.setMinimumSize(800, 600)
-            sub.setMaximumSize(800, 600)
-            sub.resize(800, 600)
+            sub.setMinimumSize(800, 500)
+            sub.setMaximumSize(800, 500)
+            sub.resize(800, 500)
             dlg.show()
             sub.show()
             try:

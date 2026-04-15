@@ -102,7 +102,7 @@ try:
         QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
         QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
-        QScrollArea, QAbstractButton, QButtonGroup
+        QScrollArea, QAbstractButton, QButtonGroup, QFormLayout
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,
