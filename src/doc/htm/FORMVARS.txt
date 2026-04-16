@@ -1,0 +1,1415 @@
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    assist users to learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+
+    (c) 1995 A.A.Katz, All Rights Reserved
+    --------------------------------------------------------------------
+
+ FORMVARS.HOW
+ by A.A.Katz
+ 10-14-1995
+ Revised 10-28-1995
+ 
+ HOW TO - Vars, Params and Forms
+          How to (and how not to) use variables and parameters
+          with forms. How to get forms to "talk" to each other.
+
+ -----------------------------------------------------------
+ Contents:  The Problem With Variables
+            When You -Can- Use Variables
+ 
+            The Problem With Parameters
+            When You -Can- Use Parameters
+ 
+            The Problem With .WFMs
+
+            The Solution: Properties
+ 
+            The Object Reference
+            Where To Store the Object Reference
+
+            Where To Instantiate Your Forms
+            Getting Forms to Talk to Each Other
+
+            Summary
+
+            Sample Code - Parent "reads" Child
+            Sample Code - Child Updates Entryfield in Parent
+ -----------------------------------------------------------
+
+ Introduction
+ ------------
+ The primary purpose of this How-to is to help you, the Visual dBASE 
+ programmer, manage the data you send to or share between forms.
+ I suppose the easiest and fastest way to help you get your code up-
+ and-running would be to post a set of rules rather than deal with a
+ lot of theory. But, unless you really understand the interaction between
+ variables, parameters, properties and objects, you are bound to "hit the
+ wall" sooner or later.
+
+ Probably sooner.
+
+ I am assuming that you are a relatively new Visual dBASE programmer and
+ that you have some experience coding in a procedural language. Even if you
+ are an experienced object-oriented programmer, don't skip over the
+ "theoretical sections" at the beginning of this How-To. The Visual dBASE OOP
+ implementation may be very different from whatever OOP platforms you used
+ in the past.
+ 
+
+ The Problem With Variables
+ --------------------------
+
+ Variables and Object-Oriented Programming do not coexist particularly
+ well.
+
+ Variables are declared in procedures. Their visibility is defined by
+ procedures. Their lifespan is determined by procedures.
+
+ Consider a private variable:
+
+      1. It is visible in the declaring procedure and all subroutines 
+      called from the declaring procedure.
+      2. It ceases to exist when you return up the procedure chain from
+      the procedure in which it was declared.
+
+ The visibility and the lifespan of a private variable is totally depen-
+ dent on the relationship between procedures.
+
+ In OOP, that relationship does not exist because Objects are not
+ procedures.
+
+ Objects are independent entities floating around your user's screen
+ or lurking in memory awaiting calls to their methods. They are not
+ subroutines. You cannot "call down" to an object, nor do objects
+ "return" to the procedures in which they were created.
+ 
+ In truth, objects do not get "called" at all. They are "Instantiated",
+ created on-the-fly from a Class "blueprint". Each actual, functioning
+ object is said to be one "instance" of a Class. 
+
+ You can create any number of objects from a single Class: ten different
+ Entryfields from Class Entryfield, ten different forms from
+ Class Form - each with different attributes and behaviors.
+
+ And it's this potential for multiple instances of a Class that poses the
+ biggest problem using variables with Forms. If you enter data in
+ Entryfield1, you certainly don't want it to show up in Entryfield6.
+ If you change the value of CustNo on Form 1, you certainly don't want
+ it to change the value of CustNo in Form 2.
+ 
+ To prevent one object from overwriting the data of another, each object
+ is "encapsulated" - isolated and protected from all other objects
+ and instances.
+
+ The downside is that encapsulating objects prevents variables from being
+ seen or changed from any other object. A variable declared in a method
+ of Pushbutton1 is not visible to Pushbutton2. It is not "in scope".
+ A variable declared in a procedure cannot be seen by a Form - eveny20a
+ Form launched from that very same procedure. A variable declared in a
+ Form's OnOpen event is totally invisible to every other object on the
+ same Form.
+
+         Hint: When learning Object-Oriented programming, there's a
+         tendency to fall back on procedural techniques to try to
+         manage these new challenges. It is not uncommon for new
+         OO programmers to try to use Public variables to circumvent
+         the restrictions imposed by encapsulation. Don't do it. 
+         Public variables have their own special problems in OOP. 
+
+         They can be referenced from anywhere in your program. They
+         can also be overwritten from anywhere in your program. A newer
+         instance of an object can easily overwrite a variable declared
+         in an earlier instance.
+
+         Avoid using Public variables with Forms and other objects.
+
+ When To Use Variables
+ ---------------------
+ Using variables or not using variables is not a "religious" issue.
+ Variables are not yet history. They still have great value - within
+ your objects' methods.
+
+ "Methods" are procedures and functions encapsulated within an object.
+ They provide the "behavior" of your object. Despite their new name and
+ their link to their parent object, methods are still procedures and
+ functions. They will scope variables exactly like any other procedures
+ and functions.
+
+ Feel free to implement variables in methods:
+
+         Procedure Pushbutton1_OnClick
+         Local cVar
+         cVar = substr(Form.Combobox1.Value+space(35),1,35)
+         Sele MyTable
+         Seek cVar
+
+ Or in macros:
+
+         Procedure PushButton1_OnClick
+         Private n,cNum
+
+         For n = 1 to 3
+             cNum = str(n,1)
+             Sele table
+             Repl Field&CNum. with Form.Entryfield1.value
+         EndFor
+
+ 
+ The Problem with Parameters
+ ---------------------------
+
+ Parameters are data sent directly between processes (in Visual dBase,
+ processes are procedures, objects and functions). Unlike variables,
+ parameter data is sent explicitly. The target object or procedure must
+ have a structure built-in to receive this data and use it.
+
+ Some processes already have these structures pre-defined. Space() takes a
+ specific type and number of parameters, as do Keymatch(), Recno() and all
+ the other built-in functions. You cannot add a parameter to a built-in
+ function.
+
+ The same is true for standard built-in Classes. The only parameters that
+ you can send to an object instantiated from a Visual dBASE Standard Class
+ (like Forms, Menus, Pushbuttons and Entryfields) are the pre-defined
+ parameters built in by Borland. In short, you cannot pass your data as
+ a parameter to a built-in Class or even to a Class - derived - from a
+ built-in Class.
+
+       Hint: Custom from-scratch Classes are a notable exception. These
+       Classes, like UDFs, do not have built-in parameters. Parameters
+       are specified and used by you, the programmer. You can send any
+       data you wish to a from-scratch Class with the following syntax:
+
+                   Class MyClass(Var1, Var2, Var3)
+
+       But you cannot send your data as parameters to a custom Class
+       derived from another:
+
+                  Class MyButton(f,n) of Pushbutton(f,n)
+
+       The example above has two parameters built in: Form (f) - so the
+       custom Class knows what Form is its parent, and Name (n) - so that
+       an object derived from the Class can be referenced by name. You
+       cannot add additional parameters to Class MyBbutton. They will not
+       be accepted.
+ 
+ Even if you could pass a parameter to a Form, it wouldn't serve any
+ purpose. Once a parameter is passed, it becomes a variable. As we noted
+ earlier, encapsulation will probably render your variable useless. It
+ wouldn't be in scope anywhere you'd need it.
+ 
+ 
+ When You Can Use Parameters
+ ---------------------------
+ You can use parameters freely, like variables, in the methods of your
+ forms. Once again, methods are, at heart, just procedures and functions.
+ They receive parameters exactly the same way non-OOP procedures and
+ functions do.
+
+        Class::SetFields(.t.)    &&call a method of the form
+
+        Procedure SetFields(lSwitchOn)  && Param received by the method
+        Form.Entryfield1.Enabled = lSwitchOn
+        Form.Entryfield2.Enabled = lSwitchOn
+        Form.Entryfield3.Enabled = lSwitchOn
+        Form.Combobox1.Enabled   = lSwitchOn
+
+ You can send parameters from any object on a Form to any other method,
+ procedure or function. You can send variables, calculations, or even
+ properties of your objects - by reference or by value.
+
+
+        Procedure Pushbutton1_OnClick
+        Form.Entryfield1.Value = Upper(Form.Entryfield1.Value)
+                                      && Property sent to built-in function
+        MyFunc(Form.Entryfield1.value-Form.Entryfield2.Value)
+                                      && Calculation sent to UDF
+        CLASS::Recalc(Form.Entryfield1.Value)
+                                      && Property sent to Class Method
+
+ The Problem With the .WFM
+ -------------------------
+
+ One thing you cannot do is send parameters to a form when you call a .WFM:
+
+        Do My.WFM with .f., MyData    && Will not send parameters!
+
+ Nor can you declare a variable within your .WFM that will get anywhere near
+ the object defined by its Class code.
+ 
+ The .WFM is a new file format that first appeared in dBASE 5 for Windows.
+ It is a hybrid - both an executable procedure file and a repository for
+ Class definitions. This multi-purpose file format can be confusing
+ when you try to visualize the flow of your data.
+
+ The following chart may help in sorting out the contents of the .WFM and
+ the flow of code that executes when you issue: Do My.WFM.
+
+ The .WFM is composed of five sections:
+
+    Section                             | Used For
+    ------------------------------------|----------------------------------
+    1. The Header - everything above:   | Any code entered here is executed
+       **END HEADER Do Not Remove       | first when the .WFM is called.
+                        this line       |
+                                        | Code in this area is NOT over-
+                                        | written by the Form Designer.
+                                        |
+    2. Instantiaton code:               | This code is executed second
+       Local f                          | when the .WFM is called.
+       f = new Myform()                 |
+       If bModal                        | It creates an object from the
+          f.MDI = .f.                   | Class definition in the .WFM
+          f.ReadModal()                 | and stores its address in a
+       Else                             | local variable (f).
+          f.Open()                      |  
+       Endif                            | Code in this area WILL be over-
+                                        | written by the Form Designer
+                                        |
+   3. Class Constructor code:           | This code DOES NOT EXECUTE
+      Class Myform of Form()            | when the .WFM is called
+      Define...                         | 
+      Define...                         | This is the "blueprint" that 
+      Define...                         | will be used when an object is 
+                                        | created using "New Myform()".
+                                        | 
+                                        | You may add objects (DEFINE), 
+                                        | change values of properties
+                                        | (Height 1.06), add function
+                                        | pointer calls (Class::Form_onOpen).
+                                        | You may NOT add custom properties 
+                                        | or executing code in this area. 
+                                        | These will be overwritten by the 
+                                        | Form Designer.                    
+                                        |
+   4. Methods - everything after the    | This code DOES NOT EXECUTE
+      last DEFINE:                      | when the .WFM is called.
+                                        | 
+      Procedure FORM_OnOpen             | This area contains the procedures
+      ...                               | and functions that describe the
+      Procedure Pushbutton1_OnClick     | behavior of the object. (Methods)
+      ...                               | 
+                                        | This code will NOT be overwritten
+      EndClass                          | by the Form Designer unless you
+                                        | bring it up and change it in the
+                                        | Procedure Editor.
+                                        |
+   5. General                           | This code DOES NOT EXECUTE
+                                        | when the .WFM is called.
+                                        |
+                                        | This section is useful for storing
+                                        | UDFs or procedures that are not
+                                        | methods of your Class, but get
+                                        | called from within the Class.
+                                        |
+                                        | Code in this area will not be over-
+                                        | written by the Form Designer.
+   --------------------------------------------------------------------------
+
+ You will note from the chart that the Class...Endclass code never executes.
+ It's read by Visual dBASE each time an object is created from this Class,
+ but is ignored completely when the .WFM itself is run.
+
+ Which makes perfect sense if you understand that, in the same way a
+ blueprint is not a house, a Class is not a Form. An object comes into
+ being only when it is instantiated - created from the Class blueprint.
+ Therefore Variables declared in your .WFMs or parameters sent to your
+ .WFMs never make it to the actual Form. The Form doesn't yet exist.
+ 
+       Hint: There is no reason why a Class definition has to be
+       in a .WFM. It can be in any disk file as long as it's loaded
+       into memory with SET PROCEDURE.
+       
+       The .WFM format exists only as a convenience to make it easier
+       for you and the Navigator to find your Form files.
+
+       In fact, the following sections will demonstrate that you can even
+       put instantiation code in other objects. It's a common Visual dBASE
+       convention to instantiate a child Form from within its parent
+       without ever calling the .WFM.
+
+
+ The Solution: Properties
+ ------------------------
+
+ Object-oriented languages have a new data structure called a "Property".
+ Properties are data-containers similar to variables. But, unlike variables,
+ they are attached to an object. Properties are the - data - of the object,
+ they define the object's attributes:
+
+          This.Height = 27
+          This.ColorNormal = "B/W"
+          This.StartingNum = 1
+          This. MDI = .f.
+
+ You should think of Properties as variables that are scoped to their
+ parent object and addressed directly via their "family tree".
+
+          Property:            Height (numeric)
+          Parent:              Pushbutton1
+          GrandParent:         Form
+
+          Form.Pushbutton1.Height
+
+
+          Property:            Height (numeric)
+          Parent:              Form
+
+          Form.Height
+
+ This family-tree style addressing is called "Dot-Notation". Using Dot
+ Notation, any object can be referenced or changed from anywhere in your
+ program - from any other object, procedure or function - as long as
+ you know your object's "family tree".
+
+ Visual dBASE even provides generic "placeholders" to substitute for
+ objects whose "lineage" is not known at design-time. 
+
+      This --- is the placeholder that substitutes the address of
+      the current executing object:
+
+           Procedure FORM_OnOpen
+           This.Height = 20       && "This" references the Form
+
+           Procedure Pushbutton1_OnClick
+           This.Height = 2        && "This" references Pushbutton1
+
+       Form --- is the placeholder that - always - refers to the
+       parent Form of the current object:
+
+           Procedure FORM_OnOpen
+           Form.Height = 20       && References the Form
+
+           Procedure Pushbutton1_OnClick
+           Form.Height = 20       && Still references the Form
+
+ Directly-addressed data has many advantages over floating variables with 
+ their procedural dependencies. Properties make data much easier to scope
+ and your code much easier to read and debug. Properties are both more
+ explicit and cleaner than variables.
+
+         Hint: Use properties anywhere you can instead of variables.
+         You can even emulate Public variables by attaching custom
+         properties to the application object (_app) built into Visual
+         dBASE. "_app.MyCustomProperty" is visible from every procedure,
+         function and object within your program. But use these
+         global properties with care - you can overwrite a property
+         attached to _app just as easily as you overwrite the value
+         of a Public variable.
+
+ Visual dBASE supports "dynamic properties". Many OO languages do not. 
+ Dynamic properties are properties added on-the-fly after an object has
+ been created (as opposed to being defined in the original Class).
+
+ This capability is extremely valuable for "interprocess communications",
+ the sending and receiving of data between two objects or between
+ procedures and objects. (See "Getting Forms To Talk To Each Other" later
+ in this HOW TO)
+ 
+         Hint: You cannot create dynamic properties in the Constructor
+         (Define) section of the Class code. You have two possible places
+         where you can add dynamic (sometimes called custom) properties:
+         1. In the OnOpen event of your form; or 2. After instantiation,
+         but before you Open() your form.
+
+         For esthetic reasons, it is almost always better to add a dynamic
+         property before you Open() your Form. If you use the OnOpen event,
+         your form may just sit onscreen doing nothing while the new prop-
+         erties are created. If your dynamic properties affect the display,
+         you may see an extra redraw before your Form stabilizes.
+         By creating your properties before your form's Open(), everything
+         is set up before the Form is drawn. Makes for a much cleaner Form
+         paint.
+      
+         1. Created in the OnOpen event of a Form
+
+               Procedure Form_OnOpen
+               This.Firstname = 'Alan'    && Create dynamic property of
+                                          && a Form in its OnOpen Method.
+
+               Form.Pushbutton1.MyData = 'Alan' 
+                                          && Create dynamic property of
+                                          && an object on a Form.
+
+
+         2. Created before the form is Open()ed
+
+               Procedure CallNewFormButton_OnClick
+               Set Proc to New.Wfm Additive
+               Form.oChild = New NewForm()
+               Form.oChild.FirstName = 'Alan'
+                                          && Create dynamic property of
+                                          && a Form before Open()ing
+               Form.oChild.Pusbutton1.MyData = 'Alan'
+                                          && Create dynamic property of
+                                          && an object on a Form
+                                          && before Open()ing.
+               Form.oChild.Open()
+
+
+ The Object (Instance) Reference
+ -------------------------------- 
+
+ We've already established that you can reference any property of any
+ object if you know its "family tree". Within a form, that's a pretty simple
+ proposition. The built-in variables "This" and "Form" make it easy to
+ identify the current object and the form that contains it.
+
+ However, if you're looking at an object from outside the object it's
+ not quite so simple.
+
+ It's all a matter of perspective.
+
+ If you're standing in my kitchen and want to know its color, you only
+ have to ask:
+
+     What color is - this room - ?
+ 
+ But if you're at my office and you want to know the color of my kitchen, 
+ you're going to have to give some more information to pinpoint which
+ particular kitchen you're referring to:
+
+    What color is - Alan's kitchen at home- ?
+ 
+ The information required to reference the color of my kitchen varies
+ depending on where you're standing. The same is true of referencing
+ properties on a Form. 
+
+ To reference a Form or an object on a Form from within the Form, you
+ use "This" or "Form", as in "This Kitchen".
+
+ To reference a Form from anywhere outside itself, you must know the unique
+ identifier of that particular Form instance. You need to know the "address"
+ of the object, as in "Alan's kitchen at his house in Upstate New York"
+
+ In Visual dBASE, every object has a unique address called the Object
+ Reference. Each pushbutton has its own Reference, distinct from every other
+ pushbutton. Each instance of a Form has its own Reference, distinct from
+ every other instance of this Form and every other Form.
+
+         Hint:This reference is sometimes called an Object Reference,
+         sometimes called an Instance Reference - they mean exactly the
+         same thing.
+
+ The Object Reference is returned automatically by Visual dBASE whenever an
+ object is instantiated.
+
+            oMy = New MyForm()  && Create new object, store address in
+                                && Object Reference Variable "oMy"
+
+ The Object Reference, which is an entirely new type of data (type "O"),
+ can be passed, copied and manipulated just like strings, dates, logicals,
+ and numerics. It can also be stored just like the other data types:
+
+    Variable - You can store your form's Object Reference in a variable, in
+    which case it's called the Object Reference Variable. 
+
+         Private oMy
+         oMy = New MyForm()            && Reference stored in variable "f"
+         oMy.Open()
+
+    Property - You can store your Object Reference in a property of
+    another object:
+
+         Form.oChild.oMy = New MyForm() && Reference stored in Form Property
+         Form.oChild.oMy.Open()
+
+    Global Property - You can store it in a dynamic property of the
+    application itself:
+
+         _app.oMy = New MyForm()        && Reference stored in property
+                                        && of _app
+         _app.oMy.Open()                     
+
+    Array Element - You can store it in an array element:
+
+        aForms[1] = New MyForm()        && Reference stored in array element
+        aForms[1].Open()
+
+ The Object Reference is your key to manipulating your data, controlling
+ your forms, to gluing your entire program together. Taken together, your
+ Object References are the outside perspective on all your individual
+ objects.
+
+          Hint: In special cases, the reference can be stored using the name
+          property of the object rather than an external Object Reference
+          but only when the object is "contained" in a Form:
+
+              Define Pushbutton Pushbutton1 Of This
+                                 && Reference is now Pushbutton1
+
+          The NEW command always returns an external Object Reference. 
+          The DEFINE command uses the Name Property as the object's
+          Reference.
+
+ To read a property of a Form from outside of the form, use the Object
+ Reference to establish the "family tree":
+
+            Perspective: From outside of the Form:
+
+            oMyForm.Myvar = 'Hello'
+            oMyForm.Pushbutton1.Height = 2
+ 
+            Perspective: From within the Form:
+
+            Form.MyVar = "Hello'
+            Form.Pushbutton1.Height = 2
+
+ The Object Reference can also be used to determine the status of a Form.
+
+       To test whether a variable is an Object Reference:
+
+            ? Type('form.oMyForm')  && "O" if object exists
+
+       To test whether an object is instantiated:
+
+            ? Empty(Form.oMyForm)   && If Empty() returns .t., object
+                                    && is not instantiated
+
+       To test whether a Form is Open:
+
+            ? Form.oMyform.wHnd     && If "handle" is greater than 0,
+                                    && the form is open
+            
+            Hint: Type()  returns "O" on an Object Reference even
+            after its object is released. The Object Reference is still
+            an Object Reference even though it no longer contains a valid
+            object.
+
+            To make it easier to test the status of Forms, You may want to
+            get rid of the Reference completely when you release an object,
+            by changing the value of the variable, property or array:
+
+                  Form.oMyForm = ''          or
+                  Form.oMyForm = .f.         or
+                  _app.aForms[1] = ''
+
+
+ Where To Store The Object Reference
+ -----------------------------------
+
+ The answer to this question is a good topic for a lengthy book.
+
+ The structure you use to store your Object References depends entirely
+ upon the needs of your application. Selecting and managing these 
+ structures should become an integral stage of all future program
+ design. Some Visual dBase programmers create their own custom Class
+ to manage Form References. Whether you create a custom Class or not,
+ you must establish a strategy so that you'll always know how to
+ access any Form in your program.
+
+ It is imperative to store your references in -accessible- data structures.
+ If you can't find the variable, property, or array containing your form's
+ address, you cannot access your form from outside. Your Object Reference
+ MUST BE IN SCOPE!
+
+ Here's a few suggestions. They are just suggestions, not rules. 
+ Your final structure must be determined by your application.
+ Consider them guidelines:
+
+ -----Single Instances
+ If you are creating SDI Forms - Forms of which there will be only one
+ single instance - you may want to use a property of the application
+ object to store your references:
+
+              _app.oCust = New CustomerForm()      && Instantiate.
+              _app.oCust.Pushbutton1.height = 2    && Reference.
+              _app.oCust.Open()                    && Open.
+
+ This is similar to storing your Object Reference in a Public variable.
+
+ -----Multiple Instances
+
+ If you are writing an MDI program - where there can be multiple instances
+ of a Form, I strongly suggest that you store your Forms' Object References
+ in an array. You have no way of knowing at design time how many instances
+ of your Form the user will have onscreen simultaneously. An array is a
+ structure that can grow to store each new Object Reference as the user
+ launches each new Form.
+
+            _app.aForms = New Array()              && Declare array.
+            _app.aForms.Grow(1)                    && Add element for each
+                                                   && instance.
+            _app.aForms[1] = New CustomerForm()    && Instantiate-
+            _app.aForms[1].Pushbutton1.Height = 2  && Reference...
+            _app.aForms.Open()                     && Open.
+
+
+ ------When calling a Modal Dialog
+
+ If you are "calling" a child modal dialog (like a customer lookup Form), I
+ suggest you store the child's Object Reference in a custom property
+ of the parent Form.
+             
+            Form.oChild = New CustomerForm()       && Instantiate into
+                                                   && a Custom Property.
+            Form.oChild.Pushbutton1.height = 2     && Reference.
+            Form.oChild.ReadModal()                && Open
+
+
+ Where to Instantiate Your Form
+ ------------------------------
+ If you are calling your forms with "Do My.WFM", you're probably using the
+ default instantiation code written by the Form Designer to create and open
+ your Form:
+
+           Local f
+           Param bModal
+           f = New MyForm()
+           If (bModal)
+              f.MDI = .f.
+              f.ReadModal()
+           Else
+              f.Open()
+           Endif
+
+ This code is wonderful for testing programs, and it does encapsulate the
+ object it creates, protecting it from all other forms or instances. But
+ it has a huge drawback. Its Object Reference Variable, "f", is Local!
+ As a Local variable, it cannot be addressed from any other Form, object,
+ procedure or function in your program. 
+
+        Hint: You should get into the habit - from the beginning -
+        of writing your own instantiation code. Let the Form Designer
+        use its default code for visual design sessions. But do not
+        rely on this code to launch your Forms from within your program.
+        You never know when you may need to address a Form. With the
+        default Visual dBASE code, you can't.
+
+        Once you hone your strategy, you may want to build it into
+        an object - a custom Form Manager Class to automate your
+        Form instances. Or you may wish to browse the Compuserve 
+        Forum for a custom Class you can adapt to your own style
+        and strategy.
+
+ So if you can't use the default Form Designer code, where do you put
+ your "launch" code?
+
+ There are two options:
+
+ 1. Instantiate your Forms from within the .WFM
+ 
+        If you check the .WFM chart in a previous section of this HOW TO,
+        you'll note that there is a Header code area above the line:
+
+            **End Header Do not Remove This Line
+
+        This area of the .WFM is for your code. The Form Designer will not
+        overwrite Header code. You may use this to instantiate your form
+        as long as you remember to add a "Return" as the last line. If
+        you don't, the .WFM will continue right on, executing the Form
+        Designer instantiaton code, opening your form twice:
+
+             My.wfm:
+
+             Set Procedure to Program(1)  && Explicitly load this
+                                          && procedure into memory to
+                                          && ensure that My.WFM will be
+                                          && available after the "Return".
+             _app.oMy = New MyForm()      && Instantiate Form
+             _app.oMy.Open()              && Open Form
+             Return                       && Go back.
+
+         To launch a Form using Header code, call: DO My.WFM
+
+ 2. Instantiate your forms from outside the .WFM.
+         
+         There are many places from which you can instantiate Forms
+         directly without calling the .WFM:
+
+                  A menu OnClick event
+                  A pushbutton OnClick event
+                  A Procedure
+                  A UDF
+                  A Custom Class
+
+         When you instantiate directly, make sure that you've 
+         explicitly loaded the .WFM file containing the Class Definition
+         for your Form:
+
+
+                 Procedure MyMenu_Run_Form_OnClick
+                 Set Proc to C:\Mydir\My.WFM Additive
+                 Form.oChild.MyForm = New MyForm()
+                 Form.oChild.Open()
+
+         It's as simple as that. Load the Class file into memory, 
+         instantiate the object into a property of the current object
+         and then Open() the form using the Object Reference.
+
+ Controversy. There is a great deal of discussion as to whether
+ instantiation code should be put at the top of each .WFM or
+ sprinkled throughout your program, as needed.
+
+ The "WFM Advocates" rightly point out that using the .WFM stores the
+ instantiation code in the same file as the Class definition, which offers
+ a certain kind of logical encapsulation. More important, you never have to
+ go looking for the instantiation code, you always know where it is.
+
+ However, I am a great advocate of instantiating your Forms from outside
+ the .WFM for a number of reasons:
+
+         1. The instantiation code is not a part of your object, any
+         more than a call to a UDF is a part of the UDF. When you
+         write User-Defined Functions, you certainly spread their calls
+         around as needed.
+
+         2. Instantiating in the header of the .WFM makes reusability
+         more difficult. If you need to set properties on a form each
+         time you instantiate - like title or color or even datalinks -
+         you will have to send that information to the .WFM as
+         parameters and convert them to properties in your Header code:
+
+         Setting properties in a direct instantiation:
+
+                Set Procedure to My.WFM Additive
+                Form.oChild = New MyForm()
+                Form.oChild.Titletext = 'Hello'
+                Form.oChild.Open()
+
+         To perform the exact same instantiation from the Header area
+         of the .WFM:
+
+               Do My.WFM with .f., 'Hello'
+
+               My.Prg:
+               Param bModal,cTitle            && Param statement
+               _app.oChild = New Myform()     && Instantiate
+               If type('cTitle') = 'C'        && If this param is sent
+                  _app.oChild.titletext.text = cTitle
+                                              && Set text property
+               Endif
+               _app.oChild.Open()             && Open Form
+               Return                        && Return
+
+         You have to test, as above, for each parameter sent to your
+         .WFM. In addition, calling the .WFM makes it more difficult
+         to "attach" your Form's Object Reference to the calling
+         object. In order to do that, you will have to send the 
+         parent Forms's Object Reference as yet another parameter.
+
+         For the reasons above, I recommend that you do not instantiate
+         your Forms using the Header of the .WFM. However, this is indeed
+         just one opinion. You should use whichever method fits your
+         application and your personal coding style.
+
+
+ Getting Forms To Talk To Forms
+ ------------------------------
+
+ We've defined Interprocess Communications earlier: Sending data back
+ and forth between objects, procedures and functions. In Visual dBASE
+ (and most OOP languages), you will communicate between Forms and/or 
+ procedures by setting or reading the values of a Form's properties from
+ outside that Form.
+
+ There is a virtually limitless number of possible "modes" of communicating
+ between processes. The three most common you will run across in Visual
+ dBASE programming are:
+
+ 1. Parent Form setting or reading a value in its child Form.
+ 2. Child Form setting or reading a value of its parent Form. 
+ 3. Form calling a procedure which must read or change a value
+    of its calling Form.
+ 
+ 
+ ------From Parent to child.
+
+ This is the easiest model because all communication is done from the
+ the parent Form, which already knows both its own Object Reference and
+ its child's Object Reference.
+
+
+            Procedure ChildButton_OnClick
+            Set proc to Child.Wfm  Additive     && Load procedure.
+            Form.oChild = New ChildForm()       && Instantiate child
+                                                && into a custom property
+                                                && of the parent Form.
+            Form.oChild.Pushbutton1.height = 2  && Set property of child.
+            Form.oChild.CustTotal = Form.Entryfield1.value
+                                                && Create dynamic property
+                                                && of child to "send"
+
+                                                && data.
+
+            Form.oChild.ReadModal()             && Open Child
+
+            Form.Entryfield1.Value = Form.oChild.CustTotal
+                                                && Read back from
+                                                && the child Form.
+
+            Close Proc Child.Wfm                && Unload Procedure.
+
+
+ ------From Child to Parent
+
+ This mode is different from the previous in that the child does not
+ know the parent's Reference. You have to "send" the parent's Object
+ Reference to the child in a dynamic property:
+ 
+
+            In the parent Form:
+
+            Form.oChild = New CustomerForm()
+            Form.oChild.oParent = Form      && Create a dynamic property in
+                                            && the child Form that stores
+                                            && the parent's Object
+                                            && Reference (Form).
+
+            In the child Form:
+
+            Form.oParent.Pushbutton1.Height = 2
+                                            && Set parent Form's property
+                                            && from within the child.
+
+            Form.oParent.CustTotal = Form.Entryfield1.value
+                                            && Creating a dynamic property
+                                            && of the parent with a value
+                                            && from the child.
+
+ ------Forms and Procedures/Functions
+ 
+ Sometimes you want an outside procedure or function to be able to change
+ a property of a Form. This is accomplished, like the Child-to-Parent example,
+ by sending the Form's Object Reference as a parameter:
+
+
+            In the Form:
+
+            Procedure ProcessButton_OnClick
+            Do Process with Form            &&Send Form Reference as a
+                                            &&parameter
+
+            In the Procedure:
+
+            Procedure Process(oForm)        &&Received Reference as a
+                                            &&Parameter
+
+            oForm.Text1.Text = 'Processing item # 1'
+                                            &&Updates Form using the
+                                            &&Reference to address the
+                                            &&Text1 object from within
+                                            &&The external procedure.
+
+
+           Hint: Remember the "perspective" discussion. You can
+           use the "placeholders" "Form" and "This" instead of the
+           Object Reference Variable when calling an outside procedure
+           or function from within a form. As we do in the example
+           above.
+
+ You can apply the previous examples to all kinds of situations where
+ forms talk to forms, UDFs update their calling Forms or objects talk to
+ other objects in Custom Classes. As long as you have an external Object
+ Reference stored in an accessible data structure, you can pass it back
+ and forth as a property of parent and child Forms or as a parameter of
+ a UDF. And once you have access to the Object Reference, you can change
+ any property from anywhere, run any method from anywhere. You have
+ complete control of your Forms.
+                  
+           Hint: You will remember that we stated previously that
+           "objects do not return" as procedures do. That statement
+           was accurate. However, there is one important case in which
+           objects emulate "return" behavior - a Form opened with 
+           ReadModal().
+
+           ReadModal() causes all program execution to halt and focus
+           to be given exclusively to the resulting modal dialog. The
+           user cannot click anywhere else, no other Forms can be
+           opened, no other procedures run until the modal Form is closed.
+
+           At that point, focus is given back to the Form that was active
+           prior to opening the modal dialog. Program execution continues
+           at the line following ReadModal().
+
+           This gives the effect of "returning" from a child Form to a
+           Parent. If you need to associate multiple Forms  - as in
+           "lookup" dialogs - all child forms must be opened with
+           ReadModal() rather than Open().
+
+
+ Summary
+ -------
+ Learn to instantiate all your own Forms so you're not bound by the default
+ code generated by the Form Designer. You'll soon become comfortable with
+ Object References and "passing" references back and forth between objects
+ and procedures.
+
+ Once you substitute properties for variables, you'll find you almost
+ never use parameters or variable declarations to store or pass
+ significant data with the exception of Object References. Your programs
+ will become more Object-Oriented, more encapsulated and easier to 
+ control.
+
+ The Object Reference Variable  is the "glue" that holds your Forms
+ together as a program.
+
+ All Interprocess Communications in OOP are accomplished by setting 
+ properties of an object from outside the object.
+
+
+ ************************************************************************
+ Sample Code 1 - Parent reads Child Form's Entryfield
+ ************************************************************************
+ The following sample consists of two simple Forms using Customer.Dbf
+ from the Visual dBASE samples directory. The parent Form calls the child
+ form and then reads the value of the child's CustomerNoField when the child
+ is closed - but before the child is released.
+ ************************************************************************
+ *------------------------------------------------------------
+ * Copy this code into a file called FormDemo.prg
+ * This short program sets up the environment
+ * and then calls the first form: CustomerForm
+ *
+ * To start this demo program type "Do Formdemo"
+ * from the Command Window.
+ *------------------------------------------------------------
+
+ SET TALK OFF                           && Set up environment
+ SET BELL OFF
+ SET CUAENTER ON
+ Set Procedure to Customer.Wfm Additive && Load into memory
+ _app.Cust = New CustomerForm()             && Instantiate
+ _app.Cust.Open()                       && Open Form.
+
+
+*--------------------------------------------Customer Form-----------
+ * Copy this code into a file called CUSTOMER.WFM
+ *
+ * This Form requires Customer.dbf from the Visual dBASE samples-
+ * Change the View property of the form to the appropriate drive and
+ * directory to access Customer.DBF
+ *--------------------------------------------------------------------
+
+ ** END HEADER -- do not remove this line*
+ * Generated on 09/25/95
+
+ parameter bModal                    && This code never runs because
+ local f                             && .WFM is never executed
+ f = new CUSTOMERForm()
+ if (bModal)
+    f.mdi = .F. && ensure not MDI
+    f.ReadModal()
+ else
+   f.Open()
+ endif
+
+ Class CUSTOMERForm OF Form           &&Customer Class "blueprint"
+   this.Left = 23
+   this.Top = 0
+   this.Width = 60
+   this.View = "C:\VISUALDB\SAMPLES\CUSTOMER.DBF"
+   this.Text = "Parent Form"
+   this.Height = 10.8232
+
+   DEFINE RECTANGLE RECTANGLE1 OF THIS;
+       PROPERTY; 
+         Left 2.333,;
+         Top 1.0586,;
+         Width 55.5,;
+         Text "",;
+         BorderStyle 2,;
+         Height 8.2939
+
+   DEFINE ENTRYFIELD CUSTOMERNOFIELD OF THIS;
+       PROPERTY; 
+         Left 26.833,;
+         Top 4.1758,;
+         Width 11.667,;
+         Value "          ",;
+         Height 1
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 12.833,;
+         Top 4.2344,;
+         Width 12.5,;
+         Text "Customer No.",;
+         Height 0.7656
+
+   DEFINE PUSHBUTTON LOOKUPBUTTON OF THIS;
+       PROPERTY; 
+         Left 40.166,;
+         Top 4.1172,;
+         Width 12.167,;
+         ColorNormal "R/W",;
+         Text "&Look Up",;
+         Group .T.,;
+         OnClick Class::LOOKUPBUTTON_ONCLICK,;
+         Height 1.1172
+
+   DEFINE PUSHBUTTON CLOSEBUTTON OF THIS;
+       PROPERTY; 
+         Left 40.166,;
+         Top 6.0586,;
+         Width 12.167,;
+         ColorNormal "B/W",;
+         Text "&Close",;
+         Group .T.,;
+         OnClick Class::CLOSEBUTTON_ONCLICK,;
+         Height 1.1172
+
+   Procedure CLOSEBUTTON_OnClick
+   Form.Close()
+   Form.Release()
+
+   Procedure LOOKUPBUTTON_OnClick
+   Set Procedure to CustLook.Wfm Additive   && Load Procedure.
+   
+   Form.oChild = New CustLookForm()         && Instantiate.
+   Form.oChild.Mdi = .f.           && Make sure it's not MDI.
+   Form.oChild.ReadModal()         && Open the lookup Modal.
+   
+   If Form.oChild.OKButtonPressed  && See if OK was pressed in child
+      Form.Customernofield.Value = Form.oChild.Entryfield1.value
+   Endif                           && If so, read child entryfield
+                                   && value into this Form's
+                                   && entryfield value.
+                                   
+   Form.oChild.Release()           && Release child here, not in
+                                   && child form
+   Close Proc CustLook.Wfm         && Unload Procedure File.
+
+ ENDCLASS
+
+ *-----------------------------------------------------------------
+ * Copy this code into Custlook.Wfm
+ *
+ * This Form is the child lookup Form for Customer.Wfm
+ * It has a Browse and a disabled Entryfield tor display
+ * of the currently selected Customer No.
+ *-----------------------------------------------------------------
+
+ ** END HEADER -- do not remove this line*
+ * Generated on 10/14/95
+ *
+ parameter bModal
+ local f
+ f = new CUSTLOOKForm()
+ if (bModal)
+    f.mdi = .F. && ensure not MDI
+    f.ReadModal()
+ else
+    f.Open()
+ endif
+ CLASS CUSTLOOKForm OF FORM
+   this.Top = 1.5879
+   this.Width = 60
+   this.OnOpen = CLASS::FORM_OnOpen
+   this.Height = 10.0586
+   this.Text = "Child Lookup Form"
+   this.MDI = .F.
+   this.Left = 33.833
+
+   DEFINE RECTANGLE RECTANGLE1 OF THIS;
+       PROPERTY; 
+         Top 0.5879,;
+         Width 57,;
+         Height 7.1172,;
+         BorderStyle 1,;
+         Text "Rectangle1",;
+         Left 0.833
+
+   DEFINE BROWSE BROWSE1 OF THIS;
+       PROPERTY; 
+         Top 1.3516,;
+         Alias "CUSTOMER",;
+         Width 52.6689,;
+         Fields 'CUSTOMER->CUSTOMER_N\H="Cust No.",;
+         CUSTOMER->NAME\H="Cust Name"',;
+         CUATab .T.,;
+         Height 5.2354,;
+         FontBold .T.,;
+         Left 3.3311
+
+   DEFINE PUSHBUTTON OKBUTTON OF THIS;
+       PROPERTY; 
+         Top 8.293,;
+         Width 11.002,;
+         Height 1.1172,;
+         Text "&OK",;
+         OnClick CLASS::OKBUTTON_ONCLICK,;
+         ColorNormal "B/W",;
+         Group .T.,;
+         Left 33.8311
+
+   DEFINE PUSHBUTTON CANCELBUTTON OF THIS;
+       PROPERTY; 
+         Top 8.293,;
+         Width 11,;
+         Height 1.1172,;
+         Text "&Cancel",;
+         ColorNormal "B/W",;
+         Group .T.,;
+         Left 46.5
+
+   DEFINE ENTRYFIELD ENTRYFIELD1 OF THIS;
+       PROPERTY; 
+         Top 8.4111,;
+         Width 13,;
+         DataLink "CUSTOMER->CUSTOMER_N",;
+         Height 1,;
+         When {;Return .f.},;
+         ColorNormal "N/W",;
+         Left 16.833
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Top 8.5293,;
+         Width 13.166,;
+         Height 1,;
+         Text "Customer No.",;
+         Left 2
+
+   Procedure OKBUTTON_OnClick
+   Form.OkButtonPressed = .t.  && Set property if button
+   Form.Close()                && is pressed.
+   
+
+   Procedure FORM_OnOpen
+   Form.OKButtonPressed = .f.  && Set up dynamic property
+                               && to determine later if
+                               && OK Button has been clicked.
+ENDCLASS
+
+
+ 
+ ************************************************************************ 
+ Sample Code 2 - Child Updates Parent Form's Entryfield
+ ************************************************************************
+ The following sample has two simple Forms using Customer.Dbf from the 
+ Visual dBASE samples directory. These are the same Forms as the previous
+ code sample. Only this time, the parent sends its Object Reference to
+ the child Form so that the Child Form can directly change the value
+ of the parent's CustomerNoField.
+ ************************************************************************
+ 
+ *------------------------------------------------------------
+ * Copy this code into FormDemo.prg
+ * This short program sets up the environment
+ * and then calls the first form: CustomerForm()
+ *
+ * To start this demo program type "Do Formdemo"
+ * from the Command Window.
+ *------------------------------------------------------------
+ 
+ SET TALK OFF                           && Set up environment
+ SET BELL OFF
+ SET CUAENTER ON
+ Set Procedure to Customer.Wfm Additive && Load into memory
+ _app.Cust = New CustomerForm()             && Instantiate
+ _app.Cust.Open()                       && Open Form.
+
+ *--------------------------------------------Customer Form-----------
+ * Copy this code into a file called CUSTOMER.WFM
+ *
+ * This Form requires Customer.dbf from the Visual dBASE Samples
+ * Change the View property of the form to the appropriate
+ *    drive and directory to access Customer.DBF
+ *
+ *--------------------------------------------------------------------
+ ** END HEADER -- do not remove this line*
+ * Generated on 09/25/95
+
+ parameter bModal                    && This code never runs because
+ local f                             && this .WFM is never "called"
+ f = new CUSTOMERForm()
+ if (bModal)
+    f.mdi = .F. && ensure not MDI
+    f.ReadModal()
+ else
+   f.Open()
+ endif
+
+ Class CUSTOMERForm OF Form           &&Customer Class "blueprint"
+   this.Left = 23
+   this.Top = 0
+   this.Width = 60
+   this.View = "C:\VISUALDB\SAMPLES\CUSTOMER.DBF"
+   this.Text = "Parent Form"
+   this.Height = 10.8232
+
+   DEFINE RECTANGLE RECTANGLE1 OF THIS;
+       PROPERTY; 
+         Left 2.333,;
+         Top 1.0586,;
+         Width 55.5,;
+         Text "",;
+         BorderStyle 2,;
+         Height 8.2939
+
+   DEFINE ENTRYFIELD CUSTOMERNOFIELD OF THIS;
+       PROPERTY; 
+         Left 26.833,;
+         Top 4.1758,;
+         Width 11.667,;
+         Value "          ",;
+         Height 1
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 12.833,;
+         Top 4.2344,;
+         Width 12.5,;
+         Text "Customer No.",;
+         Height 0.7656
+
+   DEFINE PUSHBUTTON LOOKUPBUTTON OF THIS;
+       PROPERTY; 
+         Left 40.166,;
+         Top 4.1172,;
+         Width 12.167,;
+         ColorNormal "R/W",;
+         Text "&Look Up",;
+         Group .T.,;
+         OnClick Class::LOOKUPBUTTON_ONCLICK,;
+         Height 1.1172
+
+   DEFINE PUSHBUTTON CLOSEBUTTON OF THIS;
+       PROPERTY; 
+         Left 40.166,;
+         Top 6.0586,;
+         Width 12.167,;
+         ColorNormal "B/W",;
+         Text "&Close",;
+         Group .T.,;
+         OnClick Class::CLOSEBUTTON_ONCLICK,;
+         Height 1.1172
+
+   Procedure CLOSEBUTTON_OnClick
+   Form.Close()
+   Form.Release()
+
+   Procedure LOOKUPBUTTON_OnClick
+   Set Procedure to CustLook.Wfm Additive   && Load Procedure
+   Form.oChild = New CustLookForm()         && Instantiate
+   Form.oChild.oParent = Form      && Add new property to child
+                                   && with this parent's Reference
+
+   Form.oChild.Mdi = .f.           && Make sure it's not MDI
+   Form.oChild.ReadModal()         && Open the lookup Modal
+   Close Proc CustLook.Wfm         && Unload Procedure File.
+
+ ENDCLASS
+
+ *-----------------------------------------------------------------
+ * Copy this code into Custlook.Wfm
+ *
+ * This Form is the child lookup Form for Customer.Wfm
+ * It has a Browse and a disabled Entryfield tor display
+ * of the currently selected customer
+ *-----------------------------------------------------------------
+
+ ** END HEADER -- do not remove this line*
+ * Generated on 10/14/95
+ *
+ parameter bModal
+ local f
+ f = new CUSTLOOKForm()
+ if (bModal)
+    f.mdi = .F. && ensure not MDI
+    f.ReadModal()
+ else
+    f.Open()
+ endif
+ CLASS CUSTLOOKForm OF FORM
+   this.Top = 1.5879
+   this.Width = 60
+   this.OnClose = CLASS::FORM_ONCLOSE
+   this.Height = 10.0586
+   this.Text = "Child Lookup Form"
+   this.MDI = .F.
+   this.Left = 33.833
+
+   DEFINE RECTANGLE RECTANGLE1 OF THIS;
+       PROPERTY; 
+         Top 0.5879,;
+         Width 57,;
+         Height 7.1172,;
+         BorderStyle 1,;
+         Text "Rectangle1",;
+         Left 0.833
+
+   DEFINE BROWSE BROWSE1 OF THIS;
+       PROPERTY; 
+         Top 1.3516,;
+         Alias "CUSTOMER",;
+         Width 52.6689,;
+         Fields 'CUSTOMER->CUSTOMER_N\H="Cust No.",;
+         ,CUSTOMER->NAME\H="Cust Name"',;
+         CUATab .T.,;
+         Height 5.2354,;
+         FontBold .T.,;
+         Left 3.3311
+
+   DEFINE PUSHBUTTON OKBUTTON OF THIS;
+       PROPERTY; 
+         Top 8.293,;
+         Width 11.002,;
+         Height 1.1172,;
+         Text "&OK",;
+         OnClick CLASS::OKBUTTON_ONCLICK,;
+         ColorNormal "B/W",;
+         Group .T.,;
+         Left 33.8311
+
+   DEFINE PUSHBUTTON CANCELBUTTON OF THIS;
+       PROPERTY; 
+         Top 8.293,;
+         Width 11,;
+         Height 1.1172,;
+         Text "&Cancel",;
+         ColorNormal "B/W",;
+         Group .T.,;
+         Left 46.5
+
+   DEFINE ENTRYFIELD ENTRYFIELD1 OF THIS;
+       PROPERTY; 
+         Top 8.4111,;
+         Width 13,;
+         DataLink "CUSTOMER->CUSTOMER_N",;
+         Height 1,;
+         When {;Return .f.},;
+         ColorNormal "N/W",;
+         Left 16.833
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Top 8.5293,;
+         Width 13.166,;
+         Height 1,;
+         Text "Customer No.",;
+         Left 2
+
+   Procedure OKBUTTON_OnClick
+                && Update parent Form's Custnofield
+                && using the parent Form's Object Reference,
+                && which is stored in the oParent property
+                && of this Form.
+   Form.oParent.CustomerNoField.Value = Form.Entryfield1.Value
+   Form.Close()
+   
+   Procedure FORM_OnClose
+   Form.Release() && This Form may be released here as
+                && it will not be addressed again in
+                && the parent Form.
+   
+ ENDCLASS
+
+
+ *------End of HOW TO

@@ -1,0 +1,1490 @@
+POPUP.HOW
+09/30/95
+
+David Love:  71333,121 (Compuserve)
+dBASE TeamB
+
+----------------------
+Popup menus in Visual dBASE
+---------------------------
+
+What is a popup?
+----------------
+
+A popup is a class that allows you to add a shortcut menu to a form or
+control.  Popup menus have much of the same functionality as standard
+menus, however, they provide users with a shortcut to invoking them
+without invoking a menu and working through a hierarchial menu system. 
+Furthermore, popup menus can be invoked by a control's ON<action> event
+handlers, such as an OnChange or OnGotFocus, etc.  Popup menus,
+therefore, are handy little critters and they are easy to develop and
+hook into your forms.
+
+This HOW TO is designed to show you various ways of using popup menus
+in your forms.  I suspect that it is not an exhaustive treatise on the
+subject (I'm still learning as I go), but it should give you a good
+starting point for your exploration into popup menus.  As I demonstrate
+the various ways of using popups, I will point out nuances that are
+important.
+
+In this HOW TO I will provide popup and form class code examples for:
+
+1.  Attaching a popup to a form (the most common application)
+2.  Attaching a popup to a pushbutton control
+3.  Attaching a popup to a browse control
+4.  Attaching a popup to a spinbox's OnLeftDblClick event handler
+5.  Attaching a popup to a spinbox's OnChange event handler
+6.  Sharing a popup between two controls
+7.  Employing multiple popups on a form
+
+Important points to take away from this document are listed below:
+
+1.  How to create a popup menu
+2.  How to integrate a popup menu into your form
+3.  How to use two methods of defining and instantiating a popup menu
+4.  How to attach a popup menu to a form and to a control
+5.  How to reference the form's controls in the popup's events
+6.  How to ensure that the methods in a popup class will be in scope
+7.  How to have a control's popup menu take precedence over a form's
+    popup menu
+8.  How to reference the form's objects in the popup menu's event
+    codeblocks
+
+Popup Code
+----------
+
+Popup code is easily created using the form designer.  Simply double
+click on the popup icon in the forms section of the navigator to invoke
+the popup menu designer user interface.  Or, drag the icon out of the
+navigator window and drop it to invoke the designer.
+
+Each menu item that you add can be "inspected" to enable you to fine-
+tune the properties and to write the event handler code blocks and
+procedures.  The forms popup designer will stream out code to a file
+with a .pop extension.  This <popup name>.pop file will be compiled at
+runtime to <popup name>.poo.
+
+Visual dBASE's two-way tools allow you to edit the code directly (via
+MODI COMM from the command window or by right-clicking on the form in
+the navigator and choosing the Edit as Program popup menu option).  You
+can add or remove menus from your popup, modify the codeblocks or
+OnClick's, and make any other changes (except adding custom properties)
+and the forms designer will recognize them.  In this way, the popup
+class is much like the standard form class.  The popup class has far
+fewer properties and I encourage you to review the online help for an 
+explanation of the class.
+
+The popup file
+--------------
+
+The basic elements of the popup file are:
+
+Parameter FormObj,PopupName
+* FormObj receives the reference to the form.
+* PopupName is the name that the form will use for the popup.
+
+NEW SETORDERPOPUP(FormObj,PopupName)
+* Creates an instance of the popup class
+
+  CLASS SETORDERPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+     this.Left = 0         && sets the initial left coordinate
+     this.TrackRight = .T. && Allows popup to respond to right click
+     this.Top = 0          && sets the initial top coordinate
+  * Begins the class definition
+  * Next come the menu definitions and any methods.
+  ENDCLASS
+  * Ends the class definition
+
+Popup Files Used in this HOW TO's Sample Forms
+----------------------------------------------
+
+The following five .pop files were created for the purpose of
+illustrating the popup menus in this HOW file.  They were all created
+using the forms designer.
+
+1.  File Name:  SetOrder.Pop
+
+    This popup is attached to the form.  It will allow the user to
+      change the controlling index tag for the table.
+    In another example, it will be invoked from a pushbutton.
+    Used in form examples 1, 2, and 7.
+
+** END HEADER -- do not remove this line*
+* Generated on 09/22/95
+*
+Parameter FormObj,PopupName
+NEW SETORDERPOPUP(FormObj,PopupName)
+CLASS SETORDERPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+   this.Left = 0
+   this.TrackRight = .T.
+   this.Top = 0
+
+   DEFINE MENU SET_ORDER OF THIS;
+       PROPERTY; 
+         Text "Set Table Order"
+
+   DEFINE MENU MENU28 OF THIS;
+       PROPERTY; 
+         Separator .T.,;
+         Text ""
+
+   DEFINE MENU NAME_ OF THIS;
+       PROPERTY; 
+         Text "Name",;
+         OnClick {; set order to name}
+
+   DEFINE MENU CUSTOMER_NUMBER OF THIS;
+       PROPERTY; 
+         Text "Customer number",;
+         OnClick {; set order to customer_n}
+
+   DEFINE MENU NATURAL OF THIS;
+       PROPERTY; 
+         Text "Natural",;
+         OnClick {; set order to}
+
+ENDCLASS
+*-- EOF:  SetOrder.Pop
+
+2.  File Name:  BrowsPop.Pop
+
+    This popup is invoked by right-clicking on the browse control.
+      It will facilitate table navigation.
+    Used in form examples 3 and 7.
+
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+Parameter FormObj,PopupName
+NEW BROWSPOPPOPUP(FormObj,PopupName)
+CLASS BROWSPOPPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+   this.TrackRight = .T.
+   this.Left = 0
+   this.Top = 0
+
+   DEFINE MENU NAVIGATE OF THIS;
+       PROPERTY; 
+         Text "Navigate"
+
+   DEFINE MENU MENU26 OF THIS;
+       PROPERTY; 
+         Text "",;
+         Separator .T.
+
+   DEFINE MENU TOP_RECORD OF THIS;
+       PROPERTY; 
+         Text "Top Record",;
+         OnClick {; go top}
+
+   DEFINE MENU BOTTOM_RECORD OF THIS;
+       PROPERTY; 
+         Text "Bottom Record",;
+         OnClick {; goto bottom}
+
+   DEFINE MENU FORWARD_8 OF THIS;
+       PROPERTY; 
+         Text "Forward 8",;
+         OnClick {; skip 8}
+
+   DEFINE MENU BACK_8 OF THIS;
+       PROPERTY; 
+         Text "Back 8",;
+         OnClick {; skip -8}
+
+ENDCLASS
+*-- EOF:  BrowsPop.Pop
+
+3.  File Name:  ShowDeci.Pop
+
+    This popup will be invoked from an OnRightMouseDown event handler
+      of a spinbox control.
+    Note the use of 'this.parent.active.' in the OnClick
+    Used in form examples 4 and 7.
+
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+Parameter FormObj,PopupName
+NEW SHOWDECIPOPUP(FormObj,PopupName)
+CLASS SHOWDECIPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+   this.TrackRight = .T.
+   this.Left = 0
+   this.Top = 0
+
+   DEFINE MENU DISPLAY_DECIMALS OF THIS;
+       PROPERTY; 
+         Text "Display decimals"
+
+   DEFINE MENU MENU247 OF THIS;
+       PROPERTY; 
+         Separator .T.,;
+         Text ""
+
+   DEFINE MENU NONE OF THIS;
+       PROPERTY; 
+         Text "None",;
+         OnClick {; this.parent.active.picture = "999999"}
+
+   DEFINE MENU ONE OF THIS;
+       PROPERTY; 
+         Text "One",;
+         OnClick {; this.parent.active.picture = "999999.9"}
+
+   DEFINE MENU TWO OF THIS;
+       PROPERTY; 
+         Text "Two",;
+         OnClick {; this.parent.active.picture = "999999.99"}
+
+ENDCLASS
+*-- EOF:  ShowDeci.Pop
+
+4.  File Name:  OnChange.Pop
+
+    This popup will be invoked from a control's OnChange event
+      handler.
+    Used in form examples 5 and 7.
+
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+Parameter FormObj,PopupName
+NEW ONCHANGEPOPUP(FormObj,PopupName)
+CLASS ONCHANGEPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+   this.TrackRight = .T.
+   this.Left = 0
+   this.Top = 0
+
+   DEFINE MENU ENABLE_SALES OF THIS;
+       PROPERTY; 
+         Text "Enable sales",;
+         OnClick {; form.ytd_sales.enabled = .t.;;
+         form.ytd_sales.setfocus()}
+
+   DEFINE MENU DISABLE_SALES OF THIS;
+       PROPERTY; 
+         Text "Disable sales",;
+         OnClick {; form.ytd_sales.enabled = .f.;;
+         form.first_cont.setfocus()}
+
+ENDCLASS
+*-- EOF:  OnChange.Pop
+
+5.  File Name:  SharePop.Pop
+
+    This popup will be shared by two controls on the form.  The form
+      will be referenced by oForm in the Onclick's method.
+    The form with which this popup is used will demonstrate how to 
+      ensure that the popup's class method is in scope when the popup
+      isopenedd.
+    Used in form examples 6 and 7.
+    In it's modified form, used in the last form example.
+
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+Parameter FormObj,PopupName
+NEW SHAREPOPPOPUP(FormObj,PopupName)
+CLASS SHAREPOPPOPUP(FormObj,PopupName) OF POPUP(FormObj,PopupName)
+   this.Left = 0
+   this.Top = 0
+   this.TrackRight = .T.
+
+   DEFINE MENU SET_FOCUS_TO OF THIS;
+       PROPERTY; 
+         Text "Set focus to"
+
+   DEFINE MENU MENU363 OF THIS;
+       PROPERTY; 
+         Text "",;
+         Separator .T.
+
+   DEFINE MENU CONTACT_DATE OF THIS;
+       PROPERTY; 
+         Text "Contact date",;
+         OnClick {; CLASS::CONTACT_SALES_ONCLICK( form, 'C')}
+
+   DEFINE MENU YTD_SALES OF THIS;
+       PROPERTY; 
+         Text "YTD Sales",;
+         OnClick {; CLASS::CONTACT_SALES_ONCLICK( form, 'Y')}
+
+   Procedure CONTACT_SALES_OnClick( oForm, WhichClick )
+      IF WhichClick = 'C'
+         oform.first_cont.setfocus()
+      ELSE
+         oform.ytd_sales.setfocus()
+      ENDIF
+
+ENDCLASS
+*-- EOF:  SharePop.Pop
+
+Sample Forms with Popup Menus
+-----------------------------
+
+In this HOW TO, I will provide examples of forms in which the five .pop
+files shown above are used by DO'ing them (ie. DO <popup name>.pop WITH
+form, '<popup name>').  I will also provide an example of how a popup
+can be defined in a form's class definition and invoked without DO'ing
+it.
+
+For all of these forms, the view property is the Customer.dbf table in
+Visual dBASE's samples directory.  There will be a browse control, two
+spinbox controls, and one pushbutton control on each form.  There may
+also be a second pushbutton if the example is how to invoke a popup
+from a pushbutton.  Each form also includes the line
+
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+
+which enables your system to utilize the buttons.cc custom control file
+in your Visual dBASE home samples directory.  If your system has a
+different configuration, you will need to modify these lines for your
+system.
+
+To experiment with the code on your system, export the relevant
+sections to files with the names as I've described them into a
+directory that includes the Customer.dbf/.mdx/.dbt files from your
+Visual dBASE home\Samples directory.
+
+1.  Form popup
+
+In this form, the popup will be attached to the form and invoked by
+pressing the right mouse click anywhere on the form.  Note, in this
+form's OnOpen procedure the following lines:
+
+     DO SetOrder.Pop with This, "SetOrder_Pop"
+     Form.PopupMenu = Form.SetOrder_Pop
+
+The first line instantiates the SetOrder popup, referencing this form
+and assigning it the name SetOrder_Pop.  The second line assigns the
+popup, by name, to the form's popupmenu property.  That's all there is
+to it ... easy as rolling off of a log!
+
+Now, when the form has focus, a right-mouse click will result in the
+popup being displayed.  Clicking on either the customer number or name
+menu items will result in the table being ordered by that index tag. 
+Couldn't be much easier!
+
+* File Name:  Pop_Form.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+parameter bModal
+local f
+f = new Pop_FormFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_FormFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.OnOpen = CLASS::ONOPEN
+   this.Left = 23
+   this.Text = "Demonstrate Form Popup"
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "To invoke the popup, right-click on the form"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Append .F.,;
+         Alias "CUSTOMER",;
+         ShowDeleted .F.,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+            CUSTOMER->NAME /R/H='Name'",;
+         Left 7,;
+         Top 0.9395,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Height 9.4092,;
+         Width 46,;
+         CUATab .T.
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Text "Contact date:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Text "YTD sales:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         Rangemin 1,;
+         Height 1,;
+         Picture "99999.99",;
+         Width 14
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.165
+
+   PROCEDURE OnOpen
+
+      *-- These commands instantiate and attach the popup menu to the
+      *     form
+      DO SetOrder.Pop with This, "SetOrder_Pop"
+      Form.PopupMenu = Form.SetOrder_Pop
+     
+ENDCLASS
+*-- EOF:  Pop_Form.Wfm
+
+2.  Popup from a pushbutton.
+
+Note, in this form, that the same popup will be invoked as in the
+previous form.  However, this popup is now invoked by the pushbutton's
+OnClick event handler and not by a right mouse click on the form. 
+Because the popup was not assigned to the form's popupmenu property,
+right mouse clicking on the form will not invoke the popup.
+
+Note also that there is no form OnOpen method, because it is not
+needed.  The popup is instantiated in the Popup_Button pushbutton's
+OnOpen method.
+
+The Popup_Button's OnClick event passes the pushbutton's top and left
+properties to the OnClick method.  These properties are used to set the
+top and left properties of the popup menu.  Next, the popup menu is
+opened with the command
+
+      form.SetOrder_Pop.open()
+
+and the popup's menu OnClick codeblocks, when invoked, set the table's
+record order.
+
+Note that this and the following forms must include a method that 
+opens()'s the popup menu.  This is necessary because only the form
+class has a PopupMenu property.  The method must be invoked by an
+event handler of the control.
+
+* File Name:  Pop_Butn.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+parameter bModal
+local f
+f = new Pop_ButnFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_ButnFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.Left = 23
+   this.Text = "Demo invoking a Popup from a Pushbutton"
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "For the popup, click on the popup button"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Append .F.,;
+         Alias "CUSTOMER",;
+         ShowDeleted .F.,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'",;
+         Left 7,;
+         Top 0.9395,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Height 9.4092,;
+         Width 46,;
+         CUATab .T.
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Text "Contact date:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Text "YTD sales:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         Rangemin 1,;
+         Height 1,;
+         Picture "99999.99",;
+         Width 14
+
+   DEFINE PUSHBUTTON POPUP_BUTTON OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::Popup_Button_OnOpen,;
+         Group .T.,;
+         Left 7.165,;
+         FontBold .F.,;
+         Text "Invoke Popup",;
+         Top 14.1172,;
+         SpeedTip "Invoke the form's popup",;
+         OnClick {; class::Popup_Button_OnClick( this.Top, ;
+           this.Left )},;
+         Height 1.5293,;
+         Width 14.167
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.165
+
+   PROCEDURE Popup_Button_OnOpen
+      *-- Must pass the form reference
+      *-- When this command is in the form's OnOpen
+      *--   the word "This" can be substituted for the word "Form"
+      DO SetOrder.Pop with Form, "SetOrder_Pop"
+
+      *-- Set the focus to the pushbutton when the form opens      
+      form.Popup_Button.SetFocus()
+
+   *-- Method to open the popup menu
+   PROCEDURE Popup_Button_OnClick( nTop, nLeft )
+      *-- To position the popup, it is necessary to
+      *--   pass the pushbutton's top and left properties
+      form.SetOrder_pop.top = nTop + 1          && top of popup
+      form.SetOrder_pop.left = nLeft + 1        && left edge
+      form.SetOrder_Pop.open()
+   
+ENDCLASS
+*-- EOF:  Pop_Butn.Wfm
+
+3.  Invoking a navigation popup from a browse control
+
+This form is similar to the previous forms.  The popup is instantiated
+in the browse control's OnOpen procedure and is invoked in the browse 
+control's OnRightMouseDown event.  Note that the OnRightMouseDown 
+method receives the browse control's top and left properties and uses 
+them to establish the top and left properties of the popup menu.
+
+* File Name:  Pop_Brow.Pop
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+parameter bModal
+local f
+f = new Pop_BrowFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_BrowFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.Text = "Demonstrate Navigation Popup on a Browse"
+   this.Left = 23
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "For the browse's popup, right mouse click" +;
+     " on the browse"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::CUSTOMER_BROWSE_ONOPEN,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Left 7,;
+         Top 0.9395,;
+         OnRightMouseDown ;
+           {; CLASS::CUSTOMER_BROWSE_ONRIGHTMOUSEDOWN( this.top,;
+              this.left )},;
+         CUATab .T.,;
+         StatusMessage "Right click for navigation popup menu",;
+         Append .F.,;
+         Alias "CUSTOMER",;
+         Height 9.4092,;
+         ShowDeleted .F.,;
+         Width 46,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'"
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Text "Contact date:",;
+         Left 7,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Text "YTD sales:",;
+         Left 39,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         Rangemin 1,;
+         Height 1,;
+         Width 14,;
+         Picture "99999.99"
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.166
+
+   PROCEDURE Customer_Browse_OnRightMouseDown( nTop, nLeft )
+      form.customer_browse_pop.top = nTop + 1          && top of popup
+      form.customer_browse_pop.left = nLeft + 1        && left edge
+      form.customer_browse_pop.open()
+   
+   PROCEDURE Customer_Browse_OnOpen
+      do browspop.pop with form, "Customer_Browse_Pop"
+ 
+ENDCLASS
+*-- EOF:  Pop_Brow.Pop
+
+4.  Invoking a popup with a control's left mouse double click
+
+This form is similar, in many respects, to the previous forms.  There
+is no Popup_Button pushbutton, because it is not needed.  The YTD_Sales
+spinbox OnOpen procedure instantiates the ShowDeciPopup popup menu.
+
+This form demonstrates that the active control name can be identified
+by the popup if the following line is included prior to opening the
+popup.
+
+      form.ShowDecimals_Pop.active = this
+
+By examining the ShowDeci.Pop file, above, you will see that the menu
+item's OnClick code block refers to the form's active control, as
+below:
+
+      OnClick {; this.parent.active.picture = "999999.9"}
+
+Note the difference between the way that a menu of a form references
+it's parent form (form.root.) and the way that a popup references it's
+form (this.parent).
+
+* File Name:  Pop_Clik.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+parameter bModal
+local f
+f = new Pop_ClikFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_ClikFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.Left = 23
+   this.Text = "Demo Control's Popup from a Right Mouse"
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "To invoke the popup, left double click" + ;
+      " in the YTD Sales field"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Append .F.,;
+         Alias "CUSTOMER",;
+         ShowDeleted .F.,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'",;
+         Left 7,;
+         Top 0.9395,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Height 9.4092,;
+         Width 46,;
+         CUATab .T.
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Text "Contact date:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Text "YTD sales:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::YTD_Sales_OnOpen,;
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         StatusMessage "Left double click for decimals picture" + ;
+           " popup menu",;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         OnLeftDblClick CLASS::YTD_SALES_ONLEFTDBLCLICK,;
+         Rangemin 1,;
+         Height 1,;
+         Picture "99999.99",;
+         Width 14
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.165
+
+   PROCEDURE YTD_Sales_OnOpen
+      DO ShowDeci.Pop with Form, "ShowDecimals_Pop"
+      
+   PROCEDURE YTD_Sales_OnLeftDblClick( flags, col, row )
+      form.ShowDecimals_Pop.top = row + this.Top     && top of popup
+      form.ShowDecimals_Pop.left = col + this.Left   && left edge
+      *-- Allows identification of active control
+      *-- Will be used in the ShowDeciPopUp class
+      form.ShowDecimals_Pop.active = this
+      form.ShowDecimals_Pop.open()
+
+ENDCLASS
+*-- EOF:  Pop_Clik.Wfm
+
+5.  Invoking a popup from an event's OnChange
+
+By now, this stuff should be old hat for you.  Instantiate the popup
+in the event's OnOpen method and open the popup in the event's OnChange
+event.
+
+Note that the OnClick codeblocks of the menu items refer directly to
+the form's controls by name, as below.
+
+     OnClick {; form.ytd_sales.enabled = .t.;
+                form.ytd_sales.setfocus()}
+
+* File Name:  Pop_Chng.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+parameter bModal
+local f
+f = new Pop_ChngFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_ChngFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.Left = 23
+   this.Text = "Demo Popup from an OnChange Event"
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "To invoke the popup, make a change in the" +;
+     " contact date field"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Append .F.,;
+         Alias "CUSTOMER",;
+         ShowDeleted .F.,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'",;
+         Left 7,;
+         Top 0.9395,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Height 9.4092,;
+         Width 46,;
+         CUATab .T.
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Text "Contact date:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::FIRST_CONT_ONOPEN,;
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         OnChange {; class::first_cont_OnChange( this.top, ;
+           this.left )},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Text "YTD sales:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         StatusMessage "Right click for decimals picture popup menu",;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         Rangemin 1,;
+         Height 1,;
+         Picture "99999.99",;
+         Width 14
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.165
+
+   PROCEDURE First_cont_OnOpen
+      do onchange.pop with form, "First_Cont_Pop"
+   
+   PROCEDURE First_Cont_OnChange( nTop, nLeft )
+      form.first_cont_pop.top = nTop + 1          && top of popup
+      form.first_cont_pop.left = nLeft + 1        && left edge
+      form.first_cont_Pop.open()
+   
+ENDCLASS
+*-- EOF:  Pop_Chng.Wfm
+
+6.  Sharing a popup between controls
+
+This form demonstrates that a popup menu can be shared between
+controls, a nifty functionality.
+
+Note that the popup is instantiated in the form's OnOpen (it could, I
+suppose, have been instantiated in either control's OnOpen procedures
+but I invoked author's prerogative and chose to do it in the form's 
+OnOpen <g>).
+
+As you will observe in the form's OnOpen, it is necessary to SET
+PROCEDURE TO SharePop.Pop Additive in order to have the popup class's
+method in scope when the popup is openned.  Without the SET PROC ...
+command, the Contact_Sales_OnRightMouseDown procedure will not be in
+scope when you select a popup menu item and you'll get an error dialog
+from Visual dBASE.
+
+Note also that the same method is called in each control's
+OnRightMouseDown and the active control is identified for the popup. 
+I've shown examples of how to do this in previous forms.
+
+This form also demonstrates that the popup's top and left properties
+are tied to the mouse pointer position with the parameters that are
+received in the procedure, as shown below:
+
+ PROCEDURE CONTACT_Sales_OnRightMouseDown( flags, col, row )
+   form.SetFocus_pop.top = row + this.top     && locate top of popup
+   form.SetFocus_pop.left = col + this.Left   && locate left edge
+
+The col and row parameters allow the popup to be positioned relative to
+the mouse pointer at the time that the popup is openned.
+
+* File Name:  Pop_Shar.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/24/95
+*
+parameter bModal
+local f
+f = new Pop_SharFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_SharFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.OnOpen = CLASS::ONOPEN
+   this.Left = 23
+   this.Text = "Demo Sharing a Popup by Two Controls"
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "To invoke the popup, right click in the" +;
+     " contact date or YTD sales controls"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Append .F.,;
+         Alias "CUSTOMER",;
+         ShowDeleted .F.,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'",;
+         Left 7,;
+         Top 0.9395,;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Height 9.4092,;
+         Width 46,;
+         CUATab .T.
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Text "Contact date:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         StatusMessage "Right click for popup menu",;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Text "YTD sales:",;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         StatusMessage "Right click for popup menu",;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         Rangemin 1,;
+         Height 1,;
+         Picture "99999.99",;
+         Width 14
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.165
+
+   PROCEDURE OnOpen
+
+      set procedure to sharepop.pop additive
+      do sharepop.pop with form, 'setfocus_pop'
+   
+   PROCEDURE Contact_Sales_OnRightMouseDown( flags, col, row )
+      form.SetFocus_pop.top = row + this.top          && top of popup
+      form.SetFocus_pop.left = col + this.Left        && left edge
+      *-- Allows identification of active control
+      form.SetFocus_Pop.active = this
+      form.SetFocus_Pop.open()
+   
+ENDCLASS
+*-- EOF:  Pop_Shar.Wfm
+
+7.  Employing more than one popup on a form.
+
+Now, let's put all of these popups together on one form.  This is
+helpful when you wish for the user to be able to shortcut to different
+popups based upon their needs.
+
+The important point to make in this form is that the form's popupmenu
+definition will take precedence over a control's popup.  Therefore, it
+is necessary that the form's popupmenu be nullified when the control
+has focus and reinstated when the control loses focus.  You'll see that
+this is performed in each control's OnGotFocus and OnLostFocus
+codeblocks, as follows:
+
+     OnGotFocus  {; form.popupmenu = .f.},;  && negates the PopupMenu
+                                             && property of the form
+     OnLostFocus {; form.popupmenu = form.setorder_pop},;  && resets
+                                             && the PopupMenu property
+                                             && of the form
+
+In reality, when you wish to have multiple popups on a form, it may be
+less confusing for the user if you employ a pushbutton to invoke the
+popup menu for the form.  The code below shows that it _can_ be done.
+It's up to the programmer to decide whether it _should_ be done.
+
+* File Name:  Pop_Mult.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+parameter bModal
+local f
+f = new Pop_MultFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_MultFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.OnOpen = CLASS::ONOPEN
+   this.Text = "Demonstrate Multiple Popups"
+   this.Left = 23
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "For the form's popup, set focus to either" +;
+     " pushbutton, else invoke controls' popups"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::CUSTOMER_BROWSE_ONOPEN,;
+         OnGotFocus {; form.popupmenu = .f.},;
+         OnLostFocus {; form.popupmenu = form.setorder_pop},;
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Left 7,;
+         Top 0.9395,;
+         OnRightMouseDown ;
+           {; CLASS::CUSTOMER_BROWSE_ONRIGHTMOUSEDOWN( this.top,;
+           this.left )},;
+         CUATab .T.,;
+         StatusMessage "Right click for navigation popup menu",;
+         Append .F.,;
+         Alias "CUSTOMER",;
+         Height 9.4092,;
+         ShowDeleted .F.,;
+         Width 46,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'"
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Text "Contact date:",;
+         Left 7,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::FIRST_CONT_ONOPEN,;
+         OnGotFocus {; form.popupmenu = .f.},;
+         OnLostFocus {; form.popupmenu = form.setorder_pop},;
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         StatusMessage "Right click for popup menu",;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         OnChange {; class::first_cont_OnChange( this.top,;
+           this.left )},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Text "YTD sales:",;
+         Left 39,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::YTD_Sales_OnOpen,;
+         OnGotFocus {; form.popupmenu = .f.},;
+         OnLostFocus {; form.popupmenu = form.setorder_pop},;
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         OnLeftDblClick CLASS::YTD_SALES_ONLEFTDBLCLICK,;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         Rangemin 1,;
+         StatusMessage "Left double click for decimals," +;
+           " right click for focus popup",;
+         Height 1,;
+         Width 14,;
+         Picture "99999.99"
+
+   DEFINE PUSHBUTTON POPUP_BUTTON OF THIS;
+       PROPERTY; 
+         OnClick {; class::Popup_Button_OnClick( this.Top,;
+           this.Left ) },;
+         Group .T.,;
+         Text "Invoke Popup",;
+         Left 7.166,;
+         FontBold .F.,;
+         Top 14.1172,;
+         SpeedTip "Invoke the form's popup",;
+         Height 1.5293,;
+         Width 14.167
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.166
+
+   PROCEDURE OnOpen
+      DO SetOrder.Pop with This, "SetOrder_Pop"
+      Form.PopupMenu = Form.SetOrder_Pop
+
+      set procedure to sharepop.pop additive
+      do sharepop.pop with form, 'SetFocus_Pop'
+      
+      form.Popup_Button.setfocus()
+   
+   PROCEDURE Customer_Browse_OnRightMouseDown( nTop, nLeft )
+      form.customer_browse_pop.top = nTop + 1          && top of popup
+      form.customer_browse_pop.left = nLeft + 1        && left edge
+      form.customer_browse_pop.open()
+   
+   PROCEDURE Customer_Browse_OnOpen
+      do browspop.pop with form, "Customer_Browse_Pop"
+   
+   PROCEDURE First_cont_OnOpen
+      do onchange.pop with form, "First_Cont_Pop"
+   
+   PROCEDURE First_Cont_OnChange( nTop, nLeft )
+      form.first_cont_pop.top = nTop + 1          && top of popup
+      form.first_cont_pop.left = nLeft + 1        && left edge
+      form.first_cont_Pop.open()
+   
+   PROCEDURE CONTACT_Sales_OnRightMouseDown( flags, col, row )
+      form.SetFocus_pop.top = row + this.top          && top of popup
+      form.SetFocus_pop.left = col + this.Left        && left edge
+      *-- Allows identification of active control
+      form.SetFocus_Pop.active = this
+      form.SetFocus_Pop.open()
+   
+   PROCEDURE Popup_Button_OnClick( nTop, nLeft )
+      form.SetOrder_pop.top = nTop + 1          && top of popup
+      form.SetOrder_pop.left = nLeft + 1        && left edge
+      form.SetOrder_Pop.open()
+
+   PROCEDURE YTD_Sales_OnOpen
+      DO ShowDeci.Pop with Form, "ShowDecimals_Pop"
+      
+   PROCEDURE YTD_Sales_OnLeftDblClick( flags, col, row )
+      form.ShowDecimals_Pop.top = row + this.Top     && top of popup
+      form.ShowDecimals_Pop.left = col + this.Left   && left edge
+      *-- Allows identification of active control
+      *-- Will be used in the ShowDeciPopUp class
+      form.ShowDecimals_Pop.active = this
+      form.ShowDecimals_Pop.open()
+
+ENDCLASS
+*-- EOF:  Pop_Mult.Wfm
+
+Defining a Popup Without DO'ing the .Pop
+----------------------------------------
+
+All previous popup examples have instantiated the popup by DO'ing the
+popup file WITH a form reference and a popup name.  This is not the
+only way to instantiate the popup.  The following form shows how the
+popup can be defined in the form's OnOpen.  An easy way to derive this
+code is to set the menu up in the form designer and to cut and paste
+into the form's code, making minor modifications in the DEFINE command
+line.
+
+* File Name:  Pop_Diff.Wfm
+** END HEADER -- do not remove this line*
+* Generated on 09/23/95
+*
+parameter bModal
+local f
+f = new Pop_DiffFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS Pop_DiffFORM OF FORM
+   Set Procedure To &_dbwinhome.\SAMPLES\BUTTONS.CC additive
+   this.OnOpen = CLASS::ONOPEN
+   this.Text = "Demonstrate Another Way to Instantiate a Popup"
+   this.Left = 23
+   this.Top = 0
+   this.View = "CUSTOMER.DBF"
+   this.StatusMessage = "To invoke the popup, right click in the" +;
+     " contact date or YTD sales controls"
+   this.Height = 16.6465
+   this.Width = 59.5
+
+   DEFINE BROWSE CUSTOMER_BROWSE OF THIS;
+       PROPERTY; 
+         Toggle .F.,;
+         Delete .F.,;
+         ShowRecNo .F.,;
+         Left 7,;
+         Top 0.9395,;
+         CUATab .T.,;
+         Append .F.,;
+         Alias "CUSTOMER",;
+         Height 9.4092,;
+         ShowDeleted .F.,;
+         Width 46,;
+         Fields "CUSTOMER->CUSTOMER_N /R/H='Number',;
+           CUSTOMER->NAME /R/H='Name'"
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Text "Contact date:",;
+         Left 7,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 12
+
+   DEFINE SPINBOX FIRST_CONT OF THIS;
+       PROPERTY; 
+         Left 7,;
+         FontBold .F.,;
+         Top 12.2344,;
+         StatusMessage "Right click for popup menu",;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         DataLink "CUSTOMER->FIRST_CONT",;
+         Rangemax {07/09/92},;
+         Rangemin {03/31/92},;
+         Height 1,;
+         Width 14
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Text "YTD sales:",;
+         Left 39,;
+         FontBold .F.,;
+         Top 11.293,;
+         Height 0.7637,;
+         Width 11
+
+   DEFINE SPINBOX YTD_SALES OF THIS;
+       PROPERTY; 
+         Left 39,;
+         FontBold .F.,;
+         Top 12.2344,;
+         DataLink "CUSTOMER->YTD_SALES",;
+         Rangemax 100,;
+         OnRightMouseDown CLASS::CONTACT_SALES_ONRIGHTMOUSEDOWN,;
+         Rangemin 1,;
+         StatusMessage "Right click for popup menu",;
+         Height 1,;
+         Width 14,;
+         Picture "99999.99"
+
+   DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+       PROPERTY; 
+         Group .T.,;
+         Left 39,;
+         Top 14.1172,;
+         Height 1.5293,;
+         Width 14.166
+
+   PROCEDURE OnOpen
+
+      *-- Define the popup.
+      DEFINE POPUP SetFocus_Pop OF Form
+         Form.SetFocus_Pop.Left = 0
+         Form.SetFocus_Pop.Top = 0
+         Form.SetFocus_Pop.TrackRight = .T.
+   
+         DEFINE MENU SET_FOCUS_TO OF Form.SetFocus_Pop;
+            PROPERTY; 
+            Text "Set focus to:"
+
+         DEFINE MENU MENU363 OF Form.SetFocus_Pop;
+            PROPERTY; 
+               Text "",;
+               Separator .T.
+
+         DEFINE MENU CONTACT_DATE OF Form.SetFocus_Pop;
+            PROPERTY; 
+               Text "Contact date",;
+               OnClick {; class::CONTACT_SALES_ONCLICK( 'C' ) }
+
+         DEFINE MENU YTD_SALES OF Form.SetFocus_Pop;
+            PROPERTY; 
+               Text "YTD Sales",;
+               OnClick {; class::CONTACT_SALES_ONCLICK( 'Y' ) }
+     
+      *-- Set focus to a spinbox control
+      form.First_Cont.setfocus()
+   
+   PROCEDURE Contact_Sales_OnRightMouseDown( flags, col, row )
+      form.SetFocus_pop.top = row + this.top          && top of popup
+      form.SetFocus_pop.left = col + this.Left        && left edge
+      *-- Allows identification of active control
+      form.SetFocus_Pop.active = this
+      form.SetFocus_Pop.open()
+   
+   Procedure Contact_Sales_OnClick( ClickedText )
+      IF ClickedText = 'C'
+         Form.First_Cont.SetFocus()
+      ELSE
+         Form.YTD_Sales.SetFocus()
+      ENDIF
+
+ENDCLASS
+*-- EOF:  Pop_Diff.Wfm
+
+Summary
+-------
+
+I have attempted to explain popup menus and to show how easy it is to
+include them in your forms.
+
+Although this document is lengthy, I hope that it has been helpful
+as explanation and illustration of different uses of Visual dBASE's 
+Popup Class.
+
+--------------------------------------------------------------------
+DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+volunteers who provide technical support for Borland on the DBASE
+and VDBASE forums on Compuserve. If you have questions regarding
+this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+communicate directly with the author and TeamB in the appropriate
+forum on CIS. Technical support is not currently provided on the
+World-Wide Web, via the Internet or by private E-Mail on CIS by
+members of TeamB.
+
+.HOW files are created as a free service by members of TeamB to
+assist users to learn to use Visual dBASE more effectively. They are
+posted first on the Compuserve VDBASE forum, edited by both TeamB
+members and Borland Technical Support (to ensure quality), and then
+may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+POSTED ELSEWHERE without the explicit permission of the author, who
+retains all rights to the document.
+--------------------------------------------------------------------
+
+*-- EoHT:  POPUP.HOW

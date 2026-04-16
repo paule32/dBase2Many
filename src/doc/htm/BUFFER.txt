@@ -1,0 +1,532 @@
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the dBASE
+    and VdBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    assist users to learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VdBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+
+    (c) A.A.Katz 1995 All Rights Reserved
+    --------------------------------------------------------------------
+
+ Buffer.How    8-17-1995
+ Author: A.A.Katz
+ 
+ 
+ 
+ The BeginAppend() Methods:
+ -------------------------
+ HOW TO Buffer Tables in Visual dBASE
+ ------------------------------------
+ to Validate Data Entered by Users
+ ---------------------------------
+ 
+ 
+ 
+ What Is Table Buffering?
+ -----------------------
+ 
+ It has never been good form to let your users type directly into tables
+ and hope for the best. 
+ 
+ If the record is abandoned or your validation fails, you're stuck with an
+ empty record that you either have to recycle or remove with a PACK command.
+ 
+ Instead, dBASE programmers often do their "gets" into variables, validate
+ the input, and then decide whether to append a new record or discard
+ changes. This strategy is called "record buffering".
+ 
+ 
+ Why Not "GET" Into Variables?
+ ----------------------------
+ 
+ For several reasons:
+ 
+ 1. It takes a lot of code. You've got to initialize the variables, clear
+ the variables, store field values to the variables (for edits). When the
+ data is validated, you've got to issue APPE BLANK, do all your REPLACEs
+ and display and clear the data onscreen. Even with the dBASE AUTOMEM
+ commands, it's a lot of work.  
+ 
+ 2. It doesn't work well in object-oriented programming. There are all
+ kinds of scoping problems since variables are scoped to procedures while
+ controls are scoped to forms. 
+ 
+ 3. You lose the Visual dBASE productivity advantage of datalinking
+ entryfields to table fields.
+ 
+ 
+ Use The Native Visual dBASE Buffer
+ --------------------------------- 
+ 
+ dBASE has always had built-in buffering. Data is edited in a
+ "phantom record". not the actual table record. When you move the record
+ pointer or close the table, the "phantom record" is written to the table.
+ 
+ For the first time (as of Visual dBASE 5.5), dBASE gives you control of
+ this internal record buffer. There are four new methods of the Form that
+ let you create a record buffer and save or discard it at will. 
+ 
+ Form.BeginAppend()              Creates a new "phantom record".
+ Form.IsRecordChanged()          Tests the "phantom record"  against 
+                                 the version in the table record.
+ Form.SaveRecord()               Saves the "phantom record" to the table.
+ Form.AbandonRecord()            Wipes out the "phantom record", no write.
+ 
+ Since your fields are datalinked, all screen handling (displaying,
+ clearing, etc.) are handled automatically by Visual dBASE.
+ 
+ 
+ Editing An Existing Record
+ -------------------------
+ 
+ You will note that the above methods seem to apply only to new records.
+ There is no explicit method for creating the "phantom record" for
+ existing records.
+ 
+ That's because you don't need a method to buffer existing records.
+ As soon as you attempt to edit an existing record, Visual dBASE 
+ -automatically- buffers the record. No method call required.
+ 
+ 
+ Scoping
+ -------
+ 
+ The BeginAppend() methods are different from all other variables,
+ properties and events. They are scoped three different ways
+ simultaneously:
+ 
+ 1. They are methods of the Form
+ 
+ 2. They are scoped to a Work Area. You may have many BeginAppend()s
+ in a form - one for each Work Area.
+ 
+ 3. They are scoped to the Session. Each user or Session has its own
+ copy of the "phantom records" used by BeginAppend().
+ 
+ 
+ How to Use the BeginAppend() Methods
+ ------------------------------------
+ 
+ In order to get the productivity gains and protection offered by record
+ buffering with BeginAppend(), you may have to change your form design
+ strategy. 
+ 
+ 
+ --------Strategy A: Entryfields.
+ 
+ 
+ 1. Use editing controls that are datalinked to the fields in your table.
+    These include entryfields, comboboxes, listboxes, spinboxes, editors,
+    browses. checkboxes, radiobuttons or your own custom controls.
+ 2. Use an "ADD" or "NEW" button or other control to explicity issue
+    BeginAppend(). 
+ 3. Use an "ABANDON" button or other control to discard changes.
+ 4. Use  a "SAVE" button or other control to save changes to the table.
+ 5. If editing is allowed, you must have some method of selecting a record:
+    SEEK, BROWSE or some type of navigation controls.
+ 
+ Typical code would look something like this: 
+ 
+ PROCEDURE NEWBUTTON_OnClick
+ Select Mytable
+ Form.BeginAppend()
+ 
+ PROCEDURE SAVEBUTTON_OnClick
+ Select Mytable
+ Form.SaveRecord()
+ 
+ PROCEDURE ABANDONBUTTON_OnClick
+ Select Mytable
+ Form.AbandonRecord()
+ 
+ 
+ --------Strategy B: Editing in a Browse
+ 
+ 
+ An alternative to editing controls is to allow Append and Modify in a
+ Browse. You may combine the browse with the pushbuttons in Strategy A,
+ or control the process entirely within the Browse.
+ 
+ 1. You can issue BeginAppend() programmatically, or allow your user
+ to "arrow down", which produces a "phantom record" automatically.
+ 2. Use the CanNavigate event to validate the data, SaveRecord() or
+ AbandonRecord().
+ 
+ PROCEDURE BROWSE1_CanNavigate
+ ******validate your data
+ If  lDataIsOk
+    Form.SaveRecord()
+ Endif
+ Return lDataIsOk 
+ 
+ 
+ Networks and BeginAppend()
+ --------------------------
+ 
+ BeginAppend() "phantom records" are not visible to any other user or
+ session (nor do they update indexes) until you issue SaveRecord(),
+ move the record pointer or close your table.. 
+ 
+ When using BeginAppend() and its associated methods in a networked
+ environment, you must take into account:
+ 
+ 1. That Recno() may not be valid. A record number is assigned upon
+ BeginAppend(). However, if another user or session APPENDs BLANK, or
+ issues SaveRecord() before you do, your record number will be invalid.
+ 
+ Therefore, do not assign or reference RECNO() until you issue your own
+ SaveRecord(). You may use BOOKMARK instead, if you need to reference
+ the record before it's saved.
+ 
+ 2. Testing for duplicate keys has to be done carefully. None of your
+ data is visible to any other user or Session, nor does it appear in a
+ table's indexes. 
+ 
+ As example, assume that you enter a ClientNo in a BeginAppend() "phantom
+ record". Another user does the same, using the same ClientNo. The second
+ user runs a KEYMATCH() to see if their ClientNo is a unique key. Because
+ the other user cannot see your "phantom record", KEYMATCH() returns .f.,
+ telling the other user it's OK to use the ClientNo. This can result in
+ duplicate keys.
+ 
+ Your best solution: do not test for duplicate keys until you are about to
+ issue the SaveRecord(). Do not test for duplicate keys in an
+ entryfield Valid event. Test the key at your  "Save" button. 
+ 
+ And, of course, you must make sure you do not move the record pointer
+ when testing for duplicate keys or you will cause an automatic
+ SaveRecord()
+ 
+ 
+ BeginAppend() and The Browse
+ ----------------------------
+ 
+ You must exercize extreme care when writing a BeginAppend() routine on a 
+ form that has a Browse object.
+
+ Browse objects have a mind of their own. They are programmed to ensure 
+ that valid records are displayed and invalid records omitted. When
+ your Browse object refreshes, the record pointer moves from the top
+ record displayed to the bottom of the browse.
+
+ If your Browse object refreshes and your record pointer moves,
+ you will get an unwanted SaveRecord(), writing your "phantom record" to
+ the table.
+ 
+ To use BeginAppend() in conjunction with a Browse object, you must
+ make sure that no operation on the form will result in an automatic
+ or intentional refresh of the form. Such refreshes may be caused by:
+ 
+    Pageno Property Changes
+    Index Order Changes
+    Browse Alias Changes
+    Form.Refresh()
+ 
+ among others. If your BeginAppend() writes to disk unexpectedly, check
+ your form for events that might cause unintentional refreshes.
+ 
+  
+ Warnings: Handle With Care
+ --------------------------
+ 
+ General Warnings:
+ 
+ 1.The internal automatic buffering system is still active. When you
+ move a record pointer or close a table, Visual dBASE will issue an
+ automatic SaveRecord(). Avoid moving the record pointer unless you
+ intend to save the "phantom record". For example, do not SEEK
+ to validate a key field like "ClientNo". It will cause a SaveRecord()
+ to be issued automatically. Use KEYMATCH() instead. It searches only
+ on the index without moving the record pointer.
+ 
+ 2. APPEND BLANK creates an actual record in the table,
+ not a "phantom record". You cannot AbandonRecord() after APPEND BLANK. 
+ 
+ 3. If you have an ADD button, entryfields and a Browse on the same form,
+ make sure to turn off the Append property of the Browse. The user might
+ navigate the browse, once again inadverdently issuing a SaveRecord().
+ 
+ 4. If you do set the Append property to .f., Visual dBASE will
+ automatically disable the Browse during a BeginAppend(). Remember to
+ issue a command like Form.Browse1.Enabled = .t. in the SAVE and
+ ABANDON button OnClick events, or the Browse will remain disabled. 
+ 
+ 5. Disable the ADD button after BeginAppend(). Prevent the user from
+ issuing additional "phantom records". Only the last one can be abandoned
+ or saved. Re-enable the ADD button at the end of your SAVE or ABANDON
+ OnClick events.
+ 
+ 6. Disable any navigation controls before issuing a BeginAppend().
+ Your user may inadverdently write the changes by moving the table's
+ record pointer.
+ 
+ 
+ Scoping Warnings:
+ ----------------
+ 
+ 1. You cannot use datalinked fields to the same table in both a parent
+ and child form. When you return to the parent form, you will find the
+ changes have already been saved. You will no longer be able to
+ AbandonRecord().
+ 
+ 2. You must be careful using Views. Views can close and reopen tables,
+ again forcing a write to the table.
+ 
+ 3. Be sure to select the appropriate Work Area before you issue any of
+ the BeginAppend() methods. You may end up writing to the wrong table.
+  
+ 
+ Combobox DataSources
+ --------------------
+ 
+ Be very careful about ComboBox datasources. If you change the datasource
+ of a control that is datalinked to the BeginAppend() table, you may lose
+ the "phantom record" entirely or find it written to disk.
+ 
+ For example:
+ 
+ DEFINE COMBOBOX COMBOBOX1 OF THIS;
+        PROPERTY;
+        DataSource "FIELD OTHERTABLE->OTHERFIELD",;
+        DataLink "MYTABLE->MYFIELD"
+ 
+ Assume that you 
+        1. Issue a BeginAppend() on MYTABLE
+        2. Pop up a setup form to add one more option to OTHERTABLE.
+ 
+ When you come back to the main form, the buffer will probably be lost.
+ 
+ Work around: Use OTHERTABLE Again in the setup form to prevent moving
+ the record pointer in OTHERTABLE.
+ 
+ Changing OTHERTABLE should not effect the BeginAppend() on MYTABLE,
+ but it sometimes does.
+ 
+ 
+ Recommendation
+ -------------------------
+ 
+ BeginAppend() and its associated methods are so powerful and have the
+ potential to save you so much code and programming time that it
+ makes sense to use them for all data entry. Just use them with care.
+ 
+  
+ Code
+ --------
+ 
+ The following is a simple form that demonstrates many of the subtleties
+ of the new buffering methods in Visual dBASE.
+ 
+ Create table Clients.dbf
+ 
+ ClientNo	10,C
+ Name		30,C
+ Address	30,C
+ City		20,C
+ State		 2,C
+ 
+ Then copy and paste the following code to BUFFDEMO.WFM 
+ Save it, and DO BUFFDEMO.WFM 
+ 
+ *-------------------------------BUFFDEMO.WFM---------------------------------
+ Use Clients In Select()
+ Sele Clients
+ ** END HEADER -- do not remove this line*
+ * Generated on 08/10/95
+ *
+ parameter bModal
+ local f
+ f = new BUFFDEMOFORM()
+ if (bModal)
+    f.mdi = .F. && ensure not MDI
+    f.ReadModal()
+ else
+    f.Open()
+ endif
+ CLASS BUFFDEMOFORM OF FORM
+    this.Text = "BeginAppend() Demo"
+    this.Left = 11.833
+    this.Top = 0
+    this.Height = 17.4111
+    this.Width = 72.833
+ 
+    DEFINE BROWSE BROWSE1 OF THIS;
+        PROPERTY; 
+          Append .F.,;
+          Alias "CLIENTS",;
+          Toggle .F.,;
+          Left 3.5,;
+          Top 0.7646,;
+          ColorNormal "N/0xffff80",;
+          Modify .F.,;
+          ShowRecNo .F.,;
+          Height 8,;
+          CUATab .T.,;
+          Width 49.666,;
+          TabStop .F.,;
+          FontBold .T. 
+ 
+    DEFINE PUSHBUTTON NEWBUTTON OF THIS;
+        PROPERTY; 
+          Group .T.,;
+          Text "&New",;
+          Left 56.832,;
+          Top 7.2344,;
+          ColorNormal "R/W",;
+          OnClick CLASS::NEWBUTTON_ONCLICK,;
+          Height 1.5889,;
+          Width 14.167
+ 
+    DEFINE ENTRYFIELD ENTRYFIELD1 OF THIS;
+        PROPERTY; 
+          Left 14.665,;
+          Top 10.1758,;
+          DataLink "CLIENTS->CLIENTNO",;
+          Height 1,;
+          Width 15.667 
+ 
+    DEFINE ENTRYFIELD ENTRYFIELD2 OF THIS;
+        PROPERTY; 
+          Left 14.665,;
+          Top 11.4688,;
+          DataLink "CLIENTS->NAME",;
+          Height 1,;
+          Width 38.834
+ 
+    DEFINE ENTRYFIELD ENTRYFIELD3 OF THIS;
+        PROPERTY; 
+          Left 14.665,;
+          Top 12.8223,;
+          DataLink "CLIENTS->ADDRESS",;
+          Height 1,;
+          Width 38.834
+ 
+    DEFINE ENTRYFIELD ENTRYFIELD4 OF THIS;
+        PROPERTY; 
+          Left 14.665,;
+          Top 14.1758,;
+          DataLink "CLIENTS->CITY",;
+          Height 1,;
+          Width 11.667 
+ 
+    DEFINE ENTRYFIELD ENTRYFIELD5 OF THIS;
+        PROPERTY; 
+          Left 34.665,;
+          Top 14.1758,;
+          DataLink "CLIENTS->STATE",;
+          Height 1,;
+          Width 4
+ 
+    DEFINE PUSHBUTTON SAVEBUTTON OF THIS;
+        PROPERTY; 
+          Group .T.,;
+          Text "&Save",;
+          Left 56.832,;
+          Top 11.1172,;
+          ColorNormal "B/W",;
+          OnClick CLASS::SAVEBUTTON_ONCLICK,;
+          Height 1.5879,;
+          Width 14.167
+ 
+    DEFINE PUSHBUTTON ABANDONBUTTON OF THIS;
+        PROPERTY; 
+          Group .T.,;
+          Text "&Abandon",;
+          Left 56.832,;
+          Top 13.0586,;
+          ColorNormal "B/W",;
+          OnClick CLASS::ABANDONBUTTON_ONCLICK,;
+          Height 1.5879,;
+          Width 14.167 
+ 
+    DEFINE PUSHBUTTON CLOSEBUTTON OF THIS;
+        PROPERTY; 
+          Group .T.,;
+          Text "&Close",;
+          Left 56.832,;
+          Top 15,;
+          OnClick CLASS::CLOSEBUTTON_ONCLICK,;
+          Height 1.5879,;
+          Width 14.167 
+ 
+    DEFINE TEXT TEXT1 OF THIS;
+        PROPERTY; 
+          Text "Client No.",;
+          Left 3.332,;
+          Top 10.2344,;
+          Height 0.7646,;
+          Width 9.332 
+ 
+    DEFINE TEXT TEXT2 OF THIS;
+        PROPERTY; 
+          Text "Name",;
+          Left 3.332,;
+          Top 11.6465,;
+          Height 0.7637,;
+          Width 5.5 
+ 
+    DEFINE TEXT TEXT3 OF THIS;
+        PROPERTY; 
+          Text "Address",;
+          Left 3.332,;
+          Top 12.8809,;
+          Height 0.7637,;
+          Width 8 
+ 
+    DEFINE TEXT TEXT4 OF THIS;
+        PROPERTY; 
+          Text "City",;
+          Left 3.332,;
+          Top 14.293,;
+          Height 0.7637,;
+          Width 5.5 
+ 
+    DEFINE TEXT TEXT5 OF THIS;
+        PROPERTY; 
+          Text "State",;
+          Left 27.665,;
+          Top 14.3516,;
+          Height 0.7637,;
+          Width 5.5 
+ 
+    Procedure CLOSEBUTTON_OnClick
+    Select Clients
+    Form.AbandonRecord()
+    Form.Close()
+    
+    Procedure NEWBUTTON_OnClick
+    This.Enabled = .f.
+    Select Clients
+    Form.BeginAppend()
+    
+    Procedure SAVEBUTTON_OnClick
+    Select Clients
+    Form.SaveRecord()
+    Form.NewButton.Enabled = .t.
+    Form.Browse1.Enabled = .t.
+    
+    Procedure ABANDONBUTTON_OnClick
+    Select Clients
+    Form.AbandonRecord()
+    Form.NewButton.Enabled = .t.
+    Form.Browse1.Enabled = .t.
+    
+ ENDCLASS
+
+
+
+ 
+ 
+ **EOHT-------------AAK  8-12-1995
+

@@ -1,0 +1,584 @@
+*LOWLEVEL.HOW
+HOW TO use low level functions in Visual dBase.
+
+Original :11/14/95
+Revision :11/16/95 1.revision
+Revision :11/20/95 2.revision
+Revision :12/03/95 3.revision
+Revision :01/07/96 4.revision (
+
+Author: Romain Strieff 71333,2147
+------------------------------------------------------------------
+
+Many people seem to have problems with the concept of using the 
+low level file functions in Visual dBase. 
+
+I guess the name LOW LEVEL suggests that the user has to get down
+to machine level language like assembler to be able to use them.
+
+This is definitely not the case. They are very powerful and easy to
+use. They allow operations on any type of file like:
+
+  Removing unprintable characters from files before printing/reading
+  Removing blank lines from text files 
+  Reading a print/macro file and send it directly to the LPT port.
+  Importing non supported file types to DBFs.
+  Global search and replace in files like source code.
+  Transforming UNIX files to DOS.
+  Switching MDX byte flags,language flags etc.
+  Creating and reading INI or Configuration files
+  etc,etc.
+  
+  
+Here's an overview of all the low level functions in VdB
+ 
+ FCLOSE( )
+    Closes a file previously opened with FCREATE( ) or FOPEN( ).
+    Returns .T. if successful, .F. if  unsuccessful.
+
+ FCREATE( )
+    Creates and opens a specified file. Returns the file handle
+    number of the file if successful or -1 if unsuccessful. 
+
+ FEOF( )
+    Returns .T. if the file pointer is at the end of a file 
+    previously opened with FCREATE( ) or FOPEN( ).
+
+ FERROR( )
+    Returns the error number of the most recent low-level input
+    or output error, or 0 if the most recent low-level function
+    was successful. 
+
+ FFLUSH( )
+    Writes to disk a file previously opened with FCREATE( ) or
+    FOPEN( ), without closing the file. Returns .T. if successful,
+    .F. if unsuccessful.
+
+ FGETS( )
+    Returns a character string from a file previously opened 
+    with FCREATE( ) or FOPEN( ).
+
+ FOPEN( )
+    Opens a specified file. Returns the file handle number of the
+    file if successful or -1 if unsuccessful.
+
+ FPUTS( )
+    Writes a character expression and one or two end-of-line 
+    characters to a file previously opened with FCREATE( ) 
+    or FOPEN( ) and positions the file pointer after the last 
+    character written. Returns the number of characters added
+    if successful, 0 if unsuccessful, or -1 if an error occurs.
+
+ FREAD( )
+   Returns a specified number of characters from a file previously
+   opened with FCREATE( ) or FOPEN( ) and positions the file 
+   pointer after the last character returned.  
+
+ FSEEK( )
+   Moves the file pointer a specified number of bytes in a file
+   previously opened with FCREATE( ) or FOPEN( ), and returns the
+   number of bytes from the beginning of the file to the file pointer.  
+
+ FWRITE( )
+   Writes a character expression to a specified file and positions
+   the file pointer after the last character written. Returns the
+   number of characters added if successful, 0 if unsuccessful, or-
+   1 if an error occurs.
+
+Essentially, low level files functions allow you to work with and 
+manipulate any file type, just as the normal database commands and
+functions allow you to work with database tables.
+
+
+First we have to open the file just like you would USE a dbf.
+The only difference is that the low level files need to be 
+addressed by a filehandle. You can think of it much like the
+ALIAS of a DBF.
+
+So if you want to open a DBF readonly with an alias you would:
+
+USE Clients ALIAS MYDBF NOUPDATE
+
+with low level functions it's much the same
+
+nHandle=fopen("TEST.TXT","R")
+
+nHandle is the 'ALIAS' in this case, FOPEN() the USE, and  "R" 
+would be 'NOUPDATE'(Readonly)
+
+Now in the old (dBase III) days you would skip through a DBF with the 
+following commands:
+
+ do while .not. eof()
+    *do stuff
+    skip
+ enddo
+
+Skipping through a file opened with low level functions is nearly
+exactly the same.
+
+ do while .not. feof(nHandle) && feof() instead eof()
+    *low level stuff
+ enddo
+
+With low level functions you must always use the filehandle you got 
+when opening it as a parameter. (like 'ALIAS' with dbfs)
+Since we don't have workareas for opening files low-level this
+is required. 
+
+So for printing every line of a text file to the screen, the complete
+code would be:
+
+ nHandle=fopen("test.txt","R")
+ do while .not. feof(nHandle)
+    cString=fgets(nHandle)
+    ? cString
+ enddo
+ lVoid=fclose(nHandle)
+  
+See, this is no big deal. Everything you'll do with low level functions
+will be more or less like this. 
+
+Let's see the difference between FGETS() and FREAD()
+----------------------------------------------------------------------
+We use FGETS() here to read strings. With no parameter stating otherwise
+FGETS() reads a string only until the next CR/LF is encountered. 
+This means each FGETS() reads a complete _line_ of a textfile if this
+line does not exceed the maximum possible width of a chr variable which
+in VdB is 32766 chrs.
+
+    A textfile normally is formatted like this:
+    -----------------------------------------------------------
+    This is the first line of this file.CR/LF
+    This is the second line of this file.CR/LF
+    -----------------------------------------------------------
+
+A LINE is by definition terminated by CR/LF in DOS/WINDOWS. This is not
+always the case in other operating systems (UNIX)
+
+So unless you are operating on very special textfiles with paragraphs
+exceeding the maximum possible value of 32766, FGETS() is the way to go.
+
+On the other hand for modifying binary files which can contain any
+char, even unprintable ones, FREAD() is used. FREAD() reads as many
+chrs you tell it to do.
+
+The only difference between FPUTS() and FWRITE() is that FPUTS 
+automatically writes a CR/LF to the string you write to the file.
+
+
+ Example 1.
+ ----------
+ For this example we will create a file containing unprintable chars
+ and remove them with low level functions.
+
+ For this we will copy the original file to a backup file, read this
+ backup file, and create a new file with the original name, thus
+ overwriting the original. So we will have 2 files opened low level.
+
+
+ *create a file containing CHR(0) and CHR(17)
+ nHandle=fcreate("TEST0.BIN")
+ if nHandle>0   &&creation has been successful
+   fWrite(nHandle,"L1 containing unprintable chrs."+chr(0)+chr(17))
+   fWrite(nHandle,"L2 containing unprintable chrs."+chr(0)+chr(17))
+   fWrite(nHandle,"L3 containing unprintable chrs."+chr(0)+chr(17))
+   fclose(nHandle)
+ endif
+ *-----------------------------------------------------------------
+ 
+ 
+ n=0                               &&counter for removed chrs
+ copy file test0.bin to test0.bak  &&backup
+ nHandle    =fopen("test0.bak","R")&&open backup readonly
+ nWriteHandle=fcreate("test0.BIN") &&overwite original
+
+ do while .not. feof(nHandle)      &&loop
+    cString=fread(nHandle,1)       &&read one byte at a time
+   
+    if .not. (asc(cString)=0 .or. asc(cString)=17)
+       &&write byte to file
+       nVoid=fwrite(nWriteHandle,cString)
+   
+    else
+       &&unprintable chr (chr(10) or chr(17) in this case
+       n=n+1
+    endif
+ enddo
+ lVoid=fclose(nHandle)
+ lVoid=fclose(nWriteHandle)
+ msgbox(ltrim(str(n))+" chrs removed!")
+
+ Example 2.
+ ----------
+ As another example, we will strip out blank lines from a text file.
+ For this FGETS() is the simplest way.
+
+ n=0                               &&counter for blank lines
+ copy file test.txt to test.bak    &&backup created
+ nHandle     =fopen("test.bak","R")&&open backup readonly
+ nWriteHandle=fcreate("test.txt")  &&overwite original
+
+ do while .not. feof(nHandle)      &&loop
+    cString=fgets(nHandle)         &&read a line
+   
+    if .not. empty(cString)        &&if not empty
+                                   &&write line to file
+       nVoid=fputs(nWriteHandle,cString)
+   
+    else
+       n=n+1
+    endif
+ enddo
+ lVoid=fclose(nHandle)
+ lVoid=fclose(nWriteHandle)
+ msgbox(ltrim(str(n))+" empty lines removed!")
+
+ By now you should have noticed how easy and powerful this really is.
+ Everything you do with low level functions will be similar to these 
+ procedures.  You will probably use more string manipulations before
+ writing the data back, like replacing Tabs with spaces, replacing 
+ one word with another, etc.
+ 
+ Example 3.
+ ----------
+
+ Now we'll try the FREAD() FWRITE() functions to convert a UNIX type
+ file, having only linefeeds (LF) instead of CR/LF as needed in the
+ DOS/WINDOWS world.
+
+ n=0                               &&counter for linefeeds
+ copy file test.txt to test.bak    &&backup created
+ nHandle     =fopen("test.bak","R")&&open backup readonly
+ nWriteHandle=fcreate("test.txt")  &&overwite original
+
+ do while .not. feof(nHandle)      &&loop
+    cString=fread(nHandle)         &&read a line
+   
+    *there are speedier methods but this is easier to follow <g>
+
+    cOutStr=""
+    for n=1 to len(cString)
+       *check if this is a linefeed chr  
+       if substr(cString,n,1)=chr(10)
+          *it is, so store CR/LF
+          cOutStr=cOutStr+chr(13)+chr(10)
+          n=n+1
+       else
+          *it is not, so store chr normally
+          cOutStr=cOutStr+substr(cString,n,1)
+       endif
+    
+    next
+    
+       nVoid=fwrite(nWriteHandle,cOutStr)
+   
+  
+ enddo
+ lVoid=fclose(nHandle)
+ lVoid=fclose(nWriteHandle)
+ msgbox(ltrim(str(n))+" LFs replaced with CR/LF!)
+
+ Now with these lines you have written a complete data converter
+ between UNIX and DOS. Naturally for a real-life program you would
+ add some verifications. Does the file exist? Nobody has it in use now?
+ Has it already been converted? etc. But the core is finished.
+
+ As last example, we will look at FSEEK(). This is only useful on files
+ where the exact format is always known. (length,contents etc)
+
+ As an example, we will flip the MDXbyte in the header of a DBF-file.
+ This byte is a special flag indicating that a DBF has an associated
+ Production Index File having the same name as the DBF with an .MDX
+ extension. If this byte is set to chr(0), VdB will no longer open it
+ automatically. This is useful for recreating all the index tags from
+ scratch in the case of index corruption. You begin with a fresh DBF
+ with no index tags yet created.
+
+ Example 4.
+ ----------
+
+   FUNCTION FlipMDXbyteOFF
+   Parameters cDBF &&with extension
+   private lRet
+   lRet=.f.        &&define return value
+   
+        if file(cDBF)  &&does file exist at all?
+           *open DBF with low level function     
+           nIHandle = fopen(cDBF,"RW") 
+           
+           if m->nIHandle > 0
+              *As long time users who read the manual, we
+              *know the the MDXbyte is at position 28
+              *of the DBF.<G>
+              if fseek(m->nIHandle, 28) = 28
+                 *write to same file
+                 fwrite(m->nIHandle,chr(0))
+                 lRet=.t.
+                  *check for MDX-file
+                   cMDX=left(ltrim(trim(cDBF));
+                   ,len(ltrim(trim(cDbf)))-4)+".MDX"
+                   if file(cMDX) &&delete if exists
+                       erase (cMDX)
+                   endif
+                 fclose(nIHandle) 
+              else
+                 msgbox("File is not a DBF!") 
+              endif
+           else   
+              msgbox("Unable to open "+cdbf)           
+           endif
+        endif
+   RETURN lRet    
+
+
+
+Now to conclude, here's a template that you can modify to your needs.
+Most verifications are already implemented.
+
+PROCEDURE RemoveL
+*----------------------------------------------------------------------
+*-- Programmer..: Romain Strieff (CIS: 71333,2147)
+*-- Date........: 09/11/1995
+*-- Notes.......: This routine is a program to remove unneeded
+*-- ............: lines from a text file to import data from.
+*-- ............: You can change it to do anything you need it to.
+*-- ............: This works with complete lines terminated with CR/LF.
+*-- ............: All this will be done with 7 low level Functions
+*-- ............: FOPEN()     page 269 language reference
+*-- ............: FCREATE()   page 248 language reference
+*-- ............: FGETS()     page 256 language reference
+*-- ............: FPUTS()     page 269 language reference
+*-- ............: FCLOSE()    page 247 language reference
+*-- ............: FEOF()      page 253 language reference
+*-- ............: FSIZE()     page 280 language reference
+*-- ............: -----------------------------------------------------
+*-- ............: This procedure will also put a fancy Progressbar
+*-- ............: FORM onscreen to show graphically the 
+*-- ............: percentage of the file already processed.
+*-- ............: -----------------------------------------------------
+*-- ............: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*-- ............: This is a TEMPLATE with no conditions entered
+*-- ............: You can use it _as_is_ for testing purposes,
+*-- ............: because I entered .f. as a condition, so the 
+*-- ............: original file will be rewritten without change.
+*-- ............: Check the condition section and adapt to your needs.
+*-- ............: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*-- Written for.: Visual dBASE for Windows 5.5
+*-- Calls.......: None
+*-- Called by...: any
+*-- Usage.......: do RemoveL with <cFile>
+*-- Example.....: do RemoveL with "IMPORT.TXT"
+*-- Returns.....: None
+*-- Remark......: A FILE error will issue a 'CLOSE ALL'
+*-- ............: !!!!!ALWAYS BACKUP YOUR FILES BEFORE USING THIS!!!!!
+*-- Creates.....: a Backup file of the original with an .OLD ext.
+*-- Parameters..: cFile      = name of the file to process
+*----------------------------------------------------------------------
+parameters cFile
+*first, check if a parameter was given _at all_ and
+*if the file really exists.
+
+if pcount()=0  &&no parameter
+   ?? chr(7)
+   msgbox("You have to call this procedure with a valid name;
+   of a file to process, like ;
+   DO REMOVEL WITH 'MYFILE.TXT'","ERROR!",0)
+   RETURN
+endif && pcount()=0  &&no parameter
+
+if .not. file(cFile) &&file does not exist
+   ?? chr(7)
+   msgbox("FILE '"+ltrim(trim(cFile))+"' not found!","ERROR!",0)
+   RETURN
+endif && .not. file(cFile) &&file does not exist
+
+private all except _*
+
+sSafe=set("SAFETY")  &&save SAFETY setting
+set safety off       &&to avoid overwrite messages etc.
+sTalk=set("TALK")    &&save TALK settings
+set talk off
+
+
+*create BACKUP filename
+cInFile=left(cFile,at(".",cFile))+"OLD"
+*copy to BACKUP file
+copy file (cFile) to (cInfile)
+cOutFile=cFile
+
+*Check length of file to read
+nLength=fsize(cInfile)
+
+
+*Open the Backup file with the low level Function FOPEN()
+nInHandle=fopen(cInFile,"R")      &&open backup file read-ONLY
+
+*Create a blank original file with the low level Function FCREATE()
+nOutHandle=fcreate(cOutFile)      &&overwrite original
+
+*Now check if we were able to get a filehandle on these 2 files
+if nInhandle>0 .and. nOutHandle>0 &&opening low level worked
+   *OK, it worked, now we'll step through the file
+   *line after line
+   
+   
+   *now some fancy stuff to show a progress bar on screen while
+   *processing the file
+
+
+   *you could add some fancy centering routines too, but I wanted
+   *this simple.<G>
+   
+   *create a form with enabled .F.
+   fpShowbar=new FORM()
+   fpShowbar.Height = 6
+   fpShowbar.Width = 61
+   fpShowbar.Text = "Processing FILE: "+cOutfile
+   fpShowbar.Top = 4
+   fpShowbar.Left = 18
+   fpShowbar.Enabled = .F.
+   fPShowbar.RefreshAlways=.f.
+   
+   *now the back rectangle where the showbar will be in
+   DEFINE RECTANGLE BACKRECT OF fpShowbar;
+       PROPERTY; 
+         Height 1.6,;
+         Width 51,;
+         Text "",;
+         Top 2.5,;
+         Left 5
+
+   *use a rectangle with a blue color to mimic the progress
+   DEFINE RECTANGLE SHOWRECT OF fpShowbar;
+       PROPERTY; 
+         Height 1.4,;
+         Width 0,;
+         Text "",;
+         BorderStyle 1,;
+         Top 2.6,;
+         Left 5.5,;
+         ColorNormal "B+/B+"
+   
+   DEFINE TEXT PERCENT_HEADER OF fpShowbar;
+       PROPERTY; 
+         Height 1,;
+         Width 55,;
+         Text "0     10    20    30   40    50    60    70    80    90    100%",;
+         Top 1,;
+         Left 4.8
+
+   DEFINE TEXT PERCENT_SHOW OF fpShowbar;
+       PROPERTY; 
+         Height 1,;
+         Width 12,;
+         Text "0%",;
+         Top 4.5,;
+         Left 25.5,;
+         Alignment 4
+
+   *Open the form
+   ?? chr(7) &&draw attention to progressbar
+   fpShowbar.open()
+   
+   *************************end of fancy stuff 
+  
+   nCounter=0         &&will count the bytes processed
+
+   cBeginTime=time()  &&save the beginning time
+   
+   do while .not. feof(nInHandle)    &&loop through backupfile
+      &&now read one line and put the contents in a Variable
+      cString=fgets(nInHandle,32766) &&maximum width of a variable
+
+      *show progress in the fancy showbar form add the lenght of
+      *the string read+2 for CR/LF.
+      nCounter=nCounter+len(cString)+2
+
+      *only update showbar on whole percentage values
+      *so we gain some time. (about 10%)
+      if .not. fpShowbar.percent_show.text=;
+          ltrim(str(int((100/nLength)*nCounter)))+"%"
+
+          *calculate the percentage with 50(=maximum length of rectangle)
+          fpShowbar.ShowRect.width=(50/nLength)*nCounter
+          
+          *calculate the percentage with 100(=100%)
+          fpShowbar.percent_show.text=;
+          ltrim(str(int((100/nLength)*nCounter)))+"%"
+      endif
+
+      
+      
+      
+      **********************************************************
+      *CONDITION SECTION TO MODIFY TO YOUR NEEDS
+      **********************************************************      
+    
+      if .f. &&Enter condition that must evaluate to TRUE
+             &&for removing the line
+             &&ex: IF "***"=left(cString,3)
+             
+
+      else
+         *this is a valid line, so write it to the file
+         nVoid=fputs(nOutHandle,cString)   &&write checked string to file
+      endif
+     **********************************************************
+     *END CONDITION SECTION
+     **********************************************************        
+      
+   enddo && while .not. feof(nInHandle) 
+
+   *close the files with low level Function FCLOSE()
+   lVoid=fclose(nInHandle)
+   lVoid=fclose(nOutHandle)
+
+   cEndTime=time()     &&save ending time
+
+   *close progress form and release it
+   fpShowbar.close()
+   release object fpShowbar      
+    
+   ?? chr(7)
+   *show termination of process.
+  
+   *REM OUT THESE LINES FOR BATCH PROCESSING FILES
+   *SO THAT NO USER INPUT IS REQUIRED FROM HERE......
+   cThroughput=ltrim(str(nLength/elapsed(cEndTime,cBeginTime)));
+   +" bytes per second) for a total of "+ltrim(str(nLength))+ " bytes"
+   cTime="in "+ ltrim(str(elapsed(cEndTime,cBeginTime)))+;
+   " secs.  ("+cThroughput
+   msgbox("Processing of FILE: '"+cOutfile+;
+   "' terminated with success "+ cTime,"SUCESSFULLY PROCESSED!",0)
+   *...TO HERE
+else
+   ?? chr(7)
+   msgbox("Problems with opening/creating file,;
+   will CLOSE ALL!","ERROR!",0)
+   close all
+endif && nInhandle>0 .and. nOutHandle>0 &&opening
+
+set safety &sSafe.
+set talk &sTalk.
+RETURN
+------------------------------------------------------------------------
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------

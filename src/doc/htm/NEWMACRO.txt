@@ -1,0 +1,383 @@
+*NEWMACRO.HOW
+HOW TO use the NEW &macro possibilities of Visual dBase.
+
+Original  :11/14/95
+Revision  :11/16/95 1.revision
+Revision  :11/20/95 2.revision
+Revision  :11/28/95 3.revision
+Revision  :12/03/95 4.revision
+
+Author: Romain Strieff 71333,2147
+------------------------------------------------------------------
+   
+What is a &macro operator?
+Let's see what the Online Help tells us.
+--------------------------------------------------------------------
+The macro operator substitutes the contents of a character memory variable
+in place of the variable name in a command line. In this way, you can store
+command-line arguments to character variables, and extract the arguments
+with the macro operator at run time. This process is called
+macro substitution or macro expansion.
+You perform macro substitution by placing the macro operator (&) directly
+before the variable name in a command line. At run time, dBASE evaluates
+the contents of the character variable, and substitutes the result in
+ place of the ampersand and variable name.
+
+Here is the syntax for using the macro operator:
+
+&<character memory variable>[.]
+
+The optional period (.) at the end of the variable name identifies the end
+of the variable name. The period is sometimes called the macro terminator.
+Use the period when you need to distinguish the variable name from text
+that follows it in the command line.
+
+ cField="Entryfield1"
+ form.&cField..value=0
+
+Note: Here in this example you see 2 periods.
+The first period is the macro terminator, the second one is the OOP 
+dot operator.
+
+Now the Online help tells us also:
+----------------------------------------------------------------------------
+You can use macro substitution only for command arguments. The variable you
+expand cannot contain the entire command, or any command keywords, such as
+FOR or WHILE.
+----------------------------------------------------------------------------
+The Online Help is not quite right here. You can very well expand entire
+commands, like:
+
+ cUse="USE MYTABLE IN SELECT()"
+ &cUse.
+
+
+This works also in compiled distributed EXE files ! This is big News!
+A compiled EXE or runtime did not allow lines beginning with a &macro.
+in the DOS versions.
+
+You could _not_ use for example:
+
+ cField="LASTNAME"
+ &cField.="STRIEFF"
+
+You had to use:
+ cField="LASTNAME"
+ store "STRIEFF" to &cField.
+
+This is _not_ true anymore! 
+
+What does this mean actually? A very powerful use arises here. 
+The creation of a selfmade runtime interpreter! 
+
+Imagine a TAGS.TXT file with the following contents:
+ *----------------------------------------
+ *recreation of Index tags
+ SELECT SELECT()
+ USE MYFILE1 EXCLUSIVE 
+ INDEX ON NAME TAG NAME
+
+ USE MYFILE2 EXCLUSIVE 
+ INDEX ON FIRSTNAME TAG FIRSTNAME
+ *----------------------------------------
+
+Now let's execute this textfile
+
+ x=new interpreter()
+ x.file="TAGS.TXT"
+ x.read()
+ x.execute()
+ 
+ *------------------------------------
+ CLASS Interpreter
+     this.file=""
+
+   Procedure Read
+   if .not. file(this.file)
+      ?? chr(7)
+      msgbox("File does not exist!")
+      RETURN
+   endif
+   this.nHandle=fopen(this.File,"R")     &&open file with low level functions
+   this.aExec=new array()                &&create array to store commands
+   if this.nHandle>0                     &&check valid opening of file
+      do while .not. feof(this.nHandle)  &&loop through file
+         this.cString=fgets(this.nHandle)&&read 1 line to cString property
+         if (.not. left(ltrim(this.cString),1)="*" );
+               .or. ;
+            (.not. len(trim(this.cString))=0)
+     
+            this.aExec.add(ltrim(trim(this.cString)))
+            &&add command to array
+         endif
+      enddo
+      fclose(this.nHandle)
+   else
+      msgbox("Could not open FILE!")
+   endif
+   *---------------------------------------------------------------
+   Procedure Execute
+   *-------------------------------
+   if type("THIS.AEXEC")="U"
+      ?? chr(7)
+      msgbox("You must read the file first!")
+      RETURN
+   endif
+   For n=1 to alen(this.aExec)
+   command=this.aExec[n]
+   &command.
+   next
+   *-------------------------------
+ ENDCLASS
+
+Only program flow commands are forbidden, such as SCAN,IF/ENDIF etc.
+
+But ONLY if you execute one command at a time!
+
+If your program reads the text file and transforms it to a 
+CODEBLOCK, even program flow commands are possible.
+ 
+ *c1-c3 would have been read in from a textfile.
+ c1="IF .T."
+ c2="?? chr(7)"
+ c3="ENDIF"
+
+ command="{;"+c1+";"+c2+";"+c3+"}"
+ command=&command.
+ command()
+
+ Let's try the real thing, save the following code as test.txt:
+ *test.txt-------------------
+ for n=1 to 10
+    ?? chr(7)
+    if mod(n,3)=0
+       msgbox(ltrim(str(n)))
+    endif
+ next
+ *end test.txt---------------
+ 
+ This example is used to execute the preceding file.
+ 
+ *------------------------------------
+ x=new interpreter()
+ x.file="test.prg"
+ x.execute()
+ 
+ *------------------------------------
+ CLASS Interpreter
+     *This version allows program flow commands too IF/ENDIF/SCAN/FOR
+     *If the file has not more that +- 300 bytes
+     this.file=""
+
+   *-------------------------------
+   Procedure Execute
+   *-------------------------------
+   if .not. file(this.file)
+      ?? chr(7)
+      msgbox("File does not exist!")
+      RETURN
+   endif
+   this.nHandle=fopen(this.File,"R")     &&open file with low level functions
+   this.aExec=new array()                &&create array to store commands
+   if this.nHandle>0                     &&check valid opening of file
+      do while .not. feof(this.nHandle)  &&loop through file
+         this.cString=fgets(this.nHandle)&&read 1 line to cString property
+         if left(ltrim(this.cString),1)="*" .or. len(trim(this.cString))=0
+          *this is a comment or an empty line
+         else
+            this.aExec.add(ltrim(trim(this.cString)))
+            &&add command to array
+         endif
+      enddo
+      fclose(this.nHandle)
+   else
+      msgbox("Could not open FILE!")
+      RETURN
+   endif
+
+   if type("THIS.AEXEC")="U"
+      ?? chr(7)
+      msgbox("File has not been read!")
+      RETURN
+   endif
+   *put all the stuff in a codeblock
+   codeblock="{"   
+   For n=1 to alen(this.aExec)
+      codeblock=codeblock+";"+this.aExec[n]
+   next
+   codeblock=codeblock+"}"
+   codeblock=&codeblock.
+   codeblock()
+ 
+
+ ENDCLASS
+ *-------------------------------
+
+
+ Another use would be to add a DOT prompt to your exes you distribute.
+ This would be called by a menu or 'secret' key to do some checks
+ or onetime operations. Even if this sounds like a joke, it is real.
+ Then without having VdB on the machine your could do things like:
+ USE MYTABLE
+ DISPLAY STATUS
+ USE....
+ etc
+
+
+ Every Delphi user dreams of this, your applications will have it
+ built in! Try it!
+
+ n=new dotprompt()
+ n.open()
+
+ CLASS DotPrompt(fCallingForm,lOldShell,nStackSize,nCommandLength)
+ *-----------------------------------------------------------------------
+ *-- Programmer..: Bowen Moursund (CIS: 72662,436)
+ *-- Date........: 11/16/95
+ *-- Notes.......: DotPrompt simulates the dBASE DOS dot prompt. After
+ *--               Open()ing, enter the command EXIT to quit.
+ *-- Written for.: Visual dBASE 5.5
+ *-- Parameters..: fCallingForm - object reference to calling form
+ *--               lOldShell - .T. or .F., shell state to restore on exit
+ *--               nStackSize - size of command stack, defaults to 100
+ *--               nCommandLength = defaults to 78
+ *-----------------------------------------------------------------------
+
+     this.CallingForm = fCallingForm
+     this.OldShell = iif(pcount() > 1, lOldShell, .t.)
+     this.StackSize = iif(pcount() > 1, nStackSize, 100)
+     this.CommandLength = iif(pcount() > 2, nCommandLength, 78)
+     this.Command = ""
+     this.CommandStack = new array()
+     *-- End constructor
+
+
+     PROCEDURE Open
+     class::SaveEnvironment()
+     on error msgbox(message(),"Error #"+ltrim(str(error())))
+     set display to VGA25
+     set color to N/W+,N/W+
+     clear
+     do while .t.
+         this.Command = space(this.CommandLength)
+         @24,0 say "."
+         @24,1 get this.Command
+         read
+         if mod(readkey(), 256) = 4      && UpArrow
+             class::CommandHistory()
+         endif
+         this.Command = ltrim(trim(this.Command))
+         if "" <> this.Command
+             class::StackCommand()
+             cTemp = this.Command
+             set talk on
+             &cTemp.
+             set talk off
+         endif
+         ?
+     enddo
+     set talk off
+     class::Close()
+
+
+     PROCEDURE Close
+     class::RestoreEnvironment()
+     if .not. this.OldShell
+         shell(.f.)
+     endif
+     if type("this.CallingForm") == "O"
+         this.CallingForm.setfocus()
+     endif
+
+
+     PROCEDURE Release
+     release object this
+
+
+     PROCEDURE StackCommand
+     *-- Stacks commands in an array object.
+     if this.CommandStack.size < this.StackSize
+         this.CommandStack.add(this.Command)
+     else
+         this.CommandStack.delete(1)
+         this.CommandStack[this.StackSize] = this.Command
+     endif
+
+
+     PROCEDURE CommandHistory
+     local cCommand, nStackIndex
+     nStackIndex = this.CommandStack.size
+     do while .t.
+         cCommand = left(this.CommandStack[nStackIndex]+;
+                         space(this.CommandLength),this.CommandLength)
+         @24,0
+         @24,0 say "."
+         @24,1 get cCommand
+         read
+         do case
+         case mod(readkey(), 256) = 4    && UpArrow
+             if nStackIndex > 1
+                 nStackIndex = nStackIndex - 1
+             endif
+         case mod(readkey(), 256) = 5    && DnArrow
+             if nStackIndex < this.CommandStack.size
+                 nStackIndex = nStackIndex + 1
+             else
+                 this.Command = ""
+                 exit
+             endif
+         case lastkey() = 27
+             this.Command = ""
+             exit
+         otherwise
+             this.Command = cCommand
+             exit
+         endcase
+     enddo
+
+
+     PROCEDURE SaveEnvironment
+     this.OldErrorHandler = setto("on error")
+     this.OldDisplay = set("DISPLAY")
+     this.OldColors = class::GetOldColors()
+     this.OldTalk = set("TALK")
+
+
+     PROCEDURE RestoreEnvironment
+     cTemp = this.OldErrorHandler
+     on error &cTemp.
+     cTemp = this.OldDisplay
+     set display to &cTemp.
+     cTemp = this.OldColors
+     set color to &cTemp.
+     cTemp =  this.OldTalk
+     set talk &cTemp.
+
+
+     PROCEDURE GetOldColors
+     local cAttributes
+     cAttributes = set("ATTRIBUTES")
+     RETURN left(cAttributes,at(" ",cAttributes)-1)
+
+ ENDCLASS
+ *-- EoC: DotPrompt
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------

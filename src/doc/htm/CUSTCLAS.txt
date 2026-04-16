@@ -1,0 +1,1381 @@
+ *-- CUSTCLAS.HOW
+ *-- 05/21/1997 -- Ken Mayer (Borland)
+ 
+ -------------------------------------------
+ Custom Classes (the Basics) in Visual dBASE
+ -------------------------------------------
+ This HOW TO document will attempt to cover the topic of Custom Classes,
+ which is one of the more useful features of Visual dBASE. This feature
+ allows the developer to create classes that can be used for very
+ specific purposes, with very little effort. In addition, it gives the 
+ developer the ability to re-use their classes, without having to go 
+ through the effort of copying and pasting code from one form to 
+ another. Probably the best feature of Custom Classes, is that if you 
+ need to modify the code, any changes to the code immediately take 
+ effect on any form that uses the custom class(es) in question. 
+
+ Once you have a feel for what can be done, hopefully you will be 
+ inspired to create classes of your own (and perhaps enhance the 
+ knowledge of everyone on the Visual dBASE forum on Compuserve (GO 
+ VDBASE) in the process!).
+
+ The classes in this document are aimed at data-entry, but the 
+ techniques discussed can be used for anything you can think of.
+
+    --------------------------------------------------------------------
+    NOTE: For more details on Classes and Object Oriented Programming,
+    see the following:   CLASS.HOW
+                         OOP.HOW
+    For a fairly detailed custom class, see:
+                         INFOBTN.HOW
+    For examples of using Custom Classes with Custom Forms, see:
+                         CUSTFORM.HOW
+
+    All are in Library 10 of the VDBASE forum on Compuserve.
+    --------------------------------------------------------------------
+
+ --------------------------------------------
+ What is a Class, and What is a Custom Class? 
+ --------------------------------------------
+ A Class is a definition of an object -- it stores within its definition
+ all of the properties and methods associated with the object (this is, 
+ by the way, 'encapsulation'). 
+    
+ A Custom Class is a developer defined class, based on one of the 
+ classes built-in to dBASE. A really good example of a Custom Class file
+ ships with Visual dBASE -- it is in the SAMPLES directory, and is
+ called BUTTONS.CC. For the examples in this HOW TO file, I will be 
+ using this as a basis for my own designs. 
+    
+ A Custom Class definition is usually stored in an ASCII file, and uses 
+ the extension ".CC" (although this is not necessary -- dBASE knows what 
+ to look for if you use that extension -- you could use ".PRG" or some 
+ other extension just as well -- but you would not have easy access to
+ the Visual dBASE two-way tools abilities).
+
+ One method of using a Custom Class file is to add it to your procedure 
+ file listings:
+
+   SET PROCEDURE TO MyClass.CC ADDITIVE
+
+ The use of the "ADDITIVE" keyword is important, because without it, 
+ you will close any currently open procedure files. 
+
+ You can force Visual dBASE to use your custom class definition all the 
+ time by modifying the DBASEWIN.INI file (usually found in 
+ \VISUALDB\BIN) -- look for the following section:
+
+   [CustomClasses]
+   CC01=C:\VISUALDB\SAMPLES\BUTTONS.CC
+
+ You can add your own custom class file(s) to this list, by simply 
+ adding lines to the file, for example:
+
+   CC02=C:\MYFILES\MYCLASS.CC
+
+ The next time you start dBASE, assuming that the directory and file 
+ given exist (if not, you'll get an error on startup), these will be 
+ automatically opened for you. (This has the side-effect of using
+ memory for each custom class in each custom class file ...)
+
+ In addition to the methods mentioned above, you can save a custom 
+ class you are designing with the forms designer (more on this later), 
+ using the FILE menu. This will create a new .CC file if needed, or if 
+ you save to a .CC file that already exists, it will place your new 
+ custom class in that file (over-writing any previous version of the 
+ class if it exists -- note that you _do_ have the option to save a
+ previous version -- but you will need to give the new version a 
+ different name).
+
+
+ ----------------------
+ A Pre-Existing Example
+ ----------------------
+ To get started, let's look at one of the sample pushbuttons in the
+ \VISUALDB\SAMPLES\BUTTONS.CC file:
+
+ ***********************************************************************
+ class CloseButton(f,n) of Pushbutton(f,n) custom
+ ***********************************************************************
+   
+    this.height = 1.50
+    this.width = 14.11
+    this.upbitmap = "Resource #1005"
+    this.disabledbitmap = "Resource #1006"
+    this.text = "C&lose"
+    this.OnClick = {;form.Close()}
+    this.statusMessage = "Close this form."
+    this.speedTip = "Close this form"
+
+ endclass
+ 
+ This is copied directly out of the sample custom class file. Let's look
+ at the parts. 
+
+ The Parts of The Custom Class Definition
+ ----------------------------------------
+ When examining the code, it helps to know what everything means.
+
+ The statement:
+
+    class CloseButton(f,n) of Pushbutton(f,n) custom
+
+ This statement begins the OOP constructor code sequence, and is very 
+ important here - it is what defines this as a custom class (the word
+ 'custom'), the name of the custom class, and what class it is based 
+ on. Everything between the word "class" in this statement and the 
+ final statement "endclass" are the properties and methods defined
+ in the constructor code definition of the custom class.
+ 
+ The first word in this statement is vital. "Class" -- this tells dBASE 
+ that we are defining a class. For every "Class" statement there must 
+ be an "Endclass" statement. 
+
+ The part of this statement that says "CloseButton(f,n)" is telling 
+ dBASE that this new class is named "CloseButton". Because an interface
+ object (like an entryfield, pushbutton, spinbox, or whatever) does not 
+ exist outside of a form, you must supply a form reference (f) for your 
+ custom class. The name parameter (n) is optional, but should be 
+ included in case you decide to use the NEW syntax to create an 
+ instance of this class (MyClose = new CloseButton()). The Visual dBASE 
+ Forms Designer defaults to using the standard "PUSHBUTTON1" style of 
+ naming classes when they are instantiated. In the case of the 
+ CloseButton, if you place an instance of this class on a form, dBASE 
+ will default the name to CloseButton1. 
+ 
+    --------------------------------------------------------------------
+    (NOTE: You are not required to use the parameter names
+    supplied here of 'f' and 'n' -- you could be more explict with your
+    names ... I am just using the convention supplied by Borland!)
+    --------------------------------------------------------------------
+
+ The words "of Pushbutton(f,n)" are important, in that they tell dBASE
+ (and us) that the new class is _derived_ from a base class, called 
+ "Pushbutton". The Pushbutton class definition is built-in to dBASE
+ itself. However, it is possible to derive a custom class from another
+ custom class. See CUSTFORM.HOW (Visual dBASE Forum on Compuserve) for 
+ details.
+
+ The word "custom" is necessary to tell Visual dBASE that you are 
+ creating a custom class. 
+
+ The rest of the class definition should look very much like a 
+ standard list of properties and/or methods -- just like what you
+ might see when a form is generated by the forms designer. By assigning 
+ these values in the custom class definition, you can re-use this any 
+ time you want to use a button to close a form. Each of these properties 
+ will be inherited in any new "close button" you place on a form. 
+
+ The best part of all this is that if you wanted to change the bitmap
+ or the behavior of the button for all of your forms that use it,
+ you could change it in the custom class definition. Any forms that use
+ this button will automatically get the new bitmap or behavior.
+
+ Testing the Close Button
+ ------------------------ 
+ To test this custom class, let's create a simple form, that we will
+ call TESTCLAS.WFM. We'll be using this form for the rest of this 
+ "HOW TO" document.
+ 
+ To ensure that the buttons custom class is available, type in the 
+ command window:
+
+    set procedure to buttons.cc additive
+
+ Next, to create the form type:
+
+    create form testclas
+
+ If you are asked by Visual dBASE about using the expert, select the
+ option to _NOT_ use it. 
+
+ When the forms designer opens, you should get, among other things, 
+ a Control Palette. On the control palette are two pages denoted by
+ tabs ("Standard" and "Custom"). Click on the "Custom" tab, and 
+ you should see a set of controls, including a bunch of buttons. Hold
+ the mouse over each and you will see the speedtip that shows the name 
+ of the control. Find the one that says "Closebutton", and double-click
+ on it. This will place an instance of this button on your form.
+
+ Move the button around a bit. Notice that you can now inspect the button
+ by giving it focus (click once on it). Using the Inspector you can
+ see properties, events and methods. You can change button images with
+ the inspector here, as well as the code (events) associated with the
+ button ...
+
+ To test the actual button, and see it in action, we need to run the
+ form. Since you have the form up in design mode, look at the Visual
+ dBASE speedbar. There is a button with a lightning bolt on it. This
+ is the "Run" button. Click once on this button and wait a moment while
+ the Forms Designer saves your form to a .WFM file and then starts
+ the form. 
+
+ When the form runs, you will only have a single button on it 
+ (currently). Since the only code associated with this button is the
+ "form.close()" codeblock, which is assigned to the OnClick event,
+ when you click on the button, the form will close. This is precisely
+ the behavior it should have.
+
+ 
+ -------------------------------
+ A Phone Entryfield Custom Class
+ -------------------------------
+ Since it is possible to design custom classes visually, and the
+ name of the software is Visual dBASE, let's create a fairly simple
+ custom class control using the forms designer. This is going to be
+ an entryfield. 
+
+ First, let's create a new form just for _creating_ custom controls 
+ (do not confuse this form with the one we are using to test the custom 
+ controls):
+
+    create form newclass
+
+ Bring the Object Palette to the front, and double-click on the
+ entryfield object. This will place an empty entryfield on
+ the form. Move it to the top of the form. (You might want to
+ consider placing a text object next to this class that tells you
+ which object it is, in case you need to modify it later.)
+
+ This is going to be an entryfield used specifically with phone 
+ numbers. Phone numbers in the United States follow a standard format, 
+ that being (AAA) PPP-PPPP  where 'AAA' is the area code, and 'PPP-PPPP' 
+ is the actual phone number. It is inefficient to store the parenthesis, 
+ space and dash in a field, which would take the field up to 14 
+ characters, rather than the actual data, which is 10 characters. There-
+ fore, we are going to design a simple custom class that formats the 
+ number as it is entered (and displayed) on the form, but does not store 
+ the special formatting characters in the field.
+
+ The point of using this custom class, is that if the format for
+ the phone number changes, you only need to change it here - in 
+ the custom class we are creating - and any form that uses this
+ custom class as a template for a phone number will _automatically_
+ be updated to the new format.
+
+ Make the following changes using the Inspector on the Properties page:
+
+    Name (under 'Identification Properties'): PhoneEntryField
+    Width (under 'Position Properties'): 16
+    Height (same): 1.12
+    Picture (under 'Edit Properties'): "@R (999) 999-9999"
+       (this will cause the entryfield to look a little odd -- it
+        will show the following: "(Ent) ryF-ield"  )
+      The picture statement is the real purpose behind this custom class. 
+      If you are not familiar with picture codes and functions in dBASE
+      (any version), you may want to check them out in the language 
+      reference. These are quite useful! 
+    SelectAll (same): .f.
+      The "SelectAll" property tells dBASE to not highlight all of the
+      entryfield when it obtains focus. Standard Windows behavior is 
+      such that if you highlight the whole field and type _anything_, it 
+      will be overwritten by whatever you just typed. This is not always 
+      desirable behavior, and Visual dBASE allows us to turn this off.
+      However, there is a bug in Visual dBASE that causes some odd 
+      behavior with the cursor -- it places it at the end of the data in 
+      the field, or at the end of the field width when entering a new 
+      record, if you set the SelectAll property to false. The OnGotFocus 
+      method tells dBASE to execute the codeblock shown when the 
+      entryfield obtains focus. This codeblock simply issues a 'Keyboard 
+      "{Home}"' -- which sends the cursor to the beginning of the 
+      entryfield.
+        
+        ----------------------------------------------------------------
+        NOTE: The comments about using OnGotFocus to keyboard a
+        "HOME" keystroke are not necessary if you are using the inline
+        release of Visual dBASE (5.5a). To determine which version of
+        Visual dBASE you are using, in the command window type:
+          ? VERSION(1)
+        You will get release numbers. If you have release 687, you have
+        the most current release of Visual dBASE (at the time of this
+        writing). If you get release 673 (the shipping version), go to
+        the Visual dBASE forum on Compuserve (GO VDBASE) and download
+        the patch found in library 16. 
+          The workaround given here is not necessary in the patched
+        (Inline) build!
+        ----------------------------------------------------------------
+    
+    SpeedTip (under 'Help Properties'): "Enter Phone Number"
+      The "SpeedTip" property allows you to display a message under the
+      entryfield (actually, any object that has this property) if the 
+      mouse pointer is over the entryfield for more than a few seconds. 
+      This is handy as a method to let the user know what is expected 
+      in the way of data.
+ On the Events page of the Inspector, change:
+    OnGotFocus: {;keyboard "{Home}"}
+      The codeblock shown is typed directly into the space shown in
+      the inspector -- do not click on the toolbar, and be sure to press
+      the <Enter> key when done, or it will not be saved. 
+      (See NOTE above about versions of Visual dBASE -- this may
+      not be necessary if you have the Inline)
+
+ Let's save this custom class. To do this, use the File menu, and select
+ "Save as Custom". Note that Visual dBASE uses the same name that you 
+ entered in the 'Name' property in the inspector. Enter the name of a 
+ custom class file as well:  
+ 
+    myclass.cc     (is what this document will assume you are using)
+
+ Notice that the checkbox "Place in Control Palette" is automatically
+ checked. You can turn that off later, but we want that set on for now.
+
+ Click on the OK button.
+
+ You have just created MYCLASS.CC, which contains your new custom class
+ in it. This class will also appear in the Control Palette each time you
+ create a new form. Save your form and exit the form designer -- we'll be
+ using it again a little later.
+
+ Let's take a look at the code generated, by bringing the new class file
+ into the program editor:
+
+    modify command myclass.cc
+
+ You should see something very much like:
+
+ CLASS PHONEENTRYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+   this.FontBold = .F.
+   this.Picture = "(999) 999-9999"
+   this.Left = 2.666
+   this.Function = "R"
+   this.SpeedTip = "Enter Phone Number"
+   this.Top = 0.1758
+   this.SelectAll = .F.
+   this.Height = 1.1191
+   this.Width = 16
+ ENDCLASS
+
+ Note that even though we entered a _picture_ of "@R (999) 999-9999", 
+ Visual dBASE changed this to a function (this.Function = "R") _and_ 
+ a picture (this.Picture = ...). Don't panic -- this is working as 
+ designed.
+
+ Interestingly enough, dBASE places the words "FormObj" and "Name"
+ into the CLASS statement, rather than the more simple 'f' and 'n' used
+ in the BUTTONS custom class file.
+
+ You could modify the code here, directly, rather than using the 
+ NEWCLASS form, if you wish. 
+
+
+ Using The PhoneEntryField Class
+ -------------------------------
+ Now that you have a custom class that you can use for your phone 
+ numbers, the question is, how do you use it?
+
+ I always use a simple table for testing my classes. This table has 
+ fields that match the classes I am testing. For example, this is a 
+ Phone class. This means that I need to have a Phone field. It should 
+ be either character or numeric (although since I am not doing math on 
+ the value stored, it is not necessary for the field to be numeric). The 
+ field needs to have enough room to store just the digits without the 
+ extra characters, so we can set the width to 10 when creating the 
+ table.
+
+ Modify your test form with:
+
+    modify form testclas
+
+ In the Object Palette's 'custom' page you will see your new entryfield
+ object along with the custom buttons in the BUTTONS.CC file. Double-
+ click on it, and you will see an instance of your class on the form.
+
+ You will need to set the datalink for the entryfield to the phone field
+ in the table -- use the inspector.
+
+ Save the form and run it as before (use the lightning button). If you 
+ enter a phone number, you will only be able to enter the digits as 
+ shown. 
+
+ A Known Bug
+ -----------
+ Unfortunately, as it turns out, Visual dBASE's form designer has a bug 
+ when working with custom classes -- it does not stream out the datalink 
+ property.
+ 
+ Do not despair! There is a simple fix -- you can use the event "OnOpen"
+ for the class, and tell dBASE to store a code block that will execute 
+ when the form opens.
+
+ Bring the form back up in the forms designer, click on the phone 
+ entryfield and bring up the inspector. Click on the "Event" tab, and 
+ modify the OnOpen event (do _NOT_ click on the toolbar -- type the
+ following directly on the line in the inspector, and be sure to press
+ the <Enter> key when done):
+
+      {;this.datalink = "address->phone"}
+
+ Note that this statement assumes that the alias (or table name) is 
+ "address" and that the field name is "phone" -- make sure you use your
+ own alias and field names!
+
+ Save and run the form -- this time it will work! 
+
+    --------------------------------------------------------------------
+    NOTE: One of my fellow TeamBers notes the following, and quite 
+    properly: the drawback to using the OnOpen event for the object 
+    to set the datalink is that the entryfield object may flash when the 
+    form opens. This is because the entryfield is showing an empty value 
+    or is showing the actual link to the field in the table. It is 
+    suggested in a case like this is to override the form's OPEN method. 
+    Create a procedure in the form, using the program editor:  
+    
+    MODIFY COMMAND formname.WFM
+
+    Just before the ENDCLASS statement, add the following:
+
+       PROCEDURE Open  && ReadModal if that's what you need
+                       && to over-ride
+          *-- this will over-ride the form's OPEN() method:
+          form.PhoneEntryField1.DataLink = "address->phone"
+          
+          *-- any other custom properties for custom controls
+          *-- would go here ...
+          *-------
+          *-- And now, call the form's Open Method (if this
+          *-- statement is left off, the form will not open
+          *-- properly!):
+          SUPER::Open()
+
+    (You could also use, instead of 'SUPER::Open()', the following
+    two statements:
+       this.mdi = .f.
+       SUPER::ReadModal()   
+         and make sure that the name of this method is "ReadModal"
+         instead of "Open")
+
+    Once you have added this code, save the changes to the form and
+    close it (Ctrl+End). For more details on "SUPER::", see the
+    online help (HELP SUPER); CUSTFORM.HOW; and FORMVARS.HOW.
+    --------------------------------------------------------------------
+
+ 
+ --------------------------
+ A ZipCode Entryfield Class
+ --------------------------
+ Using methods similar to those shown above, we can create other classes
+ as well. Another class that can be quite useful (which can be as simple 
+ as the phone class), is one for working with ZIP Codes. 
+
+ Bring up the form that you are designing custom classes on (our
+ example here is NEWCLASS):
+ 
+     modify form newclass
+
+ Double-click on the entryfield in the Object Palette again, and
+ make the following changes in the inspector:
+
+    Name: ZipEntryField
+    Width: 16
+    Height: 1.12
+    Picture: "@R 99999-9999"
+    SelectAll: .f.
+    SpeedTip: "Enter Zip Code"
+    Value: delete anything there (make it blank)
+    OnGotFocus: {;keyboard "{Home}"}
+
+ Save the new class (File | Save as Custom ...) like before. Note that
+ the file MYCLASS.CC is listed for the file this time. Go ahead and
+ save the class there, and click on the OK button. NOTE: When you save
+ the custom class this time, Visual dBASE will add the new class to
+ the file -- in other words, any other classes already contained in this
+ file will not be erased.
+
+ Once again, let's view the code:
+
+    modify command myclass.cc
+
+ You will see a second custom class:
+
+ CLASS ZIPENTRYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+   this.OnGotFocus = {;keyboard "{Home}"}
+   this.Top = 1.8223
+   this.SelectAll = .F.
+   this.Height = 1.1182
+   this.Width = 16.002
+   this.FontBold = .F.
+   this.Picture = "99999-9999"
+   this.Left = 2.8311
+   this.Function = "R"
+ ENDCLASS
+
+ To test the class, and make sure everything works properly, once again,
+ bring up your TESTCLAS form in the designer, go to the Object Palette,
+ and double click on the new entryfield (you may need to wait for the 
+ speedtip to appear to get the right one). Make sure you set the
+ OnOpen event to a codeblock that will set the datalink to your zipcode
+ field in the table. Save and run the form.
+
+ This particular custom class could have some code attached to 
+ search for the appropriate city and state, and bring that information 
+ into your table. However, this would require that you had a table with 
+ all that information in it handy -- a table this size, with 
+ appropriate indexes would be fairly large, and is not included here.
+ An example of this can be found in the DBASEDOS forum, called 
+ ZIP94.ZIP. 
+
+ 
+ -----------------------------------------------------------------------
+ Adding Specialized Code to a Custom Class -- Creating a KEY FIELD Class
+ -----------------------------------------------------------------------
+ So far, the two classes we've created have been pretty basic, having 
+ no complex methods attached. However, this next one we will attach a 
+ bit of code (a method) to the class, to see how this can make your 
+ classes more powerful.
+
+ We are going to create a black-box custom class that can be used to 
+ ensure that a field in a table contains a unique value. This will 
+ require, among other things, checking the value entered by the user 
+ against the data currently in the table.
+
+ As before, bring up the NEWCLASS form in the form designer. Add a new
+ entryfield to the form (double-click on the entryfield object). Make
+ the following changes to start:
+
+    Name: KeyField
+    Width: 16
+    Height: 1.12
+    SelectAll: .f.
+    SpeedTip: "The Value Entered must be Unique"
+    Value: delete anything there (make it blank)
+    OnGotFocus: {;keyboard "{Home}"}
+
+ There is more that will need to be done for this class. However, I have 
+ found that sometimes it is easier to modify a class in the program 
+ editor, than in the form designer. So, we will do the next part using 
+ the editor. We need to save the custom class and the form, however. To 
+ do that, use the steps we've used before (File | Save as Custom ...  
+ for the class, and so on ...).
+
+ In the command window, type:
+
+    modify command myclass.cc
+
+ And move down to the code for the KeyField class.
+
+ CLASS KEYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+   this.OnGotFocus = {;keyboard "{Home}"}
+   this.SpeedTip = "The Value entered here must be unique!"
+   this.Top = 3.5879
+   this.SelectAll = .F.
+   this.Height = 1.1191
+   this.Width = 16
+   this.FontBold = .F.
+   this.Value = ""
+   this.Left = 3
+ ENDCLASS
+
+ Add the following before the ENDCLASS statement:
+
+   *--  fired on exiting field _if_ the value changed
+   this.Valid = CLASS::IsUnique
+   this.ValidRequired = .t.
+   this.ValidErrMsg = "This value must be unique. Please check your "+;
+                      "entry and try again."
+   
+   *-- Custom Properties -- the designer must assign
+   *-- values to these in the entryfield's OnOpen --
+   *-- see comments above.
+   this.cAlias = ""
+   this.cTag   = ""
+   this.cField = ""
+
+ These statements have the following purpose:
+   this.Valid tells dBASE to execute some code when the user 
+              attempts to leave the entryfield object. This is the
+              standard 'validation' in dBASE, which in conjunction
+              with the 'ValidRequired' property forces dBASE to ensure
+              that you return a 'true' condition. In this case, the 
+              code executed is part of the class definition (a method of 
+              the class) called "IsUnique". The 'ValidErrMsg' allows
+              you to define your own message, rather than use the Visual
+              dBASE default.
+
+   The Custom Properties ("this.cAlias, etc.") shown above are necessary 
+   for this particular class's IsUnique method to execute properly. When 
+   you _use_ this class, you _must_ assign values to these custom 
+   properties (using the OnOpen method of the object).
+   
+ The code given below must also be included _before_ the ENDCLASS
+ statement:
+
+   PROCEDURE IsUnique
+      lUnique = .t.         && assume true
+
+      *-- use the custom properties defined above
+      *-- open the table a second time, so we do not
+      *-- mess things up:
+      cOldAlias = alias()  && save current work area
+      use (this.cAlias) again in select() alias CheckIt NoUpdate
+      select CheckIt
+      set order to (this.cTag)
+      cFieldName = this.cField
+      if seek(this.Value)
+         do while &cFieldName. = this.value .and. .not. eof()
+            if recno() # recno(this.cAlias)
+               lUnique = .f.  && it's not unique
+               exit           && get out of loop
+            endif
+            skip
+         enddo
+      endif && seek(...)
+      select CheckIt
+      use
+      select (cOldAlias)
+      
+    RETURN lUnique
+
+ Briefly, an explanation of the IsUnique routine:
+
+ What we're doing is opening the table a second time and assigning
+ a special alias (CheckIt) so we don't confuse the issue. If you
+ use this alias for something else, then consider changing the alias
+ name to something unique. This routine does not check to see if an
+ alias of "CheckIt" is currently being used, and will crash your
+ code if it is.
+
+ We set the index tag to the appropriate tag, and then issue a SEEK()
+ on the value of the entryfield (the value the user entered). 
+
+ If we find a match, we need to check to see if the record number
+ in the two instances of the table are the same -- if they are,
+ there is no problem (if recno() # recno(this.cAlias) ). If, however,
+ the record numbers are not the same, then we have a problem --
+ the value is not unique, and the user must enter a new value.
+
+ The rest is just cleanup, and should be fairly clear, with the
+ extra commentary thrown in.
+
+ Save the custom class file (Ctrl+End). Use the SET PROCEDURE
+ statement to reset the custom classes:
+
+    set procedure to myclass.cc additive
+
+ And then we need to put an instance of this on the test form:
+
+    modify form testclas
+
+ Once again, find the class in the Object Palette, and double-click
+ on it, place an instance of it on the form. Go to the Events page
+ of the property inspector, and click on the OnOpen event. Rather
+ than typing in a simple code-block this time, however, we need to do 
+ just a bit more for this class to work. There are three custom 
+ properties that need to be set, as well as the datalink. Instead of
+ just typing in a codeblock, click on the tool-button. This will bring
+ up the procedure editor for the form designer, and enter the following:
+
+       this.datalink = "address->ssn"
+       *-- where mykey is a key field, like a social security number
+       *-- or something like that
+       this.cAlias = "address"
+       this.cTag   = "ssn"
+       this.cField = "ssn"
+       *-- Where 'ssn' is the field and index tag we need to use
+       *-- to find the key value. For this example, I am 
+       *-- using a social security number as a key field.
+ 
+ Please note that the alias, tag and field given as an example above
+ assume that these exist in the table you are testing for -- please
+ use an appropriate set of information (alias, index tag and field 
+ name) for testing and using this routine!
+
+    --------------------------------------------------------------------
+    NOTE: As noted earlier, in the discussion of the PhoneEntryField,
+    you can over ride the form's OPEN method, and place this code in the
+    OPEN procedure ... 
+    --------------------------------------------------------------------
+
+ 
+ ------------------------
+ Auto-Incrementing Fields
+ ------------------------
+ Here's something that there is always a demand for -- an 
+ "Auto-Incrementing" field. If you are using .DB tables, you won't need 
+ this, because it is built-in to the table definition. However, if you 
+ are using .DBF tables, this is not a built-in field type, but there is 
+ always a call for it. 
+
+ What is an "Auto-Incrementing Field"? This is a field that 
+ automatically increments (adds 1 to the previous value) when you 
+ add a new record. This is used a lot for invoice numbers, employee
+ numbers, things of this nature.
+
+ Follow the basic steps discussed above to start the creation of this
+ class, save it as AUTOINC with the "File | Save As Custom ..." menu.
+ Modify the file MYCLASS.CC and let's take a look ...
+
+ class AutoIncrementField(f,n) of entryfield(f,n) custom
+
+    this.height    =  1.12   && assumes MS San Serif, 8 Point
+    this.width     = 16      && same
+    this.SelectAll = .f.
+    this.SpeedTip  = "Auto-Increment -- You Can't Edit Me!"
+    this.When      = CLASS::IncrementIt
+    this.ColorNormal    = "W+/B"
+    this.ColorHighLight = "W+/B"
+ 
+    PROCEDURE IncrementIt
+       
+       if this.Value > 0
+          RETURN .F.  && don't do anything!
+       endif
+
+       *-- if table doesn't exist, create it:
+       cAlias = alias()
+       if .not. file("AUTOINC.DBF")
+          select select()  && next work area
+          CREATE TABLE "AUTOINC.DBF" (MYAUTO NUMERIC(5,0))
+          use autoinc
+          append blank
+          replace autoinc->MyAuto with 0
+          use
+          select (cAlias)
+       endif
+
+       *-- open auto.dbf, so we can increment it, then
+       *-- close it as soon as possible:
+       select select()  && next work area
+       use autoinc      && open the table
+       do while .not. FLock() && try to FLOCK it
+       enddo
+       replace autoinc->MyAuto with autoinc->MyAuto+1  && increment
+       this.value = autoinc->MyAuto
+       use
+       select (cAlias)
+ 
+    RETURN .F.  && disallow user editing ...
+
+ The code involved is a bit more complicated than it looks at first
+ glance. First, the class assumes that it is probably the first object
+ in the tab order for a form. The reason for this is that it uses the 
+ 'When' clause to execute some code -- however, the code executed always 
+ returns a '.F.', which means that the user cannot enter or edit the 
+ value in the entryfield. The real problem is ensuring that this 
+ entryfield will get focus so it can activate. If it's not the first 
+ object in the tab-sequence on the form, it will not activate, and you 
+ will not increment the value ... There's another version of this 
+ routine (AUTOINC2.CC) at the end of the document, which is a version 
+ modified from this one by Romain Strieff -- it handles these problems
+ with a special routine to ensure that the auto increment field gets
+ focus long enough to perform its 'magic'.
+
+ The code that gets executed (IncrementIt) does the following:
+    
+       It checks to see if the value of the entryfield (this.value)
+       is greater than 0. If so, it returns, as there's already a
+       value in the field, and we do not wish to over-write it every 
+       time we navigate through the records in the table!
+
+       Next, we check to see if the table "AUTOINC.DBF" exists. This
+       table has a single record, with a single field -- this is used
+       to store the _last_ value used. When we perform the auto-
+       increment, we are actually incrementing what's in _this_ table,
+       not in the actual table we are storing data in! Anyway, if the
+       table does not exist, this section of code creates it (using the
+       SQL command CREATE TABLE), places a single record in it, and
+       sets the field's value to 0. It then closes the new table,
+       and puts us back in the original alias or table we were in before
+       we created the table.
+
+       Then, we do the actual increment: we find the next available
+       work area, open the AUTOINC table. Then, we attempt to get
+       a file-lock on it (this is vital on a LAN) -- since the only
+       routine that should be using this table is the custom class
+       shown here, any user who is using the table will be using it
+       for a very brief time. The routine shown loops until an FLOCK()
+       is successful. This should not take long. Then, we add one to
+       the value currently in the field, put that value into the 
+       entryfield object (the one derived from this class), and close
+       the autoincrement table ...
+
+ There are some problems with this particular routine, largely dealing
+ with forms using multiple tables, and/or multiple instances of the 
+ same class on the same form -- you may be incrementing different
+ items in the table. 
+
+ -------
+ SUMMARY
+ -------
+ These are just the basics of working with custom classes. Hopefully 
+ this document has given you some ideas as to what you can do with 
+ Custom Classes. These are one of the best things about Object-Oriented 
+ Programming, and they are well implemented in Visual dBASE. 
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1996, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+
+ The disclaimer having been stated, feel free to use this code as you
+ will, but please have the courtesy to credit the author(s).
+
+ *------------------------8< Cut Here >8---------------------------*
+ * Use Copy/Paste to extract the following and save it as 
+ * MYCLASS.CC. These are all of the custom classes discussed
+ * in the .HOW document: CUSTCLAS.HOW.
+ * Included custom classes:
+ *    PhoneEntryField
+ *    ZipEntryField
+ *    KeyField
+ *    AutoIncrementField
+ *    AutoIncrement2
+ *    SeqValue
+ *-----------------------------------------------------------------*
+ 
+ *----------------------------------------------------------------------
+ *-- PhoneEntryField Custom Class -- this is an entryfield, that is
+ *-- pretty simple -- it is based on the American telephone numbering
+ *-- system. It is designed to be used with a character field in a
+ *-- table that is 10 characters wide -- we are not storing the 
+ *-- parens, space and dash that appear on screen. The only drawback
+ *-- is that when you PRINT a field that uses this format, you need
+ *-- to use the TRANSFORM() function like this:
+ *--            transform(phonefield,"@R (999) 999-9999")
+ *-- NOTES: When using this custom control, use the OnOpen event
+ *-- to set the datalink: {;this.datalink = "mytable->myfield"}
+ *-- (This is due to a bug in streaming properties out for custom
+ *-- classes using the forms designer)
+ *----------------------------------------------------------------------
+ CLASS PHONEENTRYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+    this.Function = "R"
+    this.SpeedTip = "Enter Phone Number"
+    this.Top = 0.1758
+    this.SelectAll = .F.
+    this.Height = 1.1182
+    this.Width = 16.002
+    this.FontBold = .F.
+    this.Picture = "(999) 999-9999"
+    this.Value = ""
+    this.Left = 2.6641
+ ENDCLASS
+ 
+ *----------------------------------------------------------------------
+ *-- ZIPEntryField Custom Class -- this is an entryfield, that is
+ *-- pretty simple -- it is based on the American postal service
+ *-- ZIP code It is designed to be used with a character field in a
+ *-- table that is 9 characters wide -- we are not storing the 
+ *-- dash that appears on screen. The only drawback is that when you 
+ *-- PRINT a field that uses this format, you need to use the 
+ *-- TRANSFORM() function like this:
+ *--            transform(zipfield,"@R 99999-9999")
+ *-- NOTES: When using this custom control, use the OnOpen event
+ *-- to set the datalink: {;this.datalink = "mytable->myfield"}
+ *-- (This is due to a bug in streaming properties out for custom
+ *-- classes using the forms designer)
+ *----------------------------------------------------------------------
+ CLASS ZIPENTRYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+    this.OnGotFocus = {;keyboard "{Home}"}
+    this.Function = "R"
+    this.Top = 1.8223
+    this.SelectAll = .F.
+    this.Height = 1.1182
+    this.Width = 16.002
+    this.FontBold = .F.
+    this.Picture = "#####-####"
+    this.Value = ""
+    this.Left = 2.8311
+ ENDCLASS
+
+ *----------------------------------------------------------------------
+ *-- KeyField Custom Class -- this is an entryfield custom class.
+ *-- It is designed to be used for those fields in a table that 
+ *-- must be unique (Social Security Numbers, things of that 
+ *-- nature).
+ *--
+ *-- NOTES: When using this custom control, use the OnOpen event
+ *-- to set several properties -- as there _are_ several that need
+ *-- to be set, use the 'tool' button and in the procedure editor,
+ *-- enter something like the following: 
+ *--       this.datalink = "mytable->myfield"
+ *--       this.cAlias   = "myalias"
+ *--       this.cTag     = "mytag"
+ *--       this.cField   = "myfield"
+ *--   Replace 'mytable', 'myfield', 'myalias', 'mytag' with
+ *--   the appropriate values. 'MyTable' and 'MyAlias' can (and usually
+ *--   are) be the same. 'MyTag' is the index tag that you are using
+ *--   to check that the field is unique. This requires that a 
+ *--   .MDX tag exist. And 'MyField' is the name of the field.
+ *-- (This is due to a bug in streaming properties out for custom
+ *-- classes using the forms designer)
+ *----------------------------------------------------------------------
+ CLASS KEYFIELD(FormObj,Name) OF ENTRYFIELD(FormObj,Name) Custom
+    this.OnGotFocus = {;keyboard "{Home}"}
+    this.SpeedTip = "The Value entered here must be unique!"
+    this.Top = 3.5879
+    this.SelectAll = .F.
+    this.Height = 1.1191
+    this.Width = 16
+    this.FontBold = .F.
+    this.Value = ""
+    this.Left = 3
+    this.Valid = CLASS::IsUnique
+    this.ValidRequired = .t.
+    this.ValidErrMsg = "This value must be unique. Please check your "+;
+                       "entry and try again."
+
+    *-- Custom Properties -- the designer must assign values to these 
+    *-- in the entryfield's OnOpen 
+    this.cAlias = ""   && alias name
+    this.cTag   = ""   && .MDX tag name
+    this.cField = ""   && field name
+
+    PROCEDURE IsUnique
+       lUnique = .t.         && assume true
+
+       *---------------------------------------------
+       *-- use the custom properties defined above to
+       *-- check the uniqueness of the value of the
+       *-- entryfield.
+       *---------------------------------------------
+       *-- open the table a second time, so we do not
+       *-- mess things up:
+       cOldAlias = alias()      && save current work area
+       *-- open table a second time, in new work area, with
+       *-- alias of "CheckIt" with the NoUpdate flag just to
+       *-- be safe.
+       use (this.cAlias) again in select() alias CheckIt NoUpdate
+       select CheckIt           && don't leave this out!
+       set order to (this.cTag)
+       cFieldName = this.cField
+       *-- perform a SEEK() on the value entered by the user,
+       *-- in the appropriate .MDX tag.
+       if seek(this.Value)
+          *-- if match is found, we have to deal with the fact,
+          *-- specifically when _editing_ the record, that the
+          *-- value may be found in the .MDX tag for
+          *-- the current record (i.e., don't declare an error
+          *-- for the record you're on)
+          *-- This is done by checking the contents of the field
+          *-- when we hit with the SEEK() function against the
+          *-- contents of the entryfield. If they're identical,
+          *-- we have to check the record numbers. If those are
+          *-- not identical, we have a match, and must give
+          *-- an error (setting lUnique to .F.).
+          do while &cFieldName. = this.value .and. .not. eof()
+             if recno() # recno(this.cAlias)
+                lUnique = .f.  && it's not unique
+                exit           && get out of loop
+             endif
+             skip
+          enddo
+       endif && seek(...)
+       *-- close the second copy of the table
+       select CheckIt
+       use
+       *-- back to the original ...
+       select (cOldAlias)
+       
+    RETURN lUnique
+
+ ENDCLASS
+
+ *----------------------------------------------------------------------
+ *-- AutoIncrementField Custom Class -- this is an entryfield custom 
+ *-- class. It is designed to be used for a field in a table that 
+ *-- must be automatically incremented. If you need multiple fields
+ *-- of this nature on the same form/table, or are using multiple
+ *-- tables in a form, see AUTOINC2 below.
+ *--
+ *-- NOTES: When using this custom control, use the OnOpen event
+ *-- to set the datalink: {;this.datalink = "mytable->myfield"}
+ *-- OR, to avoid the entryfield 'flashing' when the form opens,
+ *-- use the form's Open method (as described in CUSTCLAS.HOW)
+ *-- to set the datalink:
+ *--     PROCEDURE OPEN
+ *--        form.autoincrementfield1.datalink = "mytable->myfield"
+ *--        SUPER::OPEN()
+ *-- (This is due to a bug in streaming properties out for custom
+ *-- classes using the forms designer)
+ *----------------------------------------------------------------------
+ CLASS AUTOINCREMENTFIELD(FormObj,Name) OF ;
+                                       ENTRYFIELD(FormObj,Name) Custom
+    this.Top = 5.3525
+    this.SelectAll = .F.
+    this.FontBold = .F.
+    this.SpeedTip = "This field cannot be edited"
+    this.Value = ""
+    this.Left = 3.166
+    this.Height = 1.1191
+    this.Width = 16
+    this.When = CLASS::IncrementIt
+
+    PROCEDURE IncrementIt
+       if empty(this.datalink)
+          msgbox("There is no datalink for this "+;
+                 "autoincrement field!","ERROR",16)
+          RETURN .F.
+       endif
+
+       if this.Value > 0
+          RETURN .F.  && don't do anything!
+       endif
+
+       *-- if table doesn't exist, create it:
+       cAlias = alias()
+       if .not. file("AUTOINC.DBF")
+          select select()  && next work area
+          *********************************************************
+          *** Note: one drawback to using the 'CREATE TABLE'
+          *** syntax, is that this is SQL syntax -- this  means
+          *** that when compiling and distributing the application
+          *** you must use the SQL portion of the Borland 
+          *** Database Engine (BDE). This could also be done
+          *** with the CREATE STRUCTURE EXTENDED commands -
+          *** see the language reference. It's a bit more code,
+          *** but it does not require the SQL part of the BDE,
+          *** which may make a difference in your disk set when
+          *** distributing your application.
+          *********************************************************
+          CREATE TABLE "AUTOINC.DBF" (MYAUTO NUMERIC(5,0))
+          use autoinc
+          append blank
+          replace autoinc->MyAuto with 0
+          use
+          select (cAlias)
+       endif
+
+       *-- open auto.dbf, so we can increment it, then
+       *-- close it as soon as possible:
+       select select()  && next work area
+       use autoinc      && open the table
+       do while .not. FLock() && try to FLOCK it
+       enddo
+       replace autoinc->MyAuto with autoinc->MyAuto+1  && increment
+       this.value = autoinc->MyAuto
+       use
+       select (cAlias)
+
+    RETURN .F.  && disallow user editing ...
+
+ ENDCLASS
+
+ *--------------------------------------------------------------
+ *-- This is Romain's heavily enhanced version of the
+ *-- autoincrement class:
+ *--------------------------------------------------------------
+ *--AUTOINCREMENT2.CC -- An AutoIncrement Custom Class Entryfield.
+ *--Place this on a form, and make sure you datalink it to
+ *--a field in one of your tables -- the field must be
+ *--numeric or character. It should handle any number of fields
+ *--or forms.
+ *--This version removes the FIELDS bug
+ *--------------------------------------------------------------
+       
+ CLASS AutoIncrement2(F,N) Of Entryfield(F,N) Custom
+       Protect Onopen,When,Selectall,Speedtip
+       This.Height    =  1.12   && Assumes Ms San Serif, 8 Point
+       This.Width     = 16      && Same
+       This.Function  = "Z"     && Does Not Display Zero Values
+       This.Selectall = .F.
+       This.Speedtip  = "Autoincrement field, non editable"
+       This.When      = {;Return .F.}
+       This.Onopen    = Class::AutoIncOnopen
+       
+       Procedure Incrementit
+       *this control MUST have a datalink
+       If Empty(This.Datalink)
+          ?? Chr(7)
+          Msgbox("There is no datalink for this control!","ERROR",16)
+          Return .F.
+       Endif && Empty(This.Datalink)
+       
+       *check if it already has a value
+       If Type("this.value")="N" .And. This.Value > 0
+          Return .F.  && Don't do anything!
+       Endif && Type("this.value")="N" .And. This.Value 
+       If Type("this.value")="C" .And. .Not. Empty(This.Value)
+          Return .F.  && Don't do anything!
+       Endif && Type("this.value")="C" .And. .Not. Empty
+       sFields=set("FIELDS")
+       set fields off
+       
+       *-- if table doesn't exist, create it:
+       *-- check if you don't have any _old_ dbf with the same name!!!
+       cAlias = Alias()
+       If .Not. File("AUTOINC.DBF")
+          Select Select()  && Next Work Area
+          *structure has been changed so don't use any old version dbf!
+          Create Table "AUTOINC.DBF" (Incfield Char (50),Incvalue;
+            Numeric(15,0))
+          Use Autoinc Excl &&Use Exclusive To Create Index Tag
+          
+          *create index tag, so that we can use one record for each
+          *field that needs an incrementing value
+          Index On Upper(Incfield) Tag Incfield
+          *close newly created dbf and return to the saved workarea
+          Use
+          Select (Calias)
+       Endif && .Not. File("AUTOINC.DBF")
+       
+       *-- open autoinc.dbf, so we can increment it, then
+       *-- close it as soon as possible:
+       *create exact search expression so that we don't have to
+       *bother with SET EXACT
+       cSeek=Left(Upper(This.Datalink)+Space(50),50)
+       
+       Select Select()  && Next Work Area
+       Use Autoinc Order Incfield    && Open The Table
+       *wait loop for multiple users the same time
+       Do While .Not. Flock() && Try To Flock It, If Impossible
+       Enddo                  &&Another User Was Faster
+       
+       *search record with this datalink
+       If Seek(cSeek)  &&Ok Record Exist
+          *increment value
+          Replace Autoinc->Incvalue With Autoinc->Incvalue+1  && Increment
+       Else
+          *it does not exist, so add a new record
+          Append Blank
+          *save datalink to this record and reset the counter
+          Replace Autoinc->Incvalue With 1,Incfield With This.Datalink
+       Endif && Seek(Cseek)  &&Ok Record Exist
+       
+       Do Case
+       Case Type("this.value")="N" &&It's a numeric field
+          *assign numeric value unchanged
+          This.Value = Autoinc->Incvalue
+       Case Type("this.value")="C" &&It's a char field
+          *construct the right picture clause for this field
+          *@L means leading zeroes
+          Cpicture ="@L "+Replicate("9",Len(This.Value))
+          *transform to chr type and lenght
+          This.Value= Transform(Autoinc->Incvalue,Cpicture)
+       Otherwise
+          *the user set the datalink to an illegal type field
+          ?? Chr(7)
+          Msgbox("AUTOINC.CC only handles N and C datatypes!")
+       Endcase
+       Use
+       Select (Calias)
+       set fields &sFields.
+       Return .F.  && Disallow User Editing ...
+       
+       Procedure Autoinconopen
+       *set the focus to every autoincrement control automatically each
+       *time a navigating occurs in the form
+       
+       If Type("form.autoinc_already_installed")="U"
+          *do this only once for the first autoincrement
+          *control on the form.
+          
+          Form.Autoinc_already_installed=.T.
+          
+          *If the form does have no code specified to execute at the
+          *OnNavigate event.....
+          If(Empty(Form.Onnavigate))
+             Form.Onnavigate=Class::Checkauto
+          Else
+             *otherwise execute both codes
+             Form.Autoonnavigate=Form.Onnavigate
+             *save reference to new property and
+             Form.Onnavigate={;form.AutoOnNavigate();class::checkauto()}
+             
+          Endif && (Empty(Form.Onnavigate))
+       Endif && Type("form.autoinc_already_installed")="
+       
+       Procedure Checkauto
+       *set focus to each autoincrement object on the form to check
+       *if it has a value
+       
+       *save current control to a variable
+       Oscontrol=Form.Activecontrol
+       *loop through all controls and set focus to all the
+       *autoincrement controls
+       Ocontrol=Form.First
+       Do
+       
+          If "AUTOINC" $ Ocontrol.Name
+              Ocontrol.incrementit()
+          Endif && "AUTOINC" $ Ocontrol.Name
+          Ocontrol=Ocontrol.Before
+       Until  Ocontrol.Name=Form.First.Name
+       *set focus to the control that had it before this loop
+       oScontrol.Setfocus()
+ ENDCLASS       
+
+ *----------------------------------------------------------------------
+ *-- SEQVALUE.CC.: A SEQUENTIAL value Custom Class Entryfield.
+ *-- Programmer..: Romain Strieff (CIS: 71333,2147)
+ *-- Date........: 02/05/1996 Original
+ *--             : 03/08/1997 removed FIELDS bug  
+ *-- Notes.......: Custom entryfield that will fill automatically 
+ *--             : with sequential values when issuing Form.Saverecord()
+ *--             : in the form it is placed. Used for InVoice/Order N#
+ *--             : etc where the sequence of the numbers must be 
+ *--             : guaranteed.
+ *-- Written for.: Visual dBASE 5.5a for Windows
+ *-- Calls.......: None
+ *-- Based on....: AUTOINC.CC from Ken Mayer (CIS: 71333,1030)
+ *-- Remarks.....: Your form must use Form.BeginAppend() and 
+ *--             : Form.SaveRecord() for the CC to work.
+ *-- Comment.....: This CC overrides the Forms SAVERECORD() method.
+ *----------------------------------------------------------------------
+       
+ CLASS SeqValue(F,N) Of Entryfield(F,N) Custom
+       Protect Onopen,When,Speedtip,enabled
+       This.Speedtip  = "SeqValue Custom Control -- You Can't Edit Me!"
+       This.When      = {;Return .F.}
+       This.Onopen    = Class::SeqValueOnopen
+       this.enabled   =.f.
+       
+       Procedure Incrementit
+
+       *this control MUST have a datalink
+       If Empty(This.Datalink)
+          ?? Chr(7)
+          Msgbox("There is no datalink for this control!","ERROR",16)
+          Return .F.
+       Endif && Empty(This.Datalink)
+       
+       *check if it already has a value
+       If Type("this.value")="N" .And. This.Value > 0
+          Return .F.  && Don't do anything!
+       Endif && Type("this.value")="N" .And. This.Value 
+       If Type("this.value")="C" .And. .Not. Empty(This.Value)
+          Return .F.  && Don't do anything!
+       Endif && Type("this.value")="C" .And. .Not. Empty
+       
+       
+       *-- if table doesn't exist, create it:
+       *-- check if you don't have any _old_ dbf with the same name!!!
+       cAlias = Alias()
+       If .Not. File("SeqValue.DBF")
+          Select Select()  && Next Work Area
+          *structure has been changed so don't use any old version dbf!
+          Create Table "SeqValue.DBF" (Incfield Char (50),Incvalue;
+            Numeric(15,0))
+          Use SeqValue Excl &&Use Exclusive To Create Index Tag
+          sFields=Set("FIELDS")
+          set fields off
+          
+          *create index tag, so that we can use one record for each
+          *field that needs an incrementing value
+          Index On Upper(Incfield) Tag Incfield
+          *close newly created dbf and return to the saved workarea
+          Use
+          set fields &sFields.
+          Select (Calias)
+       Endif && .Not. File("SeqValue.DBF")
+       
+       *-- open SeqValue.dbf, so we can increment it, then
+       *-- close it as soon as possible:
+       *create exact search expression so that we don't have to
+       *bother with SET EXACT
+       cSeek=Left(Upper(This.Datalink)+Space(50),50)
+       
+       Select Select()  && Next Work Area
+       Use SeqValue Order Incfield    && Open The Table
+       *wait loop for multiple users the same time
+       Do While .Not. Flock() && Try To Flock It, If Impossible
+       Enddo                  &&Another User Was Faster
+       *We lock the _file_ instead of the record (RLOCK()) to avoid
+       *problems when 2 users would try to add a new record to SEQVALUE
+       *the same time for the same table field when used the first time.
+       sFields=Set("FIELDS")
+       ? sFields
+       set fields off
+
+       *search record with this datalink
+       If Seek(cSeek)  &&Ok Record Exist
+          *increment value
+          Replace SeqValue->Incvalue With SeqValue->Incvalue+1  && Increment
+       Else
+          *it does not exist, so add a new record
+          Append Blank
+          *save datalink to this record and reset the counter
+          *Here's where the problem could happen if we used record lock
+          *instead on file lock, 2 users might add a record the the same
+          *table-field
+          Replace SeqValue->Incvalue With 1,Incfield With This.Datalink
+       Endif && Seek(Cseek)  &&Ok Record Exists
+       
+       Do Case
+       Case Type("this.value")="N" &&It's a numeric field
+          *assign numeric value unchanged
+          This.Value = SeqValue->Incvalue
+       Case Type("this.value")="C" &&It's a char field
+          *construct the right picture clause for this field
+          *@L means leading zeroes
+          Cpicture ="@L "+Replicate("9",Len(This.Value))
+          *transform to chr type and lenght
+          This.Value= Transform(SeqValue->Incvalue,Cpicture)
+       Otherwise
+          *the user set the datalink to an illegal type field
+          ?? Chr(7)
+          Msgbox("SeqValue.CC only handles N and C datatypes!")
+       Endcase
+       set fields &sFields.
+       Use
+       Select (cAlias)
+       *so we just updated the value, now save it with the rest of
+       *the changes that were done.
+       form.SaveRecord()
+              
+       Return .F.  
+       
+       Procedure SeqValueonopen
+       *set the focus to every SeqValuerement control automatically each
+       *time a navigating occurs in the form
+       
+       If Type("form.SeqValue_already_installed")="U"
+          *do this only once for the first SeqValuerement
+          *control on the form.
+          Form.SeqValue_already_installed=.T.
+          
+          *If the form does not have an overriden Saverecord
+          
+          If(Empty(Form.SaveRecord))
+
+             Form.SaveRecord=Class::Checkauto
+          Else
+             *otherwise execute both codes
+             Form.AutoSaveRecord=Form.SaveRecord
+             *save reference to new property and
+             Form.SaveRecord={;class::checkauto();form.AutoSaveRecord()}
+             
+          Endif && (Empty(Form.Onnavigate))
+       Endif && Type("form.SeqValue_already_installed")="
+       
+       Procedure Checkauto
+       *set focus to each SeqValue object on the form to check
+       *if it has a value
+      
+       *save current control to a variable
+       Oscontrol=Form.Activecontrol
+       *loop through all controls and set focus to all the
+       *SeqValue controls
+       Ocontrol=Form.First
+       Do
+       
+          If "SEQVALUE" = upper(Ocontrol.ClassName)
+              Ocontrol.incrementit()
+          Endif && "SeqValue" $ Ocontrol.Name
+          Ocontrol=Ocontrol.Before
+       Until  Ocontrol.Name==Form.First.Name
+       *set focus to the control that had it before this loop
+       oScontrol.Setfocus()
+
+ ENDCLASS       
+
+ *-----------------------------------------------------------------
+ *-- End of File: MYCLASS.CC
+ *------------------------8< Cut Here ------------------>8---------* 
+
+ *-- EoHT: CUSTCLAS.HOW -- 05/21/1997
+

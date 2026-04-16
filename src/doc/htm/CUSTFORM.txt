@@ -1,0 +1,1412 @@
+ CUSTFORM.HOW
+ 10/02/1995
+ 
+ Ken Mayer: 71333,1030
+
+ ----------------------------
+ Custom Forms in Visual dBASE
+ ----------------------------
+
+ 
+ What is a Custom Form?
+ ----------------------
+ A Custom Form is a form class that you design, and then use as a 
+ template for other forms. 
+
+ The example for this HOW TO document is aimed at creating a custom 
+ form that emulates about the only aspect of a competitor's product
+ that I like. In this product, a software-generated form will 
+ automatically place buttons at the bottom of the form, with specific 
+ behaviors built-in. These include buttons for navigation (Top, 
+ Previous, Next, Bottom and Locate), for editing (Add, Edit, Delete), 
+ to print the current record or close the form.  When you select the 
+ Add/Edit buttons, for example, the interface objects for the user are 
+ enabled (previously disabled), and most of the buttons are disabled 
+ (all but the Edit and Delete buttons, and the text for those changes 
+ to Save and Cancel!). 
+
+ The code behind all of this is a bit convoluted in the competitor's
+ product (and if you want to modify it, it is very tricky) -- to 
+ emulate it in Visual dBASE, is much more simple, as you will see ... 
+ 
+ 
+ The Examples Used Here
+ ----------------------
+ The example used in this HOW TO really gets into three different
+ areas -- the first is creating a series of Custom Class Pushbuttons,
+ which will be used to emulate the behavior stated above; the second
+ will be to use these pushbuttons on a custom form class; the last
+ will show how to use a custom form class to create your own forms.
+ 
+ 
+ ---------------------------------------------------
+ Part 1 - Building the Custom (Button) Classes First
+ ---------------------------------------------------
+ In order to do this in proper Object-Oriented style, we will define a 
+ series of pushbuttons as a custom class. These will be similar to the 
+ ones defined in the sample BUTTONS.CC file that ships with Visual 
+ dBASE, but for our purposes, the graphic images are going to be 
+ removed, and the code will be slightly altered.
+
+    --------------------------------------------------------------------
+    NOTE: Why create these buttons as separate custom classes, rather 
+    than build them into the form? To answer a question with a 
+    question -- what if I wanted to use these exact same button 
+    definitions on a form that wasn't a part of the custom-class form 
+    that we are designing? I would have to either re-create the button 
+    classes, or steal them out of the code for the form class. This is 
+    not proper object-oriented programming technique. By creating 
+    these as their own custom classes separate from the custom form, 
+    I can then re-use the buttons anywhere else I want to. This is
+    good OOP technique.
+    --------------------------------------------------------------------
+
+    --------------------------------------------------------------------
+    NOTE: Some of the methods (procedures) for these pushbuttons call 
+    dialog boxes -- however, these are not standard MSGBOX() 
+    calls -- these are based on some pre-defined calls to MSGBOX(), 
+    using MESSAGE.H -- a header file (this ships with Visual dBASE, and 
+    is in the \VISUALDB\INCLUDE directory). This is added to the 
+    beginning of the custom class file with:
+
+    #INCLUDE <message.h>
+
+    If you would rather not use these, you could use MSGBOX() 
+    directly. See HELP MSGBOX to obtain information about this
+    extremely useful command. (Type: HELP MSGBOX in the command window.)
+    --------------------------------------------------------------------
+
+ A couple of constants are being defined and used throughout to handle 
+ height and width of the buttons. This is so that if we need to make a 
+ change, all the buttons can be changed in one step.
+
+ #DEFINE NGHEIGHT 1.1182
+ #DEFINE NGWIDTH  9
+
+
+ Navigation Buttons
+ ------------------
+ The navigation buttons are pretty straightforward, and have not been 
+ modified very much.
+
+ These are below, with explanations:
+
+ The TOP button, defined below, sends the record pointer to the first 
+ record in the table -- by first record, we are not specifically 
+ stating record number 1 -- if you have indexed your table, the first 
+ record is probably not record number 1, but the first record in the 
+ index. 
+
+ The button definition has no bitmaps, width height, text are set, as 
+ are statusmessage and speedtip properties. The name for the buttons 
+ we will define all start with "NG" -- this is to note "No Graphic"
+ and also to give a slightly different name to the pushbuttons, so 
+ that there is no confusion with the sample buttons in BUTTONS.CC. 
+
+ The code for the Top button is:
+
+ *******************************************************
+ class NGTopButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.text          = "&Top"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.statusMessage = "First record."
+    this.speedTip      = "First Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())     && if a table is open 
+                              && in the current workarea
+       go Top
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ One of the interesting things here is that normally, I would use: 
+
+      this.OnClick = CLASS::name_of_method
+
+ to specify a method to be executed when the pushbutton was clicked 
+ by the user. However, by using the same name as the method itself 
+ (OnClick) for the procedure, I don't have to explicitly give 
+ an instruction to use that method.
+
+ The next, previous, and bottom pushbuttons are pretty much the same 
+ -- the code is very straightforward and easy to use. The complete 
+ code for these buttons will be included at the end of this file.
+
+ The "Locate"  button is a bit more interesting. In order for this to 
+ work like the competing product's version (actually, slightly 
+ enhanced), we need to call a form with a browse on it, to allow the 
+ user to select a record:
+
+ *******************************************************
+ class NGLocateButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    *-- definition code removed for brevity
+    *****************************************************
+    procedure OnClick
+    *****************************************************
+    if .not. empty(dbf())    && if a table is open in 
+                             && the current workarea
+       fBrowse = new BrowseForm()
+       fBrowse.Top = -300    && open off screen
+       fBrowse.ReadModal()
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ ********************************************************
+
+ The code in the OnClick procedure that is pertinent here is:
+
+  fBrowse = new BrowseForm()
+  fBrowse.Top = -300
+  fBrowse.ReadModal()
+
+ The first statement instantiates a form from a class called 
+ BrowseForm(), and then opens this form modally, which means that 
+ the user must complete work on this form before returning to the 
+ previous form. (The second statement opens the form off screen, so 
+ that when we call the CenterForm()  routine, written by Jim Sare, 
+ in the form's OnOpen, it will appear to snap onto screen in the 
+ proper location.) The form class BrowseForm must be available to the
+ pushbutton, and is included in the custom class file that the 
+ pushbuttons are in. This browse form is defined in the code listing 
+ later. Note that there is no Alias for the browse, and no View for the 
+ form -- by not defining these, the browse on the form will pick up the 
+ view for the calling form.  
+
+ This browse form simply allows the user to browse through the table, 
+ and find the appropriate record. Clicking on the Close button closes 
+ the form (that's all the code associated with this particular button). 
+ By not giving an alias or view for the browse or form, when the user 
+ moves through the browse, the record pointer in the browse will
+ affect the record pointer in the main form.
+
+ 
+ The Edit Buttons
+ ----------------
+ The next set of buttons are the fun ones. In some software (including
+ (the competitor's product), a record is placed into a record buffer 
+ by the code SCATTER MEMVAR MEMO. Using the memory variables can
+ get a bit tricky at this point, as you need to differentiate between
+ the memory variable and the fieldname. In the Visual dBASE, you would
+ do this with the "m->" alias pointer -- "m->firstname" is a memory
+ variable called "firstname", while "firstname" might be the memory
+ variable, _or_ a field name (and in dBASE, a fieldname would be 
+ used before a memory variable of the same name ...) -- you would have
+ to use "alias->firstname" (where "alias" is the name of the table
+ or an actual alias created when you opened the table) to ensure
+ that you were working with the field. When done with the record, 
+ you must issue GATHER MEMVAR MEMO. This method works, but it has 
+ its drawbacks.
+
+ In Visual dBASE, once you read a record into a form, it is 
+ automatically buffered, and with a very small amount of effort, you 
+ can control it. For example, to add a new record, simply use
+ BeginAppend()  -- this function creates a new buffered record in the 
+ table.
+ 
+    --------------------------------------------------------------------
+    NOTE: For more information on the Record Buffering, see Alan
+    Katz's file: BUFFER.HOW in library 10 of the DBWIN forum on
+    Compuserve.
+    --------------------------------------------------------------------
+
+ *******************************************************
+ class NGAddButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    *-- definition code removed for brevity
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())      && if a table is open in 
+                               && the current workarea
+       BeginAppend()           && create a new record
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ Unlike the Add button, the Edit button requires no specific
+ actions to fill the record buffer. Therefore, the OnClick method 
+ for this custom button actually does not have any code associated 
+ with it. (As you will see later, in the custom form class, we make 
+ some changes to the code ...)
+   
+ The Delete button checks with the user to see if they really wish to 
+ delete the record. This is pretty standard behavior. It then moves 
+ the record pointer off the deleted record. 
+
+ *******************************************************
+ class NGDeleteButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+
+    *-- code removed for brevity
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())    && if a table is open in 
+                             && the current workarea
+       if ConfirmationMessage("Delete this record?",;
+                              "Confirm") = YES
+          delete
+          skip -1
+          if bof()
+             go top
+          endif
+       endif
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ 
+ The Last Two Buttons
+ --------------------
+ The Print button is just as simple as the Add button is. Visual 
+ dBASE has a really spiffy method attached to the form, called 
+ Print(). It will print the form as is -- and at least on the 
+ printers I've tried this on, is very simple and elegant. 
+
+ As you might imagine, the Close button simply closes the form 
+ (there is no need to replicate that button code here).
+
+ Now we have the buttons, let's move on to the actual _form_.
+
+ -------------------------------------
+ Part 2 - Creating a Custom Form Class 
+  (Using the buttons we just defined)
+ -------------------------------------
+ If you think that you have to do anything truly special to create a 
+ custom form class, you're only partially right. Most of the work is 
+ done in the form designer in Visual dBASE as usual, which is (as you 
+ may have already seen) rather easy to use. For this example, let's 
+ make the custom buttons available by typing (in the command window):
+
+    set procedure to custbutt.cc additive
+
+ Then, go into the forms designer itself to create a new form (do not 
+ use the expert, if asked). Size the form appropriately (for this 
+ example, I made the form go out to the dash-lines that appear --
+ this is the edge of the largest form you should create for a Windows 
+ monitor set up for 640 x 480 resolution -- the standard VGA 
+ resolution). 
+
+ I placed a text object at the top as the default title, and sized it 
+ up to 18 point, and placed a rectangle under it, to give a border to
+ the title. You could, instead, place a logo here, or some combination!  
+ The pushbuttons are at the bottom, grouped appropriately.
+
+ Once you have everything exactly the way you want it, rather than 
+ saving this form with the usual save commands, we need to save it as 
+ a custom form. (FILE | SAVE AS CUSTOM ...) -- enter the appropriate 
+ information in the dialog box -- the name of the file (KENFORM.CFM), 
+ and the name of the form (KENFORM). Visual dBASE saves this file as 
+ a .CFM file, rather than a standard .WFM. 
+
+    --------------------------------------------------------------------
+    NOTE: You cannot execute this form as a normal Visual dBASE form -- 
+    the x=new ... and DO formname.wfm commands do not work, as this is 
+    not a standard form. It is, if you will, a template form that you 
+    can then use to create other forms.
+    --------------------------------------------------------------------
+
+ Now, you might think that this was completed, but it isn't, because 
+ there are some modifications to the code necessary.
+
+ 
+ Setting the Code for the Custom Form
+ ------------------------------------
+ I am more comfortable in the program editor, and that's where we will 
+ examine the code for the custom class form. 
+
+ At the beginning of the class definition, I have placed the following:
+
+ CLASS KenForm OF FORM Custom
+    Set Procedure To CUSTBUTT.CC additive
+    set procedure to center      additive && Jim Sare's CENTER routines
+    this.OnOpen = CLASS::FORMONOPEN
+
+ The first two statements (set procedure) ensure that specific 
+ procedures needed are available. The next statement "this.OnOpen" 
+ is because there is some code I want to execute as soon as the
+ form is opened. The procedure is:
+
+ PROCEDURE FormOnOpen
+    form.cDeleted = set("DELETED")
+    set deleted on
+    centerform(this)
+    form.DataControlsAreEnabled = .t. 
+    CLASS::EnableObjects(.f.)
+
+ The first two statements ensure that we have saved the current setting 
+ for "SET DELETED" -- this is always a good idea. You should always 
+ reset your system environment when you modify it. We save the current 
+ status to a custom property of the form (form.cDeleted). We then set 
+ the flag for Deleted to ON, because we do not wish deleted records to 
+ appear in the table when editing, scrolling through the data, and so 
+ on.
+
+ The third statement calls a routine by Jim Sare (centerform()), which 
+ handles centering the form, no matter what the screen resolution is. 
+ This can be downloaded from the Compuserve DBWIN forum (CENTER.ZIP, 
+ library 7).
+
+ The last two statements are used to ensure that all entryfields and 
+ other UI objects on the form except for pushbuttons are disabled. 
+ The first of these:
+
+   form.DataControlsAreEnabled = .t.
+
+ is creating another custom property for the form, and setting the 
+ value to .T. -- this is necessary for the routine EnableObjects, shown 
+ below (this routine was originally written by Bowen Moursund).
+
+ PROCEDURE EnableObjects(lEnabled)
+    if form.DataControlsAreEnabled = lEnabled 
+                               && already set
+       RETURN
+    else
+       form.DataControlsAreEnabled = lEnabled 
+                               && set it
+    endif
+     
+      local oControl
+      oControl = form.first
+      do
+         if oControl.className $ ;
+            "ENTRYFIELD|EDITOR|RADIOBUTTON|"+;
+            "SPINBOX|CHECKBOX|COMBOBOX|BROWSE"
+            oControl.Enabled = lEnabled
+         endif
+         oControl = oControl.Before
+      until oControl.Name == form.first.name
+
+ This routine basically accepts a parameter (lEnabled, which is either 
+ .T. or .F.), and after checking to see what the current state is (if 
+ they match, we won't do the process again), and we then loop through 
+ all the controls on the form and find ones that we should disable or 
+ enable. It's a pretty simple routine once you trace it through. This 
+ routine can be called as necessary, with the appropriate value to the 
+ parameter to enable or disable all the objects on the form, except for
+ pushbuttons.
+
+ All of the code so far is executed from the form's OnOpen procedure. 
+ Let's look at the code needed when the user presses the Pushbuttons. 
+ Some of it has been modified from the code originally designed into 
+ the custom classes ... this is called:
+
+ 
+ Polymorphism -- Changing the Code of An Inherited Class
+ -------------------------------------------------------
+ When I first encountered this term and the definitions I had read, 
+ it unnerved me, as it didn't make as much sense as I kept hoping 
+ for. It's actually very simple, as we will see.
+
+ The pushbutton code that has been changed for this custom form, is 
+ for the buttons: Add, Edit, Delete, and Close. 
+
+ 
+ The Add Button
+ --------------
+ The definition for the Add button in the custom form class looks like:
+
+   DEFINE NGADDBUTTON IPADD OF THIS;
+       PROPERTY; 
+         Left 50.5,;
+         Top 23.4111,;
+         Group .T.,;
+         PageNo 0,;
+         OnClick class::AddOnClick
+
+ The main information is pretty straightforward. The OnClick 
+ procedure/method, however, is shown below:
+
+   PROCEDURE AddOnClick
+      CLASS::ChangeButtons(.f.)
+      CLASS::EnableObjects(.t.)
+      form.beginappend()
+      CLASS::FirstFocus()
+
+ The first statement calls a routine that either enables or disables 
+ the pushbuttons, and also changes the text of two of them. This 
+ code is called from the Edit button, as well:
+
+   PROCEDURE ChangeButtons(lEnabled)
+      if .not. lEnabled
+         form.ipedit.text        = "&Save"
+         form.ipdelete.text      = "&Cancel"
+      else
+         form.ipedit.text        = "&Edit"
+         form.ipdelete.text      = "&Delete"
+      endif   
+      
+      *-- Enable/disable buttons
+      form.iptop.enabled      = lEnabled
+      form.ipprevious.enabled = lEnabled
+      form.ipnext.enabled     = lEnabled
+      form.ipbottom.enabled   = lEnabled
+      form.iplocate.enabled   = lEnabled
+      form.ipadd.enabled      = lEnabled
+      form.ipprint.enabled    = lEnabled
+      form.ipclose.enabled    = lEnabled
+
+      *-- if you have a TabBox on your custom form,
+      *-- you may want to enable/disable it here:
+      *-- form.ixTabBox.Enabled = lEnabled
+
+ The first little bit of the code handles setting the text values of 
+ the buttons to the appropriate text. If we are adding a record (or 
+ editing one), we want the text of the Edit and Delete buttons to 
+ change to "Save" or "Cancel". However, if we are changing the button 
+ state back to the original state, we need to change the text back. 
+ This routine is pretty straightforward when you examine it as well.
+
+ The next routine called from the Add button is the EnableObjects 
+ procedure, as shown above. This time we are enabling the objects, 
+ which is necessary if we're going to be able to enter/edit data.
+
+ We issue a BeginAppend() -- this built-in dBASE procedure simply 
+ creates a blank record buffer. 
+
+ Finally, we call a routine called FirstFocus() -- this routine finds 
+ the first object that can receive focus (lines, for example, cannot), 
+ and sets focus to it. It is similar to the Enable Objects, in that it 
+ loops through the objects in tab order, until it finds the first 
+ object that can get focus (but there are some differences, based on
+ some ideas from Ken Chan):
+
+ PROCEDURE FirstFocus
+    private oControl
+    oControl = form.first   
+    do
+      if (type("oControl.SetFocus") == "FB" .or. ;
+          type("oControl.SetFocus") == "CB" .and. ;
+          oControl.PageNo = form.PageNo
+         
+         oControl.SetFocus() 
+         RETURN
+     
+      endif
+      oControl = oControl.Before
+    until oControl.Name == form.first.name
+
+ At this point, we are in the mode to add a new record, and of the 
+ buttons defined, only two should be enabled -- Edit (text = Save) and 
+ Delete (text = Cancel).
+
+ 
+ The Edit Button's Code
+ ----------------------
+ The code for the edit button is similar to that of the Add button.
+ We are calling the "EditOnClick" procedure, instead of the 
+ pre-defined procedure in the custom class. This procedure looks like:
+
+ PROCEDURE EditOnClick
+    if this.text = "&Edit"
+       CLASS::ChangeButtons(.f.)
+       CLASS::EnableObjects(.t.)
+       CLASS::FirstFocus()
+    else  && text = "&Save"
+       form.SaveRecord()
+       CLASS::ChangeButtons(.t.)
+       CLASS::EnableObjects(.f.)
+    endif
+
+ We need to check and see what the value of the text for the Edit 
+ button is, as it may actually read "Save" (see above). So, we 
+ check to see if we are starting to Edit a record, and if so, we do
+ similar to the Add button above. However, note that we do not have 
+ to execute any code to place the record into a buffer. This is 
+ automatic. 
+
+ If the button text happens to read "&Save", we do this slightly 
+ differently. We issue a "form.SaveRecord()" call -- this calls a 
+ built-in routine in dBASE to save the contents of the record buffer 
+ to disk. If we are editing, it saves the changes. If we are adding 
+ a new record (BeginAppend() ), we create a new record and save the 
+ buffer to that new record. This is the only code necessary to 
+ handle it. Next we enable the buttons and disable the objects on 
+ the form.
+
+ 
+ The Delete Button's Code
+ ------------------------
+ This one is particularly interesting. We want to still use the code 
+ in the custom button class, if the button's text reads "Delete", but 
+ if it reads "Cancel" we need to issue a different set of code. This
+ is true polymorphism at it's best. 
+
+ PROCEDURE DeleteOnClick
+    if this.text = "&Delete"
+       *-- Call the onclick procedure in the custom class
+       *-- DELETEBUTTON -- this asks the user if they
+       *-- want to delete the record, etc.
+       NGDELETEBUTTON::OnClick()
+    else  && text is "&Cancel"
+       form.AbandonRecord()
+       CLASS::ChangeButtons(.t.)
+       CLASS::EnableObjects(.f.)
+    endif
+
+ The code above checks the text of the button, and if it is "&Delete", 
+ we call the OnClick procedure for the button in the custom button 
+ class file! This statement tells dBASE where to find the routine:
+
+   NGDELETEBUTTON::OnClick()
+
+ The name of the class for the button is "NGDELETEBUTTON". If we had 
+ mistakenly used "IPDELETE" (the name of the button in the form 
+ definition) we would have put ourselves into a rather nasty loop.
+
+ If the text of the button is  "&Cancel", we instead issue the 
+ statement: 
+
+   form.AbandonRecord()
+
+ This statement ignores any changes to the record buffer (in the case 
+ of editing a record) and returns the original values, or if adding a 
+ new record (BeginAppend() ) it effectively throws away the contents 
+ of the new record, and never saves it to disk.
+
+ The other two statements have already been discussed in the Edit and 
+ Add button descriptions.
+
+ 
+ The Close Button
+ ----------------
+ When closing the form, we need to make sure that any changes to the 
+ environment that we created are reset, so we do a slight alteration 
+ to the close button's OnClick method:
+
+ PROCEDURE CloseIt
+    cDeleted = form.cDeleted
+    set deleted &cDeleted.
+    form.close()
+
+ In this case, we place the contents of the custom property of the form 
+ into a memory variable, reset the state of the DELETED flag, and then 
+ close the form. If there were more code in the custom class for the 
+ Close button, we could have, instead, stated:
+
+    NGCLOSEBUTTON::OnClick()
+
+ All that the OnClick procedure for this button does is close the form 
+ (form.close()), and it was easier just to type it.
+
+ If you are actually entering this information to see it work, SAVE THE 
+ FORM and exit (I generally simply type: Ctrl+END for this).
+    
+    --------------------------------------------------------------------
+    NOTES: In order to make this form easier to use, I explicitly named 
+    each of the objects on the form. For example, the title at the top 
+    is called "ITTITLE" -- IT stands for "Interface Text" object; 
+    "Title" is pretty self-explanatory. The pushbuttons have all been 
+    named IPADD, IPDELETE, etc. for the same reason. This is easier to 
+    read and work with than assigning numbers to the objects (the 
+    default method the forms designer uses). When referencing these in a 
+    form derived from this custom form, you will see that these names 
+    are referred to if/when we make any changes to these objects.
+    -------------------------------------------------------------------
+
+ ----------------------------------------- 
+ Part 3 - How Do You Use This Custom Form?
+ -----------------------------------------
+ This is where things become easier. Now that we have all the code in 
+ place, all we have to do is to tell dBASE to use that code as a 
+ template for a form. To do this, we start out by creating a new
+ form. In Visual dBASE, use the normal method you would use to create 
+ a form (I tend to type the command in the command window:  
+ CREATE FORM formname).  Once you have a blank form on the screen, we 
+ need to go to the FILE menu, before doing anything else, and tell dBASE 
+ to use the custom form class. Use these steps:
+
+ File
+    Set Custom Form Class ...
+
+ in the dialog that appears, enter the name of the CFM (or use the 
+ tool button to find the name):
+   
+   File Name Containing Class: KENFORM
+   Class Name: KenForm
+
+    --------------------------------------------------------------------
+    WARNING: From this point on, Visual dBASE will use this class as a
+    template for all your forms, until/unless you go back to the same 
+    menu option, and click on the "Clear Class" button, and then click 
+    on "OK". 
+    --------------------------------------------------------------------
+
+ Click on the OK button. Your form will suddenly look just like the 
+ KenForm class we defined previously. However -- it is not that form -- 
+ this is a derived form -- it currently has all the properties and 
+ buttons and everything of the original form class. However, we can 
+ move objects around, add new objects, classes, methods, etc., and 
+ not affect the original at all.
+
+ Normally, when you place objects on a form, and move them, change 
+ them, etc., you get a set of handles that appear black on the 
+ form/object. Since the objects that are currently on the form are part 
+ of a custom form class, if you click on them, the handles are white 
+ to show that they are different. 
+
+ To test how it works, click on the title, and change the text in the 
+ inspector. You will probably need to resize it a bit. 
+
+ Let's say we want the form to be a little shorter -- lasso the 
+ pushbuttons and move them up on the form, and then resize the form 
+ to match.
+
+    --------------------------------------------------------------------
+    NOTE: To properly use Jim's CENTERFORM() routine, as noted above,
+    you will need to add some code to the HEADER of any derived 
+    forms (any forms based on this custom form). This code can be 
+    entered by double-clicking anywhere on the surface of the form. 
+    The PROCEDURE Editor will appear, and should default to HEADER. 
+    Enter the following:
+
+       fMyForm = new formnameform()  && use proper form name here
+       fMyForm.MDI = .f.             && this should be modal
+       fMyForm.Top = -300            && open offscreen initially
+                                     && -- the call in the form's
+                                     && OnOpen procedure will
+                                     && center it from there
+       fMyForm.ReadModal()           && open as a modal form
+       RETURN                        && without this RETURN
+                                     && when the form gets closed,
+                                     && you'll re-open it ...
+    --------------------------------------------------------------------
+ 
+ Set a view for the form to a table (I'm using a generic "ADDRESS" 
+ table I use for demo purposes), place some entryfields, possibly 
+ some text, on the form. Save it, and run it. 
+
+ Try testing out the different buttons. They should all behave as 
+ you would expect based on the text of this HOW TO. 
+
+ 
+ Redefine?
+ ---------
+ If you examine the code in a form derived from the custom form class, 
+ you may see various objects shown as REDEFINEd. 
+
+   REDEFINE NGTOPBUTTON IPTOP OF THIS;
+       PROPERTY; 
+         Left 1.333,;
+         Top 21.7051,;
+         Group .T.,;
+         PageNo 0
+
+ What this means is that when you moved an object, or changed other 
+ properties (for example, the text of the title), Visual dBASE needs 
+ to know that something has been changed for the object. Only the 
+ properties that have changed from the original Custom Form should be 
+ listed (although I've noticed that with Pushbuttons, the GROUP and 
+ PAGENO properties tend to get streamed out as well).
+
+ 
+ What To Do If You Don't Want An Object From The Custom Form 
+ On Your Derived Form
+ -----------------------------------------------------------
+ When using a custom form class to create a form, you may discover
+ that you do not want a specific object, for example, the Print 
+ button, on the derived form. However, if you try to delete it you
+ will be told that you can't. What to do? 
+
+ The simplest thing to do is to set the VISIBLE property to .F. on
+ the derived form -- this will make it disappear on the form that
+ is derived from the custom form class, but will not change the layout
+ of the custom form itself. In the form designer - click on the
+ offending object, and then bring up the inspector. Find the 
+ VISIBLE property, and set it to false (.f.). Visual dBASE will REDEFINE
+ the pushbutton or other object as having the visible property set to 
+ false and your form will look like what you want. The user won't be 
+ able to click on the button (or object), and therefore will not
+ be able to execute any code associated with it.
+
+
+ Multiple Page Custom Forms
+ --------------------------
+ It is possible to create multiple page custom form classes. This
+ requires only a small amount of extra work (for example, placing
+ a tabbox control on the custom form, and setting some properties 
+ for it). For an example of this, there will be (soon) a version of the
+ VESPER system on the Compuserve DBWIN forum that is designed to
+ take advantage of custom form classes, and other features of 
+ Visual dBASE called VESP55.ZIP. The custom form class is based
+ largely on the custom class shown here, but is modified where
+ needed (for example, there's no "Print" or "Locate" button).
+
+
+ Changing Code
+ -------------
+ The best thing is, if you need to change the behavior of the buttons, 
+ you have three different places you can do it, depending on your 
+ needs. If you want to change the behavior globally for a pushbutton, 
+ change it in the custom button class file (.CC). If you want to 
+ change how a button affects all forms derived from the custom class, 
+ but not to change the original code, change it in the custom form 
+ class file (.CFM). If you want to change how it behaves only on the 
+ current form, change the code for the current form (.WFM). 
+
+ 
+ -------
+ Summary
+ -------
+ Creating a custom form class can be as simple as laying a couple of 
+ objects on a form and saving it as a form class, or it can be as 
+ complicated as the one here (and of course, you can make it even 
+ more complicated, if you need to). The point of this exercise was 
+ to create a re-usable form that takes advantage of some of Visual 
+ dBASE's built-in features, to learn more about Object-Oriented 
+ Programming, and to ultimately make life as a dBASE developer 
+ just that much easier.
+
+ -----------------------------------------------------------------------
+ Other files to download to help out (from the DBWIN forum on 
+ Compuserve):
+   BUFFER.HOW -- Library 10 -- discusses Record Buffers (includes
+     BeginAppend(), SaveRecord() and AbandonRecord() function
+     calls)
+   OOP.HOW -- Library 10 -- discusses Object Oriented Programming
+     in depth, using Visual dBASE.
+   CENTER.ZIP -- Library 8 -- Jim Sare's CENTERFORM() function
+     (and some other useful routines as well).
+   KENFORM.ZIP -- Library 12 -- A version of the sample custom
+     class form and buttons here, and a couple of variations, 
+     with sample derived forms.
+   VESP55.ZIP -- Library 7 -- Vesper system for Visual dBASE --
+     a completely functioning Visual dBASE system, uploaded
+     for everyone's education. (If it's not there now, give it
+     a bit of time -- it is under development as of the current
+     upload of this file.)
+ -----------------------------------------------------------------------
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1995, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+
+ (Code Follows:)
+
+ *----------------------------8< Cut Here >8-----------------*
+ * Save this as: CUSTBUTT.CC
+ ********************************************************
+ ** Ken's CUSTOM Button Class designed for use with the
+ ** KenForm Custom Form Class. NGbuttontypeBUTTON for the 
+ ** name -- NG stands for "NoGraphic"
+ ********************************************************
+ #include <Messdlg.h>
+
+ *-------------------------------------------------------
+ *--                     Buttons Sans Graphics
+ *-------------------------------------------------------
+ #DEFINE NGHEIGHT 1.1182
+ #DEFINE NGWIDTH  9
+ *******************************************************
+ class NGCloseButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.text          = "C&lose"
+    this.statusMessage = "Close this form."
+    this.speedTip      = "Close this form"
+    this.OnClick       = {;form.close()}
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGTopButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.text          = "&Top"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.statusMessage = "First record."
+    this.speedTip      = "First Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())     && if a table is open 
+                              && in the current workarea
+       go Top
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGPreviousButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.text          = "&Previous"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.statusMessage = "Go to previous record."
+    this.speedTip      = "Previous Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())     && if a table is open in 
+                              && the current workarea
+       skip - 1
+       if bof()
+          go top
+          AlertMessage("At the first record","Alert")
+       endif
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGNextButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.text          = "&Next"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.statusMessage = "Go to next record."
+    this.speedTip      = "Next Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())     && if a table is open in 
+                              && the current workarea
+       skip
+       if eof()
+          go bottom
+          AlertMessage("At the last record","Alert")
+       endif
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGEndButton(f,n) of Pushbutton(f,n) custom
+ *******************************************************
+    this.text          = "&End"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.statusMessage = "Last record."
+    this.speedTip      = "Last Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())     && if a table is open in 
+                              && the current workarea
+       go bottom
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGLocateButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    this.text          = "&Locate"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.speedTip      = "Browse Data"
+    this.StatusMessage = "Browse Data"
+    *****************************************************
+    procedure OnClick
+    *****************************************************
+    if .not. empty(dbf())    && if a table is open in 
+                             && the current workarea
+       fBrowse = new BrowseForm()
+       fBrowse.Top = -300    && open off screen
+       fBrowse.ReadModal()
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+   *---------------------------------------------------
+   *-- BROWSEFORM -- Used to display a browse on top of 
+   *-- the current form. Called from the LOCATE button 
+   *-- above.
+   *---------------------------------------------------
+   CLASS BROWSEFORM OF FORM
+      this.Text = "Find the Record you need"
+      this.Left = 28.166
+      this.Top = 5.6465
+      this.Height = 14.8818
+      this.Width = 86
+      this.MDI   = .F.
+      this.OnOpen = {;centerform(this)}
+      DEFINE BROWSE IBBROWSE OF THIS;
+          PROPERTY; 
+            ShowDeleted .F.,;
+            ShowRecNo .F.,;
+            Append .F.,;
+            Delete .F.,;
+            Modify .F.,;
+            Left 1.832,;
+            Top 0.8809,;
+            CUATab .T.,;
+            Height 11.7637,;
+            Width 81.832
+      DEFINE NGCLOSEBUTTON IPCLOSE OF THIS;
+          PROPERTY; 
+            Left 38.666,;
+            Top 13.3525,;
+            Group .T.
+   ENDCLASS
+ *******************************************************
+ *** End of the LOCATE Button section
+ *******************************************************
+
+ *******************************************************
+ class NGAddButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    this.text          = "&Add"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.speedtip      = "Add New Record"
+    this.statusmessage = "Add New Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())      && if a table is open in 
+                               && the current workarea
+       BeginAppend()           && create a new record
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+   
+ *******************************************************
+ class NGEditButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    this.text          = "&Edit"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.speedtip      = "Edit Record"
+    this.statusmessage = "Edit Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())    && if a table is open in 
+                             && the current workarea
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGDeleteButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    this.text          = "&Delete"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.speedtip      = "Delete Record"
+    this.statusmessage = "Delete Record"
+    ****************************************************
+    procedure OnClick
+    ****************************************************
+    if .not. empty(dbf())    && if a table is open in 
+                             && the current workarea
+       if ConfirmationMessage("Delete this record?",;
+                              "Confirm") = YES
+          delete
+          skip -1
+          if bof()
+             go top
+          endif
+       endif
+    else
+       InformationMessage("There is no table open in "+;
+                          "the current workarea.",;
+                          "Info")
+    endif
+ endclass
+ *******************************************************
+
+ *******************************************************
+ class NGPrintButton(f,n) of PushButton(f,n) custom
+ *******************************************************
+    this.text          = "&Print"
+    this.height        = NGHEIGHT
+    this.width         = NGWIDTH
+    this.speedtip      = "Print Record"
+    this.statusmessage = "Print Record"
+    this.OnClick       = {;form.print()}
+ endclass
+ *******************************************************
+
+ ********************************************************
+ ** End of Custom Class file: CUSTBUTT.CC
+ ********************************************************
+ *----------------------8< Cut Here >8--------------------*
+
+
+ *----------------------8< Cut Here >8--------------------*
+ * Save as KENFORM.CFM
+ CLASS KENFORM OF FORM Custom
+    Set Procedure To CUSTBUTT.CC additive
+    Set Procedure to CENTER      additive
+    this.OnOpen = CLASS::FORMONOPEN
+    this.Left = 5.666
+    this.Top = 0.3525
+    this.Text = "Custom Form, Text-only Buttons"
+    this.Height = 24.8818
+    this.Width = 100
+
+    DEFINE RECTANGLE IITITLE OF THIS;
+        PROPERTY; 
+          Left 0.666,;
+          Top 0.1758,;
+          Text "",;
+          FontBold .F.,;
+          Height 2.0586,;
+          BorderStyle 1,;
+          Width 11.667
+
+    DEFINE TEXT ITTITLE OF THIS;
+        PROPERTY; 
+          Left 2,;
+          Top 0.2344,;
+          Text "Title",;
+          FontSize 18,;
+          PageNo 0,;
+          Height 1.5889,;
+          Width 9.666
+ 
+    DEFINE RECTANGLE IIBUTTONS OF THIS;
+        PROPERTY; 
+          Left 0.666,;
+          Top 22.3525,;
+          Text "",;
+          FontBold .F.,;
+          Height 2.1768,;
+          BorderStyle 1,;
+          Width 99.834
+
+    DEFINE RECTANGLE IINAVIGATE OF THIS;
+        PROPERTY; 
+         Left 1.833,;
+         Top 22.6992,;
+         Text "",;
+         FontBold .F.,;
+         Height 1.5176,;
+         BorderStyle 2,;
+         Width 47
+
+   DEFINE RECTANGLE IIEDIT OF THIS;
+       PROPERTY; 
+         Left 49.666,;
+         Top 22.6992,;
+         Text "",;
+         FontBold .F.,;
+         Height 1.5195,;
+         BorderStyle 2,;
+         Width 29.5
+
+   DEFINE RECTANGLE IIOTHER OF THIS;
+       PROPERTY; 
+         Left 80,;
+         Top 22.6992,;
+         Text "",;
+         FontBold .F.,;
+         Height 1.5195,;
+         BorderStyle 2,;
+         Width 19.333
+
+   DEFINE NGLOCATEBUTTON IPLOCATE OF THIS;
+       PROPERTY; 
+         Left 39.166,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGENDBUTTON IPEND OF THIS;
+       PROPERTY; 
+         Left 29.833,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGNEXTBUTTON IPNEXT OF THIS;
+       PROPERTY; 
+         Left 20.666,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGPREVIOUSBUTTON IPPREVIOUS OF THIS;
+       PROPERTY; 
+         Left 11.5,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGTOPBUTTON IPTOP OF THIS;
+       PROPERTY; 
+         Left 2.333,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGDELETEBUTTON IPDELETE OF THIS;
+       PROPERTY; 
+         Left 69.166,;
+         Top 22.8818,;
+         OnClick CLASS::DELETEONCLICK,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGEDITBUTTON IPEDIT OF THIS;
+       PROPERTY; 
+         Left 60,;
+         Top 22.8818,;
+         OnClick CLASS::EDITONCLICK,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGADDBUTTON IPADD OF THIS;
+       PROPERTY; 
+         Left 50.666,;
+         Top 22.8818,;
+         OnClick CLASS::ADDONCLICK,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGCLOSEBUTTON IPCLOSE OF THIS;
+       PROPERTY; 
+         Left 89.833,;
+         Top 22.8818,;
+         OnClick CLASS::CLOSEIT,;
+         Group .T.,;
+         PageNo 0
+
+   DEFINE NGPRINTBUTTON IPPRINT OF THIS;
+       PROPERTY; 
+         Left 80.5,;
+         Top 22.8818,;
+         Group .T.,;
+         PageNo 0
+
+   PROCEDURE FormOnOpen
+      form.cDeleted = set("DELETED")    && save status of deleted
+      set deleted on                    && turn it on
+      centerform(this)                  && center the form
+      form.DataControlsAreEnabled = .t. && set this custom property to
+                                        && opposite of what you need 
+                                        && to start
+      CLASS::EnableObjects(.f.)         && disable objects
+   
+   
+   PROCEDURE CloseIt
+      cDeleted = form.cDeleted          && put to a memvar
+      set deleted &cDeleted.            && reset deleted
+      form.close()                      && close the form
+      
+   
+   PROCEDURE EnableObjects(lEnabled)
+     *----------------------------------------------------------------
+     *-- Bowen's enable/disable of data controls on the form
+     *-- parameter lEnabled is a parameter to set the enabled
+     *-- property of objects on the form to .t. or .f., depending
+     *-- on what is passed to this control.
+     *-----------------------------------------------------------------
+     *-- This can be modified in the if statement contained inside
+     *-- the DO/UNTIL loop -- if you have special pushbuttons on
+     *-- the form that you need enabled/disabled at the same time,
+     *-- you could add them as: form.pushbuttonname.enabled = lEnabled
+     *-- However, since this is a custom form, unless the pushbutton
+     *-- is contained on all your forms derived from this, it's 
+     *-- probably a better idea to explicitly enable/disable any
+     *-- of these in routines in the derived class.
+     *-----------------------------------------------------------------
+   
+     if form.DataControlsAreEnabled = lEnabled && already set
+        RETURN
+     else
+        form.DataControlsAreEnabled = lEnabled && set it
+     endif
+     
+     local oControl
+     oControl = form.first
+     do
+        if oControl.className $ "ENTRYFIELD|EDITOR|RADIOBUTTON|"+;
+                                "SPINBOX|CHECKBOX|COMBOBOX|BROWSE"
+           oControl.Enabled = lEnabled
+        endif
+        oControl = oControl.Before
+     until oControl.Name == form.first.name
+   
+   PROCEDURE AddOnClick
+      *----------------------------------------------------------------
+      *-- When adding a record, we need to disable a bunch of the 
+      *-- pushbuttons, and change the text for a couple of them.
+      *-- This is done in the routine below: ChangeButtons
+      *-- In addition, we need to enable the objects on the form,
+      *-- and then create a buffered "blank" record ...
+      *----------------------------------------------------------------
+   
+      CLASS::ChangeButtons(.f.) && disable the appropriate pushbuttons
+                                && and change text on the others
+      CLASS::EnableObjects(.t.) && enable the objects on the form
+      form.beginappend()        && create a new buffered record 
+      CLASS::FirstFocus()       && set focus to first object that
+                                && can receive focus ...
+   
+   PROCEDURE EditOnClick
+      *----------------------------------------------------------------
+      *-- When editing, we need to do almost exactly the same
+      *-- as the AddOnClick, but this button text may actually
+      *-- be "Save" ... in that case we need to save the record,
+      *-- change the buttons back to enabled, and disable the
+      *-- objects on the form.
+      *----------------------------------------------------------------
+      if this.text = "&Edit"
+         CLASS::ChangeButtons(.f.) && disable appropriate buttons
+                                   && and change text on the others
+         CLASS::EnableObjects(.t.) && enable objects on the form
+         CLASS::FirstFocus()       && set focus to first object that
+                                   && can receive focus
+      else  && text = "&Save"
+         form.SaveRecord()         && save whatever is in the record
+                                   && buffer
+         CLASS::ChangeButtons(.t.) && enable buttons, and reset text
+                                   && for the ones needing it
+         CLASS::EnableObjects(.f.) && disable the objects on the form
+      endif
+   
+ PROCEDURE FirstFocus
+    *------------------------------------------------------------------
+    *-- Based on Bowen's EnableObjects routine, this routine
+    *-- sets the focus for the first appropriate object on the
+    *-- current page of the form.
+    *------------------------------------------------------------------
+    private oControl
+    oControl = form.first   
+    do
+      if (type("oControl.SetFocus") == "FB" .or. ;
+          type("oControl.SetFocus") == "CB" .and. ;
+          oControl.PageNo = form.PageNo
+         
+         oControl.SetFocus() 
+         RETURN
+     
+      endif
+      oControl = oControl.Before
+    until oControl.Name == form.first.name
+      
+   
+   PROCEDURE DeleteOnClick
+      *----------------------------------------------------------------
+      *-- As with the Edit button above, the text for this may be
+      *-- different ...
+      *----------------------------------------------------------------
+   
+      if this.text = "&Delete"
+   
+         *-- Call the onclick procedure in the custom class
+         *-- DELETEBUTTON -- this asks the user if they
+         *-- want to delete the record, etc.
+   
+         NGDELETEBUTTON::OnClick()
+   
+      else  && text is "&Cancel"
+   
+         form.AbandonRecord()
+         CLASS::ChangeButtons(.t.)
+         CLASS::EnableObjects(.f.)
+   
+      endif
+   
+   
+   PROCEDURE ChangeButtons(lEnabled)
+      *----------------------------------------------------------------
+      *-- Change the text of two buttons, and enable/disable the rest
+      *----------------------------------------------------------------
+      
+      *-- Change text, if button(s) exist
+      if .not. lEnabled && disable
+         form.ipedit.text          = "&Save"
+         form.ipEdit.SpeedTip      = "Save Record"
+         form.ipEdit.StatusMessage = "Save Record"
+         form.ipdelete.text      = "&Cancel"
+         form.ipDelete.SpeedTip      = "Cancel Changes/New Record"
+         form.ipDelete.StatusMessage = "Cancel Changes/New Record"
+      else  && ------------ enable
+         form.ipedit.text        = "&Edit"
+         form.ipEdit.SpeedTip      = "Edit Record"
+         form.ipEdit.StatusMessage = "Edit Record"
+         form.ipdelete.text      = "&Delete"
+         form.ipDelete.SpeedTip      = "Delete Record"
+         form.ipDelete.StatusMessage = "Delete Record"
+      endif
+      
+      *-- Enable/disable buttons
+      form.iptop.enabled      = lEnabled
+      form.ipprevious.enabled = lEnabled
+      form.ipnext.enabled     = lEnabled
+      form.ipend.enabled      = lEnabled
+      form.iplocate.enabled   = lEnabled
+      form.ipadd.enabled      = lEnabled
+      form.ipprint.enabled    = lEnabled
+      form.ipclose.enabled    = lEnabled
+
+      *-- If a tabbox exists, enable/disable as most of
+      *-- the buttons:
+      *-- form.ixTabBox.enabled = lEnabled
+   
+ ENDCLASS
+ ***********************************************************************
+ ** End of KENFORM custom form class
+ ***********************************************************************
+ *--------------------------8< Cut Here >8 ------------------------*
+
+ *-- EoHT: CUSTFORM.HOW -- 10/02/1995 -- KJM
+

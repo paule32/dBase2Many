@@ -1,0 +1,1483 @@
+ *-- STREAM.HOW
+ *-- 02/21/1996 -- Ken Mayer (CIS: 71333,1030)
+ 
+ -------------------------------------------------------------
+ HOW TO Create Reports Using dBASE's Streaming Output Commands
+ -------------------------------------------------------------
+ Many people find Crystal Reports frustrating for generating reports 
+ or wish to create some very simple reports and not ship the Crystal
+ Reports engine with their application. Some folk, migrating from 
+ dBASE IV or dBASE 5.0 for DOS, have written a lot of report code
+ using the streaming report commands, but the reports don't quite work 
+ right in Visual dBASE (largely because of proportional fonts). 
+ 
+ This HOW TO document will attempt to discuss the basics of how to 
+ use the streaming report capabilities of Visual dBASE, particularly 
+ when working with proportional fonts (something those who are familiar 
+ with this type of report in dBASE/DOS haven't had to deal with until 
+ now).
+
+ Topics Covered:
+
+   Streaming Output Commands (??, ?)
+     And options (AT, STYLE, picture/function ...)
+     (Set Printer ON/OFF/TO)
+   Fonts
+   Printer Drivers (ChoosePrinter())
+   Other System Printer Variables (_POrientation, etc.)
+   Printing to a File
+   Misc. Notes
+      Centering Text 
+   The Sample Report Programs Attached
+
+ -------------------------
+ Streaming Output Commands
+ -------------------------
+ In dBASE/DOS it was possible to print a report using the @/SAY
+ commands, but many people discovered that they really had a lot
+ more control over their reports with the streaming commands:
+   
+   ??  and   ?
+
+ These two commands, with their options (described below) give you a 
+ lot of control over your output. However, if you have used these 
+ commands in dBASE/DOS, you will find that some of this is quite 
+ different (mostly in the handling of Fonts -- see discussion below 
+ for more detail).
+
+ The difference between the double-question mark and single-question
+ mark commands is that the single-question adds a line-feed/carriage-
+ return when the command is issued (this line-feed/carriage-return
+ comes _before_ any text you print). In some reports, all that you
+ need is the single question-mark. For others, you may want the double-
+ question mark so that more than one command can be used to print on 
+ the same line. 
+ 
+    ?  "This will print some text on its own line"
+    ?  "This will print some text, but ... "
+    ?? "this text will appear after it!"
+    ?
+
+ Note that you should always use the single-question mark to issue
+ the carriage-return/line-feed combination. For my own reports,
+ I tend to use the double-question mark to print the actual parts
+ of the report, and use the single-question mark only to insert a 
+ carriage return/line feed -- this is a habit I got into years ago, and 
+ is just a matter of style. As always, dBASE is quite flexible, and 
+ there are many ways to perform the same tasks ...
+
+ You can print multiple items on the same line in a couple of ways,
+ the first is that shown above, the other is:
+
+    ? "This is the first bit, ",;
+      "this is the next ",;
+      "this is more"
+
+ However, I find I have better control with the method used in the first
+ example. (In addition, if you need to insert IF or CASE statements,
+ you would need to use the first method shown ...)
+
+ Options -- AT
+ -------------
+ The first option is the "AT" clause. This determines what position
+ horizontally you wish to print at. In dBASE/DOS this was pretty
+ basic -- if you used: 
+ 
+  ? "Something" AT 5
+
+ You were printing at the 1/2" mark -- five characters in from the left
+ margin (if using 10 CPI -- see discussion on fonts later in this 
+ document). In Visual dBASE, since we are now working with proportional 
+ fonts, things get more interesting. To print at the half-inch mark,
+ you would still use the number 5, but only because the number 10 is
+ one inch (2" = 20, 3" = 30 ...). You can determine fractions relatively
+ easily. For example, a quarter inch would be 2.5 (determine the 
+ fraction and multiply by 10). 1 1/4" would become 12.5 (1.25 * 10).
+
+ In order to get text to print in columns, you need to use the AT 
+ clause:
+
+    ?? "Name: " at 5
+    ?? table->name at 11
+    ?
+
+ Would print the text "Name:" at the 1/2" mark, and the contents of
+ the name field at the 1 1/10" mark. 
+
+
+ Options -- STYLE
+ ----------------
+ The STYLE clause is used to specify the font you are using, and
+ how to modify it. In dBASE/DOS you could call a font style by
+ the number assigned in the CONFIG.DB file, and change it to Bold
+ by adding a "B" to it. 
+
+ It isn't that easy in the Windows world (again, see the section on
+ FONTS below ...).
+
+ Styles can be used in two ways. The first is similar to what you
+ may be used to if you've used these commands in dBASE/DOS:
+
+   ?? "Some Text" style 1 at 5
+   ?
+ 
+ However, trying to get this to be bold may not work properly:
+
+   ?? "Some Text" style "1B" at 5
+   ?
+
+ The other way to use the style option is to be more explicit:
+
+   ?? "Some Text" style "Times New Roman,12,B,Roman" at 5
+   ?
+
+ This method gives the exact definition of the font as Visual dBASE
+ uses it (see discussion on FONTS below and the GETFONT() function).
+ 
+
+ Options -- PICTURE, FUNCTION
+ ----------------------------
+ You can use the PICTURE and FUNCTION clauses as you might in both
+ the Form Designer in Visual dBASE and streaming output in
+ dBASE/DOS. These are covered pretty thoroughly in the Language
+ Reference and in the Online Help, so won't be discussed here, except
+ to note that they can be used ... 
+ 
+ One function I find particularly useful when using memos (and long 
+ character fields) is the vertical stretch:  
+       
+    ?? mymemo picture "@V60" at 5
+ 
+ Which will print the contents of "mymemo" at 1/2" (5) and will
+ wrap it within 6" on the page.
+
+ 
+ SET PRINTER ON/OFF/TO
+ ---------------------
+ When using these reports, you'll usually want to send them to the
+ printer (if not, you probably want to send them to a file -- see
+ later in this document ...). 
+
+ The most basic method of doing this uses the current printer as it is 
+ set up in Windows (more details later under CHOOSEPRINTER()):
+
+    SET PRINTER ON
+    ?? "Some Text" at 5
+    ?
+    SET PRINTER OFF
+
+ However, you may note that your report is not actually printing if
+ you run this code. That is because Windows spools your output for
+ you (in addition to any LAN Printer spoolers ...). You will need to
+ close the print spooler by adding:
+
+    SET PRINTER TO
+
+ This closes the print spooler for this print job.
+
+
+ ----------------------------
+ What's All This About Fonts?
+ ----------------------------
+ In the dBASE/DOS world, fonts were easy. For the most part (unless
+ you spent a lot of time sending commands to your printer to use
+ built-in fonts), fonts were "mono-spaced" -- meaning that each 
+ character took 1 column (or 'character') when printed (this included
+ a small amount of gutter space on either side of the character so that
+ your text didn't run together).  When you printed, you could set your 
+ font to 10 Characters-per-Inch (CPI), 12 CPI, or 16.67 (usually) CPI. 
+ If you were at 10 Characters-per-inch, this meant _exactly_ what it 
+ sounded like. You could figure out your margins at 1/2 inch -- 1/2" 
+ was 5 characters (left margin). The right margin would be set at the 
+ width of the page -5. Nice and easy. Line heights were the same -- the 
+ usual line height was six lines per inch.
+ 
+ Welcome to the wonderful world of Windows. It's not that easy anymore.
+ Fonts are now proportional (unless you really want to use Courier New,
+ which in the flashy world of Windows looks pretty dull these days).
+ 'Proportional' means that each character takes just enough room (plus
+ some gutter space on each side of the character) as it needs. Compare
+ the amount of space needed by a lower case 'i' to the amount of
+ space needed by an upper case 'W'. The difference in the amount of 
+ space needed is dramatic. The problem here is that you can't simply
+ assume that your characters will print exactly 10 characters per inch 
+ (the closest to this in proportional fonts is 12 Point). As a matter of
+ fact, if you print out some text using, say, Times New Roman, at
+ 12 Point, you will find that most of the time, a word that may have
+ taken exactly one inch (10 characters) in the DOS world, now takes
+ a lot less than that ...
+
+ SO -- how do you deal with it? How do you address fonts? How
+ do you handle things like centering? 
+
+
+ Describing Fonts
+ ----------------
+ The first place to look in Visual dBASE, for how fonts are used,
+ is the DBASEWIN.INI file, normally found in the directory:
+        \VISUALDB\BIN
+
+ If you take a look at the FONTS section, you will probably see
+ something very similar to:
+
+   [Fonts]
+   1=Times New Roman,12,ROMAN
+   2=Arial,10,SWISS
+   3=Arial,24,SWISS
+   4=Ariston,24,SCRIPT
+
+ You can define fonts in your DBASEWIN.INI file, or you can determine
+ the fonts you need, and define them in your code. 
+
+ I prefer to define them in my code, since for most of the reports I 
+ code, I use a minimum number of fonts (by using a smaller number of
+ fonts, the report looks less cluttered than one that has a larger
+ number -- which can confuse the eye).
+
+ Another method to see how Visual dBASE defines and uses fonts is to
+ use a function called GETFONT(). In the command window of Visual
+ dBASE, if you type:
+
+    ? GetFont()
+
+ And select a font, a font size, and any attributes you wish (Bold,
+ Italic, Underline ...), you will see the definition in the output 
+ window. You can use this in your code!
+
+ In order to use these extra features in the STYLE clause (see above), 
+ you are going to need to do one of three things:
+
+ 1) Create lots of entries in your DBASEWIN.INI file, such as:
+    
+    [FONTS]
+    1=Times New Roman,12,ROMAN
+    2=Times New Roman,12,B,Roman && Boldface
+    3=Times New Roman,12,U,Roman && Underlined
+    4=Times New Roman,12,I,Roman && Italic
+    5=Times New Roman,12,BU,Roman && Bold Underlined
+      and so on ...
+
+   This could get a bit tedious, and remembering all the entries
+   in your .INI file could be difficult. The advantage is that
+   you can then use STYLE 1, or STYLE 5, rather than getting the
+   full font definition as below. (If you leave these in the .INI, 
+   your users may change the font names, numbers, and so on -- this
+   is probably not what you want ...)
+
+ 2) Use the full font definition in some fashion. The most basic is:
+
+    ?? "Some Text" style "Times New Roman,12,Roman" at 5
+    ?? " And some more text" style "Times New Roman,12,B,Roman" at 25
+    ?
+
+    Although, as a programmer, you might find using memory variables
+    useful:
+
+    cMainFont = "Times New Roman,12,Roman"
+    cBoldMain = "Times New Roman,12,B,Roman"
+    cUndMain  = "Times New Roman,12,U,Roman"
+    cHeaderFont = "Times New Roman,16,B,Roman" && bold face 16 point
+    *-- and so on for any fonts you use in your report
+
+    And then in the report:
+
+    ?? "Some Text" style cMainFont at 5
+    ?? " And some more text" style cBoldMain at 25
+    ?
+
+ 3) Taking the memory variable idea into a slightly more complex, but
+ much better method, you can define a set of "constants" in Visual 
+ dBASE using pre-processor directives (see the online help and/or
+ Language Reference for details ...):
+
+    #DEFINE TIMES_12      "Times New Roman,12,Roman"
+    #DEFINE TIMES_12_BOLD "Times New Roman,12,B,Roman"
+    #DEFINE TIMES_12_UND  "Times New Roman,12,U,Roman"
+      *-- etc.
+
+ The advantage is that in Visual dBASE, memory variables use symbol
+ space and it is possible to run out of symbol space, if you define 
+ too many of these. The use of the #DEFINE creates a set of 'constants' 
+ that do not use this memory (I can't explain the memory management of 
+ Visual dBASE in lots of detail -- you may wish to check the language 
+ reference for details). 
+
+ In addition, you can make this even more flexible, by creating a 
+ header file with a set of font constants, and then any time you
+ need to use them, add the following:
+
+    #INCLUDE MyFonts.H
+
+ When the program is executed, these font definitions will be inserted
+ into the program. When the program is finished, the definitions will
+ no longer be in memory. This also gives you the flexibility of being
+ able to define your fonts for reports in some interesting ways. 
+ 
+ Consider the need to use standardized fonts across all your reports.
+ You could define some constants along the following lines:
+
+    #DEFINE FONT_HEADER_1         "Times New Roman,18,B,Roman"
+    #DEFINE FONT_HEADER_2         "Times New Roman,16,B,Roman"
+    #DEFINE FONT_HEADER_3         "Times New Roman,14,B,Roman"
+    #DEFINE FONT_DETAIL_MAIN      "Times New Roman,12,Roman"
+    #DEFINE FONT_DETAIL_BOLD      "Times New Roman,12,B,Roman"
+    #DEFINE FONT_DETAIL_UNDERLINE "Times New Roman,12,U,Roman"
+    #DEFINE FONT_DETAIL_ITALIC    "Times New Roman,12,I,Roman"
+    #DEFINE FONT_DETAIL_BOLD_UND  "Times New Roman,12,BU,Roman"
+      *-- etc.
+
+ By doing this, if you decided to change from Times New Roman to
+ Arial, you could simply change definitions in the header file, and 
+ all of your reports would reflect this change! However, the one
+ drawback is that you would need to recompile any program that uses
+ the header file ...
+
+    --------------------------------------------------------------------
+    NOTE: When designing an application for deployment to other sites,
+    it is a good idea to only use fonts that ship with Windows. 
+    Otherwise, you have to deal with: a) shipping the fonts to ensure
+    the user has them; b) ship instructions to install the fonts;
+    and c) potential licensing issues unless you know for sure that 
+    the fonts in question are freeware.
+    --------------------------------------------------------------------
+
+ Characters
+ ----------
+ Some programmers, particularly those who have programmed in dBASE IV
+ or dBASE 5/DOS, are likely to be familiar with using the CHR()
+ function to access some of the high-end characters in the extended
+ ASCII character set (anything above 126). There is a problem in the
+ Windows environment: Fonts, while having the full 256 character 
+ set of characters, are not required to map them the same as the 
+ 'extended' ASCII definition used by DOS. As a matter of fact, very 
+ few do. This means that not everything will print the way you might 
+ expect it to.
+
+ There is a program at the end of this document that you can copy and
+ paste to a file (make sure you get the file FONTS.H as well) that can
+ help you out. It will print a character map of all characters above
+ 31 (everything from 0 to 31 is a control character, and may not 
+ print properly) -- if there's anything to print. This can be useful
+ to find out what characters are available to you ...
+
+
+ ----------------------------------------
+ Printer Drivers -- Using ChoosePrinter()
+ ----------------------------------------
+ One problem with creating reports of any type is the fact that
+ you, as the developer, often have no idea what kind of printer(s)
+ your users will have access to. This could make things difficult.
+ In dBASE IV/DOS, I had to write (borrow and modify, actually)
+ some code to allow users to select their printer(s) and get the
+ appropriate printer drivers.
+
+ In the Windows (and Windows 95) environment, in order for a user to 
+ be able to print properly, a printer driver designed _for Windows_ 
+ and the specific printer must already be installed. This lessens the
+ burden on the Visual dBASE developer. However, it does not completely
+ eliminate the burden.
+
+ There are some potential problems -- such as a user with multiple
+ printers (either hooked directly into their computer, or on a
+ LAN). You should not design your code to just assume that your
+ user wants to print to the 'default' printer. 
+ 
+    --------------------------------------------------------------------
+    NOTE: If you use True-Type fonts, you do not have to worry about
+    whether or not your users' printer(s) can handle the font, like 
+    you might in the dBASE/DOS world. Windows (and Windows 95) handle
+    printing the fonts _for_ you -- your text actually gets sent out
+    as graphics (for a dot-matrix printer, this is, shall we say, a bit
+    slow ...).
+    --------------------------------------------------------------------
+
+ So, how do you ensure that your user can print to the printer that
+ they want? The simplest and easiest method is to let them choose
+ the printer! Built in to Visual dBASE is a function that can save you,
+ the developer, many hours of coding trouble:
+
+    ChoosePrinter()
+
+ That's it. When the user interacts with this dialog box, they can
+ select the "default" printer, they can select anything in the combo-
+ box that appears, if their printer has trays, they can select the 
+ tray to print from, they can even cancel ... 
+
+ All that _you_ have to do, is check to see if they clicked on the
+ cancel button! This function returns a logical value -- it is 
+ set to true (.T.) if the user clicks the "Ok" button, and false
+ (.F.) if the user clicks the "Cancel" button.
+
+ At the beginning of your report code, place a call to this function:
+
+    if .not. ChoosePrinter()
+       RETURN
+    endif
+
+ And it's that easy. 
+
+ You can check to see what printer driver was selected by the user
+ by displaying the value of _PDriver. For example, if you wish to 
+ print to a file, you can check to see if the driver selected
+ starts with "TTY":
+
+    if left(_Pdriver,3) = "TTY"
+       *-- do something
+    endif
+
+ ----------------
+ System Variables
+ ----------------
+ Visual dBASE has a series of printer variables and other commands
+ that can be used to modify your report's output. Those that appear 
+ to work in my testing are listed below:
+
+ _Alignment  When the _Wrap_ variable is true, will left align, right-
+             align, or center output from ?? and ? commands. Default is 
+             "LEFT", other options are "CENTER" or "RIGHT". However,
+             the _Wrap variable causes problems for other commands.
+             See details under _Wrap.
+ Eject       Advances to the next page. If you have set _PAdvance to 
+             "FORMFEED", a form-feed is sent; if "LINEFEEDS", EJECT 
+             sends individual linefeeds to the printer, until it hits 
+             the page length (_PLength). It's supposed to reset the 
+             line number (_PLineNo) to 0, and increments the page 
+             number (_PageNo). In the sample code attached, I had
+             to write work-arounds ...
+ Eject Page  No apparent difference in Visual dBASE between this and
+             Eject, except that it _does_ force the _PLineNo to reset
+             to 0, and it does increment the page number (_PageNo). 
+ _Indent     When _WRAP is true, specifies the number of columns to 
+             indent the first line of a paragraph. Default is 0.
+ _LMargin    Defines the left margin. The left margin is set from the 
+             page offset (_PLOffset -- if used). If the _PLOffset is 10, 
+             and _LMargin is 5, the output will print at the 15th 
+             column. This is effective only when _Wrap is true.
+ _PageNo     Current page number. You can set the value and have
+             dBASE recognize it. As a matter of fact, you may have to
+             increment it yourself.
+ _PBPage     Beginning page -- pages with numbers less than this value 
+             will not be printed. Only works with  PRINTJOB/
+             ENDPRINTJOB, there are some problems using this with
+             the sample code provided here.
+ _PDriver    Can be used to assign a printer driver, or to 
+             display the current driver (? _PDriver).
+ _PEject     Page eject "before", "after", "both" or "none" for a 
+             PRINTJOB. Default is "before".
+ _PEPage     Last page number to print. Useful to print a range, 
+             combined with _PBPage ...
+ _PLength    Page Length in number of lines per page. 
+ _PLineNo    Line number to begin printing at ... or current line 
+             number. Note, you can assign a value to this variable,
+             but it will _not_ cause dBASE to print at that location
+             on the page. For example, if I did the following:
+                 _PLineNo = 50
+             I would not jump to the 5" position on the page. The
+             counter would continue from 5", so that the next line
+             printed would add whatever height (based on the font
+             being used) to the current value in the variable. Note
+             also that you need to manually reset this to 0 at the
+             top of a page ...
+ _PLOffSet   Page Left Offset. Default is zero, to change the default, 
+             use the SET MARGIN command.
+ _POrientation 
+             Page Orientation -- "PORTRAIT" or "LANDSCAPE". 
+             This defaults to the orientation of the printer driver, or 
+             by choosing something different in the ChoosePrinter() 
+             function. You can also change it here. Changing the page 
+             orientation automatically resets the _PLength variable.
+             You may want to check your right margin if you use this ...
+ PrintJob/EndPrintJob 
+             Controls a printing operations with the system variables as 
+             controls: _PBPage, _PEPage, _PCopies, _PEject, and 
+             _PLineNo. _PEject and _PLineNo are not restricted to
+             using Printjob/EndPrintjob, and if you do not need the
+             others, then this does not appear to be needed at all.
+ _PSpacing   Line spacing. 1 = single-space, 2 = double, 3 = triple.
+             You can specify fractional numbers for partial line heights 
+             (i.e., 1.5), but on the HP Laserjet 4 I tested this on, 
+             I did not see a difference between single spacing and
+             1.5 ...
+ _RMargin    Default is 79, used to set the right margin.
+ _Tabs       List of column numbers for tab stops. List must be in 
+             quotes, i.e., "3,6,9,12,15". You can send a tab with 
+             streaming output  with CHR(9): ? "Some Text"+chr(9)+"some 
+             more text"
+ _Wrap       Determines if streaming output wraps between the margins 
+             set by _LMargin and _RMargin. (Also affects other commands 
+             as shown here). _Wrap does not work well with the explicit
+             positioning used with the ? and ?? commands -- if you 
+             use the AT <nCol> parameter, it will be ignored if _Wrap
+             is true. In addition, use of the @V picture/function to
+             wrap a memo within a smaller margin will also be ignored
+             if _Wrap is set to true. Recommendation: use _Wrap
+             sparingly, to center  (or right align) text, and 
+             immediately set it to false (_Wrap = .f.) when done.
+
+ ------------------
+ Printing to a File
+ ------------------
+ Printing to a file is much easier than I had expected when I started 
+ working with streaming output in Visual dBASE. In dBASE/DOS you have to 
+ write the code to get a filename, check to see if the filename exists, 
+ ask the user if they want to overwrite it, the whole bit.
+
+ In the Windows environment, as it turns out, things are a _lot_
+ easier for the developer in this arena. Windows and Windows 95 both
+ have a "Generic / Text Only" printer driver. It may not be installed
+ on your computer currently. If it is not, then follow the instructions
+ below (taken from an application that I have currently shipping):
+
+ Setting Up The Generic/Text Printer Driver
+ ------------------------------------------
+   Windows 3.1
+   -----------
+   Find the "Control Panel" -- usually in the "Main" group. Double-click 
+   on the icon to open it.
+
+   Double-click on the "Printers" icon.
+
+   In the dialog box that appears, check to see if your current printer
+   list includes:  "Generic/Text Only". If not, click on the button that 
+   says "Add >>". (If the driver already exists, and you are using it 
+   to print to a printer port, use the "Add >>" button to get another 
+   pointer to the driver that can be configured differently).
+
+   In the dialog box that follows, select "Generic/Text Only", and 
+   click on the "Install ..." button. Follow the instructions that 
+   follow (usually asking for a specific disk in your installation disk 
+   set).
+
+   Select the "Generic/Text Only" driver if it's not highlighted (after
+   the installation is completed), and click on the "Connect ..." 
+   button.
+
+   Select in the list of ports  "FILE:", click "OK", click "Close" and
+   close the Control Panel itself.
+
+   Windows 95
+   ----------
+   Go to the "My Computer" icon (or if you renamed it, use whatever you
+   called it ...). This is usually one of the floating icons on your 
+   desktop. Double-click on it.
+
+   Double-click on "Printers".
+
+   Double-click on "Add Printer".
+
+   The "Printer Wizard" (or something like that) will appear. Click on 
+   the "Next" button.
+
+   Under "Manufacturers" select "Generic". The only option in the list
+   to the right is "Generic/Text Only" (at least, it is on my 
+   installation). Click on the "Next" button.
+
+   In the list of ports, select "FILE:". Click on the "Next" button.
+
+   Click on the "Next" button (next screen). On the screen that says
+   "Print test page?" click on the 'No' button unless you really want
+   to print a test 'page'.
+
+   Click on the "Finish" button.
+
+   Follow the instructions (which will ask for the disk or CD Rom to
+   install from).
+
+ Actually Printing to a File
+ ---------------------------
+ Once the printer driver is set up properly, things become much easier
+ for you. The printer driver will appear in the ChoosePrinter() dialog
+ (discussed earlier in this document), and you can find out what driver 
+ they selected using the _PDriver variable:
+
+    ? _PDRIVER
+
+ If they selected this driver, the first three letters in the driver
+ description are "TTY". So, you can check in your code with:
+
+    if left(_PDriver,3) = "TTY"
+       *-- do something
+    endif
+
+ What I have started doing in my reports is to set a logical variable:
+
+    lText = left(_PDriver,3)="TTY"
+
+ The reason I do this, is two-fold:
+   
+   1) I do not want to insert page ejects (this actually does insert
+      a page eject into the file, which can be a bit odd) and;
+   
+   2) The STYLE clause on a ? or ?? statement will cause the whole
+      statement to be ignored. This was disconcerting the first time
+      I printed to a file and all I got was a page eject code (see
+      above).
+
+      The solution to this problem is to either have two reports, one
+      using the STYLE clause, the other not, or to keep the output
+      statements in the same report, but just make your report a bit
+      more complex:
+
+      if lText
+         ?? "Some text" at 5
+      else
+         ?? "Some text" style FONT_DETAIL_MAIN at 5
+      endif
+      ? && end of line/carriage return
+
+      What this does is print the same output at (close to) the same 
+      position, but if we're using a file or text driver don't use the 
+      style clause and if we are using any other driver to go ahead and 
+      use the style clause. This does work -- I've deployed an 
+      application using this technique.
+
+ -----------
+ Misc. Notes
+ -----------
+ Any thoughts I haven't previously covered are covered here.
+
+    _Wrap
+    -----
+    This looks like it ought to be useful, and while it does have
+    some uses (see "Centering Text" below), for the most part,
+    it disables many of the other commands used with streaming output,
+    including using the AT clause for placing text in specific
+    columns on the page. I recommend that most of the time you leave
+    it set to the default value of .F.
+
+    Centering Text
+    --------------
+    When I first tried centering text in streaming output in Visual 
+    dBASE, I was a bit disturbed by the amount of work I thought I 
+    would have to do. The information I saw implied I would need to 
+    start using API calls to get font sizes and everything else 
+    involved.
+
+    It turns out that this is easier than I had imagined. While I
+    recommend not using _WRAP most of the time (see above), it does
+    have one particularly good use -- with the _ALIGNMENT variable.
+    If you need to center some text, you can do it this way:
+
+      _Wrap = .t.
+      _Alignment = "CENTER"
+      ? "Whatever Text You Want" style whateverstyle
+      _Alignment = "LEFT"
+      _Wrap = .f.
+
+    Much easier than calling the Windows API and doing all those 
+    calculations!
+
+    Right Aligning Numbers
+    ----------------------
+    This is trickier than it seems. With proportional fonts,
+    getting numeric values to line up is not easy -- especially
+    if you need to deal with a decimal point. A member of the 
+    Visual dBASE forum asked, after the first posting of this file,
+    for some information on this. There's a program at the end
+    of this document (giving _three_ sample programs now) that
+    demonstrates a couple of methods of making it work. 
+
+    The better method of the two appears to be to use a mono-spaced
+    font to print the numeric values. This way you can be sure that
+    the digits and decimals will line up exactly how you want them
+    to. (The first method uses the transform() function and careful
+    formatting, but even with that, the numbers don't always line
+    up properly.)
+
+ -----------------------------------
+ The Sample Report Programs Attached
+ -----------------------------------
+ I thought I'd provide a few notes about the programs listed below.
+
+ The First Program (PRNTEST.PRG)
+ -------------------------------
+ The purpose of this program is to show as many features of Streaming 
+ output as possible.
+
+ If you copy and paste this into a program file, you will need
+ to create a simple table called TEST, with the structure shown
+ in the header of the program. For testing purposes, I let dBASE
+ generate 30 records. This gives some _very_ odd looking data,
+ but all I wanted was something to test the printout ...
+
+ The first page printed shows the use of _WRAP and _ALIGNMENT and
+ some other features. The code is heavily documented, so you can see 
+ what's really happening. The number of pages printed will depend
+ on the number of records you have in the table.
+
+ A couple of things to note:
+ ---------------------------
+ Header Code (start at the top of the page) --
+   1) The code here basically handles checking if we're on the first
+      page, if so, we don't want to issue an "EJECT PAGE".
+      In addition, if we're using a text driver we definitely don't want 
+      to issue an "EJECT PAGE". 
+       
+      *------------------------------------------------------------
+      *-- Header routine, force a page eject for non-text
+      *-- printer drivers, and center the heading ...
+      *-- Problem with this whole work-around is that the 
+      *-- _PBPage is useless ...
+      if .not. lText  && only bother if this is not text
+         if .not. lRepStart  && if not the first page
+            eject page
+         else
+            lRepStart = .f.  && no longer the first page ...
+         endif
+      endif
+
+      *-----------------------------------------------------------
+      *-- Check end page (_PEPage) ... if we have a page number 
+      *-- greater than the end page, don't print the header ...
+      if _PageNo > _PEPage
+         RETURN
+      endif
+ 
+      *-- from here we print the header ...
+         
+   Body:
+   2) There is no method built in to streaming output to handle
+      keeping a record together. You have to write your own
+      code, which I have not done for this example. I have done it in 
+      real reports, however. It's not too difficult, but it 
+      requires that before you print a record, you call a 
+      routine to see if the record will fit on the current page.
+      This routine checks to see if the current position on the
+      page plus the number of lines that would be printed for
+      this record would go beyond the bottom of the page. If
+      so, I force the software to run the header routine, and then 
+      continue ... this may require using your own line counter.
+
+   3) One of my fellow TeamB members noted while we were discussing
+      streaming reports awhile back that footers are really difficult
+      with streaming output and proportional fonts, especially if
+      you use more than one or two fonts in your document. There is
+      no easy way to line up the footers _exactly_ at the bottom of
+      the page. (As noted elsewhere, assigning a value to _PLineNo
+      does not force the output to start printing at a specific
+      line number ...) I recommend that you do not attempt to try
+      footers.
+
+   4) Make sure you copy out the file FONTS.H from the code listing
+      below -- this is really important, as it defines the basic fonts
+      being used ...
+
+  The Second Program (PRNCHAR.PRG)
+  --------------------------------
+  This program is designed to get a font from the developer and print
+  a simple chart showing which characters are mapped to what ASCII/ANSI
+  values, for use with the CHR() function, when printing output. 
+  To run the program type:
+
+    DO PRNCHAR
+
+  and select a printer, and a font ... the program will print a listing
+  of all characters from 32 (usually a space, so it will appear blank
+  in most cases) to 255.
+
+  The Third Program (PRNNUMS.PRG)
+  -------------------------------
+  This program was written to demonstrate for a member of the VDBASE
+  forum how to get numbers to line up. The output is based on the
+  example he sent in his message. 
+
+    --------------------------------------------------------------------
+    Note: Visual dBASE does not always print, in the extended ASCII
+    numeric range, all characters that it seems should be printed, if
+    you examine the specific font with the CHARMAP utility that ships 
+    with Windows 3.1 -- there is a problem in the interpretation between 
+    some fonts, ASCII and ANSI (Windows applications do not usually 
+    recognize ASCII, but ANSI instead -- and Visual dBASE seems to be 
+    confused between them ...). Example, in Times New Roman, the 
+    character at CHR(216) should be a capital 'O' with a slash (/) 
+    through it. However, Visual dBASE prints a space instead. Yet, 
+    with Wingdings, if you look at the CHARMAP utility, for CHR(216) you 
+    will see a spiffy-looking arrow-head -- this prints as shown from 
+    Visual dBASE ... 
+    --------------------------------------------------------------------
+
+
+    --------------------------------------------------------------------
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1996, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+    --------------------------------------------------------------------
+
+ *---------------------------------------------------------------------
+ *-- A sample report, showing the use of as many of the options 
+ *-- available to the developer with the dBASE Streaming Report 
+ *-- commands. There are work-arounds given for some items
+ *-- that appear as if they should work but do not seem to ...
+ *-- These are noted in the comments in the code.
+ *-- Please note that not _everything_ below is the report code.
+ *-- There is also a section that should be copied out to its own
+ *-- file called FONTS.H. This is important to get the font styles
+ *-- to work properly ...
+ *---------------------------------------------------------------------
+ 
+ *---------------------------8< Cut Here >8----------------------------*
+ *---------------------------------------------------------------------
+ *-- PRNTEST.PRG
+ *-- A small demo program for STREAM.HOW to demonstrate as many
+ *-- features of streaming output in one report as I can. 
+ *-- Uses table:   TEST.DBF
+ *--               Name      Character 25
+ *--               Address   Character 25
+ *--               City      Character 20
+ *--               State     Character  2
+ *--               ZIP       Character  5
+ *-- I let dBASE generate thirty records to test this adequataly.
+ *--
+ *-- NOTE: This program is designed to show a variety of methods of
+ *--       writing STREAMing output code. 
+ *---------------------------------------------------------------------
+
+   *------------------------------------------------------------
+   *-- This statement handles including the fonts you need in 
+   *-- your report. If you have multiple font header files, you 
+   *-- could just change the name to change the style of the 
+   *-- report.
+   #INCLUDE FONTS.H  && insert font definitions here
+
+   *------------------------------------------------------------
+   *-- if "Cancel" button is selected, return ...
+   if .not. ChoosePrinter()
+      RETURN
+   endif
+
+   *------------------------------------------------------------
+   *-- Determine if user selected a text driver.
+   *-- This is important, because you don't want to
+   *-- print any output using STYLE statements with 
+   *-- the text drivers, as they will be ignored completely
+   *-- (not just the style clause, but the whole statement!)
+   lText = left(_PDriver,3) = "TTY"
+
+   *------------------------------------------------------------
+   *-- system settings
+   cOldCentury = set("CENTURY")
+   set century on
+
+   *------------------------------------------------------------
+   *-- save any current settings:
+   nOldPLOFF   = _PLOffSet
+   nOldLMargin = _LMargin
+   nOldRMargin = _RMargin
+   cOldPEJect  = _PEject
+   lOldWrap    = _Wrap
+   cOldAlign   = _Alignment
+   
+   *------------------------------------------------------------
+   *-- set new values for settings: 
+   _PLOffSet   =  0
+   _LMargin    =  5   
+   _RMargin    = 75  && take into account the _PLOffset, if any ...
+   _PEject     = "NONE"
+   _Wrap       = .t. && allow alignment and other commands
+                     && to function properly -- this should be
+                     && turned off AS SOON as you don't need it
+                     && anymore (see text of STREAM.HOW).
+   _Alignment  = "LEFT"
+   
+   *------------------------------------------------------------
+   *-- For whatever reason, the _PageNo variable is not always
+   *-- being cleared out, so that multiple runs of this program
+   *-- are starting at the previous page number ... the
+   *-- following fixes that:
+   _PageNo = 1
+   lRepStart = .t.  && if this is true, we won't issue a page
+                    && eject the first time
+   
+   *------------------------------------------------------------
+   *-- Start the report:
+   SET PRINTER ON 
+   PRINTJOB          && start the printjob
+      
+      use test       && open the table  
+      do header      && routine below
+      
+      *---------------------------------------------------------
+      *-- The first page of this report will sort of be
+      *-- a cover page -- it will be used to just throw
+      *-- out some examples of printing techniques.
+      *-- The other pages starting at page 2 will loop
+      *-- through the table and do some processing there.
+      
+      *---------------------------------------------------------
+      *-- To show the correct values for the left/right margins,
+      *-- we must have printed something there. The _PColNo
+      *-- system variable works based on the _last_ item printed,
+      *-- not the current position:
+      _Alignment = "LEFT"
+      ? " "
+      nLeftMargin = _PColNo-1  && subtract one for the space printed
+      _Alignment = "RIGHT"
+      ?? " "
+      nRightMargin = _PColNo-1 && subtract one for the space printed
+      _Alignment = "LEFT"
+      
+      if lText
+         ? ltrim(str(nLeftMargin))+"<-Left Margin"
+      else
+         ? ltrim(str(nLeftMargin))+"<-Left Margin" ;
+           style FONT_DETAIL_ITALIC
+      endif
+
+      *-- Print this line on the same line as the above ...
+      _Alignment = "RIGHT"
+      if lText
+         ?? "Right Margin->"+ltrim(str(nRightMargin))
+      else
+         ?? "Right Margin->"+ltrim(str(nRightMargin)) ;
+            style FONT_DETAIL_MAIN
+      endif
+      
+      _Alignment = "LEFT"
+      ? && blank line
+
+      *---------------------------------------------------------
+      *-- Example of both the wrap ability, and the _Indent
+      *-- variable to indent a paragraph ...
+      *-- NOTE: you need to turn it off (set it to default of 0)
+      *-- or every line of this nature will indent ...
+      *-- _WRAP must be true for this to work properly here:
+      nOldIndent = _Indent
+      _Indent = 5 && notice that the indent is equal to five, but it's
+                  && really at the (left margin/page offset) + 5
+      cLongText = ;
+          "This is a long line that should wrap inside the margins. "+;
+          "However, in addition, the first line should be indented "+;
+          "by a half-inch. The rest of the text should go margin to "+;
+          "margin. This is a test, this is just a test. Testing, "+;
+          "testing, testing testing testing!"
+      if lText
+         ? cLongText
+      else
+         ? cLongText style FONT_DETAIL_MAIN
+      endif
+      _Indent = nOldIndent
+      ? && blank line
+
+      *---------------------------------------------------------
+      *-- Example of use of a picture clause with the stream
+      *-- output to handle indent on both sides of a 
+      *-- bit of long text ... NOTE: _WRAP must be _FALSE_ to
+      *-- explicitly set an "at column" _and_ for the 
+      *-- picture/function clause to work properly ... otherwise
+      *-- everything will wrap from margin to margin, no matter
+      *-- what you do (well, you could hard-code spacing and such,
+      *-- but it's not worth it ... instead, turn _WRAP on and off
+      *-- as needed!) With _WRAP off, margins get ignored, so you
+      *-- MUST use "AT <nCol>" to print where you need to ...
+      _Wrap = .f.                && must be off for explicit column
+                                 && addressing ...
+      nColumn = _lMargin + 5
+      cLongText = ;
+           "This is a long line that should wrap inside the margins "+;
+           "set by a vertical stretch picture clause. "  +;
+           "This is a test, this is just a test. Testing, "+;
+           "testing, testing testing testing!"
+      if lText
+         ? cLongText picture "@V50" at nColumn
+                                && start at 5 (1/2"), wrap at 
+                                && 5" from that position.
+      else
+         ? cLongText picture "@V50" at nColumn ;
+           style FONT_DETAIL_MAIN
+      endif
+      ? && blank line
+
+      *---------------------------------------------------------
+      *-- Next we'll take a look at line spacing:
+      nOldSpacing = _PSpacing
+      _PSpacing = 1.5  && 1.5 spacing
+      if lText
+         ? "Test of line-spacing" at _lMargin
+         ? "Line 2 should be 'half' of a blank line here (except for"+;
+           " text drivers)" at _lMargin
+      else
+         ? "Test of line-spacing" at _lMargin ;
+           style FONT_DETAIL_MAIN         
+         ? "Line 2 should be 'half' of a blank line here (except for"+;
+           " text drivers)" at _lMargin ;
+           style FONT_DETAIL_MAIN
+      endif
+      _PSpacing = 2  && double spacing
+      if lText
+         ? "Test of double-spacing" at _lMargin
+         ? "Line 2 should be one blank line here" at _lMargin
+      else
+         ? "Test of double-spacing" at _lMargin ;
+           style FONT_DETAIL_MAIN         
+         ? "Line 2 should be one blank line here" at _lMargin ;
+           style FONT_DETAIL_MAIN
+      endif
+      _PSpacing = 3  && triple spacing
+      if lText
+         ? "Test of triple-spacing" at _lMargin
+         ? "Line 2 should be two blank lines here" at _lMargin
+      else
+         ? "Test of triple-spacing" at _lMargin ;
+           style FONT_DETAIL_MAIN         
+         ? "Line 2 should be two blank lines here" at _lMargin ;
+           style FONT_DETAIL_MAIN
+      endif
+      _PSpacing = nOldSpacing
+      ? && blank line
+      
+      *---------------------------------------------------------
+      *-- Tabs: you need to set the tabs with _Tabs = "x,x,x"
+      *-- and then to use them, you print text + chr(9) ...
+      *-- Remember spacing -- for a text printer driver, you're
+      *-- probably at 10 CPI (unless you changed it), and with
+      *-- anything else, you're probably at inches ...
+      cOldTabs = _tabs
+      _tabs = "15,30,45,60"  && 1.5", 3", 4.5", 6"
+      if lText
+         ? "Tab Test"+chr(9)+"Next position"+chr(9)+"Next" at _LMargin
+         ? "Next"+chr(9)+"Again"+chr(9)+"And again" at _LMargin
+      else
+         ? "Tab Test"+chr(9)+"Next position"+chr(9)+"Next" at _LMargin;
+           style FONT_DETAIL_MAIN
+         ? "Next"+chr(9)+"Again"+chr(9)+"And again" at _LMargin;
+           style FONT_DETAIL_MAIN
+      endif
+      _Tabs = cOldTabs
+      ?
+
+      *---------------------------------------------------------
+      *-- Done with title page (as it were), let's move on ...
+      do header
+
+      *---------------------------------------------------------
+      *-- Process this table, one record at a time, and print
+      *-- data from it ...
+      scan
+
+         *------------------------------------------------------
+         *-- Check # of lines printed due to problems with 
+         *-- ON PAGE.
+         if _PLineNo => (_PLength-5)
+            do header
+         endif
+         
+         if lText
+            ? "Name: "   at _lMargin,;
+              test->name at _lMargin+10
+         else
+            ? "Name: "   style FONT_DETAIL_BOLD at _lMargin,;
+              test->name style FONT_DETAIL_MAIN at _lMargin+10
+         endif
+         if lText
+            ? "Address: "   at _lMargin,;
+              test->address at _lMargin+10
+         else
+            ? "Address: "   style FONT_DETAIL_BOLD at _lMargin,;
+              test->address style FONT_DETAIL_MAIN at _lMargin+10
+         endif
+         if lText
+            ? trim(test->city)+", "+state+"  "+zip at _lMargin+10
+         else
+            ? trim(test->city)+", "+state+"  "+zip ;
+              style FONT_DETAIL_MAIN at _lMargin+10
+         endif
+         ? && blank line
+       
+      endscan
+  
+   ENDPRINTJOB
+   SET PRINTER OFF
+   SET PRINTER TO
+   ON PAGE
+
+   *------------------------------------------------------------
+   *-- cleanup -- reset everything
+   _PLOffSet  = nOldPLOff
+   _LMargin   = nOldLMargin
+   _RMargin   = nOldRMargin
+   _Wrap      = lOldWrap
+   _PEject    = cOldPEject
+   _Alignment = cOldAlign
+   _PageNo    = 1
+   _PLineNo   = 0
+   set century &cOldCentury.
+   close database  && close any open tables
+  
+ RETURN
+
+ *------------------------------------------------------
+ *-- End of main routine, any extras would end up below:
+ *------------------------------------------------------
+  
+ PROCEDURE Header
+   *------------------------------------------------------------
+   *-- Header routine, force a page eject for non-text
+   *-- printer drivers, and center the heading ...
+   *-- Problem with this whole work-around is that the 
+   *-- _PBPage is useless ...
+   if .not. lText  && only bother if this is not text
+      if .not. lRepStart  && if not the first page
+         eject page
+      else
+         lRepStart = .f.  && no longer the first page ...
+      endif
+   endif
+
+   *-----------------------------------------------------------
+   *-- Check end page (_PEPage) ... if we have a page number 
+   *-- greater than the end page, don't print the header ...
+   if _PageNo > _PEPage
+      RETURN
+   endif
+
+   *-- _Wrap must be true for the alignment to work, so
+   *-- we'll make sure we set it ...
+   lHeaderWrap = _Wrap       && save current setting
+   _Wrap       = .t.         && set to true
+   cOldAlign   = _Alignment  && save current setting
+   _Alignment  = "CENTER"    && Center the heading
+
+   *------------------------------------------------------------
+   *-- The actual header itself:
+   ?
+   if lText  && if a text driver, print without style clause:
+      ? "Test Report"
+      ? "Date: "+dtoc(date())
+      ? "Page: "+ltrim(str(_PageNo))
+   else
+      ? "Test Report"                style FONT_HEADER_1
+      ? "Date: "+dtoc(date())        style FONT_HEADER_2
+      ? "Page: "+ltrim(str(_PageNo)) style FONT_HEADER_2
+   endif
+   ? && move down the page a bit
+     
+   _Alignment = "&cOldAlign." && reset it ...
+   _Wrap      = lHeaderWrap   && reset
+   
+ RETURN
+
+ *---------------------------------------------------------------------
+ *-- End of Program: PRNTEST.PRG
+ *---------------------------------------------------------------------
+
+ *---------------------------8< Cut Here >8----------------------------*
+ *-- FONTS.H -- save to a file by this name!
+ *-- FONTS Header file, defines some basic fonts for use
+ *-- in a report:
+
+ #DEFINE FONT_HEADER_1         "Times New Roman,14,B,Roman"
+ #DEFINE FONT_HEADER_2         "Times New Roman,12,Roman"
+
+ #DEFINE FONT_DETAIL_MAIN      "Times New Roman,10,Roman"
+ #DEFINE FONT_DETAIL_BOLD      "Times New Roman,10,B,Roman"
+ #DEFINE FONT_DETAIL_UNDERLINE "Times New Roman,10,U,Roman"
+ #DEFINE FONT_DETAIL_ITALIC    "Times New Roman,10,I,Roman"
+ #DEFINE FONT_DETAIL_BOLDUND   "Times New Roman,10,BU,Roman"
+ #DEFINE FONT_DETAIL_BOLDITAL  "Times New Roman,10,BI,Roman"
+ #DEFINE FONT_DETAIL_UNDITAL   "Times New Roman,10,UI,Roman"
+ #DEFINE FONT_DETAIL_BUI       "Times New Roman,10,BUI,Roman"
+ *-- End of File: FONTS.HOW
+ *---------------------------8< Cut Here >8----------------------------*  
+ 
+ *---------------------------8< Cut Here >8----------------------------*  
+ *---------------------------------------------------------------------
+ *-- PRNCHAR.PRG -- show characters in character set/font above
+ *-- 31 (control characters) and up to 255
+ *-- Date: 01/19/1996
+ *---------------------------------------------------------------------
+
+   *------------------------------------------------------------
+   *-- Handle including the fonts you need in your report.
+   *-- If you have multiple font header files, you could
+   *-- just change the name to change the style of the 
+   *-- report.
+   #INCLUDE FONTS.H  && insert font definitions here
+
+   *------------------------------------------------------------
+   *-- if "Cancel" button is selected, return ...
+   if .not. ChoosePrinter()
+      RETURN
+   endif
+
+   *------------------------------------------------------------
+   *-- Determine if user selected a text driver.
+   *-- This is important, because you don't want to
+   *-- print any output using STYLE statements with 
+   *-- the text drivers, as they will be ignored completely
+   *-- (not just the style clause, but the whole statement!)
+   lText = left(_PDriver,3) = "TTY"
+   if lText
+      RETURN
+   endif
+
+   *------------------------------------------------------------
+   *-- save any current settings:
+   cOldPEJect  = _PEject
+   lOldWrap    = _Wrap 
+   cOldAlign   = _Alignment
+   
+   *------------------------------------------------------------
+   *-- set new values for settings: 
+   _PEject     = "NONE"
+   _Wrap       = .f. && allow alignment and other commands
+                     && to function properly
+   _Alignment  = "LEFT"
+   
+   *------------------------------------------------------------
+   *-- For whatever reason, the _PageNo variable is not always
+   *-- being cleared out, so that multiple runs of this program
+   *-- are starting at the previous page number ... the
+   *-- following fixes that:
+   _PageNo = 1
+   lRepStart = .t.  && if this is true, we won't increment the 
+                    && page number the first time
+   
+   *----------------------
+   *-- Get font to print:
+   cTestFont = getfont()
+   *-- if it's empty, we're done!
+   if empty(cTestFont)
+      RETURN
+   endif
+   *-- if we're not set for 10 point, force the issue ...
+   cFontSize = "10"
+   if .not. cFontSize $ cTestFont
+      cLeft = left(cTestFont,at(",",cTestFont)-1)
+      *-- some fonts don't have a font group listed, so we don't
+      *-- want to grab anything after that if nothing's there  ...
+      if at(",",cTestFont,2) > 0
+         cRight = right(cTestFont,len(cTestFont)-at(",",cTestFont,2))
+      else
+         cRight = ""
+      endif
+      cTestFont = cLeft+","+cFontSize+iif(.not. empty(cRight),","+;
+                                                            cRight,"")
+   endif
+
+   *------------------------------------------------------------
+   *-- Start the report:
+   SET PRINTER ON 
+   PRINTJOB          && start the printjob
+      
+      do header      && routine below
+      nChar = 32
+      nRows = 80
+      nIncrement1 = nRows - 31
+      nIncrement2 = nIncrement1*2
+      nIncrement3 = nIncrement1*3
+      nIncrement4 = nIncrement1*4
+      nStartCol = 5
+      do while nChar <= nRows
+         *-- print in five columns
+         ?? transform(nChar,"@J 999")+" ("+chr(nChar)+")";
+                                  style FONT_DETAIL_MAIN at nStartCol
+         ??                chr(nChar) style cTestFont at nStartCol+5
+         ?? transform(nChar+nIncrement1,"@J 999")+" ("+;
+                                 chr(nChar+nIncrement1)+")";
+                                 style FONT_DETAIL_MAIN at nStartCol+15
+         ??                chr(nChar+nIncrement1) style cTestFont;
+                                                        at nStartCol+20
+         ?? transform(nChar+nIncrement2,"@J 999")+" ("+;
+                                 chr(nChar+nIncrement2)+")";
+                                 style FONT_DETAIL_MAIN at nStartCol+30
+         ??                chr(nChar+nIncrement2) style cTestFont ;
+                                                        at nStartCol+35
+         ?? transform(nChar+nIncrement3,"@J 999")+" ("+;
+                                 chr(nChar+nIncrement3)+")";
+                                 style FONT_DETAIL_MAIN at nStartCol+45
+         ??                chr(nChar+nIncrement3) style cTestFont;
+                                                        at nStartCol+50
+         if (nChar+nIncrement4) <= 255
+            ?? transform(nChar+nIncrement4,"@J 999")+" ("+;
+                                 chr(nChar+nIncrement4)+")";
+                                 style FONT_DETAIL_MAIN at nStartCol+60
+            ??                chr(nChar+nIncrement4) style cTestFont;
+                                                        at nStartCol+65
+         endif
+         ?
+         nChar = nChar + 1
+         
+      enddo
+  
+   ENDPRINTJOB
+   SET PRINTER OFF
+   SET PRINTER TO
+   ON PAGE
+
+   *------------------------------------------------------------
+   *-- cleanup -- reset everything
+   _Wrap      = lOldWrap
+   _PEject    = cOldPEject
+   _Alignment = cOldAlign
+   _PageNo    = 1
+   _PLineNo   = 0
+   close database  && close any open tables
+  
+ RETURN
+
+ *------------------------------------------------------
+ *-- End of main routine, any extras would end up below:
+ *------------------------------------------------------
+  
+ PROCEDURE Header
+   *------------------------------------------------------------
+   *-- Header routine, force a page eject for non-text
+   *-- printer drivers, and center the heading ...
+   *-- Problem with this whole work-around is that the 
+   *-- _PBPage is useless ...
+   if .not. lRepStart  && if not the first page
+      eject page
+   else
+      lRepStart = .f.  && no longer the first page ...
+   endif
+
+   *-----------------------------------------------------------
+   *-- Check end page (_PEPage) ... if we have a page number 
+   *-- greater than the end page, don't print the header ...
+   if _PageNo > _PEPage
+      RETURN
+   endif
+
+   *-- _Wrap must be true for the alignment to work, so
+   *-- we'll make sure we set it ...
+   lHeaderWrap = _Wrap       && save current setting
+   _Wrap       = .t.         && set to true
+   cOldAlign   = _Alignment  && save current setting
+   _Alignment  = "CENTER"    && Center the heading
+
+   *------------------------------------------------------------
+   *-- The actual header itself:
+   ?
+   ? "Character Set"                             style FONT_HEADER_1
+   ? "Printable Characters for font: "+cTestFont style FONT_DETAIL_MAIN
+   ? && move down the page a bit
+   ?
+     
+   _Alignment = "&cOldAlign." && reset it ...
+   _Wrap      = lHeaderWrap   && reset
+   
+ RETURN
+ *---------------------------------------------------------------------
+ *-- End of Program: PRNTEST.PRG
+ *---------------------------------------------------------------------
+
+ *---------------------------------------------------------------------
+ *-- PRNNUMS.PRG -- an attempt at right justifcation of numbers 
+ *-- using streaming output.
+ *---------------------------------------------------------------------
+
+   ******** For this particular test:
+   #DEFINE FONT_HEADER_2     "Times New Roman,12,Roman"
+   #DEFINE  FONT_DETAIL_MAIN "Times New Roman,10,Roman"
+   #DEFINE  MONO_10          "Courier New,10,Modern" 
+                              && define courier/mono-spaced font
+   
+   *------------------------------------------------------------
+   *-- if "Cancel" button is selected, return ...
+   if .not. ChoosePrinter()
+      RETURN
+   endif
+
+   *********************************************
+   ** Define some numeric values to be printed:
+   *********************************************
+   nGolfers      = 25
+   nNonGolf      = 3
+   nNights       = 4
+  
+   *------------------------------------------------------------
+   *-- Start the report:
+   SET PRINTER ON 
+   PRINTJOB          && start the printjob
+      
+
+   *-- Test one will be done using times-new-roman as defined
+   *-- above (FONT_DETAIL_MAIN):
+    ? "Test 1 -- proportional font" style FONT_HEADER_2 at 10
+    ? transform(nGolfers,"@J 999") at 10 style FONT_DETAIL_MAIN
+   ?? "Golfers"                    at 15 style FONT_DETAIL_MAIN
+   ?? "@"                          at 25 style FONT_DETAIL_MAIN
+   ?? transform(150,"@J $999.99")  at 27 style FONT_DETAIL_MAIN
+   ?? "/ golfer  x"                at 32 style FONT_DETAIL_MAIN
+   ?? transform(nNights,"@J 999")  at 37 style FONT_DETAIL_MAIN
+   ?? "nights ="                   at 40 style FONT_DETAIL_MAIN
+   nTotalGolf = nNights*nGolfers*150
+   ?? transform(nTotalGolf,"@J$ 999,999.99") at 45 ;
+                                         style FONT_DETAIL_MAIN
+
+    ? transform(nNonGolf,"@J 999") at 10 style FONT_DETAIL_MAIN
+   ?? "Non-Golfers"                at 15 style FONT_DETAIL_MAIN
+   ?? "@"                          at 25 style FONT_DETAIL_MAIN
+   ?? transform(125,"@J $999.99")  at 27 style FONT_DETAIL_MAIN
+   ?? "/ golfer  x"                at 32 style FONT_DETAIL_MAIN
+   ?? transform(nNights,"@J 999")  at 37 style FONT_DETAIL_MAIN
+   ?? "nights ="                   at 40 style FONT_DETAIL_MAIN
+   nTotalNonGolf = nNights*nNonGolf*125
+   ?? transform(nTotalNonGolf,"@J$ 999,999.99") at 45 ;
+                                         style FONT_DETAIL_MAIN
+  
+    ? transform(nGolfers+nNonGolf,"@J 999") at 10 style FONT_DETAIL_MAIN
+   ?? "Persons in Party"           at 15 style FONT_DETAIL_MAIN
+   ?? "Total ="                    at 40 style FONT_DETAIL_MAIN
+   nTotal = nTotalGolf+nTotalNonGolf
+   ?? transform(nTotal,"@J$ 999,999.99") at 45 style FONT_DETAIL_MAIN  
+    ?
+
+   *-- Test two will be done using courier new as defined
+   *-- above (MONO_10) for the numeric values:
+    ? "Test 2 -- MONO Font (numerics only)" style FONT_HEADER_2 at 10
+    ? transform(nGolfers,"@J 999") at 10 style MONO_10
+   ?? "Golfers"                    at 15 style FONT_DETAIL_MAIN
+   ?? "@"                          at 25 style FONT_DETAIL_MAIN
+   ?? transform(150,"@J $999.99")  at 27 style MONO_10
+   ?? "/ golfer  x"                at 33 style FONT_DETAIL_MAIN
+   ?? transform(nNights,"@J 999")  at 38 style MONO_10
+   ?? "nights ="                   at 42 style FONT_DETAIL_MAIN
+   nTotalGolf = nNights*nGolfers*150
+   ?? transform(nTotalGolf,"@J$ 999,999.99") at 47 style MONO_10
+
+    ? transform(nNonGolf,"@J 999") at 10 style MONO_10
+   ?? "Non-Golfers"                at 15 style FONT_DETAIL_MAIN
+   ?? "@"                          at 25 style FONT_DETAIL_MAIN
+   ?? transform(125,"@J $999.99")  at 27 style MONO_10
+   ?? "/ golfer  x"                at 33 style FONT_DETAIL_MAIN
+   ?? transform(nNights,"@J 999")  at 38 style MONO_10
+   ?? "nights ="                   at 42 style FONT_DETAIL_MAIN
+   nTotalNonGolf = nNights*nNonGolf*125
+   ?? transform(nTotalNonGolf,"@J$ 999,999.99") at 47 style MONO_10
+  
+    ? transform(nGolfers+nNonGolf,"@J 999") at 10 style MONO_10
+   ?? "Persons in Party"           at 15 style FONT_DETAIL_MAIN
+   ?? "Total ="                    at 42.5 style FONT_DETAIL_MAIN
+   nTotal = nTotalGolf+nTotalNonGolf
+   ?? transform(nTotal,"@J$ 999,999.99") at 47 style MONO_10
+    ?
+
+   ENDPRINTJOB
+   SET PRINTER OFF
+   SET PRINTER TO
+
+  
+ RETURN
+ *---------------------------------------------------------------------
+ *-- End of Program: PRNNUMS.PRG
+ *---------------------------------------------------------------------
+
+ *-- EoHT: STREAM.HOW -- 02/21/1996

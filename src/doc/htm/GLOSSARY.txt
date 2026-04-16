@@ -1,0 +1,243 @@
+ GLOSSARY.HOW
+ by A.A.Katz
+ 9-13-1995
+
+ This is an extract from:  HOW TO Think OOP With Visual dBase
+
+ An OO Glossary
+ --------------
+ 
+ This HOW TO assumes that you're new to Object-Oriented programming. If
+ you are, it's more than likely that you've programmed before in a
+ DOS-based procedural language - and you're wrestling with this
+ entirely new Object "paradigm".
+
+ It's perfectly natural when learning new concepts to try to find
+ analogies to your previous knowledge. In this case, don't do it!
+ 
+ OO is not at all analogous to procedural programming. You'll find your
+ thinking shifts more easily if you attach the right terms to your new 
+ concepts. 
+
+ Therefore, it may help, before you go much further, to familiarize yourself
+ with the vocabulary of Object-Oriented Programming:
+
+
+ Class - A Class is a definition of an object.
+
+        CLASS Automobile                      &&class
+          This.Tires = 'Radial'
+          This.Engine = 'Six Cylinder'
+          This.Trunk = 'Hatchback'
+          This.Start = CLASS::Turn key
+          This.Stop = CLASS::Press Brake
+        ENDCLASS
+
+        Hint: Many beginners mistake a CLASS for a program or procedure.
+        A CLASS is NOT executable code. It is a blueprint only. 
+        Just like a real blueprint, you can't live in the house 
+        represented by the blueprint until you build it.
+
+
+ SubClass - A "child" class derived, through inheritance, from another
+        Class.
+
+        CLASS Helicopter of Automobile        &&subclass
+          This.Rotors = 6
+          This.Start = CLASS::Take_Off
+          This.Stop = CLASS::Land
+        ENDCLASS
+
+
+ SuperClass - The "parent" class of a subclass. In this case, AUTOMOBILE is
+        the "SuperClass" of HELICOPTER.
+
+
+ Property - Properties are similar to variables in that they are used to
+        store information. A FirstName property acts the same as a
+        FirstName variable - providing a storage space for the various
+        possible first names. 
+
+        However, unlike variables, they don't  "belong" to programs or
+        procedures, they belong to the object.
+
+        Properties define an object's characteristics.
+
+        CLASS Helicopter of Automobile
+           This.Rotors = 6                             &&Properties
+           This.Tires = 'Pirelli'
+           This.Engine = 'Jet'
+        ENDCLASS
+
+        A wonderful change from procedural programming to object-
+        oriented programming is the way properties effect behavior.
+        In procedural programming, if you wanted to change the the value
+        of a field, you'd have to set the value and then redisplay:
+
+           cMyVar = "Hello"
+           @ 2,1 say cMyvar
+        
+        In object programming, the change is -encapsulated-, built
+        right in as a behavior of the object:
+
+           OO:  This.Value = 'Hello'
+
+        Change the property and the onscreen result is automatically
+        altered to match the current property value. Needless to say,
+        this saves a huge amount of coding.
+
+ Method - A method is the code that executes the -behavior- of an
+        object. And how are behaviors implemented in programming? With
+        procedures and functions. 
+
+        Methods are procedures and functions that belong to an object.
+
+        CLASS HELICOPTER OF AUTOMOBILE
+            This.Start = CLASS::TakeOff
+
+            PROCEDURE Take Off                          &&Method
+              if CLASS::Checklist()
+                 if CLASS::TurnEngineOn()
+                    if CLASS::Taxi()
+                       if CLASS::GetClearance()
+                           CLASS::LiftOff()
+                       endif
+                    endif
+                 endif
+              endif
+              
+        ENDCLASS
+
+
+ Instance  - The actual "object" derived from a Class.
+
+        Define AlansCar of Automobile                 &&instance
+        Define JanesHelicopter of HELICOPTER
+
+	OO supports multiple instances simultaneously of the same class.
+
+        Define AlansCar of Automobile                 &&more instances
+        Define JanesCar of Automobile
+        Define OurFamilyCar of Automobile
+
+        MyCar = New Automobile()                      &&more instances -
+                                                      &&this time using
+                                                      &&"New" instead of
+                                                      &&define.
+
+	Instances are the objects end-users actually see and use.
+        Classes and subclasses are the programming tools you use to
+        create them.
+
+
+ Instantiate - Create a single instance of your class in memory. In other
+        words, make an object from your class definition.
+
+        This is analogous to "building the house". The class is the
+        blueprint. When you instantiate, Visual dBase builds the actual
+        house from the blueprint you provide in your class definition.
+
+        DEFINE AlansCar of Automobile             &&Instantiations
+        or
+        AlansCar = New Automobile()
+
+
+ Container Object - Some objects have the language-level ability to
+        contain other objects. The Form object is the primary container
+        object in Visual dBase. A form can contain pushbuttons, browse
+        objects, editor objects, etc. 
+
+        However, a pushbutton, which is not a container object, cannot
+        contain a Form or a browse or an editor.
+
+ Standard Class - Visual dBase includes approximately 30 standard
+        classes - built-in class definitions from which you can create
+        instances or custom subclasses. 
+
+        Forms, array objects and screen controls like pushbuttons,
+        entryfields, browses and checkboxes are all standard classes.
+
+
+ Base Class - The Base Class is the form blueprint that's used each
+        time you create a new form using the Form Designer.
+
+        Visual dBase has an amazing new capability that lets you
+        use your own forms as the Base Class for new forms.
+
+        This is extremely useful for standardizing the look and feel
+        across an application. Your custom Base Class may include
+        speedbar buttons, titles, status bars, rectangles or
+        any other controls you wish to appear on all your new forms.
+
+        When you define your own Base Class, the forms that result
+        are third-generation subclasses:
+
+	1. Form		                  &&Built-in base class
+
+	  2. Class AUTOMOBILE of Form()   &&Your new base class which
+                                          &&is a subclass of form
+
+            3.   Class HELICOPTER of AUTOMOBILE
+                                          &&Your new Form class, derived
+					  &&from Automobile, which was
+					  &&in turn, derived from Form.
+
+                                                 
+ Custom Class - Visual dBase allows you to create custom classes from
+        scratch or from standard classes or other custom classes.
+
+        Class Automobile                  &&From scratch
+
+        Class Automobile(f,n) of Form(f,n)
+                                          &&From base class form
+
+        Class Helicopter(f,n) of Automobile(f,n)
+                                          &&From custom class form
+
+        Classes you create are called Custom Classes to distinguish them
+        from the built-in Standard Classes.
+
+ Constructor - The Constructor Code is part of the class "blueprint" for
+        objects. It includes all properties and their values. It does not
+        include the methods of the class (procedures and functions). 
+
+        In the case of a container object, like the Form, the Constructor
+        also includes the definition of all objects contained by the Form.
+   
+           Hint: Understanding what constitutes Constructor Code is
+           crucial to using the Visual dBase two-way tools. 
+
+           You cannot add new properties or methods in the Constructor
+           Code of an object used in the Two-Way tools like the Form
+           Designer and Menu Designer. This area is reserved for the tools.
+           You can, however, set values or include or remove built-in
+           properties.
+
+           To add new properties, you have to build them into a custom
+           class or add them dynamically during an event such as OnOpen.
+
+           CLASS Myform(f,n) of Form(f,n)               ------------
+              This.Top = 2                                          |
+              This.Left = 2                                         |
+              This.Width = 40                                       |
+              This.Height = 20                                      |
+                                                                    |
+              DEFINE PUSHBUTTON PUSHBUTTON1 OF THIS;                |
+                 PROPERTY;                                     Constructor
+                 Top  3,;                                           |
+                 Left  3,;                                          |
+                 Width 5,;                                          |
+                 Height 1.06,;                                      |
+                 ColorNormal "W+/N"                     ------------
+
+             PROCEDURE FORM_OnOpen                      ------------
+             This.FormNumber = 2                                    |
+             && The OnOpen is a procedure known                     |
+             && as a "method" when included in a                 Methods
+             && class definition. Sometimes also                    |
+             && called a "member". This.FormNumber                  |
+             && is a "custom property" of the form.     ------------
+
+          ENDCLASS
+
+*End of HOW TO

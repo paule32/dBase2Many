@@ -1,0 +1,768 @@
+ *-- ARRAY1. WIE
+ *-- 03.12.1995 -- Ken Mayer (CIS: 71333,1030)
+ 
+ ----------------------------------
+ ARRAYS (Anfang) in Visual dBASE
+ ----------------------------------
+ Dieser Zweck dieses HOW TO ist: 
+ 
+ 1) Ein Tutorial zur Verwendung von Arrays in Visual dBASE, wobei ein 
+    Schau dir die Grundlagen eines Arrays an und wie man es benutzt.
+ 2) Eine Einführung in die Manipulation von Arrays mit den eingebauten Funktionen
+    von Visual dBASE (nur die Grundlagen).
+
+ Wenn du mehr Details suchst, als hier abgedeckt ist
+ WIE MAN Datei einreicht, lade ARRAY2 herunter. WIE aus demselben Ort, an dem du das gefunden hast 
+ Dokumentieren. Außerdem gibt es die Sprachreferenz und die Online-Hilfe für
+ Visual dBASE kann sehr nützlich sein.
+
+ 
+ -----------------
+ Was ist ein Array?
+ -----------------
+ Ein Array ist in Visual dBASE ein Objekt, das zur Speicherung von Daten verwendet wird. In manchen
+ es kann verwendet werden, um eine Tabelle im Speicher zu emulieren.
+
+ Ein Array erlaubt es, einen einzelnen _Namen_ für mehrere Speicher zu verwenden
+ Standorte. Ein einfaches Array enthält eine "Dimension" oder Spalte
+ von Informationen.
+
+ Ein Array in Visual dBASE ist ein "ausgefranstes" Array – das bedeutet, dass du
+ kann verschiedene Datentypen im selben Array speichern. Ein Element
+ könnte ein Datum speichern, ein anderes eine Zahl und ein Drittel einen Zeichenwert –
+ dBASE ist das egal ... Zumindest bis du versuchst, die Daten zu sortieren, oder
+ Durchsuche es – dann könntest du Probleme haben. Ein dBASE-Array kann auch 
+ Speichern anderer Arrays – es gibt zwei Möglichkeiten, dies zu tun – entweder Speicherung 
+ ein Array als Element in einem anderen Array; oder als multidimensional 
+ Array (siehe "Dimension" unten) – das per Definition ein Array ist 
+ von Arrays. 
+
+ Am wichtigsten ist, dass ein Array in Visual dBASE immer ein Objekt ist.
+ Das bedeutet, dass Standard-OOP-Code mit Arrays funktioniert, und Sie
+ werden ermutigt, den moderneren OOP-Code zu verwenden, anstatt älteren
+ prozeduraler Code, wenn man mit Arrays in Visual dBASE arbeitet.
+
+ Die Entwickler von Visual dBASE haben die Fähigkeiten von Arrays erweitert
+ ziemlich viel in der Programmiersprache dBASE aus den dBASE-IV-Zeiten. 
+
+ -----------
+ Array-Teile
+ -----------
+ Ein Array muss Folgendes besitzen:
+    Ein Name – in diesem HOW TO werde ich eine Konvention verwenden (dBASE Ungarisch)
+       das spezifiziert, dass Array-Namen mit Kleinbuchstaben "a" beginnen.
+       ------------------------------------------------------------------
+       HINWEIS: Weitere Informationen zur dHUNG-Notation finden Sie
+       im dBASE Users' Function Library Project (dUFLP) und
+       in der Datei DHUNG2.TXT in der DBASEDOS-Forenbibliothek auf
+       Compuserve.
+       ------------------------------------------------------------------
+       Okay. Meistens benötigt ein Array einen Namen – es gibt einen
+       spezielle Konstruktion in Visual dBASE, genannt "Literal Array",
+       die hier kurz und ausführlicher in 
+       eine weitere HOW-TO-Datei (ARRAY2. WIE), das _keinen Namen_ erfordert.
+    Elemente – Elemente sind die Behälter, oder vielleicht könnte man sagen
+       'Zellen', die zur Speicherung der Daten im Array verwendet werden.
+    Dimensionen – Arrays können eindimensional sein (nur Zeilen (eine Spalte)
+       -- siehe unten)), zweidimensional (Zeilen und Spalten) oder sogar 
+       drei oder mehr Dimensionen. Man kann sich ein dreidimensionales Bild vorstellen 
+       Array als etwas wie ein dreidimensionales Tic-Tac-Toe-Brett, 
+       mit Reihen und Spalten auf jeder Ebene sowie den verschiedenen Ebenen 
+       die dritte Dimension ist. Eine andere Möglichkeit, eine Dreier zu verstehen (oder 
+       mehr) dimensionales Array ist ein "Array von Arrays". Es gibt kein 
+       Eine einfache Möglichkeit, alles über "dreidimensionale" Arrays hinaus zu visualisieren. 
+       Für die Zwecke dieser Dokumente (ARRAY?. WIE) werden wir es nicht tun 
+       Erkunde Arrays mit mehr als zwei Dimensionen.
+    Reihen – Alle Arrays haben Reihen. Eine Zeile kann alle unterstützten Daten enthalten
+       Typ in Visual dBASE, einschließlich eines weiteren Arrays (ausgefranste Arrays). 
+    Spalten – Alle Arrays haben mindestens eine Spalte. Wenn jedoch gilt:
+       Das Array hat nur eine Spalte, es wird üblicherweise als ein
+       eindimensionales Array. Wenn Sie zwei oder mehr Spalten haben,
+       es ist mindestens ein zweidimensionales Array. Wenn du benachrichtigst
+       ein zweidimensionales Array als eine Art Tabelle,
+       jede Spalte ist mit einem Feld vergleichbar, und jede Zeile ist vergleichbar
+       Zu einer Platte.
+    Indexe – Indexe sind Indizes der Elemente im Array. 
+       Wenn wir ein einspaltiges Array mit fünf Zeilen haben, dann ist die 
+       Subskript würde auf jede Zeile zeigen. Wenn wir eine Mehrspalten-Variante haben 
+       Array, dann bezieht sich ein Index auf die Zeile, ein anderer auf die 
+       Spalte. So gelangen wir zu jedem Element des Arrays. An 
+       Differenzieren wir ein Array von einer Funktion, verwenden wir eckige Klammern 
+       (in der Sprachreferenz genannt: Indexoperatoren) um die 
+       Index(en).
+          
+          Beispiele: 
+                      Spalte 1
+              Reihe 1 San Francisco
+              Reihe 2 Los Angeles
+              Reihe 3 New York
+              Reihe 4 Miami
+              Reihe 5 Sydney
+
+          Wir würden auf Zeile 3 eines so definierten Arrays verweisen mit
+          Ein Index, der auf Reihe drei zeigt:
+        
+             aCity[3] 
+
+          Beispiel 2:
+
+                      Spalte 1       Spalte 2
+              Reihe 1 San Francisco   4.000.000
+              Reihe 2 Los Angeles    10.000.000 
+              Reihe 3 New York       25.000.000
+              Reihe 4 Miami           8.000.000
+              Reihe 5 Sydney          1.000.000
+
+          In einem Array mit zwei (oder mehr) Spalten, um zu einem bestimmten Element zu gelangen, 
+          Wir müssen sowohl die Zeile als auch die Spalte referenzieren, also um zu zeigen 
+          für die Bevölkerung von New York würden wir verwenden:
+
+             aCity[3,2]
+
+          Der erste Index (3) zeigt auf die Reihe, der zweite (2) auf 
+          Die Kolumne.
+
+  Also, was ist so toll an Arrays? Warum sind sie so nützlich? 
+
+  Wie bereits erwähnt, hast du durch die Verwendung eines Arrays nur einen Namen 
+  Kümmere dich um eine Liste. Noch besser ist jedoch – ein Array kann 
+  Sehr dynamisch – man kann Elemente im Array einfach hinzufügen oder entfernen, 
+  Man kann den Inhalt des Arrays sortieren und ein Array durchsuchen 
+  um zu sehen, ob darin ein Wert enthalten ist. Versuch mal das alles 
+  mit einer Liste der Speichervariablen wie unten gezeigt:
+
+   City1 = "San Francisco"
+   City2 = "Los Angeles"
+   City3 = "New York"
+   City4 = "Miami"
+   City5 = "Sydney"
+
+  Zusätzlich wird durch das Speichern der Werte _in memory_ eine Liste verarbeitet 
+  Viel schneller als in einer Tabelle. Tatsächlich können Sie es verwenden
+  Ein Array, um eine Tabelle zu emulieren – wenn Sie ein zweidimensionales Array verwenden, gilt das
+  Zeilen können äquivalent zu Datensätzen sein und die Spalten äquivalent zu 
+  Felder. Wenn du ein Array ähnlich wie eine Tabelle siehst, dann ist das so
+  Könnte auch helfen. Der spaßige Teil ist, dass mit moderner Tabellenkalkulationssoftware
+  Man kann dreidimensionale Tabellenkalkulationen (mehrere Seiten) erstellen, die
+  Kann auch mit Arrays in Visual dBASE gemacht werden.
+
+  -------------------------
+  Wie definiere ich ein Array?
+  -------------------------
+  Zuerst musst du dBASE mitteilen, dass du _verwenden_ willst
+  Ein Array. Das bedeutet, du musst a) einen Namen nennen; b) Instanziieren
+  Das Array.
+
+  In Visual dBASE ist ein Array ein Objekt. Das ist ziemlich nützlich, denn 
+  sobald du dich an die objektorientierte Syntax von Visual dBASE gewöhnt hast, kannst du 
+  kann (und sollte) diese Syntax verwenden, um ein Array zu definieren.
+
+    --------------------------------------------------------------------
+    HINWEIS: Für weitere Informationen zur objektorientierten Programmierung
+    Syntax von Visual dBASE, lade OOP herunter. HOW aus der Bibliothek 10 
+    (Knowledgebase/FAQ) des VDBASE-Forums auf Compuserve.
+    --------------------------------------------------------------------
+
+ Es gibt mindestens ein paar Möglichkeiten, ein Array zu definieren. Der Standard
+ Die prozedurale Programmiermethode ist:
+
+    DECLARE Arrayname[Zeilen, Spalten]
+
+ Der Name des Arrays ist der Verweis auf alle in der 
+ Formation. Die Anzahl der Zeilen ist erforderlich, die Anzahl der Spalten ist
+ nur erforderlich, wenn du ein Array mit mehreren Spalten definierst. Anmerkung
+ Dass diese Methode von manchen als veraltet angesehen wird, und das sollten Sie 
+ vermutlich die NEUE Syntax verwenden, die unten gezeigt wird. Die DECLARATE-Syntax kann 
+ Verschwindet schließlich, da sich dBASE immer mehr dem OOP zubewegt
+ Paradigma.
+
+ Du solltest die OOP-Syntax mit dBASE verwenden – was unter anderem
+ gibt dir ein dynamisches Array:
+ 
+    arrayname = NEUES ARRAY()
+
+ Wenn du möchtest, dass das Array mit einer bestimmten Größe beginnt, könntest du das tun
+ Staat:
+
+    aCity = NEUES ARRAY(5,2)
+
+ Das würde das Array mit 10 Elementen beginnen – fünf Reihen, mit
+ jeweils zwei Spalten. 
+
+ Es gibt noch eine andere Methode, um ein eindimensionales Array zu erstellen, aber diese 
+ Vorausgesetzt, du weißt schon, was du reinstecken willst. Dies verwendet was 
+ wird als "Literal Array" bezeichnet (mehr dazu findet sich in ARRAY2). WIE):
+
+    aCity = {"San Francisco","Los Angeles","New York","Miami","Sydney"}
+
+ Ein wörtliches Array verwendet Strebe, und jedes Element des Arrays ist getrennt
+ mit einem Komma.
+
+
+ ----------------------------------------------------------
+ Jetzt, wo Sie das Array definiert haben, wie fügen Sie Daten hinein?
+ ----------------------------------------------------------
+ Ein Array ist ohne Daten nutzlos. Eine Sache, die ich festgestellt habe, ist 
+ interessant ist, dass wenn man das Array nicht befüllt, dBASE 
+ Automatisch setzt jedem Element einen logischen Wert von False (.f.)
+ dem kein anderer Wert zugewiesen wird – zumindest ist das das, was es ist
+ erscheint als – in Wirklichkeit ist dies eine leere Zelle, und die Nutzung der
+ die dBASE Empty()-Funktion gibt einen wahren Wert auf einer Zelle zurück, die
+ Kein Wert zugewiesen bekommen. Das kann nützlich sein und kann auch
+ Das kann manchmal etwas nervig sein, wenn man bestimmte Aufgaben ausführen muss
+ (wie beim Sortieren eines Arrays). Zum Beispiel, wenn du versuchst, nach Charakter zu sortieren,
+ Numerische oder Datumswerte und einige der Elemente wurden nicht zugewiesen
+ Werte, oder gelöscht wurden (siehe unten), erhalten Sie einen 'Datentyp' 
+ Fehler.
+
+    --------------------------------------------------------------------
+    Für die Zwecke dieser HOW-TO-Datei gibt es ein kleines Stück Code
+    am Ende kann das in das Programm ausgeschnitten und eingefügt (oder neu getippt) werden 
+    Akten. Der Zweck dieser Aufgaben ist es, den Inhalt des Arrays darzustellen 
+    woran du gerade arbeitest, damit du die Wirkung der 
+    Befehle, die du gibst.
+ 
+    Das erste davon ist für eindimensionale Arrays nützlich,
+    die zweite ist für mehrere Spalten. 
+
+    Um diese zu verwenden:
+
+       Mach Show1 mit "aCity"
+          oder
+       Show2 mit "aCity" machen
+
+    Dabei ist "aCity" der Name des Arrays, das du testest.
+    --------------------------------------------------------------------
+    
+ Das Zuweisen von Werten an ein Array kann so einfach sein wie das Eingeben von Werten:
+
+    aCity[1] = "San Francisco" && verlangt, dass du den Überblick über die
+                                && Index
+         oder
+
+    aCity.Add("San Francisco") && verwendet das Objekt _method_ Add()
+
+         oder
+
+    aCity = {"San Francisco","Los Angeles","New York","Miami","Sydney"}
+
+ oder es kann interessanter werden, zum Beispiel indem Informationen herausgeholt werden
+ von einer Tabelle:
+
+    KOPIEREN IN ARRAY aCity FIELDS TableName->City
+
+ Dies erfordert, dass:
+   * Das Array ist definiert 
+   * Der Tisch ist frei
+   
+    --------------------------------------------------------------------
+    Für weitere Details zu COPY TO ARRAY siehe diesen Befehl in der Sprache
+    Referenz oder Online-Hilfe (HILFE ZUM ARRAY). Verwandte Befehle:
+    AUS ARRAY ANHÄNGEN (den Inhalt eines Arrays zurück in eine Tabelle speichern) und
+    ERSETZEN AUS ARRAY (ersetze den Inhalt eines Datensatzes durch das
+    Inhalt eines Arrays)
+    --------------------------------------------------------------------
+
+ Es gibt auch andere Methoden, ein Array zu füllen. Vieles hängt davon ab
+ Wofür du das Array nutzen musst. Zum Beispiel, wenn du wolltest
+ um zwei Felder, wie Vor- und Nachnamen, in einem Array zu speichern,
+ Du könntest es als zwei Spalten oder als eine einzige Spalte speichern. Allerdings,
+ für eine einzelne Spalte möchtest du den Namen vielleicht als "Last, First" speichern.
+ Zum Beispiel.
+
+ Es gibt zwei Methoden dafür, die erste ist etwas mehr
+ komplex, und ist eigentlich nicht notwendig ... Es ist hier, um das zu zeigen
+ Eleganz der zweiten Form:
+
+ nMax = reccount() && Anzahl der Datensätze in der Tabelle
+ declare aNames[nMax] && define Array
+ nRow = 1 && Index
+ Scan- und Prozesstabelle Datensatz für Datensatz durchsuchen
+    *-- Name zum nRowth-Element des Arrays hinzufügen
+    aNames[nRow] = trim(last)+", "+first
+    *-- inkrementiere nRow
+    nRow = nRow + 1
+ Endscan && Ende der Schleife
+
+ Das wird den Zweck erfüllen. Schauen Sie sich jedoch die einfacheren und
+ Eine elegantere Methode wird unten gezeigt:
+
+ aNames = neues ARRAY() && definiere Array
+ Scan- und Prozesstabelle Datensatz für Datensatz durchsuchen
+    *-- neues Element zum Array hinzufügen
+    aNames.Add(trim(last)+", "+first)
+ Endscan && Ende der Schleife
+
+ Es besteht keine Notwendigkeit, sich um einen Index zu sorgen oder die Bestimmung des
+ Größe des Arrays, bevor wir Items hinzufügen. Das ist viel einfacher.
+ Etwas, das man beachten sollte, ist, dass wenn man die Größe eines Arrays erhöht,
+ ist eine Funktion in dBASE, die Ihnen die Größe Ihres Arrays anzeigt:
+    
+    aLen() 
+ 
+ Das wird später noch behandelt.
+
+ Wie man sieht, sind Arrays ziemlich flexibel – und einige der Verwirrungen
+ das kommt von der Nutzung in dBASE, das rührt von dieser Flexibilität herab! 
+ 
+
+ -------------------------
+ Daten in einem Array löschen
+ -------------------------
+ Es gibt Situationen beim Bearbeiten eines Arrays, die du vielleicht löschen möchtest
+ ein Element, eine Reihe oder eine Spalte. Es gibt einen Trick dabei, denn wenn
+ Sie verwenden die Funktionen in dBASE, um eine dieser Funktionen zu löschen. 
+ (Element, Zeile oder Spalte), verschiebt dBASE das Element/Zeile/Spalte auf das 
+ Ende des Arrays und ersetzt die Werte des Elements/der Elemente durch .F. 
+ (in Wirklichkeit "leer" – siehe unten). Wenn du das Array-Sortieren verwendest
+ Funktion/Methode in dBASE auf einem Array, in dem du ein Array gelöscht hast
+ Element/Zeile/Spalte, du wirst einen Fehler erhalten. Das Ende dieses Abschnitts wird
+ dir zeigen, wie du den Fehler mit der Resize()-Methode (oder aResize() vermeiden kannst.
+ Funktion).
+ 
+ Um ein Element in einem eindimensionalen Array zu löschen:
+ ---------------------------------------------------   
+    Arrayname. Delete(element)    
+        oder
+    aDel(Arrayname, Element)
+        
+ Zum Beispiel im aCity-Array, das so aussieht:
+ 
+                      Spalte 1
+              Reihe 1 San Francisco
+              Reihe 2 Los Angeles
+              Reihe 3 New York
+              Reihe 4 Miami
+              Reihe 5 Sydney
+ 
+ Wenn wir das zweite Element entfernen wollten:
+
+    aCity.delete(2)
+       oder
+    aDel(aCity,2)
+
+ Das Array würde die folgenden Werte enthalten _nach_ Ausführung eines
+ von diesen beiden Kommandos:
+
+                      Spalte 1
+              Reihe 1 San Francisco
+              Reihe 2: New York
+              Reihe 3 Miami
+              Reihe 4 Sydney
+              Reihe 5 .f.
+
+ Zum Löschen einer Zeile (eindimensionales oder mehrdimensionales Array):
+ -------------------------------------------------------
+    Arrayname. Delete(nRow,1) && second parm = Zeile (1) oder Spalte (2)
+       oder
+    aDel(arrayname,nZeile,1) & dritter Parameter = Zeile (1) oder Spalte (2)
+
+ Unter der Annahme einer Version des aCity-Arrays, die so aussieht:
+
+                      Spalte 1 Spalte 2
+              Reihe 1 San Francisco 4.000.000
+              Reihe 2 Los Angeles 10.000.000 
+              Reihe 3 New York 25.000.000
+              Reihe 4 Miami 8.000.000
+              Reihe 5 Sydney 1.000.000
+
+ Um die zweite Zeile dieses Arrays zu löschen, verwendet der Befehl:
+
+    aCity.Delete(2,1)
+       oder
+    aDel(aCity,2,1)
+
+ Würde das Array so aussehen lassen:
+
+                      Spalte 1 Spalte 2
+              Reihe 1 San Francisco 4.000.000
+              Reihe 2 New York 25.000.000
+              Reihe 3 Miami 8.000.000
+              Reihe 4 Sydney 1.000.000
+              Reihe 5 .f.              .f.
+
+ Zum Löschen einer Spalte (Mehrfach-Spalten-Array):
+ ---------------------------------------------------------
+    Arrayname. Delete(nColumn,2) && zweiter Parameter = Zeile (1) oder Kol (2)
+       oder
+    aDel(arrayname,nSpalte,2) & dritter Parameter = Zeile (1) oder Spalte (2)
+
+ Angenommen, das aCity-Array sieht wie folgt aus:
+
+                      Spalte 1 Spalte 2 Spalte 3
+              Reihe 1 San Francisco 4.000.000 678
+              Reihe 2 Los Angeles 10.000.000 123
+              Reihe 3 New York 25.000.000 456
+              Reihe 4 Miami 8.000.000 678
+              Reihe 5 Sydney 1.000.000 1234
+
+ Der Befehl zum Löschen der zweiten Spalte wäre:
+    aCity.Delete(2,2) && die erste 2 ist die Spalte, die zweite teilt dBASE an, dass es ist
+                       && eine Spalte, die du löschst
+      oder
+    aDel(aCity,2,2)
+
+ Das würde uns ein Array ergeben, das so aussieht:
+
+                      Spalte 1 Spalte 2 Spalte 3
+              Reihe 1 San Francisco 678 .f.
+              Reihe 2 Los Angeles 123 .f.
+              Reihe 3 New York 456 .f.
+              Reihe 4 Miami 678 .f.
+              Reihe 5 Sydney 1234 .f.
+ 
+ Entfernen der gelöschten Elemente/Zeilen/Spalten des Arrays:
+ --------------------------------------------------------
+ In allen drei gezeigten Fällen ist das Problem, wie erwähnt, das Element/die Reihe/
+ Die gelöschte Spalte bleibt weiterhin im Array bestehen.
+
+ Also verwenden Sie dann die aReSize-Funktion/-Methode:
+ 
+    Arrayname. Resize(nNumRows,nNumCols) && Anzahl der Zeilen/Spalten
+       oder && das Array wird nach dem haben
+                                        && Ausführung
+    aResize(arrayname,nNumRows,nNumCols)  
+
+ Die folgenden Beispiele sind kombinierter Code für die vorherigen Beispiele:
+
+ Entfernung eines Elements aus einem eindimensionalen Array:
+    
+    Prozedurale OOP
+    aDel(aCity,2) aCity.Delete(2)
+    nReihen = aLen(aCity,1) nRows = aLen(aCity,1)
+    aResize(aCity,nReihen-1) aCity.Resize(nReihen-1)
+
+ Entfernen einer Zeile eines Mehrspalten-Arrays (wodurch alle Elemente entfernt werden
+ in der Reihe):
+
+    aDel(aCity,2,1) aCity.Delete(2,1)
+    nReihen = aLen(aCity,1) nRows = aLen(aCity,1)
+    aResize(aCity,nReihen-1) aCity.Resize(nReihen-1)
+
+ Entfernung einer Spalte aus einem mehrspaltigen Array:
+
+    aDel(aCity,2,2) aCity.Delete(2,2)
+    nSpalten = aLen(aCity,2) nColumns = aLen(aCity,2)
+    nReihen = aLen(aCity,1) nRows = aLen(aCity,1)
+    ** Beachten Sie hier den ROWS-Parameter   
+    ** _muss_ einen Wert > 0 enthalten.
+    aResize(aCity,nZeilen,nSpalten-1) aCity.Resize(nZeilen,nSpalten-1)
+
+ 
+ ---------------------------------------
+ Referenzierung/Darstellung von Daten in einem Array
+ ---------------------------------------
+ Es gibt viele Möglichkeiten, mit Arrays zu arbeiten. Sobald du die Daten hast
+ Das Array, es ist in der Regel notwendig, mit diesen Daten etwas zu tun,
+ Entweder nutze ich es für Lookups oder was auch immer. Die Frage lautet also
+ "Wie referenziere ich die Daten in einem Array?"
+
+ Das Wichtigste, woran du denken solltest, ist, dass du ein Index schreiben musst
+ zu den einzelnen Elementen. Wenn du mit einem Mehrspalten-Filter arbeitest)
+ Array, du könntest spezielle Namenskonventionen für deine verwenden
+ Index wie "nRow" und "nColumn". So wirst du nicht mehr so sein.
+ Wahrscheinlich verwirrt das deine Vorschriften. Wenn du deine Indexe verwechselst,
+ Du wirst entweder einen Fehler bekommen ("Subskript außerhalb des Bereichs" ist am wahrscheinlichsten).
+ Oder die falschen Daten! Eine einfache Möglichkeit, sie durcheinander zu bringen, ist, Dinge zu benutzen
+ Zum Beispiel "X" und "Y", um sie zu bezeichnen. Ich kann mich nie erinnern, welche Achse
+ "X" ist ...
+
+ In einem Array mit nur einer Spalte kannst du jede beliebige Subscript-Referenz verwenden,
+ um auf die Reihen zu zeigen, aber für dieses Dokument werde ich versuchen, 
+ konsistent und benutze "nRow", und für ein Mehrspalten-Array werde ich verwenden
+ "nColumn" für das Spalten-Subskript.
+
+ Wie betrachtet man also die Elemente eines Arrays?
+
+ Wenn Sie wissen, nach welchem spezifischen Element Sie suchen möchten, können Sie das tun
+ Verweise sie mit einer Zahl für das Index. Annahme eines Arrays
+ Das sieht aus wie:
+
+                      Spalte 1
+              Reihe 1 San Francisco
+              Reihe 2 Los Angeles
+              Reihe 3 New York
+              Reihe 4 Miami
+              Reihe 5 Sydney
+ 
+    ? aCity[2]  
+
+    Wird "Los Angeles" anzeigen.
+
+ Wenn das Array aCity jedoch mehr als eine Spalte enthält, benötigen Sie
+ um einen anderen Index zu verwenden, um die Spalte anzugeben. Unter der Annahme folgender 
+ Anordnung:
+
+                      Spalte 1 Spalte 2
+              Reihe 1 San Francisco 4.000.000
+              Reihe 2 Los Angeles 10.000.000 
+              Reihe 3 New York 25.000.000
+              Reihe 4 Miami 8.000.000
+              Reihe 5 Sydney 1.000.000
+ 
+    ? aCity[2,2] && den Inhalt des Elements anzeigen bei 
+                  & die zweite Reihe, zweite Spalte
+
+    Das zeigt 10.000.000 an.
+
+ Du kannst ein Array schleifen, um etwas zu verarbeiten:
+
+ für nRow = 1 zu aCity.Len(1) && Len() ist eine Methode zur Rückgabe
+                               & & die LÄNGE des Arrays
+    ? aCity[nRow] & zeigt den Inhalt der 
+                               && Stromelement
+ Nächstes
+
+ Dies zeigt den Inhalt des Arrays an:
+
+   San Francisco
+   Los Angeles
+   New York
+   Miami
+   Sydney
+
+    --------------------------------------------------------------------
+    ALEN()-Funktion
+    Diese nützliche Funktion verwendet zwei Parameter – den Namen des Arrays und
+    Der optionale Operator eines numerischen Wertes – 1 für Zeilen, zwei für 
+    Spalten oder 0 für die Anzahl der Elemente im Array (das ist
+    der Standard). Es ist sehr praktisch, die genaue Größe eines Arrays zu kennen, 
+    und wird in vielen Beispielcode-Bits während beides verwendet. WIE
+    und ARRAY2. WIE.
+    --------------------------------------------------------------------
+
+ Auch hier gilt: Wenn du mehrere Spalten im Array hast, brauchst du
+ um auch auf die Spalte zu verweisen. Wenn dein Array drei Spalten hat,
+ und du wolltest einfach den Inhalt der Elemente in allen anzeigen 
+ Drei Spalten für jede Reihe, du möchtest eine Schleife entlang der
+ Folgende Zeilen:
+
+ für nRow = 1 bis aLen(aCity,1) 
+    für nSpalte = 1 bis aLen(aCity,2)
+        ? aCity[nRow,nColumn] & zeigt das aktuelle Element an
+    next & nColumn
+ next & nRow
+
+ Dies würde anzeigen (unter der Annahme des früheren Beispiels einer dreispaltigen Variante
+ Array):
+   
+   San Francisco
+    4,000,000
+          678
+   Los Angeles
+   10,000,000
+          123
+   New York
+   25,000,000
+          456
+   Miami
+    8,000,000
+          678
+   Sydney
+    1,000,000
+         1234
+
+ Nicht sehr hübsch, aber der Inhalt wird angezeigt. (Um das zu machen
+ "Schön" würde etwas mehr Arbeit erfordern – schau dir SHOW2 an. PRG bei der
+ Ende davon. WIE Datei ...)
+
+
+ --------------------------------
+ Den Inhalt eines Arrays sortieren
+ --------------------------------
+ Manchmal sind die in ein Array eingegebenen Daten durcheinander, und du
+ Ich möchte, dass alles sortiert wird (entweder aus Ausstellungsgründen oder aus anderen Gründen).
+
+ In dBASE gibt es zwei Möglichkeiten, dies zu tun – die erste ist eine Funktion, 
+ Die andere ist eine Methode, die an ein Array-Objekt angehängt ist – beide funktionieren 
+ Im Grunde dasselbe.
+    
+    aCity.Sort()
+      oder
+    aSort(aCity)  
+ 
+ Dies sortiert das Array aCity in der ersten Spalte. Falls es eine gibt
+ mehr Spalten, die Zeilen werden alle mit den Elementen in der
+ Erste Spalte.
+ 
+ Nehmen wir folgendes Array _vor_ der Sortierung an:
+
+                      Spalte 1 Spalte 2
+              Reihe 1 San Francisco 4.000.000
+              Reihe 2 Los Angeles 10.000.000 
+              Reihe 3 New York 25.000.000
+              Reihe 4 Miami 8.000.000
+              Reihe 5 Sydney 1.000.000
+
+ Und danach: 
+
+                      Spalte 1 Spalte 2
+              Reihe 1 Los Angeles 10.000.000 
+              Reihe 2 Miami 8.000.000
+              Reihe 3 New York 25.000.000
+              Reihe 4 San Francisco 4.000.000
+              Reihe 5 Sydney 1.000.000
+
+ Um in der _zweiten_ Spalte zu sortieren:
+
+ aCity.Sort(2)
+    oder
+ aSort(aCity,2)
+
+ Was uns ergeben würde:
+
+                      Spalte 1 Spalte 2
+              Reihe 1 Sydney 1.000.000
+              Reihe 2 San Francisco 4.000.000
+              Reihe 3 Miami 8.000.000
+              Reihe 4 Los Angeles 10.000.000 
+              Reihe 5 New York 25.000.000
+              
+
+ -------------------------------------------------------------------
+ Ein paar Funktionen, die SEHR nützlich sind, wenn man mit Arrays arbeitet
+ -------------------------------------------------------------------
+ Die folgenden beiden Funktionen sind beim Programmieren sehr nützlich
+ mit Arrays, aber sind keine spezifischen _zu_ Arrays.
+
+ Type()
+ ------
+ Die Type()-Funktion ist praktisch. Du kannst bestimmen, ob ein Objekt in 
+ Visual dBASE ist definiert (wenn nicht, gibt diese Funktion einen Wert zurück 
+ von "U"), wenn es ein Objekt ist (während ein Array ein Objekt ist, ist es ein 
+ spezielle Typ) – dies gibt ein "O" zurück. Wenn das Objekt, das Sie untersuchen, untersuchen Sie 
+ ein Array ist, gibt die Funktion ein "A" zurück. Beispiel:
+
+    ? Typ("aCity")
+
+ Wenn es sich um ein Array handelt, sollten Sie:
+    A
+
+ Wenn dies ein "normales" dBASE-Objekt ist, solltest du sehen:
+    O
+
+ Wenn das Array (oder Objekt) noch nicht definiert ist, sollten Sie sehen:
+    U
+
+ Zusätzlich kann diese Funktion den Typ des Inhalts zurückgeben
+ eines Elements eines Arrays. Beispiel:
+
+    ? Type("aCity[1]")
+
+ Könnte "C" für Zeichen, "N" für Numeric usw. zurückgeben (siehe die
+ Sprachreferenz für mehr Informationen.)
+
+ EMPTY()
+ -------
+ Dies kann bei Elementen eines Arrays verwendet werden, um zu bestimmen, ob sie
+ wirklich leer (undefiniert) oder einen Wert von .F. enthalten.
+
+ Warum ist das wichtig? Visual dBASE zeigt .F. an, wenn du eine druckst
+ Element eines Arrays, das einen logischen falschen Wert enthält, _ODER_ wenn
+ dem Array-Element wurde kein Wert zugewiesen. Das kann
+ Das wäre etwas verwirrend. Um also zu sehen, ob etwas falsch oder leer ist:
+
+    *-- prüfe auf _false_ und nicht empty()
+    wenn aCity[1] = .f. . und. . nicht. empty(aCity[1])
+       
+ Um zu sehen, ob sie leer ist:
+    if empty(aCity[1])
+    
+ -------------------------------------------------
+ Okay, ich habe also die Grundlagen – wohin kann ich gehen, um mehr zu bekommen?
+ -------------------------------------------------
+ Versuche, ARRAY2 herunterzuladen. HOW im VDBASE-Forum auf Compuserve.
+ Schau dir auch die Online-Hilfe (HELP ARRAY) und die Sprache an
+ Referenzhandbuch.  
+
+ Zusätzlich zu dem, was in diesen abgedeckt ist. HOW-Dokumente (ARRAY1. WIE
+ und ARRAY2. WIE) sind: Sparse Arrays und Assoziative Arrays. Diese waren
+ hier nicht abgedeckt wegen Platzmangel – sie könnten in einer anderen abgedeckt sein
+ . WIE dokumentiere sie zu einem späteren Zeitpunkt. Allerdings finden Sie Informationen über
+ diese finden sich in der Language Reference und der Visual dBASE Online-Hilfe.
+
+    --------------------------------------------------------------------
+    HAFTUNGSAUSSCHLUSS: Der Autor ist Mitglied von TeamB für dBASE, einer Gruppe von
+    Freiwillige, die technische Unterstützung für Borland auf der DBASE leisten
+    und VDBASE-Foren auf Compuserve. Wenn Sie Fragen dazu haben
+    Das hier. HOW-Dokument, oder über dBASE/DOS oder Visual dBASE, kannst du
+    Kommunizieren Sie direkt mit dem Autor und TeamB in der entsprechenden Weise.
+    Forum über CIS. Technischer Support wird derzeit nicht angeboten
+    World-Wide Web, über das Internet oder per privater E-Mail im CIS von
+    Mitglieder von TeamB.
+
+    . HOW-Dateien werden von Mitgliedern von TeamB als kostenloser Dienst erstellt, um
+    Nutzern helfen, Visual dBASE effektiver zu nutzen. Sie sind
+    zuerst im Compuserve VDBASE-Forum veröffentlicht, bearbeitet von beiden TeamB
+    Mitglieder und Borland Technical Support (um die Qualität sicherzustellen), und dann
+    kann auch auf Borlands WWW-Seite gepostet werden. Genau das. WIE DIE AKTE VIELLEICHT NICHT IST
+    ANDERSWO VERÖFFENTLICHT ohne ausdrückliche Erlaubnis des Autors.
+    
+         Copyright 1995, Kenneth J. Mayer. Alle Rechte vorbehalten.
+    --------------------------------------------------------------------
+
+ *----------------------------------------------------------
+ *-- Ende des Textes -- im Folgenden ist Code:
+ *----------------------------------------------------------
+
+ *-----------8<---------- Schnitt hier-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Programm...: SHOW 1. PRG
+ *-- Programmierer: Ken Mayer (CIS: 71333,1030)
+ *-- Datum......: 13.11.1995
+ *-- Anmerkungen.....: Konzipiert, um den Inhalt eines einspaltigen Arrays darzustellen
+ *----------------------------------------------------------------------
+
+   Parameter cArrayName
+   
+   nLen = aLen(&cArrayName.,1)
+   für nRow = 1 zu nLen
+       ? "Element "+ltrim(str(nRow))+" - "
+       ?? &cArrayName. [nRow] & weiter, gleiche Zeile
+   Nächstes
+   
+ *-- EoP: SHOW1. PRG
+ *-----------8<---------- Schnitt hier-------- >8--------------------------*
+
+ *-----------8<---------- Schnitt hier-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Programm...: SHOW 2. PRG
+ *-- Programmierer: Ken Mayer (CIS: 71333,1030)
+ *-- Datum......: 15.11.1995
+ *-- Anmerkungen.....: Konzipiert, um den Inhalt eines mehrspaltigen Arrays anzuzeigen.
+ *-- Verwenden Sie das nicht bei einem eindimensionalen Array -- 
+ *-- die memvar nColumns geben '0' zurück, und die Loops
+ *-- wird nichts anzeigen.
+ *-- Hinweis: Die Darstellung hier könnte je nach Ansicht 'unordentlich' werden, abhängig davon.
+ *-- über die Arten von Daten, die in deinen Arrays enthalten sind.
+ *-- Das ist hauptsächlich hier zu Beispielzwecken und kann nicht
+ *-- möglicherweise alle Variationen vorhersehen ... Vielleicht
+ *-- möchte es kopieren und bei Bedarf Änderungen vornehmen ...
+ *----------------------------------------------------------------------
+
+    Parameter cArrayName
+
+    nRows = aLen(&cArrayName.,1)
+    nColumns = aLen(&cArrayName.,2)
+    *-- Anzeige-Spaltenkopfzeilen
+    für nSpalte = 1 bis nSpalten
+        *-- geht davon aus, dass jede Spalte < 25 Zeichen enthält
+        ?? "Spalte "+ltrim(str(nColumn)) bei (20*(nColumn-1))+7
+    Nächstes
+    ?
+    *-- Anzeige der Einträge in jeder Zeile für jede Spalte
+    für nRow = 1 bis nRows
+        *-- Reihenkopf
+        ? "Reihe "+ltrim(str(nRow))
+        für nSpalte = 1 bis nSpalten
+            *-- tatsächliches Element zu zeigen
+            ?? &cArrayName. [nRow,nColumn] bei (20*(nColumn-1))+7
+        Nächstes
+        ?
+    Nächstes
+   
+ *-- EoP: SHOW 2. PRG
+ *-----------8<---------- Schnitt hier-------- >8--------------------------*
+
+ *-- EoHT: ARRAY1. WIE – 03.12.1995
+ 

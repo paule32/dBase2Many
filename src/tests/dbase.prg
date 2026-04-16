@@ -62,6 +62,9 @@ ELSE
     ENDIF
 ENDIF
 
+** END HEADER -- do not remove this line
+// Generated on 02.12.2025
+//
 PARAMETER bmodal
 LOCAL B
 B = NEW ParentForm(51,4)

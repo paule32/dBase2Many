@@ -6826,7 +6826,7 @@ class FormDesignerWindow(QWidget):
         super().__init__(parent)
         self.main_window = main_window
         self.current_form_path = ""
-        self.form_class_name = "Form"
+        self.form_class_name = "ParentForm"
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
 
@@ -6865,23 +6865,51 @@ class FormDesignerWindow(QWidget):
 
     def _serialize_form_text(self) -> str:
         width, height, top, left = self._form_geometry_for_save()
-        form_name = (self.form_class_name or "Form").strip() or "Form"
-        lines = [
-            f"CLASS  {form_name} OF FORM",
-            "\tWITH (this)",
-            f"\t\twidth = {width}",
-            f"\t\theight = {height}",
-            f"\t\ttop = {top}",
-            f"\t\tleft = {left}",
-            "\tENDWITH",
-            "ENDCLASS",
+        form_name = (self.form_class_name or "ParentForm").strip() or "ParentForm"
+        host = self._designer_host_widget()
+
+        header_lines = [
+            "** END HEADER -- do not remove this line",
+            "// Generated on 02.12.2025",
+            "//",
+            "PARAMETER bmodal",
+            "LOCAL B",
+            "B = NEW ParentForm(51,4)",
+            "IF (bmodal)",
+            "    B.mdi = false",
+            "    B.ReadModal()",
+            "else",
+            "    B.Init(121,2)",
+            "    B.Open()",
+            "endif",
             "",
         ]
+
+        class_lines = [
+            f"CLASS {form_name} OF FORM",
+            f"    PROPERTY width = {float(width):.2f}",
+            f"    PROPERTY top   = {int(top)}",
+            "",
+            "    WITH (THIS)",
+            f"        onClick = THIS.{form_name}_onClick",
+            f"        Width = {int(width)}",
+            f"        Height = {int(height)}",
+            f"        Top = {int(top)}",
+            f"        Left = {int(left)}",
+            "    ENDWITH",
+        ]
+
+        method_lines = [
+            "",
+            f"    METHOD {form_name}_onClick(Sender)",
+            "    ENDMETHOD",
+        ]
+
         for ctrl in list(getattr(self.canvas, "_controls", [])):
             try:
                 r = ctrl._content_rect_global()
                 name = getattr(ctrl, "instance_name", "") or getattr(ctrl, "tool_name", "Control")
-                tool = getattr(ctrl, "tool_name", "Control")
+                tool = (getattr(ctrl, "tool_name", "Control") or "Control").upper()
                 text_value = ""
                 try:
                     inner = getattr(ctrl, "inner", None)
@@ -6892,21 +6920,46 @@ class FormDesignerWindow(QWidget):
                             text_value = inner.windowTitle() or ""
                 except Exception:
                     text_value = ""
-                lines.extend([
-                    f"OBJECT  {name} AS {tool}",
-                    "\tWITH (this)",
-                    f"\t\twidth = {int(r.width())}",
-                    f"\t\theight = {int(r.height())}",
-                    f"\t\ttop = {int(r.y())}",
-                    f"\t\tleft = {int(r.x())}",
-                    f"\t\ttext = {json.dumps(text_value, ensure_ascii=False)}",
-                    "\tENDWITH",
-                    "ENDOBJECT",
+
+                class_lines.extend([
+                    f"    THIS.{name} = NEW {tool}(THIS)",
+                    f"    WITH (THIS.{name})",
+                    f"        onClick = THIS.{name}_onClick",
+                ])
+
+                if tool == "PUSHBUTTON":
+                    class_lines.extend([
+                        '        Font = NEW FONT("Arial",12, .T., .T., .T.)',
+                        "        Font.bold = .F.",
+                    ])
+
+                class_lines.extend([
+                    f"        Left = {int(r.x())}",
+                    f"        Top = {int(r.y())}",
+                    f"        Width = {int(r.width())}",
+                ])
+
+                if int(r.height()) > 0:
+                    class_lines.append(f"        Height = {int(r.height())}")
+
+                if text_value:
+                    class_lines.append(f"        Text = {json.dumps(text_value, ensure_ascii=False)}")
+
+                class_lines.extend([
+                    "    ENDWITH",
                     "",
+                ])
+
+                method_lines.extend([
+                    "",
+                    f"    METHOD {name}_onClick(Sender)",
+                    "    ENDMETHOD",
                 ])
             except Exception:
                 pass
-        return "\n".join(lines).rstrip() + "\n"
+
+        lines = header_lines + class_lines + method_lines + ["ENDCLASS", ""]
+        return "\n".join(lines)
 
     def _write_form_file(self, file_path: str):
         with open(file_path, "w", encoding="utf-8") as fh:
@@ -6937,44 +6990,107 @@ class FormDesignerWindow(QWidget):
             content = fh.read()
 
         class_match = re.search(
-            r"CLASS\s+([A-Za-z_][A-Za-z0-9_]*)\s+OF\s+FORM\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?ENDWITH\s+ENDCLASS",
+            r"CLASS\s+([A-Za-z_][A-Za-z0-9_]*)\s+OF\s+FORM.*?WITH\s*\(THIS\)(.*?)ENDWITH",
             content,
-            re.IGNORECASE | re.MULTILINE,
+            re.IGNORECASE | re.MULTILINE | re.DOTALL,
         )
         if class_match:
             self.form_class_name = class_match.group(1)
-            width = int(class_match.group(2))
-            height = int(class_match.group(3))
-            top = int(class_match.group(4))
-            left = int(class_match.group(5))
+            form_block = class_match.group(2) or ""
+
+            def _read_num(block, key, default=0):
+                m = re.search(rf"\b{key}\s*=\s*(-?\d+(?:\.\d+)?)", block, re.IGNORECASE)
+                if not m:
+                    return default
+                try:
+                    return int(float(m.group(1)))
+                except Exception:
+                    return default
+
+            def _read_str(block, key, default=""):
+                m = re.search(rf"\b{key}\s*=\s*(.+)", block, re.IGNORECASE)
+                if not m:
+                    return default
+                raw = (m.group(1) or "").strip()
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return raw.strip('"')
+
+            width = _read_num(form_block, "Width", 700)
+            height = _read_num(form_block, "Height", 520)
+            top = _read_num(form_block, "Top", 40)
+            left = _read_num(form_block, "Left", 220)
+            title = _read_str(form_block, "Title", "")
+
             host = self._designer_host_widget()
             if host is not None:
                 try:
                     host.setGeometry(left, top, width, height)
                 except Exception:
                     pass
+                try:
+                    if title:
+                        host.setWindowTitle(title)
+                except Exception:
+                    pass
 
         self._clear_designer_controls()
 
-        object_pattern = re.compile(
-            r"OBJECT\s+([A-Za-z_][A-Za-z0-9_]*)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s+\t?WITH \(this\)\s+\t?\t?width\s*=\s*(\d+)\s+\t?\t?height\s*=\s*(\d+)\s+\t?\t?top\s*=\s*(\d+)\s+\t?\t?left\s*=\s*(\d+)\s+\t?\t?text\s*=\s*(.+?)\s+\t?ENDWITH\s+ENDOBJECT",
+        tool_map = {
+            "PUSHBUTTON": "PushButton",
+            "LABEL": "Label",
+            "CHECKBOX": "CheckBox",
+            "RADIOBUTTON": "RadioButton",
+            "LINEEDIT": "LineEdit",
+            "TEXTEDIT": "TextEdit",
+            "COMBOBOX": "ComboBox",
+            "LISTWIDGET": "ListWidget",
+            "TABLEWIDGET": "TableWidget",
+            "FRAME": "Frame",
+            "GROUPBOX": "GroupBox",
+        }
+
+        component_pattern = re.compile(
+            r"THIS\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*NEW\s+([A-Za-z_][A-Za-z0-9_]*)\(THIS\)\s+WITH\s*\(THIS\.\1\)(.*?)ENDWITH",
             re.IGNORECASE | re.MULTILINE | re.DOTALL,
         )
-        for m in object_pattern.finditer(content):
+
+        for m in component_pattern.finditer(content):
             name = m.group(1)
-            tool = m.group(2)
-            width = int(m.group(3))
-            height = int(m.group(4))
-            top = int(m.group(5))
-            left = int(m.group(6))
-            text_value = ""
-            try:
-                text_value = json.loads((m.group(7) or "").strip())
-            except Exception:
-                text_value = ""
+            tool_raw = (m.group(2) or "").upper()
+            block = m.group(3) or ""
+            tool = tool_map.get(tool_raw, m.group(2).title())
+
+            def _read_num(block, key, default=0):
+                mx = re.search(rf"\b{key}\s*=\s*(-?\d+(?:\.\d+)?)", block, re.IGNORECASE)
+                if not mx:
+                    return default
+                try:
+                    return int(float(mx.group(1)))
+                except Exception:
+                    return default
+
+            def _read_str(block, key, default=""):
+                mx = re.search(rf"\b{key}\s*=\s*(.+)", block, re.IGNORECASE)
+                if not mx:
+                    return default
+                raw = (mx.group(1) or "").strip()
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return raw.strip('"')
+
+            left = _read_num(block, "Left", 0)
+            top = _read_num(block, "Top", 0)
+            width = _read_num(block, "Width", 100)
+            height = _read_num(block, "Height", 32)
+            text_value = _read_str(block, "Text", "")
+
             rect = QRect(left, top, max(16, width), max(16, height))
             ctrl = DesignerControl(tool, self.canvas, rect)
             ctrl.instance_name = name
+
             try:
                 inner = getattr(ctrl, "inner", None)
                 if inner is not None:
@@ -6984,6 +7100,7 @@ class FormDesignerWindow(QWidget):
                         inner.setWindowTitle(text_value)
             except Exception:
                 pass
+
             ctrl.show()
             self.canvas._controls.append(ctrl)
 

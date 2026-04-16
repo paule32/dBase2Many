@@ -1,0 +1,490 @@
+ INDEX.HOW
+ 12/23/95
+
+ Marilyn Price: 72332,2312
+
+ -------------------------------------------------------------
+ Indexing .dbf tables: Tips, Tricks, and Miscellaneous Tidbits
+ -------------------------------------------------------------
+
+ This How To is a mixed bag of information about indexing .dbf tables that
+ has been accumulated over the last ten years or so.  If I attempted to
+ attribute every one of these, the list of names would be longer than most
+ of the tips.  My thanks to all who contributed to this knowledge base over
+ the years.
+
+ --------
+ Contents
+ --------
+
+  1. What's the difference between the different types of indexes?
+  2. What are the limits involving indexes?
+  3. How can I mix data types in an index tag?
+  4. What about TRIM()?
+  5. Why can't I find what I'm SEEKing?
+  6. Can I make a search case insensitive?
+  7. Keymatch() won't let me reuse a deleted keyfield.  Now what?
+  8. Can I create an index tag involving more than one table?
+  9. I need an index order where part of it is in ascending order and part
+     is descending.  How do I do this?
+ 10. I have a complicated order that I need the data in.  What's the
+     easiest way to do this?
+ 11. Are there any potential problems with using UNIQUE?
+ 12. I need to append a large amount of information. Is there any way to
+     speed this process up?
+ 13. I need to replace a key field, but dBASE is only changing the first
+     instance.  What's going on and how can I get them all?
+
+ -------------------------------------------------------------
+ What's the difference between the different types of indexes?
+ -------------------------------------------------------------
+
+ There's an excellent write-up on the different types of index (production
+ .mdx, non-production .mdx, and .ndx) files in the dBASE for DOS forum
+ library 10 called QMNDX.FAQ (also available as TI1501 in the same
+ library).
+
+ Summarizing these documents, there is a time and place for each of these
+ types of indexes.  Production indexes are the most common to use.  These
+ are automatically opened and kept up to date whenever a table is opened. 
+ Non-production .mdx files and .ndx files must be explicitly opened to be
+ updated.
+
+ When might you choose to use a non-production .mdx file instead of a
+ production .mdx file?
+     A.   If you need more than 47 tags for a table.
+     B.   Your table is a readonly table (such as one on a CD).
+     C.   These are seldom used tags.
+
+ When might you choose to use an .ndx file instead of an .mdx file?
+     A.   When you need to generate a temporary index (for a report, for
+          example) in a network environment.  You can create an .ndx file
+          without using the .dbf exclusively.  Adding a tag to an .mdx file
+          requires exclusive use of the table.
+     B.   Compatibility with older, external programs.
+
+ --------------------------------------
+ What are the limits involving indexes?
+ --------------------------------------
+
+ These values can also be found in Appendix B of the Language Reference
+ manual.
+
+ The maximum index key expression length is 220 bytes.
+  (Example: UPPER(lName + fName)
+
+ The maximum index FOR expression length is 220 bytes.
+  (Example: FOR UPPER(state) = "TN"
+
+ The maximum evaluated index key length is 100 bytes.
+
+ The maximum number of index tags per .mdx file is 47.
+
+ The maximum number of open .mdx files open per active .dbf table is one
+ production .mdx plus up to 9 additional non-production indexes (either
+ .mdx or .ndx) allowed.
+
+ The maximum number of .ndx index files open per active .dbf table is 10.
+
+ -----------------------------------------
+ How can I mix data types in an index tag?
+ -----------------------------------------
+
+ To mix data types within a key field, convert the non-character field
+ types to character.  For best results, use these:
+
+ Dates: DTOS(dField)
+
+ This is usually recommended over DTOC(dField) because the result will
+ leave the index in chronological order.  If chronological order isn't
+ essential, then either function can be used.
+
+ If you're converting an older program to Visual dBASE, you may find an
+ index expression like this:
+
+  RIGHT(DTOC(dField), 2) + LEFT(DTOC(dField),5)      or
+  SUBSTR(DTOC(dField,7,2)+SUBSTR(DTOC(dField),1,2)+SUBSTR(DTOC(dField),4,2)
+
+ Either of these will also get your date fields in chronological order (and
+ this type expression was necessary in dBASE III+), but DTOS(dField) is not
+ only easier to read, it takes less typing, makes a shorter expression, and
+ is easier to remember.
+
+ Numbers: STR(nField, nlen, ndec)
+
+ While the Language Reference has always stated that, if omitted, STR()
+ will assume a value of 10 for nlen and 0 for ndec, I've always had best
+ results by explicitly stating a length and number of decimals when using
+ STR() in an index key expression.  Some inexplicable "Not Found"
+ situations have been solved by explicitly stating the length and decimals
+ in both the key expression and the seek value.
+
+ Logicals: IIF(lField, "T", "F")
+
+ Or assign any other _character_ values for the true and false portions of
+ this function.  For example, if you want the true values to precede the
+ false ones, then perhaps using "1" and "2" will be better.
+
+ ------------------
+ What about TRIM()?
+ ------------------
+
+ Just about any function or udf can be used in an index expression,
+ however, as stated in the Language Reference, the resulting expression
+ _must_ evaluate to the same length regardless of which record of the table
+ is used.  That is, variable length expressions are a real no-no.
+
+ Variable length expressions are _valid_ in the sense that they won't give
+ you a syntax error.  However, the potential for index file corruption and
+ not found information is too high to risk.
+
+ It's my understanding that, when Visual dBASE, when creating an index,
+ will use the contents of the first record of the table to determine how
+ long the evaluated key is.  If that first record is blank, then,
+ potentially, an index expression such as TRIM(lname) + TRIM(fname) could
+ have a length of zero!  Suppose, however, that the first record has Joe
+ Smith in it.  This would result in an expression length of 8.  Now the
+ second record has Samantha Gillenwater in it.  Visual dBASE will attempt
+ to store the 18 characters into an 8 character slot, overwriting all or
+ part of the next two keys, or getting the end of the key value overwritten
+ by a later value.
+
+ However it works, variable length keys are problems waiting to happen. 
+ The Visual dBASE Language Reference manual has a very mild statement to
+ that effect.  It says "Don't use functions such as CHR(), LTRIM(),
+ RTRIM(), TRIM(), or IIF() that vary the field length in the key
+ expression."  I prefer the wording in the DOS Language References.  It
+ states "The key expression must evaluate to a fixed-length key.  You can
+ create an index with a variable length key, but the index may not be
+ reliable."
+
+ That said, if you are careful to ensure that the resulting key expression
+ always evaluates to a fixed length, then feel free to use any of these
+ expressions.  How about a few examples?
+
+ Suppose you wanted to keep a list of books in order by author's name and
+ as much of the title as you can.  Since this list includes some technical
+ tomes, some of these titles can get quite large.  Remembering the 100 byte
+ limit to a key expression, you decide to use TRIM() to help you out.  An
+ index expression like this:
+
+ LEFT(TRIM(lName) + " " + TRIM(fName) + " " + TITLE, 100)
+
+ will work.  (Note: lName and fName are Character 20 and Title is Character
+ 100)  But it contains TRIM()!!  Yes, it does.  However, the function
+ controlling the final length is the LEFT(..,100).  Let's look at some
+ evaluated keys for this file.  First, let's look at one extreme, a blank
+ record.  Before LEFT() gets hold of it, the expression contains 102
+ spaces.  After applying LEFT(), there are 100 spaces.  Okay, what about
+ the other extreme?
+
+ Suppose you had a book called "Splendors of the Past: Exploring the Lost
+ Cities of Antiquity" (I made this up) by Samantha Gillenwater.  Before
+ using LEFT(), this comes to 121 characters.  After applying LEFT(), there
+ are 100 characters!  Same length.  So, with care, these variable length
+ functions _can_ be used, but it is the programmer's responsibility to
+ ensure that the final key always evaluates to a fixed length.
+
+ Another technique sometimes used is to index on lname - fname tag name. 
+ The minus in this case trims all the trailing spaces from the first
+ fieldname and appends them to the end of the expression.  This _does_
+ provide a fixed length expression.  However, it can also provide some
+ unexpected results.  For example, names indexed this way would appear in
+ this order: 
+
+          James Smith
+          John Smithsonian
+          Steve Smith
+
+ Which may not be the order you really want.
+
+ ----------------------------------
+ Why can't I find what I'm SEEKing?
+ ----------------------------------
+
+ There are a number of reasons that you might not find what you are
+ seeking.  These include:
+
+ A.  What you're seeking must match the index expression.  Suppose you have
+     an index expression of: upper(lastname + firstname) and you're trying
+     to find John Smith.  There are a number of ways to _successfully_ find
+     John Smith (if he's part of the table).  These include:
+
+          SEEK  SMITH               JOHN'    && if exact is off
+
+          mLast =  Smith               '
+          mFirst =  John'
+          SEEK upper(mLast + mFirst)         && if exact is off
+
+          mLast = left(mLast + space(20), 20)
+          SEEK upper(mLast + mFirst          && if exact is off
+
+     These also assume that the length of the last name is 20 characters. 
+     Since the first name is not blank, you _must_ pad the last name to the
+     exact same number of characters as the field name.  This is true for
+     any index expression where more than one field is involved and you
+     have portions of both fields.
+
+B.   Check the status of exact.  You will get different results in
+     attempting to match a partial index depending on whether exact is set
+     on or off.  With exact on, not only must you match the significant
+     portion of the expression, you must match the entire expression,
+     length and all.  With exact off, you can perform partial look-ups. 
+     Each has its uses, just be aware of the differences.
+
+C.   Another potential for not finding what you're looking for is using the
+     str() function without explicitly stating all three parameters.  If
+     you are looking for the number 100, remember that these are _not_
+     equal as far as the seek command is concerned:
+
+           100'
+          Str(100)
+          Str(100,5,0)
+          Str(100,6,1)
+
+D.   From the information above, I think you will see that your best chance
+     of getting SEEK to find what you want is to match the index
+     expression.  What if you are matching it exactly and Visual dBASE
+     still can't find the record?  This is the time to start thinking that
+     the index itself may have gotten corrupted.  It happens sometimes. 
+     When it does, your best bet is to delete the production .mdx file and
+     recreate all the tags.  One way to do this is to use the file
+     CREIND.ZIP (written by Romain Strieff), which can be found in the
+     library.  This program reads the index tags then deletes the .mdx file
+     and recreates them.
+
+     For best results, _DO NOT_ reindex the files by simplying issuing the
+     REINDEX command.  If there is corruption in the file, this will not
+     always get rid of it.  The technique of deleting the .mdx file and
+     recreating all tags from scratch is much safer.
+
+ -------------------------------------
+ Can I make a search case insensitive?
+ -------------------------------------
+
+ Pick one: upper() or lower() and use it with all your character based
+ index tags.  Use the same function when SEEKing and case is no longer a
+ consideration.  Which one you pick is a matter of personal preference,
+ just be consistent for the sake of your sanity.  Upper() makes the
+ _result_ all upper case, while lower() makes the result all lower case.
+
+ For example, suppose you wanted to index your table on lastname +
+ firstname and make the result case insensitive.  Your index command would
+ look like this:
+
+     index on upper(lastname + firstname) tag name
+
+ and the corresponding search could be:
+
+     seek upper(trim(mLast + mFirst))
+
+ Note: since this is a concatenated expression, make sure that the trim is
+ done _after_ the fields are combined rather than before.  That is, don't
+ use seek upper(trim(mLast) + trim(mFirst)).  Unless the lastname you're
+ searching is the maximum size, you won't find anything.
+
+ There were some problems with some of the DOS versions of dBASE involving
+ tags on upper(field) that persuaded some people to switch to using
+ lower().  However, unless you are experiencing problems, there's no real
+ reason for selecting one over the other.
+
+ If you are using SEEKER.CC (found with some of the sample programs in the
+ forum libraries), then you may want to stick with upper(), as this is the
+ function it uses.
+
+ ------------------------------------------------------------
+ Keymatch() won't let me reuse a deleted keyfield.  Now what?
+ ------------------------------------------------------------
+
+ Unlike SEEK, KeyMatch() doesn't obey any current filtering you may have in
+ place, including the status of SET DELETED.  It's my understanding that
+ the reason for this is because keymatch() uses the values stored in the
+ index file, not the table, in determining if there is a pontential key
+ duplication.
+
+ One tip I saw recently was to change the index expression by adding FOR
+ .NOT. DELETED() to the end of it.  Since deleted records are now
+ explicitly excluded from this index, Keymatch() should allow you to reuse
+ this key number.  Just remember, since the original record can still be
+ recalled, you have the _potential_ of duplicating a key field.
+
+ --------------------------------------------------------
+ Can I create an index tag involving more than one table?
+ --------------------------------------------------------
+
+ Having an index tag based on fields in related tables is sometimes
+ necessary (for a report, for example).  It is recommended that this type
+ index be created at the time it is needed and deleted as soon as possible. 
+ If it is necessary to keep the tag for a protracted length of time, be
+ sure that the other table involved is _always_ opened first.  If you open
+ the tables in the opposite order, you will get an error message about a
+ field not being found.
+
+ Here's one tip posted recently about creating a temporary index involving
+ two tables:
+
+     USE PATIENT ORDER PACCTNO IN SELECT()
+     USE INVGET IN SELECT()
+     SELECT INVGET
+     SET RELATION TO ACCTNO INTO PATIENT
+     INDEX ON IIF(SEEK(ACCTNO,"PATIENT"), PATIENT->PATLN, SPACE(15)) + ;
+          ACCTNO TO TEMP.NDX
+
+ ------------------------------------------------------------------------
+ I need an index order where part of it is in ascending order and part is
+ descending.  How do I do this?
+ ------------------------------------------------------------------------
+
+ It depends on what kind of field is needed in reverse order.  One
+ possibility is to use a udf() (see below).  Here are a couple of others:
+
+ A.  Most of the index expression is in ascending order, but I also need
+     the largest contributions at the top.  An expression similar to this
+     can be used:
+
+ index on upper(department)+str(100000000-donation,10,0) tag donors
+
+     What would a table in this order look like?
+
+     Department          Name          Donation
+     Accounting          Jim Jones      100,000
+     Accounting          John Doe        90,000
+     Accounting          Susy Smith       5,000
+     Shipping            Jeff Smith      10,000
+     Shipping            John Brown       5,000
+
+B.   Most of the index expression is in ascending order, but I want the
+     payments listed in reverse chronological order.  That is, the most
+     recent payment for a person should list first.  One expression that
+     can be used is this:
+
+     index on upper(lastname+firstname) + str({12/31/99}-paydate, 5,0) ;
+          tag payments
+
+     (Note: This assumes American date format.)  Of course, this would have
+      to be modified as the year 2000 approaches.  What does this
+      calculation mean?  It's the number of days between the payment date
+      and the last day of 1999.  When that is included in the index
+      expression, then the most recent dates for a person will appear
+      first, exactly what was requested!
+
+ --------------------------------------------------------------------------
+ I have a complicated order that I need the data in.  What's the easiest
+ way to do this?
+ --------------------------------------------------------------------------
+
+ In a word, udf()s.  Udf()s can be used for index expressions or for the
+ filtering portion of the index command.  The only restriction on udfs in
+ this regard is that the udf must be available _every_ time the table is
+ opened.
+
+ One place where this is especially useful is when part of the key needs to
+ be descending and part ascending.  Since the udf() can perform all kinds
+ of manipulations, just about anything is possible.
+
+ ---------------------------------------------------
+ Are there any potential problems with using UNIQUE?
+ ---------------------------------------------------
+
+ The keyword UNIQUE can be handy for creating an index of unique values for
+ a field in a table.  Just be aware that there is a potential problem
+ involved.  Suppose you had a table with the following field values:
+
+     1.   California
+     2.   California
+     3.   New Mexico
+     4.   Tennessee
+     5.   Tennessee
+     6.   Virginia
+
+ Indexing on this field UNIQUE will give you a list of:
+
+     1.   California
+     3.   New Mexico
+     4.   Tennessee
+     6.   Virginia
+
+ Now, suppose, for whatever reason, that you need to delete record number
+ 4.  Since you "know" there are other Tennessee records, you would expect
+ Tennessee to still show up in your index, wouldn't you?  However, the
+ index doesn't really know that there are other records with Tennessee on
+ them, so, until the file is reindexed, Tennessee will _not_ appear in the
+ index order.  This may affect pop-ups, for example.  This can be a major
+ problem in network environments and/or with large files, where reindexing
+ is difficult to do frequently.  In this case, maintaining a separate table
+ of your unique values may be preferable in the long run.
+
+ -------------------------------------------------------------------------
+ I need to append a large amount of information. Is there any way to speed
+ this process up?
+ -------------------------------------------------------------------------
+
+ Quick tip: If you are appending a number of new records to an indexed
+ table, you'll find that the operation is speeded up if you include the
+ keyword REINDEX at the end of the command.  For example:
+
+     APPEND FROM tempfile SDF REINDEX
+
+ If this keyword is missing, then Visual dBASE will update all the index
+ tags in the production index file (or any open non-production files) as it
+ appends each record.  If the keyword is present, then Visual dBASE will
+ append all the records, then reindex the entire table.  In most cases,
+ there will be a significant time difference between the two techniques.
+
+ -------------------------------------------------------------------------
+ I need to replace a key field, but dBASE is only changing the first
+ instance.  What's going on and how can I get them all?
+ -------------------------------------------------------------------------
+
+ If you are attempting to replace a key field for an active index using a
+ REPLACE ALL or REPLACE WHILE or REPLACE FOR or as part of a SCAN..ENDSCAN
+ construct or as part of a DO WHILE..ENDDO loop, you may find that only
+ some of the key fields got changed.  Here's one explanation of what's
+ happening:
+
+ Suppose you want to change all occurrences of customer code "5555" in an
+ invoice file to "6789".  So you SEEK the first occurrence of the old code
+ and do a REPLACE REST custno WITH "6789" WHILE custno = "5555".  Visual
+ dBASE replace that first record, then looks at the index.  Well, since the
+ key field value has changed, the next record _in index order_ is no longer
+ a "5555" record, so it stops.  However, there are still records in the
+ table with custno = "5555".  How can you be sure you've gotten them all?
+
+ Here's a couple of suggestions:
+
+1.   Suspend the index.  Either turn the index off completely (SET ORDER
+     TO) or activate a different index.  Then REPLACE ALL .. FOR.. The
+     disadvantage here is this: if you have a large file and are only
+     replacing the key field for a small percentage of the records, this
+     will take a lot more time than it needs to.
+
+2.   Use a technique like this:
+          DO WHILE .NOT. SEEK(mCustno)
+             REPLACE custno WITH newcustno
+          ENDDO
+     By repeating the SEEK, you're quickly finding the next record with the
+     old customer number.  This is a technique that I've used for several
+     years.
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1995, Marilyn Price. All rights reserved.
+    --------------------------------------------------------------------
+
+ EoHT: MLP

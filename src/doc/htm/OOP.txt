@@ -1,0 +1,1090 @@
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    assist users to learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+
+    (c) 1995 A.A.Katz, All Rights Reserved.
+    --------------------------------------------------------------------
+
+
+ OOP.HOW
+ 9-4-1995
+ 
+ How To Think Object Oriented
+ ----------------------------
+ With Visual dBase
+ __________________
+ 
+ By A. A. Katz
+
+ See also: HOW TO Pass Data Form-to-Form
+           HOW TO Manage Forms (SDI/MDI)
+           HOW TO Use FORM/CLASS::/SUPER::/THIS
+           HOW TO Use Object References
+           HOW TO - OOP Glossary
+           HOW TO Do Event-Driven Programs
+
+ Contents:   What is OO?
+             How Is It Different From Past Programming Architectures
+             Why OO?
+             OO Concepts
+             An OO Glossary
+             Event-Driven Programming
+             The Instance (Object) Reference Variable
+	     Form, This, Class::, Super:: and _app
+             Getting Rid of Objects
+             Using Sessions To Encapsulate
+             Modal: The One Time an Object Does "Return"
+	     The .WFM, .PRG, .QBE, .CFM, .CC Files
+             Thinking Tips
+
+ Introduction
+ ------------
+
+ The move to Object-Oriented programming is often difficult, even for
+ experienced programmers. In the past, learning a new language only 
+ required getting familiar with new syntax. 
+ 
+ OO demands much more - a major shift in your thinking. In the way
+ you visualize your programs and your code.
+ 
+ The process is, admittedly, not easy. But the benefits to your users
+ and your own productivity are so enormous they compensate for the
+ learning curve - and then some.
+ 
+ Visual dBase has one of the simplest and most elegant OO implementa-
+ tions around. It's the perfect platform for your first Object-Oriented
+ projects.
+ 
+ 
+ What Is OO?
+ -----------
+ 
+ Object-oriented programming is a method of programming using objects
+ - self-contained entities with built-in behaviors and data.
+
+
+ How Is It Different From Past Programming Architectures?
+ --------------------------------------------------------
+
+ If you've programmed before, it's likely that you used -procedural- 
+ methods. Your programs started at point "A", went to point "B" and
+ returned to point "A". 
+
+ Your user-interfaces were based on a -hierarchical- menu structure.
+ The user navigated down your program using nested menus and came
+ back using <Escape> or some other backup key.
+
+ In OO, Objects are "launched" - created, activated - and then control
+ is turned over to the end-user. There is no forward and back. Each object
+ has its own "life" independent of all other objects.
+
+
+ Why OO?
+ -------
+
+ For The Programmer - The primary benefit of OO to the programmer (among
+ many) is -reusability-. Each object is self-contained and self-running.
+ If designed properly, objects can be reused over and over in program
+ after program without adjustment. No required variable declarations,
+ calling routines, linking issues. Theoretically, you should eventually
+ be able to write entire programs with little or no code. Just combine
+ objects, set a few properties and you're off and running.
+
+ For The User - In general, programs developed with OO empower users.
+ No longer linked to required program flow, these independent objects
+ encourage you to create programs that hand control to the end-user.
+ Each user can customize your program to serve their work environment by
+ selecting objects in the order appropriate to their task and habits
+ - not according to a rigid scheme enforced by your menu hierarchy.
+
+
+ OO Concepts
+ -----------
+
+ Object-Oriented programming is based on a handful of key concepts.
+ You MUST master these in order to create reusable and effective
+ classes of objects.
+
+ ------Encapsulation. 
+
+ You're handing off control of the objects to your user. You
+ have no idea whatosever of how many objects of which kind
+ your user will pop up onscreen at any given point. The best way to
+ ensure that everything will work together, regardless of the user's
+ choices, is to guarantee that every object will work alone and
+ independently.
+
+ Each object must contain all its data and procedures and be completely
+ -isolated- from every other object. It wouldn't do to have one object
+ overwrite another. Or to have a procedure in one object run on data from
+ another object!
+
+ When we refer to an object's data, we are not talking about
+ your user's tables. Objects can, and often do, share tables.
+
+ An object's data is the values stored in the object's properties.
+ It is critical to isolate that data. If you have two Client windows
+ onscreen at the same time, each window must protect its own Client Number
+ so that the second window's Client Number doesn't overwrite the first. 
+
+ Isolating these properties and behaviors is called Encapsulation.
+
+
+ ------ Inheritance.
+
+ Objects have the ability to inherit properties and behaviors from other
+ objects. This is critical for reusability - the capability to modify an
+ object to a specific application without having to rewrite it.
+ 
+ Assume, for example, an AUTOMOBILE object. It has certain inherent
+ properties (such as tires, engine and trunk) and behaviors
+ (start, forward, backup and stop).
+ 
+ Using OO, you can create a whole new object called HELICOPTER from
+ AUTOMOBILE. HELICOPTER has all the properties and behaviors of AUTOMOBILE
+ plus additional properties (rotors) and behaviors (up) particular to
+ this new object.
+ 
+ HELICOPTER is said to have -inherited- the properties (tires, engine) and
+ behaviors (start, forward, backup, stop) from AUTOMOBILE.
+ 
+ Inheritance improves productivity enormously. You should never have to
+ "reinvent the wheel" using OO.
+ 
+ 
+ ------ Polymorphism. 
+ 
+ Objects can override their inherited behaviors and properties.
+ 
+ Your "child" object can redefine the "start" and "stop" behaviors of
+ AUTOMOBILE more suitably for HELICOPTER - changing these behaviors to
+ "take off" and "land".
+ 
+ Polymorphism (which means literally, "multiple shapes") enhances
+ reusability of objects. You don't have to discard AUTOMOBILE as a
+ parent for HELICOPTER just because its "start" and "stop" properties don't
+ quite accurately describe the behavior of HELICOPTER.
+ 
+ 
+ An OO Glossary
+ --------------
+ 
+ It's perfectly natural when learning new concepts to try to find
+ analogies to your previous knowledge. In this case, don't do it!
+ 
+ OO is not at all analogous to procedural programming. You'll find your
+ thinking shifts more easily if you attach the right terms to your new 
+ concepts. 
+
+ Therefore, it may help, before you go much further, to familiarize yourself
+ with the vocabulary of Object-Oriented Programming:
+
+
+ Class - A Class is a definition of an object.
+
+        CLASS Automobile                      &&class
+          This.Tires = 'Radial'
+          This.Engine = 'Six Cylinder'
+          This.Trunk = 'Hatchback'
+          This.Start = CLASS::Turn key
+          This.Stop = CLASS::Press Brake
+        ENDCLASS
+
+        Hint: Many beginners mistake a CLASS for a program or procedure.
+        A CLASS is NOT executable code. It is a blueprint only. 
+        Just like a real blueprint, you can't live in the house 
+        represented by the blueprint until you build it.
+
+
+ SubClass - A "child" class derived, through inheritance, from another
+        Class.
+
+        CLASS Helicopter of Automobile        &&subclass
+          This.Rotors = 6
+          This.Start = CLASS::Take_Off
+          This.Stop = CLASS::Land
+        ENDCLASS
+
+
+ SuperClass - The "parent" class of a subclass. In this case, AUTOMOBILE is
+        the "SuperClass" of HELICOPTER.
+
+
+ Property - Properties are similar to variables in that they are used to
+        store information. A FirstName property acts the same as a
+        FirstName variable - providing a storage space for the various
+        possible first names. 
+
+        However, unlike variables, they don't  "belong" to programs or
+        procedures, they belong to the object.
+
+        Properties define an object's characteristics.
+
+        CLASS Helicopter of Automobile
+           This.Rotors = 6                             &&Properties
+           This.Tires = 'Pirelli'
+           This.Engine = 'Jet'
+        ENDCLASS
+
+        A wonderful change from procedural programming to object-
+        oriented programming is the way properties effect behavior.
+        If you wanted to change the the value of a field, you'd have
+        to set the value and then redisplay:
+
+           cMyVar = "Hello"
+           @ 2,1 say cMyvar
+        
+        In object programming, the change is -encapsulated-, built
+        right in as a behavior of the object:
+
+           OO:  This.Value = 'Hello'
+
+        Change the property and the onscreen result is automatically
+        altered to match the current property value. Needless to say,
+        this saves a huge amount of coding.
+
+ Method - A method is the code that executes the -behavior- of an
+        object. And how are behaviors implemented in programming? With
+        procedures and functions. 
+
+        Methods are procedures and functions that belong to an object.
+
+        CLASS HELICOPTER OF AUTOMOBILE
+            This.Start = CLASS::TakeOff
+
+            PROCEDURE Take Off                          &&Method
+              if CLASS::Checklist()
+                 if CLASS::TurnEngineOn()
+                    if CLASS::Taxi()
+                       if CLASS::GetClearance()
+                           CLASS::LiftOff()
+                       endif
+                    endif
+                 endif
+              endif
+              
+        ENDCLASS
+
+
+ Instance  - The actual "object" derived from a Class.
+
+        Define AlansCar of Automobile                 &&instance
+        Define JanesHelicopter of HELICOPTER
+
+	OO supports multiple instances simultaneously of the same class.
+
+        Define AlansCar of Automobile                 &&more instances
+        Define JanesCar of Automobile
+        Define OurFamilyCar of Automobile
+
+        MyCar = New Automobile()                      &&more instances -
+                                                      &&this time using
+                                                      &&"New" instead of
+                                                      &&define.
+
+	Instances are the objects end-users actually see and use.
+        Classes and subclasses are the programming tools you use to
+        create them.
+
+
+ Instantiate - Create a single instance of your class in memory. In other
+        words, make an object from your class definition.
+
+        This is analogous to "building the house". The class is the
+        blueprint. When you instantiate, Visual dBase builds the actual
+        house from the blueprint you provide in your class definition.
+
+        DEFINE AlansCar of Automobile             &&Instantiations
+        or
+        AlansCar = New Automobile()
+
+
+ Container Object - Some objects have the language-level ability to
+        contain other objects. The Form object is the primary container
+        object in Visual dBase. A form can contain pushbuttons, browse
+        objects, editor objects, etc. 
+
+        However, a pushbutton, which is not a container object, cannot
+        contain a Form or a browse or an editor.
+
+ Standard Class - Visual dBase includes approximately 30 standard
+        classes - built-in class definitions from which you can create
+        instances or custom subclasses. 
+
+        Forms, array objects and screen controls like pushbuttons,
+        entryfields, browses and checkboxes are all standard classes.
+
+
+ Base Class - The Base Class is the form blueprint that's used each
+        time you create a new form using the Form Designer.
+
+        Visual dBase has an amazing new capability that lets you
+        use your own forms as the Base Class for new forms.
+
+        This is extremely useful for standardizing the look and feel
+        across an application. Your custom Base Class may include
+        speedbar buttons, titles, status bars, rectangles or
+        any other controls you wish to appear on all your new forms.
+
+        When you define your own Base Class, the forms that result
+        are third-generation subclasses:
+
+	1. Form		                  &&Built-in base class
+
+	  2. Class AUTOMOBILE of Form()   &&Your new base class which
+                                          &&is a subclass of form
+
+            3.   Class HELICOPTER of AUTOMOBILE
+                                          &&Your new Form class, derived
+					  &&from Automobile, which was
+					  &&in turn, derived from Form.
+
+                                                 
+ Custom Class - Visual dBase allows you to create custom classes from
+        scratch or from standard classes or other custom classes.
+
+        Class Automobile                  &&From scratch
+
+        Class Automobile(f,n) of Form(f,n)
+                                          &&From base class form
+
+        Class Helicopter(f,n) of Automobile(f,n)
+                                          &&From custom class form
+
+        Classes you create are called Custom Classes to distinguish them
+        from the built-in Standard Classes.
+
+ Constructor - The Constructor Code is part of the class "blueprint" for
+        objects. It includes all properties and their values. It does not
+        include the methods of the class (procedures and functions). 
+
+        In the case of a container object, like the Form, the Constructor
+        also includes the definition of all objects contained by the Form.
+   
+           Hint: Understanding what constitutes Constructor Code is
+           crucial to using the Visual dBase two-way tools. 
+
+           You cannot add new properties or methods in the Constructor
+           Code of an object used in the Two-Way tools like the Form
+           Designer and Menu Designer. This area is reserved for the tools.
+           You can, however, set values or include or remove built-in
+           properties.
+
+           To add new properties, you have to build them into a custom
+           class or add them dynamically during an event such as OnOpen.
+
+           CLASS Myform(f,n) of Form(f,n)               ------------
+              This.Top = 2                                          |
+              This.Left = 2                                         |
+              This.Width = 40                                       |
+              This.Height = 20                                      |
+                                                                    |
+              DEFINE PUSHBUTTON PUSHBUTTON1 OF THIS;                |
+                 PROPERTY;                                     Constructor
+                 Top  3,;                                           |
+                 Left  3,;                                          |
+                 Width 5,;                                          |
+                 Height 1.06,;                                      |
+                 ColorNormal "W+/N"                     ------------
+
+             PROCEDURE FORM_OnOpen                      ------------
+             This.FormNumber = 2                                    |
+             && The OnOpen is a procedure known                     |
+             && as a "method" when included in a                 Methods
+             && class definition. Sometimes also                    |
+             && called a "member". This.FormNumber                  |
+             && is a "custom property" of the form.     ------------
+
+          ENDCLASS
+
+
+ Event-Driven Programming
+ ------------------------
+ 
+ The key change from DOS procedural languages to Windows and Visual dBase
+ is "event-driven" programming. This is not an Object Orientation
+ concept so much as a language architecture built into most Windows
+ development platforms.
+
+ In event-driven programming, your application becomes -reactive-, not
+ -proactive-. This may be the hardest Windows-programming idea to get
+ a handle on. Once you "launch" the form or menu that starts your
+ program, you no longer initiate events. Instead, you -respond- to events
+ that Visual dBase captures from Windows and your user. 
+
+ An event can be a mouse click (OnClick) or keystroke (Key). It can be
+ a move to another program or window (onGotFocus, OnLostFocus). It can
+ be an internal Visual dBase event such as validating data-entry (Valid)
+ or allowing access to a control (When). 
+
+ An "event-driven" program consists of only two core elements:
+        
+        1. Opportunities for input/events
+        2. "What-ifs"
+
+ Your user-interface code consists of "opportunities" for events: Forms,
+ pushbuttons, menus, browse objects, editors, entryfields, etc.
+
+ Your "what-if" code consists of "Event Handlers". Visual dBase traps an 
+ event - like a mouse click. It looks to see if you have an event handler
+ for that particular event and object. If you do, Visual dbase "fires"
+ your event - runs your procedure or function.
+ 
+ To build an event handler, you just link your code (method) to the object
+ that fires the event:
+
+            CLASS MyForm(f,n) of Form(f,n)
+               This.top = 2
+               This.left = 2
+               This.Height = 20
+               This.Width = 40
+
+               Define PUSHBUTTON1 of This;           &&object
+                 Property;
+                 Top 4,;
+                 Width 20,;
+                 Text  'Press this button',;
+                 OnClick CLASS::PUSHBUTTON1_OnClick  &&Link Event Handler
+            
+               PROCEDURE PUSHBUTTON1_OnClick          &&Event handler
+                 This.ColorNormal = 'R/W'             &&Method
+                 This.Text = 'Button is Pressed'
+
+           ENDCLASS
+
+ Each standard object has its own built-in events. For a list of events
+ for each class of object, highlight the object in the Form Designer. Pop
+ up the Inspector and click on the Events page, which lists each available
+ event for the object selected.
+
+
+ A -very- partial list of events and when they fire:
+
+     OnOpen (when a form opens)
+     OnClick (when left mouse button is clicked)
+     OnGotFocus (when the user moves to the object)
+     OnLostFocus (when the user moves off the object)
+     Valid (when the user confirms or attempts to move off the control)
+     When (before a user accesses an object)
+     OnClose (when a form is closed)
+     CanClose (when the user attempts to close a form)
+     CanNavigate (when the user attempt to change a record)
+     OnChange (when the value of an object is changed)
+     OnLeftDblClick (when the user double clicks left mouse button)
+     OnSelChange (when selection in a list is changed)
+
+       Hint: The initial inclination of procedural programmers is to try
+       to use Visual dBase and Windows to emulate their former procedural
+       strategies. Once again, don't do it.
+
+       You won't get the benefits of OO, Windows and Visual dBase. Your
+       productivity will suffer for it, as will your users'. And you'll
+       be frustrated by all the code that "no longer works right" in your
+       new Visual dBase application.
+
+ The bulk of your business code will reside in (or be called from) event-
+ handlers. Calculations are often done from OnChange events. Records are
+ added, saved or abandoned from pushbutton OnClick events or from Browse
+ CanNavigate events. New objects are launched from menu or pushbutton
+ OnClick events.
+
+ Validation is also handled differently in event-driven programming. You
+ are probably used to validating each field before moving on to the next
+ In event-driven programs, there is no guaranteed sequence of fields.
+ In fact, there is no guarantee the user will ever access a given field,
+ let alone enter appropriate data in it.
+
+ The event-driven model does most of its validation in a single "OK" or
+ "Save" pushbutton OnClick event. You look at the whole object's data,
+ not at a field at a time to perform validation:
+
+          PROCEDURE OKBUTTON_OnClick
+             if empty(Form.Entyfield1.Value)
+                MsgBox('Sorry, Customer Number Required!')
+                Form.Entryfield1.SetFocus()
+ 
+             elseif empty(Form.Entryfield2.value)
+                MsgBox('Sorry, Customer Name Required!')
+                Form.Entryfield2.SetFocus()
+ 
+             elseif   etc....
+ 
+             else
+                Select MyTable
+                Form.SaveRecord()
+             endif
+
+       Hint: Procedural DOS applications simply don't port intact to any
+       event-driven environment. If you  want to take advantage of your
+       legacy code, bring over the "guts"  of it. Use cut-and-paste to
+       build event handlers from your procedural business code.
+
+       But leave the DOS interface code in DOS.
+
+
+ The Instance (Object) Reference
+ -------------------------------
+ 
+ If you can have multiple instances of HELICOPTER, you must be able to
+ distinguish MYHELICOPTER from YOURHELICOPTER. Instances in real-life are
+ recognized by names, or "tail numbers" or license plates or serial
+ numbers.
+
+ One instance of a class is distinguished from another by its Instance
+ Reference Variable - a unique "name" for each instance of each class.
+
+ Since instances of classes are also -objects-, the "name" of an object is
+ sometimes also called the Object Reference Variable.
+
+ Like most of the indirect references in software (variables, fields, etc.),
+ the Instance Reference Variable contains the =address= of the object, not
+ the object itself.
+ 
+          oMyHelo = New Helicopter()
+
+ In the above code line, Visual dBase creates a new Helicopter object
+ and stores its address in oMyHelo.
+
+ Once you've got the Instance Reference Variable for an object, you can
+ talk to it directly - change its properties, add new properties, fire
+ its methods:
+
+         oMyHelo = New Helicopter()             &&Make new instance
+         oMyHelo.TailNumber = 'A23456'          &&Define new property
+         oMyHelo.Entryfield1.Value = 1          &&Set a default value
+         oMyHelo.Open()                         &&Open MyHelo form
+         oMyHelo.Entryfield1.SetFocus()         &&Fire the SetFocus method
+
+ You can see that the Instance Reference Variable gives you enormous 
+ control over the object. You can preset default values before opening,
+ make controls visible or invisible, enabled or disabled. In fact, you
+ can do anything from outside the object that you can do within the object
+ as long as you have the Instance Reference Variable.
+
+ The Instance Reference Variable is a variable like any other. It can
+ be passed as a parameter, stored to another variable
+
+           cCurrHelo = oMyHelo
+ 
+ and released.
+
+ But there's a downside to that. It is also -scoped- like any other
+ variable. And if the Instance Reference Variable goes out of scope,
+ you've lost all ability to set properties, read properties or fire methods
+ from outside the object. 
+
+ If your Instance Reference is a private variable, it disappears when the
+ current procedure "Return"s, even if the object is still active onscreen!
+
+ Another potential pitfall to using a variable to store the instance
+ address is that you may overwrite one variable with another when you
+ attempt to create multiple instances:
+
+            oMyHelo = New Helicopter()    &&First instance
+            oMyHelo = New Helicopter()    &&Second Instance
+
+ The second Helicopter() will overwrite the first, and the first will
+ be orphaned - it can no longer be addressed in any way.
+
+ The Form Designer handles this problem by opening all forms automatically
+ into a LOCAL variable. After all, you can have unlimited separate copies
+ of a LOCAL variable:
+
+             LOCAL f
+             f = New Myform()
+             f.Open()
+
+ This also has its downside. Because "f" is LOCAL and only visible to the
+ procedure in which it was declared, no other object, procedure or
+ function can address the form "f".
+
+ Solution: Try to store your Instance References (object addresses) in
+ properties as much as possible. Remember that properties are scoped to
+ objects, not procedures. You can have as many of the same property as
+ you have objects to "own" them.
+
+          Procedure HeliLookupButton_OnClick
+          Set procedure to c:\HeliLook.Wfm Additive
+          Form.oLookup = New HeliLookForm()  &&Instance Reference stored
+                                             &&in custom form property
+                                             &&"oLookup"
+          Form.oLookup.Open()
+ 
+ If you need to open and manage multiple instances of a form at the 
+ user's request, you may even want to store your Instance References
+ in an array. Or, you may want to attach your Instance References
+ directly to the dBase application object itself for "PUBLIC" scope.
+ (See following section: Form, This., Class::, Super:: and _app)
+
+ A common case in which forms may need to talk to one another is a
+ "child" lookup form. Where the child form has to set a property in
+ the parent form when a lookup is successfully completed.
+
+ To do this, the Child must know the Instance Reference of the parent.
+ The easiest way to "pass" the parent's "address" is to create a 
+ custom property of the "child" before it is launched - and store the
+ parent's reference in it:
+
+           -----In the parent:
+
+           Procedure CustomerLookUpButton_OnClick
+           Set Proc to C:\CustLook.Wfm
+           Form.oChild = New CustLookForm()
+           Form.oChild.ParentName = Form     &&Store this form's address to
+                                             &&a custom property of the
+                                             &&"child" form.
+           Form.oChild.ReadModal()
+
+           ----In the child:
+
+           Procedure OKButton_OnClick
+           Form.ParentName.Entryfield1.Value = Customer->CustNo
+           Form.Close()
+
+ The ability of one form to talk to another is called "Interprocess Comm-
+ unications". 
+
+ The Instance or Object Reference Variable is your key to tying your
+ forms together into coherent applications. You will need to develop
+ your own scheme to manage object references tailored to your own pro-
+ gramming style.
+
+
+ Form, This, Class::, Super::, _app
+ ----------------------------------
+ All programming architectures provide elements by which the programmer
+ can reference, at design time, things that will not be known until
+ the program is run. 
+
+ When you write a program, you have no idea what data the user will enter.
+ So your language gives you fields, variables, arrays, macro-expansion and
+ codeblocks as a way of referencing  "unknown-at-design-time" data.
+
+ Objects are also "unknown-at-design-time". As programmer, you design
+ the classes from which objects are created. But, it's the user who
+ determines how many instances of which objects are onscreen at runtime.
+
+ Visual dBase provides special OO language elements to enable you to
+ reference your not-yet-created objects:
+
+
+ Form --- "Form" is a built-in variable that holds the Instance Reference of 
+         the -current- form.
+
+         It gives you, as programmer, a convenient reference to the 
+         container object at design time - even though it has not yet been
+         instantiated.
+
+         It can only be used from within a form to reference itself,
+         but it can be passed on as a property or parameter to other forms,
+         procedures and functions.
+
+              Do MyProc with Form
+                or
+              ReCalc(Form)
+
+         Assume you instantiate a form with: oMyHelo = New Helicopter().
+         When you use "form" from within this instance, Form equals oMyHelo. 
+     
+              oMyHelo = New Helicopter()
+
+              Class Helicopter(f,n) of Automobile(f,n)
+                This.Width = 40
+                This.Height = 40
+                This.OnOpen = FORM_OnOpen
+   
+                Procedure FORM_OnOpen
+                Form.Height = 60                &&Form=oMyHelo
+
+              Endclass
+
+ 
+ This--- "This" is another generic built-in variable to store an object 
+         reference. Unlike Form, which applies only to the container
+         object, "This" can refer to any object, depending on where
+         it's used.
+
+         If you are in the form area itself, not a contained control:
+
+              This = Form
+
+         If you are in the definition of a control within a form:
+
+              This = Form
+
+         If you are in a method (procedure or function within a class):
+ 
+              This = the Control that called this Method
+
+         Example:
+
+              Class MyForm of Form
+                This.Width = 24             &&Refers to Form
+                This.OnOpen = Form_OnOpen
+
+                Define Text MyText of This; &&Refers to Form
+                Property;
+                Width This.Width,;          &&Refers to Form
+                OnOpen MyText_OnOpen
+
+                Procdure Form_OnOpen
+                This.Width = 40             &&Refers to Form
+  
+                Procedure MyText_OnOpen
+                This.Width = 10             &&Refers to MyText
+
+ Class:: and Super:: --- Class and Super are called "Scope Resolution   
+        Operators". This is an overblown name for operators that tell
+        Visual dBase where to look for a method.
+
+        "Class::MyProc"  Tells Visual dBase to look ONLY in the current
+        class for the method "MyProc". Don't look in other classes, or for
+        a UDF with the same name. Don't look for an outside procedure or
+        in the SuperClass (if there is one).
+
+        "Super::MyProc" Tells Visual dBase to look only in the SuperClasses
+        of the current class, not in the current class or any other UDF or
+        procedure.
+
+        These two operators, Super:: and Class:: are critical to
+        Polymorphism (the ability to override a class' method with another).
+        Visual dBase lets you override class behavior by including a
+        method of the same name in the subclass. By use of these Scope
+        Resolution Operators, you can explicity specify which one you want
+        Visual dBase to call:
+
+            Class HELICOPTER of AUTOMBILE
+               ...
+               ...
+               Define Pushbutton StartButton of This;
+                 Property;
+                
+                 OnClick CLASS::Start      &&This one executes Helicopter's
+                                           &&"start" method.
+
+                 OnClick SUPER::Start      &&This one executes Automobile's
+                                           &&"start" method.
+            Endclass
+
+            Hint: "Super::" generically refers to 'the next level up'.
+            If the HELICOPTER in the example above is on a form:
+
+                  Define Automobile HELICOPTER of This;
+                    Property;
+                    OnClick SUPER::OnClick
+
+            "Super::" refers to the form. Or at least it does if the
+            form has an OnClick event. If not, Visual dBase will keep
+            looking up the hierarchy until it finds a method with
+            the right name.
+
+            Perhaps a more accurate explanation for Super:: might be
+            "the next one up that Visual dBase finds". This can
+            be very helpful when you've got a custom class based on
+            a custom class, based on a custom class... etc.
+
+ _app ---  "_app" is the name of the built-in Visual dBase application
+        object. This object is the "parent" of your program. It is always
+        visible as long as your program is running.
+
+        Because of this visibility (and the fact that _app, too, is an
+        object), you may use custom properties of _app instead of PUBLIC
+        variables. Any custom property of _app will be addressable
+        throughout your program.
+
+        Let's say you're writing a program that only has a single instance
+        of each form. You don't have to worry about using an array or
+        overwriting Instance Variables. You can "hang" your Instance
+        Reference on the Visual dBase _app:
+
+            _app.oMyHelo = New Helicopter()
+
+        You've now guaranteed that "oMyHelo" will be in scope throughout
+        your program, visible to every object, procedure and function.
+
+        And if you do need an array to store your Instance Reference
+        Variables, it too can be "hung" on the _app:
+
+           _app.aForms = New Array(1)
+           _app.aForms[1] = New Helicopter()
+           _app.aForms[1].Open()
+
+        where it also will be visible to all objects, procedures and
+        functions.
+
+
+ Releasing Objects
+ -----------------
+ Objects take up memory. And not just normal memory, but GDI resources,
+ which are very scarce in Windows.
+
+ Most "housekeeping" in Visual dBase is automatic. For example, when there
+ are no references to an object in memory, Visual dBase destroys the object
+ to free up memory. You may destroy the object explicitly in one of two
+ ways:
+
+       1. If it has a Release() method, call it to remove the object
+          from memory.
+
+       2. Destroy the Instance (Object) Reference Variable and Visual
+          dBase will remove the object automatically.
+
+       Examples:
+ 
+          oMyHelo.Release()             &&Call the release method
+
+          Release All Like oMyCustom    &&Release the Instance Reference
+
+          _app.aForms[1]  = ''          &&Overwrite the Instance Reference
+
+ Once your object is released, you may no longer need the "class blueprint"
+ in memory any longer. Remove it with:
+
+       Close Procedure Helicopter.WFM
+
+
+ Using Sessions To Encapsulate
+ -----------------------------
+ We know that properties are -encapsulated- within their objects. We also
+ know that we have to isolate the Instance Reference Variable before
+ you can have multiple instances of an object without one overwriting
+ another.
+
+ But table data is another subject entirely. Your tables are scoped to
+ their work areas - not to any object. Yet, there is important data
+ - like record pointers - that need to be encapsulated too.
+
+ Assume your user pops up three Helicopter forms onscreen simultaneous-
+ ly. Assume, also, that each form has a Browse object on it. Number Three
+ is on top when the user clicks on the scrollbar, changing the record.
+
+ Unless you do something to prevent it, changing the record in Helicopter
+ Number One will also change the record in Helicopter Number Two and
+ Helicopter Number Three. The record pointer has to be encapsulated -
+ protected from record pointer moves in the other Helicopter objects.
+
+ Visual dBase provides a neat feature to handle this situation, called
+ Sessions. Sessions essentially create a new user. Each user has his or
+ her own work areas, record pointers, aliases and environment variables.
+
+ By creating a Session before you launch an object you encapsulate the
+ table data in each form:
+
+       Procedure Helicopters_OnClick
+          Set Proc to Heli.Wfm Additive
+          _app.aForms[NextNum] = New HeliForm()  &&Create new object
+                                                 &&and store the Instance
+                                                 &&Reference in an array
+                                                 &&Element
+          Create Session                         &&Create a new Session
+          Do Heli.Qbe                            &&Open required tables
+                                                 &&Note: this can also
+                                                 &&be done by use of the
+                                                 &&form's View property.
+          _app.aForms[NextNum].Open()            &&Open the form.
+
+ When all references to your form is released, and all references to your
+ form are removes (no object references remaining), Visual dBase
+ automatically closes the Session.
+      
+      Hint: Don't use Create Session unless you really want to 
+      encapsulate your data.
+
+      If you have a child lookup form where you -do- want the record
+      pointer changed in the parent, you don't want to encapsulate
+      the child form. In cases like these, where you're sharing data
+      between objects, don't use Create Session.
+ 
+ .WFM, .CFM, .PRG and .CC
+ ------------------------
+ Forms are normally found in .WFM files, procedures in .PRG files, queries
+ in QBE files, custom controls in .CC files, "Superclass" forms in .CFM 
+ files.
+
+ However, all of the above are actually just .PRG files with fancy
+ extensions. The various file extensions exist so that both you and
+ the Visual dBase Navigator can quickly find different types of code.
+ 
+ Please note that your classes can be -anywhere- you want. They do not
+ execute. 
+
+ Set Procedure To <C:\MyDiskFile> is sufficient for Visual dBase to find
+ your class -by name-. Therefore, any disk file that can be loaded into
+ memory with "Set Procedure To" can contain a class definition. In fact,
+ any loadable disk file can contain -multiple- class definitions!
+
+      When you call "Do My.Wfm"
+
+      Local f                                  &&This code executes
+      f = New MyForm()
+      f.Open()
+
+      CLASS MyForm of Form                     &&This code does not!
+       ...
+       ...
+      ENDCLASS
+
+ A class definition is only used when you instantiate - when the
+ blueprint is read. Therefore it must be available - in memory -
+ when Visual dBase needs to read it to create an object.
+
+ When you get more comfortable with classes and objects, you will avoid
+ calling a procedure file to instantiate your objects. There really
+ is no innate relationship between procedures and class definitions.
+
+ An example of a "direct" call to an object:
+     
+      Procedure LookupButton_OnClick
+         Set Procedure to C:\MyDir\My.WFM Additive
+         Form.oLookup = New MyForm()
+         Form.oLookup.ReadModal()    (or oLookup.Open())
+         Form.oLookup.Release()
+         Close Proc C:\MyDir\My.Wfm
+
+
+ Modal: The One Time an Object Does "Return"
+ -------------------------------------------
+ Now that we're familiar with the basic rules of Object-Oriented Program-
+ ming, let's break one.
+
+ You will remember that we stated more than once that "objects are not
+ subroutines and they do not 'return'"
+
+ Well, there is one special case when they do. It is the Modal Form.
+
+ Forms can be Modeless or Modal. The normal state of a form is Modeless -
+ it is an unattached object floating around at your user's discretion.
+
+ However, that makes -dependencies- very difficult. If you want to look
+ up a Helicopter Number, you want to look it up for the current form - 
+ not for any of three that might be onscreen. 
+
+ And you do not want the user messing around in all the other parts of
+ the program while doing this lookup.
+
+ Hence the Modal window - which freezes program execution and allows no
+ other input except for the Modal window itself. Modal forms do return
+ to their calling procedures as they do not have an independent life
+ of their own.
+
+          Modeless:
+
+          Procedure HeliLookup_OnClick
+          Set Proc to HeliLook.Wfm Additive
+          _app.oMyHelo = New HeliLookForm()
+          _app.oMyHelo.Open()                    &&Open command issued.
+          Form.Entryfield1.Value = 'Hello'       &&Then this line runs.
+                                                 &&Only when the method
+                                                 &&is complete does the
+                                                 &&form open onscreen.
+
+          Modal:
+
+          Procedure HeliLookup_OnClick
+          Set Proc to HeliLook.Wfm Additive
+          _app.oMyHelo = New HeliLookForm()
+          _app.oMyHelo.ReadModal()               &&Open command issued.
+                                                 &&Program freezes until
+                                                 &&oMyHelo closes.
+                                                 &&Then control returns 
+                                                 &&to this, the calling
+                                                 &&procedure.
+          Form.Entryfield1.Value = 'Hello'       &&Then this line runs.
+
+ Modeless forms are opened with the Open() method. Modal forms are opened
+ using the ReadModal() method.
+
+         Hint: Be careful coding after an Open(). Keep in mind that the
+         code following the Open() will execute BEFORE control is given
+         to the form that was Open()ed.
+
+         And, don't forget, control will never RETURN to the calling
+         procedure once the form is launched.
+
+         If you need to open a form, do something, and then come back,
+         use ReadModal()
+
+         One more thing. Don't use this "dependency" and the Modal
+         "Return" capability to get around OOP programming by emulating
+         procedural code. Sooner or later, you'll end up boxed in with
+         no way to branch off into a form you really need for your
+         program.
+       
+
+ Thinking OO Tips
+ -----------------
+ There's a lot to understand in "How To Think in OOP". There's a lot
+ to grasp in OO programming. You won't do it my memorizing or copying
+ out sample code.
+
+ This is one of those cases where you really have to visualize diff-
+ erently than you ever have before. You have to "see" your forms:
+ independent, floating out there on the user's screen with no opportunity
+ for the programmer to correct a field and back up.
+
+ Here's a few quick concepts to help you focus:
+
+    1. Making Objects
+       A. Disk file loaded in memory
+       B. Create a new Object (Instance)
+       C. Open the object (in the case of a form)
+       D. Get rid of the object
+       E. Get the disk file out of memory.
+
+    2. Objects don't Return, so do whatever you've got to do
+       before the object is launched or in the object itself.
+
+    3. Forms can be based on forms, pushbuttons on other pushbuttons.
+       Try it, make a custom pushbutton with special text and bitmap.
+       Drop it on a form to see how it behaves.
+
+    4. Forms can talk to other forms only if they can find each
+       other's Instance Reference Variables.
+     
+       Try a simple form that calls a Modal "child". Have the child
+       change an entryfield value of the parent. Close the child.
+
+    5. Events fire automatically. To get really familiar with them,
+       create a sample form. Add a single event handler with one line
+       of code:
+
+                ?? CHR(7)
+
+       That's the bell. When you hear it, you'll know the event
+       "fired". Try it with a variety of events.
+
+    6. Try making a new base form (.CFM) with a rectangle and a nice
+       colored text object for a title.
+
+       Use the FILE menu in the Form Designer to assign it as the new
+       Base Class. Create new forms using your custom base class.
+
+    7. Most important of all, don't get discouraged. Object Programming
+       is so foreign to procedural programmers that it looks like an
+       entirely different world. 
+
+       Yet you've come with a special set of skills and experience as
+       a programmer that will help you move into OO.
+
+       It may take a week or a month, but one day the "light bulb" will
+       go off over your head and you'll start thinking - even dreaming -
+       in this new language.
+
+ And it will be well worth the effort when you discover how productive
+ Object-Oriented Programming makes you!
+
+9-1-1995

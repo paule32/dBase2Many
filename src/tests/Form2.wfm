@@ -1,0 +1,81 @@
+** END HEADER -- do not remove this line
+// Generated on 02.12.2025
+//
+PARAMETER bmodal
+LOCAL B
+B = NEW ParentForm(51,4)
+IF (bmodal)
+    B.mdi = false
+    B.ReadModal()
+else
+    B.Init(121,2)
+    B.Open()
+endif
+
+CLASS ParentForm OF FORM
+    PROPERTY width = 498.00
+    PROPERTY top   = 163
+
+    WITH (THIS)
+        onClick = THIS.ParentForm_onClick
+        Width = 498
+        Height = 384
+        Top = 163
+        Left = 117
+    ENDWITH
+    THIS.Button = NEW BUTTON(THIS)
+    WITH (THIS.Button)
+        onClick = THIS.Button_onClick
+        Left = 32
+        Top = 64
+        Width = 153
+        Height = 73
+        Text = "Button"
+    ENDWITH
+
+    THIS.Label = NEW LABEL(THIS)
+    WITH (THIS.Label)
+        onClick = THIS.Label_onClick
+        Left = 144
+        Top = 112
+        Width = 72
+        Height = 88
+        Text = "Label"
+    ENDWITH
+
+    THIS.Button1 = NEW BUTTON(THIS)
+    WITH (THIS.Button1)
+        onClick = THIS.Button1_onClick
+        Left = 240
+        Top = 64
+        Width = 152
+        Height = 72
+        Text = "Button"
+    ENDWITH
+
+    THIS.Button2 = NEW BUTTON(THIS)
+    WITH (THIS.Button2)
+        onClick = THIS.Button2_onClick
+        Left = 48
+        Top = 224
+        Width = 152
+        Height = 72
+        Text = "Button"
+    ENDWITH
+
+
+    METHOD ParentForm_onClick(Sender)
+    ENDMETHOD
+
+    METHOD Button_onClick(Sender)
+    ENDMETHOD
+
+    METHOD Label_onClick(Sender)
+    ENDMETHOD
+
+    METHOD Button1_onClick(Sender)
+    ENDMETHOD
+
+    METHOD Button2_onClick(Sender)
+    ENDMETHOD
+ENDCLASS

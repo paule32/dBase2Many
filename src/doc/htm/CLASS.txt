@@ -1,0 +1,341 @@
+ CLASS.HOW
+ 12/23/95
+
+ Marilyn Price: 72332,2312
+
+ ----------------------------------------------
+ Working with classes: A Beginner's Perspective
+ ----------------------------------------------
+
+ Why this document was written
+ -----------------------------
+
+ I had been playing with Visual dBASE (and its predecessor dBASE for
+ Windows) and lurking the Visual dBASE forum (formerly the dBASE for
+ Windows forum) for about a year when I got an opportunity to write my
+ first real program.  I had designed simple forms before, but hadn't
+ actually made them do anything that wasn't already covered with the
+ buttons on the speedbar.
+
+ The experience was an eye-opener.  It made me realize that, while I had
+ read up on OOP and thought I understood the terminology, I really didn't
+ understand the practicalities.  So I posted an incoherent message in the
+ forum, asking for enlightenment.  This spawned a long thread that revealed
+ (among other things) (a) that I was not the only one confused on some of
+ these issues, (b) the correct way to do things, and   one message to "Read
+ the manual".  This HOW TO is a direct result of that thread.
+
+ Types of Classes
+ ----------------
+
+ Classes are the building blocks for just about everything in Visual dBASE. 
+ Classes provide the basis for forms, pushbuttons, entryfields, text,
+ radiobuttons, and all the other visual tools.  Even Visual dBASE itself is
+ an instance of a class.  When you write your programs, you'll be using
+ classes.  (See OOP.HOW for an excellent glossary and introduction to these
+ concepts.)
+
+ There are two main types of classes in Visual dBASE - standard and custom.
+ Standard classes are provided by dBASE itself and form the foundation that
+ all the rest is build upon.  Custom classes are more specialized.  Some
+ custom classes are provided with Visual dBASE.  Others are available in
+ various locations, including CompuServe libraries.  Some are commercially
+ available.  And, of course, there will be those that you write yourself!
+
+ Regardless of the source, classes all have certain characteristics in
+ common.  Documentation about a class should include the following:
+   1.  A brief statement or description of what the class does
+   2.  A list of the properties (and what they mean)
+   3.  A list of the methods (and what, in general, they do)
+   4.  A list of events (and what triggers them)
+
+ Standard Classes
+ ----------------
+
+ Let's look at some standard classes first.  Most of the standard classes
+ are centered around the forms designer.  When you're learning to work with
+ Visual dBASE, you'll probably start by designing a form and dropping some
+ objects (like radiobuttons, entry fields, text) onto it.  These objects
+ are classes.  The form you are designing is also a class.
+
+ If you look at the generated code, you'll see lines like these:
+
+    CLASS CABLEFORM OF FORM
+    DEFINE ENTRYFIELD ENTRYFIELD7 OF THIS;
+
+ The first (CLASS CABLEFORM OF FORM) is the start of a class definition,
+ defining the class CABLEFORM based on the class FORM.  In this example,
+ FORM is the superclass and CABLEFORM is a subclass of FORM.
+
+ The second (DEFINE ENTRYFIELD) looks like it could be a class definition,
+ but it is not.  It is  an instantiation of a class, defining the instance
+ ENTRYFIELD7 of a class called ENTRYFIELD.
+
+ Classes have characteristics called Properties, Events, and Methods that
+ you can inspect and modify as needed.  Part of my confusion stemmed from
+ these names and what is classified as which.
+
+ If you look up a class in the Language Reference, you'll see the
+ components of all three of these types listed alphabetically in one long
+ list labeled properties.  Strictly speaking, anything associated with a
+ class is a property of the class.  But the inspector splits them into
+ three different groups and calls one of these groups properties. 
+ Confusing.
+
+ One definition I read said that any procedure or function contained
+ between the CLASS and ENDCLASS statements is said to be a method of the
+ class.  You'll see both event handlers and "built-in" methods referred to
+ as methods in some of the literature available.  If they had different
+ names, perhaps this portion would be clearer.  
+
+ For the remainder of this discussion, methods will refer to actions
+ appearing on the Methods page of the inspector for the class and
+ properties will refer to the properties appearing on the Properties page
+ of the inspector for the class.
+
+ There are several ways to find out what properties, methods, and events
+ are available for a given class.  Standard classes can be looked up in the
+ Language Reference manual or in the on-line help.  Custom classes should
+ have some sort of documentation provided.  Properties, methods, and events
+ for both types are also listed in the Inspector. 
+
+ The Inspector can be invoked in two primary ways.  If you are looking at
+ an object on a form in design mode, then the Inspector is another window
+ appearing on the desktop.  If you can't find the inspector immediately,
+ right click on the object and select Inspector from the speed menu that
+ appears.  
+
+ Another way to invoke the inspector is to instantiate an object from the
+ class and use the Inspect() function.  For example, type inspect(_app) in
+ the Command Window.  A property box appears.  These are the properties,
+ events, and methods for the application (Visual dBASE) itself.  It's a
+ short list, but it's there.
+
+ The inspector has three pages - one for properties, one for events, and
+ one for methods.  What's the difference between these three, when do you
+ use each, and what do you do with them?
+
+ Properties
+ ----------
+
+ Properties are the variables used by the class.  If you look at the list
+ of properties for a class, you'll see that most of them are nouns.  These
+ include items such as height, color, datalink, and speedtip. 
+
+ This is where you enter the specifics for your subclass.  For example, you
+ can datalink an entryfield to a field in your table and the class will now
+ take care of any modification and updates to that field.  You can define a
+ speedtip for the entryfield so that, when the mouse cursor rests on the
+ field, a bubble help tip will appear.  If you don't put anything in the
+ space next to SpeedTip, no bubble appears.
+
+ Most properties are self-explanatory and all are (or should be) available
+ for lookup in the on-line help or the Language Reference.  
+
+ For example, let's lookup "Speedtip" in the on-line help. Click on the "?"
+ speedbutton and click on "Search".   In the box with the cursor, type
+ speedt and you'll see speedtip show up highlighted.  Click on [Show
+ Topics], then on [Go To] and you'll find a short description of what it
+ is, the fact that the default value is blank, which classes include
+ speedtip as a property, and a way to suppress an existing speedtip.
+
+
+ Methods
+ -------
+
+ The third page of the inspector is for methods (I'll come back to page 2
+ in a minute).  If you look at this list, you'll see that most of these are
+ active verbs.
+
+ Let's look at the list of methods for an entryfield.  It's relatively
+ short.  It consists of Copy, Cut, Keyboard, Move, Paste, Release,
+ SetFocus, and Undo.  This is a list of the "built-in" actions that the
+ entryfield class provides to you.  For the most part, you'll leave these
+ actions alone and let the class do the processing.  Notice that, in the
+ inspector, there's a function pointer next to each Method.  For example,
+ the words FORM::SETFOCUS appear in the box next to the SetFocus method. 
+ This function pointer (FORM::SETFOCUS) is the name of the procedure or
+ function which contains the code run to implement the SetFocus method. 
+ Why would you ever need this?  That's covered below.
+
+ What does each one do?  Let's look setfocus() up in the on-line help. 
+ You'll see a description of what it does and which classes it is a
+ property of.  If it needed any parameters, these would also be defined.
+
+ Why would you ever want to change any of these?  Most of the time you
+ won't.  However, suppose you wanted to initialize a large array when a
+ form opens.  You could place the code in an OnOpen event handler (more on
+ events in a moment).  If you do, then the code would execute just after
+ the form opens.  If it's a lengthy piece of code, your users may be
+ staring at a form that looks like its ready to go, but doesn't respond to
+ anything.  This is one case where you may want to modify the open() method
+ for the form.  This way, the processing takes place before the form
+ appears.  Once the form shows up on the screen, it's ready to use.  The
+ delay is the same, but the perception is different, and may make for
+ happier users.
+
+ To change the behavior of a method, you need to add a procedure with the
+ _same_ _name_ to your class definition.  In the scenerio just described,
+ you would add a procedure called Open.  This overrides the default method. 
+ If you want to supplement rather than replace the default method, then
+ your procedure will have to call the superclass's method.  It would look
+ like this:
+
+     Procedure Open
+        ** whatever code you're adding
+        super::Open()
+
+ Super:: is a scope resolution keyword that tells Visual dBASE where to
+ find the procedure you want to run.  If you look at the Inspector for the
+ form, you'll see that the default method for Open is Form::Open. 
+ Substituting super:: for form:: will provide the correct name to use to
+ call that method.
+
+ Events
+ ------
+
+ The second page of the inspector is a list of events.  I've saved them for
+ last as I've had the most confusion with this section.  If you look at a
+ list of events, you'll see that these are mostly phrases with the spaces
+ squeezed out, such as OnChange, OnDesignOpen, OnMiddleMouseUp, and When or
+ passive verbs, such as Valid.
+
+ For the standard classes, these events are usually blank.  That is,
+ there's nothing in the right hand column of the inspector.  That's because
+ these are hooks provided by the class for a programmer to hang code on. 
+ In essence, the class is saying that when this event happens (the field is
+ changed, the form is opened in design mode, or the middle mouse button is
+ released) that it will check to see if you've added anything here and
+ execute your code before proceeding with its own processing.
+
+ "On" events process the code just after the triggering event.  That is,
+ any code in an OnOpen event routine will execute after the form opens. 
+ Any code in an OnClick event will execute after the pushbutton is clicked.
+
+ Let's look an event up in the on-line help.  If you lookup
+ OnMiddleMouseUp, you'll find which classes include this event, the data
+ type, and the fact that it will pass three parameters to your subroutine. 
+ These parameters are defined and explained.
+
+ An interesting point here is the data type of an event.  It says "Function
+ pointer or codeblock".  These are new datatypes with the Windows versions.
+
+ A codeblock is a section of code inserted directly in the event
+ assignment.  It's a procedure or function without a name!  For details on
+ constructing a codeblock, see other sources.  To add a codeblock to an
+ event, click on the event in the inspector and type directly into the
+ white space that appears on the right hand side.
+
+ To add a larger block of code to an event, click on the event in the
+ inspector, then click on the little "wrench" button to open the Procedure
+ Editor.  Visual dBase will construct a proper name for the procedure or
+ function and insert this function pointer into the inspector.
+
+ If you click on the wrench for the OnMiddleMouseUp, you'll see that Visual
+ dBASE has assigned a function pointer of
+ "ENTRYFIELDX::Entryfieldx_OnMiddleMouseUp" (where Entryfieldx is the name
+ of the entryfield you are looking at).  This appears in the right side of
+ the inspector.  In the main box of the Procedure Editor, the following
+ appears:
+
+    Procedure ENTRYFIELDX_OnMiddleMouseUp(flags, col, row)
+
+ And you type your code here.
+
+ If you save the form and then edit it as a program, you'll see that a line
+ has been added to the entry field definition that looks like this:
+
+     OnMiddleMouseUp CLASS::ENTRYFIELDx_ONMIDDLEMOUSEUP,;
+
+ When the form is instantiated, this line will tell it where to find the
+ code to be executed when this event is triggered.
+
+ At the end of the class definition, you'll find that Visual dBASE has
+ added this:
+
+     Procedure ENTRYFIELDx_OnMiddleMouseUp(flags, col, row)
+
+ followed by the code you typed in.
+
+ Unlike methods, you can name these procedures anything you like since you
+ are assigning the name in the object definition.  However, if the
+ superclass already has an event handler for this event and you are just
+ interested in supplementing that handling, make a note of the name of the
+ event handler before you overwrite it.  (It's displayed in the right hand
+ side of the inspector.)  This is used more with custom classes than the
+ standard classes.
+
+ Custom Classes
+ --------------
+
+ Speaking of custom classes, let's look at one in the form designer to see
+ some of the differences.  Create a new form and drop two objects on it. 
+ Make the first object a pushbutton from the Standard page of the Control
+ Pallet.  Make the second object the "Next" button from the Custom page. 
+ And let's look at the differences in these two.
+
+ Properties.  The differences here (besides position and height) include
+ the name, text, and classname.  All reasonable differences.
+
+ Methods.  There are no differences in the methods for these two objects. 
+ The "Next" button inherits all its methods from its superclass -
+ Pushbutton.
+
+ Events.  There is one difference in the events for these two buttons.  The
+ "Next" button has code assigned to the OnClick event.  In fact, if you
+ click on the OnClick event and click its wrench, Visual dBASE will warn
+ you that the event is linked to a procedure outside of the form and ask if
+ you want to overwrite it!  
+
+ You can still override it or supplement it, using the techniques discussed
+ here.
+
+ SUPER::
+ -------
+
+ Earlier, I used SUPER::Open() to reference the form's open method and
+ mentioned that FORM:: could have also been used.  How do you know when to
+ use which?  The SUPER:: keyword is short-hand for whatever the superclass
+ happens to be.  In the example above, this is the standard FORM class, so
+ SUPER::Open() is the same as FORM::Open().
+
+ When supplementing a method's behavior (instead of overriding it), you
+ must call the base class method somewhere along the way, either at the
+ beginning, in the middle, or at the end of your method code.  In my
+ example above, if I had not included the call to SUPER::Open(), the form
+ would never open!
+
+ Some final thoughts
+ -------------------
+
+ This How To has tried to summarize some of the interesting things I've
+ learned about classes over the last couple of weeks.  Writing them down
+ has helped clarify them for me.  I hope it does the same for you.
+
+ My thanks to the TeamB members who reviewed this and added their helpful
+ comments.  Especially to Ken "Zak" Chan who provided the clearest
+ explanation of most of this information and whose messages were used
+ extensively in the preparation of this how to.
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1995, Marilyn Price. All rights reserved.
+    --------------------------------------------------------------------
+
+ EoHT: MLP

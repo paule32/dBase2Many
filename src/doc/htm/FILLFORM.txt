@@ -1,0 +1,457 @@
+*FILLFORM.HOW
+HOW TO print a record on a preprinted form easily.
+
+Original  :11/16/95
+Revision  :11/18/95 1. Revision
+Revision  :11/20/95 2. Revision
+Revision  :12/03/95 3. Revision
+
+Author: Romain Strieff 71333,2147
+------------------------------------------------------------------
+Often customers ask for a module to fill a preprinted form
+at the appropriate places with the needed values from the current
+record to a dot matrix printer if these forms need carbon copies, 
+or to a page printer if they don't.
+
+To create such a module with ? and ?? commands is not an easy
+job. A lot of calculations have to be done, the fonts have to be 
+defined, the right escape sequences to set the printer to the
+required lines per inch have to be researched and sent to the 
+printer without the driver eating them, you never see what it
+will look like without printing it out,etc. 
+
+You can also do it with Crystal Reports, but then you would have
+to use a session, do some tricks with empty QBEs, or copy the
+needed record to a temporary file and base your record on that etc.
+Also CRW is very weak at positioning the needed values vertically.
+
+So let's leave that job to somebody else and use other means.
+This is VISUAL dBase, so let's do the thing visually.
+
+We will create a FORM (.WFM) that is used _only_ for printing!
+This form will have the exact dimensions of your preprinted
+paper form. For every field that you'll need to print to the
+preprinted paper form, you will have to put entryfields or 
+textfields at the appropriate place. Thus it is possible to
+position your data visually and if you change the grid settings
+in the form designer  PROPERTIES | FORM DESIGNER PROPERTIES 
+to CUSTOM and the X-grid and Y-grid to 0.1 you'll have the
+maximum possible precision to achieve this.
+
+You can use the DESIGNVIEW property of this printform and
+set it to the same QBE your other main-form is using.
+This will allow you to set the datalink of the entryfields
+of this printform to the names of the fields you want to
+print. Do not set a VIEW property of this printform, otherwise
+you'll risk breaking the datalinks of your main-form!
+
+If no view will be set for this print-form, the current open
+view is used. So the only thing to do from your main-form
+is to instantiate the print-formt, open it somewhere where 
+nobody can see it, (meaning the LEFT property of the form will
+be set at -300 or something similar), and print it. 
+Additionally we can stuff the keyboard buffer with an <ENTER>
+key (keyboard chr(13)), so that the printing dialog will be
+answered without user intervention.
+
+   *this would be the OnClick event of the print button
+   *on your _real_ main-form.
+   Procedure PrintThisRecord_Button_OnClick
+   set proc to pform.wfm additive &&so that VdB finds it
+   local p               &&local variable
+   p=new pformform()     &&to instatiate print form
+   p.left=-300            &&nobody wants to see it
+   p.open()              &&open it out of sight
+   *now to keep the user from fiddling with the print dialog
+   *we will answer it for him.
+   keyboard chr(13) clear
+   *if you want always several copies we could do that too
+   *keyboard "{ALT-C}3"+chr(13) &&will print 3 copies
+   
+   p.print()             &&print it
+   p.close()             &&close it
+   
+   
+That's all. If you would want it fancier you could also implement
+dragging the fields around the page at runtime to let your users
+put in on the page where they want it, but we'll do that in another
+HOW TO.
+
+Tip:
+---
+If you have a faxmodem with the needed software, you could fax 
+yourself a copy of the real preprinted page with a fax-machine,
+transform it to a PCX with one of the numerous free utilities 
+and place it as a picture on your form. Then it will be _really_
+easy to put the text at the exact place. Don't forget to remove
+it after having finished the design of the form. Naturally
+owner of a scanner won't need this.
+
+Here is some code that will print a template that you can use
+for planning your form. It will print a grid with the numbers of the
+actual rows and colons at the top and left. These numbers correspond
+to the TOP and LEFT properties you'll have to set for your entryfields
+to print at the right place. 
+
+
+*save this to a .PRG and run it
+template=new formprint()
+template.top=-300
+template.open()
+keyboard chr(13)
+template.print()
+template.close()
+
+class formprint OF form
+this.Height = 30
+this.width = 60
+this.Text = "Form"
+this.Left = 0
+this.top = 0
+this.scrollbar=1
+
+for n=0 to 66
+   cN=ltrim(str(n))
+   oLinenew="this.horzline"+ltrim(str(n))+" = new line(this) "
+   oLinetop="this.horzline"+ltrim(str(n))+".top = "+cN
+   oLinebottom="this.horzline"+ltrim(str(n))+".bottom = "+cN
+   oLineleft="this.horzline"+ltrim(str(n))+".left = 0"
+   oLineright="this.horzline"+ltrim(str(n))+".right = 115"
+   
+   
+   
+   ovTextnew="this.vText"+ltrim(str(n))+" = new text(this) "
+   ovTexttop="this.vText"+ltrim(str(n))+".top = "+ltrim(str(n+0.3))
+   ovTextleft="this.vText"+ltrim(str(n))+".left = 0.2"
+   ovTextwidth="this.vText"+ltrim(str(n))+".width = 3"
+   ovTextheight="this.vText"+ltrim(str(n))+".height = 0.5"
+   ovTextFontname="this.vText"+ltrim(str(n))+".fontname = 'ARIAL'"
+   ovTextFontsize="this.vText"+ltrim(str(n))+".fontsize = 6"
+   
+   ovTextAlign="this.vText"+ltrim(str(n))+".alignment = 5"
+   ovTexttext="this.vText"+ltrim(str(n))+".text = "+transform(n,"999")
+   &ovTextnew
+   &ovTexttop
+   &ovTextleft
+   &ovTexttext
+   &ovTextwidth
+   &ovTextalign
+   &ovTextheight
+   &ovTextFontname
+   &ovTextFontsize
+   
+   
+   
+   
+   &oLinenew
+   &oLinetop
+   &oLinebottom
+   &oLineleft
+   &oLineright
+   
+   
+ next && n=0 to 66
+
+ for n=0 to 110 step 5
+   cN=ltrim(str(n))
+   oLinenew="this.vertline"+ltrim(str(n))+" = new line(this) "
+   oLinetop="this.vertline"+ltrim(str(n))+".top = 0"
+   oLinebottom="this.vertline"+ltrim(str(n))+".bottom = 66 "
+   oLineleft="this.vertline"+ltrim(str(n))+".left = " +cN
+   oLineright="this.vertline"+ltrim(str(n))+".right = "+cN
+   
+   
+   if n>0
+      ohTextnew="this.hText"+ltrim(str(n))+" = new text(this) "
+      ohTexttop="this.hText"+ltrim(str(n))+".top = 0.3 "
+      ohTextleft="this.hText"+ltrim(str(n))+".left ="+ltrim(str(0.1+n))
+      ohTextwidth="this.hText"+ltrim(str(n))+".width = 3"
+      ohTextheight="this.hText"+ltrim(str(n))+".height = 0.5"
+      ohTextFontname="this.hText"+ltrim(str(n))+".fontname = 'ARIAL'"
+      ohTextFontsize="this.hText"+ltrim(str(n))+".fontsize = 6"
+      ohTextAlign="this.hText"+ltrim(str(n))+".alignment = 5"
+      ohTexttext="this.hText"+ltrim(str(n))+".text = "+transform(n,"999")
+      
+      &ohTextnew
+      &ohTexttop
+      &ohTextleft
+      &ohTexttext
+      &ohTextwidth
+      &ohTextalign
+      &ohTextheight
+      &ohTextFontname
+      &ohTextFontsize
+   endif && n>0
+   
+   &oLinenew
+   &oLinetop
+   &oLinebottom
+   &oLineleft
+   &oLineright
+   
+ next && n=0 to 110 step 5
+
+ endclass
+*-------------end template-------------------------------------
+
+
+Now here's a complete working example. Cut the following code and
+save the first one as  as PREPRIN.WFM, the second one as FILL.WFM.
+To run the example, DO PREPRIN.WFM.
+
+*----------------SNIP------------------SNIP----------
+if .not. file("ADDRESS.DBF")
+      CREATE TABLE "ADDRESS.DBF" ( ;
+                  LASTNAME    CHAR(25),;
+                  FIRSTNAME   CHAR(25),;
+                  ADR1        CHAR(30),;
+                  ADR2        CHAR(30))
+   use address excl
+   generate 10
+   use
+endif
+
+
+** END HEADER -- do not remove this line*
+* Generated on 16.11.1995
+*
+parameter bModal
+local f
+f = new PREPRINFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS PREPRINFORM OF FORM
+   this.Height = 12.4697
+   this.Width = 65.833
+   this.Text = "Form"
+   this.Left = 19.166
+   this.ScrollBar = 2
+   this.Top = 5.1758
+   this.View = "address.dbf"
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 15,;
+         OldStyle .T.,;
+         Text "&Lastname",;
+         Left 1,;
+         Top 3
+
+   DEFINE ENTRYFIELD ENTRYFIELD1 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 28,;
+         DataLink "ADDRESS->LASTNAME",;
+         Left 17,;
+         Top 3
+
+   DEFINE TEXT TEXT2 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 15,;
+         OldStyle .T.,;
+         Text "F&irstname",;
+         Left 1,;
+         Top 4
+
+   DEFINE ENTRYFIELD ENTRYFIELD2 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 28,;
+         DataLink "ADDRESS->FIRSTNAME",;
+         Left 17,;
+         Top 4
+
+   DEFINE TEXT TEXT3 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 15,;
+         OldStyle .T.,;
+         Text "&Adr1",;
+         Left 1,;
+         Top 5
+
+   DEFINE ENTRYFIELD ENTRYFIELD3 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 33,;
+         DataLink "ADDRESS->ADR1",;
+         Left 17,;
+         Top 5
+
+   DEFINE TEXT TEXT4 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 15,;
+         OldStyle .T.,;
+         Text "A&dr2",;
+         Left 1,;
+         Top 6
+
+   DEFINE ENTRYFIELD ENTRYFIELD4 OF THIS;
+       PROPERTY; 
+         Height 1,;
+         Width 33,;
+         DataLink "ADDRESS->ADR2",;
+         Left 17,;
+         Top 6
+
+   DEFINE TEXT TITLE OF THIS;
+       PROPERTY; 
+         Height 2,;
+         Width 51,;
+         Text "Address",;
+         Left 1,;
+         Top 0.5,;
+         FontSize 18,;
+         ColorNormal "Highlight/BtnFace"
+
+   DEFINE PUSHBUTTON PUSHBUTTON1 OF THIS;
+       PROPERTY; 
+         Height 1.8818,;
+         Width 46.833,;
+         Text "Print this record to preprinted form",;
+         OnClick CLASS::PUSHBUTTON1_ONCLICK,;
+         Group .T.,;
+         Left 10,;
+         Top 9.2939
+
+   Procedure PUSHBUTTON1_OnClick
+   set proc to fill.wfm additive &&so that VdB finds it
+   local p               &&local variable
+   p=new fillform()     &&to instatiate print form
+   p.top=-300            &&nobody wants to see it
+   p.open()              &&open it out of sight
+   *now to keep the user from fiddling with the print dialog
+   *we will answer it for him.
+   keyboard chr(13) clear
+   *if you want always several copies we could do that too
+   *keyboard "{ALT-C}3"+chr(13) &&will print 3 copies
+   p.print()             &&print it
+   p.close()             &&close it
+   
+ENDCLASS
+
+*----------------SNIP------------------SNIP----------
+
+Save the following code as FILL.WFM
+
+*----------------SNIP------------------SNIP----------
+** END HEADER -- do not remove this line*
+* Generated on 16.11.1995
+*
+parameter bModal
+local f
+f = new FILLFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS FILLFORM OF FORM
+   this.Height = 23
+   this.Width = 116.5
+   this.Text = "Form"
+   this.Left = 0
+   this.ScrollBar = 1
+   this.Top = 1
+
+   DEFINE ENTRYFIELD ENTRYFIELD1 OF THIS;
+       PROPERTY; 
+         Border .F.,;
+         Height 1.5293,;
+         Width 40.333,;
+         DataLink "ADDRESS->LASTNAME",;
+         FontName "Arial",;
+         Left 57.5,;
+         Top 10,;
+         FontSize 12
+
+   DEFINE ENTRYFIELD ENTRYFIELD2 OF THIS;
+       PROPERTY; 
+         Border .F.,;
+         Height 1.5293,;
+         Width 40.333,;
+         DataLink "ADDRESS->FIRSTNAME",;
+         FontName "Arial",;
+         Left 57.5,;
+         Top 12,;
+         FontSize 12
+
+   DEFINE ENTRYFIELD ENTRYFIELD3 OF THIS;
+       PROPERTY; 
+         OnOpen CLASS::ENTRYFIELD3_ONOPEN,;
+         Border .F.,;
+         Height 1.5293,;
+         Value "EntryField1",;
+         Width 41,;
+         FontName "Arial",;
+         Left 74.166,;
+         Top 0.2939,;
+         FontSize 12
+
+   DEFINE ENTRYFIELD ENTRYFIELD4 OF THIS;
+       PROPERTY; 
+         Border .F.,;
+         Height 1.5293,;
+         Width 40.333,;
+         DataLink "ADDRESS->ADR1",;
+         FontName "Arial",;
+         Left 57.5,;
+         Top 14.1172,;
+         FontSize 12
+
+   DEFINE ENTRYFIELD ENTRYFIELD5 OF THIS;
+       PROPERTY; 
+         Border .F.,;
+         Height 1.5293,;
+         Width 40.333,;
+         DataLink "ADDRESS->ADR2",;
+         FontName "Arial",;
+         Left 57.5,;
+         Top 16.1172,;
+         FontSize 12
+
+   DEFINE TEXT TEXT1 OF THIS;
+       PROPERTY; 
+         Height 1.3525,;
+         Width 88.001,;
+         Text "National Food Company",;
+         Alignment 4,;
+         FontName "Arial",;
+         Left 13.832,;
+         Top 64,;
+         FontSize 14
+
+   Procedure ENTRYFIELD3_OnOpen
+   this.value=cdow(date())+", "+;
+   cmonth(date())+" "+ltrim(str(day(date())))+", ";
+   +ltrim(str(year(date())))
+   
+ENDCLASS
+*----------------SNIP------------------SNIP----------
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------

@@ -1,0 +1,632 @@
+  MULTPAGE.HOW    08/30/1995
+  Author: Ken Mayer (CIS: 71333,1030)
+
+
+  Multiple Page Forms
+  -------------------
+
+  HOW TO Create and Manage
+  ------------------------
+  Multiple Page Forms in Visual dBASE
+  -----------------------------------
+
+
+  What Is a Multiple Page Form?
+  -----------------------------
+  A Multiple Page Form in Visual dBASE is a single form that can have
+  more than one page of information. In the past, this was done with
+  multiple _forms_. In Visual dBASE, this can be done with one form.
+
+  There are at least two methods that can be used to create and work
+  with Multiple Page Forms (using Tabs and using Pushbuttons), this 
+  HOW TO document will discuss these two.  But -- do not let this 
+  document limit your imagination. Visual dBASE is a powerful 
+  developer's tool, and the chances are good that there are more ways 
+  than those discussed here to accomplish your task.
+
+
+  Some Basics
+  -----------
+  Visual dBASE forms and objects have a property that did not exist in
+  dBASE 5.0 for Windows: PageNo. This property is vital to the task we
+  have at hand.
+
+  The Page Number (PageNo) property defines for a form what the current
+  page number is. This can be changed programmatically with the
+  statement:
+
+       form.PageNo = 2
+
+  for example.
+
+  Objects have a PageNo property, which defines what page they should
+  appear on. As an example, an entryfield that was assigned to Page 1
+  would have its page number property defined along the following
+  lines:
+
+     define entryfield entryfield1 of this ;
+        pageno 1,;
+        datalink "mytable->myfield",;
+        whateverotherproperties
+
+      ----------------------------------------------------------------
+      NOTE: If you are moving a form from dBASE for Windows (5.0) to 
+      Visual dBASE, the form and the objects will have no PageNo 
+      property. Don't despair! Visual dBASE will assume a PageNo of 1 
+      if there is no PageNo property explicitly given, and your forms 
+      will not crash on you. However, if you bring the forms into the 
+      Forms Designer, it will automatically assign a PageNo property 
+      of 1 to the form and the objects on the form.
+      ----------------------------------------------------------------
+
+  The PageNo property can be manipulated as any normal property. However, in
+  most cases, you will want to leave a specific object on a specific
+  page.
+
+  In some cases, you may wish an object to appear on _all_ pages of a
+  form. This, as it turns out, is just as easy as the rest -- if you set
+  the PageNo property to 0 (the number zero), that object will appear on
+  all pages of the form.
+
+
+  Changing Pages -- Method 1 -- TabBox
+  -------------------------------------
+  Changing Pages is where the developer can have a lot of fun. Somehow,
+  during the time that the form is executing, the user must be able to
+  change from one page to another.
+
+  The TabBox Control is a new control to Visual dBASE, and is designed
+  to allow you to create and manipulate multi-page forms easily.
+
+  In the standard page of the Object Palette when designing a form, you
+  will find an icon for the TabBox. If you double-click on it, a single-
+  tab tabbox will be placed on the bottom of your form.
+
+  The TabBox should default to having a PageNo property of 0. If it does
+  not have this number, please set it now. You can assign a name to the
+  TabBox if you want. The default is usually TabBox1, which is what this
+  document will assume.
+
+  You need to set the tabs for this yourself. If you look at the
+  DataSource property, you should see: ARRAY {"TabBox1"}.
+
+  This brings up a topic of interest that we will _briefly_ examine:
+  
+      Literal Arrays
+      --------------
+      The default array type for a TabBox is what is called a Literal
+      Array. This is an array that may be defined with the visual designer.
+      The one thing about it that is a little disconcerting is that it
+      has no name. There is no way to refer to the contents of this
+      array. In most cases, when using a TabBox, this is absolutely
+      fine! However, you don't _have_ to use a literal array if you
+      don't want to. You can use a more standard Visual dBASE Array
+      instead (one with a name) -- the only reason I can think of for 
+      doing this would be if you needed to know the text of the tab the 
+      cursor is currently on.
+
+      The visual designers allow you to build your array through a
+      really spiffy dialog box. To get to it, click on the tool icon
+      next to the current array definition. You can add and remove and
+      rearrange items quite easily with this dialog, and when you're 
+      done the "OK" button will place the contents of the array on the 
+      form. The number of tabs on your tabbox is the same as the 
+      number of elements in the array.
+
+
+  The OnSelChange Method
+  ----------------------
+  In the inspector, if you click on the methods page, you should see 
+  this method listed. Click on it. You can add a method here in a code 
+  block, or you can get a bit more fancy. I recommend you get a bit 
+  more fancy, and call a procedure:   
+
+      class::PageChange()
+
+  In this procedure, you will want to set the form's PageNo to the
+  current tab number. The current tab number property is: CurSel. The
+  procedure might look like:
+
+  PROCEDURE PageChange()
+     form.PageNo = this.CurSel
+
+
+  Changing Pages -- Method 2 -- PushButtons
+  ------------------------------------------
+  While TabBoxes are the method of choice for most new applications,
+  there are other methods of changing pages. Another method that
+  can be quite effective is to use PushButtons.
+
+  If you drop a couple of pushbuttons on a form, you will need to set
+  the OnClick methods to handle changing page numbers. This is simple
+  enough (example below).
+
+       -----------------------------------------------------------------
+       SUGGESTION: If you use the standard custom classes that ship with
+       Visual dBASE (BUTTONS.CC), when designing a form, click on the
+       CUSTOM page of the object palette, and you will see a Next and a
+       Previous button. You can "steal" these (they have those nice blue
+       arrow-heads for the images on them) and use those (you might wish
+       to change the text to "Next Page" and "Previous Page" ...).
+       -----------------------------------------------------------------
+
+  You should set the OnClick method for both of these buttons to handle
+  changing the page number, but since there are some other things that
+  may need to be done as well, it is recommended that you call a method,
+  rather than using a codeblock.
+
+  One suggestion is to simply create a method for each that handles
+  incrementing and decrementing the page number, and then calls another
+  routine to handle anything else that may need to be accomplished when
+  you change pages (such as setting the focus to the appropriate object
+  on the appropriate page).
+
+  The following is suggested code:
+
+     PROCEDURE NextPage_OnClick
+        form.PageNo = form.PageNo + 1 && increment the page number
+        class::PageChange()           && procedure to handle
+                                      && other items necessary
+
+     PROCEDURE PreviousPage_OnClick
+        form.PageNo = form.PageNo - 1 && decrement the page number
+        class::PageChange()           && same same
+
+  The OnClick description for the pushbuttons would then be (in the
+  Property Inspector, Methods page): class::NextPage_OnClick   or:
+  class::PreviousPage_OnClick.
+
+  When navigating through a form with several pages, you might have a
+  problem if you simply left the pushbutton code alone. What if you are
+  on Page 1, and the user clicks on the "Previous Page" button? There is
+  no Page 0. What if you are on the last page, and the user clicks on
+  the "Next Page" button? If there is no page defined, the form will
+  display a blank page.
+
+  This can be handled in the PageChange procedure by enabling or
+  disabling the pushbuttons as needed:
+
+    PROCEDURE PageChange
+       if form.PageNo = 1
+          form.PreviousPage.Enabled = .f.
+       else
+          form.PreviousPage.Enabled = .t.
+       endif
+
+       if form.PageNo = 3  && assume page three is the last number
+          form.NextPage.Enabled = .f.
+       else
+          form.NextPage.Enabled = .t.
+       endif
+
+  These two if/endif statements could be refined a bit using the dBASE
+  IIF() function, but I wanted to show the longer version of the code
+  for clarity's sake.
+
+  Here's the short-hand version:
+       form.PreviousPage.Enabled = iif(form.PageNo=1,.f.,.t.)
+       form.NextPage.Enabled     = iif(form.PageNo=3,.f.,.t.)
+
+     --------------------------------------------------------------
+     SUGGESTION: In order to avoid hard-coding a constant
+     value like the last page number in your code directly, is to
+     use a pre-processor directive:
+
+          #define LASTPAGE 3
+
+     This should be placed in the form's HEADER (see sample
+     code below). You can then refer to LASTPAGE anywhere in the
+     form that refers to the last page number, i.e.:
+
+          form.NextPage.Enabled = iif(form.PageNo=LASTPAGE,.f.,.t.)
+
+     The advantage to doing this is that if you add pages to the
+     form later (or remove them) you can set _all_ references to
+     the last page in one location -- your #define statement.
+     ---------------------------------------------------------------
+
+
+  The PageChange Procedure
+  ------------------------
+  The PageChange procedure is where you tell Visual dBASE what to do 
+  when the page number changes. For example, you might want to set the 
+  focus to the first object on each page:
+
+  PROCEDURE PageChange
+     *-- if using pushbuttons to move between pages:
+     form.PreviousPage.Enabled = iif(form.PageNo=1,.f.,.t.)
+     form.NextPage.Enabled     = iif(form.PageNo=LASTPAGE,.f.,.t.)
+
+     *-- handle setting focus and anything else that might be
+     *-- needed when the page number changes.
+     do case
+        case form.PageNo = 1
+             form.entryfield1.setfocus()
+        case form.PageNo = 2
+             form.entryfield43.setfocus()
+        case form.PageNo = 3
+             form.entryfield71.setfocus()
+     endcase
+
+
+  VALIDATION
+  ----------
+  You may wish to process validation of your entryfields and other objects 
+  on a page, when you issue a page change. This could be handled here in the 
+  PageChange procedure as well.
+
+  The code may look something like:
+
+    if form.Tabbox.Cursel # 1 .and. empty(form.entryfield1)
+       MsgBox('Must Enter Client # First!')
+       This.CurSel = 1
+       This.SetFocus()
+    else
+       form.pageno = this.cursel
+    endif
+
+
+  Potential Problems
+  ------------------
+  If you are using BeginAppend() with a multi-page form and a Browse
+  on one of the pages, and you page back to the browse, it will refresh, 
+  which moves the record pointer, and loses your BeginAppend(). You may want 
+  to ensure that if you are using the record buffering in Visual dBASE in 
+  such a way that you handle the SaveRecord()/AbandonRecord() calls in the 
+  PageChange procedure.
+
+  It is probably not a good idea to add data in other tables on
+  other pages if a master record on the first page has not been 
+  saved. One solution is to prevent users from changing pages
+  until the master record on the first page (or where-ever) 
+  has been saved by turning off the enabled property of a tabbox
+  (or if using pushbuttons to navigate, the pushbuttons involved)
+  until the record has been saved.  
+
+  When saving a form that uses multiple pages in the forms designer,
+  you may find that if you were working on a page _other_ than page
+  1 when you saved the form, that the page number you were working on
+  got streamed out to your .WFM. When you run the form the next time, you
+  will not start on Page 1. The fix for this is to ensure that no matter
+  what page you were working on, when the form opens, it starts on page 1.
+  This is best done in an OnOpen method for the form:
+
+   PROCEDURE OpenIt
+     form.PageNo = 1
+     *-- any other code you need 
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author, who
+    retains all rights to the document.
+    
+         Copyright 1995, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+
+  Sample Code
+  -----------
+
+  You can COPY and Paste the following two sample forms into their own
+  .WFM files, to see the code discussed here in action. It is a good idea
+  to copy these to either the SAMPLES directory that is normally installed
+  with Visual dBASE, or to some temporary or other directory. 
+  
+     ----------------------------------------------------------
+     NOTE: If you did a minimal install of Visual dBASE, these
+     forms will not work, as the rely on BUTTONS.CC, which is
+     installed into the SAMPLES directory. 
+     ----------------------------------------------------------
+
+  These are _VERY_ simple forms:
+
+* 8<------------------------------- Cut Here -------------------------->8
+  ***** MULTIPG1.WFM -- This one uses a TabBox Control
+  ** END HEADER -- do not remove this line*
+  * Generated on 08/25/95
+  *
+  parameter bModal
+  local f
+  f = new MULTIPG1FORM()
+  if (bModal)
+     f.mdi = .F. && ensure not MDI
+     f.ReadModal()
+  else
+     f.Open()
+  endif
+  CLASS MULTIPG1FORM OF FORM
+     this.HelpId = ""
+     this.HelpFile = ""
+     this.Text = "Multi"
+     this.Left = 31.833
+     this.PageNo = 1
+     this.Top = 3.7646
+     this.ColorNormal = "BTNTEXT/BTNFACE"
+     this.Height = 11.8818
+     this.TopMost = .F.
+     this.Width = 60
+     this.OnOpen = class::OpenIt
+
+     DEFINE RECTANGLE RECTANGLE1 OF THIS;
+         PROPERTY; 
+           Text "",;
+           Left 11.1641,;
+           PageNo 0,;
+           BorderStyle 2,;
+           Top 0.5293,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .T.,;
+           Height 2.7051,;
+           Width 40.502
+     DEFINE TEXT TITLE OF THIS;
+         PROPERTY; 
+           Text "Multi-Page Form Example",;
+           Left 13.3311,;
+           PageNo 0,;
+           Top 1.1758,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           FontSize 14,;
+           FontBold .F.,;
+           Border .F.,;
+           Height 1.3535,;
+           Width 37.6689
+     DEFINE TEXT PAGE1TEXT OF THIS;
+         PROPERTY; 
+           Text "This is page number 1",;
+           Left 19.1641,;
+           PageNo 1,;
+           Top 3.8223,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .F.,;
+           Height 1.001,;
+           Width 22.6689
+     DEFINE TEXT PAGE2TEXT OF THIS;
+         PROPERTY; 
+           Text "This is page 2 of the form.",;
+           Left 16.332,;
+           PageNo 2,;
+           Top 4.0586,;
+           ColorNormal "w/g",;
+           Border .F.,;
+           Height 0.7646,;
+           Width 25.334
+     DEFINE SHAPE SHAPE1 OF THIS;
+         PROPERTY; 
+           PenWidth 2,;
+           Left 21.832,;
+           PageNo 2,;
+           Top 5.0586,;
+           ColorNormal "G/0x80ff",;
+           Height 2.9414,;
+           Width 17.501,;
+           ShapeStyle 2
+     DEFINE TEXT PAGE3TEXT OF THIS;
+         PROPERTY; 
+           Text "This is the third and final screen.",;
+           Left 15,;
+           PageNo 3,;
+           Top 3.8223,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .F.,;
+           Height 0.7656,;
+           Width 31.666
+     DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+         PROPERTY; 
+           Left 24.165,;
+           PageNo 3,;
+           Top 5.4688,;
+           Height 1.5313,;
+           Width 14.168,;
+           Group .T.
+     DEFINE TABBOX TABBOX1 OF THIS;
+         PROPERTY; 
+           ID 107,;
+           PageNo 0,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           DataSource "ARRAY {'Page 1','Page 2','Page 3'}",;
+           OnSelChange class::PageChange
+     PROCEDURE OpenIt
+        form.PageNo = 1
+     PROCEDURE PageChange
+       form.PageNo = form.TabBox1.CurSel
+       *-- deal with page colors
+       do case
+         case form.PageNo = 1
+            cForeGround = "N"
+            cBackground = "BTNFACE"
+          case form.PageNo = 2
+            cForeGround = "W"
+            cBackGround = "G"
+         otherwise && page 3
+            cForeGround = "W"
+            cBackGround = "B"
+      endcase
+      cFormCol    = cForeGround+"/"+cBackGround
+      form.ColorNormal             = cFormCol
+      form.Rectangle1.ColorNormal  = cFormCol
+      form.Title.ColorNormal       = cFormCol
+      form.Page1Text.ColorNormal   = cFormCol
+      form.Page2Text.ColorNormal   = cFormCol      
+      form.Page3Text.ColorNormal   = cFormCol
+  ENDCLASS
+* 8<----------------------------- To Here ----------------------------->8
+
+  ************************************************
+  ****** End of the First form, here's the second:
+  ************************************************
+
+* 8<------------------------------- Cut Here -------------------------->8
+  ***** MULTIPG2.WFM -- This one has PushButtons
+  #define LASTPAGE 3      && define the last page constant
+
+  ** END HEADER -- do not remove this line*
+  * Generated on 08/25/95
+  *
+  parameter bModal
+  local f
+  f = new MULTIPG2FORM()
+  if (bModal)
+     f.mdi = .F. && ensure not MDI
+     f.ReadModal()
+  else
+     f.Open()
+  endif
+  CLASS MULTIPG2FORM OF FORM
+     this.HelpId = ""
+     this.HelpFile = ""
+     this.Text = "Multi"
+     this.Left = 31.833
+     this.PageNo = 1
+     this.Top = 3.7646
+     this.ColorNormal = "BTNTEXT/BTNFACE"
+     this.Height = 11.8818
+     this.TopMost = .F.
+     this.Width = 60
+     this.OnOpen = CLASS::OpenIt
+
+     DEFINE RECTANGLE RECTANGLE1 OF THIS;
+         PROPERTY; 
+           Text "",;
+           Left 11.165,;
+           PageNo 0,;
+           BorderStyle 2,;
+           Top 0.5293,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .T.,;
+           Height 2.7051,;
+           Width 40.501
+     DEFINE TEXT TITLE OF THIS;
+         PROPERTY; 
+           Text "Multi-Page Form Example",;
+           Left 13.332,;
+           PageNo 0,;
+           Top 1.1758,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           FontSize 14,;
+           FontBold .F.,;
+           Border .F.,;
+           Height 1.3535,;
+           Width 37.668
+     DEFINE TEXT Page1Text OF THIS;
+         PROPERTY; 
+           Text "This is page number 1",;
+           Left 19.165,;
+           PageNo 1,;
+           Top 3.8223,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .F.,;
+           Height 1.001,;
+           Width 22.668
+     DEFINE TEXT Page2Text OF THIS;
+         PROPERTY; 
+           Text "This is page 2 of the form.",;
+           Left 16.333,;
+           PageNo 2,;
+           Top 4.0586,;
+           ColorNormal "w/g",;
+           Border .F.,;
+           Height 0.7646,;
+           Width 25.333
+     DEFINE SHAPE SHAPE1 OF THIS;
+         PROPERTY; 
+           PenWidth 2,;
+           Left 21.833,;
+           PageNo 2,;
+           Top 5.0586,;
+           ColorNormal "G/0x80ff",;
+           Height 2.9414,;
+           Width 17.5,;
+           ShapeStyle 2
+     DEFINE TEXT Page3Text OF THIS;
+         PROPERTY; 
+           Text "This is the third and final screen.",;
+           Left 15,;
+           PageNo 3,;
+           Top 3.8232,;
+           ColorNormal "BTNTEXT/BTNFACE",;
+           Border .F.,;
+           Height 0.7646,;
+           Width 31.666
+     DEFINE CLOSEBUTTON CLOSEBUTTON1 OF THIS;
+         PROPERTY; 
+           Left 24.166,;
+           Top 5.4697,;
+           Height 1.5303,;
+           Width 14.167,;
+           Group .T.,;
+           PageNo 3
+     DEFINE NEXTBUTTON NEXTPAGE OF THIS;
+         PROPERTY; 
+           Left 33.832,;
+           PageNo 0,;
+           Top 8.2344,;
+           OnClick CLASS::NextPage_OnClick,;
+           Height 1.5303,;
+           Width 14.168,;
+           Group .T.
+     DEFINE PREVBUTTON PREVIOUSPAGE OF THIS;
+         PROPERTY; 
+           Enabled .F.,;
+           Left 15.165,;
+           PageNo 0,;
+           Top 8.2344,;
+           OnClick CLASS::PreviousPage_OnClick,;
+           Height 1.5303,;
+           Width 14.168,;
+           Group .T.
+     PROCEDURE OpenIt
+        *-- Always start on page 1
+        form.PageNo = 1
+        *-- Disable the "Previous Page" button
+        form.PreviousPage.Enabled = .f.
+        *-- Make sure that the "Next Page" button is enabled
+        form.NextPage.Enabled     = .t.
+     PROCEDURE NextPage_OnClick
+        *-- Increment the page number
+        form.PageNo = form.PageNo + 1
+        *-- Execute the PageChange() method
+        class::PageChange()
+     PROCEDURE PreviousPage_OnClick
+        *-- Decrement the page number
+        form.PageNo = form.PageNo - 1
+        *-- Execute the PageChange() method
+        class::PageChange()
+     PROCEDURE PageChange
+        *-- deal with page (next/previous) buttons
+        form.PreviousPage.Enabled = iif(form.PageNo=1,.f.,.t.)
+        form.NextPage.Enabled     = iif(form.PageNo=LASTPAGE,.f.,.t.)
+        *-- deal with page colors
+        do case
+           case form.PageNo = 1
+              cForeGround = "N"
+              cBackground = "BTNFACE"
+           case form.PageNo = 2
+              cForeGround = "RG+"
+              cBackGround = "G"
+           otherwise && page 3
+              cForeGround = "W"
+              cBackGround = "B"
+        endcase
+        cFormCol    = cForeGround+"/"+cBackGround
+        form.ColorNormal             = cFormCol
+        form.Rectangle1.ColorNormal  = cFormCol
+        form.Title.ColorNormal       = cFormCol
+        form.Page1Text.ColorNormal   = cFormCol
+        form.Page2Text.ColorNormal   = cFormCol
+        form.Page3Text.ColorNormal   = cFormCol
+  ENDCLASS
+* 8<----------------------------- To Here ----------------------------->8
+
+** EOHT ------------- KJM  08/30/1995

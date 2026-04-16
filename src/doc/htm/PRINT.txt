@@ -1,0 +1,137 @@
+*PRINT.HOW
+HOW TO get Crystal reports to accept any SET FILTER/SET KEY
+       commands issued by your program or users.
+Original  :11/14/95
+Revision  :11/16/95 1.revision
+Revision  :11/20/95 2.revision
+Revision  :12/03/95 2.revision
+Author: Romain Strieff 71333,2147
+-----------------------------------------------------------------------
+One of the biggest problem any new user of VdB has is to print only  
+parts of a file with CRW. Your application lets the user SET FILTER 
+or SET KEY or mark some records, but when you try to print these, 
+CRW insists on printing the whole file. 
+
+Now a very simple workaround would be to copy all the records to a 
+temporary file and run the reports based on this file, but this takes
+too much time on big files and even on small ones it's not very fast.
+
+Here is another approach which needs these 2 facts:
+
+  ---------------------------------------------------------------------
+  1. We have to set SESSIONS off in the VdB menu:
+  PROPERTIES | DESKTOP PROPERTIES | FILES
+  ---------------------------------------------------------------------
+  2. We have to base _all_ our reports on a QBE rather than a DBF.
+  ---------------------------------------------------------------------
+  These are an absolute necessity! Meaning that even reports based on
+  a single DBF have to use a QBE which you can create quite easily.
+  
+The real problem with CRW is that it _executes_ the QBE it is based on 
+during Runtime. Now if we examine a QBE created by VdB we see the 
+following code on the second line:
+
+     * Visual dBASE .QBE file 9
+     CLOSE DATABASES              &&<---this is the culprit
+     
+This line closes all open database and thus destroys your painfully 
+created Filter conditions and record selections. 
+
+How can we stop CRW from doing this?
+The answer is simple: We remove this line!
+
+Now the rest of the QBE contains other lines that will overwrite our files.
+     * Visual dBASE .QBE file 9
+     CLOSE DATABASES                    
+     SELECT 1                           
+     USE ANALYSES.DBF             &&this closes and reopens a file too
+     
+The answer: Remove ALL the lines of the QBE!
+
+This leads us to the problem that our application (which is based on the
+same QBE) won't open any files either so we need another trick to fool CRW.
+
+We base our report on a COPY of the real thing!
+
+  Example:
+
+  1. Now you are using _One_ QBE for your application
+      _and_ your report, let's call it APP.QBE
+
+  2. Copy APP.QBE to REP.QBE 
+
+  3. Change your report and base it on REP.QBE instead of APP.QBE 
+     and save report.
+     modi comm myrep
+     DATABASE | SET LOCATION
+     click [SET LOCATION] button
+     change LIST FILES OF TYPE from CURRENT FILE to ALL FILES
+     select desired QBE
+     click [SAME AS REPORT] button
+     save report
+
+  4. Open REP.QBE and remove any lines containing code
+     EXAMPLE:
+     ----------------------------------------------------
+     * Visual dBASE .QBE file 9
+     CLOSE DATABASES                    &&REMOVE THIS LINE
+     SELECT 1                           &&REMOVE THIS LINE
+     USE ANALYSES.DBF                   &&REMOVE THIS LINE
+     SELECT 2                           &&REMOVE THIS LINE 
+     USE DOCTORS.DBF                    &&REMOVE THIS LINE 
+     SELECT 1                           &&REMOVE THIS LINE
+     -----------------------------------------------------------
+
+  5. Now Add some comments to REP.QBE to remind you what it's for.
+      *--------------------------------------------------- 
+      * Visual dBASE .QBE file 9
+      * used as DUMMY for report myrep.rep
+      * uses code from APP.QBE
+      *---------------------------------------------------
+      *Uncomment the following line for changing report
+      *DO APP.QBE
+      *---------------------------------------------------
+
+      So if you want to modify the report you only have to remove
+      the '*' preceding the line DO APP.QBE
+   
+   
+  That's all!
+
+  Now remember that if you print reports, you'll share the session
+  with your application so we have to set everything back after
+  reporting!
+
+  PROCEDURE printbutton_onclick
+  sRef= form.refreshAlways
+  form.refreshAlways=.f.
+  nRec=recno() &&save current record position
+  mykey=form.entryfield1.value
+  SET KEY TO "&mykey."
+  go top
+  set lock off     &&print anyway, even if somebody else edits a record
+  report form myrep to printer  
+  set lock on
+  SET KEY TO
+  go nRec      &&goto saved record 
+  form.refreshAlways=sRef
+------------------------------------------------------------------------  
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------

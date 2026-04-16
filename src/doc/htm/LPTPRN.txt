@@ -1,0 +1,306 @@
+*LPTPRN.HOW
+HOW TO print Files, Strings and ESC sequences with Visual dBase
+
+Original :11/21/95
+Revision :12/03/95 Revision 1
+
+
+Author: Romain Strieff 71333,2147
+------------------------------------------------------------------
+When I first worked with Visual dBase there was a feature that didn't work
+the way I was used to from the DOS versions. This was the direct printer
+command ??? which in the DOS environment circumvented the active printer
+driver and printed directly to the active printer port.
+
+Due to limitations of the Windows environment this does not work any more.
+Windows printer drivers mostly 'eat' Escape sequences and the workarounds 
+are not always working, due to driver restrictions and some bugs in Windows.
+
+Now we could use some Windows API functions, but here the same problem
+arises. We could use the Winapi function SPOOLFILE(), but it has its 
+limitation too. The SPOOLFILE() API function needs the print spooler to
+be active and additionally a known bug will generate a General Protection
+Fault if the application that issues this function terminates before 
+the spooler has finished printing.
+
+Another Windows API function that would allow us to send data unchanged
+through the printer driver, PASSTHROUGH() is unfortunately not implemented
+in every printer driver so we can't use it either.
+
+So the only workable solution is to encapsulate everything needed in a 
+VdB PRINTER Class that uses the built-in low level file functions.
+
+Now I'm sure a lot of you have already tried to do this and got surprised
+by the error that an low level opening of LPT1 generates:
+ 
+     nHandle=fopen("LPT1","RW") &&generates ILLEGAL FILENAME error
+     
+This can easily be solved by CREATING a file instead of trying to open it.
+
+     nHandle=fcreate("LPT1","RW") &&works all right
+
+Now we'll create a PRINTER class with 2 methods only, one to send a complete
+file, and another one to send single strings.
+
+This would be all the needed code to print a complete file to the printer,
+bypassing all printer driver.
+
+
+ Here's an example that would print the AUTOEXEC.BAT in Landscape
+ mode on a HP Laserjet compatible printer
+
+ x=NEW printer()
+ *x.LPT="LPT2" &&if you wanted to print to LPT2
+ x.StringPrint(CHR(27)+"&l1O") &&Landscape ESC sequence
+ x.FilePrint("c:\autoexec.bat")
+ x.StringPrint(CHR(12)+CHR(27)+"E")&&Eject and Reset printer
+ release x
+
+
+ *--------------------------------------------------------------
+ *This class encapsulates all the needed code for printing
+ *Strings and complete files to the desired LPT port
+ *--------------------------------------------------------------
+ CLASS PRINTER
+ This.Printfile=""
+ This.PrintString=""
+ This.LPT="LPT1"
+ This.FileToPrintHandle=0
+ This.PrinterHandle=0
+ *--------------------------------------------------------------
+ PROCEDURE FilePrint(cPrintFile)
+ This.PrintFile=cPrintfile
+ *this method sends a complete file to the printer
+    if .not. file(This.Printfile)
+       ?? chr(7)
+       msgbox("File "+This.Printfile+" not found!","Error!")
+       This.PrintFile=""
+       RETURN
+    endif
+ 
+    *Open file to print
+    This.FileToPrintHandle=fopen(This.Printfile,"R")
+ 
+    if .not. This.FileToPrintHandle>0
+       ?? chr(7)
+       msgbox("File "+This.Printfile+" could not be opened!","Error!")
+       RETURN
+    endif
+ 
+    *open printer
+    This.PrinterHandle=fcreate(This.LPT,"RW")
+ 
+    if .not. This.PrinterHandle>0
+       ?? chr(7)
+       msgbox("Could not open "+This.LPT+"!","Error!")
+       if This.FileToPrintHandle>0
+          fclose(This.FileToPrintHandle)
+       endif
+       RETURN
+    endif
+ 
+    If This.PrinterHandle>0 .and. This.FileToPrintHandle>0
+       do while .not. feof(This.FileToPrintHandle)
+          This.PrintString=fread(This.FileToPrintHandle,32766)
+          fwrite(This.PrinterHandle,This.PrintString)
+       enddo
+    endif
+    Fclose(This.PrinterHandle)
+    Fclose(This.FileToPrintHandle)
+    This.PrintString       =""
+    This.FileToPrintHandle =0
+    This.PrinterHandle     =0
+ 
+  *--------------------------------------------------------------
+ PROCEDURE StringPrint(cString)
+ This.PrintString=cString
+ *this method sends a single String to the printer
+    This.PrinterHandle=fcreate(This.LPT,"RW")
+    if .not. This.PrinterHandle>0
+       ?? chr(7)
+       msgbox("Could not open "+This.LPT+"!","Error!")
+       This.PrintString=""
+       RETURN
+    else
+       fwrite(This.PrinterHandle,This.PrintString)
+       fclose(This.PrinterHandle)
+       This.PrinterHandle=0
+       This.PrintString=""
+    endif
+ ENDCLASS 
+*---------------------------------------------------------------
+
+
+Now sometimes we want to print the same thing to a local printer 
+and unfortunately the only port the local machine owns, has been
+redirected to the network. So everything we try to send to that
+LPT port (normally LPT1) is captured and sent to the network
+printer. Now we could leave VdB and Windows to switch off the
+capturing or run CAPTURE in a DOS window but there really is a
+much simpler way to do this. We only need 4 API calls that normally
+are only used for the commports.(COM1-COM4) These work nicely for
+the printer ports too.
+
+ extern  chandle   opencomm ( cstring,cint,cint ) user
+ extern  cint      writecomm ( chandle,cptr,cint ) user
+ extern  cint      closecomm ( chandle ) user
+ extern  cint      getcommerror ( chandle,cptr ) user
+
+I think the names of the functions speak for themselves and I won't
+bother to explain them. They are used much like their low level
+cousins we saw in the example before.
+Here's a complete working class for using this:
+
+ Here's an example that would print the AUTOEXEC.BAT in Landscape
+ mode on a HP Laserjet compatible printer at the LOCAL LPT port
+ even if this one has been captured.
+
+ x=NEW WriteLPT()
+ *x.LPT="LPT2" &&if you wanted to print to LPT2
+ x.StringPrint(CHR(27)+"&l1O") &&Landscape ESC sequence
+ x.FilePrint("c:\autoexec.bat")
+ x.StringPrint(CHR(12)+CHR(27)+"E")&&Eject and Reset printer
+ release x
+ 
+ *--------------------------------------------------------------
+ *This class encapsulates all the needed code for printing
+ *Strings and complete files to the desired LOCAL! LPT port
+ *even if this port is CAPTUREd by a network.
+ *--------------------------------------------------------------
+ CLASS WriteLPT
+    this.PrintFile=""
+    this.LPT="LPT1"
+    this.API=CLASS::SetApi()
+   
+ Procedure FilePrint(cFile)
+ This.PrintFile=cFile
+ if type("this.PrintFile")="C" .and. file(This.PrintFile)
+    class::lprint()
+ else
+    if type("this.PrintFile")="C"   
+        msgbox("FILE: "+this.PrintFile+" not found!","ERROR")
+    endif
+ endif
+
+ Procedure SetApi
+ extern  cint      writecomm ( chandle,cptr,cint ) user
+ extern  chandle   opencomm ( cstring,cint,cint ) user
+ extern  cint      closecomm ( chandle ) user
+ extern  cint      getcommerror ( chandle,cptr ) user
+
+    
+ Procedure StringPrint(cString)
+ 
+ private nHandle,nError,nMess,lRet
+
+ lret=.t.
+ nhandle=opencomm(this.lpt,0,0)
+ if nhandle>0
+   *always use GetCommError first
+   nerror=GetCommError(nhandle,0)
+
+   lLoop=.t.
+   do while lLoop
+      nwritten=writecomm(nhandle,cstring,len(cstring))
+      *check if string was only partially written
+      if .not. nWritten=len(cString)
+         *remove part already printed
+         cString=right(cString,len(cString)-nWritten)
+      endif
+      *check for error
+      nError=getcommerror(nhandle,0)
+      
+      if nError>0
+         cMessage=class::print_error(nerror)
+         ?? chr(7)
+         *if user selects CANCEL, move out of loop
+         *otherwise we retry to print
+         if  msgbox(cMessage,"ERROR!",21)=2
+            lRet=.f.
+            lLoop=.f.
+         endif
+      else
+         lLoop=.f.
+         
+      endif
+      
+   enddo
+ CloseComm(nHandle)
+ else
+   msgbox("Unable to open Printer Port! Quit Program and restart Windows!","ERROR",0)
+   
+ endif && nhandle>0
+ Return lRet
+
+ procedure print_error(nerror)
+ do case
+ case nerror=256
+   cMess="Printer Buffer exceeded!"
+ case nerror=512
+   cMess="Printer Timeout!"
+ case nerror=1024
+   cMess="Printer I/O error!"
+ case nerror=2048
+   cMess="Print device not selected!"
+ case nerror=4096
+   cMess="Printer offline or out of paper!"
+ otherwise
+   cMess="Unknown printer error!"
+ endcase
+ return cMess
+
+ Procedure lPrint
+ 
+ *this method will print a complete file
+ *Check length of file to read
+ nLength=fsize(this.PrintFile)
+ *Open the file with the low level Function FOPEN()
+ nPhandle=fopen(this.PrintFile,"R")      &&open file read-ONLY
+
+ *Now check if we were able to get a filehandle 
+ if nPhandle>0  &&opening low level worked
+     
+  nCounter=0         &&will count the bytes processed
+  do while .not. feof(nPhandle)    &&loop through file
+      &&now read and put the contents in a Variable
+      cString=fread(nPhandle,32766) &&maximum width of a variable
+      nCounter=nCounter+len(cString)
+
+        if .not. class::stringprint(cString) 
+           exit
+        endif
+      
+   enddo && while .not. feof(nInPhandle) 
+
+   *close the files with low level Function FCLOSE()
+   lVoid=fclose(nPhandle)
+
+ else
+   ?? chr(7)
+   msgbox("Problems with opening file!","ERROR!",0)
+   
+ endif && nPhandle>0 
+
+ ENDCLASS
+*------------------------------------------------------------------
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------
+
+     

@@ -1,0 +1,1096 @@
+ *-- ARRAY2.HOW
+ *-- 03/19/1996 -- Ken Mayer (CIS: 71333,1030)
+ 
+ -------------------------------------
+ ARRAYS (Intermediate) in Visual dBASE
+ -------------------------------------
+ This HOW TO document is aimed at: 
+ 
+ 1) Examining OOP methods of working with Arrays;
+ 2) Examining the use of Arrays with user-interface objects;
+
+ If you're looking for some basics on what an array is, or some other
+ aspects of arrays not covered in this HOW TO file, download 
+ ARRAY1.HOW in the same place you found this document and/or check
+ the Language Reference or online Help.
+ 
+ 
+ ----------------------------------------------
+ Object-Oriented Methods of Working with Arrays
+ ----------------------------------------------
+ If you read ARRAY1.HOW, or have worked with arrays previously (either
+ in dBASE or in other programming languages) you will have a basic
+ understanding of how arrays work. It is important that you understand
+ that arrays are objects in Visual dBASE. As such, all of the usual
+ methods of working with and manipulating objects work as they do for
+ other objects in Visual dBASE.
+
+    --------------------------------------------------------------------
+    NOTE: For more information on Object-Oriented Programming
+    and Visual dBASE, download OOP.HOW from library 10 (Knowledgebase)
+    of the VDBASE forum on Compuserve. Also take a look at CLASS.HOW
+    in the same library/forum.
+    --------------------------------------------------------------------
+ 
+ Nearly all of the methods discussed in this .HOW file have 
+ corresponding dBASE Functions (usually the same name with "A"
+ tacked onto the front of the method name). 
+
+ Arrays, like all objects, have methods associated with them. 
+ I will cover these methods in groups, based on their purposes, and
+ will attempt to cover the corresponding functions for those more
+ comfortable with using functions.
+
+ In a couple of cases, I will discuss a function that does not have 
+ an associated method. The main difference is that a method is 
+ called this way: 
+
+   aArrayName.methodname(parameters)
+
+ While a function is called this way:
+
+   aFunction(aArrayName,parameters)
+ 
+    --------------------------------------------------------------------
+    NOTE: In an attempt to make this as useful as possible, there
+    are a couple of quick and dirty routines at the end of this
+    .HOW used to display the contents of an array. The first is
+    ONLY useful for single-column arrays. The second should not be used
+    for single-column arrays due to the method used to determine the
+    array's size. To use either of them -- copy them out of this 
+    document by either re-entering them or using Windows' clipboard and
+    save them as programs ...:
+       do show1 with "aCity"
+       do show2 with "aCity"
+    --------------------------------------------------------------------
+
+ ------------------------------------- 
+ Instantiating an Array (Creating One)
+ -------------------------------------
+ The "NEW"/OOP method
+ --------------------
+ The simplest method of creating an array in Visual dBASE is to use
+ the NEW method --
+
+    aMyArray = new array()
+
+ This tells dBASE that "aMyArray" will be an array, with all of the
+ methods associated with one, but it does _not_ give any sort of
+ starting values (number of rows, columns, dimensions ...).
+
+ You can get more explicit, and tell dBASE that your array will start
+ with 10 rows and 2 columns, by using:
+
+    aMyArray = new array(10,2)
+
+ The Procedural Method
+ ---------------------
+ To do this using the older procedural code, you would use:
+
+    declare aMyArray[10,2]
+
+ The advantage to the first method is that it is object-oriented, and
+ the longer you use Visual dBASE, the more you will find yourself using
+ these forms of coding syntax.
+ 
+ The Literal Array Method
+ ------------------------
+ You can also define an array this way (which is useful for one-
+ dimensional arrays -- i.e., one column, but not for multi-dimensional),
+ if you know what the values will be in advance:
+
+    aMyArray = {"element1","element2","element3","etc."}
+ 
+
+ ----------------------------
+ Placing Elements In An Array
+ ----------------------------
+ Placing elements in an array can be as easy as assigning values like 
+ you would any other memory variable, or as complicated as scanning a 
+ table and obtaining the needed values. This section of the HOW TO file 
+ will cover as many variations as the author can think of.
+
+ The ADD() Method
+ ----------------
+ This is the most elegant way to add elements to a one-dimensional  
+ (single-column) array. The array must already be instantiated (using 
+ one of the methods shown above), but once you have done this, you can 
+ add elements very easily:
+
+    aMyArray.Add("value")
+
+ Where "value" is the value you wish to add to the array (note: a value
+ in this example may be character, numeric, logical, date, array ...).
+
+ If you have an array that contains a list of cities, for example,
+ you might want to add another city to the list. Assume the following
+ array (called aCity):
+                
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   Miami
+        Row 4   New York
+
+ To add "Sydney" to the list:
+
+    aCity.Add("Sydney")
+
+ When this has been executed, the array will now look like:
+
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   Miami
+        Row 4   New York
+        Row 5   Sydney
+
+  The GROW Method (array.Grow() and aGrow() )
+  -------------------------------------------
+  If you have a multi-columnar array, the Add method will not work
+  properly. It will allow you to add items in the first column, but
+  not any others. You should consider, instead, using the GROW()
+  method to handle this.
+
+  Syntax: arrayname.Grow(<type>)
+          where <type> = 1 for a row
+                         2 for a column
+
+  Example -- if we have this array:
+
+                Column 1        Column 2
+        Row 1   San Francisco   4,000,000
+        Row 2   Los Angeles    10,000,000
+        Row 3   Miami           8,000,000
+        Row 4   New York       25,000,000
+
+  And we want to add elements to both columns:
+
+    aCity.Grow(1)   && add a row
+    aCity[5,1] = "Sydney"
+    aCity[5,2] = " 2,000,000"
+
+  Reminder -- the ROW is the first part of the subscript, and the
+  COLUMN is the second. In a situation like this, if you do not know
+  how many rows are currently in the array, you might want to use
+  the function aLen(), to ensure you are in the correct row:
+
+    aCity.Grow(1)        && add a row
+    nRow = aLen(aCity,1) && number of rows in array
+    aCity[nRow,1] = "Sydney"
+    aCity[nRow,2] = " 2,000,000"
+
+  Which would give us an array that looks like:
+
+                Column 1        Column 2
+        Row 1   San Francisco   4,000,000
+        Row 2   Los Angeles    10,000,000
+        Row 3   Miami           8,000,000
+        Row 4   New York       25,000,000
+        Row 5   Sydney          2,000,000
+
+ The GROW() method is useful as well if you wish to add a column
+ to your array. Backing this up a step, if we had aCity defined
+ as a single-column array:
+                
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   Miami
+        Row 4   New York
+        Row 5   Sydney
+ 
+ and we wanted to add a second column, we could do this by using
+ the GROW() method:
+
+    aCity.Grow(2)  && add a column
+
+ Of course, at this point, the array would look like:
+
+                Column 1         Column 2
+        Row 1   San Francisco      .f.
+        Row 2   Los Angeles        .f.
+        Row 3   Miami              .f.
+        Row 4   New York           .f.
+        Row 5   Sydney             .f.
+
+ Which means we would want to add data to the column. This could be
+ done with:
+
+    aCity[1,2] = "4,000,000"
+    aCity[2,2] = "10,000,000"
+    aCity[3,2] = "8,000,000"
+    aCity[4,2] = "25,000,000"
+    aCity[5,2] = "2,000,000"
+
+ This will give us the array:
+
+                Column 1        Column 2
+        Row 1   San Francisco   4,000,000
+        Row 2   Los Angeles    10,000,000
+        Row 3   Miami           8,000,000
+        Row 4   New York       25,000,000
+        Row 5   Sydney          2,000,000
+
+
+ The INSERT() Method (and aInsert() ) 
+ ------------------------------------
+ Sometimes it is desireable to add an element to an array at a
+ location other than the end of the array.
+
+ To do this, you would want to use the INSERT method to place 
+ the element(s) into the array at the appropriate location(s).
+
+  Syntax: arrayname.Insert(<position>[,<type>])
+          where <position> = position you wish to insert _at_
+                <type>     = 1 for a row (optional for a row)
+                             2 for a column
+
+ Working with a single column array, assuming your array looked
+ like the following:
+
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   New York
+        Row 4   Sydney
+
+ And you wanted to insert a row at 3, that contained "Miami":
+
+    aCity.Insert(3)  
+
+ This will give you an array that looks like:
+
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   .f.
+        Row 4   New York
+
+
+ And then you would need to change the value of the element
+ in row 3:
+
+    aCity[3] = "Miami"
+
+ NOTE: the last row now contains "New York", and what you would expect
+ to be the last row, "Sydney" is missing. This is because the Insert()
+ method (and the AINSERT() function) literally insert something into
+ the current array, but do not resize it. This is as designed.
+
+ In order to make the array one row larger, as well as inserting a
+ row into the array, you would need to use the Grow() method (or AGROW()
+ function):
+
+    aCity.Grow(1)   && 1 for row, 2 for column
+    aCity.Insert(3) && new row at 3
+    aCity[3] = "Miami"
+
+ Which would produce:
+
+                Column 1
+        Row 1   San Francisco
+        Row 2   Los Angeles
+        Row 3   Miami
+        Row 4   New York
+        Row 5   Sydney
+
+ If you are working with a multi-column array, you might
+ wish to insert a new column into the array. This would be 
+ done in a similar fashion. If you had an array that looked
+ like:
+
+                Column 1        Column 2
+        Row 1   San Francisco   4,000,000
+        Row 2   Los Angeles    10,000,000
+        Row 3   Miami           8,000,000
+        Row 4   New York       25,000,000
+        Row 5   Sydney          2,000,000
+
+ And you wanted to shift column 2 to the right, making it
+ column 3, and have a new column 2 that you could use for
+ some other set of values:
+
+    aCity.Grow(2)     && add a new column
+    aCity.Insert(2,2) && insert a new column at column 2
+
+ This would give an array that looked like:
+
+                Column 1        Column 2     Column 3
+        Row 1   San Francisco      .f.        4,000,000
+        Row 2   Los Angeles        .f.       10,000,000
+        Row 3   Miami              .f.        8,000,000
+        Row 4   New York           .f.       25,000,000
+        Row 5   Sydney             .f.        2,000,000
+
+ And again, you could replace the values in the new column:
+
+   aCity[1,2] = whatever
+   etc.
+
+
+ FILL() (and aFill() )
+ ---------------------
+ Fill is used to place values into an array -- filling an array
+ with default values, for example. 
+
+  Syntax: arrayname.Fill(<value>[,<start>[,<numelements>]])
+          where <value>       = value to fill the array with
+                <start>       = (optional) start position
+                <numelements> = (optional) number of elements to fill
+
+ Example -- If you were using an array to total some values, you might 
+ want to default everything in the array to 0: 
+
+    aTotal = new array(20)
+    aTotal.Fill(0)
+
+ You can specify a starting location, so that if you only wanted
+ the last 15 elements to be filled, you could specify:
+
+    aTotal.Fill(0,6)  && start at element six
+
+ You can also specify the _number_ of elements to fill. If you 
+ wanted just the first five elements set to 0:
+
+    aTotal.Fill(0,1,5)
+ 
+
+ Directory Listings -- DIR() and DIREXT() (and the aDir()/aDirExt()
+ functions)
+ -----------------------------------------------------------------------
+ For some situations (we will look at ComboBoxes and Listboxes
+ in a bit), it is desirable to grab information from the directory.
+ You may wish to give your user an option to open a specific
+ table, for example. To do that, it is useful to give them a list
+ of all tables in the directory. 
+
+ This can be done with the DIR() (and if you're using Win 95,
+ the DIREXT()) method.
+
+  Syntax: arrayname.Dir(<skeleton>)
+               or
+          arrayname.DirExt(<skeleton>)
+          where <skeleton> = file skeleton -- you can specify the
+                             file type, for example, using standard
+                             DOS wildcards (*, ?).
+
+ Example:
+
+   aTables = new array()
+   aTables.Dir("*.DBF")
+
+ Will get you all the .DBF files in the current directory. The only
+ problem is, this will return the following columns:
+
+     1         2       3        4             5
+  Filename   Size     Date    Time        File Attributes (DOS)
+  Character  Numeric  Date    Character   Character
+
+ What if all you really wanted was the filenames?
+
+ One simple solution is to copy the elements from the first column
+ to another array:
+
+    aTable1 = new array()
+    aTable1.Dir("*.DBF")
+    aTable2 = new Array()
+    for nRow = 1 to aLen(aTable1,1)  && number of rows in first array
+        aTable2.Add(aTable1[nRow,1]) && add just the element in the
+                                     && first column
+    next
+
+ The second array will contain _only_ the file names.
+
+ If you're working with Windows 95, you may wish to allow the user to
+ see the "Long Filename". To get this information, instead of using the
+ DIR() method, use the DIREXT() method:
+
+   aTable1.DirExt("*.DBF")
+
+ This will return an array with the same information as the DIR()
+ method, but it will add additional columns to the right:
+
+       6                     7              8              9
+  Filename "Alias"       Date Created  Time Created   Last Access Date
+    DOS Filename         Date          Character      Date
+    (Short name)
+
+ The first column will hold the Windows 95 "long" filename. 
+
+ If you are developing a system where you do not know if it will be used
+ in Win 3.1 or Windows 95, one way to check for this is with:
+ 
+ fNameMax()
+
+ Under Windows 3.1, FNAMEMAX() returns a value of 12 (8.3 = 12). 
+
+ So, to make sure you are using the correct version:
+
+    if FNAMEMAX() > 12         && greater than 12, means Win 95
+       aTable1.DirExt("*.DBF")
+    else                       && otherwise, Win 3.1
+       aTable1.Dir("*.DBF")
+    endif
+
+
+ Storing the Records (or just certain fields) in a Table into an Array
+ ---------------------------------------------------------------------
+ COPY TO ARRAY <arrayname> [FIELDS <fieldlist>] [<scope>]
+ 
+ APPEND FROM ARRAY <arrayname> ...
+
+ REPLACE FROM ARRAY <arrayname>
+
+ These commands allow you to copy a record (or group of records) into
+ an array for processing, and to copy the contents of an array (back)
+ to a table.
+
+ There are two ways to copy data from a table to an array. 
+ If you define an array that is one dimensional, you will only copy one 
+ record to the array -- but you must define the number of fields to be 
+ copied -- for example, if you wanted just the first five fields:
+
+    aMyArray = new array(5)
+    copy to array aMyArray
+
+ Will copy the first five fields of the current record to the array
+ aMyArray. Note, that this effectively stores your record in 
+ a single column. 
+
+ If you define an array that has two columns (or more, but only two
+ will be used by this command), you must define the number of records
+ (which equates to the number of rows in the array) and the number
+ of fields (which equates to the number of columns in the array).
+
+ The commands:
+
+    aMyArray = new array(2,3)
+    copy to array aMyArray
+ 
+ will copy the first three fields of the current record and the
+ next record in the table (two records). This is different than
+ the first example, because dBASE actually stores the data in the
+ array as if it were a table -- the rows are the records, the 
+ columns are the fields (sort of like a BROWSE in dBASE).
+
+ If you wanted to copy all records and all fields in a table, you 
+ might want to use a combination of the RECCOUNT() and FLDCOUNT()
+ functions with the instantiation of the array:
+
+   aMyArray = new array(reccount(),fldcount())
+   copy to array aMyArray
+
+ In addition, you can specify specific fields to copy:
+
+   aMyArray = new array(reccount(),1) && record count, 1 column
+   copy to array aMyArray fields FirstName
+
+ You can also specify a "scope" with the "NEXT <n>" or 
+ "FOR <condition>" operators ...
+
+ There are quite a few options for this, check the Online Help
+ for COPY TO ARRAY.
+
+ Coding Your Own
+ ---------------
+ There are many ways to code a routine to fill an array. Below
+ are some examples:
+
+    scan
+       arrayname.Add(table->field)
+    endscan
+
+    do while .not. eof()
+       arrayname.Add(table->field)
+       skip
+    enddo
+
+    for i = 1 to somevalue
+        arrayname.Add(something)
+    next
+
+ -------------------------------
+ Removing Elements From An Array
+ -------------------------------
+ There are times when that you may want to delete an element, row, or 
+ column. There is a trick to this, because when you use the methods/
+ functions in dBASE to handle deleting of these (elements, columns and 
+ rows), dBASE moves the element/row/column to the end of the array, and 
+ replaces the element(s)'s values with .F. (in reality "empty" -- see 
+ discussions of the EMPTY() function in ARRAY1.HOW). If you delete an 
+ element/row/column in an array, then use the array sorting function/
+ method in dBASE, you may get an error.
+
+ To delete an element in a single-dimensional array:
+ ---------------------------------------------------   
+ Syntax: arrayname.Delete(<element>)
+          where <element> = element number to delete or
+                            if using optional type parameter
+                            the row or column to delete
+
+ For example, in the aCity array, which looks like:
+ 
+                      Column 1
+              Row 1   San Francisco
+              Row 2   Los Angeles
+              Row 3   New York
+              Row 4   Miami
+              Row 5   Sydney
+ 
+ If we wanted to remove the second element:
+
+    aCity.Delete(2)
+
+ The array would contain the following values _after_ executing this 
+ command:
+
+                      Column 1
+              Row 1   San Francisco
+              Row 2   New York
+              Row 3   Miami
+              Row 4   Sydney
+              Row 5   .f.
+
+ To delete a row (single or multiple dimensional array):
+ -------------------------------------------------------
+    arrayname.Delete(nRow,1)
+
+ Assuming a version of the aCity array that looked like:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+
+ To delete the second row of this array, the command:
+
+    aCity.Delete(2,1)
+
+ Would change the array to the following:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   New York        25,000,000
+              Row 3   Miami            8,000,000
+              Row 4   Sydney           1,000,000
+              Row 5   .f.              .f.
+
+ To delete a column (multiple columnar array):
+ ---------------------------------------------------------
+    arrayname.Delete(nColumn,2)  && 2 means "column"
+
+ Assuming the aCity array looks like:
+
+                      Column 1        Column 2      Column 3
+              Row 1   San Francisco    4,000,000       678
+              Row 2   Los Angeles     10,000,000       123
+              Row 3   New York        25,000,000       456
+              Row 4   Miami            8,000,000       678
+              Row 5   Sydney           1,000,000      1234
+
+ The command to delete the second column would be:
+
+    aCity.Delete(2,2)
+
+ Which would give us an array that looked like:
+
+                      Column 1        Column 2      Column 3
+              Row 1   San Francisco      678           .f.
+              Row 2   Los Angeles        123           .f.
+              Row 3   New York           456           .f.
+              Row 4   Miami              678           .f.
+              Row 5   Sydney            1234           .f.
+ 
+ Removing the deleted elements/rows/columns of the array:
+ --------------------------------------------------------
+ In all three cases shown, the problem is, as noted, the element/row/
+ column deleted will still exist in the array.
+ 
+ So, you then use the aReSize function/method:
+ 
+ Syntax: arrayname.Resize(<numrows>[,<numcolumns>])
+          where <numrows>    = new number of rows for array
+                <numcolumns> = (optional) new number of columns
+                               for array, if multi-column array.
+                               If using this optional parameter,
+                               the number of rows parameter _must_
+                               have a value greater than zero.
+
+ The following examples are combined code for the previous examples:
+
+ Removing an element from a single-dimension array:
+    aCity.Delete(2)
+    nRows = aLen(aCity,1)
+    aCity.Resize(nRows-1)
+
+ Removing a row of a multi-column array:
+
+    aCity.Delete(2,1)
+    nRows = aLen(aCity,1)
+    aCity.Resize(nRows-1)
+
+ Removing a column from a multi-column array:
+
+    aCity.Delete(2,2)
+    nColumns = aLen(aCity,2)
+    nRows    = aLen(aCity,1)
+      ** Note, the ROWS parameter here   
+      ** _must_ contain a value > 0.
+    aCity.Resize(nRows,nColumns-1)
+
+
+ ----------------
+ Copying An Array
+ ----------------
+ Sometimes it is useful to copy the contents of an array. With a little
+ thought you can probably come up with a few situations where this would
+ be useful, including, but not limited to, keeping a "backup" of the
+ original, in case the user does something truly weird to the data.
+
+ The dBASE function aCopy() is useful here, as it allows you to copy
+ the contents of one array to another. The simplest way to do this is  
+ to ensure that the "target" array has been instantiated and is big 
+ enough to hold the contents of the first.
+
+ Syntax: aCopy(<SourceArray>,<TargetArray>)
+          where <SourceArray> = the array you are copying from
+                <TargetArray> = the array you are copying to
+
+ If you are copying a one-dimensional array:
+
+    nRows = aLen(aCity,1)
+    aBackup = new array(nRows) 
+    aCopy(aCity,aBackup)
+
+ If you need to copy a multi-column array:
+
+    nRows = aLen(aCity,1)
+    nCols = aLen(aCity,2)
+    aBackup = new array(nRows,nCols)
+    aCopy(aCity,aBackup)
+
+ In some situations, you may want to only copy some of the data from
+ one array to another. The aCopy() function has parameters to handle
+ this (see the Language Reference for details). In addition, you may
+ simply wish to code your own routine. One file in the VDBASE forum on
+ Compuserve that does a lot of this type of manipulation is MOVERW.ZIP
+ (Library 7). It basically uses a pair of listbox controls on a form,
+ with arrays for the datasource. The user has the option to move items
+ from the first list to the second, and back again ...
+
+ ------------------
+ Searching An Array
+ ------------------
+ The ability to search an array to find an element can be very useful.
+ In Visual dBASE, this is done with the SCAN() method (or the ASCAN()
+ function).
+
+ Basically, this method returns the element of the item you are scanning
+ for, if it is contained in the array.
+
+ Syntax: arrayname.scan(<itemtofind>)
+          where <itemtofind> = item being searched for.
+
+ For example, if you wanted to look in the (one-column version of the) 
+ aCity array for the city "Miami", the scan() method can tell you which 
+ row it is in:
+
+    nFoundRow = aCity.Scan("Miami")
+    ? aCity[nFoundRow]
+
+ The SCAN() method is case-sensitive. 
+ 
+ If you are using this with a multi-column array, it gets more complex,
+ as you will be given the element number, not the row. To make this
+ easier, you can combine the returned value with the SUBSCRIPT() method.
+ 
+    nElement = aCity.Scan("Miami")
+    nRow     = aCity.Subscript(nElement,1)
+    nColumn  = aCity.Subscript(nElement,2)
+    ? aCity[nRow,nColumn]
+
+
+ ----------------
+ Sorting An Array
+ ----------------
+ Sometimes the data entered into an array is in a jumble, and you
+ want it sorted.
+
+ Syntax: arrayname.sort([<column>])
+      where <column> = (optional) column to sort on. If left blank,
+                       the sort method will sort on the first column.
+
+ Example:
+
+   aCity.Sort()
+
+ This sorts the array aCity on the first column. If there are
+ more columns, the rows will all move with the elements in the
+ first column.
+ 
+ Assume the following array _before_ the sort:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+
+ And after: 
+
+                      Column 1        Column 2
+              Row 1   Los Angeles     10,000,000 
+              Row 2   Miami            8,000,000
+              Row 3   New York        25,000,000
+              Row 4   San Francisco    4,000,000
+              Row 5   Sydney           1,000,000
+
+ To sort on the _second_ column:
+
+   aCity.Sort(2)
+
+ Which would give us:
+
+                      Column 1        Column 2
+              Row 1   Sydney           1,000,000
+              Row 2   San Francisco    4,000,000
+              Row 3   Miami            8,000,000
+              Row 4   Los Angeles     10,000,000 
+              Row 5   New York        25,000,000
+
+ -----
+ Misc.
+ -----
+ There are a few methods/functions that can be useful in conjunction 
+ with the others, and I'll take a brief look at them below. 
+
+ Element()
+ ---------
+ This method is useful to determine the element number of
+ a specific element in an array.  
+ 
+ Syntax: arrayname.Element(<elementnumber/row>[,<column>])
+          where <elementnumber/row> = the element number, or the
+                                      row when using a multi-dimensional
+                                      array.
+                <column>            = (optional) column number
+ 
+ If you're working through an array in some form of processing, you 
+ could find the specific element with:
+
+    nElement = aCity.Element(1)
+
+ In a one-dimensional array, the ELEMENT() method is redundant --
+ it's much more useful in a multi-dimensional array. The parameters
+ allow you to specify subscripts -- for example, in a two-column
+ array, you could specify the row and the column:
+
+    ?aCity.Element(3,2)  && row 3, column 2
+
+ This should return a value of 6, as this would be the sixth element
+ in this array. If the array had more columns, the value returned
+ would not be 6. For example, in a three column array, using the
+ same command above, would return a value of 8. 
+ 
+ Subscript()
+ -----------
+ This can be really useful. If you know the element number, you 
+ can determine the specific subscript for a multi-column 
+ (two-dimensional) array.
+
+ Syntax: arrayname.Subscript(<element>,<type>)
+          where <element> = element number you are looking for
+                               the subscript for
+                <type>    = 1 for row, 2 for column.
+
+ Example:
+
+    ?aCity.Subscript(nElement,1)  && row
+    ?aCity.Subscript(nElement,2)  && column
+
+ This will give you the actual subscript (row/column) information.
+ You could, instead, display the contents of a specific element,
+ which can be useful if you used the Scan() method:
+
+    nElement = aCity.Scan("25,000,000")
+    nRow     = aCity.Subscript(nElement,1)
+    nColumn  = aCity.Subscript(nElement,2)
+    ? aCity[nRow,nColumn]
+
+ aLen()
+ ------
+ A rather useful function in dBASE, it returns the length of an array,
+ either by rows, columns, or number of elements. This is used quite 
+ a bit in the examples here.
+    
+
+ -----------------------------------------------------
+ Using Arrays With Visual dBASE User Interface Objects
+ -----------------------------------------------------
+ If you have worked with interface objects at all (any object you place
+ on a form is an interface object), you have probably at least looked
+ at comboboxes, listboxes, and tabboxes. Each of these needs to have
+ a datasource property -- this is where the lists come from. One option
+ for a datasource is an array. The purpose of this HOW TO is to discuss
+ arrays, so if you do not know how to use a Combobox, Listbox, or
+ TabBox, then you may want to stop here, as I will not be discussing
+ these in much detail, except where the datasource property comes
+ into play.
+ 
+ Comboboxes and Listboxes
+ ------------------------
+ Comboboxes and Listboxes can use arrays as the datasource. 
+
+ One caveat -- if you try to use a multi-dimensional or multi-column
+ array, you may find your lists looking a bit strange. Example:
+                      
+                      Column 1        Column 2
+              Row 1   Sydney           1,000,000
+              Row 2   San Francisco    4,000,000
+              Row 3   Miami            8,000,000
+              Row 4   Los Angeles     10,000,000 
+              Row 5   New York        25,000,000
+
+ If you set your datasource property to read:  "ARRAY aCity", where
+ "aCity" is an array that looks like the above, what you will get in 
+ your combobox or listbox display is:
+
+    Sydney
+     1,000,000
+    San Francisco
+     4,000,000
+    Miami
+     8,000,000
+    Los Angeles
+    10,000,000
+    New York
+    25,000,000
+
+ The chances are, this is not what you wanted to happen. (A possible
+ solution is to copy just the first column of the array into another
+ array ...)
+
+ In addition, one problem that sometimes drives developers a bit
+ crazy is, "Where do you define your array so that the forms designer
+ doesn't kill it, and it is available when you run the form?"
+
+ The reason this question comes up is that when you are designing a
+ form, if the array does not exist, the Forms Designer will allow you
+ to continue. However, if you run the form without the array in memory,
+ you will get an error. 
+
+ So, where do you want to define your array?
+ -------------------------------------------
+ A lot depends on where you are getting the data for the array. If
+ the array is a hard-coded array (meaning that the values in it never
+ change), and the only use you have for the array is the list (meaning
+ you do not need to perform any lookups in the array in any other code
+ in your form), you should use a literal array. If the array is coming
+ from a field in a table, you should define this information when the
+ form opens (using the OnOpen method).
+
+   The Literal Array
+   -----------------
+   You can define your literal array either by hand, or by using
+   the built-in visual array designer. To do it by hand, in the 
+   DataSource property, type: 
+
+          ARRAY {"San Francisco","Los Angeles", etc.}
+
+   To use the visual array designer, click on the tool button
+   by the DataSource Property. This will bring up the designer.
+   This is so easy to use that there is no real need to discuss
+   it -- the buttons and lists are very straight-forward.
+
+   The one drawback to a literal array defined in this fashion is,
+   there is _NO_ name for the array. If, for any reason, you need
+   to look at the contents, it will take some extra work on your
+   part (one method is to actually have dBASE show the value
+   of the datasource:  form.combobox1.datasource -- you can
+   store this into a character memory variable and parse through it,
+   but it's not the most efficient method of working with an array).
+
+   If you _do_ need to use the datasource array elsewhere in your
+   code, do _NOT_ use a literal array.
+
+ 
+ Defining a DataSource Without Using a Literal Array
+ ---------------------------------------------------
+ If you do not want to (or decide it is not in your best interests to)
+ use a literal array, then where and how do you define your array
+ for your datasource?
+
+ Two places immediately jump to mind: 
+
+   In the Form's OnOpen Method
+   In the Object's OnOpen Method
+
+ In either case, it is a good idea to make the array a custom property
+ of either the form or the object. Otherwise, as soon as you leave the
+ method, the array is no longer in scope (you will get errors that claim
+ the array does not exist) -- of course you could make the array
+ "PUBLIC", but this causes problems, such as remembering when you close
+ the form to release your array(s).
+
+    --------------------------------------------------------------------
+    NOTE: You may want to download FORMVAR.HOW as a source of more
+    information on using these methods for a form, and for a form's
+    objects ...
+    --------------------------------------------------------------------
+
+ To do this, when you instantiate the array, you simply add the 
+ object reference to the array. Remember -- an array is just an object,
+ but in this case, you can make the array a property of another object
+ as well!
+
+   form.aCity = new array()
+      or
+   form.ComboBox1.aCity = new array()
+
+ The only drawback is that you must refer to the full "path" to the
+ array any time you need to reference it. The advantage is, you do not
+ need to make this a public array (PUBLIC aCity), and do not need to
+ worry about releasing the array from memory when you are done with it. 
+ When you close the form, the array object will disappear as well, since 
+ it is a property of the form -- this makes managing memory a snap!
+
+ Once you have instantiated the array, you can then add elements to it
+ as you need to (this is just one example -- see earlier in this HOW TO
+ for lots of other methods of filling an array):
+
+   form.aCity.Add("San Francisco")
+   form.aCity.Add("Los Angeles")
+   form.aCity.Add("Miami")
+   form.aCity.Add("New York")
+   form.aCity.Add("Sydney")
+
+ When you do this, do _not_ set the datasource until after you have 
+ filled the array. Then add the statement:
+   
+   form.Combobox1.Datasource = "ARRAY form.aCity"
+     or
+   form.Combobox1.Datasource = "ARRAY form.Combobox1.aCity"
+
+
+ What Happens If the Array Changes?
+ ----------------------------------
+ In some processing that takes place, the contents of an array may
+ change (see MOVERW.ZIP in library 7 of the VDBASE forum on Compuserve). 
+ Visual dBASE does not always display the changes, and this can be 
+ rather confusing. The simple fix is to add the following statement 
+ after you have updated the contents of the array:
+
+   form.Combobox1.Datasource = form.Combobox1.Datasource
+
+ This forces dBASE to update the datasource itself, and this will
+ cause the display to update as well.
+
+
+ TabBoxes
+ --------
+ TabBoxes, while being a rather useful tool for multi-page forms, do not
+ require a complex array design for the datasource. All you really need
+ is a literal array, unless for some reason you need to refer to the
+ contents of the array later. Most of the time, this is not needed.
+
+ However, a recent posting on the VDBASE forum by a fellow TeamBer 
+ showed me a rather simple and elegant method of using a literal array 
+ for the datasource for the TabBox control, and being able to use the 
+ text of the currently selected tab. Try the following in the code
+ associated with the TabBox's OnSelChange method:
+
+    PROCEDURE TabBox1_OnSelChange
+       *-- if doing multiple pages:
+       form.PageNo = this.CurSel
+       *-- store the literal array into a temporary array,
+       *-- removing the word "array" from the datasource ...:
+       aTabArray = right(this.datasource,aLen(this.datasource)-6))
+       *-- store the current tabbox text to a custom property
+       *-- of the tabbox control:
+       this.TabText = &aTabArray.[this.CurSel]
+
+ If you need to know the text at some point, it will be contained
+ in this custom property. An example or test would be to add to
+ this code:
+
+       msgbox(this.TabText)
+
+ Which would show the contents of the current tab's text ...
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author. 
+    
+         Copyright 1996, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+ 
+ *--------------------------------------------
+ *-- End of Text: What follows is sample code:
+ *--------------------------------------------
+
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Program...: SHOW1.PRG
+ *-- Programmer: Ken Mayer (CIS: 71333,1030)
+ *-- Date......: 11/13/1995
+ *-- Notes.....: Designed to show the contents of a one-column array
+ *----------------------------------------------------------------------
+
+     parameter cArrayName
+   
+     nLen = aLen(&cArrayName.,1)
+     for nRow = 1 to nLen
+         ? "Element "+ltrim(str(nRow))+" - "
+         ?? &cArrayName.[nRow]  && continue, same line
+     next
+   
+ *-- EoP: SHOW1.PRG
+ 
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Program...: SHOW2.PRG
+ *-- Programmer: Ken Mayer (CIS: 71333,1030)
+ *-- Date......: 11/15/1995
+ *-- Notes.....: Designed to show the contents of a multi-column array.
+ *--             Do _NOT_ use this on a single-dimensional array --
+ *--             the variable nColumns will contain a value of '0',
+ *--             and your output will be useless. Use SHOW1.PRG instead.
+ *----------------------------------------------------------------------
+
+    parameter cArrayName
+
+    nRows    = aLen(&cArrayName.,1)
+    nColumns = aLen(&cArrayName.,2)
+    for nColumn = 1 to nColumns
+        ?? "Column "+ltrim(str(nColumn)) at (20*(nColumn-1))+7
+    next
+    ?
+    for nRow = 1 to nRows
+        ? "Row "+ltrim(str(nRow))
+        for nColumn = 1 to nColumns
+            ?? &cArrayName.[nRow,nColumn]  at (20*(nColumn-1))+7
+        next
+        ?
+    next
+   
+ *-- EoP: SHOW2.PRG
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+ 
+ *-- EoHT: ARRAY2.HOW -- 03/19/1996 -- Ken Mayer

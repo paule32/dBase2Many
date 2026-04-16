@@ -1,0 +1,35 @@
+** END HEADER -- Diese Zeile nicht entfernen
+//
+// Erstellt am 16.04.2026
+//
+parameter bModal
+local f
+f = new testForm()
+if (bModal)
+   f.mdi = false // Nicht-MDI festlegen
+   f.ReadModal()
+else
+   f.Open()
+endif
+
+class testForm of FORM
+   with (this)
+      height = 16.0
+      left = 21.2857
+      top = 10.1364
+      width = 40.0
+      text = ""
+   endwith
+
+   this.PUSHBUTTON1 = new PUSHBUTTON(this)
+   with (this.PUSHBUTTON1)
+      height = 3.0
+      left = 7.0
+      top = 3.0
+      width = 20.0
+      text = "Pushbutton1"
+   endwith
+
+
+endclass
+

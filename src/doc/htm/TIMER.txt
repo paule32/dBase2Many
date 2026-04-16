@@ -1,0 +1,591 @@
+*TIMER.HOW
+HOW TO use the undocumented TIMER() object
+
+Original  :12/02/95
+Revision 1:12/25/95
+Revision 2:12/27/95
+Revision 3:01/20/96
+
+Author: Romain Strieff 71333,2147
+-----------------------------------------------------------------------
+As many of you may know, Visual dBASE has a TIMER() object, but it is
+undocumented. This means you have to be aware that it could be removed 
+in future versions. So if you use it in your apps always consider this
+fact. This .HOW is _NOT_ an official document by Borland but only to
+help those of you wanting to use the TIMER() object in your applications.
+
+Now to the timer object itself. To inspect the timer and its properties
+we will create a timer object in the command window and use the inspector.
+
+   mytimer=new timer()
+   inspect(mytimer)
+
+You'll see that it has only 2 properties (other than its name) and 1 event:
+
+Properties:
+----------
+   Interval
+            which defines the time that will pass between each event.
+            Units are seconds up to a maximum of 524 seconds!!!!!!!!!
+            If you want greater intervals, you have to use a counter
+            that will be updated by a shorter interval.
+
+
+   Enabled     
+            which defines if the timer is enabled (fires) or not.
+            
+            
+Events:
+------
+
+   OnTimer 
+            which defines the 'action' and can point to a class
+            method, codeblock or external function.
+            This method or codeblock gets executed every INTERVAL
+            seconds when the ENABLED property is set to .T.
+            
+
+What is important right here, is that TIMER() does not have a parent
+property! Unlike an entryfield or other stock objects, it doesn't
+know anything about its container (the form), meaning that you cannot
+issue code like FORM.ENTRYFIELD1.VALUE=whatever  in its OnTimer event
+because it does not recognize FORM!
+
+      Procedure Mytimer_OnTimer
+      Form.text="Form with a timer" &&will not work!!!!
+   
+So when creating a timer in your form, you'll have to create this property
+by hand. We will create a custom property with a reference to the form.
+   
+      FORM.MYTIMER.PARENT=FORM 
+      
+So instead of using 'FORM' in the timer's ONTIME event we'll use this
+custom property instead:
+      
+      Procedure Mytimer_OnTimer
+      *     Form.text="Form with a timer" &&will not work!!!!    
+      this.parent.text="Form with a timer" &&will work
+      
+This example creates a timer object in the forms OnOpen event
+that will change the forms text after 5 seconds and disable itself.
+
+      Procedure Form_OnOpen
+      *     create new timer object
+      This.timer1=new timer()
+      *     add a custom property to timer1 so that it is able
+      *     to reference objects of the FORM
+      This.timer1.parent=this &&Form
+      *     set interval to 5 seconds
+      This.timer1.interval=5
+      *     Define Codeblock to execute when OnTimer fires
+      *     This uses the CUSTOM parent property to reference
+      *     the FORM
+      This.timer1.OnTimer={;
+                          ;this.parent.text="Timer has fired!";
+                          ;this.enabled=.f.}
+
+      *     enables the timer, the codeblock disables it after
+      *     firing _once_.
+      This.timer1.enabled=.t.
+      
+An additional potential problem could be since a timer is not really
+_contained_ within a form you _have_ to disable every timer when
+closing a form. Otherwise the timer continues to fire with its 
+action out of scope and you will have to reboot to stop it.
+So NEVER forget to disable any timers of a form before closing it!
+
+
+One possible usage for a timer could be to show a 'nagging' screen 
+every ten minutes in the demo applications you distribute.
+
+Another possibility would be to allow usage of a program only
+between 8.00 am and 6.00 pm. You would check the clock every
+minute and if the time is after 6.00 pm you would issue a QUIT.
+
+
+It can also be used as a means to 'flash' an object, as the
+following code demonstrates:
+
+** END HEADER -- do not remove this line*
+ * Generated on 02.12.1995
+ *
+ parameter bModal
+ local f
+ f = new TIMERFORM()
+ if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+ else
+   f.Open()
+ endif
+ CLASS TIMERFORM OF FORM
+   this.OnOpen = CLASS::FORM_ONOPEN
+   this.OnClose= CLASS::FORM_ONCLOSE
+   this.Left = 23
+   this.Top = 0
+   this.Height = 5
+   this.Text = "Form"
+   this.Width = 56
+
+   DEFINE TEXT FLASHTEXT1 OF THIS;
+       PROPERTY; 
+         Left 6,;
+         Top 2,;
+         Height 0.7646,;
+         Width 50,;
+         Text "THIS TEXT FLASHES ONCE A SECOND!"
+
+
+      Procedure Form_OnOpen
+      This.timer1=new timer()
+      This.timer1.parent=this &&Form
+      This.timer1.interval=0.5
+      This.timer1.OnTimer={;
+                          ;this.parent.flashtext1.visible=;
+                          .not. this.parent.flashtext1.visible}
+   
+      This.timer1.enabled=.t.
+      
+      Procedure Form_OnClose
+      This.timer1.enabled=.f.
+      
+ ENDCLASS
+*------------------------------------------------------------
+
+The following code is a complete scheduler using the TIMER() object
+to start programs (VdB,DOS and Win Programs) at a specific time.
+
+To try it out, run it from the command window with a form of yours:
+
+DO SCHEDULE.WFM WITH "MYFORM.WFM"
+
+*----------------------------------------------------------------------
+*-- Programmer..: Romain Strieff (CIS: 71333,2147)
+*-- Date........: 12/02/1995 version 1.1
+*-- History.....: Version 1.0 08/11/1995
+*-- Notes.......: This is a simple scheduler that will start a specific
+*-- ............: program on a given time and date up to 3 days in the
+*-- ............: future. More seemed a bit like overkill to me. It 
+*-- ............: needs a single parameter: the name of the program
+*-- ............: to start. It uses the undocumented timer() object so
+*-- ............: be aware that changes in future version will perhaps
+*-- ............: disable this object.
+*-- ............: The program to execute will be called with DO <cProg>
+*-- ............: so don't call functions etc with it but embed these
+*-- ............: in a small PRG.
+*-- ............: For external programs, precede them with an '!'
+*-- ............: For external Windows programs precede with a '!'
+*-- ............: and use as second parameter .T.
+*-- Written for.: Visual dBASE 5.5 
+*-- Called by...: any
+*-- Usage.......: do Schedule.WFM with <program>
+*-- Examples....: Do Schedule.WFM with "BACKUP.PRG"
+*-- ............: Do Schedule.WFM with "!PKZIP -a f:\backup\test *.*"
+*-- ............: Do Schedule.WFM with "!C:\PROG\WINWORD.EXE",.T.
+*-- Returns.....: None
+*-- Parameters..: cProgram :Name of the program to execute
+*-- ............:           preceded with "!" for external DOS/WIN EXEs
+*-- ............: lWindows : .t. if the program is a Windows EXE
+*----------------------------------------------------------------------
+parameters cProgram,lWindows
+if pcount()=0
+   msgbox("Call with the name of the program to execute!";
+   ,"Parameter Error",0)
+   return
+endif
+local f
+f     = new SCHEDULEFORM()
+f.mdi = .F. && ensure not MDI
+
+f.execute=f.ReadModal()
+if f.execute
+   if left(cProgram,1)="!"  &&external program
+      cProgram=right(cProgram,len(cProgram)-1)
+      run(lWindows,cProgram)
+   else
+      do (cProgram)
+   endif
+endif
+
+RETURN &&<--Jim Sare short-circuit. It will generate a compiler 
+       &&error that you can safely ignore. (..lines after RETURN 
+       &&will never execute)
+       &&It allows us to do what we want without the form designer
+       &&overwriting our code.
+
+
+** END HEADER -- do not remove this line*
+* Generated on 11.08.1995
+*
+parameter bModal
+local f
+f = new SCHEDULEFORM()
+if (bModal)
+   f.mdi = .F. && ensure not MDI
+   f.ReadModal()
+else
+   f.Open()
+endif
+CLASS SCHEDULEFORM OF FORM
+   this.OnOpen = CLASS::FORM_ONOPEN
+   this.Left = 20
+   this.OnDesignOpen = CLASS::FORM_ONDESIGNOPEN
+   this.MDI = .F.
+   this.TopMost = .T.
+   this.Top = 0.8232
+   this.OnClose = CLASS::FORM_ONCLOSE
+   this.Sizeable = .F.
+   this.Text = "Scheduler"
+   this.Maximize = .F.
+   this.Height = 13.8232
+   this.Minimize = .F.
+   this.SysMenu = .F.
+   this.Width = 64.833
+   this.RefreshAlways = .F.
+   this.EscExit = .F.
+
+   DEFINE RECTANGLE RECTANGLE2 OF THIS;
+       PROPERTY; 
+         Left 6,;
+         Top 7.4102,;
+         Text "Start-date",;
+         Height 3,;
+         Width 26
+
+   DEFINE RECTANGLE RECTANGLE1 OF THIS;
+       PROPERTY; 
+         Left 33,;
+         Top 7.4102,;
+         Text "Start-time",;
+         Height 3,;
+         Width 26
+
+   DEFINE SPINBOX STARTDATE OF THIS;
+       PROPERTY; 
+         Left 9.6641,;
+         Top 8.5293,;
+         Rangemax {14.08.1995},;
+         Rangemin {11.08.1995},;
+         SelectAll .F.,;
+         SpinOnly .T.,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value {11.08.1995},;
+         Width 16.001
+
+   DEFINE SPINBOX STARTHOUR OF THIS;
+       PROPERTY; 
+         Left 40,;
+         Top 8.4102,;
+         Rangemax 23,;
+         Rangemin 0,;
+         SelectAll .F.,;
+         SpinOnly .T.,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value 17,;
+         Picture "99",;
+         Width 6
+
+   DEFINE SPINBOX STARTMINUTE OF THIS;
+       PROPERTY; 
+         Left 52,;
+         Top 8.4102,;
+         Rangemax 59,;
+         Rangemin 1,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value 43,;
+         Picture "99",;
+         Width 6
+
+   DEFINE PUSHBUTTON STARTBUTTON OF THIS;
+       PROPERTY; 
+         DisabledBitmap "RESOURCE #37",;
+         Left 11,;
+         Group .T.,;
+         DownBitmap "RESOURCE #36",;
+         Top 11,;
+         Text "Start",;
+         UpBitmap "RESOURCE #36",;
+         OnClick CLASS::STARTBUTTON_ONCLICK,;
+         Height 2,;
+         Width 12
+
+   DEFINE PUSHBUTTON CANCELBUTTON OF THIS;
+       PROPERTY; 
+         Left 25,;
+         Group .T.,;
+         Top 11,;
+         Enabled .F.,;
+         Text "Cancel",;
+         UpBitmap "RESOURCE #24",;
+         OnClick CLASS::CANCELBUTTON_ONCLICK,;
+         Height 2,;
+         Width 12
+
+   DEFINE PUSHBUTTON CLOSEBUTTON OF THIS;
+       PROPERTY; 
+         DisabledBitmap "RESOURCE #21",;
+         Left 39,;
+         Group .T.,;
+         DownBitmap "RESOURCE #20",;
+         Top 11,;
+         Text "Close",;
+         UpBitmap "RESOURCE #20",;
+         OnClick CLASS::CLOSEBUTTON_ONCLICK,;
+         Height 2,;
+         Width 12
+
+   DEFINE TEXT HOUR OF THIS;
+       PROPERTY; 
+         Left 34,;
+         Top 8.4102,;
+         Text "Hour",;
+         Height 1,;
+         Width 6,;
+         Alignment 4
+
+   DEFINE TEXT MINUTE OF THIS;
+       PROPERTY; 
+         Left 47,;
+         Top 8.4102,;
+         Text "Min.",;
+         Height 1,;
+         Width 4,;
+         Alignment 4
+
+   DEFINE RECTANGLE RECTANGLE3 OF THIS;
+       PROPERTY; 
+         Left 6,;
+         Top 4.1172,;
+         Text "Current-date",;
+         Height 3,;
+         Width 26
+
+   DEFINE RECTANGLE RECTANGLE4 OF THIS;
+       PROPERTY; 
+         Left 33,;
+         Top 4.1172,;
+         Text "Current-time",;
+         Height 3,;
+         Width 26
+
+   DEFINE SPINBOX CURRENTDATE OF THIS;
+       PROPERTY; 
+         Left 9.6641,;
+         Top 5.2344,;
+         When {;return .f.},;
+         Rangemax {07.08.1995},;
+         Rangemin {04.08.1995},;
+         SelectAll .F.,;
+         SpinOnly .T.,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value {11.08.1995},;
+         Width 16.001
+
+   DEFINE SPINBOX CURRENTHOUR OF THIS;
+       PROPERTY; 
+         Left 40,;
+         Top 5.1172,;
+         When {;return .f.},;
+         Rangemax 23,;
+         Rangemin 0,;
+         SelectAll .F.,;
+         SpinOnly .T.,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value 17,;
+         Picture "99",;
+         Width 6
+
+   DEFINE SPINBOX CURRENTMINUTE OF THIS;
+       PROPERTY; 
+         Left 52,;
+         Top 5.1172,;
+         When {;return .f.},;
+         Rangemax 59,;
+         Rangemin 1,;
+         Height 1,;
+         RangeRequired .T.,;
+         Value 43,;
+         Picture "99",;
+         Width 6
+
+   DEFINE TEXT HOUR2 OF THIS;
+       PROPERTY; 
+         Left 34,;
+         Top 5.1172,;
+         Text "Hour",;
+         Height 1,;
+         Width 6,;
+         Alignment 4
+
+   DEFINE TEXT MINUTE2 OF THIS;
+       PROPERTY; 
+         Left 47,;
+         Top 5.1172,;
+         Text "Min.",;
+         Height 1,;
+         Width 4,;
+         Alignment 4
+
+   DEFINE TEXT PROGEXE OF THIS;
+       PROPERTY; 
+         FontSize 10,;
+         Text "Scheduled program to execute:",;
+         Height 1.4102,;
+         Width 65.5,;
+         Alignment 4
+
+   DEFINE TEXT COUNTDOWN OF THIS;
+       PROPERTY; 
+         Top 2.7051,;
+         FontSize 10,;
+         Text "00:00:00",;
+         Height 1.4102,;
+         Width 65.4971,;
+         Alignment 4,;
+         ColorNormal "R+/BtnFace"
+
+   DEFINE TEXT EXEPROGRAM OF THIS;
+       PROPERTY; 
+         Top 1.293,;
+         FontSize 10,;
+         Text "name of program to execute",;
+         Height 1.0586,;
+         Width 65.5,;
+         Alignment 4,;
+         ColorNormal "R+/BtnFace"
+
+    Procedure Form_OnDesignOpen(bFromPalette)
+    *call with parameter so that timer is disabled
+    *during designtime
+    
+    form.exeprogram.text="name of program to execute"
+    form.countdown.text="00:00:00"
+    form.form_onopen(.t.)   
+    
+    
+    Procedure Form_OnOpen(lNoupdate)
+   
+    if .not. lNoupdate &&not during designtime
+    *     define timer object*****************
+    this.exeprogram.text=cProgram
+    this.dbtimer=new timer()
+    this.dbtimer.interval=1
+    this.dbtimer.parent=FORM
+    this.dbtimer.enabled=.t.
+    this.dbtimer.ontimer=class::update_time
+    
+    form.sTime="" 
+    endif
+    
+    *     set the spinbox values to current date/time
+    this.Currentdate.value=date()
+    this.Currenthour.value=val(left(time(),2))
+    this.Currentminute.value=val(substr(time(),4,2))
+    this.StartDate.value=date()
+    this.StartDate.RangeMax=date()+3
+    this.StartDate.RangeMin=date()
+    this.StartDate.RangeRequired=.t.
+    this.StartHour.value=val(left(time(),2))
+    this.StartMinute.value=val(substr(time(),4,2))
+   
+   
+    
+    Procedure FORM_ONCLOSE
+    this.dbtimer.enabled=.f.   
+   
+    Procedure update_time
+
+    *     to update current time during editing of the starttime
+    this.parent.Currentdate.value=date()
+    this.parent.Currenthour.value=val(left(time(),2))
+    this.parent.Currentminute.value=val(substr(time(),4,2))
+    
+    Procedure checktime
+
+    *     OnTimer event
+    this.parent.Currentdate.value=date()
+    this.parent.Currenthour.value=val(left(time(),2))
+    this.parent.Currentminute.value=val(substr(time(),4,2))
+    *     calculate countdown
+    if date()=this.parent.sDate
+        nRemaining=elapsed(this.parent.sTime+":00",time())   
+    else
+       nRemaining= elapsed("24:00:00",time())+;
+      ((this.parent.sDate-date()-1)*(24*3600)+;
+      elapsed(this.parent.sTime,"00:00:00"))
+    endif
+   
+    *     show countdown
+    nHours=  int(nRemaining/3600)
+    nMinutes=int(mod(nRemaining,3600)/60)
+    nSeconds= nRemaining-(nhours*3600)-(nMinutes*60)
+    this.parent.countdown.text= "Countdown: "+;
+    transform(nHours,"@L 99")+":"+transform(nMinutes,"@L 99")+":"+transform(nSeconds,"@L 99")
+    *     the date and time is right, so close the thing
+    if left(time(),5)= this.parent.sTime .and. this.parent.sDate=date()
+        this.enabled=.f. 
+       this.parent.close(.t.)
+    endif
+   
+    Procedure StartButton_OnClick
+    private v
+    v=transform(form.starthour.value,"@L 99")+":";
+    +transform(form.startMinute.value,"@L 99")+":00"
+    *     calculate valid time
+    if date()=form.startdate.value .and.;
+       elapsed(v,time()) <0
+       msgbox("Start-time smaller than current time!","Error!",0)
+       return
+    endif
+       
+    form.cancelbutton.enabled=.t.
+    form.closebutton.enabled=.f.
+    this.enabled=.f.
+    form.startdate.enabled=.f.
+    form.starthour.enabled=.f.
+    form.startminute.enabled=.f.
+    form.dbtimer.ontimer=class::checktime
+    form.sDate=form.startdate.value
+    form.sTime=transform(form.starthour.value,"@L 99");
+    +":"+transform(form.startMinute.value,"@L 99")
+    
+    
+    Procedure CLOSEBUTTON_OnClick
+    form.close(.f.)
+    
+    Procedure CANCELBUTTON_OnClick
+    this.enabled=.f.
+    form.countdown.text=""
+    form.closebutton.enabled=.t.
+    form.startbutton.enabled=.t.
+    form.startdate.enabled=.t.
+    form.starthour.enabled=.t.
+    form.startminute.enabled=.t.
+    form.dbtimer.ontimer=class::update_time
+       
+ENDCLASS
+*----------------------------------------------------------
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1996, Romain Strieff. All rights reserved.
+    --------------------------------------------------------------------

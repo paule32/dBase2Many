@@ -1,0 +1,767 @@
+ *-- ARRAY1.HOW
+ *-- 12/03/1995 -- Ken Mayer (CIS: 71333,1030)
+ 
+ ----------------------------------
+ ARRAYS (Beginning) in Visual dBASE
+ ----------------------------------
+ This purpose of this HOW TO is: 
+ 
+ 1) A tutorial on the use of arrays in Visual dBASE, taking a 
+    look at the basics of what an array is, how to use one.
+ 2) An introduction on manipulating arrays with the built-in functions
+    of Visual dBASE (just the basics).
+
+ If you're looking for more detail than what is covered in this
+ HOW TO file, download ARRAY2.HOW from the same place you found this 
+ document. In addition, the Language Reference and the Online Help for
+ Visual dBASE can be quite useful.
+
+ 
+ -----------------
+ What Is An Array?
+ -----------------
+ An array, in Visual dBASE, is an object used to store data. In some
+ cases it can be used to emulate a table in memory.
+
+ An array allows you to use a single _name_ for multiple memory
+ locations. A simple array contains one "dimension" or column
+ of information.
+
+ An array in Visual dBASE is a "ragged" array -- this means that you
+ can store different types of data in the same array. One element
+ might store a date, another a number, and a third a character value -
+ dBASE doesn't care ... at least until you try to sort the data, or
+ search it -- then you may have problems. A dBASE array can also 
+ store other arrays -- there are two ways to do this -- either storing 
+ an array as an element in another array; or as a multi-dimensional 
+ array (see "Dimension" below) -- which is, by definition, an array 
+ of arrays. 
+
+ Most importantly, an array, in Visual dBASE, is always an object.
+ This means that standard OOP code will work with arrays, and you
+ are encouraged to use the more modern OOP code, rather than older
+ procedural code, when working with arrays in Visual dBASE.
+
+ The developers of Visual dBASE have extended the abilities of arrays
+ quite a bit in the dBASE programming language from the dBASE IV days. 
+
+ -----------
+ Array Parts
+ -----------
+ An array must have the following:
+    A Name -- in this HOW TO, I will use a convention (dBASE Hungarian)
+       that specifies that array names begin with a lower case "a".
+       ------------------------------------------------------------------
+       NOTE: You can find more information on the dHUNG notation
+       in the dBASE Users' Function Library Project (dUFLP) and
+       in the file DHUNG2.TXT in the DBASEDOS forum library on
+       Compuserve.
+       ------------------------------------------------------------------
+       Ok. Most of the time, an array requires a name -- there is a
+       special construct in Visual dBASE called a "Literal Array",
+       which will be examined briefly here, and in more detail in 
+       another HOW TO file (ARRAY2.HOW), that does not _require_ a name.
+    Elements -- elements are the containers, or perhaps you might say
+       'cells', used to store the data in the array.
+    Dimensions -- Arrays can be single-dimension (Rows only (one column
+       -- see below)), two-dimensional (rows and columns) or even 
+       three or more dimensions. You can think of a three dimensional 
+       array as something like a three-dimensional tic-tac-toe board, 
+       with rows and columns on each level, and the different levels 
+       being the third dimension. Another way to think of a three (or 
+       more) dimensional array is an "array of arrays". There is no 
+       easy way to visualize anything beyond "three-dimensional" arrays. 
+       For the purposes of these documents (ARRAY?.HOW) we will not 
+       explore arrays with more than two dimensions.
+    Rows -- All arrays have rows. A row may contain any supported data
+       type in Visual dBASE, including another array (ragged arrays). 
+    Columns -- All arrays have at least one column. However, if
+       the array has only one column, it is usually considered to be a
+       single-dimensional array. If you have two or more columns,
+       it is at least a two-dimensional array. If you consider
+       a two-dimensional array as being sort of like a table,
+       each column is comparable to a field, and each row is comparable
+       to a record.
+    Subscripts -- subscripts are indexes to the elements in the array. 
+       If we have a single-column array, with five rows in it, the 
+       subscript would point to each row. If we have a multi-column 
+       array, then one subscript refers to the row, another to the 
+       column. This is how we get to each element of the array. To 
+       differentiate an array from a function, we use square brackets 
+       (called in the Language Reference: Index Operators) around the 
+       subscript(s).
+          
+          Examples: 
+                      Column 1
+              Row 1   San Francisco
+              Row 2   Los Angeles
+              Row 3   New York
+              Row 4   Miami
+              Row 5   Sydney
+
+          We would reference row 3 of an array defined like this with
+          a subscript pointing to row three:
+        
+             aCity[3] 
+
+          Example 2:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+
+          In a two (or more)-column array, to get to a specific element, 
+          we need to reference both the row and the column, so to point 
+          to the population of New York, we would use:
+
+             aCity[3,2]
+
+          The first subscript (3) points to the row, the second (2) to 
+          the column.
+
+  So, what's so great about arrays? Why are they so useful? 
+
+  As previously noted, by using an array, you only have one name to 
+  worry about for a list. However, even better -- an array can be 
+  quite dynamic -- you can add or remove elements in the array easily, 
+  you can sort the contents of the array, and you can search an array 
+  to see if some value is contained within it. Try doing all of that 
+  with a list of memory variables as shown below:
+
+   City1 = "San Francisco"
+   City2 = "Los Angeles"
+   City3 = "New York"
+   City4 = "Miami"
+   City5 = "Sydney"
+
+  In addition, by storing the values _in memory_, processing a list is 
+  much faster than it is in a table. As a matter of fact, you can use
+  an array to emulate a table -- if you use a two-dimensional array, the
+  rows may be equivalent to records, and the columns equivalent to 
+  fields. If you think of an array as similar to a spreadsheet, this
+  may help as well. The fun part is, with modern spreadsheet software,
+  you can create three-dimensional spreadsheets (multiple pages), which
+  can be done with arrays in Visual dBASE, as well.
+
+  -------------------------
+  How Do I Define An Array?
+  -------------------------
+  First off, you need to tell dBASE that you are going to _use_
+  an array. This means you have to a) give a name; b) instantiate
+  the array.
+
+  In Visual dBASE, an array is an object. This is quite useful, because 
+  once you get used to the object-oriented syntax of Visual dBASE, you 
+  can (and should) use that syntax to define an array.
+
+    --------------------------------------------------------------------
+    NOTE: For more information on the Object-Oriented Programming
+    Syntax of Visual dBASE, download OOP.HOW from library 10 
+    (Knowledgebase/FAQ) of the VDBASE forum on Compuserve.
+    --------------------------------------------------------------------
+
+ There are at least a couple of ways to define an array. The standard
+ procedural programming method is:
+
+    DECLARE arrayname[rows,columns]
+
+ The array name is how you will refer to all the items stored in the 
+ array. The number of rows is required, the number of columns is
+ only required if you are defining an array with multiple columns. Note
+ that this method is considered by some to be out-dated, and you should 
+ probably use the NEW syntax, shown below. The DECLARE syntax may 
+ eventually go away, as dBASE moves more and more toward the OOP
+ paradigm.
+
+ You should use the OOP syntax with dBASE -- which among other things
+ gives you a dynamic array:
+ 
+    arrayname = NEW ARRAY()
+
+ If you wanted the array to start out with a specific size, you could
+ state:
+
+    aCity = NEW ARRAY(5,2)
+
+ Which would start the array with 10 elements -- five rows, with
+ two columns each. 
+
+ There's one other method to create a one-dimensional array, but this 
+ assumes you already know what you want to put into it. This uses what 
+ is called a "Literal Array" (more on these can be found in ARRAY2.HOW):
+
+    aCity = {"San Francisco","Los Angeles","New York","Miami","Sydney"}
+
+ A literal array uses braces, and each element of the array is separated
+ by a comma.
+
+
+ ----------------------------------------------------------
+ Now You Have Defined The Array, How Do You Put Data In It?
+ ----------------------------------------------------------
+ An array is useless without data. One thing I have found to be 
+ interesting is that if you do not populate the array, dBASE 
+ automatically places a logical value of false (.f.) in each element
+ that is not assigned another value -- at least, this is what it
+ appears as -- in reality this is an empty cell, and use of the
+ dBASE Empty() function will return a true value on a cell that has
+ not been assigned a value. This can be useful, and can also
+ be a bit annoying at times if you're trying to perform specific tasks
+ (like sorting an array). For example, if you try to sort on character,
+ numeric or date values and some of the elements have not been assigned
+ values, or have been deleted (see below), you will get a 'Data type 
+ mismatch' error.
+
+    --------------------------------------------------------------------
+    For the purposes of this HOW TO file, there is a small bit of code
+    at the end that can be cut and pasted (or retyped) into program 
+    files. The purpose of these is to show the contents of the array 
+    you're currently working on, so that you can see the effect of the 
+    commands you are issuing.
+ 
+    The first of these is useful for single-dimension arrays,
+    the second is for multiple column. 
+
+    To use these:
+
+       do show1 with "aCity"
+          or
+       do show2 with "aCity"
+
+    Where "aCity" is the name of the array you are testing.
+    --------------------------------------------------------------------
+    
+ Assigning values to an array can be as simple as typing in values:
+
+    aCity[1] = "San Francisco"  && requires you keep track of the
+                                && subscript
+         or
+
+    aCity.Add("San Francisco")   && uses the object _method_ Add()
+
+         or
+
+    aCity = {"San Francisco","Los Angeles","New York","Miami","Sydney"}
+
+ or it can get more interesting, such as pulling information out
+ of a table:
+
+    COPY TO ARRAY aCity FIELDS TableName->City
+
+ This requires that:
+   * The array be defined 
+   * The table is open
+   
+    --------------------------------------------------------------------
+    For more details on COPY TO ARRAY, see this command in the language
+    reference, or online help (HELP COPY TO ARRAY). Related commands:
+    APPEND FROM ARRAY (store contents of an array back into a table) and
+    REPLACE FROM ARRAY (replace the contents of a record with the
+    contents of an array)
+    --------------------------------------------------------------------
+
+ There are other methods of filling an array, as well. A lot depends
+ on what you need to use the array for. For example, if you wanted
+ to store two fields, such as first and last names in one array,
+ you could store it as two columns, or as a single column. However,
+ for a single column, you may want to store the name as "Last, First",
+ for example.
+
+ There are two methods of doing this, the first is a bit more
+ complex, and isn't really necessary ... it is here to show the
+ elegance of the second form:
+
+ nMax = reccount()    && number of records in table
+ declare aNames[nMax] && define array
+ nRow = 1             && subscript
+ scan                 && process table record-by-record
+    *-- add name to the nRowth element of the array
+    aNames[nRow] = trim(last)+", "+first
+    *-- increment nRow
+    nRow = nRow + 1
+ endscan              && end of loop
+
+ This will do the job. However, check out the more simple, and
+ more elegant method shown below:
+
+ aNames = new ARRAY()  && define array
+ scan                  && process table record-by-record
+    *-- add new element to array
+    aNames.Add(trim(last)+", "+first)
+ endscan               && end of loop
+
+ There is no need to worry about a subscript, or to determine the
+ size of the array before we add items to it. This is much simpler.
+ Something to note, is that as you add to the size of an array, there
+ is a function in dBASE that will show you the size of your array:
+    
+    aLen() 
+ 
+ This will be covered later.
+
+ As you can see, Arrays are quite flexible -- and some of the confusion
+ that comes from using them in dBASE stems from this flexibility! 
+ 
+
+ -------------------------
+ Deleting Data in An Array
+ -------------------------
+ There are times when manipulating an array that you may want to delete
+ an element, row, or column. There is a trick to this, because when
+ you use the functions in dBASE to handle deleting one of these 
+ (element, row or column), dBASE moves the element/row/column to the 
+ end of the array, and replaces the element(s)'s values with .F. 
+ (in reality, "empty" -- see below). If you use the array sorting
+ function/method in dBASE on an array in which you have deleted an
+ element/row/column, you will get an error. The end of this section will
+ show you how to avoid the error with the resize() method (or aResize()
+ function).
+ 
+ To delete an element in a single-dimensional array:
+ ---------------------------------------------------   
+    arrayname.Delete(element)    
+        or
+    aDel(arrayname,element)
+        
+ For example, in the aCity array, which looks like:
+ 
+                      Column 1
+              Row 1   San Francisco
+              Row 2   Los Angeles
+              Row 3   New York
+              Row 4   Miami
+              Row 5   Sydney
+ 
+ If we wanted to remove the second element:
+
+    aCity.delete(2)
+       or
+    aDel(aCity,2)
+
+ The array would contain the following values _after_ executing one
+ of these two commands:
+
+                      Column 1
+              Row 1   San Francisco
+              Row 2   New York
+              Row 3   Miami
+              Row 4   Sydney
+              Row 5   .f.
+
+ To delete a row (single or multiple dimensional array):
+ -------------------------------------------------------
+    arrayname.Delete(nRow,1) && second parm = row (1) or column (2)
+       or
+    aDel(arrayname,nRow,1)  && third parameter = row (1) or column (2)
+
+ Assuming a version of the aCity array that looked like:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+
+ To delete the second row of this array, the command:
+
+    aCity.Delete(2,1)
+       or
+    aDel(aCity,2,1)
+
+ Would leave the array looking like this:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   New York        25,000,000
+              Row 3   Miami            8,000,000
+              Row 4   Sydney           1,000,000
+              Row 5   .f.              .f.
+
+ To delete a column (multiple columnar array):
+ ---------------------------------------------------------
+    arrayname.Delete(nColumn,2) && second parameter = row (1) or col (2)
+       or
+    aDel(arrayname,nColumn,2) && third parameter = row (1) or column (2)
+
+ Assuming the aCity array looks like:
+
+                      Column 1        Column 2      Column 3
+              Row 1   San Francisco    4,000,000       678
+              Row 2   Los Angeles     10,000,000       123
+              Row 3   New York        25,000,000       456
+              Row 4   Miami            8,000,000       678
+              Row 5   Sydney           1,000,000      1234
+
+ The command to delete the second column would be:
+    aCity.Delete(2,2)  && first 2 is column, second tells dBASE it's
+                       && a column you are deleting
+      or
+    aDel(aCity,2,2)
+
+ Which would give us an array that looked like:
+
+                      Column 1        Column 2      Column 3
+              Row 1   San Francisco      678           .f.
+              Row 2   Los Angeles        123           .f.
+              Row 3   New York           456           .f.
+              Row 4   Miami              678           .f.
+              Row 5   Sydney            1234           .f.
+ 
+ Removing the deleted elements/rows/columns of the array:
+ --------------------------------------------------------
+ In all three cases shown, the problem is, as noted, the element/row/
+ column deleted will still exist in the array.
+
+ So, you then use the aReSize function/method:
+ 
+    arrayname.Resize(nNumRows,nNumCols) && number of rows/columns
+       or                               && the array will have after
+                                        && execution
+    aResize(arrayname,nNumRows,nNumCols)  
+
+ The following examples are combined code for the previous examples:
+
+ Removing an element from a single-dimension array:
+    
+    Procedural                   OOP
+    aDel(aCity,2)                aCity.Delete(2)
+    nRows = aLen(aCity,1)        nRows = aLen(aCity,1)
+    aResize(aCity,nRows-1)       aCity.Resize(nRows-1)
+
+ Removing a row of a multi-column array (which removes all elements
+ in the row):
+
+    aDel(aCity,2,1)              aCity.Delete(2,1)
+    nRows = aLen(aCity,1)        nRows = aLen(aCity,1)
+    aResize(aCity,nRows-1)       aCity.Resize(nRows-1)
+
+ Removing a column from a multi-column array:
+
+    aDel(aCity,2,2)                  aCity.Delete(2,2)
+    nColumns = aLen(aCity,2)         nColumns = aLen(aCity,2)
+    nRows = aLen(aCity,1)            nRows = aLen(aCity,1)
+    ** Note, the ROWS parameter here   
+    ** _must_ contain a value > 0.
+    aResize(aCity,nRows,nColumns-1)  aCity.Resize(nRows,nColumns-1)
+
+ 
+ ---------------------------------------
+ Referencing/Displaying Data In An Array
+ ---------------------------------------
+ There are many ways to work with arrays. Once you have the data in
+ the array, it is usually necessary to do something with that data,
+ either using it for lookups, or whatever. So the question becomes
+ "How do I reference the data in an array?"
+
+ The most important thing to remember is that you need to a subscript
+ to the individual elements. If you are working with a multi-column)
+ array, you may want to use specific naming conventions for your
+ subscripts, such as "nRow" and "nColumn". This way you will not be as
+ likely to get your subscripts confused. If you mix up your subscripts,
+ you will either get an error ("subscript out of range" is most likely)
+ or the wrong data! An easy way to get them mixed up is to use things
+ like "x" and "y" to refer to them. I can never remember which axis
+ "x" is ...
+
+ In a single column array, you can use any subscript reference you like,
+ to point to the rows, but for this document, I will attempt to be 
+ consistent, and use "nRow", and for a multiple column array, I will use
+ "nColumn" for the column subscript.
+
+ So, how do you look at the elements of an array?
+
+ If you know the specific element you wish to look for, you can
+ reference it with a number for the subscript. Assuming an array
+ that looks like:
+
+                      Column 1
+              Row 1   San Francisco
+              Row 2   Los Angeles
+              Row 3   New York
+              Row 4   Miami
+              Row 5   Sydney
+ 
+    ? aCity[2]  
+
+    Will display "Los Angeles"
+
+ If the array aCity contains more than one column, however, you need
+ to use another subscript to specify the column. Assuming the following 
+ array:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+ 
+    ? aCity[2,2]  && display contents of the element at 
+                  && the second row, second column
+
+    This will display 10,000,000.
+
+ You can loop through an array to do some processing:
+
+ for nRow = 1 to aCity.Len(1)  && Len() is a method to return
+                               && the LENGTH of the array
+    ? aCity[nRow]              && display the contents of the 
+                               && current element
+ next
+
+ This will display the contents of the array:
+
+   San Francisco
+   Los Angeles
+   New York
+   Miami
+   Sydney
+
+    --------------------------------------------------------------------
+    ALEN() Function
+    This useful function uses two parameters - the name of the array and
+    the optional operator of a numeric value -- 1 for rows, two for 
+    columns or 0 for the number of elements in the array (this is
+    the default). It is very handy to know the exact size of an array, 
+    and is used in many bits of sample code throughout both this .HOW
+    and ARRAY2.HOW.
+    --------------------------------------------------------------------
+
+ Again, if you have multiple columns in the array, you will need
+ to reference the column as well. If your array has three columns,
+ and you wanted to simply display the contents of the elements in all 
+ three columns for each row, you would want to nest a loop, along the
+ following lines:
+
+ for nRow = 1 to aLen(aCity,1) 
+    for nColumn = 1 to aLen(aCity,2)
+        ? aCity[nRow,nColumn]  && display the current element
+    next  && nColumn
+ next  && nRow
+
+ This would display (assuming the example from earlier of a three-column
+ array):
+   
+   San Francisco
+    4,000,000
+          678
+   Los Angeles
+   10,000,000
+          123
+   New York
+   25,000,000
+          456
+   Miami
+    8,000,000
+          678
+   Sydney
+    1,000,000
+         1234
+
+ Not very pretty, but the contents are displayed. (To make this
+ "pretty" would take a bit more work -- look at SHOW2.PRG at the
+ end of this .HOW file ...)
+
+
+ --------------------------------
+ Sorting The Contents of An Array
+ --------------------------------
+ Sometimes the data entered into an array is in a jumble, and you
+ want it sorted (either for display purposes or other reasons).
+
+ There are two ways in dBASE to do this -- the first is a function, 
+ the other is a method attached to an array object -- they both work 
+ pretty much the same.
+    
+    aCity.Sort()
+      or
+    aSort(aCity)  
+ 
+ This sorts the array aCity on the first column. If there are
+ more columns, the rows will all move with the elements in the
+ first column.
+ 
+ Assume the following array _before_ the sort:
+
+                      Column 1        Column 2
+              Row 1   San Francisco    4,000,000
+              Row 2   Los Angeles     10,000,000 
+              Row 3   New York        25,000,000
+              Row 4   Miami            8,000,000
+              Row 5   Sydney           1,000,000
+
+ And after: 
+
+                      Column 1        Column 2
+              Row 1   Los Angeles     10,000,000 
+              Row 2   Miami            8,000,000
+              Row 3   New York        25,000,000
+              Row 4   San Francisco    4,000,000
+              Row 5   Sydney           1,000,000
+
+ To sort on the _second_ column:
+
+ aCity.Sort(2)
+    or
+ aSort(aCity,2)
+
+ Which would give us:
+
+                      Column 1        Column 2
+              Row 1   Sydney           1,000,000
+              Row 2   San Francisco    4,000,000
+              Row 3   Miami            8,000,000
+              Row 4   Los Angeles     10,000,000 
+              Row 5   New York        25,000,000
+              
+
+ -------------------------------------------------------------------
+ A Couple of Functions That Are VERY Useful When Working With Arrays
+ -------------------------------------------------------------------
+ The following two functions are quite useful when you are programming
+ with arrays, but are not specific _to_ arrays.
+
+ Type()
+ ------
+ The Type() function is handy. You can determine if an object in 
+ Visual dBASE is defined (if it isn't, this function returns a value 
+ of "U"), if it is an object (while an Array is an object, it's a 
+ special type) -- this returns an "O". If the object you are examining 
+ is an array, the function returns an "A". Example:
+
+    ?Type("aCity")
+
+ If this is an array, you should get:
+    A
+
+ If this is a "normal" dBASE object, you should see:
+    O
+
+ If the array (or object) has not been defined, you should see:
+    U
+
+ In addition, this function can return the type of the contents
+ of an element of an array. Example:
+
+    ?Type("aCity[1]")
+
+ Might return "C" for Character, "N" for Numeric, etc. (See the
+ language reference for more.)
+
+ EMPTY()
+ -------
+ This can be used on elements of an array to determine if they are
+ really empty (undefined), or contain a value of .F..
+
+ Why is this important? Visual dBASE shows .F. if you print an
+ element of an array that contains a logical false value, _OR_ if
+ the array element has not had any value assigned to it. This can
+ be a bit confusing. So, to see if something is false, versus empty:
+
+    *-- check for _false_  and not empty()
+    if aCity[1] = .f. .and. .not. empty(aCity[1])
+       
+ To see if it is empty:
+    if empty(aCity[1])
+    
+ -------------------------------------------------
+ Ok, So I Have the Basics, Where Do I Go For More?
+ -------------------------------------------------
+ Try downloading ARRAY2.HOW in the VDBASE forum on Compuserve.
+ Also, check the online help (HELP ARRAY) and the Language
+ Reference manual.  
+
+ In addition to what is covered in these .HOW documents (ARRAY1.HOW
+ and ARRAY2.HOW) are: Sparse Arrays and Associative Arrays. These were
+ not covered here due to lack of space -- they may be covered in another
+ .HOW document at a later date. However, you can find information on
+ these in the Language Reference and the Visual dBASE online help.
+
+    --------------------------------------------------------------------
+    DISCLAIMER: the author is a member of TeamB for dBASE, a group of
+    volunteers who provide technical support for Borland on the DBASE
+    and VDBASE forums on Compuserve. If you have questions regarding
+    this .HOW document, or about dBASE/DOS or Visual dBASE, you can
+    communicate directly with the author and TeamB in the appropriate
+    forum on CIS. Technical support is not currently provided on the
+    World-Wide Web, via the Internet or by private E-Mail on CIS by
+    members of TeamB.
+
+    .HOW files are created as a free service by members of TeamB to
+    help users learn to use Visual dBASE more effectively. They are
+    posted first on the Compuserve VDBASE forum, edited by both TeamB
+    members and Borland Technical Support (to ensure quality), and then
+    may be cross-posted to Borland's WWW Site. This .HOW file MAY NOT BE
+    POSTED ELSEWHERE without the explicit permission of the author.
+    
+         Copyright 1995, Kenneth J. Mayer. All rights reserved.
+    --------------------------------------------------------------------
+
+ *----------------------------------------------------------
+ *-- End of Text -- what follows is code:
+ *----------------------------------------------------------
+
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Program...: SHOW1.PRG
+ *-- Programmer: Ken Mayer (CIS: 71333,1030)
+ *-- Date......: 11/13/1995
+ *-- Notes.....: Designed to show the contents of a one-column array
+ *----------------------------------------------------------------------
+
+   parameter cArrayName
+   
+   nLen = aLen(&cArrayName.,1)
+   for nRow = 1 to nLen
+       ? "Element "+ltrim(str(nRow))+" - "
+       ?? &cArrayName.[nRow]  && continue, same line
+   next
+   
+ *-- EoP: SHOW1.PRG
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+ *----------------------------------------------------------------------
+ *-- Program...: SHOW2.PRG
+ *-- Programmer: Ken Mayer (CIS: 71333,1030)
+ *-- Date......: 11/15/1995
+ *-- Notes.....: Designed to show the contents of a multi-column array.
+ *--             Don't use this on a single-dimension array -- 
+ *--             the memvar nColumns will return '0', and the loops
+ *--             will not display anything.
+ *--             Note: the display here could get 'messy', depending
+ *--             on the types of data contained in your arrays.
+ *--             This is mostly here for example purposes, and can't
+ *--             possibly anticipate all variations ... you might
+ *--             want to copy it and make changes as you need ...
+ *----------------------------------------------------------------------
+
+    parameter cArrayName
+
+    nRows    = aLen(&cArrayName.,1)
+    nColumns = aLen(&cArrayName.,2)
+    *-- display column headers
+    for nColumn = 1 to nColumns
+        *-- assumes that each column will contain < 25 characters
+        ?? "Column "+ltrim(str(nColumn)) at (20*(nColumn-1))+7
+    next
+    ?
+    *-- display items in each row for each column
+    for nRow = 1 to nRows
+        *-- row header
+        ? "Row "+ltrim(str(nRow))
+        for nColumn = 1 to nColumns
+            *-- actual element to be displayed
+            ?? &cArrayName.[nRow,nColumn]  at (20*(nColumn-1))+7
+        next
+        ?
+    next
+   
+ *-- EoP: SHOW2.PRG
+ *-----------8<---------- Cut Here-------- >8--------------------------*
+
+ *-- EoHT: ARRAY1.HOW -- 12/03/1995
