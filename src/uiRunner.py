@@ -6329,6 +6329,23 @@ class DesignerControl(QWidget):
 
         menu.addSeparator()
 
+        canvas = self.parent() if self.parent() is not None else None
+        host = canvas.parent() if canvas is not None and canvas.parent() is not None else None
+
+        act_load_form = QAction(share.locales.tr("Laden"), self)
+        act_load_form.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
+        menu.addAction(act_load_form)
+
+        act_save_form = QAction(share.locales.tr("Speichern"), self)
+        act_save_form.triggered.connect(lambda: getattr(host, "_action_save_form", lambda: None)())
+        menu.addAction(act_save_form)
+
+        act_save_form_as = QAction(share.locales.tr("Speichern unter..."), self)
+        act_save_form_as.triggered.connect(lambda: getattr(host, "_action_save_form_as", lambda: None)())
+        menu.addAction(act_save_form_as)
+
+        menu.addSeparator()
+
         act_edit = QAction(share.locales.tr("Bearbeiten"), self)
         act_edit.triggered.connect(self._action_edit)
         menu.addAction(act_edit)
@@ -6773,7 +6790,7 @@ class PixelGridCanvas(QWidget):
         menu.addSeparator()
         host = self.parent() if self.parent() is not None else None
 
-        act_load = QAction(share.locales.tr("Laden..."), self)
+        act_load = QAction(share.locales.tr("Laden"), self)
         act_load.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
         menu.addAction(act_load)
 
