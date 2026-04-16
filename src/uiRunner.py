@@ -3231,7 +3231,7 @@ class IconTab(QListWidget):
             if not path:
                 return
             lower = path.lower()
-            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json") or lower.endswith(".po"):
+            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json") or lower.endswith(".po") or lower.endswith(".pro"):
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
@@ -3516,6 +3516,14 @@ class IconTab(QListWidget):
                 return
             if lower.endswith(".po"):
                 self._edit_in_editor(path)
+                return
+            if lower.endswith(".pro"):
+                try:
+                    mw = MAINAPP
+                except Exception:
+                    mw = None
+                if mw is not None and hasattr(mw, "open_project_file"):
+                    mw.open_project_file(path)
                 return
 
             #if os.name == "nt":
@@ -11375,6 +11383,41 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(dlg)
             mark_escape_close(sub)
             sub.setWindowTitle(share.locales.tr("Project"))
+            sub.setMinimumSize(800, 500)
+            sub.setMaximumSize(800, 500)
+            sub.resize(800, 500)
+            dlg.show()
+            sub.show()
+            try:
+                self.mdi.setActiveSubWindow(sub)
+            except Exception:
+                pass
+        except Exception as e:
+            QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Projekt-Fenster konnte nicht geöffnet werden.')}\n{e}")
+
+    def open_project_file(self, project_path: str):
+        project_path = (project_path or "").strip()
+        if not project_path:
+            return
+        if not os.path.isfile(project_path):
+            QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Datei nicht gefunden')}:\n{project_path}")
+            return
+        try:
+            dlg = ProjectDialog(self)
+            try:
+                dlg._load_project_from_file(project_path)
+            except Exception as e:
+                QMessageBox.warning(self, share.locales.tr("Project"), f"{share.locales.tr('Projektdatei konnte nicht geladen werden.')}\n{e}")
+                try:
+                    dlg.deleteLater()
+                except Exception:
+                    pass
+                return
+
+            sub = self.mdi.addSubWindow(dlg)
+            mark_escape_close(sub)
+            base = os.path.basename(project_path)
+            sub.setWindowTitle(f"{share.locales.tr('Project')}: {base}")
             sub.setMinimumSize(800, 500)
             sub.setMaximumSize(800, 500)
             sub.resize(800, 500)
