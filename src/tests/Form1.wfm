@@ -1,0 +1,28 @@
+CLASS  Form OF FORM
+	WITH (this)
+		width = 720
+		height = 560
+		top = 278
+		left = 0
+	ENDWITH
+ENDCLASS
+
+OBJECT  Button AS Button
+	WITH (this)
+		width = 169
+		height = 57
+		top = 48
+		left = 48
+		text = "Button"
+	ENDWITH
+ENDOBJECT
+
+OBJECT  Label AS Label
+	WITH (this)
+		width = 56
+		height = 80
+		top = 96
+		left = 80
+		text = "Label"
+	ENDWITH
+ENDOBJECT

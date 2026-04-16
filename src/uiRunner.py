@@ -5973,6 +5973,20 @@ class ObjectPaletteDock(QDockWidget):
 # - Move + Resize mit Grid-Snap
 # - inner ist mouse-transparent, damit Klicks immer den Wrapper selektieren
 # ---------------------------------------------------------------------------
+
+def _find_form_designer_host(widget):
+    cur = widget
+    while cur is not None:
+        if hasattr(cur, "_action_load_form") and hasattr(cur, "_action_save_form") and hasattr(cur, "_action_save_form_as"):
+            return cur
+        try:
+            cur = cur.parent()
+        except Exception:
+            cur = None
+    return None
+
+
+
 class DesignerControl(QWidget):
     HANDLE_SIZE = 7
     MARGIN = HANDLE_SIZE  # Platz für "außenliegende" Handles
@@ -6329,8 +6343,7 @@ class DesignerControl(QWidget):
 
         menu.addSeparator()
 
-        canvas = self.parent() if self.parent() is not None else None
-        host = canvas.parent() if canvas is not None and canvas.parent() is not None else None
+        host = _find_form_designer_host(self)
 
         act_load_form = QAction(share.locales.tr("Laden"), self)
         act_load_form.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
@@ -6788,7 +6801,7 @@ class PixelGridCanvas(QWidget):
         menu.addAction(act_paste)
 
         menu.addSeparator()
-        host = self.parent() if self.parent() is not None else None
+        host = _find_form_designer_host(self)
 
         act_load = QAction(share.locales.tr("Laden"), self)
         act_load.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
