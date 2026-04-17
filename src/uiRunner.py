@@ -9242,10 +9242,21 @@ class LocalizeToolWindow(QWidget):
         except Exception as e:
             QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht geladen werden:\n{e}')
 
+    def _sort_entries_by_msgid(self):
+        current_msgid = self._normalize_text(self.ed_msgid.text())
+        self.entries.sort(key=lambda entry: self._normalize_text(entry.get('msgid', '')))
+        select_index = None
+        if current_msgid:
+            idx = self._find_entry_index(current_msgid)
+            if idx >= 0:
+                select_index = idx
+        self._refresh_msgid_list(select_index=select_index)
+
     def _write_po_file(self, path):
         path = os.path.normpath((path or '').strip())
         if not path:
             raise ValueError('Kein Dateiname für die Eingabedatei (*.po) angegeben.')
+        self._sort_entries_by_msgid()
         folder = os.path.dirname(path) or os.getcwd()
         os.makedirs(folder, exist_ok=True)
         with open(path, 'w', encoding='utf-8', newline='\n') as f:
