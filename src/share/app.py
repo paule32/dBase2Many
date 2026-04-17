@@ -22,48 +22,6 @@ from antlr4      import (
 from antlr4.error.ErrorListener import ErrorListener
 
 # -----------------------------------------------------------------------
-# Qt Backend Factory + Property Mapping
-# -----------------------------------------------------------------------
-from PyQt5.QtCore    import (
-    QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize,
-    QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex,
-    QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
-    qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
-    QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
-    QBuffer, QSettings
-)
-from PyQt5.QtGui     import (
-    QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
-    QTextCharFormat, QColor, QStandardItemModel, QStandardItem, QPen,
-    QPalette, QFontInfo, QFontDatabase, QRegularExpressionValidator,
-    QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
-    QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
-    QTextCursor
-)
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
-    QVBoxLayout, QTextEdit, QToolBar, QStatusBar, QMessageBox,
-    QPlainTextEdit, QAction, QFileDialog, QMenuBar, QMdiArea,
-    QMdiSubWindow, QDockWidget, QTreeWidget, QHBoxLayout, QComboBox,
-    QTabWidget, QListWidget, QListWidgetItem, QScrollBar, QMenu,
-    QFileDialog, QFileIconProvider, QListWidget, QTableWidget,
-    QProgressBar, QTableWidgetItem, QHeaderView, QStyledItemDelegate,
-    QGroupBox, QLabel, QLineEdit, QCheckBox, QRadioButton, QSpacerItem,
-    QGridLayout, QSpinBox, QSizePolicy, QStyleOptionHeader, QStyle,
-    QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
-    QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
-    QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
-    QScrollArea, QAbstractButton
-)
-from PyQt5.QtWebEngineCore import (
-    QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,
-    QWebEngineUrlScheme
-)
-from PyQt5.QtWebEngineWidgets import (
-    QWebEngineView, QWebEngineScript
-)
-from PyQt5.QtSvg import QSvgRenderer
-# -----------------------------------------------------------------------
 from share.common         import *
 from share.editors.editor import *
 # -----------------------------------------------------------------------
@@ -180,15 +138,53 @@ class ProfiledIconTab(legacy.IconTab):
 
         if mw is not None:
             try:
-                if action == "new_webdoc_html" and hasattr(mw, "mdi_open_web_editor"):
-                    mw.mdi_open_web_editor("html")
-                    return True
-                if action == "new_webdoc_css" and hasattr(mw, "mdi_open_web_editor"):
-                    mw.mdi_open_web_editor("css")
-                    return True
-                if action == "new_webdoc_js" and hasattr(mw, "mdi_open_web_editor"):
-                    mw.mdi_open_web_editor("js")
-                    return True
+                if action in ("new_webdoc_html", "new_webdoc_css", "new_webdoc_js"):
+                    kind = "html"
+                    if action == "new_webdoc_css":
+                        kind = "css"
+                    elif action == "new_webdoc_js":
+                        kind = "js"
+
+                    templates = {
+                        "html": (
+                            "index.html",
+                            "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+                        ),
+                        "css": (
+                            "style.css",
+                            "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+                        ),
+                        "js": (
+                            "script.js",
+                            "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+                        ),
+                    }
+
+                    title, content = templates.get(kind, templates["html"])
+                    if hasattr(mw, "mdi_open_editor"):
+                        sub = mw.mdi_open_editor(title=title, text=content)
+                        try:
+                            w = sub.widget()
+                        except Exception:
+                            w = None
+                        try:
+                            if w is not None and hasattr(w, "tree") and w.tree is not None:
+                                w.tree.hide()
+                                w.tree.setMinimumWidth(0)
+                                w.tree.setMaximumWidth(0)
+                        except Exception:
+                            pass
+                        try:
+                            if w is not None and hasattr(w, "splitter") and w.splitter is not None:
+                                w.splitter.setSizes([0, 1200])
+                        except Exception:
+                            pass
+                        try:
+                            if w is not None:
+                                w.filename = title
+                        except Exception:
+                            pass
+                        return True
             except Exception:
                 pass
 
