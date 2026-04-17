@@ -241,12 +241,30 @@ class ProfiledIconTab(legacy.IconTab):
         if not getattr(self, "_legacy_supports_special_items", False):
             self._add_special_items_fallback()
 
+    def _dispatch_fixed_item_by_label(self, item) -> bool:
+        try:
+            label = (item.text() or "").strip().lower()
+        except Exception:
+            return False
+
+        mapping = {
+            "neu html": {"action": "new_webdoc_html"},
+            "neu css": {"action": "new_webdoc_css"},
+            "neu javascript": {"action": "new_webdoc_js"},
+        }
+        spec = mapping.get(label)
+        if spec:
+            return self._dispatch_special_action(spec)
+        return False
+
     def _run_selected(self):
         it = self.currentItem()
         if it is not None:
             spec = it.data(legacy.Qt.UserRole + 1)
             if isinstance(spec, dict) and spec.get("action"):
                 self._dispatch_special_action(spec)
+                return
+            if self._dispatch_fixed_item_by_label(it):
                 return
         return super()._run_selected()
 
@@ -255,6 +273,8 @@ class ProfiledIconTab(legacy.IconTab):
             spec = item.data(legacy.Qt.UserRole + 1)
             if isinstance(spec, dict) and spec.get("action"):
                 self._dispatch_special_action(spec)
+                return
+            if self._dispatch_fixed_item_by_label(item):
                 return
         except Exception:
             pass
