@@ -11838,6 +11838,54 @@ class MainWindow(QMainWindow):
         self.mdi.setActiveSubWindow(sub)
         return sub
 
+    def mdi_open_web_editor(self, kind="html"):
+        kind = (kind or "html").strip().lower()
+
+        templates = {
+            "html": (
+                "index.html",
+                "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+            ),
+            "css": (
+                "style.css",
+                "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+            ),
+            "js": (
+                "script.js",
+                "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+            ),
+        }
+
+        title, content = templates.get(kind, templates["html"])
+        sub = self.mdi_open_editor(title=title, text=content)
+
+        try:
+            w = sub.widget()
+        except Exception:
+            w = None
+
+        try:
+            if w is not None and hasattr(w, "tree") and w.tree is not None:
+                w.tree.hide()
+                w.tree.setMinimumWidth(0)
+                w.tree.setMaximumWidth(0)
+        except Exception:
+            pass
+
+        try:
+            if w is not None and hasattr(w, "splitter") and w.splitter is not None:
+                w.splitter.setSizes([0, 1200])
+        except Exception:
+            pass
+
+        try:
+            if w is not None:
+                w.filename = title
+        except Exception:
+            pass
+
+        return sub
+
     def mdi_open_table_designer(self):
         dlg = TableDesignerDialog(self)
         sub = self.mdi.addSubWindow(dlg)

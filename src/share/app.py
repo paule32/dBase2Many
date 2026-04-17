@@ -180,6 +180,21 @@ class ProfiledIconTab(legacy.IconTab):
 
         if mw is not None:
             try:
+                if action == "new_webdoc_html" and hasattr(mw, "mdi_open_web_editor"):
+                    mw.mdi_open_web_editor("html")
+                    return True
+                if action == "new_webdoc_css" and hasattr(mw, "mdi_open_web_editor"):
+                    mw.mdi_open_web_editor("css")
+                    return True
+                if action == "new_webdoc_js" and hasattr(mw, "mdi_open_web_editor"):
+                    mw.mdi_open_web_editor("js")
+                    return True
+            except Exception:
+                pass
+
+
+        if mw is not None:
+            try:
                 if action == "new_project" and hasattr(mw, "on_action_file_new_project"):
                     mw.on_action_file_new_project()
                     return True
