@@ -5,7 +5,6 @@
 # ---------------------------------------------------------------------------
 from   __future__ import annotations
 import os
-import tempfile
 
 from   pathlib              import Path
 from   typing               import Callable
@@ -450,6 +449,14 @@ class ProfiledRegieCenter(legacy.QDialog):
                 "icon"    : "form",
                 "tooltip" : "Neues JavaScript-Dokument anlegen",
             }])
+        try:
+            self.lw9.itemDoubleClicked.connect(self._on_internet_item_double_clicked)
+        except Exception:
+            pass
+        try:
+            self.lw9.itemActivated.connect(self._on_internet_item_double_clicked)
+        except Exception:
+            pass
         self.tabs.addTab(self.lw9, "Internet")
         self.icon_lists.append(self.lw9)
         # ---------------------------------------------------
@@ -513,6 +520,81 @@ class ProfiledRegieCenter(legacy.QDialog):
         except Exception:
             pass
             
+    def _hide_tree_in_active_editor(self):
+        try:
+            mw = getattr(legacy, "MAINAPP", None)
+        except Exception:
+            mw = None
+        if mw is None or not hasattr(mw, "mdi"):
+            return
+        try:
+            sub = mw.mdi.activeSubWindow()
+            win = sub.widget() if sub is not None else None
+        except Exception:
+            win = None
+        try:
+            if win is not None and hasattr(win, "tree") and win.tree is not None:
+                win.tree.hide()
+                win.tree.setMinimumWidth(0)
+                win.tree.setMaximumWidth(0)
+        except Exception:
+            pass
+        try:
+            if win is not None and hasattr(win, "splitter") and win.splitter is not None:
+                win.splitter.setSizes([0, 1200])
+        except Exception:
+            pass
+
+    def _on_internet_item_double_clicked(self, item):
+        if item is None:
+            return
+        try:
+            label = (item.text() or "").strip().lower()
+        except Exception:
+            label = ""
+
+        templates = {
+            "neu html": (
+                "index.html",
+                "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+            ),
+            "neu css": (
+                "style.css",
+                "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+            ),
+            "neu javascript": (
+                "script.js",
+                "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+            ),
+        }
+
+        tpl = templates.get(label)
+        if tpl is None:
+            return
+
+        filename, content = tpl
+        try:
+            mw = getattr(legacy, "MAINAPP", None)
+        except Exception:
+            mw = None
+        if mw is None or not hasattr(mw, "mdi_open_editor"):
+            return
+
+        try:
+            sub = mw.mdi_open_editor(title=filename, text=content)
+            try:
+                win = sub.widget()
+            except Exception:
+                win = None
+            try:
+                if win is not None:
+                    win.filename = filename
+            except Exception:
+                pass
+            self._hide_tree_in_active_editor()
+        except Exception:
+            pass
+
     # Reuse legacy methods without duplication.
     open_in_table_editor = legacy.RegieCenter.open_in_table_editor
     open_in_code_editor = legacy.RegieCenter.open_in_code_editor
