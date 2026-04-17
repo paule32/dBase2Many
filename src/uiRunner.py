@@ -507,14 +507,16 @@ def _resolve_global_shortcut_host(obj: Any):
         focus,
         {
             "FileEditorWindow",
+            "FormDesignerWindow",
             "TableDesignerDialog",
             "TableRecordEditorDialog",
             "SqlBuilderWindow",
+            "ProjectDialog",
+            "LocalizeToolWindow",
             "RegieCenter",
             "MainWindow",
         },
     )
-
 
 def _dispatch_global_open(obj: Any) -> bool:
     host = _resolve_global_shortcut_host(obj)
@@ -550,6 +552,9 @@ def _dispatch_global_save(obj: Any) -> bool:
         if name == "FileEditorWindow" and hasattr(host, "file_save"):
             host.file_save()
             return True
+        if name == "FormDesignerWindow" and hasattr(host, "_action_save_form"):
+            host._action_save_form()
+            return True
         if name == "TableDesignerDialog" and hasattr(host, "_action_save"):
             host._action_save()
             return True
@@ -558,6 +563,43 @@ def _dispatch_global_save(obj: Any) -> bool:
             return True
         if name == "SqlBuilderWindow" and hasattr(host, "save_builder"):
             host.save_builder()
+            return True
+        if name == "ProjectDialog" and hasattr(host, "_on_save_project"):
+            host._on_save_project()
+            return True
+        if name == "LocalizeToolWindow" and hasattr(host, "_save_po"):
+            host._save_po()
+            return True
+    except Exception:
+        return False
+    return False
+
+def _dispatch_global_save_as(obj: Any) -> bool:
+    host = _resolve_global_shortcut_host(obj)
+    if host is None:
+        return False
+    name = host.__class__.__name__
+    try:
+        if name == "FileEditorWindow" and hasattr(host, "file_save_as"):
+            host.file_save_as()
+            return True
+        if name == "FormDesignerWindow" and hasattr(host, "_action_save_form_as"):
+            host._action_save_form_as()
+            return True
+        if name == "TableDesignerDialog" and hasattr(host, "_action_save_as"):
+            host._action_save_as()
+            return True
+        if name == "TableRecordEditorDialog" and hasattr(host, "_action_save_as"):
+            host._action_save_as()
+            return True
+        if name == "SqlBuilderWindow" and hasattr(host, "save_builder_as"):
+            host.save_builder_as()
+            return True
+        if name == "ProjectDialog" and hasattr(host, "_on_save_project_as"):
+            host._on_save_project_as()
+            return True
+        if name == "LocalizeToolWindow" and hasattr(host, "_save_po_as"):
+            host._save_po_as()
             return True
     except Exception:
         return False
@@ -577,17 +619,21 @@ class F1Filter(QObject):
         except Exception:
             return super().eventFilter(obj, event)
 
-        # Ctrl+O / Ctrl+S global und kontextabhaengig
+        # Ctrl+O / Ctrl+S / Ctrl+Shift+S global und kontextabhaengig
         try:
             if et in (QEvent.ShortcutOverride, QEvent.KeyPress):
                 mods = event.modifiers()
                 ctrl_only = bool(mods & Qt.ControlModifier) and not bool(mods & (Qt.AltModifier | Qt.MetaModifier))
+                shift_on = bool(mods & Qt.ShiftModifier)
                 if ctrl_only and event.key() in (Qt.Key_O, Qt.Key_S):
                     handled = False
                     if event.key() == Qt.Key_O:
                         handled = _dispatch_global_open(obj)
                     elif event.key() == Qt.Key_S:
-                        handled = _dispatch_global_save(obj)
+                        if shift_on:
+                            handled = _dispatch_global_save_as(obj)
+                        else:
+                            handled = _dispatch_global_save(obj)
                     if handled:
                         try:
                             event.accept()
@@ -10698,12 +10744,22 @@ class MainWindow(QMainWindow):
 
         menu_file_new = self.menu_file.addMenu(share.locales.tr("New"))
         menu_file_new.setFont(f2)
+
         self.action_file_open = QAction(share.locales.tr("Open"), self)
         self.action_file_close = QAction(share.locales.tr("Close"), self)
+        self.action_file_save = QAction(share.locales.tr("Speichern"), self)
+        self.action_file_save_as = QAction(share.locales.tr("Speichern unter..."), self)
+
         self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
         self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
+        self.action_file_save.setShortcut(QKeySequence("Ctrl+S"))
+        self.action_file_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
+        self.action_file_save.triggered.connect(self.on_action_file_save)
+        self.action_file_save_as.triggered.connect(self.on_action_file_save_as)
+
         action_file_new_project = QAction(share.locales.tr("New Project"), self)
         action_file_open_project = QAction(share.locales.tr("Open Project"), self)
         action_file_print = QAction(share.locales.tr("Print"), self)
@@ -10721,6 +10777,7 @@ class MainWindow(QMainWindow):
         action_file_web_wizard.triggered.connect(self.on_action_file_web_wizard)
         action_file_database.triggered.connect(self.on_action_file_database)
         action_file_exit.triggered.connect(self.on_action_file_exit)
+        
         action_file_new_form = QAction(share.locales.tr("Forms"), self)
         action_file_new_menu = QAction(share.locales.tr("Menue"), self)
         action_file_new_popupmenu = QAction(share.locales.tr("Popup-Menu"), self)
@@ -10729,6 +10786,7 @@ class MainWindow(QMainWindow):
         action_file_new_program = QAction(share.locales.tr("Programs"), self)
         action_file_new_table = QAction(share.locales.tr("Tables"), self)
         action_file_new_sql = QAction(share.locales.tr("Queries"), self)
+        
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
         menu_file_new.addAction(action_file_new_popupmenu)
@@ -10740,9 +10798,14 @@ class MainWindow(QMainWindow):
         menu_file_new.addSeparator()
         menu_file_new.addAction(action_file_new_table)
         menu_file_new.addAction(action_file_new_sql)
+        
         self.menu_file.addAction(self.action_file_open)
         self.menu_file.addAction(self.action_file_close)
         self.menu_file.addSeparator()
+        self.menu_file.addAction(self.action_file_save)
+        self.menu_file.addAction(self.action_file_save_as)
+        self.menu_file.addSeparator()
+
         self.menu_file.addAction(action_file_new_project)
         self.menu_file.addAction(action_file_open_project)
         self.menu_file.addSeparator()
@@ -10772,6 +10835,16 @@ class MainWindow(QMainWindow):
         
         self.dark_mode = True
         self.apply_theme()
+
+        try:
+            self.menu_file.aboutToShow.connect(self._update_file_menu_dynamic_actions)
+        except Exception:
+            pass
+
+        try:
+            self.mdi.subWindowActivated.connect(lambda _=None: self._update_file_menu_dynamic_actions())
+        except Exception:
+            pass
 
         try:
             self._init_form_designer_dock()
@@ -10858,6 +10931,37 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return w
+
+    def _resolve_active_save_host(self):
+        return _resolve_global_shortcut_host(self)
+
+    def _update_file_menu_dynamic_actions(self):
+        host = self._resolve_active_save_host()
+        name = host.__class__.__name__ if host is not None else ""
+
+        can_save = name in {
+            "FileEditorWindow",
+            "FormDesignerWindow",
+            "TableDesignerDialog",
+            "TableRecordEditorDialog",
+            "SqlBuilderWindow",
+            "ProjectDialog",
+            "LocalizeToolWindow",
+        }
+
+        try:
+            self.action_file_save.setEnabled(can_save)
+            self.action_file_save_as.setEnabled(can_save)
+        except Exception:
+            pass
+
+    def on_action_file_save(self):
+        _dispatch_global_save(self)
+        self._update_file_menu_dynamic_actions()
+
+    def on_action_file_save_as(self):
+        _dispatch_global_save_as(self)
+        self._update_file_menu_dynamic_actions()
 
     def on_action_view_debug_window(self):
         try:
@@ -11603,6 +11707,7 @@ class MainWindow(QMainWindow):
         pass
     def _create_statusbar(self):
         pass
+    
     def on_action_file_close(self):
         # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen
         sub = self.mdi.activeSubWindow()

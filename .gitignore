@@ -253,3 +253,13 @@ src/tests/prg1_parse_input_dump.prg
 src/tests/prg1_parser_input_dump.prg
 src/tests/dbase_parser_input_dump_parse_input_dump.prg
 src/tests/dbase_parser_input_dump_parser_input_dump.prg
+src/tests/unbenannt1.txt
+src/tests/unbenannt2.txt
+src/tests/unbenannt3.txt
+src/tests/unbenannt4.txt
+src/tests/unbenannt5.txt
+src/tests/unbenannt6.txt
+src/tests/unbenannt.txt
+src/dbase_run_parse_input_dump.prg
+src/dbase_run_parser_input_dump.prg
+src/dbase_run.prg

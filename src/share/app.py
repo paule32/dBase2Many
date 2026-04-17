@@ -101,6 +101,49 @@ class ProfiledIconTab(legacy.IconTab):
             item.setToolTip(tip)
             self.insertItem(idx, item)
 
+    def _on_context_menu(self, pos):
+        item = self.itemAt(pos)
+        if item is not None:
+            try:
+                self.setCurrentItem(item)
+            except Exception:
+                pass
+
+            try:
+                spec = item.data(legacy.Qt.UserRole + 1)
+            except Exception:
+                spec = None
+
+            if isinstance(spec, dict) and spec.get("action"):
+                menu = legacy.QMenu(self)
+
+                m_new = menu.addMenu("Neu")
+
+                def add_new_action(title, action_name):
+                    act = legacy.QAction(title, self)
+                    act.triggered.connect(lambda _=False, a=action_name: self._dispatch_special_action({"action": a}))
+                    m_new.addAction(act)
+
+                add_new_action("HTML", "new_webdoc_html")
+                add_new_action("CSS", "new_webdoc_css")
+                add_new_action("JavaScript", "new_webdoc_js")
+
+                menu.addSeparator()
+
+                act_run = legacy.QAction("Ausführen", self)
+                act_run.triggered.connect(lambda: self._dispatch_special_action(dict(spec)))
+                menu.addAction(act_run)
+
+                act_edit = legacy.QAction("Bearbeiten", self)
+                act_edit.triggered.connect(lambda: self._dispatch_special_action(dict(spec)))
+                menu.addAction(act_edit)
+
+                menu.exec_(self.viewport().mapToGlobal(pos))
+                return
+
+        return super()._on_context_menu(pos)
+
+
     def _resolve_main_window(self):
         try:
             mw = getattr(legacy, "MAINAPP", None)
@@ -117,7 +160,6 @@ class ProfiledIconTab(legacy.IconTab):
                 cur = cur.parent()
             except Exception:
                 cur = None
-
         try:
             for w in legacy.QApplication.topLevelWidgets():
                 if hasattr(w, "mdi") or hasattr(w, "mdi_open_editor"):
@@ -140,7 +182,7 @@ class ProfiledIconTab(legacy.IconTab):
         except Exception:
             pass
 
-    def _open_text_in_editor(self, title: str, text: str) -> bool:
+    def _open_text_in_editor(self, title: str, text: str, default_suffix: str = "", name_filters=None) -> bool:
         mw = self._resolve_main_window()
         if mw is None or not hasattr(mw, "mdi"):
             return False
@@ -154,13 +196,20 @@ class ProfiledIconTab(legacy.IconTab):
 
         try:
             if isinstance(win, legacy.FileEditorWindow) and hasattr(win, "new_tab"):
-                idx = win.new_tab(title=title, path="", text=text)
                 try:
-                    win.editor_tabs.setTabText(idx, title)
-                except Exception:
-                    pass
+                    idx = win.new_tab(
+                        title=title,
+                        path="",
+                        text=text,
+                        default_suffix=default_suffix,
+                        name_filters=name_filters,
+                    )
+                except TypeError:
+                    # Fallback, falls editor.py noch die alte new_tab-Signatur hat
+                    idx = win.new_tab(title=title, path="", text=text)
+
                 try:
-                    mw.mdi.setActiveSubWindow(sub)
+                    win.editor_tabs.setCurrentIndex(idx)
                 except Exception:
                     pass
                 try:
@@ -169,38 +218,43 @@ class ProfiledIconTab(legacy.IconTab):
                     win.setFocus()
                 except Exception:
                     pass
-                try:
-                    win.filename = title
-                except Exception:
-                    pass
                 self._hide_tree_for_editor_widget(win)
                 return True
         except Exception:
             pass
 
         try:
-            new_win = legacy.FileEditorWindow(parent=mw, initial_path="", initial_text=text)
+            new_win = legacy.FileEditorWindow(parent=mw, initial_path="", initial_text="")
             subw = mw.mdi.addSubWindow(new_win)
             legacy.mark_escape_close(subw)
 
             try:
-                subw.setWindowTitle(title)
+                if hasattr(new_win, "editor_tabs") and new_win.editor_tabs.count() == 1:
+                    w0 = new_win.editor_tabs.widget(0)
+                    new_win.editor_tabs.removeTab(0)
+                    if w0 is not None:
+                        w0.deleteLater()
+            except Exception:
+                pass
+
+            try:
+                idx = new_win.new_tab(
+                    title=title,
+                    path="",
+                    text=text,
+                    default_suffix=default_suffix,
+                    name_filters=name_filters,
+                )
+            except TypeError:
+                idx = new_win.new_tab(title=title, path="", text=text)
+
+            try:
+                new_win.editor_tabs.setCurrentIndex(idx)
             except Exception:
                 pass
 
             new_win.resize(900, 650)
             new_win.show()
-
-            try:
-                if hasattr(new_win, "editor_tabs") and new_win.editor_tabs.count() > 0:
-                    new_win.editor_tabs.setTabText(0, title)
-            except Exception:
-                pass
-
-            try:
-                new_win.filename = title
-            except Exception:
-                pass
 
             try:
                 mw.mdi.setActiveSubWindow(subw)
@@ -218,6 +272,20 @@ class ProfiledIconTab(legacy.IconTab):
             return True
         except Exception:
             return False
+
+    def _hide_tree_for_editor_widget(self, w):
+        try:
+            if w is not None and hasattr(w, "tree") and w.tree is not None:
+                w.tree.hide()
+                w.tree.setMinimumWidth(0)
+                w.tree.setMaximumWidth(0)
+        except Exception:
+            pass
+        try:
+            if w is not None and hasattr(w, "splitter") and w.splitter is not None:
+                w.splitter.setSizes([0, 1200])
+        except Exception:
+            pass
 
     def _dispatch_special_action(self, spec) -> bool:
         action = str((spec or {}).get("action", "")).strip().lower()
@@ -251,53 +319,54 @@ class ProfiledIconTab(legacy.IconTab):
 
         mw = self._resolve_main_window()
 
-        if mw is not None:
-            try:
-                if action in ("new_webdoc_html", "new_webdoc_css", "new_webdoc_js"):
-                    kind = "html"
-                    if action == "new_webdoc_css":
-                        kind = "css"
-                    elif action == "new_webdoc_js":
-                        kind = "js"
+        if action in ("new_webdoc_html", "new_webdoc_css", "new_webdoc_js"):
+            kind = "html"
+            if action == "new_webdoc_css":
+                kind = "css"
+            elif action == "new_webdoc_js":
+                kind = "js"
 
-                    templates = {
-                        "html": (
-                            "index.html",
-                            "<!DOCTYPE html>\n"
-                            "<html lang=\"de\">\n"
-                            "<head>\n"
-                            "    <meta charset=\"utf-8\">\n"
-                            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
-                            "    <title>Neues HTML-Dokument</title>\n"
-                            "    <link rel=\"stylesheet\" href=\"style.css\">\n"
-                            "</head>\n"
-                            "<body>\n"
-                            "\n"
-                            "    <script src=\"script.js\"></script>\n"
-                            "</body>\n"
-                            "</html>\n"
-                        ),
-                        "css": (
-                            "style.css",
-                            "body {\n"
-                            "    margin: 0;\n"
-                            "    padding: 0;\n"
-                            "    font-family: Arial, sans-serif;\n"
-                            "}\n"
-                        ),
-                        "js": (
-                            "script.js",
-                            "document.addEventListener(\"DOMContentLoaded\", () => {\n"
-                            "    console.log(\"ready\");\n"
-                            "});\n"
-                        ),
-                    }
+            templates = {
+                "html": (
+                    "index.html",
+                    "<!DOCTYPE html>\n"
+                    "<html lang=\"de\">\n"
+                    "<head>\n"
+                    "    <meta charset=\"utf-8\">\n"
+                    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+                    "    <title>Neues HTML-Dokument</title>\n"
+                    "    <link rel=\"stylesheet\" href=\"style.css\">\n"
+                    "</head>\n"
+                    "<body>\n"
+                    "\n"
+                    "    <script src=\"script.js\"></script>\n"
+                    "</body>\n"
+                    "</html>\n",
+                    "html",
+                    ["HTML Dokument (*.html *.htm)", "Alle Dateien (*.*)"],
+                ),
+                "css": (
+                    "style.css",
+                    "body {\n"
+                    "    margin: 0;\n"
+                    "    padding: 0;\n"
+                    "    font-family: Arial, sans-serif;\n"
+                    "}\n",
+                    "css",
+                    ["CSS Stylesheet (*.css)", "Alle Dateien (*.*)"],
+                ),
+                "js": (
+                    "script.js",
+                    "document.addEventListener(\"DOMContentLoaded\", () => {\n"
+                    "    console.log(\"ready\");\n"
+                    "});\n",
+                    "js",
+                    ["JavaScript (*.js)", "Alle Dateien (*.*)"],
+                ),
+            }
 
-                    title, content = templates.get(kind, templates["html"])
-                    return self._open_text_in_editor(title, content)
-
-            except Exception:
-                pass
+            title, content, default_suffix, name_filters = templates.get(kind, templates["html"])
+            return self._open_text_in_editor(title, content, default_suffix, name_filters)
 
         if mw is not None:
             try:
@@ -742,7 +811,7 @@ class ProfiledMainWindow(legacy.MainWindow):
         )
 
     def on_action_file_open(self):
-        dlg = legacy.QFileDialog(self, legacy._tr("Open File..."))
+        dlg = legacy.QFileDialog(self, share.locales.tr("Open File..."))
         dlg.setFileMode(legacy.QFileDialog.ExistingFile)
         filters = [self.language_profile.program_name_filter, "Alle Dateien (*.*)"]
         dlg.setNameFilters(filters)

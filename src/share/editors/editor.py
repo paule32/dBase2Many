@@ -1065,8 +1065,16 @@ class FileEditorWindow(QDialog):
         if ed is not None:
             setattr(ed, "_path", path)
 
-    def tab_display_name(self, path: str) -> str:
-        return os.path.basename(path) if path else "unbenannt.prg"
+    def tab_display_name(self, path: str, idx: Optional[int] = None) -> str:
+        if path:
+            return os.path.basename(path)
+        if idx is not None:
+            ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+            if ed is not None:
+                disp = getattr(ed, "_display_name", "") or ""
+                if disp:
+                    return disp
+        return "unbenannt.prg"
 
     def _update_tab_visuals(self, idx: int) -> None:
         ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
@@ -1074,7 +1082,7 @@ class FileEditorWindow(QDialog):
             return
         modified = bool(ed.document().isModified())
         # TabText: nur Dateiname (ohne Pfad)
-        title = self.tab_display_name(getattr(ed, "_path", ""))
+        title = self.tab_display_name(getattr(ed, "_path", ""), idx)
         self.editor_tabs.setTabText(idx, title)
         # 2px Linie via TabBar.tabData
         self.editor_tabs.tabBar().setTabData(idx, modified)
@@ -1088,7 +1096,14 @@ class FileEditorWindow(QDialog):
         except Exception:
             pass
 
-    def new_tab(self, title: str = "unbenannt.prg", path: str = "", text: str = "") -> int:
+    def new_tab(
+        self,
+        title: str = "unbenannt.prg",
+        path: str = "",
+        text: str = "",
+        default_suffix: str = "",
+        name_filters=None,
+    ) -> int:
         ed = self._create_editor()
         ed.setFont(QFont("Consolas", 10))
         ed.setLineWrapMode(ed.NoWrap)
@@ -1097,8 +1112,20 @@ class FileEditorWindow(QDialog):
         ed.document().setModified(False)
         ed.runRequested.connect(self.run_current_text)
         ed.cursorPositionChanged.connect(self._update_cursor_status)
+        
         setattr(ed, "_path", path or "")
+        setattr(ed, "_display_name", title or "unbenannt.prg")
 
+        ds = (default_suffix or "").strip().lstrip(".")
+        if not ds:
+            ds = os.path.splitext(title or "")[1].lstrip(".")
+        if not ds:
+            ds = "prg"
+        setattr(ed, "_default_suffix", ds)
+
+        nf = list(name_filters or [])
+        setattr(ed, "_name_filters", nf)
+        
         # Syntax Highlighter pro Editor
         try:
             share.common.debug_print("oooooo")
@@ -1166,7 +1193,7 @@ class FileEditorWindow(QDialog):
             return True
         if not ed.document().isModified():
             return True
-        title = self.tab_display_name(getattr(ed, "_path", ""))
+        title = self.tab_display_name(getattr(ed, "_path", ""), idx)
         res = QMessageBox.question(
             self,
             "Ungespeicherte Änderungen",
@@ -1224,22 +1251,45 @@ class FileEditorWindow(QDialog):
         ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
         if ed is None:
             return False
-        cur_path = getattr(ed, "_path", "") or ""
+        
+        default_suffix = (getattr(ed, "_default_suffix", "") or "").strip().lstrip(".")
+        display_name   = (getattr(ed, "_display_name", "") or "").strip()
+        name_filters   = list(getattr(ed, "_name_filters", []) or [])
+
+        if not default_suffix:
+            default_suffix = os.path.splitext(display_name)[1].lstrip(".") if display_name else ""
+        if not default_suffix:
+            default_suffix = "prg"
+
+        if not name_filters:
+            ext = default_suffix.lower()
+            if ext in ("html", "htm"):
+                name_filters = ["HTML Dokument (*.html *.htm)", "Alle Dateien (*.*)"]
+            elif ext == "css":
+                name_filters = ["CSS Stylesheet (*.css)", "Alle Dateien (*.*)"]
+            elif ext == "js":
+                name_filters = ["JavaScript (*.js)", "Alle Dateien (*.*)"]
+            else:
+                name_filters = ["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"]
+
         dlg = QFileDialog(self, "Speichern unter")
         dlg.setAcceptMode(QFileDialog.AcceptSave)
         dlg.setFileMode(QFileDialog.AnyFile)
-        dlg.setDefaultSuffix("prg")
-        dlg.setNameFilters(["dBase Quellcode (*.prg)", "Alle Dateien (*.*)"])
+        dlg.setDefaultSuffix(default_suffix)
+        dlg.setNameFilters(name_filters)
         dlg.setOption(QFileDialog.DontConfirmOverwrite, True)
+
         if cur_path:
             dlg.selectFile(cur_path)
         else:
-            dlg.selectFile("unbenannt.prg")
+            dlg.selectFile(display_name or f"unbenannt.{default_suffix}")
+        
         if not dlg.exec_():
             return False
         files = dlg.selectedFiles()
         if not files:
             return False
+            
         path = files[0]
         if os.path.exists(path):
             res = QMessageBox.question(
@@ -1251,7 +1301,10 @@ class FileEditorWindow(QDialog):
             )
             if res != QMessageBox.Ok:
                 return False
+        
         setattr(ed, "_path", path)
+        setattr(ed, "_display_name", os.path.basename(path))
+        
         self._update_tab_visuals(idx)
         return self.file_save(idx)
 
@@ -1277,6 +1330,8 @@ class FileEditorWindow(QDialog):
             ed = self.current_editor()
             if ed is None:
                 return
+            
+            name = self.tab_display_name(getattr(ed, "_path", ""), idx)
             star = " *" if ed.document().isModified() else ""
         
         if hasattr(self, "fname"):
