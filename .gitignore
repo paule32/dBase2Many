@@ -249,3 +249,5 @@ src/tests/ARRAY1.microsoft.translate
 src/tests/ARRAY2.microsoft.translate
 src/tests/ARRAY2.txt
 src/tests/1
+src/tests/prg1_parse_input_dump.prg
+src/tests/prg1_parser_input_dump.prg

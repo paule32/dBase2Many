@@ -5,6 +5,7 @@
 # ---------------------------------------------------------------------------
 from   __future__ import annotations
 import os
+import tempfile
 
 from   pathlib              import Path
 from   typing               import Callable
@@ -99,6 +100,35 @@ class ProfiledIconTab(legacy.IconTab):
             item.setData(legacy.Qt.UserRole + 1, dict(spec))
             tip = str(spec.get("tooltip", title)).strip()
             item.setToolTip(tip)
+
+            action = str(spec.get("action", "")).strip().lower()
+            if action in ("new_webdoc_html", "new_webdoc_css", "new_webdoc_js"):
+                try:
+                    templates = {
+                        "new_webdoc_html": (
+                            "index.html",
+                            "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+                        ),
+                        "new_webdoc_css": (
+                            "style.css",
+                            "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+                        ),
+                        "new_webdoc_js": (
+                            "script.js",
+                            "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+                        ),
+                    }
+                    filename, content = templates[action]
+                    tmp_dir = os.path.join(tempfile.gettempdir(), "dBase2Many_webdocs")
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    temp_path = os.path.join(tmp_dir, filename)
+                    with open(temp_path, "w", encoding="utf-8") as fh:
+                        fh.write(content)
+                    item.setData(legacy.Qt.UserRole, temp_path)
+                    item.setToolTip(temp_path)
+                except Exception:
+                    pass
+
             self.insertItem(idx, item)
 
     def _resolve_main_window(self):
@@ -241,30 +271,12 @@ class ProfiledIconTab(legacy.IconTab):
         if not getattr(self, "_legacy_supports_special_items", False):
             self._add_special_items_fallback()
 
-    def _dispatch_fixed_item_by_label(self, item) -> bool:
-        try:
-            label = (item.text() or "").strip().lower()
-        except Exception:
-            return False
-
-        mapping = {
-            "neu html": {"action": "new_webdoc_html"},
-            "neu css": {"action": "new_webdoc_css"},
-            "neu javascript": {"action": "new_webdoc_js"},
-        }
-        spec = mapping.get(label)
-        if spec:
-            return self._dispatch_special_action(spec)
-        return False
-
     def _run_selected(self):
         it = self.currentItem()
         if it is not None:
             spec = it.data(legacy.Qt.UserRole + 1)
             if isinstance(spec, dict) and spec.get("action"):
                 self._dispatch_special_action(spec)
-                return
-            if self._dispatch_fixed_item_by_label(it):
                 return
         return super()._run_selected()
 
@@ -273,8 +285,6 @@ class ProfiledIconTab(legacy.IconTab):
             spec = item.data(legacy.Qt.UserRole + 1)
             if isinstance(spec, dict) and spec.get("action"):
                 self._dispatch_special_action(spec)
-                return
-            if self._dispatch_fixed_item_by_label(item):
                 return
         except Exception:
             pass

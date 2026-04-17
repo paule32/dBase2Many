@@ -3204,83 +3204,6 @@ class IconTab(QListWidget):
                 path = ""
         return path
 
-    def _resolve_regiecenter_host(self):
-        cur = self.parent()
-        while cur is not None:
-            if hasattr(cur, "open_in_code_editor"):
-                return cur
-            try:
-                cur = cur.parent()
-            except Exception:
-                cur = None
-        return None
-
-    def _hide_tree_in_active_editor(self):
-        try:
-            mw = MAINAPP if "MAINAPP" in globals() else None
-        except Exception:
-            mw = None
-        if mw is None or not hasattr(mw, "mdi"):
-            return
-        try:
-            sub = mw.mdi.activeSubWindow()
-            win = sub.widget() if sub is not None else None
-        except Exception:
-            win = None
-        try:
-            if win is not None and hasattr(win, "tree") and win.tree is not None:
-                win.tree.hide()
-                win.tree.setMinimumWidth(0)
-                win.tree.setMaximumWidth(0)
-        except Exception:
-            pass
-        try:
-            if win is not None and hasattr(win, "splitter") and win.splitter is not None:
-                win.splitter.setSizes([0, 1200])
-        except Exception:
-            pass
-
-    def _open_internet_editor_from_label(self, item) -> bool:
-        try:
-            label = (item.text() or "").strip().lower()
-        except Exception:
-            return False
-
-        templates = {
-            "neu html": (
-                "index.html",
-                "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
-            ),
-            "neu css": (
-                "style.css",
-                "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
-            ),
-            "neu javascript": (
-                "script.js",
-                "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
-            ),
-        }
-        tpl = templates.get(label)
-        if tpl is None:
-            return False
-
-        host = self._resolve_regiecenter_host()
-        if host is None:
-            return False
-
-        try:
-            filename, content = tpl
-            tmp_dir = os.path.join(tempfile.gettempdir(), "dBase2Many_webdocs")
-            os.makedirs(tmp_dir, exist_ok=True)
-            path = os.path.join(tmp_dir, filename)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
-            host.open_in_code_editor(display_name=filename, path=path)
-            self._hide_tree_in_active_editor()
-            return True
-        except Exception:
-            return False
-
     def _run_selected(self):
         path = self._selected_path()
         if path:
@@ -3533,7 +3456,8 @@ class IconTab(QListWidget):
             is_dbf = lower.endswith('.dbf')
             is_sql_builder = lower.endswith('.sqlb.json')
             is_po = lower.endswith('.po')
-            if not (is_prg or is_dbf or is_sql_builder or is_po):
+            is_webdoc = lower.endswith('.html') or lower.endswith('.css') or lower.endswith('.js')
+            if not (is_prg or is_dbf or is_sql_builder or is_po or is_webdoc):
                 return
 
             display_name = os.path.basename(path)
@@ -3541,11 +3465,27 @@ class IconTab(QListWidget):
             # Host/RegieCenter finden (parent-chain)
             host = self.parent()
 
-            if is_prg:
+            if is_prg or is_webdoc:
                 while host is not None and not hasattr(host, "open_in_code_editor"):
                     host = host.parent()
                 if host is not None and hasattr(host, "open_in_code_editor"):
                     host.open_in_code_editor(display_name=display_name, path=path)
+                    try:
+                        mw = MAINAPP if "MAINAPP" in globals() else None
+                    except Exception:
+                        mw = None
+                    try:
+                        if mw is not None and hasattr(mw, "mdi"):
+                            sub = mw.mdi.activeSubWindow()
+                            win = sub.widget() if sub is not None else None
+                            if is_webdoc and win is not None and hasattr(win, "tree") and win.tree is not None:
+                                win.tree.hide()
+                                win.tree.setMinimumWidth(0)
+                                win.tree.setMaximumWidth(0)
+                            if is_webdoc and win is not None and hasattr(win, "splitter") and win.splitter is not None:
+                                win.splitter.setSizes([0, 1200])
+                    except Exception:
+                        pass
                 else:
                     QMessageBox.information(self, "Bearbeiten", "Kein CodeEditor-Hook gefunden.")
             elif is_dbf:
@@ -3585,6 +3525,9 @@ class IconTab(QListWidget):
             lower = path.lower()
             if lower.endswith(".prg"):
                 parse(path)
+                return
+            if lower.endswith(".html") or lower.endswith(".css") or lower.endswith(".js"):
+                self._edit_in_editor(path)
                 return
             if lower.endswith(".dbf"):
                 self._edit_in_editor(path)
