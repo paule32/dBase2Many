@@ -3143,6 +3143,9 @@ class IconTab(QListWidget):
         self.setUpdatesEnabled(False)
         try:
             self.clear()
+
+            if bool(self.property("fixed_web_templates")):
+                self._add_fixed_web_template_items()
             if not self.base_dir or not os.path.isdir(self.base_dir):
                 return
 
@@ -3183,6 +3186,24 @@ class IconTab(QListWidget):
         finally:
             self.setUpdatesEnabled(True)
 
+    def _add_fixed_web_template_items(self):
+        try:
+            icon = icon_from_svg(SVG_PAGE, 48)
+        except Exception:
+            icon = QIcon()
+
+        items = [
+            ("new_html", "Neu HTML", "Neue HTML-Seite anlegen"),
+            ("new_css", "Neu CSS", "Neue CSS-Datei anlegen"),
+            ("new_js", "Neu JavaScript", "Neue JavaScript-Datei anlegen"),
+        ]
+        for kind, title, tip in items:
+            item = QListWidgetItem(icon, title)
+            item.setToolTip(tip)
+            item.setData(Qt.UserRole, "")
+            item.setData(Qt.UserRole + 1, kind)
+            self.addItem(item)
+
     def _selected_path(self) -> str:
         it = self.currentItem()
         if not it:
@@ -3214,6 +3235,10 @@ class IconTab(QListWidget):
     # ---------------------------------------------------------------------------
     def _on_item_double_clicked(self, item: QListWidgetItem):
         try:
+            special_kind = item.data(Qt.UserRole + 1) or ""
+            if special_kind:
+                self._open_fixed_web_template(str(special_kind))
+                return
             path = item.data(Qt.UserRole) or ""
             if not path:
                 try:
@@ -3239,6 +3264,95 @@ class IconTab(QListWidget):
             pass
 
     
+
+    def _web_template_text(self, kind: str) -> str:
+        kind = (kind or "").strip().lower()
+        if kind == "new_html":
+            return """<!DOCTYPE html>
+<html lang=\"de\">
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <title>Neue HTML-Seite</title>
+    <link rel=\"stylesheet\" href=\"style.css\">
+</head>
+<body>
+    <h1>Hallo Welt</h1>
+    <p>Neue HTML-Datei aus dem RegieCenter.</p>
+
+    <script src=\"app.js\"></script>
+</body>
+</html>
+"""
+        if kind == "new_css":
+            return """:root {
+    color-scheme: light dark;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.5;
+}
+"""
+        if kind == "new_js":
+            return """document.addEventListener(\"DOMContentLoaded\", () => {
+    console.log(\"Neue JavaScript-Datei geladen.\");
+});
+"""
+        return ""
+
+    def _open_fixed_web_template(self, kind: str):
+        host = self._regiecenter_host()
+        directory = (getattr(self, "base_dir", "") or "").strip()
+        filename_map = {
+            "new_html": ("unbenannt", ".html"),
+            "new_css": ("style", ".css"),
+            "new_js": ("app", ".js"),
+        }
+        base, ext = filename_map.get(kind, ("unbenannt", ".txt"))
+        text = self._web_template_text(kind)
+
+        if not directory or not os.path.isdir(directory):
+            QMessageBox.information(self, "Neu", "Bitte zuerst ein Verzeichnis auswählen.")
+            return
+
+        path = self._unique_name_in_dir(directory, base, ext)
+        if not path:
+            return
+
+        try:
+            with open(path, "w", encoding="utf-8", errors="replace") as f:
+                f.write(text)
+        except Exception as e:
+            QMessageBox.warning(self, "Neu", f"Konnte Datei nicht erstellen:\n{e}")
+            return
+
+        self._refresh_all_icon_tabs()
+
+        if host is not None and hasattr(host, "open_in_code_editor"):
+            host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+            try:
+                mw = MAINAPP if "MAINAPP" in globals() else None
+            except Exception:
+                mw = None
+            try:
+                if mw is not None and hasattr(mw, "mdi"):
+                    sub = mw.mdi.activeSubWindow()
+                    win = sub.widget() if sub is not None else None
+                    if win is not None and hasattr(win, "tree") and win.tree is not None:
+                        win.tree.hide()
+                        win.tree.setMinimumWidth(0)
+                        win.tree.setMaximumWidth(0)
+                    if win is not None and hasattr(win, "splitter") and win.splitter is not None:
+                        win.splitter.setSizes([0, 1200])
+            except Exception:
+                pass
+
     def _on_context_menu(self, pos: QPoint):
         # Kontextmenü für die IconView (auch bei Rechtsklick auf leere Fläche).
         item = self.itemAt(pos)
@@ -3682,6 +3796,7 @@ class RegieCenter(QDialog):
         self.lw8 = IconTab(ext_grafiken,  parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lw8); self.tabs.addTab(self.lw8, 'Grafiken')
         self.lw9 = IconTab(ext_internet,  parent=self, icon_provider=self.icon_provider)
+        self.lw9.setProperty("fixed_web_templates", True)
         self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, 'Internet')
 
         # Sonstiges = alles, was in keinem der anderen Filter steckt
@@ -3916,7 +4031,6 @@ class RegieCenter(QDialog):
         if not path or not os.path.isdir(path):
             for lw in self.icon_lists:
                 lw.set_directory("")
-                lw.clear()
             return
 
         # Jede IconView rendert ihren eigenen Filter
