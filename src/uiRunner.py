@@ -8812,7 +8812,6 @@ class LocalizeToolWindow(QWidget):
         self.tabs.addTab(self._build_settings_tab(), "Settings")
 
         btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
         self.btn_create = QPushButton("Create", self)
         self.btn_help   = QPushButton("Help", self)
         self.btn_cancel = QPushButton("Cancel", self)
@@ -8924,9 +8923,11 @@ class LocalizeToolWindow(QWidget):
         btn_col.addWidget(self.btn_delete_text)
         btn_col.addSpacing(2)
 
-        outer.addLayout(left_col, 0)
-        outer.addLayout(editor_col, 1)
+        btn_col.addStretch(1)
+
         outer.addLayout(btn_col, 0)
+        outer.addLayout(editor_col, 1)
+        outer.addLayout(left_col, 0)
         
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
