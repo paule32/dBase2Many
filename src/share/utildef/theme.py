@@ -515,6 +515,125 @@ QScrollBar:horizontal {{background: {sb_face};height: {size}px;margin: 0px;borde
 QScrollBar::track:vertical, QScrollBar::track:horizontal {{background: {sb_track};}}
 /*QScrollBar::handle:vertical {{background: {sb_thumb};min-height: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
 /*QScrollBar::handle:horizontal {{background: {sb_thumb};min-width: 28px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}*/
+
+/* Ecke unten rechts bei ScrollAreas */
+QAbstractScrollArea::corner {{
+    background: #000a8a;
+}}
+
+/* Vertikale ScrollBars */
+QPlainTextEdit QScrollBar:vertical,
+QTextEdit QScrollBar:vertical,
+QListWidget QScrollBar:vertical,
+QListView QScrollBar:vertical,
+QTreeView QScrollBar:vertical {{
+    background: #000a8a;
+    width: 16px;
+    margin: 16px 0 16px 0;
+    border: 1px solid #0f2d5c;
+}}
+
+/* Horizontale ScrollBars */
+QPlainTextEdit QScrollBar:horizontal,
+QTextEdit QScrollBar:horizontal,
+QListWidget QScrollBar:horizontal,
+QListView QScrollBar:horizontal,
+QTreeView QScrollBar:horizontal {{
+    background: #000a8a;
+    height: 16px;
+    margin: 0 16px 0 16px;
+    border: 1px solid #0f2d5c;
+}}
+
+/* Die leeren Track-Bereiche oberhalb/unterhalb oder links/rechts vom Thumb */
+QPlainTextEdit QScrollBar::add-page:vertical,
+QPlainTextEdit QScrollBar::sub-page:vertical,
+QTextEdit QScrollBar::add-page:vertical,
+QTextEdit QScrollBar::sub-page:vertical,
+QListWidget QScrollBar::add-page:vertical,
+QListWidget QScrollBar::sub-page:vertical,
+QListView QScrollBar::add-page:vertical,
+QListView QScrollBar::sub-page:vertical,
+QTreeView QScrollBar::add-page:vertical,
+QTreeView QScrollBar::sub-page:vertical,
+
+QPlainTextEdit QScrollBar::add-page:horizontal,
+QPlainTextEdit QScrollBar::sub-page:horizontal,
+QTextEdit QScrollBar::add-page:horizontal,
+QTextEdit QScrollBar::sub-page:horizontal,
+QListWidget QScrollBar::add-page:horizontal,
+QListWidget QScrollBar::sub-page:horizontal,
+QListView QScrollBar::add-page:horizontal,
+QListView QScrollBar::sub-page:horizontal,
+QTreeView QScrollBar::add-page:horizontal,
+QTreeView QScrollBar::sub-page:horizontal {{
+    background: #000aaa;
+}}
+
+/* Thumb */
+QPlainTextEdit QScrollBar::handle:vertical,
+QTextEdit QScrollBar::handle:vertical,
+QListWidget QScrollBar::handle:vertical,
+QListView QScrollBar::handle:vertical,
+QTreeView QScrollBar::handle:vertical {{
+    background: #003afa;
+    min-height: 24px;
+    border: 1px solid #08162f;
+    border-radius: 3px;
+}}
+
+QPlainTextEdit QScrollBar::handle:horizontal,
+QTextEdit QScrollBar::handle:horizontal,
+QListWidget QScrollBar::handle:horizontal,
+QListView QScrollBar::handle:horizontal,
+QTreeView QScrollBar::handle:horizontal {{
+    background: #003afa;
+    min-width: 24px;
+    border: 1px solid #08162f;
+    border-radius: 3px;
+}}
+
+/* Buttons an den Enden */
+QPlainTextEdit QScrollBar::add-line:vertical,
+QPlainTextEdit QScrollBar::sub-line:vertical,
+QTextEdit QScrollBar::add-line:vertical,
+QTextEdit QScrollBar::sub-line:vertical,
+QListWidget QScrollBar::add-line:vertical,
+QListWidget QScrollBar::sub-line:vertical,
+QListView QScrollBar::add-line:vertical,
+QListView QScrollBar::sub-line:vertical,
+QTreeView QScrollBar::add-line:vertical,
+QTreeView QScrollBar::sub-line:vertical {{
+    background: #000a8a;
+    height: 16px;
+    border: 1px solid #0f2d5c;
+}}
+
+QPlainTextEdit QScrollBar::add-line:horizontal,
+QPlainTextEdit QScrollBar::sub-line:horizontal,
+QTextEdit QScrollBar::add-line:horizontal,
+QTextEdit QScrollBar::sub-line:horizontal,
+QListWidget QScrollBar::add-line:horizontal,
+QListWidget QScrollBar::sub-line:horizontal,
+QListView QScrollBar::add-line:horizontal,
+QListView QScrollBar::sub-line:horizontal,
+QTreeView QScrollBar::add-line:horizontal,
+QTreeView QScrollBar::sub-line:horizontal {{
+    background: #000a8a;
+    width: 16px;
+    border: 1px solid #0f2d5c;
+}}
+
+/* Pfeile unsichtbar */
+QScrollBar::up-arrow,
+QScrollBar::down-arrow,
+QScrollBar::left-arrow,
+QScrollBar::right-arrow {{
+    width: 0px;
+    height: 0px;
+    background: transparent;
+}}
+
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{background: transparent;}}
 QScrollBar::sub-line:vertical {{background: {sb_face};height: {size}px;border-top: 1px solid {sb_hi};border-left: 1px solid {sb_hi};border-right: 1px solid {sb_mid};border-bottom: 1px solid {sb_mid};}}
