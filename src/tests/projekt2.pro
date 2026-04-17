@@ -1,7 +1,12 @@
 {
   "project_file": "T:/GitHub/dBase2Many/src/tests/projekt2.pro",
   "tree": {
-    "forms": [],
+    "forms": [
+      {
+        "text": "Form1.wfm",
+        "path": "T:/GitHub/dBase2Many/src/tests/Form1.wfm"
+      }
+    ],
     "programs": [
       {
         "text": "dbase.prg",
@@ -35,8 +40,8 @@
         "vista": false,
         "win7": true,
         "win8": false,
-        "win81": false,
-        "win10": false,
+        "win81": true,
+        "win10": true,
         "win11": false
       },
       "active_codepage": "",

@@ -10,6 +10,7 @@ import os
 import builtins
 import re
 import json
+from datetime import datetime
 import tempfile
 
 from   share.common                 import *
@@ -6868,9 +6869,10 @@ class FormDesignerWindow(QWidget):
         form_name = (self.form_class_name or "ParentForm").strip() or "ParentForm"
         host = self._designer_host_widget()
 
+        generated_on = datetime.now().strftime("%d.%m.%Y")
         header_lines = [
             "** END HEADER -- do not remove this line",
-            "// Generated on 02.12.2025",
+            f"// Generated on {generated_on}",
             "//",
             "PARAMETER bmodal",
             "LOCAL B",
