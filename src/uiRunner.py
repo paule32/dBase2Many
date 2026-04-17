@@ -473,14 +473,31 @@ def open_helpwindow(mdi_area, mw: 'QMainWindow'):
 
 def _global_shortcut_focus_widget(obj: Any):
     try:
+        fw = QApplication.focusWidget()
+        if fw is not None:
+            name = fw.__class__.__name__
+            if name not in ("QMenu", "QMenuBar"):
+                return fw
+    except Exception:
+        pass
+
+    try:
+        mw = globals().get("MAINAPP", None)
+        if mw is not None and hasattr(mw, "mdi"):
+            sub = mw.mdi.activeSubWindow()
+            if sub is not None:
+                w = sub.widget()
+                if w is not None:
+                    return w
+    except Exception:
+        pass
+
+    try:
         if isinstance(obj, QWidget):
             return obj
     except Exception:
         pass
-    try:
-        return QApplication.focusWidget()
-    except Exception:
-        return None
+    return None
 
 
 def _find_host_by_class_name(widget: Any, class_names: set[str]):
@@ -10933,7 +10950,36 @@ class MainWindow(QMainWindow):
         return w
 
     def _resolve_active_save_host(self):
-        return _resolve_global_shortcut_host(self)
+        try:
+            fw = QApplication.focusWidget()
+        except Exception:
+            fw = None
+
+        host = _resolve_global_shortcut_host(fw)
+        if host is not None:
+            return host
+
+        try:
+            sub = self.mdi.activeSubWindow()
+            if sub is not None:
+                return sub.widget()
+        except Exception:
+            pass
+        return None
+
+    def on_action_file_save(self):
+        host = self._resolve_active_save_host()
+        if host is None:
+            return
+        _dispatch_global_save(host)
+        self._update_file_menu_dynamic_actions()
+
+    def on_action_file_save_as(self):
+        host = self._resolve_active_save_host()
+        if host is None:
+            return
+        _dispatch_global_save_as(host)
+        self._update_file_menu_dynamic_actions()
 
     def _update_file_menu_dynamic_actions(self):
         host = self._resolve_active_save_host()
@@ -10954,14 +11000,6 @@ class MainWindow(QMainWindow):
             self.action_file_save_as.setEnabled(can_save)
         except Exception:
             pass
-
-    def on_action_file_save(self):
-        _dispatch_global_save(self)
-        self._update_file_menu_dynamic_actions()
-
-    def on_action_file_save_as(self):
-        _dispatch_global_save_as(self)
-        self._update_file_menu_dynamic_actions()
 
     def on_action_view_debug_window(self):
         try:
