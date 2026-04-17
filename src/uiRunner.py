@@ -9131,13 +9131,25 @@ class LocalizeToolWindow(QWidget):
                 return idx
         return -1
 
+    def _duplicate_msgids(self):
+        counts = {}
+        for entry in self.entries:
+            msgid = self._normalize_text(entry.get('msgid', ''))
+            counts[msgid] = counts.get(msgid, 0) + 1
+        return {msgid for msgid, count in counts.items() if msgid and count > 1}
+
     def _refresh_msgid_list(self, select_index=None):
         self.msgid_list.blockSignals(True)
         self.msgid_list.clear()
+        duplicate_ids = self._duplicate_msgids()
         for entry in self.entries:
-            title = self._normalize_text(entry.get('msgid', ''))
-            title = title.replace('\n', ' ⏎ ')
-            self.msgid_list.addItem(title)
+            raw_msgid = self._normalize_text(entry.get('msgid', ''))
+            title = raw_msgid.replace('\n', ' ⏎ ')
+            item = QListWidgetItem(title)
+            if raw_msgid in duplicate_ids:
+                item.setBackground(QColor('#b00000'))
+                item.setForeground(QColor('#ffffff'))
+            self.msgid_list.addItem(item)
         self.msgid_list.blockSignals(False)
         if self.entries:
             if select_index is None:
