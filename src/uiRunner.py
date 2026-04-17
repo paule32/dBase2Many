@@ -10774,6 +10774,7 @@ class MainWindow(QMainWindow):
 
         self.action_file_open.triggered.connect(self.on_action_file_open)
         self.action_file_close.triggered.connect(self.on_action_file_close)
+        
         self.action_file_save.triggered.connect(self.on_action_file_save)
         self.action_file_save_as.triggered.connect(self.on_action_file_save_as)
 
@@ -10862,6 +10863,18 @@ class MainWindow(QMainWindow):
             self.mdi.subWindowActivated.connect(lambda _=None: self._update_file_menu_dynamic_actions())
         except Exception:
             pass
+        
+        try:
+            self.menu_file.aboutToShow.connect(self._update_file_menu_dynamic_actions)
+        except Exception:
+            pass
+
+        try:
+            self.mdi.subWindowActivated.connect(lambda _=None: self._update_file_menu_dynamic_actions())
+        except Exception:
+            pass
+
+        self._update_file_menu_dynamic_actions()
 
         try:
             self._init_form_designer_dock()
@@ -11683,6 +11696,7 @@ class MainWindow(QMainWindow):
         pass
     def on_action_file_web_wizard(self):
         pass
+        
     def ensure_localize_tool(self, focus: bool = True, po_path: str = ""):
         po_path = os.path.normpath((po_path or '').strip()) if po_path else ''
         try:
@@ -11745,6 +11759,89 @@ class MainWindow(QMainWindow):
         pass
     def _create_statusbar(self):
         pass
+    
+    def _active_document_widget(self):
+        try:
+            sub = self.mdi.activeSubWindow()
+            if sub is not None:
+                w = sub.widget()
+                if w is not None:
+                    return w
+        except Exception:
+            pass
+
+        try:
+            fw = QApplication.focusWidget()
+            if fw is not None:
+                host = _resolve_global_shortcut_host(fw)
+                if host is not None:
+                    return host
+        except Exception:
+            pass
+        return None
+
+    def _is_save_capable_widget(self, widget) -> bool:
+        if widget is None:
+            return False
+        name = widget.__class__.__name__
+        return name in {
+            "FileEditorWindow",
+            "FormDesignerWindow",
+            "TableDesignerDialog",
+            "TableRecordEditorDialog",
+            "SqlBuilderWindow",
+            "ProjectDialog",
+            "LocalizeToolWindow",
+        }
+
+    def _invoke_save_on_widget(self, widget, save_as: bool = False) -> bool:
+        if widget is None:
+            return False
+
+        name = widget.__class__.__name__
+        fn = None
+
+        if name == "FileEditorWindow":
+            fn = getattr(widget, "file_save_as" if save_as else "file_save", None)
+        elif name == "FormDesignerWindow":
+            fn = getattr(widget, "_action_save_form_as" if save_as else "_action_save_form", None)
+        elif name == "TableDesignerDialog":
+            fn = getattr(widget, "_action_save_as" if save_as else "_action_save", None)
+        elif name == "TableRecordEditorDialog":
+            fn = getattr(widget, "_action_save_as" if save_as else "_action_save", None)
+        elif name == "SqlBuilderWindow":
+            fn = getattr(widget, "save_builder_as" if save_as else "save_builder", None)
+        elif name == "ProjectDialog":
+            fn = getattr(widget, "_on_save_project_as" if save_as else "_on_save_project", None)
+        elif name == "LocalizeToolWindow":
+            fn = getattr(widget, "_save_po_as" if save_as else "_save_po", None)
+
+        if callable(fn):
+            try:
+                fn()
+                return True
+            except Exception:
+                return False
+        return False
+
+    def _update_file_menu_dynamic_actions(self):
+        widget = self._active_document_widget()
+        can_save = self._is_save_capable_widget(widget)
+        try:
+            self.action_file_save.setEnabled(can_save)
+            self.action_file_save_as.setEnabled(can_save)
+        except Exception:
+            pass
+
+    def on_action_file_save(self):
+        widget = self._active_document_widget()
+        self._invoke_save_on_widget(widget, save_as=False)
+        self._update_file_menu_dynamic_actions()
+
+    def on_action_file_save_as(self):
+        widget = self._active_document_widget()
+        self._invoke_save_on_widget(widget, save_as=True)
+        self._update_file_menu_dynamic_actions()
     
     def on_action_file_close(self):
         # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen
