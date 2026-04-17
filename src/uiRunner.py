@@ -3204,17 +3204,10 @@ class IconTab(QListWidget):
                 path = ""
         return path
 
-    def _resolve_main_window(self):
-        try:
-            mw = MAINAPP
-            if mw is not None:
-                return mw
-        except Exception:
-            pass
-
+    def _resolve_regiecenter_host(self):
         cur = self.parent()
         while cur is not None:
-            if hasattr(cur, "mdi_open_web_editor") or hasattr(cur, "mdi_open_editor"):
+            if hasattr(cur, "open_in_code_editor"):
                 return cur
             try:
                 cur = cur.parent()
@@ -3222,70 +3215,71 @@ class IconTab(QListWidget):
                 cur = None
         return None
 
-    def _dispatch_fixed_item_by_label(self, item) -> bool:
+    def _hide_tree_in_active_editor(self):
+        try:
+            mw = MAINAPP if "MAINAPP" in globals() else None
+        except Exception:
+            mw = None
+        if mw is None or not hasattr(mw, "mdi"):
+            return
+        try:
+            sub = mw.mdi.activeSubWindow()
+            win = sub.widget() if sub is not None else None
+        except Exception:
+            win = None
+        try:
+            if win is not None and hasattr(win, "tree") and win.tree is not None:
+                win.tree.hide()
+                win.tree.setMinimumWidth(0)
+                win.tree.setMaximumWidth(0)
+        except Exception:
+            pass
+        try:
+            if win is not None and hasattr(win, "splitter") and win.splitter is not None:
+                win.splitter.setSizes([0, 1200])
+        except Exception:
+            pass
+
+    def _open_internet_editor_from_label(self, item) -> bool:
         try:
             label = (item.text() or "").strip().lower()
         except Exception:
             return False
 
-        mapping = {
-            "neu html": "html",
-            "neu css": "css",
-            "neu javascript": "js",
+        templates = {
+            "neu html": (
+                "index.html",
+                "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+            ),
+            "neu css": (
+                "style.css",
+                "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+            ),
+            "neu javascript": (
+                "script.js",
+                "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+            ),
         }
-        kind = mapping.get(label)
-        if not kind:
+        tpl = templates.get(label)
+        if tpl is None:
             return False
 
-        mw = self._resolve_main_window()
-        if mw is None:
+        host = self._resolve_regiecenter_host()
+        if host is None:
             return False
 
         try:
-            if hasattr(mw, "mdi_open_web_editor"):
-                mw.mdi_open_web_editor(kind)
-                return True
+            filename, content = tpl
+            tmp_dir = os.path.join(tempfile.gettempdir(), "dBase2Many_webdocs")
+            os.makedirs(tmp_dir, exist_ok=True)
+            path = os.path.join(tmp_dir, filename)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            host.open_in_code_editor(display_name=filename, path=path)
+            self._hide_tree_in_active_editor()
+            return True
         except Exception:
-            pass
-
-        try:
-            templates = {
-                "html": (
-                    "index.html",
-                    "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
-                ),
-                "css": (
-                    "style.css",
-                    "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
-                ),
-                "js": (
-                    "script.js",
-                    "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
-                ),
-            }
-            title, content = templates.get(kind, templates["html"])
-            if hasattr(mw, "mdi_open_editor"):
-                sub = mw.mdi_open_editor(title=title, text=content)
-                try:
-                    w = sub.widget()
-                except Exception:
-                    w = None
-                try:
-                    if w is not None and hasattr(w, "tree") and w.tree is not None:
-                        w.tree.hide()
-                        w.tree.setMinimumWidth(0)
-                        w.tree.setMaximumWidth(0)
-                except Exception:
-                    pass
-                try:
-                    if w is not None and hasattr(w, "splitter") and w.splitter is not None:
-                        w.splitter.setSizes([0, 1200])
-                except Exception:
-                    pass
-                return True
-        except Exception:
-            pass
-        return False
+            return False
 
     def _run_selected(self):
         path = self._selected_path()
