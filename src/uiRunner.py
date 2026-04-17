@@ -3098,6 +3098,18 @@ class IconTab(QListWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
+    def mouseDoubleClickEvent(self, event):
+        try:
+            item = self.itemAt(event.pos())
+            if item is not None:
+                self._on_item_double_clicked(item)
+                event.accept()
+                return
+        except Exception:
+            pass
+        return super().mouseDoubleClickEvent(event)
+
+
     def set_directory(self, directory: str):
         directory = (directory or "").strip()
         self.base_dir = directory
@@ -3204,6 +3216,7 @@ class IconTab(QListWidget):
             item.setData(Qt.UserRole + 1, kind)
             self.addItem(item)
 
+
     def _selected_path(self) -> str:
         it = self.currentItem()
         if not it:
@@ -3306,8 +3319,25 @@ body {
 """
         return ""
 
+    def _hide_structure_tree_for_active_editor(self):
+        try:
+            mw = MAINAPP if "MAINAPP" in globals() else None
+        except Exception:
+            mw = None
+        try:
+            if mw is not None and hasattr(mw, "mdi"):
+                sub = mw.mdi.activeSubWindow()
+                win = sub.widget() if sub is not None else None
+                if win is not None and hasattr(win, "tree") and win.tree is not None:
+                    win.tree.hide()
+                    win.tree.setMinimumWidth(0)
+                    win.tree.setMaximumWidth(0)
+                if win is not None and hasattr(win, "splitter") and win.splitter is not None:
+                    win.splitter.setSizes([0, 1200])
+        except Exception:
+            pass
+
     def _open_fixed_web_template(self, kind: str):
-        host = self._regiecenter_host()
         directory = (getattr(self, "base_dir", "") or "").strip()
         filename_map = {
             "new_html": ("unbenannt", ".html"),
@@ -3317,11 +3347,8 @@ body {
         base, ext = filename_map.get(kind, ("unbenannt", ".txt"))
         text = self._web_template_text(kind)
 
-        if not directory or not os.path.isdir(directory):
-            QMessageBox.information(self, "Neu", "Bitte zuerst ein Verzeichnis auswählen.")
-            return
-
-        path = self._unique_name_in_dir(directory, base, ext)
+        target_dir = directory if (directory and os.path.isdir(directory)) else tempfile.gettempdir()
+        path = self._unique_name_in_dir(target_dir, base, ext)
         if not path:
             return
 
@@ -3332,26 +3359,41 @@ body {
             QMessageBox.warning(self, "Neu", f"Konnte Datei nicht erstellen:\n{e}")
             return
 
-        self._refresh_all_icon_tabs()
+        try:
+            if directory and os.path.isdir(directory):
+                self._refresh_all_icon_tabs()
+        except Exception:
+            pass
 
-        if host is not None and hasattr(host, "open_in_code_editor"):
-            host.open_in_code_editor(display_name=os.path.basename(path), path=path)
-            try:
-                mw = MAINAPP if "MAINAPP" in globals() else None
-            except Exception:
-                mw = None
-            try:
-                if mw is not None and hasattr(mw, "mdi"):
-                    sub = mw.mdi.activeSubWindow()
-                    win = sub.widget() if sub is not None else None
-                    if win is not None and hasattr(win, "tree") and win.tree is not None:
-                        win.tree.hide()
-                        win.tree.setMinimumWidth(0)
-                        win.tree.setMaximumWidth(0)
-                    if win is not None and hasattr(win, "splitter") and win.splitter is not None:
-                        win.splitter.setSizes([0, 1200])
-            except Exception:
-                pass
+        host = self._regiecenter_host()
+        try:
+            if host is not None and hasattr(host, "open_in_code_editor"):
+                host.open_in_code_editor(display_name=os.path.basename(path), path=path)
+                self._hide_structure_tree_for_active_editor()
+                return
+        except Exception:
+            pass
+
+        try:
+            mw = MAINAPP if "MAINAPP" in globals() else None
+        except Exception:
+            mw = None
+
+        try:
+            if mw is not None and hasattr(mw, "ensure_code_editor_window"):
+                win = mw.ensure_code_editor_window(focus=True)
+                if win is not None and hasattr(win, "open_path_in_tab"):
+                    win.open_path_in_tab(path)
+                    try:
+                        win.raise_()
+                        win.activateWindow()
+                    except Exception:
+                        pass
+                    self._hide_structure_tree_for_active_editor()
+                    return
+        except Exception as e:
+            QMessageBox.warning(self, "Neu", f"Konnte CodeEditor nicht öffnen:\n{e}")
+            return
 
     def _on_context_menu(self, pos: QPoint):
         # Kontextmenü für die IconView (auch bei Rechtsklick auf leere Fläche).
