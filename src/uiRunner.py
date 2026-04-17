@@ -3204,6 +3204,89 @@ class IconTab(QListWidget):
                 path = ""
         return path
 
+    def _resolve_main_window(self):
+        try:
+            mw = MAINAPP
+            if mw is not None:
+                return mw
+        except Exception:
+            pass
+
+        cur = self.parent()
+        while cur is not None:
+            if hasattr(cur, "mdi_open_web_editor") or hasattr(cur, "mdi_open_editor"):
+                return cur
+            try:
+                cur = cur.parent()
+            except Exception:
+                cur = None
+        return None
+
+    def _dispatch_fixed_item_by_label(self, item) -> bool:
+        try:
+            label = (item.text() or "").strip().lower()
+        except Exception:
+            return False
+
+        mapping = {
+            "neu html": "html",
+            "neu css": "css",
+            "neu javascript": "js",
+        }
+        kind = mapping.get(label)
+        if not kind:
+            return False
+
+        mw = self._resolve_main_window()
+        if mw is None:
+            return False
+
+        try:
+            if hasattr(mw, "mdi_open_web_editor"):
+                mw.mdi_open_web_editor(kind)
+                return True
+        except Exception:
+            pass
+
+        try:
+            templates = {
+                "html": (
+                    "index.html",
+                    "<!DOCTYPE html>\n<html lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Neues HTML-Dokument</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n    <script src=\"script.js\"></script>\n</body>\n</html>\n",
+                ),
+                "css": (
+                    "style.css",
+                    "body {\n    margin: 0;\n    padding: 0;\n    font-family: Arial, sans-serif;\n}\n",
+                ),
+                "js": (
+                    "script.js",
+                    "document.addEventListener(\"DOMContentLoaded\", () => {\n    console.log(\"ready\");\n});\n",
+                ),
+            }
+            title, content = templates.get(kind, templates["html"])
+            if hasattr(mw, "mdi_open_editor"):
+                sub = mw.mdi_open_editor(title=title, text=content)
+                try:
+                    w = sub.widget()
+                except Exception:
+                    w = None
+                try:
+                    if w is not None and hasattr(w, "tree") and w.tree is not None:
+                        w.tree.hide()
+                        w.tree.setMinimumWidth(0)
+                        w.tree.setMaximumWidth(0)
+                except Exception:
+                    pass
+                try:
+                    if w is not None and hasattr(w, "splitter") and w.splitter is not None:
+                        w.splitter.setSizes([0, 1200])
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+        return False
+
     def _run_selected(self):
         path = self._selected_path()
         if path:
