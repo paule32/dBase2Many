@@ -1248,10 +1248,16 @@ class FileEditorWindow(QDialog):
     def file_save_as(self, idx: Optional[int] = None) -> bool:
         if idx is None:
             idx = self.current_tab_index()
-        ed = self._editor_from_tab_widget(self.editor_tabs.widget(idx))
+        if idx < 0:
+            return False
+
+        tw = self.editor_tabs.widget(idx)
+        ed = self._editor_from_tab_widget(tw)
         if ed is None:
             return False
-        
+
+        cur_path = getattr(ed, "_path", "") or ""
+
         default_suffix = (getattr(ed, "_default_suffix", "") or "").strip().lstrip(".")
         display_name   = (getattr(ed, "_display_name", "") or "").strip()
         name_filters   = list(getattr(ed, "_name_filters", []) or [])
