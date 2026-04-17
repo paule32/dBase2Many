@@ -101,6 +101,31 @@ class ProfiledIconTab(legacy.IconTab):
             item.setToolTip(tip)
             self.insertItem(idx, item)
 
+    def _resolve_main_window(self):
+        try:
+            mw = getattr(legacy, "MAINAPP", None)
+            if mw is not None and hasattr(mw, "mdi_open_editor"):
+                return mw
+        except Exception:
+            pass
+
+        cur = self.parent()
+        while cur is not None:
+            if hasattr(cur, "mdi_open_editor"):
+                return cur
+            try:
+                cur = cur.parent()
+            except Exception:
+                cur = None
+
+        try:
+            for w in legacy.QApplication.topLevelWidgets():
+                if hasattr(w, "mdi_open_editor"):
+                    return w
+        except Exception:
+            pass
+        return None
+
     def _dispatch_special_action(self, spec) -> bool:
         action = str((spec or {}).get("action", "")).strip().lower()
         if not action:
@@ -131,10 +156,7 @@ class ProfiledIconTab(legacy.IconTab):
                 return True
             return False
 
-        try:
-            mw = getattr(legacy, "MAINAPP", None)
-        except Exception:
-            mw = None
+        mw = self._resolve_main_window()
 
         if mw is not None:
             try:
