@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "format": "dBase2Many Help Authoring",
+    "version": 1,
+    "current_topic_id": "696a7da9-ac13-40df-8cc3-757b27a6c321"
+  },
+  "topics": [
+    {
+      "title": "New Topic",
+      "topic_id": "696a7da9-ac13-40df-8cc3-757b27a6c321",
+      "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite11</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p>\n<p style=\"-qt-paragraph-type:empty; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Arial','sans-serif'; font-size:11pt;\"><br /></p>\n<table border=\"1\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px;\" width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><thead>\n<tr>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\">\n<table border=\"1\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px;\" width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><thead>\n<tr>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td></tr></thead>\n<tr>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td></tr></table>\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">dd</p></td>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td></tr></thead>\n<tr>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td>\n<td style=\" padding-left:4; padding-right:4; padding-top:4; padding-bottom:4;\"></td></tr></table></body></html>",
+      "children": [
+        {
+          "title": "2222",
+          "topic_id": "1073adbe-df96-40bb-8e71-fc25911c8e9c",
+          "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite222</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p></body></html>",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

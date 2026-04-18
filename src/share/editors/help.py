@@ -129,7 +129,14 @@ class HelpAuthoringEditor(QMainWindow):
         self.toc_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.toc_view.customContextMenuRequested.connect(self._on_toc_context_menu)
         self.toc_view.setEditTriggers(QAbstractItemView.EditKeyPressed | QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked)
-        self.toc_view.setStyleSheet('QTreeView::item { padding: 0px; margin: 0px; }')
+        toc_font = self.toc_view.font()
+        toc_font.setPointSize(10)
+        self.toc_view.setFont(toc_font)
+        self.toc_view.setStyleSheet(
+            'QTreeView { font-size: 10pt; } '
+            'QTreeView::item { padding: 0px; margin: 0px; } '
+            'QTreeView QLineEdit { padding: 1px; margin: 0px; font-size: 10pt; }'
+        )
         self._toc_clipboard_item = None
 
         self.tab_widget = QTabWidget()
@@ -173,6 +180,7 @@ class HelpAuthoringEditor(QMainWindow):
 
     def _build_toolbar(self):
         tb_file = QToolBar('Datei', self)
+        tb_file.setObjectName('FileToolBar')
         tb_file.setIconSize(QSize(16, 16))
         self.addToolBar(tb_file)
 
@@ -190,6 +198,7 @@ class HelpAuthoringEditor(QMainWindow):
         tb_file.addAction(act_source)
 
         tb_fmt = QToolBar('Format', self)
+        tb_fmt.setObjectName('FormatToolBar')
         self.addToolBar(tb_fmt)
 
         self.act_bold      = QAction('F', self); self.act_bold     .setCheckable(True); self.act_bold     .triggered.connect(self.toggle_bold)
@@ -227,6 +236,7 @@ class HelpAuthoringEditor(QMainWindow):
         tb_fmt.addAction(act_bg)
 
         tb_para = QToolBar('Absatz', self)
+        tb_para.setObjectName('ParagraphToolBar')
         self.addToolBar(tb_para)
         for title, align in [('Links', Qt.AlignLeft), ('Zentriert', Qt.AlignHCenter), ('Rechts', Qt.AlignRight), ('Blocksatz', Qt.AlignJustify)]:
             act = QAction(title, self)
@@ -248,6 +258,7 @@ class HelpAuthoringEditor(QMainWindow):
         tb_para.addAction(act_image)
 
         tb_table = QToolBar('Tabelle', self)
+        tb_table.setObjectName('TableToolBar')
         self.addToolBar(tb_table)
         entries = [
             ('Tabelle', self.insert_table),
@@ -261,6 +272,19 @@ class HelpAuthoringEditor(QMainWindow):
         ]
         for title, fn in entries:
             act = QAction(title, self); act.triggered.connect(fn); tb_table.addAction(act)
+
+        self.setStyleSheet(self.styleSheet() + """
+            QToolBar QToolButton {
+                color: #ffd84d;
+                font-size: 10pt;
+                font-weight: normal;
+            }
+            QToolBar#FileToolBar QToolButton {
+                color: #ffd84d;
+                font-size: 10pt;
+                font-weight: bold;
+            }
+        """)
 
     def _ini_path(self) -> str:
         try:
