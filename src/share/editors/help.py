@@ -120,6 +120,9 @@ class HelpAuthoringEditor(QMainWindow):
         self.toc_view.setModel(self.toc_model)
         self.toc_view.setHeaderHidden(False)
         self.toc_view.clicked.connect(self._on_toc_clicked)
+        self.toc_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.toc_view.customContextMenuRequested.connect(self._on_toc_context_menu)
+        self._toc_clipboard_item = None
 
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabsClosable(True)
@@ -346,13 +349,14 @@ td, th { border: 1px solid #666; padding: 4px; }
         editor.setHtml(html)
         editor._path = file_path or ''
         editor._dirty = False
+        editor._toc_snapshot = None
         editor.textChanged.connect(lambda ed=editor: self._on_editor_text_changed(ed))
         editor.cursorPositionChanged.connect(self._sync_toolbar_state)
 
         idx = self.tab_widget.addTab(editor, self._title_from_path(file_path))
         self.tab_widget.setCurrentIndex(idx)
         self._sync_current_editor_ref()
-        self._update_toc()
+        self._build_toc_from_headings(editor)
         return editor
 
     def _on_tab_changed(self, idx: int):
@@ -360,7 +364,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._sync_toolbar_state()
         self._update_status()
         self._update_window_title()
-        self._update_toc()
+        self._load_toc_from_current_editor()
 
     def _on_tab_close_requested(self, idx: int):
         editor = self._editor_at(idx)
@@ -377,7 +381,6 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._sync_toolbar_state()
             self._update_status()
             self._update_window_title()
-            self._update_toc()
 
     def _on_editor_text_changed(self, editor):
         self._set_editor_dirty(editor, True)
@@ -385,7 +388,6 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._sync_current_editor_ref()
             self._update_window_title()
             self._update_status()
-            self._update_toc()
         self.contentChanged.emit()
 
     def _apply_alignment(self, align):
@@ -411,34 +413,6 @@ td, th { border: 1px solid #666; padding: 4px; }
                     return 4
             it += 1
         return 0
-
-    def _update_toc(self):
-        self.toc_model.clear()
-        self.toc_model.setHorizontalHeaderLabels(['TOC'])
-        editor = self._current_editor()
-        if editor is None:
-            return
-
-        root_items = [None, None, None, None, None]
-        block = editor.document().firstBlock()
-        while block.isValid():
-            txt = block.text().strip()
-            if txt:
-                level = self._toc_level_from_block(block)
-                if level > 0:
-                    item = QStandardItem(txt)
-                    item.setData(block.position(), Qt.UserRole)
-                    if level <= 1 or root_items[level - 1] is None:
-                        self.toc_model.appendRow(item)
-                    else:
-                        parent = root_items[level - 1]
-                        parent.appendRow(item)
-                    root_items[level] = item
-                    for i in range(level + 1, len(root_items)):
-                        root_items[i] = None
-            block = block.next()
-
-        self.toc_view.expandAll()
 
     def _on_toc_clicked(self, index):
         item = self.toc_model.itemFromIndex(index)
@@ -526,7 +500,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._sync_current_editor_ref()
         self._update_window_title()
         self._update_status()
-        self._update_toc()
+        self._build_toc_from_headings(editor)
 
     def file_open(self):
         paths, _ = QFileDialog.getOpenFileNames(self,
@@ -547,7 +521,6 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._sync_current_editor_ref()
         self._update_window_title()
         self._update_status()
-        self._update_toc()
 
     def file_save(self, editor=None) -> bool:
         if isinstance(editor, bool):
@@ -678,7 +651,6 @@ td, th { border: 1px solid #666; padding: 4px; }
         cursor.select(QTextCursor.BlockUnderCursor)
         cursor.mergeCharFormat(char_fmt)
         editor.mergeCurrentCharFormat(char_fmt)
-        self._update_toc()
 
     def insert_bullet_list(self):
         editor = self._current_editor()
