@@ -17,6 +17,11 @@ ROLE_BLOCK_POS  = Qt.UserRole
 ROLE_TOPIC_HTML = Qt.UserRole + 1
 ROLE_TOPIC_ID   = Qt.UserRole + 2
 
+HELP_JSON_FORMAT = 'dBase2Many Project File'
+HELP_JSON_TOOL   = 'help-editor'
+HELP_JSON_KIND   = 'help-authoring'
+HELP_JSON_VER    = 1
+
 @dataclass
 class TableSpec:
     rows: int = 2
@@ -116,12 +121,15 @@ class HelpAuthoringEditor(QMainWindow):
         self.current_path = file_path or ''
         self._is_dirty = False
         self._loading_topic_html = False
+        self._loading_toc_model  = False
+        self._last_tab_index     = -1
         self.setWindowTitle('Help Authoring')
         self.resize(800, 620)
 
         self.editor = None
         self.toc_model = QStandardItemModel()
         self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        self.toc_model.itemChanged.connect(self._on_toc_item_changed)
         self.toc_view = QTreeView()
         self.toc_view.setModel(self.toc_model)
         self.toc_view.setHeaderHidden(False)
@@ -367,6 +375,7 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def _set_editor_dirty(self, editor, state: bool):
         if editor is None:
+            self._loading_toc_model = False
             return
         editor._dirty = bool(state)
         idx = self.tab_widget.indexOf(editor)
@@ -404,6 +413,29 @@ td, th { border: 1px solid #666; padding: 4px; }
             if item is not None:
                 roots.append(self._clone_item_deep(item))
         editor._toc_snapshot = roots
+
+    def _capture_current_project_to_editor(self, editor=None):
+        if editor is None:
+            editor = self._current_editor()
+        if editor is None:
+            return
+        if editor is not self._current_editor():
+            return
+        item = self._toc_current_item()
+        if item is not None:
+            item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
+            editor._current_topic_id = item.data(ROLE_TOPIC_ID)
+        self._save_toc_to_current_editor()
+
+    def _on_toc_item_changed(self, item):
+        if self._loading_toc_model:
+            return
+        editor = self._current_editor()
+        if editor is None:
+            return
+        self._set_editor_dirty(editor, True)
+        self._save_toc_to_current_editor()
+        self._update_window_title()
 
     def _serialize_item(self, item):
         data = {
@@ -460,9 +492,11 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def _load_toc_from_current_editor(self):
         editor = self._current_editor()
+        self._loading_toc_model = True
         self.toc_model.clear()
         self.toc_model.setHorizontalHeaderLabels(['TOC'])
         if editor is None:
+            self._loading_toc_model = False
             return
         roots = getattr(editor, '_toc_snapshot', None)
         if roots:
@@ -476,13 +510,16 @@ td, th { border: 1px solid #666; padding: 4px; }
                 idx = self.toc_model.indexFromItem(target)
                 self.toc_view.setCurrentIndex(idx)
                 self._load_topic_into_editor(target)
+        self._loading_toc_model = False
 
     def _build_toc_from_headings(self, editor=None):
         if editor is None:
             editor = self._current_editor()
+        self._loading_toc_model = True
         self.toc_model.clear()
         self.toc_model.setHorizontalHeaderLabels(['TOC'])
         if editor is None:
+            self._loading_toc_model = False
             return
 
         root_items = [None, None, None, None, None]
@@ -515,6 +552,7 @@ td, th { border: 1px solid #666; padding: 4px; }
             item = self.toc_model.item(0)
             self.toc_view.setCurrentIndex(self.toc_model.indexFromItem(item))
             self._load_topic_into_editor(item)
+        self._loading_toc_model = False
 
     def _add_editor_tab(self, html: str, file_path: str = '', toc_roots=None):
         editor = QTextEdit()
@@ -534,19 +572,26 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._load_toc_from_current_editor()
         else:
             self._build_toc_from_headings(editor)
+        self._last_tab_index = self.tab_widget.currentIndex()
         return editor
 
     def _on_tab_changed(self, idx: int):
+        old_editor = self._editor_at(self._last_tab_index)
+        if old_editor is not None and old_editor is self.editor:
+            self._capture_current_project_to_editor(old_editor)
         self._sync_current_editor_ref()
         self._sync_toolbar_state()
         self._update_status()
         self._update_window_title()
         self._load_toc_from_current_editor()
+        self._last_tab_index = idx
 
     def _on_tab_close_requested(self, idx: int):
         editor = self._editor_at(idx)
         if editor is None:
             return
+        if editor is self._current_editor():
+            self._capture_current_project_to_editor(editor)
         if not self.maybe_save(editor):
             return
         self.tab_widget.removeTab(idx)
@@ -833,6 +878,38 @@ td, th { border: 1px solid #666; padding: 4px; }
             return self.file_save(editor)
         return True
 
+    def _build_help_project_payload(self, editor):
+        topics = []
+        for item in getattr(editor, '_toc_snapshot', []) or []:
+            topics.append(self._serialize_item(item))
+        return {
+            'meta': {
+                'format'          : HELP_JSON_FORMAT,
+                'tool'            : HELP_JSON_TOOL,
+                'kind'            : HELP_JSON_KIND,
+                'version'         : HELP_JSON_VER,
+                'extension'       : '.json',
+                'current_topic_id': getattr(editor, '_current_topic_id', None),
+            },
+            'topics': topics,
+        }
+
+    def _validate_help_project_payload(self, data):
+        if not isinstance(data, dict):
+            return False, 'Die Datei enthält kein gültiges JSON-Projektobjekt.'
+        meta = data.get('meta')
+        if not isinstance(meta, dict):
+            return False, 'Die Datei enthält keine gültigen Header-/Metadaten.'
+        if meta.get('format') != HELP_JSON_FORMAT:
+            return False, 'Die Header-Informationen enthalten kein gültiges dBase2Many-Projektformat.'
+        if meta.get('tool') != HELP_JSON_TOOL:
+            tool = meta.get('tool', 'unbekannt')
+            return False, f'Die JSON-Datei gehört nicht zum Help-Editor (gefunden: {tool}).'
+        if meta.get('kind') != HELP_JSON_KIND:
+            kind = meta.get('kind', 'unbekannt')
+            return False, f'Die JSON-Datei ist kein Help-Authoring-Projekt (gefunden: {kind}).'
+        return True, ''
+
     def file_new(self):
         roots = [self._new_topic_item('New Topic', self._default_document_html())]
         editor = self._add_editor_tab('', '', roots)
@@ -854,6 +931,12 @@ td, th { border: 1px solid #666; padding: 4px; }
                 if ext == '.json':
                     with open(path, 'r', encoding='utf-8', errors='replace') as f:
                         data = json.load(f)
+                    ok, err = self._validate_help_project_payload(data)
+                    if not ok:
+                        QMessageBox.critical(self, 'Ungültige Projektdatei', err)
+                        self.activateWindow()
+                        self.raise_()
+                        continue
                     topics = data.get('topics', [])
                     roots = [self._deserialize_item(item) for item in topics]
                     editor = self._add_editor_tab('', path, roots)
@@ -883,22 +966,8 @@ td, th { border: 1px solid #666; padding: 4px; }
             return self.file_save_as(editor)
         try:
             if editor is self._current_editor():
-                item = self._toc_current_item()
-                if item is not None:
-                    item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
-                    editor._current_topic_id = item.data(ROLE_TOPIC_ID)
-                    self._save_toc_to_current_editor()
-            topics = []
-            for item in getattr(editor, '_toc_snapshot', []) or []:
-                topics.append(self._serialize_item(item))
-            payload = {
-                'meta': {
-                    'format'          : 'dBase2Many Help Authoring',
-                    'version'         : 1,
-                    'current_topic_id': getattr(editor, '_current_topic_id', None),
-                },
-                'topics': topics,
-            }
+                self._capture_current_project_to_editor(editor)
+            payload = self._build_help_project_payload(editor)
             with open(editor._path, 'w', encoding='utf-8', errors='replace') as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
             self._set_editor_dirty(editor, False)
@@ -933,11 +1002,12 @@ td, th { border: 1px solid #666; padding: 4px; }
         return self.file_save(editor)
 
     def closeEvent(self, event):
+        self._capture_current_project_to_editor(self._current_editor())
         for idx in range(self.tab_widget.count()):
             editor = self._editor_at(idx)
-            if editor is not None and not self.maybe_save(editor):
-                event.ignore()
-                return
+            #if editor is not None and not self.maybe_save(editor):
+            #    event.ignore()
+            #    return
         self._save_window_state()
         event.accept()
 
