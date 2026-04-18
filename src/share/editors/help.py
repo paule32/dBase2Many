@@ -177,11 +177,11 @@ class HelpAuthoringEditor(QMainWindow):
         self.tab_widget.tabCloseRequested.connect(self._on_tab_close_requested)
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.splitter.addWidget(self.toc_view)
         self.splitter.addWidget(self.tab_widget)
-        self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 1)
-        self.splitter.setSizes([220, 580])
+        self.splitter.addWidget(self.toc_view)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setSizes([760, 240])
 
         central = QWidget()
         lay = QVBoxLayout(central)
@@ -341,22 +341,22 @@ class HelpAuthoringEditor(QMainWindow):
         self.btn_table_cell_size.clicked.connect(self._apply_table_cell_size_from_dock)
 
         self.format_dock.setStyleSheet("""
-            QDockWidget { color:#ffd84d; font: 10pt Arial; }
-            QDockWidget::title { text-align:left; background:#1a1a1a; color:#ffd84d; padding:4px; }
+            QDockWidget { color:#ffd84d; font: 9pt Arial; }
+            QDockWidget::title { text-align:left; background:#1a1a1a; color:#ffd84d; padding:4px; font: 9pt Arial; }
             QWidget { background:#131313; color:white; }
-            QPushButton { background:#1a1a1a; color:#ffd84d; border:1px solid #3a3a3a; padding:4px 8px; font: 10pt Arial; }
+            QPushButton { background:#1a1a1a; color:#ffd84d; border:1px solid #3a3a3a; padding:4px 8px; font: 9pt Arial; }
             QPushButton:checked { background:#2a2a2a; }
             QComboBox, QLineEdit, QFontComboBox {
-                background:#1b1b1b; color:white; border:1px solid #3a3a3a; min-height:24px; font: 10pt Arial;
+                background:#1b1b1b; color:white; border:1px solid #3a3a3a; min-height:24px; font: 9pt Arial;
             }
             QScrollArea { border:none; }
         """)
 
     def _build_toolbar(self):
-        tb_file = QToolBar('Datei', self)
-        tb_file.setObjectName('FileToolBar')
-        tb_file.setIconSize(QSize(16, 16))
-        self.addToolBar(tb_file)
+        self.tb_file = QToolBar('Datei', self)
+        self.tb_file.setObjectName('FileToolBar')
+        self.tb_file.setIconSize(QSize(16, 16))
+        self.addToolBar(self.tb_file)
 
         act_new     = QAction('Neu'               , self); act_new    .triggered.connect(self.file_new)
         act_open    = QAction('Öffnen'            , self); act_open   .triggered.connect(self.file_open)
@@ -364,31 +364,31 @@ class HelpAuthoringEditor(QMainWindow):
         act_save_as = QAction('Speichern unter...', self); act_save_as.triggered.connect(lambda _=False: self.file_save_as())
         act_source  = QAction('HTML'              , self); act_source .triggered.connect(self.edit_html_source)
 
-        tb_file.addAction(act_new)
-        tb_file.addAction(act_open)
-        tb_file.addAction(act_save)
-        tb_file.addAction(act_save_as)
-        tb_file.addSeparator()
-        tb_file.addAction(act_source)
+        self.tb_file.addAction(act_new)
+        self.tb_file.addAction(act_open)
+        self.tb_file.addAction(act_save)
+        self.tb_file.addAction(act_save_as)
+        self.tb_file.addSeparator()
+        self.tb_file.addAction(act_source)
 
-        tb_fmt = QToolBar('Format', self)
-        tb_fmt.setObjectName('FormatToolBar')
-        self.addToolBar(tb_fmt)
+        self.tb_fmt = QToolBar('Format', self)
+        self.tb_fmt.setObjectName('FormatToolBar')
+        self.addToolBar(self.tb_fmt)
 
         self.act_bold      = QAction('F', self); self.act_bold     .setCheckable(True); self.act_bold     .triggered.connect(self.toggle_bold)
         self.act_italic    = QAction('K', self); self.act_italic   .setCheckable(True); self.act_italic   .triggered.connect(self.toggle_italic)
         self.act_underline = QAction('U', self); self.act_underline.setCheckable(True); self.act_underline.triggered.connect(self.toggle_underline)
         self.act_strike    = QAction('S', self); self.act_strike   .setCheckable(True); self.act_strike   .triggered.connect(self.toggle_strike)
 
-        tb_fmt.addAction(self.act_bold)
-        tb_fmt.addAction(self.act_italic)
-        tb_fmt.addAction(self.act_underline)
-        tb_fmt.addAction(self.act_strike)
-        tb_fmt.addSeparator()
+        self.tb_fmt.addAction(self.act_bold)
+        self.tb_fmt.addAction(self.act_italic)
+        self.tb_fmt.addAction(self.act_underline)
+        self.tb_fmt.addAction(self.act_strike)
+        self.tb_fmt.addSeparator()
 
         self.font_combo = QFontComboBox()
         self.font_combo.currentFontChanged.connect(self.set_font_family)
-        tb_fmt.addWidget(self.font_combo)
+        self.tb_fmt.addWidget(self.font_combo)
 
         self.size_combo = QComboBox()
         for s in [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]:
@@ -397,25 +397,25 @@ class HelpAuthoringEditor(QMainWindow):
         self.size_combo.setEditable(True)
         self.size_combo.setCurrentText('11')
         self.size_combo.currentTextChanged.connect(self.set_font_size_from_text)
-        tb_fmt.addWidget(self.size_combo)
+        self.tb_fmt.addWidget(self.size_combo)
 
         self.heading_combo = QComboBox()
         self.heading_combo.addItems(['Normal', 'H1', 'H2', 'H3', 'H4', 'Code'])
         self.heading_combo.currentTextChanged.connect(self.apply_heading_style)
-        tb_fmt.addWidget(self.heading_combo)
+        self.tb_fmt.addWidget(self.heading_combo)
 
         act_fg = QAction('Textfarbe', self); act_fg.triggered.connect(self.set_text_color)
         act_bg = QAction('Marker', self); act_bg.triggered.connect(self.set_background_color)
-        tb_fmt.addAction(act_fg)
-        tb_fmt.addAction(act_bg)
+        self.tb_fmt.addAction(act_fg)
+        self.tb_fmt.addAction(act_bg)
 
-        tb_para = QToolBar('Absatz', self)
-        tb_para.setObjectName('ParagraphToolBar')
-        self.addToolBar(tb_para)
+        self.tb_para = QToolBar('Absatz', self)
+        self.tb_para.setObjectName('ParagraphToolBar')
+        self.addToolBar(self.tb_para)
         for title, align in [('Links', Qt.AlignLeft), ('Zentriert', Qt.AlignHCenter), ('Rechts', Qt.AlignRight), ('Blocksatz', Qt.AlignJustify)]:
             act = QAction(title, self)
             act.triggered.connect(lambda _=False, a=align: self._apply_alignment(a))
-            tb_para.addAction(act)
+            self.tb_para.addAction(act)
 
         act_bullets = QAction('Liste'         , self); act_bullets.triggered.connect(self.insert_bullet_list)
         act_numbers = QAction('Nummeriert'    , self); act_numbers.triggered.connect(self.insert_numbered_list)
@@ -423,17 +423,17 @@ class HelpAuthoringEditor(QMainWindow):
         act_unlink  = QAction('Link entfernen', self); act_unlink .triggered.connect(self.remove_link)
         act_image   = QAction('Bild'          , self); act_image  .triggered.connect(self.insert_image)
 
-        tb_para.addSeparator()
-        tb_para.addAction(act_bullets)
-        tb_para.addAction(act_numbers)
-        tb_para.addSeparator()
-        tb_para.addAction(act_link)
-        tb_para.addAction(act_unlink)
-        tb_para.addAction(act_image)
+        self.tb_para.addSeparator()
+        self.tb_para.addAction(act_bullets)
+        self.tb_para.addAction(act_numbers)
+        self.tb_para.addSeparator()
+        self.tb_para.addAction(act_link)
+        self.tb_para.addAction(act_unlink)
+        self.tb_para.addAction(act_image)
 
-        tb_table = QToolBar('Tabelle', self)
-        tb_table.setObjectName('TableToolBar')
-        self.addToolBar(tb_table)
+        self.tb_table = QToolBar('Tabelle', self)
+        self.tb_table.setObjectName('TableToolBar')
+        self.addToolBar(self.tb_table)
         entries = [
             ('Tabelle', self.insert_table),
             ('+ Zeile', self.table_add_row),
@@ -445,7 +445,7 @@ class HelpAuthoringEditor(QMainWindow):
             ('Zellfarbe', self.table_set_cell_background),
         ]
         for title, fn in entries:
-            act = QAction(title, self); act.triggered.connect(fn); tb_table.addAction(act)
+            act = QAction(title, self); act.triggered.connect(fn); self.tb_table.addAction(act)
 
         self.setStyleSheet(self.styleSheet() + """
             QToolBar QToolButton {
@@ -459,6 +459,10 @@ class HelpAuthoringEditor(QMainWindow):
                 font-weight: bold;
             }
         """)
+
+        self.tb_fmt.hide()
+        self.tb_para.hide()
+        self.tb_table.hide()
 
     def _dock_toggle_bold(self, checked):
         self.act_bold.setChecked(checked)
@@ -621,6 +625,13 @@ class HelpAuthoringEditor(QMainWindow):
             state = self._settings.value('help_authoring/main_state')
             if state is not None:
                 self.restoreState(state)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'format_dock') and self.format_dock is not None:
+                self.format_dock.setFloating(False)
+                self.format_dock.show()
+                self.format_dock.setVisible(True)
         except Exception:
             pass
         try:
@@ -915,14 +926,18 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._load_toc_from_current_editor()
 
     def _on_editor_text_changed(self, editor):
+        if self._loading_topic_html:
+            if editor is self._current_editor():
+                self._sync_current_editor_ref()
+                self._update_status()
+            return
         self._set_editor_dirty(editor, True)
         if editor is self._current_editor():
-            if not self._loading_topic_html:
-                item = self._toc_current_item()
-                if item is not None:
-                    item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
-                    editor._current_topic_id = item.data(ROLE_TOPIC_ID)
-                    self._save_toc_to_current_editor()
+            item = self._toc_current_item()
+            if item is not None:
+                item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
+                editor._current_topic_id = item.data(ROLE_TOPIC_ID)
+                self._save_toc_to_current_editor()
             self._sync_current_editor_ref()
             self._update_window_title()
             self._update_status()
@@ -1299,6 +1314,8 @@ td, th { border: 1px solid #666; padding: 4px; }
                 return
         try:
             if hasattr(self, 'format_dock') and self.format_dock is not None:
+                self.removeDockWidget(self.format_dock)
+                self.format_dock.setParent(None)
                 self.format_dock.close()
         except Exception:
             pass
@@ -1311,7 +1328,7 @@ td, th { border: 1px solid #666; padding: 4px; }
             return
         cursor = editor.textCursor()
         if not cursor.hasSelection():
-            cursor.select(QTextCursor.WordUnderCursor)
+            cursor.select(QTextCursor.BlockUnderCursor)
         cursor.mergeCharFormat(fmt)
         editor.mergeCurrentCharFormat(fmt)
 
