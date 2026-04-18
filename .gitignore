@@ -263,3 +263,5 @@ src/tests/unbenannt.txt
 src/dbase_run_parse_input_dump.prg
 src/dbase_run_parser_input_dump.prg
 src/dbase_run.prg
+src/share/editors/1
+src/dbaserunner.ibk

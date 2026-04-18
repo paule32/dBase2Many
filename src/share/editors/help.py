@@ -10,17 +10,12 @@ import os
 import sys
 import uuid
 
-from   dataclasses import dataclass
+from   dataclasses  import dataclass
 from   share.common import *
 
 ROLE_BLOCK_POS  = Qt.UserRole
 ROLE_TOPIC_HTML = Qt.UserRole + 1
 ROLE_TOPIC_ID   = Qt.UserRole + 2
-
-HELP_JSON_FORMAT = 'dBase2Many Project File'
-HELP_JSON_TOOL   = 'help-editor'
-HELP_JSON_KIND   = 'help-authoring'
-HELP_JSON_VER    = 1
 
 @dataclass
 class TableSpec:
@@ -113,6 +108,34 @@ class HtmlSourceDialog(QDialog):
     def html(self) -> str:
         return self.editor.toPlainText()
 
+class ActionComboBox(QComboBox):
+    doubleClicked = pyqtSignal()
+
+    def mouseDoubleClickEvent(self, event):
+        self.doubleClicked.emit()
+        super().mouseDoubleClickEvent(event)
+
+class LinkTypeDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Link-Typ wählen')
+        self.resize(280, 120)
+
+        lay = QVBoxLayout(self)
+        self.rb_http = QRadioButton('HTTP-Adresse')
+        self.rb_mail = QRadioButton('E-Mail-Adresse')
+        self.rb_http.setChecked(True)
+        lay.addWidget(self.rb_http)
+        lay.addWidget(self.rb_mail)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+    def link_type(self):
+        return 'mail' if self.rb_mail.isChecked() else 'http'
+
 class HelpAuthoringEditor(QMainWindow):
     contentChanged = pyqtSignal()
 
@@ -166,6 +189,7 @@ class HelpAuthoringEditor(QMainWindow):
         lay.addWidget(self.splitter)
         self.setCentralWidget(central)
 
+        self._build_format_dock()
         self._build_toolbar()
         sb = QStatusBar()
         self.setStatusBar(sb)
@@ -185,6 +209,148 @@ class HelpAuthoringEditor(QMainWindow):
         self._update_window_title()
         self._update_status()
         self._restore_window_state()
+
+    def _build_format_dock(self):
+        self.format_dock = QDockWidget('Format-Hilfe', self)
+        self.format_dock.setObjectName('HelpFormatDock')
+        self.format_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+
+        dock_host = QWidget()
+        dock_lay = QVBoxLayout(dock_host)
+        dock_lay.setContentsMargins(4, 4, 4, 4)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        form = QVBoxLayout(scroll_content)
+        form.setContentsMargins(4, 4, 4, 4)
+        form.setSpacing(6)
+
+        row1 = QHBoxLayout()
+        self.btn_bold = QPushButton('F'); self.btn_bold.setCheckable(True)
+        self.btn_italic = QPushButton('K'); self.btn_italic.setCheckable(True)
+        self.btn_underline = QPushButton('U'); self.btn_underline.setCheckable(True)
+        self.btn_strike = QPushButton('S'); self.btn_strike.setCheckable(True)
+        for btn in [self.btn_bold, self.btn_italic, self.btn_underline, self.btn_strike]:
+            btn.setMinimumWidth(36)
+            row1.addWidget(btn)
+        form.addLayout(row1)
+
+        row2 = QHBoxLayout()
+        self.dock_font_combo = QFontComboBox()
+        self.dock_size_combo = QComboBox()
+        for s in [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]:
+            self.dock_size_combo.addItem(str(s))
+        self.dock_size_combo.setEditable(True)
+        self.dock_size_combo.setCurrentText('11')
+        row2.addWidget(self.dock_font_combo, 1)
+        row2.addWidget(self.dock_size_combo, 0)
+        form.addLayout(row2)
+
+        row3 = QHBoxLayout()
+        self.btn_text_color = QPushButton('Textfarbe')
+        self.btn_bg_color = QPushButton('HG-Farbe')
+        row3.addWidget(self.btn_text_color)
+        row3.addWidget(self.btn_bg_color)
+        form.addLayout(row3)
+
+        self.align_combo = QComboBox()
+        self.align_combo.addItems(['Links', 'Zentriert', 'Rechts', 'Blocksatz'])
+        form.addWidget(self.align_combo)
+
+        row5 = QHBoxLayout()
+        self.bullet_combo = QComboBox()
+        self.bullet_combo.addItems(['Liste: Disc', 'Liste: Circle', 'Liste: Square'])
+        self.number_combo = QComboBox()
+        self.number_combo.addItems(['Nummeriert: Decimal', 'Nummeriert: lower-alpha', 'Nummeriert: upper-alpha', 'Nummeriert: lower-roman', 'Nummeriert: upper-roman'])
+        row5.addWidget(self.bullet_combo)
+        row5.addWidget(self.number_combo)
+        form.addLayout(row5)
+
+        row6 = QHBoxLayout()
+        self.link_edit = QLineEdit()
+        self.link_edit.setPlaceholderText('Link oder E-Mail eingeben ...')
+        self.btn_link_mode = QPushButton('...')
+        self.btn_link_mode.setMaximumWidth(36)
+        self.btn_insert_image = QPushButton('Bild')
+        row6.addWidget(self.link_edit, 1)
+        row6.addWidget(self.btn_link_mode, 0)
+        row6.addWidget(self.btn_insert_image, 0)
+        form.addLayout(row6)
+
+        row7 = QHBoxLayout()
+        self.btn_insert_table = QPushButton('Tabelle')
+        self.table_ops_combo = ActionComboBox()
+        self.table_ops_combo.addItems(['+ Zeile', '+ Spalte', '- Zeile', '- Spalte', 'Verbinden', 'Teilen'])
+        row7.addWidget(self.btn_insert_table)
+        row7.addWidget(self.table_ops_combo, 1)
+        form.addLayout(row7)
+
+        self.btn_table_cell_color = QPushButton('Zellfarbe')
+        form.addWidget(self.btn_table_cell_color)
+
+        row8 = QHBoxLayout()
+        self.btn_table_margins = QPushButton('Tabellenrand')
+        self.edit_margin_left = QLineEdit(); self.edit_margin_left.setPlaceholderText('Left')
+        self.edit_margin_top = QLineEdit(); self.edit_margin_top.setPlaceholderText('Top')
+        self.edit_margin_right = QLineEdit(); self.edit_margin_right.setPlaceholderText('Right')
+        self.edit_margin_bottom = QLineEdit(); self.edit_margin_bottom.setPlaceholderText('Bottom')
+        row8.addWidget(self.btn_table_margins)
+        row8.addWidget(self.edit_margin_left)
+        row8.addWidget(self.edit_margin_top)
+        row8.addWidget(self.edit_margin_right)
+        row8.addWidget(self.edit_margin_bottom)
+        form.addLayout(row8)
+
+        row9 = QHBoxLayout()
+        self.btn_table_cell_size = QPushButton('Zellgröße')
+        self.edit_cell_width = QLineEdit(); self.edit_cell_width.setPlaceholderText('Breite')
+        self.edit_cell_height = QLineEdit(); self.edit_cell_height.setPlaceholderText('Höhe')
+        self.edit_cell_colspan = QLineEdit(); self.edit_cell_colspan.setPlaceholderText('ColSpan')
+        self.edit_cell_rowspan = QLineEdit(); self.edit_cell_rowspan.setPlaceholderText('RowSpan')
+        row9.addWidget(self.btn_table_cell_size)
+        row9.addWidget(self.edit_cell_width)
+        row9.addWidget(self.edit_cell_height)
+        row9.addWidget(self.edit_cell_colspan)
+        row9.addWidget(self.edit_cell_rowspan)
+        form.addLayout(row9)
+
+        form.addStretch(1)
+        scroll.setWidget(scroll_content)
+        dock_lay.addWidget(scroll)
+        self.format_dock.setWidget(dock_host)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.format_dock)
+
+        self.btn_bold.toggled.connect(self._dock_toggle_bold)
+        self.btn_italic.toggled.connect(self._dock_toggle_italic)
+        self.btn_underline.toggled.connect(self._dock_toggle_underline)
+        self.btn_strike.toggled.connect(self._dock_toggle_strike)
+        self.dock_font_combo.currentFontChanged.connect(self.set_font_family)
+        self.dock_size_combo.currentTextChanged.connect(self.set_font_size_from_text)
+        self.btn_text_color.clicked.connect(self.set_text_color)
+        self.btn_bg_color.clicked.connect(self.set_background_color)
+        self.align_combo.currentTextChanged.connect(self._on_align_combo_changed)
+        self.bullet_combo.activated.connect(self._on_bullet_combo_activated)
+        self.number_combo.activated.connect(self._on_number_combo_activated)
+        self.btn_link_mode.clicked.connect(self._insert_link_from_dock)
+        self.btn_insert_image.clicked.connect(self.insert_image)
+        self.btn_insert_table.clicked.connect(self.insert_table)
+        self.table_ops_combo.doubleClicked.connect(self._on_table_ops_combo_double_clicked)
+        self.btn_table_cell_color.clicked.connect(self.table_set_cell_background)
+        self.btn_table_margins.clicked.connect(self._apply_table_margins_from_dock)
+        self.btn_table_cell_size.clicked.connect(self._apply_table_cell_size_from_dock)
+
+        self.format_dock.setStyleSheet("""
+            QDockWidget { color:#ffd84d; font: 10pt Arial; }
+            QDockWidget::title { text-align:left; background:#1a1a1a; color:#ffd84d; padding:4px; }
+            QWidget { background:#131313; color:white; }
+            QPushButton { background:#1a1a1a; color:#ffd84d; border:1px solid #3a3a3a; padding:4px 8px; font: 10pt Arial; }
+            QPushButton:checked { background:#2a2a2a; }
+            QComboBox, QLineEdit, QFontComboBox {
+                background:#1b1b1b; color:white; border:1px solid #3a3a3a; min-height:24px; font: 10pt Arial;
+            }
+            QScrollArea { border:none; }
+        """)
 
     def _build_toolbar(self):
         tb_file = QToolBar('Datei', self)
@@ -293,6 +459,149 @@ class HelpAuthoringEditor(QMainWindow):
                 font-weight: bold;
             }
         """)
+
+    def _dock_toggle_bold(self, checked):
+        self.act_bold.setChecked(checked)
+        self.toggle_bold()
+
+    def _dock_toggle_italic(self, checked):
+        self.act_italic.setChecked(checked)
+        self.toggle_italic()
+
+    def _dock_toggle_underline(self, checked):
+        self.act_underline.setChecked(checked)
+        self.toggle_underline()
+
+    def _dock_toggle_strike(self, checked):
+        self.act_strike.setChecked(checked)
+        self.toggle_strike()
+
+    def _on_align_combo_changed(self, text):
+        mapping = {
+            'Links': Qt.AlignLeft,
+            'Zentriert': Qt.AlignHCenter,
+            'Rechts': Qt.AlignRight,
+            'Blocksatz': Qt.AlignJustify,
+        }
+        if text in mapping:
+            self._apply_alignment(mapping[text])
+
+    def _on_bullet_combo_activated(self, idx):
+        mapping = {
+            0: QTextListFormat.ListDisc,
+            1: QTextListFormat.ListCircle,
+            2: QTextListFormat.ListSquare,
+        }
+        editor = self._current_editor()
+        if editor is not None:
+            editor.textCursor().insertList(mapping.get(idx, QTextListFormat.ListDisc))
+
+    def _on_number_combo_activated(self, idx):
+        mapping = {
+            0: QTextListFormat.ListDecimal,
+            1: QTextListFormat.ListLowerAlpha,
+            2: QTextListFormat.ListUpperAlpha,
+            3: QTextListFormat.ListLowerRoman,
+            4: QTextListFormat.ListUpperRoman,
+        }
+        editor = self._current_editor()
+        if editor is not None:
+            editor.textCursor().insertList(mapping.get(idx, QTextListFormat.ListDecimal))
+
+    def _insert_link_from_dock(self):
+        editor = self._current_editor()
+        if editor is None:
+            return
+        raw = self.link_edit.text().strip()
+        if not raw:
+            QMessageBox.information(self, 'Link', 'Bitte zuerst einen Link oder eine E-Mail-Adresse eingeben.')
+            return
+        dlg = LinkTypeDialog(self)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        link_type = dlg.link_type()
+        href = raw
+        if link_type == 'mail':
+            if not href.lower().startswith('mailto:'):
+                href = 'mailto:' + href
+        else:
+            if '://' not in href:
+                href = 'https://' + href
+        cursor = editor.textCursor()
+        selected_text = cursor.selectedText() or raw
+        cursor.insertHtml(f'<a href="{href}">{selected_text}</a>')
+
+    def _on_table_ops_combo_double_clicked(self):
+        txt = self.table_ops_combo.currentText()
+        if txt == '+ Zeile':
+            self.table_add_row()
+        elif txt == '+ Spalte':
+            self.table_add_column()
+        elif txt == '- Zeile':
+            self.table_remove_row()
+        elif txt == '- Spalte':
+            self.table_remove_column()
+        elif txt == 'Verbinden':
+            self.table_merge_cells()
+        elif txt == 'Teilen':
+            self.table_split_cell()
+
+    def _safe_float(self, edit, default=0.0):
+        try:
+            return float((edit.text() or '').replace(',', '.'))
+        except Exception:
+            return default
+
+    def _safe_int(self, edit, default=0):
+        try:
+            return int(float((edit.text() or '').replace(',', '.')))
+        except Exception:
+            return default
+
+    def _apply_table_margins_from_dock(self):
+        table = self._current_table()
+        if table is None:
+            return
+        fmt = table.format()
+        fmt.setLeftMargin(self._safe_float(self.edit_margin_left, fmt.leftMargin()))
+        fmt.setTopMargin(self._safe_float(self.edit_margin_top, fmt.topMargin()))
+        fmt.setRightMargin(self._safe_float(self.edit_margin_right, fmt.rightMargin()))
+        fmt.setBottomMargin(self._safe_float(self.edit_margin_bottom, fmt.bottomMargin()))
+        table.setFormat(fmt)
+
+    def _apply_table_cell_size_from_dock(self):
+        editor = self._current_editor()
+        table = self._current_table()
+        if editor is None or table is None:
+            return
+        cell = table.cellAt(editor.textCursor())
+        if not cell.isValid():
+            return
+        col_w = self._safe_int(self.edit_cell_width, 0)
+        row_h = self._safe_int(self.edit_cell_height, 0)
+        col_span = max(1, self._safe_int(self.edit_cell_colspan, 1))
+        row_span = max(1, self._safe_int(self.edit_cell_rowspan, 1))
+
+        if col_w > 0:
+            fmt = table.format()
+            constraints = list(fmt.columnWidthConstraints())
+            while len(constraints) < table.columns():
+                constraints.append(QTextLength(QTextLength.PercentageLength, 100.0 / max(1, table.columns())))
+            constraints[cell.column()] = QTextLength(QTextLength.FixedLength, col_w)
+            fmt.setColumnWidthConstraints(constraints)
+            table.setFormat(fmt)
+
+        if row_h > 0:
+            cursor = editor.textCursor()
+            block_fmt = QTextBlockFormat()
+            block_fmt.setLineHeight(row_h, QTextBlockFormat.FixedHeight)
+            cursor.mergeBlockFormat(block_fmt)
+
+        if col_span > 1 or row_span > 1:
+            try:
+                table.mergeCells(cell.row(), cell.column(), row_span, col_span)
+            except Exception:
+                pass
 
     def _ini_path(self) -> str:
         try:
@@ -857,6 +1166,14 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.size_combo.setCurrentText(str(size))
         self.size_combo.blockSignals(False)
 
+        if hasattr(self, 'btn_bold'):
+            self.btn_bold.blockSignals(True); self.btn_bold.setChecked(self.act_bold.isChecked()); self.btn_bold.blockSignals(False)
+            self.btn_italic.blockSignals(True); self.btn_italic.setChecked(self.act_italic.isChecked()); self.btn_italic.blockSignals(False)
+            self.btn_underline.blockSignals(True); self.btn_underline.setChecked(self.act_underline.isChecked()); self.btn_underline.blockSignals(False)
+            self.btn_strike.blockSignals(True); self.btn_strike.setChecked(self.act_strike.isChecked()); self.btn_strike.blockSignals(False)
+            self.dock_font_combo.blockSignals(True); self.dock_font_combo.setCurrentFont(font); self.dock_font_combo.blockSignals(False)
+            self.dock_size_combo.blockSignals(True); self.dock_size_combo.setCurrentText(str(size)); self.dock_size_combo.blockSignals(False)
+
     def maybe_save(self, editor=None) -> bool:
         if isinstance(editor, bool):
             editor = None
@@ -877,38 +1194,6 @@ td, th { border: 1px solid #666; padding: 4px; }
         if ret == QMessageBox.Yes:
             return self.file_save(editor)
         return True
-
-    def _build_help_project_payload(self, editor):
-        topics = []
-        for item in getattr(editor, '_toc_snapshot', []) or []:
-            topics.append(self._serialize_item(item))
-        return {
-            'meta': {
-                'format'          : HELP_JSON_FORMAT,
-                'tool'            : HELP_JSON_TOOL,
-                'kind'            : HELP_JSON_KIND,
-                'version'         : HELP_JSON_VER,
-                'extension'       : '.json',
-                'current_topic_id': getattr(editor, '_current_topic_id', None),
-            },
-            'topics': topics,
-        }
-
-    def _validate_help_project_payload(self, data):
-        if not isinstance(data, dict):
-            return False, 'Die Datei enthält kein gültiges JSON-Projektobjekt.'
-        meta = data.get('meta')
-        if not isinstance(meta, dict):
-            return False, 'Die Datei enthält keine gültigen Header-/Metadaten.'
-        if meta.get('format') != HELP_JSON_FORMAT:
-            return False, 'Die Header-Informationen enthalten kein gültiges dBase2Many-Projektformat.'
-        if meta.get('tool') != HELP_JSON_TOOL:
-            tool = meta.get('tool', 'unbekannt')
-            return False, f'Die JSON-Datei gehört nicht zum Help-Editor (gefunden: {tool}).'
-        if meta.get('kind') != HELP_JSON_KIND:
-            kind = meta.get('kind', 'unbekannt')
-            return False, f'Die JSON-Datei ist kein Help-Authoring-Projekt (gefunden: {kind}).'
-        return True, ''
 
     def file_new(self):
         roots = [self._new_topic_item('New Topic', self._default_document_html())]
@@ -931,12 +1216,6 @@ td, th { border: 1px solid #666; padding: 4px; }
                 if ext == '.json':
                     with open(path, 'r', encoding='utf-8', errors='replace') as f:
                         data = json.load(f)
-                    ok, err = self._validate_help_project_payload(data)
-                    if not ok:
-                        QMessageBox.critical(self, 'Ungültige Projektdatei', err)
-                        self.activateWindow()
-                        self.raise_()
-                        continue
                     topics = data.get('topics', [])
                     roots = [self._deserialize_item(item) for item in topics]
                     editor = self._add_editor_tab('', path, roots)
@@ -967,7 +1246,17 @@ td, th { border: 1px solid #666; padding: 4px; }
         try:
             if editor is self._current_editor():
                 self._capture_current_project_to_editor(editor)
-            payload = self._build_help_project_payload(editor)
+            topics = []
+            for item in getattr(editor, '_toc_snapshot', []) or []:
+                topics.append(self._serialize_item(item))
+            payload = {
+                'meta': {
+                    'format'          : 'dBase2Many Help Authoring',
+                    'version'         : 1,
+                    'current_topic_id': getattr(editor, '_current_topic_id', None),
+                },
+                'topics': topics,
+            }
             with open(editor._path, 'w', encoding='utf-8', errors='replace') as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
             self._set_editor_dirty(editor, False)
@@ -1005,9 +1294,14 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._capture_current_project_to_editor(self._current_editor())
         for idx in range(self.tab_widget.count()):
             editor = self._editor_at(idx)
-            #if editor is not None and not self.maybe_save(editor):
-            #    event.ignore()
-            #    return
+            if editor is not None and not self.maybe_save(editor):
+                event.ignore()
+                return
+        try:
+            if hasattr(self, 'format_dock') and self.format_dock is not None:
+                self.format_dock.close()
+        except Exception:
+            pass
         self._save_window_state()
         event.accept()
 
