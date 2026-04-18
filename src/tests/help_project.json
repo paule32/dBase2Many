@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "format": "dBase2Many Help Authoring",
+    "version": 1,
+    "current_topic_id": "f6ffeef6-5e35-43ca-b1f7-16b76d4702d9"
+  },
+  "topics": [
+    {
+      "title": "New Topic",
+      "topic_id": "ee9f5333-fc53-4c75-8ae8-6cdf5271e863",
+      "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p></body></html>",
+      "children": [
+        {
+          "title": "Child Topic",
+          "topic_id": "7cdbdbd7-7dc4-4465-a613-bb2ace6eb92f",
+          "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite2</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p></body></html>",
+          "children": []
+        },
+        {
+          "title": "Child Topic",
+          "topic_id": "f6ffeef6-5e35-43ca-b1f7-16b76d4702d9",
+          "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite3333</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p></body></html>",
+          "children": [
+            {
+              "title": "Child Topic",
+              "topic_id": "6f331544-8c73-4aca-b4c9-c09ff86885ce",
+              "html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><title>Help Authoring</title><style type=\"text/css\">\np, li { white-space: pre-wrap; }\n</style></head><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n<h1 style=\" margin-top:18px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt; font-weight:600;\">Neue Hilfe-Seite</span></h1>\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:'Arial','sans-serif'; font-size:11pt;\">Hier kann dein Hilfetext bearbeitet werden.</span></p></body></html>",
+              "children": []
+            },
+            {
+              "title": "Child Topic",
+              "topic_id": "d90e2cfe-f3fa-4cb9-b72d-2ddafcd0f571",
+              "html": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Help Authoring</title>\n<style>\nbody { font-family: Arial, sans-serif; font-size: 11pt; }\ntable { border-collapse: collapse; width: 100%; }\ntd, th { border: 1px solid #666; padding: 4px; }\n</style>\n</head>\n<body>\n<h1>Neue Hilfe-Seite</h1>\n<p>Hier kann dein Hilfetext bearbeitet werden.</p>\n</body>\n</html>",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "New Topic",
+      "topic_id": "e429f0de-9d2c-461c-8b85-3d1062b7c7ba",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Help Authoring</title>\n<style>\nbody { font-family: Arial, sans-serif; font-size: 11pt; }\ntable { border-collapse: collapse; width: 100%; }\ntd, th { border: 1px solid #666; padding: 4px; }\n</style>\n</head>\n<body>\n<h1>Neue Hilfe-Seite</h1>\n<p>Hier kann dein Hilfetext bearbeitet werden.</p>\n</body>\n</html>",
+      "children": [
+        {
+          "title": "New Topic",
+          "topic_id": "11ae1811-6737-465c-a53e-100712849308",
+          "html": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Help Authoring</title>\n<style>\nbody { font-family: Arial, sans-serif; font-size: 11pt; }\ntable { border-collapse: collapse; width: 100%; }\ntd, th { border: 1px solid #666; padding: 4px; }\n</style>\n</head>\n<body>\n<h1>Neue Hilfe-Seite</h1>\n<p>Hier kann dein Hilfetext bearbeitet werden.</p>\n</body>\n</html>",
+          "children": []
+        }
+      ]
+    },
+    {
+      "title": "New Topic",
+      "topic_id": "b6da5bc6-3b7b-4a4a-a73b-bfa20d0f96fa",
+      "html": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Help Authoring</title>\n<style>\nbody { font-family: Arial, sans-serif; font-size: 11pt; }\ntable { border-collapse: collapse; width: 100%; }\ntd, th { border: 1px solid #666; padding: 4px; }\n</style>\n</head>\n<body>\n<h1>Neue Hilfe-Seite</h1>\n<p>Hier kann dein Hilfetext bearbeitet werden.</p>\n</body>\n</html>",
+      "children": []
+    }
+  ]
+}

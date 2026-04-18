@@ -5,12 +5,17 @@
 # ---------------------------------------------------------------------------
 from __future__ import annotations
 
+import json
 import os
-import re
 import sys
+import uuid
 
 from   dataclasses import dataclass
 from   share.common import *
+
+ROLE_BLOCK_POS  = Qt.UserRole
+ROLE_TOPIC_HTML = Qt.UserRole + 1
+ROLE_TOPIC_ID   = Qt.UserRole + 2
 
 @dataclass
 class TableSpec:
@@ -110,6 +115,7 @@ class HelpAuthoringEditor(QMainWindow):
         super().__init__(parent)
         self.current_path = file_path or ''
         self._is_dirty = False
+        self._loading_topic_html = False
         self.setWindowTitle('Help Authoring')
         self.resize(800, 620)
 
@@ -122,6 +128,8 @@ class HelpAuthoringEditor(QMainWindow):
         self.toc_view.clicked.connect(self._on_toc_clicked)
         self.toc_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.toc_view.customContextMenuRequested.connect(self._on_toc_context_menu)
+        self.toc_view.setEditTriggers(QAbstractItemView.EditKeyPressed | QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked)
+        self.toc_view.setStyleSheet('QTreeView::item { padding: 0px; margin: 0px; }')
         self._toc_clipboard_item = None
 
         self.tab_widget = QTabWidget()
@@ -153,7 +161,8 @@ class HelpAuthoringEditor(QMainWindow):
         self._settings.setFallbacksEnabled(False)
 
         if initial_html:
-            self._add_editor_tab(initial_html, file_path)
+            roots = [self._new_topic_item('New Topic', initial_html)]
+            self._add_editor_tab('', file_path, roots)
         else:
             self.file_new()
 
@@ -169,8 +178,8 @@ class HelpAuthoringEditor(QMainWindow):
 
         act_new     = QAction('Neu'               , self); act_new    .triggered.connect(self.file_new)
         act_open    = QAction('Öffnen'            , self); act_open   .triggered.connect(self.file_open)
-        act_save    = QAction('Speichern'         , self); act_save   .triggered.connect(self.file_save)
-        act_save_as = QAction('Speichern unter...', self); act_save_as.triggered.connect(self.file_save_as)
+        act_save    = QAction('Speichern'         , self); act_save   .triggered.connect(lambda _=False: self.file_save())
+        act_save_as = QAction('Speichern unter...', self); act_save_as.triggered.connect(lambda _=False: self.file_save_as())
         act_source  = QAction('HTML'              , self); act_source .triggered.connect(self.edit_html_source)
 
         tb_file.addAction(act_new)
@@ -343,20 +352,164 @@ td, th { border: 1px solid #666; padding: 4px; }
                 title += ' *'
             self.tab_widget.setTabText(idx, title)
 
-    def _add_editor_tab(self, html: str, file_path: str = ''):
+    def _new_topic_item(self, title='New Topic', html=''):
+        item = QStandardItem(title)
+        item.setData(None, Qt.UserRole)
+        item.setData(html or self._default_document_html(), ROLE_TOPIC_HTML)
+        item.setData(str(uuid.uuid4()), ROLE_TOPIC_ID)
+        return item
+
+    def _clone_item_deep(self, item):
+        new_item = QStandardItem(item.text())
+        new_item.setData(item.data(ROLE_BLOCK_POS ), ROLE_BLOCK_POS )
+        new_item.setData(item.data(ROLE_TOPIC_HTML), ROLE_TOPIC_HTML)
+        new_item.setData(item.data(ROLE_TOPIC_ID  ), ROLE_TOPIC_ID  )
+        for row in range(item.rowCount()):
+            child = item.child(row)
+            if child is not None:
+                new_item.appendRow(self._clone_item_deep(child))
+        return new_item
+
+    def _save_toc_to_current_editor(self):
+        editor = self._current_editor()
+        if editor is None:
+            return
+        roots = []
+        for row in range(self.toc_model.rowCount()):
+            item = self.toc_model.item(row)
+            if item is not None:
+                roots.append(self._clone_item_deep(item))
+        editor._toc_snapshot = roots
+
+    def _serialize_item(self, item):
+        data = {
+            'title'    : item.text(),
+            'topic_id' : item.data(ROLE_TOPIC_ID),
+            'html'     : item.data(ROLE_TOPIC_HTML) or '',
+            'children' : [],
+        }
+        for row in range(item.rowCount()):
+            child = item.child(row)
+            if child is not None:
+                data['children'].append(self._serialize_item(child))
+        return data
+
+    def _deserialize_item(self, data):
+        item = QStandardItem(data.get('title', 'Topic'))
+        item.setData(None, Qt.UserRole)
+        item.setData(data.get('html', self._default_document_html()), ROLE_TOPIC_HTML)
+        item.setData(data.get('topic_id', str(uuid.uuid4())), ROLE_TOPIC_ID)
+        for child in data.get('children', []):
+            item.appendRow(self._deserialize_item(child))
+        return item
+
+    def _find_item_by_topic_id(self, topic_id, parent=None):
+        if not topic_id:
+            return None
+        if parent is None:
+            for row in range(self.toc_model.rowCount()):
+                item = self.toc_model.item(row)
+                res = self._find_item_by_topic_id(topic_id, item)
+                if res is not None:
+                    return res
+            return None
+        if parent.data(ROLE_TOPIC_ID) == topic_id:
+            return parent
+        for row in range(parent.rowCount()):
+            res = self._find_item_by_topic_id(topic_id, parent.child(row))
+            if res is not None:
+                return res
+        return None
+
+    def _load_topic_into_editor(self, item):
+        editor = self._current_editor()
+        if editor is None or item is None:
+            return
+        self._loading_topic_html = True
+        try:
+            editor._current_topic_id = item.data(ROLE_TOPIC_ID)
+            editor.setHtml(item.data(ROLE_TOPIC_HTML) or self._default_document_html())
+        finally:
+            self._loading_topic_html = False
+        self._update_status()
+        self._sync_toolbar_state()
+
+    def _load_toc_from_current_editor(self):
+        editor = self._current_editor()
+        self.toc_model.clear()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        if editor is None:
+            return
+        roots = getattr(editor, '_toc_snapshot', None)
+        if roots:
+            for item in roots:
+                self.toc_model.appendRow(self._clone_item_deep(item))
+            self.toc_view.expandAll()
+            target = self._find_item_by_topic_id(getattr(editor, '_current_topic_id', None))
+            if target is None and self.toc_model.rowCount() > 0:
+                target = self.toc_model.item(0)
+            if target is not None:
+                idx = self.toc_model.indexFromItem(target)
+                self.toc_view.setCurrentIndex(idx)
+                self._load_topic_into_editor(target)
+
+    def _build_toc_from_headings(self, editor=None):
+        if editor is None:
+            editor = self._current_editor()
+        self.toc_model.clear()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        if editor is None:
+            return
+
+        root_items = [None, None, None, None, None]
+        block = editor.document().firstBlock()
+        found = False
+        while block.isValid():
+            txt = block.text().strip()
+            if txt:
+                level = self._toc_level_from_block(block)
+                if level > 0:
+                    item = self._new_topic_item(txt, self._default_document_html())
+                    item.setData(block.position(), ROLE_BLOCK_POS)
+                    if level <= 1 or root_items[level - 1] is None:
+                        self.toc_model.appendRow(item)
+                    else:
+                        parent = root_items[level - 1]
+                        parent.appendRow(item)
+                    root_items[level] = item
+                    for i in range(level + 1, len(root_items)):
+                        root_items[i] = None
+                    found = True
+            block = block.next()
+
+        if not found:
+            self.toc_model.appendRow(self._new_topic_item('New Topic', editor.toHtml()))
+
+        self.toc_view.expandAll()
+        self._save_toc_to_current_editor()
+        if self.toc_model.rowCount() > 0:
+            item = self.toc_model.item(0)
+            self.toc_view.setCurrentIndex(self.toc_model.indexFromItem(item))
+            self._load_topic_into_editor(item)
+
+    def _add_editor_tab(self, html: str, file_path: str = '', toc_roots=None):
         editor = QTextEdit()
         editor.setAcceptRichText(True)
-        editor.setHtml(html)
+        editor.setHtml(html or self._default_document_html())
         editor._path = file_path or ''
         editor._dirty = False
-        editor._toc_snapshot = None
+        editor._toc_snapshot = toc_roots or []
+        editor._current_topic_id = None
         editor.textChanged.connect(lambda ed=editor: self._on_editor_text_changed(ed))
         editor.cursorPositionChanged.connect(self._sync_toolbar_state)
 
         idx = self.tab_widget.addTab(editor, self._title_from_path(file_path))
         self.tab_widget.setCurrentIndex(idx)
         self._sync_current_editor_ref()
-        self._build_toc_from_headings(editor)
+        if editor._toc_snapshot:
+            self._load_toc_from_current_editor()
+        else:
+            self._build_toc_from_headings(editor)
         return editor
 
     def _on_tab_changed(self, idx: int):
@@ -381,10 +534,17 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._sync_toolbar_state()
             self._update_status()
             self._update_window_title()
+            self._load_toc_from_current_editor()
 
     def _on_editor_text_changed(self, editor):
         self._set_editor_dirty(editor, True)
         if editor is self._current_editor():
+            if not self._loading_topic_html:
+                item = self._toc_current_item()
+                if item is not None:
+                    item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
+                    editor._current_topic_id = item.data(ROLE_TOPIC_ID)
+                    self._save_toc_to_current_editor()
             self._sync_current_editor_ref()
             self._update_window_title()
             self._update_status()
@@ -414,73 +574,6 @@ td, th { border: 1px solid #666; padding: 4px; }
             it += 1
         return 0
 
-    def _clone_item_deep(self, item):
-        new_item = QStandardItem(item.text())
-        try:
-            new_item.setData(item.data(Qt.UserRole), Qt.UserRole)
-        except Exception:
-            pass
-        for row in range(item.rowCount()):
-            child = item.child(row)
-            if child is not None:
-                new_item.appendRow(self._clone_item_deep(child))
-        return new_item
-
-    def _save_toc_to_current_editor(self):
-        editor = self._current_editor()
-        if editor is None:
-            return
-        roots = []
-        for row in range(self.toc_model.rowCount()):
-            item = self.toc_model.item(row)
-            if item is not None:
-                roots.append(self._clone_item_deep(item))
-        editor._toc_snapshot = roots
-
-    def _load_toc_from_current_editor(self):
-        editor = self._current_editor()
-        self.toc_model.clear()
-        self.toc_model.setHorizontalHeaderLabels(['TOC'])
-        if editor is None:
-            return
-        roots = getattr(editor, '_toc_snapshot', None)
-        if roots:
-            for item in roots:
-                self.toc_model.appendRow(self._clone_item_deep(item))
-            self.toc_view.expandAll()
-        else:
-            self._build_toc_from_headings(editor)
-
-    def _build_toc_from_headings(self, editor=None):
-        if editor is None:
-            editor = self._current_editor()
-        self.toc_model.clear()
-        self.toc_model.setHorizontalHeaderLabels(['TOC'])
-        if editor is None:
-            return
-
-        root_items = [None, None, None, None, None]
-        block = editor.document().firstBlock()
-        while block.isValid():
-            txt = block.text().strip()
-            if txt:
-                level = self._toc_level_from_block(block)
-                if level > 0:
-                    item = QStandardItem(txt)
-                    item.setData(block.position(), Qt.UserRole)
-                    if level <= 1 or root_items[level - 1] is None:
-                        self.toc_model.appendRow(item)
-                    else:
-                        parent = root_items[level - 1]
-                        parent.appendRow(item)
-                    root_items[level] = item
-                    for i in range(level + 1, len(root_items)):
-                        root_items[i] = None
-            block = block.next()
-
-        self.toc_view.expandAll()
-        self._save_toc_to_current_editor()
-
     def _toc_current_item(self):
         idx = self.toc_view.currentIndex()
         if not idx.isValid():
@@ -494,11 +587,11 @@ td, th { border: 1px solid #666; padding: 4px; }
         if idx.isValid():
             self.toc_view.setCurrentIndex(idx)
             self.toc_view.scrollTo(idx)
+            self._load_topic_into_editor(item)
 
     def _toc_new_topic(self):
         item = self._toc_current_item()
-        new_item = QStandardItem('New Topic')
-        new_item.setData(None, Qt.UserRole)
+        new_item = self._new_topic_item('New Topic', self._default_document_html())
         if item is None:
             self.toc_model.appendRow(new_item)
         else:
@@ -506,11 +599,11 @@ td, th { border: 1px solid #666; padding: 4px; }
             parent.insertRow(item.row() + 1, new_item)
         self._save_toc_to_current_editor()
         self._toc_select_item(new_item)
+        self.toc_view.edit(self.toc_model.indexFromItem(new_item))
 
     def _toc_add_sub_topic(self):
         item = self._toc_current_item()
-        new_item = QStandardItem('Child Topic')
-        new_item.setData(None, Qt.UserRole)
+        new_item = self._new_topic_item('Child Topic', self._default_document_html())
         if item is None:
             self.toc_model.appendRow(new_item)
         else:
@@ -518,6 +611,7 @@ td, th { border: 1px solid #666; padding: 4px; }
             self.toc_view.expand(self.toc_model.indexFromItem(item))
         self._save_toc_to_current_editor()
         self._toc_select_item(new_item)
+        self.toc_view.edit(self.toc_model.indexFromItem(new_item))
 
     def _toc_delete(self):
         item = self._toc_current_item()
@@ -526,6 +620,8 @@ td, th { border: 1px solid #666; padding: 4px; }
         parent = item.parent() or self.toc_model.invisibleRootItem()
         parent.removeRow(item.row())
         self._save_toc_to_current_editor()
+        if self.toc_model.rowCount() > 0:
+            self._toc_select_item(self.toc_model.item(0))
 
     def _toc_cut(self):
         item = self._toc_current_item()
@@ -535,6 +631,8 @@ td, th { border: 1px solid #666; padding: 4px; }
         parent = item.parent() or self.toc_model.invisibleRootItem()
         parent.removeRow(item.row())
         self._save_toc_to_current_editor()
+        if self.toc_model.rowCount() > 0:
+            self._toc_select_item(self.toc_model.item(0))
 
     def _toc_paste(self):
         if self._toc_clipboard_item is None:
@@ -646,19 +744,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         item = self.toc_model.itemFromIndex(index)
         if item is None:
             return
-        pos = item.data(Qt.UserRole)
-        if pos is None or self.editor is None:
-            return
-        cursor = self.editor.textCursor()
-        cursor.setPosition(int(pos))
-        self.editor.setTextCursor(cursor)
-        self.editor.setFocus()
-
-    def _on_text_changed(self):
-        self._is_dirty = True
-        self._update_window_title()
-        self._update_status()
-        self.contentChanged.emit()
+        self._load_topic_into_editor(item)
 
     def _update_window_title(self):
         editor = self._current_editor()
@@ -724,25 +810,34 @@ td, th { border: 1px solid #666; padding: 4px; }
         return True
 
     def file_new(self):
-        html = self._default_document_html()
-        editor = self._add_editor_tab(html, '')
+        roots = [self._new_topic_item('New Topic', self._default_document_html())]
+        editor = self._add_editor_tab('', '', roots)
         self._set_editor_dirty(editor, False)
         self._sync_current_editor_ref()
         self._update_window_title()
         self._update_status()
-        self._build_toc_from_headings(editor)
+        self._load_toc_from_current_editor()
 
     def file_open(self):
         paths, _ = QFileDialog.getOpenFileNames(self,
-            'HTML-Datei öffnen', '',
-            'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
+            'Datei öffnen', '',
+            'Help Authoring (*.json);;HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
         if not paths:
             return
         for path in paths:
             try:
-                with open(path, 'r', encoding='utf-8', errors='replace') as f:
-                    html = f.read()
-                editor = self._add_editor_tab(html, path)
+                ext = os.path.splitext(path)[1].lower()
+                if ext == '.json':
+                    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                        data = json.load(f)
+                    topics = data.get('topics', [])
+                    roots = [self._deserialize_item(item) for item in topics]
+                    editor = self._add_editor_tab('', path, roots)
+                else:
+                    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                        html = f.read()
+                    roots = [self._new_topic_item(os.path.splitext(os.path.basename(path))[0], html)]
+                    editor = self._add_editor_tab('', path, roots)
                 self._set_editor_dirty(editor, False)
             except Exception as e:
                 QMessageBox.warning(self,
@@ -751,6 +846,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._sync_current_editor_ref()
         self._update_window_title()
         self._update_status()
+        self._load_toc_from_current_editor()
 
     def file_save(self, editor=None) -> bool:
         if isinstance(editor, bool):
@@ -762,8 +858,25 @@ td, th { border: 1px solid #666; padding: 4px; }
         if not getattr(editor, '_path', ''):
             return self.file_save_as(editor)
         try:
+            if editor is self._current_editor():
+                item = self._toc_current_item()
+                if item is not None:
+                    item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
+                    editor._current_topic_id = item.data(ROLE_TOPIC_ID)
+                    self._save_toc_to_current_editor()
+            topics = []
+            for item in getattr(editor, '_toc_snapshot', []) or []:
+                topics.append(self._serialize_item(item))
+            payload = {
+                'meta': {
+                    'format'          : 'dBase2Many Help Authoring',
+                    'version'         : 1,
+                    'current_topic_id': getattr(editor, '_current_topic_id', None),
+                },
+                'topics': topics,
+            }
             with open(editor._path, 'w', encoding='utf-8', errors='replace') as f:
-                f.write(editor.toHtml())
+                json.dump(payload, f, indent=2, ensure_ascii=False)
             self._set_editor_dirty(editor, False)
             if editor is self._current_editor():
                 self._update_window_title()
@@ -781,11 +894,11 @@ td, th { border: 1px solid #666; padding: 4px; }
             editor = self._current_editor()
         if editor is None:
             return False
-        suggested = getattr(editor, '_path', '') or 'help_page.html'
+        suggested = getattr(editor, '_path', '') or 'help_project.json'
         path, _ = QFileDialog.getSaveFileName(self,
-            'HTML-Datei speichern',
+            'Datei speichern',
             suggested,
-            'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
+            'Help Authoring (*.json);;Alle Dateien (*.*)')
         if not path:
             return False
         editor._path = path
@@ -1025,7 +1138,10 @@ td, th { border: 1px solid #666; padding: 4px; }
         if dlg.exec_() != QDialog.Accepted:
             return
         editor.setHtml(dlg.html())
-        self._update_toc()
+        item = self._toc_current_item()
+        if item is not None:
+            item.setData(editor.toHtml(), ROLE_TOPIC_HTML)
+            self._save_toc_to_current_editor()
 
     @staticmethod
     def open_in_mdi(main_window):
