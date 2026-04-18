@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 from   dataclasses import dataclass
@@ -112,15 +113,31 @@ class HelpAuthoringEditor(QMainWindow):
         self.setWindowTitle('Help Authoring')
         self.resize(800, 620)
 
-        self.editor = QTextEdit()
-        self.editor.setAcceptRichText(True)
-        self.editor.textChanged.connect(self._on_text_changed)
-        self.editor.cursorPositionChanged.connect(self._sync_toolbar_state)
+        self.editor = None
+        self.toc_model = QStandardItemModel()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        self.toc_view = QTreeView()
+        self.toc_view.setModel(self.toc_model)
+        self.toc_view.setHeaderHidden(False)
+        self.toc_view.clicked.connect(self._on_toc_clicked)
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.setMovable(True)
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+        self.tab_widget.tabCloseRequested.connect(self._on_tab_close_requested)
+
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.toc_view)
+        self.splitter.addWidget(self.tab_widget)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([220, 580])
 
         central = QWidget()
         lay = QVBoxLayout(central)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(self.editor)
+        lay.addWidget(self.splitter)
         self.setCentralWidget(central)
 
         self._build_toolbar()
@@ -133,10 +150,9 @@ class HelpAuthoringEditor(QMainWindow):
         self._settings.setFallbacksEnabled(False)
 
         if initial_html:
-            self.editor.setHtml(initial_html)
-            self._is_dirty = False
+            self._add_editor_tab(initial_html, file_path)
         else:
-            self.editor.setHtml(self._default_document_html())
+            self.file_new()
 
         self._sync_toolbar_state()
         self._update_window_title()
@@ -202,7 +218,7 @@ class HelpAuthoringEditor(QMainWindow):
         self.addToolBar(tb_para)
         for title, align in [('Links', Qt.AlignLeft), ('Zentriert', Qt.AlignHCenter), ('Rechts', Qt.AlignRight), ('Blocksatz', Qt.AlignJustify)]:
             act = QAction(title, self)
-            act.triggered.connect(lambda _=False, a=align: self.editor.setAlignment(a))
+            act.triggered.connect(lambda _=False, a=align: self._apply_alignment(a))
             tb_para.addAction(act)
 
         act_bullets = QAction('Liste'         , self); act_bullets.triggered.connect(self.insert_bullet_list)
@@ -254,6 +270,12 @@ class HelpAuthoringEditor(QMainWindow):
                 self.restoreState(state)
         except Exception:
             pass
+        try:
+            sizes = self._settings.value('help_authoring/splitter_sizes')
+            if sizes is not None:
+                self.splitter.setSizes([int(x) for x in sizes])
+        except Exception:
+            pass
 
     def _save_window_state(self):
         try:
@@ -263,8 +285,9 @@ class HelpAuthoringEditor(QMainWindow):
         except Exception:
             pass
         try:
-            self._settings.setValue('help_authoring/main_geom', self.saveGeometry())
-            self._settings.setValue('help_authoring/main_state', self.saveState())
+            self._settings.setValue('help_authoring/main_geom'    , self.saveGeometry())
+            self._settings.setValue('help_authoring/main_state'   , self.saveState())
+            self._settings.setValue('help_authoring/splitter_sizes', self.splitter.sizes())
             self._settings.sync()
         except Exception:
             pass
@@ -287,6 +310,148 @@ td, th { border: 1px solid #666; padding: 4px; }
 </body>
 </html>'''
 
+    def _title_from_path(self, path: str) -> str:
+        return os.path.basename(path) if path else 'Unbenannt'
+
+    def _current_tab_index(self) -> int:
+        return self.tab_widget.currentIndex()
+
+    def _editor_at(self, idx: int):
+        if idx < 0 or idx >= self.tab_widget.count():
+            return None
+        w = self.tab_widget.widget(idx)
+        return w if isinstance(w, QTextEdit) else None
+
+    def _current_editor(self):
+        return self._editor_at(self._current_tab_index())
+
+    def _sync_current_editor_ref(self):
+        self.editor = self._current_editor()
+        self.current_path = getattr(self.editor, '_path', '') if self.editor is not None else ''
+
+    def _set_editor_dirty(self, editor, state: bool):
+        if editor is None:
+            return
+        editor._dirty = bool(state)
+        idx = self.tab_widget.indexOf(editor)
+        if idx >= 0:
+            title = self._title_from_path(getattr(editor, '_path', ''))
+            if getattr(editor, '_dirty', False):
+                title += ' *'
+            self.tab_widget.setTabText(idx, title)
+
+    def _add_editor_tab(self, html: str, file_path: str = ''):
+        editor = QTextEdit()
+        editor.setAcceptRichText(True)
+        editor.setHtml(html)
+        editor._path = file_path or ''
+        editor._dirty = False
+        editor.textChanged.connect(lambda ed=editor: self._on_editor_text_changed(ed))
+        editor.cursorPositionChanged.connect(self._sync_toolbar_state)
+
+        idx = self.tab_widget.addTab(editor, self._title_from_path(file_path))
+        self.tab_widget.setCurrentIndex(idx)
+        self._sync_current_editor_ref()
+        self._update_toc()
+        return editor
+
+    def _on_tab_changed(self, idx: int):
+        self._sync_current_editor_ref()
+        self._sync_toolbar_state()
+        self._update_status()
+        self._update_window_title()
+        self._update_toc()
+
+    def _on_tab_close_requested(self, idx: int):
+        editor = self._editor_at(idx)
+        if editor is None:
+            return
+        if not self.maybe_save(editor):
+            return
+        self.tab_widget.removeTab(idx)
+        editor.deleteLater()
+        if self.tab_widget.count() == 0:
+            self.file_new()
+        else:
+            self._sync_current_editor_ref()
+            self._sync_toolbar_state()
+            self._update_status()
+            self._update_window_title()
+            self._update_toc()
+
+    def _on_editor_text_changed(self, editor):
+        self._set_editor_dirty(editor, True)
+        if editor is self._current_editor():
+            self._sync_current_editor_ref()
+            self._update_window_title()
+            self._update_status()
+            self._update_toc()
+        self.contentChanged.emit()
+
+    def _apply_alignment(self, align):
+        if self.editor is None:
+            return
+        self.editor.setAlignment(align)
+
+    def _toc_level_from_block(self, block):
+        it = block.begin()
+        while not it.atEnd():
+            fragment = it.fragment()
+            if fragment.isValid():
+                fmt = fragment.charFormat()
+                size = fmt.fontPointSize() or 0
+                weight = fmt.fontWeight()
+                if size >= 22:
+                    return 1
+                if size >= 18:
+                    return 2
+                if size >= 15:
+                    return 3
+                if size >= 13 and weight >= QFont.Bold:
+                    return 4
+            it += 1
+        return 0
+
+    def _update_toc(self):
+        self.toc_model.clear()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        editor = self._current_editor()
+        if editor is None:
+            return
+
+        root_items = [None, None, None, None, None]
+        block = editor.document().firstBlock()
+        while block.isValid():
+            txt = block.text().strip()
+            if txt:
+                level = self._toc_level_from_block(block)
+                if level > 0:
+                    item = QStandardItem(txt)
+                    item.setData(block.position(), Qt.UserRole)
+                    if level <= 1 or root_items[level - 1] is None:
+                        self.toc_model.appendRow(item)
+                    else:
+                        parent = root_items[level - 1]
+                        parent.appendRow(item)
+                    root_items[level] = item
+                    for i in range(level + 1, len(root_items)):
+                        root_items[i] = None
+            block = block.next()
+
+        self.toc_view.expandAll()
+
+    def _on_toc_clicked(self, index):
+        item = self.toc_model.itemFromIndex(index)
+        if item is None:
+            return
+        pos = item.data(Qt.UserRole)
+        if pos is None or self.editor is None:
+            return
+        cursor = self.editor.textCursor()
+        cursor.setPosition(int(pos))
+        self.editor.setTextCursor(cursor)
+        self.editor.setFocus()
+
     def _on_text_changed(self):
         self._is_dirty = True
         self._update_window_title()
@@ -294,18 +459,31 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.contentChanged.emit()
 
     def _update_window_title(self):
-        name = os.path.basename(self.current_path) if self.current_path else 'Unbenannt'
-        star = ' *' if self._is_dirty else ''
+        editor = self._current_editor()
+        if editor is None:
+            self.setWindowTitle('Help Authoring')
+            return
+        name = self._title_from_path(getattr(editor, '_path', ''))
+        star = ' *' if getattr(editor, '_dirty', False) else ''
+        self.current_path = getattr(editor, '_path', '')
         self.setWindowTitle(f'Help Authoring - {name}{star}')
 
     def _update_status(self):
-        plain = self.editor.toPlainText()
+        editor = self._current_editor()
+        if editor is None:
+            self.lbl_status.setText('Bereit')
+            return
+        plain = editor.toPlainText()
         words = len([w for w in plain.split() if w.strip()])
         chars = len(plain)
         self.lbl_status.setText(f'Wörter: {words} | Zeichen: {chars}')
 
     def _sync_toolbar_state(self):
-        fmt = self.editor.currentCharFormat()
+        editor = self._current_editor()
+        if editor is None:
+            return
+
+        fmt = editor.currentCharFormat()
         self.act_bold.setChecked(fmt.fontWeight() >= QFont.Bold)
         self.act_italic.setChecked(fmt.fontItalic())
         self.act_underline.setChecked(fmt.fontUnderline())
@@ -322,58 +500,68 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.size_combo.setCurrentText(str(size))
         self.size_combo.blockSignals(False)
 
-    def maybe_save(self) -> bool:
-        if not self._is_dirty:
+    def maybe_save(self, editor=None) -> bool:
+        if editor is None:
+            editor = self._current_editor()
+        if editor is None:
             return True
+        if not getattr(editor, '_dirty', False):
+            return True
+        title = self._title_from_path(getattr(editor, '_path', ''))
         ret = QMessageBox.question(self,
             'Änderungen speichern?',
-            'Das Dokument wurde geändert.\nSoll es gespeichert werden?',
+            f'Das Dokument "{title}" wurde geändert.\nSoll es gespeichert werden?',
             QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
             QMessageBox.Yes)
         if ret == QMessageBox.Cancel:
             return False
         if ret == QMessageBox.Yes:
-            return self.file_save()
+            return self.file_save(editor)
         return True
 
     def file_new(self):
-        if not self.maybe_save():
-            return
-        self.current_path = ''
-        self.editor.setHtml(self._default_document_html())
-        self._is_dirty = False
+        html = self._default_document_html()
+        editor = self._add_editor_tab(html, '')
+        self._set_editor_dirty(editor, False)
+        self._sync_current_editor_ref()
         self._update_window_title()
         self._update_status()
+        self._update_toc()
 
     def file_open(self):
-        if not self.maybe_save():
-            return
-        path, _ = QFileDialog.getOpenFileName(self,
+        paths, _ = QFileDialog.getOpenFileNames(self,
             'HTML-Datei öffnen', '',
             'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
-        if not path:
+        if not paths:
             return
-        try:
-            with open(path, 'r', encoding='utf-8', errors='replace') as f:
-                html = f.read()
-            self.editor.setHtml(html)
-            self.current_path = path
-            self._is_dirty = False
-            self._update_window_title()
-            self._update_status()
-        except Exception as e:
-            QMessageBox.warning(self,
-                'Öffnen',
-                f'Datei konnte nicht gelesen werden:\n{e}')
+        for path in paths:
+            try:
+                with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                    html = f.read()
+                editor = self._add_editor_tab(html, path)
+                self._set_editor_dirty(editor, False)
+            except Exception as e:
+                QMessageBox.warning(self,
+                    'Öffnen',
+                    f'Datei konnte nicht gelesen werden:\n{e}')
+        self._sync_current_editor_ref()
+        self._update_window_title()
+        self._update_status()
+        self._update_toc()
 
-    def file_save(self) -> bool:
-        if not self.current_path:
-            return self.file_save_as()
+    def file_save(self, editor=None) -> bool:
+        if editor is None:
+            editor = self._current_editor()
+        if editor is None:
+            return False
+        if not getattr(editor, '_path', ''):
+            return self.file_save_as(editor)
         try:
-            with open(self.current_path, 'w', encoding='utf-8', errors='replace') as f:
-                f.write(self.editor.toHtml())
-            self._is_dirty = False
-            self._update_window_title()
+            with open(editor._path, 'w', encoding='utf-8', errors='replace') as f:
+                f.write(editor.toHtml())
+            self._set_editor_dirty(editor, False)
+            if editor is self._current_editor():
+                self._update_window_title()
             return True
         except Exception as e:
             QMessageBox.warning(self,
@@ -381,30 +569,43 @@ td, th { border: 1px solid #666; padding: 4px; }
                 f'Datei konnte nicht gespeichert werden:\n{e}')
             return False
 
-    def file_save_as(self) -> bool:
-        suggested = self.current_path or 'help_page.html'
+    def file_save_as(self, editor=None) -> bool:
+        if editor is None:
+            editor = self._current_editor()
+        if editor is None:
+            return False
+        suggested = getattr(editor, '_path', '') or 'help_page.html'
         path, _ = QFileDialog.getSaveFileName(self,
             'HTML-Datei speichern',
             suggested,
             'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
         if not path:
             return False
-        self.current_path = path
-        return self.file_save()
+        editor._path = path
+        self._set_editor_dirty(editor, getattr(editor, '_dirty', False))
+        if editor is self._current_editor():
+            self.current_path = path
+            self._update_window_title()
+        return self.file_save(editor)
 
     def closeEvent(self, event):
-        if self.maybe_save():
-            self._save_window_state()
-            event.accept()
-        else:
-            event.ignore()
+        for idx in range(self.tab_widget.count()):
+            editor = self._editor_at(idx)
+            if editor is not None and not self.maybe_save(editor):
+                event.ignore()
+                return
+        self._save_window_state()
+        event.accept()
 
     def merge_format_on_selection(self, fmt: QTextCharFormat):
-        cursor = self.editor.textCursor()
+        editor = self._current_editor()
+        if editor is None:
+            return
+        cursor = editor.textCursor()
         if not cursor.hasSelection():
             cursor.select(QTextCursor.WordUnderCursor)
         cursor.mergeCharFormat(fmt)
-        self.editor.mergeCurrentCharFormat(fmt)
+        editor.mergeCurrentCharFormat(fmt)
 
     def toggle_bold(self):
         fmt = QTextCharFormat()
@@ -433,21 +634,30 @@ td, th { border: 1px solid #666; padding: 4px; }
         fmt = QTextCharFormat(); fmt.setFontPointSize(size); self.merge_format_on_selection(fmt)
 
     def set_text_color(self):
-        color = QColorDialog.getColor(self.editor.textColor(), self, 'Textfarbe')
+        editor = self._current_editor()
+        if editor is None:
+            return
+        color = QColorDialog.getColor(editor.textColor(), self, 'Textfarbe')
         if not color.isValid():
             return
         fmt = QTextCharFormat(); fmt.setForeground(color); self.merge_format_on_selection(fmt)
 
     def set_background_color(self):
-        color = QColorDialog.getColor(self.editor.textBackgroundColor(), self, 'Hintergrundfarbe')
+        editor = self._current_editor()
+        if editor is None:
+            return
+        color = QColorDialog.getColor(editor.textBackgroundColor(), self, 'Hintergrundfarbe')
         if not color.isValid():
             return
         fmt = QTextCharFormat(); fmt.setBackground(color); self.merge_format_on_selection(fmt)
 
     def apply_heading_style(self, name: str):
-        if not self.editor.hasFocus():
+        editor = self._current_editor()
+        if editor is None:
             return
-        cursor = self.editor.textCursor()
+        if not editor.hasFocus():
+            return
+        cursor = editor.textCursor()
         char_fmt = QTextCharFormat()
         if name == 'Normal':
             char_fmt.setFontPointSize(11); char_fmt.setFontWeight(QFont.Normal); char_fmt.setFontFamily('Arial')
@@ -463,16 +673,24 @@ td, th { border: 1px solid #666; padding: 4px; }
             char_fmt.setFontPointSize(10); char_fmt.setFontFamily('Consolas'); char_fmt.setFontFixedPitch(True)
         cursor.select(QTextCursor.BlockUnderCursor)
         cursor.mergeCharFormat(char_fmt)
-        self.editor.mergeCurrentCharFormat(char_fmt)
+        editor.mergeCurrentCharFormat(char_fmt)
+        self._update_toc()
 
     def insert_bullet_list(self):
-        self.editor.textCursor().insertList(QTextListFormat.ListDisc)
+        editor = self._current_editor()
+        if editor is not None:
+            editor.textCursor().insertList(QTextListFormat.ListDisc)
 
     def insert_numbered_list(self):
-        self.editor.textCursor().insertList(QTextListFormat.ListDecimal)
+        editor = self._current_editor()
+        if editor is not None:
+            editor.textCursor().insertList(QTextListFormat.ListDecimal)
 
     def insert_link(self):
-        cursor = self.editor.textCursor()
+        editor = self._current_editor()
+        if editor is None:
+            return
+        cursor = editor.textCursor()
         selected_text = cursor.selectedText() or 'Linktext'
         url, ok = QInputDialog.getText(self, 'Hyperlink', 'URL:')
         if not ok or not url.strip():
@@ -489,12 +707,18 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.merge_format_on_selection(fmt)
 
     def insert_image(self):
+        editor = self._current_editor()
+        if editor is None:
+            return
         path, _ = QFileDialog.getOpenFileName(self, 'Bild einfügen', '', 'Bilder (*.png *.jpg *.jpeg *.bmp *.gif *.svg *.webp);;Alle Dateien (*.*)')
         if not path:
             return
-        self.editor.textCursor().insertHtml(f'<img src="{path}" alt="{os.path.basename(path)}">')
+        editor.textCursor().insertHtml(f'<img src="{path}" alt="{os.path.basename(path)}">')
 
     def insert_table(self):
+        editor = self._current_editor()
+        if editor is None:
+            return
         dlg = TableInsertDialog(self)
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -505,7 +729,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         fmt.setCellSpacing(spec.cell_spacing)
         fmt.setWidth(QTextLength(QTextLength.PercentageLength, spec.width_percent))
         fmt.setHeaderRowCount(1)
-        table = self.editor.textCursor().insertTable(spec.rows, spec.cols, fmt)
+        table = editor.textCursor().insertTable(spec.rows, spec.cols, fmt)
         cell_fmt = QTextTableCellFormat()
         cell_fmt.setPadding(spec.cell_padding)
         for r in range(spec.rows):
@@ -513,7 +737,8 @@ td, th { border: 1px solid #666; padding: 4px; }
                 table.cellAt(r, c).setFormat(cell_fmt)
 
     def _current_table(self):
-        return self.editor.textCursor().currentTable()
+        editor = self._current_editor()
+        return editor.textCursor().currentTable() if editor is not None else None
 
     def table_add_row(self):
         table = self._current_table()
@@ -526,35 +751,39 @@ td, th { border: 1px solid #666; padding: 4px; }
             table.appendColumns(1)
 
     def table_remove_row(self):
-        table = self._current_table()
-        if table is None:
+        editor = self._current_editor()
+        table  = self._current_table()
+        if table is None or editor is None:
             return
-        cell = table.cellAt(self.editor.textCursor())
+        cell = table.cellAt(editor.textCursor())
         if cell.isValid():
             table.removeRows(cell.row(), 1)
 
     def table_remove_column(self):
-        table = self._current_table()
-        if table is None:
+        editor = self._current_editor()
+        table  = self._current_table()
+        if table is None or editor is None:
             return
-        cell = table.cellAt(self.editor.textCursor())
+        cell = table.cellAt(editor.textCursor())
         if cell.isValid():
             table.removeColumns(cell.column(), 1)
 
     def table_merge_cells(self):
-        table = self._current_table()
-        if table is None:
+        editor = self._current_editor()
+        table  = self._current_table()
+        if table is None or editor is None:
             return
         try:
-            table.mergeCells(self.editor.textCursor())
+            table.mergeCells(editor.textCursor())
         except Exception:
             QMessageBox.information(self, 'Tabelle', 'Bitte einen rechteckigen Bereich über mehrere Zellen markieren.')
 
     def table_split_cell(self):
-        table = self._current_table()
-        if table is None:
+        editor = self._current_editor()
+        table  = self._current_table()
+        if table is None or editor is None:
             return
-        cell = table.cellAt(self.editor.textCursor())
+        cell = table.cellAt(editor.textCursor())
         if not cell.isValid():
             return
         try:
@@ -564,10 +793,11 @@ td, th { border: 1px solid #666; padding: 4px; }
             QMessageBox.warning(self, 'Tabelle', f'Zelle konnte nicht geteilt werden:\n{e}')
 
     def table_set_cell_background(self):
-        table = self._current_table()
-        if table is None:
+        editor = self._current_editor()
+        table  = self._current_table()
+        if table is None or editor is None:
             return
-        cell = table.cellAt(self.editor.textCursor())
+        cell = table.cellAt(editor.textCursor())
         if not cell.isValid():
             return
         color = QColorDialog.getColor(QColor('#ffffff'), self, 'Zellhintergrund')
@@ -582,10 +812,14 @@ td, th { border: 1px solid #666; padding: 4px; }
         cell.setFormat(fmt)
 
     def edit_html_source(self):
-        dlg = HtmlSourceDialog(self.editor.toHtml(), self)
+        editor = self._current_editor()
+        if editor is None:
+            return
+        dlg = HtmlSourceDialog(editor.toHtml(), self)
         if dlg.exec_() != QDialog.Accepted:
             return
-        self.editor.setHtml(dlg.html())
+        editor.setHtml(dlg.html())
+        self._update_toc()
 
     @staticmethod
     def open_in_mdi(main_window):
