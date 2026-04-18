@@ -550,6 +550,8 @@ td, th { border: 1px solid #666; padding: 4px; }
         self._update_toc()
 
     def file_save(self, editor=None) -> bool:
+        if isinstance(editor, bool):
+            editor = None
         if editor is None:
             editor = self._current_editor()
         if editor is None:
@@ -570,6 +572,8 @@ td, th { border: 1px solid #666; padding: 4px; }
             return False
 
     def file_save_as(self, editor=None) -> bool:
+        if isinstance(editor, bool):
+            editor = None
         if editor is None:
             editor = self._current_editor()
         if editor is None:
