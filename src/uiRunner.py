@@ -17,6 +17,7 @@ from   share.common                 import *
 from   share.excepts                import *
 from   share.locales                import *
 from   share.editors.editor         import *
+from   share.editors.help           import *
 
 import share.utildef
 from   share.utildef.sysinfo        import SystemInfo
@@ -8550,7 +8551,7 @@ class FormDesignerDock(QDockWidget):
         outer.setContentsMargins(6, 6, 6, 6)
         outer.setSpacing(6)
 
-        self.btn_up = QPushButton("▲\nOben", host)
+        self.btn_up   = QPushButton("▲\nOben", host)
         self.btn_down = QPushButton("▼\nUnten", host)
         for b in (self.btn_up, self.btn_down):
             b.setFixedHeight(52)
@@ -8727,6 +8728,7 @@ class FormDesignerDock(QDockWidget):
             if w is not None:
                 w.deleteLater()
         p.add_action("Localize", lambda: self._run_and_close(p, lambda: self.main_window.ensure_localize_tool(focus=True)))
+        #p.add_action("Help Authoring", 
         return p
 
     def _toggle_tools_popup(self):
