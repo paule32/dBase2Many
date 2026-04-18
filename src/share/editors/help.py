@@ -414,6 +414,234 @@ td, th { border: 1px solid #666; padding: 4px; }
             it += 1
         return 0
 
+    def _clone_item_deep(self, item):
+        new_item = QStandardItem(item.text())
+        try:
+            new_item.setData(item.data(Qt.UserRole), Qt.UserRole)
+        except Exception:
+            pass
+        for row in range(item.rowCount()):
+            child = item.child(row)
+            if child is not None:
+                new_item.appendRow(self._clone_item_deep(child))
+        return new_item
+
+    def _save_toc_to_current_editor(self):
+        editor = self._current_editor()
+        if editor is None:
+            return
+        roots = []
+        for row in range(self.toc_model.rowCount()):
+            item = self.toc_model.item(row)
+            if item is not None:
+                roots.append(self._clone_item_deep(item))
+        editor._toc_snapshot = roots
+
+    def _load_toc_from_current_editor(self):
+        editor = self._current_editor()
+        self.toc_model.clear()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        if editor is None:
+            return
+        roots = getattr(editor, '_toc_snapshot', None)
+        if roots:
+            for item in roots:
+                self.toc_model.appendRow(self._clone_item_deep(item))
+            self.toc_view.expandAll()
+        else:
+            self._build_toc_from_headings(editor)
+
+    def _build_toc_from_headings(self, editor=None):
+        if editor is None:
+            editor = self._current_editor()
+        self.toc_model.clear()
+        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        if editor is None:
+            return
+
+        root_items = [None, None, None, None, None]
+        block = editor.document().firstBlock()
+        while block.isValid():
+            txt = block.text().strip()
+            if txt:
+                level = self._toc_level_from_block(block)
+                if level > 0:
+                    item = QStandardItem(txt)
+                    item.setData(block.position(), Qt.UserRole)
+                    if level <= 1 or root_items[level - 1] is None:
+                        self.toc_model.appendRow(item)
+                    else:
+                        parent = root_items[level - 1]
+                        parent.appendRow(item)
+                    root_items[level] = item
+                    for i in range(level + 1, len(root_items)):
+                        root_items[i] = None
+            block = block.next()
+
+        self.toc_view.expandAll()
+        self._save_toc_to_current_editor()
+
+    def _toc_current_item(self):
+        idx = self.toc_view.currentIndex()
+        if not idx.isValid():
+            return None
+        return self.toc_model.itemFromIndex(idx)
+
+    def _toc_select_item(self, item):
+        if item is None:
+            return
+        idx = self.toc_model.indexFromItem(item)
+        if idx.isValid():
+            self.toc_view.setCurrentIndex(idx)
+            self.toc_view.scrollTo(idx)
+
+    def _toc_new_topic(self):
+        item = self._toc_current_item()
+        new_item = QStandardItem('New Topic')
+        new_item.setData(None, Qt.UserRole)
+        if item is None:
+            self.toc_model.appendRow(new_item)
+        else:
+            parent = item.parent() or self.toc_model.invisibleRootItem()
+            parent.insertRow(item.row() + 1, new_item)
+        self._save_toc_to_current_editor()
+        self._toc_select_item(new_item)
+
+    def _toc_add_sub_topic(self):
+        item = self._toc_current_item()
+        new_item = QStandardItem('Child Topic')
+        new_item.setData(None, Qt.UserRole)
+        if item is None:
+            self.toc_model.appendRow(new_item)
+        else:
+            item.appendRow(new_item)
+            self.toc_view.expand(self.toc_model.indexFromItem(item))
+        self._save_toc_to_current_editor()
+        self._toc_select_item(new_item)
+
+    def _toc_delete(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        parent = item.parent() or self.toc_model.invisibleRootItem()
+        parent.removeRow(item.row())
+        self._save_toc_to_current_editor()
+
+    def _toc_cut(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        self._toc_clipboard_item = self._clone_item_deep(item)
+        parent = item.parent() or self.toc_model.invisibleRootItem()
+        parent.removeRow(item.row())
+        self._save_toc_to_current_editor()
+
+    def _toc_paste(self):
+        if self._toc_clipboard_item is None:
+            return
+        item = self._toc_current_item()
+        new_item = self._clone_item_deep(self._toc_clipboard_item)
+        if item is None:
+            self.toc_model.appendRow(new_item)
+        else:
+            parent = item.parent() or self.toc_model.invisibleRootItem()
+            parent.insertRow(item.row() + 1, new_item)
+        self._save_toc_to_current_editor()
+        self._toc_select_item(new_item)
+
+    def _toc_move_up(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        parent = item.parent() or self.toc_model.invisibleRootItem()
+        row = item.row()
+        if row <= 0:
+            return
+        data = parent.takeRow(row)
+        parent.insertRow(row - 1, data)
+        self._save_toc_to_current_editor()
+        self._toc_select_item(data[0])
+
+    def _toc_move_down(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        parent = item.parent() or self.toc_model.invisibleRootItem()
+        row = item.row()
+        if row >= parent.rowCount() - 1:
+            return
+        data = parent.takeRow(row)
+        parent.insertRow(row + 1, data)
+        self._save_toc_to_current_editor()
+        self._toc_select_item(data[0])
+
+    def _toc_move_left(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        parent_item = item.parent()
+        if parent_item is None:
+            return
+        grand_parent = parent_item.parent() or self.toc_model.invisibleRootItem()
+        parent_row = parent_item.row()
+        data = parent_item.takeRow(item.row())
+        grand_parent.insertRow(parent_row + 1, data)
+        self._save_toc_to_current_editor()
+        self._toc_select_item(data[0])
+
+    def _toc_move_right(self):
+        item = self._toc_current_item()
+        if item is None:
+            return
+        parent = item.parent() or self.toc_model.invisibleRootItem()
+        row = item.row()
+        if row <= 0:
+            return
+        prev_sibling = parent.child(row - 1)
+        if prev_sibling is None:
+            return
+        data = parent.takeRow(row)
+        prev_sibling.appendRow(data)
+        self.toc_view.expand(self.toc_model.indexFromItem(prev_sibling))
+        self._save_toc_to_current_editor()
+        self._toc_select_item(data[0])
+
+    def _on_toc_context_menu(self, pos):
+        menu = QMenu(self)
+        sub = menu.addMenu('New')
+        act_add_sub = sub.addAction('Add Sub Topic')
+        act_new_top = sub.addAction('New Topic')
+        sub.addSeparator()
+        act_up = sub.addAction('Move Up')
+        act_down = sub.addAction('Move Down')
+        act_left = sub.addAction('Move Left')
+        act_right = sub.addAction('Move Right')
+
+        menu.addSeparator()
+        act_cut = menu.addAction('Cut')
+        act_paste = menu.addAction('Paste')
+        act_delete = menu.addAction('Delete')
+
+        act = menu.exec_(self.toc_view.viewport().mapToGlobal(pos))
+        if act == act_add_sub:
+            self._toc_add_sub_topic()
+        elif act == act_new_top:
+            self._toc_new_topic()
+        elif act == act_up:
+            self._toc_move_up()
+        elif act == act_down:
+            self._toc_move_down()
+        elif act == act_left:
+            self._toc_move_left()
+        elif act == act_right:
+            self._toc_move_right()
+        elif act == act_cut:
+            self._toc_cut()
+        elif act == act_paste:
+            self._toc_paste()
+        elif act == act_delete:
+            self._toc_delete()
+
     def _on_toc_clicked(self, index):
         item = self.toc_model.itemFromIndex(index)
         if item is None:
@@ -475,6 +703,8 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.size_combo.blockSignals(False)
 
     def maybe_save(self, editor=None) -> bool:
+        if isinstance(editor, bool):
+            editor = None
         if editor is None:
             editor = self._current_editor()
         if editor is None:
