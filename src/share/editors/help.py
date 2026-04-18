@@ -10,8 +10,8 @@ import os
 import sys
 import uuid
 
-from   dataclasses  import dataclass
-from   share.common import *
+from   dataclasses   import dataclass
+from   share.locales import *
 
 ROLE_BLOCK_POS  = Qt.UserRole
 ROLE_TOPIC_HTML = Qt.UserRole + 1
@@ -29,7 +29,7 @@ class TableSpec:
 class TableInsertDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Tabelle einfügen')
+        self.setWindowTitle(share.locales.tr("Insert Table"))
         self.resize(360, 220)
         self.setStyleSheet(self._qss())
         
@@ -43,12 +43,12 @@ class TableInsertDialog(QDialog):
         self.spin_spacing = QSpinBox(); self.spin_spacing.setRange( 0,  50); self.spin_spacing.setValue(0)
         self.spin_width   = QSpinBox(); self.spin_width  .setRange(10, 100); self.spin_width.setValue(100)
 
-        form.addRow('Zeilen:'       , self.spin_rows)
-        form.addRow('Spalten:'      , self.spin_cols)
-        form.addRow('Rahmen:'       , self.spin_border)
-        form.addRow('Innenabstand:' , self.spin_padding)
-        form.addRow('Zellenabstand:', self.spin_spacing)
-        form.addRow('Breite %:'     , self.spin_width)
+        form.addRow(share.locales.tr("Lines:"      ), self.spin_rows)
+        form.addRow(share.locales.tr("Columns:"    ), self.spin_cols)
+        form.addRow(share.locales.tr("Border:"     ), self.spin_border)
+        form.addRow(share.locales.tr("Padding:"    ), self.spin_padding)
+        form.addRow(share.locales.tr("Cell Pad.:"  ), self.spin_spacing)
+        form.addRow(share.locales.tr("Width in % :"), self.spin_width)
         lay.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -82,7 +82,7 @@ class TableInsertDialog(QDialog):
 class HtmlSourceDialog(QDialog):
     def __init__(self, html: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('HTML-Quelltext')
+        self.setWindowTitle(share.locales.tr("HTML Source Code"))
         self.resize(900, 700)
         self.setStyleSheet("""
             QDialog { background:#131313; color:#ffd84d; }
@@ -118,12 +118,12 @@ class ActionComboBox(QComboBox):
 class LinkTypeDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Link-Typ wählen')
+        self.setWindowTitle(share.locales.tr("Choose Link-Type"))
         self.resize(280, 120)
 
         lay = QVBoxLayout(self)
-        self.rb_http = QRadioButton('HTTP-Adresse')
-        self.rb_mail = QRadioButton('E-Mail-Adresse')
+        self.rb_http = QRadioButton(share.locales.tr("HTTP-Address"))
+        self.rb_mail = QRadioButton(share.locales.tr("E-Mail-Address"))
         self.rb_http.setChecked(True)
         lay.addWidget(self.rb_http)
         lay.addWidget(self.rb_mail)
@@ -146,12 +146,14 @@ class HelpAuthoringEditor(QMainWindow):
         self._loading_topic_html = False
         self._loading_toc_model  = False
         self._last_tab_index     = -1
-        self.setWindowTitle('Help Authoring')
+        self.setWindowTitle(share.locales.tr("Help Authoring"))
         self.resize(800, 620)
 
+        TOC = share.locales.tr("TOC")
+        
         self.editor = None
         self.toc_model = QStandardItemModel()
-        self.toc_model.setHorizontalHeaderLabels(['TOC'])
+        self.toc_model.setHorizontalHeaderLabels([TOC])
         self.toc_model.itemChanged.connect(self._on_toc_item_changed)
         self.toc_view = QTreeView()
         self.toc_view.setModel(self.toc_model)
@@ -193,14 +195,14 @@ class HelpAuthoringEditor(QMainWindow):
         self._build_toolbar()
         sb = QStatusBar()
         self.setStatusBar(sb)
-        self.lbl_status = QLabel('Bereit')
+        self.lbl_status = QLabel(share.locales.tr("Ready"))
         sb.addPermanentWidget(self.lbl_status)
 
         self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
         self._settings.setFallbacksEnabled(False)
 
         if initial_html:
-            roots = [self._new_topic_item('New Topic', initial_html)]
+            roots = [self._new_topic_item(share.locales.tr("New Topic"), initial_html)]
             self._add_editor_tab('', file_path, roots)
         else:
             self.file_new()
@@ -211,7 +213,7 @@ class HelpAuthoringEditor(QMainWindow):
         self._restore_window_state()
 
     def _build_format_dock(self):
-        self.format_dock = QDockWidget('Format-Hilfe', self)
+        self.format_dock = QDockWidget(share.locales.tr("Format-Helper"), self)
         self.format_dock.setObjectName('HelpFormatDock')
         self.format_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
@@ -227,10 +229,12 @@ class HelpAuthoringEditor(QMainWindow):
         form.setSpacing(6)
 
         row1 = QHBoxLayout()
-        self.btn_bold = QPushButton('F'); self.btn_bold.setCheckable(True)
-        self.btn_italic = QPushButton('K'); self.btn_italic.setCheckable(True)
+        
+        self.btn_bold      = QPushButton('F'); self.btn_bold     .setCheckable(True)
+        self.btn_italic    = QPushButton('K'); self.btn_italic   .setCheckable(True)
         self.btn_underline = QPushButton('U'); self.btn_underline.setCheckable(True)
-        self.btn_strike = QPushButton('S'); self.btn_strike.setCheckable(True)
+        self.btn_strike    = QPushButton('S'); self.btn_strike   .setCheckable(True)
+        
         for btn in [self.btn_bold, self.btn_italic, self.btn_underline, self.btn_strike]:
             btn.setMinimumWidth(36)
             row1.addWidget(btn)
@@ -241,60 +245,88 @@ class HelpAuthoringEditor(QMainWindow):
         self.dock_size_combo = QComboBox()
         for s in [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]:
             self.dock_size_combo.addItem(str(s))
+            
         self.dock_size_combo.setEditable(True)
         self.dock_size_combo.setCurrentText('11')
+        
         row2.addWidget(self.dock_font_combo, 1)
         row2.addWidget(self.dock_size_combo, 0)
+        
         form.addLayout(row2)
 
         row3 = QHBoxLayout()
-        self.btn_text_color = QPushButton('Textfarbe')
-        self.btn_bg_color = QPushButton('HG-Farbe')
+        self.btn_text_color = QPushButton(share.locales.tr("Text Color"))
+        self.btn_bg_color   = QPushButton(share.locales.tr("BG-Color"))
         row3.addWidget(self.btn_text_color)
         row3.addWidget(self.btn_bg_color)
         form.addLayout(row3)
 
         self.align_combo = QComboBox()
-        self.align_combo.addItems(['Links', 'Zentriert', 'Rechts', 'Blocksatz'])
+        self.align_combo.addItems([
+            share.locales.tr("Left"  ),
+            share.locales.tr("Center"),
+            share.locales.tr("Right" ),
+            share.locales.tr("Block" )])
+            
         form.addWidget(self.align_combo)
 
         row5 = QHBoxLayout()
         self.bullet_combo = QComboBox()
-        self.bullet_combo.addItems(['Liste: Disc', 'Liste: Circle', 'Liste: Square'])
+        self.bullet_combo.addItems([
+            share.locales.tr("List: Disc"  ),
+            share.locales.tr("List: Circle"),
+            share.locales.tr("List: Square")])
+        
         self.number_combo = QComboBox()
-        self.number_combo.addItems(['Nummeriert: Decimal', 'Nummeriert: lower-alpha', 'Nummeriert: upper-alpha', 'Nummeriert: lower-roman', 'Nummeriert: upper-roman'])
+        self.number_combo.addItems([
+            share.locales.tr("Number: decimal"),
+            share.locales.tr("Number: lower-alpha"),
+            share.locales.tr("Number: upper-alpha"),
+            share.locales.tr("Number: lower-roman"),
+            share.locales.tr("Number: upper-roman")])
+        
         row5.addWidget(self.bullet_combo)
         row5.addWidget(self.number_combo)
         form.addLayout(row5)
 
         row6 = QHBoxLayout()
         self.link_edit = QLineEdit()
-        self.link_edit.setPlaceholderText('Link oder E-Mail eingeben ...')
+        self.link_edit.setPlaceholderText(share.locales.tr("Enter Link or E-Mail ..."))
+        
         self.btn_link_mode = QPushButton('...')
         self.btn_link_mode.setMaximumWidth(36)
-        self.btn_insert_image = QPushButton('Bild')
+        self.btn_insert_image = QPushButton(share.locales.tr("Picture"))
         row6.addWidget(self.link_edit, 1)
         row6.addWidget(self.btn_link_mode, 0)
         row6.addWidget(self.btn_insert_image, 0)
         form.addLayout(row6)
 
         row7 = QHBoxLayout()
-        self.btn_insert_table = QPushButton('Tabelle')
+        self.btn_insert_table = QPushButton(share.locales.tr("Table"))
+        
         self.table_ops_combo = ActionComboBox()
-        self.table_ops_combo.addItems(['+ Zeile', '+ Spalte', '- Zeile', '- Spalte', 'Verbinden', 'Teilen'])
+        self.table_ops_combo.addItems([
+            share.locales.tr("+ Line"  ),
+            share.locales.tr("+ Column"),
+            share.locales.tr("- Line"  ),
+            share.locales.tr("- Column"),
+            share.locales.tr("Combine" ),
+            share.locales.tr("Divide"  )])
+        
         row7.addWidget(self.btn_insert_table)
         row7.addWidget(self.table_ops_combo, 1)
         form.addLayout(row7)
 
-        self.btn_table_cell_color = QPushButton('Zellfarbe')
+        self.btn_table_cell_color = QPushButton(share.locales.tr("Cell Color"))
         form.addWidget(self.btn_table_cell_color)
 
         row8 = QHBoxLayout()
-        self.btn_table_margins = QPushButton('Tabellenrand')
-        self.edit_margin_left = QLineEdit(); self.edit_margin_left.setPlaceholderText('Left')
-        self.edit_margin_top = QLineEdit(); self.edit_margin_top.setPlaceholderText('Top')
-        self.edit_margin_right = QLineEdit(); self.edit_margin_right.setPlaceholderText('Right')
-        self.edit_margin_bottom = QLineEdit(); self.edit_margin_bottom.setPlaceholderText('Bottom')
+        self.btn_table_margins  = QPushButton(share.locales.tr("Table Border"))
+        self.edit_margin_left   = QLineEdit(); self.edit_margin_left  .setPlaceholderText(share.locales.tr('Left'))
+        self.edit_margin_top    = QLineEdit(); self.edit_margin_top   .setPlaceholderText(share.locales.tr('Top'))
+        self.edit_margin_right  = QLineEdit(); self.edit_margin_right .setPlaceholderText(share.locales.tr('Right'))
+        self.edit_margin_bottom = QLineEdit(); self.edit_margin_bottom.setPlaceholderText(share.locales.tr('Bottom'))
+        
         row8.addWidget(self.btn_table_margins)
         row8.addWidget(self.edit_margin_left)
         row8.addWidget(self.edit_margin_top)
@@ -303,11 +335,12 @@ class HelpAuthoringEditor(QMainWindow):
         form.addLayout(row8)
 
         row9 = QHBoxLayout()
-        self.btn_table_cell_size = QPushButton('Zellgröße')
-        self.edit_cell_width = QLineEdit(); self.edit_cell_width.setPlaceholderText('Breite')
-        self.edit_cell_height = QLineEdit(); self.edit_cell_height.setPlaceholderText('Höhe')
-        self.edit_cell_colspan = QLineEdit(); self.edit_cell_colspan.setPlaceholderText('ColSpan')
-        self.edit_cell_rowspan = QLineEdit(); self.edit_cell_rowspan.setPlaceholderText('RowSpan')
+        self.btn_table_cell_size = QPushButton(share.locales.tr("Cell Size"))
+        self.edit_cell_width   = QLineEdit(); self.edit_cell_width  .setPlaceholderText(share.locales.tr('Width'))
+        self.edit_cell_height  = QLineEdit(); self.edit_cell_height .setPlaceholderText(share.locales.tr('Height'))
+        self.edit_cell_colspan = QLineEdit(); self.edit_cell_colspan.setPlaceholderText(share.locales.tr('ColSpan'))
+        self.edit_cell_rowspan = QLineEdit(); self.edit_cell_rowspan.setPlaceholderText(share.locales.tr('RowSpan'))
+        
         row9.addWidget(self.btn_table_cell_size)
         row9.addWidget(self.edit_cell_width)
         row9.addWidget(self.edit_cell_height)
@@ -321,24 +354,31 @@ class HelpAuthoringEditor(QMainWindow):
         self.format_dock.setWidget(dock_host)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.format_dock)
 
-        self.btn_bold.toggled.connect(self._dock_toggle_bold)
-        self.btn_italic.toggled.connect(self._dock_toggle_italic)
-        self.btn_underline.toggled.connect(self._dock_toggle_underline)
-        self.btn_strike.toggled.connect(self._dock_toggle_strike)
-        self.dock_font_combo.currentFontChanged.connect(self.set_font_family)
-        self.dock_size_combo.currentTextChanged.connect(self.set_font_size_from_text)
-        self.btn_text_color.clicked.connect(self.set_text_color)
-        self.btn_bg_color.clicked.connect(self.set_background_color)
-        self.align_combo.currentTextChanged.connect(self._on_align_combo_changed)
-        self.bullet_combo.activated.connect(self._on_bullet_combo_activated)
-        self.number_combo.activated.connect(self._on_number_combo_activated)
-        self.btn_link_mode.clicked.connect(self._insert_link_from_dock)
-        self.btn_insert_image.clicked.connect(self.insert_image)
-        self.btn_insert_table.clicked.connect(self.insert_table)
-        self.table_ops_combo.doubleClicked.connect(self._on_table_ops_combo_double_clicked)
-        self.btn_table_cell_color.clicked.connect(self.table_set_cell_background)
-        self.btn_table_margins.clicked.connect(self._apply_table_margins_from_dock)
-        self.btn_table_cell_size.clicked.connect(self._apply_table_cell_size_from_dock)
+        self.btn_bold               .toggled.connect(self._dock_toggle_bold)
+        self.btn_italic             .toggled.connect(self._dock_toggle_italic)
+        self.btn_underline          .toggled.connect(self._dock_toggle_underline)
+        self.btn_strike             .toggled.connect(self._dock_toggle_strike)
+        
+        self.dock_font_combo        .currentFontChanged.connect(self.set_font_family)
+        self.dock_size_combo        .currentTextChanged.connect(self.set_font_size_from_text)
+        
+        self.btn_text_color         .clicked.connect(self.set_text_color)
+        self.btn_bg_color           .clicked.connect(self.set_background_color)
+        
+        self.align_combo            .currentTextChanged.connect(self._on_align_combo_changed)
+        
+        self.bullet_combo           .activated.connect(self._on_bullet_combo_activated)
+        self.number_combo           .activated.connect(self._on_number_combo_activated)
+        
+        self.btn_link_mode          .clicked.connect(self._insert_link_from_dock)
+        self.btn_insert_image       .clicked.connect(self.insert_image)
+        self.btn_insert_table       .clicked.connect(self.insert_table)
+        
+        self.table_ops_combo        .doubleClicked.connect(self._on_table_ops_combo_double_clicked)
+        
+        self.btn_table_cell_color   .clicked.connect(self.table_set_cell_background)
+        self.btn_table_margins      .clicked.connect(self._apply_table_margins_from_dock)
+        self.btn_table_cell_size    .clicked.connect(self._apply_table_cell_size_from_dock)
 
         self.format_dock.setStyleSheet("""
             QDockWidget { color:#ffd84d; font: 9pt Arial; }
@@ -353,16 +393,16 @@ class HelpAuthoringEditor(QMainWindow):
         """)
 
     def _build_toolbar(self):
-        self.tb_file = QToolBar('Datei', self)
+        self.tb_file = QToolBar(share.locales.tr("File"), self)
         self.tb_file.setObjectName('FileToolBar')
         self.tb_file.setIconSize(QSize(16, 16))
         self.addToolBar(self.tb_file)
 
-        act_new     = QAction('Neu'               , self); act_new    .triggered.connect(self.file_new)
-        act_open    = QAction('Öffnen'            , self); act_open   .triggered.connect(self.file_open)
-        act_save    = QAction('Speichern'         , self); act_save   .triggered.connect(lambda _=False: self.file_save())
-        act_save_as = QAction('Speichern unter...', self); act_save_as.triggered.connect(lambda _=False: self.file_save_as())
-        act_source  = QAction('HTML'              , self); act_source .triggered.connect(self.edit_html_source)
+        act_new     = QAction(share.locales.tr("New"        ), self); act_new    .triggered.connect(self.file_new)
+        act_open    = QAction(share.locales.tr("Open"       ), self); act_open   .triggered.connect(self.file_open)
+        act_save    = QAction(share.locales.tr("Save"       ), self); act_save   .triggered.connect(lambda _=False: self.file_save())
+        act_save_as = QAction(share.locales.tr("Save As ..."), self); act_save_as.triggered.connect(lambda _=False: self.file_save_as())
+        act_source  = QAction(share.locales.tr("HTML"       ), self); act_source .triggered.connect(self.edit_html_source)
 
         self.tb_file.addAction(act_new)
         self.tb_file.addAction(act_open)
@@ -404,24 +444,29 @@ class HelpAuthoringEditor(QMainWindow):
         self.heading_combo.currentTextChanged.connect(self.apply_heading_style)
         self.tb_fmt.addWidget(self.heading_combo)
 
-        act_fg = QAction('Textfarbe', self); act_fg.triggered.connect(self.set_text_color)
-        act_bg = QAction('Marker', self); act_bg.triggered.connect(self.set_background_color)
+        act_fg = QAction(share.locales.tr("Text Color"), self); act_fg.triggered.connect(self.set_text_color)
+        act_bg = QAction(share.locales.tr("Back Color"), self); act_bg.triggered.connect(self.set_background_color)
         self.tb_fmt.addAction(act_fg)
         self.tb_fmt.addAction(act_bg)
 
-        self.tb_para = QToolBar('Absatz', self)
+        self.tb_para = QToolBar(share.locales.tr("Paragraph"), self)
         self.tb_para.setObjectName('ParagraphToolBar')
         self.addToolBar(self.tb_para)
-        for title, align in [('Links', Qt.AlignLeft), ('Zentriert', Qt.AlignHCenter), ('Rechts', Qt.AlignRight), ('Blocksatz', Qt.AlignJustify)]:
+        for title, align in [
+            (share.locales.tr("Left"  ), Qt.AlignLeft   ),
+            (share.locales.tr("Center"), Qt.AlignHCenter),
+            (share.locales.tr("Right" ), Qt.AlignRight  ),
+            (share.locales.tr("Block" ), Qt.AlignJustify)]:
+                
             act = QAction(title, self)
             act.triggered.connect(lambda _=False, a=align: self._apply_alignment(a))
             self.tb_para.addAction(act)
 
-        act_bullets = QAction('Liste'         , self); act_bullets.triggered.connect(self.insert_bullet_list)
-        act_numbers = QAction('Nummeriert'    , self); act_numbers.triggered.connect(self.insert_numbered_list)
-        act_link    = QAction('Link'          , self); act_link   .triggered.connect(self.insert_link)
-        act_unlink  = QAction('Link entfernen', self); act_unlink .triggered.connect(self.remove_link)
-        act_image   = QAction('Bild'          , self); act_image  .triggered.connect(self.insert_image)
+        act_bullets = QAction(share.locales.tr("List"       ), self); act_bullets.triggered.connect(self.insert_bullet_list)
+        act_numbers = QAction(share.locales.tr("Enum"       ), self); act_numbers.triggered.connect(self.insert_numbered_list)
+        act_link    = QAction(share.locales.tr("Link"       ), self); act_link   .triggered.connect(self.insert_link)
+        act_unlink  = QAction(share.locales.tr("Delete Link"), self); act_unlink .triggered.connect(self.remove_link)
+        act_image   = QAction(share.locales.tr("Image"      ), self); act_image  .triggered.connect(self.insert_image)
 
         self.tb_para.addSeparator()
         self.tb_para.addAction(act_bullets)
@@ -431,18 +476,18 @@ class HelpAuthoringEditor(QMainWindow):
         self.tb_para.addAction(act_unlink)
         self.tb_para.addAction(act_image)
 
-        self.tb_table = QToolBar('Tabelle', self)
+        self.tb_table = QToolBar(share.locales.tr("Table"), self)
         self.tb_table.setObjectName('TableToolBar')
         self.addToolBar(self.tb_table)
         entries = [
-            ('Tabelle', self.insert_table),
-            ('+ Zeile', self.table_add_row),
-            ('+ Spalte', self.table_add_column),
-            ('- Zeile', self.table_remove_row),
-            ('- Spalte', self.table_remove_column),
-            ('Verbinden', self.table_merge_cells),
-            ('Teilen', self.table_split_cell),
-            ('Zellfarbe', self.table_set_cell_background),
+            (share.locales.tr("Table"     ), self.insert_table),
+            (share.locales.tr("+ Line"    ), self.table_add_row),
+            (share.locales.tr("+ Column"  ), self.table_add_column),
+            (share.locales.tr("- Line"    ), self.table_remove_row),
+            (share.locales.tr("- Column"  ), self.table_remove_column),
+            (share.locales.tr("Combine"   ), self.table_merge_cells),
+            (share.locales.tr("Divide"    ), self.table_split_cell),
+            (share.locales.tr("Cell Color"), self.table_set_cell_background),
         ]
         for title, fn in entries:
             act = QAction(title, self); act.triggered.connect(fn); self.tb_table.addAction(act)
@@ -537,17 +582,17 @@ class HelpAuthoringEditor(QMainWindow):
 
     def _on_table_ops_combo_double_clicked(self):
         txt = self.table_ops_combo.currentText()
-        if txt == '+ Zeile':
+        if txt == share.locales.tr('+ Line'):
             self.table_add_row()
-        elif txt == '+ Spalte':
+        elif txt == share.locales.tr('+ Column'):
             self.table_add_column()
-        elif txt == '- Zeile':
+        elif txt == share.locales.tr('- Line'  ):
             self.table_remove_row()
-        elif txt == '- Spalte':
+        elif txt == share.locales.tr('- Column'):
             self.table_remove_column()
-        elif txt == 'Verbinden':
+        elif txt == share.locales.tr('Combine' ):
             self.table_merge_cells()
-        elif txt == 'Teilen':
+        elif txt == share.locales.tr('Divide'  ):
             self.table_split_cell()
 
     def _safe_float(self, edit, default=0.0):
@@ -567,9 +612,9 @@ class HelpAuthoringEditor(QMainWindow):
         if table is None:
             return
         fmt = table.format()
-        fmt.setLeftMargin(self._safe_float(self.edit_margin_left, fmt.leftMargin()))
-        fmt.setTopMargin(self._safe_float(self.edit_margin_top, fmt.topMargin()))
-        fmt.setRightMargin(self._safe_float(self.edit_margin_right, fmt.rightMargin()))
+        fmt.setLeftMargin  (self._safe_float(self.edit_margin_left,   fmt.leftMargin()))
+        fmt.setTopMargin   (self._safe_float(self.edit_margin_top,    fmt.topMargin()))
+        fmt.setRightMargin (self._safe_float(self.edit_margin_right,  fmt.rightMargin()))
         fmt.setBottomMargin(self._safe_float(self.edit_margin_bottom, fmt.bottomMargin()))
         table.setFormat(fmt)
 
@@ -675,7 +720,7 @@ td, th { border: 1px solid #666; padding: 4px; }
 </html>'''
 
     def _title_from_path(self, path: str) -> str:
-        return os.path.basename(path) if path else 'Unbenannt'
+        return os.path.basename(path) if path else share.locales.tr('Unamed')
 
     def _current_tab_index(self) -> int:
         return self.tab_widget.currentIndex()
@@ -984,7 +1029,7 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def _toc_new_topic(self):
         item = self._toc_current_item()
-        new_item = self._new_topic_item('New Topic', self._default_document_html())
+        new_item = self._new_topic_item(share.locales.tr('New Topic'), self._default_document_html())
         if item is None:
             self.toc_model.appendRow(new_item)
         else:
@@ -996,7 +1041,7 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def _toc_add_sub_topic(self):
         item = self._toc_current_item()
-        new_item = self._new_topic_item('Child Topic', self._default_document_html())
+        new_item = self._new_topic_item(share.locales.tr('Child Topic'), self._default_document_html())
         if item is None:
             self.toc_model.appendRow(new_item)
         else:
@@ -1099,19 +1144,19 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def _on_toc_context_menu(self, pos):
         menu = QMenu(self)
-        sub = menu.addMenu('New')
-        act_add_sub = sub.addAction('Add Sub Topic')
-        act_new_top = sub.addAction('New Topic')
+        sub = menu.addMenu(share.locales.tr('New'))
+        act_add_sub = sub.addAction(share.locales.tr('Add Sub Topic'))
+        act_new_top = sub.addAction(share.locales.tr('New Topic'))
         sub.addSeparator()
-        act_up = sub.addAction('Move Up')
-        act_down = sub.addAction('Move Down')
-        act_left = sub.addAction('Move Left')
-        act_right = sub.addAction('Move Right')
+        act_up    = sub.addAction(share.locales.tr('Move Up'))
+        act_down  = sub.addAction(share.locales.tr('Move Down'))
+        act_left  = sub.addAction(share.locales.tr('Move Left'))
+        act_right = sub.addAction(share.locales.tr('Move Right'))
 
         menu.addSeparator()
-        act_cut = menu.addAction('Cut')
-        act_paste = menu.addAction('Paste')
-        act_delete = menu.addAction('Delete')
+        act_cut    = menu.addAction(share.locales.tr('Cut'))
+        act_paste  = menu.addAction(share.locales.tr('Paste'))
+        act_delete = menu.addAction(share.locales.tr('Delete'))
 
         act = menu.exec_(self.toc_view.viewport().mapToGlobal(pos))
         if act == act_add_sub:
@@ -1142,7 +1187,7 @@ td, th { border: 1px solid #666; padding: 4px; }
     def _update_window_title(self):
         editor = self._current_editor()
         if editor is None:
-            self.setWindowTitle('Help Authoring')
+            self.setWindowTitle(share.locales.tr('Help Authoring'))
             return
         name = self._title_from_path(getattr(editor, '_path', ''))
         star = ' *' if getattr(editor, '_dirty', False) else ''
@@ -1182,10 +1227,11 @@ td, th { border: 1px solid #666; padding: 4px; }
         self.size_combo.blockSignals(False)
 
         if hasattr(self, 'btn_bold'):
-            self.btn_bold.blockSignals(True); self.btn_bold.setChecked(self.act_bold.isChecked()); self.btn_bold.blockSignals(False)
-            self.btn_italic.blockSignals(True); self.btn_italic.setChecked(self.act_italic.isChecked()); self.btn_italic.blockSignals(False)
-            self.btn_underline.blockSignals(True); self.btn_underline.setChecked(self.act_underline.isChecked()); self.btn_underline.blockSignals(False)
-            self.btn_strike.blockSignals(True); self.btn_strike.setChecked(self.act_strike.isChecked()); self.btn_strike.blockSignals(False)
+            self.btn_bold       .blockSignals(True); self.btn_bold       .setChecked(self.act_bold      .isChecked()); self.btn_bold     .blockSignals(False)
+            self.btn_italic     .blockSignals(True); self.btn_italic     .setChecked(self.act_italic    .isChecked()); self.btn_italic   .blockSignals(False)
+            self.btn_underline  .blockSignals(True); self.btn_underline  .setChecked(self.act_underline .isChecked()); self.btn_underline.blockSignals(False)
+            self.btn_strike     .blockSignals(True); self.btn_strike     .setChecked(self.act_strike    .isChecked()); self.btn_strike   .blockSignals(False)
+            
             self.dock_font_combo.blockSignals(True); self.dock_font_combo.setCurrentFont(font); self.dock_font_combo.blockSignals(False)
             self.dock_size_combo.blockSignals(True); self.dock_size_combo.setCurrentText(str(size)); self.dock_size_combo.blockSignals(False)
 
@@ -1551,11 +1597,11 @@ td, th { border: 1px solid #666; padding: 4px; }
     @staticmethod
     def open_in_mdi(main_window):
         if main_window is None or not hasattr(main_window, 'mdi'):
-            raise RuntimeError("main_window benötigt ein Attribut 'mdi' (QMdiArea).")
+            raise RuntimeError(share.locales.tr("main_window need an Attribut 'mdi' (QMdiArea)."))
 
         editor = HelpAuthoringEditor(parent=main_window)
         sub = main_window.mdi.addSubWindow(editor)
-        sub.setWindowTitle('Help Authoring')
+        sub.setWindowTitle(share.locales.tr('Help Authoring'))
         try:
             settings = QSettings(editor._ini_path(), QSettings.IniFormat)
             settings.setFallbacksEnabled(False)
