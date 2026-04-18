@@ -10,8 +10,8 @@ import os
 import builtins
 import re
 import json
-from datetime import datetime
 import tempfile
+from   datetime import datetime
 
 from   share.common                 import *
 from   share.excepts                import *
@@ -8727,10 +8727,42 @@ class FormDesignerDock(QDockWidget):
             w = item.widget()
             if w is not None:
                 w.deleteLater()
-        p.add_action("Localize", lambda: self._run_and_close(p, lambda: self.main_window.ensure_localize_tool(focus=True)))
-        #p.add_action("Help Authoring", 
+        p.add_action(
+            "Localize",
+            lambda: self._run_and_close(
+                p, lambda: self.main_window.ensure_localize_tool(focus=True)
+            ),
+        )
+        p.add_action(
+            "Help Authoring",
+            lambda: self._run_and_close(
+                p, self._open_help_authoring
+            ),
+        )
         return p
 
+    def _open_help_authoring(self):
+        try:
+            if hasattr(self.main_window, "status_left"):
+                self.main_window.status_left.setText("Help Authoring wird geladen...")
+                QApplication.processEvents()
+
+            from share.editors.help import HelpAuthoringEditor
+            HelpAuthoringEditor.open_in_mdi(self.main_window)
+
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Help Authoring",
+                f"Help Authoring konnte nicht geöffnet werden:\\n{e}"
+            )
+        finally:
+            try:
+                if hasattr(self.main_window, "status_left"):
+                    self.main_window.status_left.setText("Ready")
+            except Exception:
+                pass
+            
     def _toggle_tools_popup(self):
         popup = self._ensure_tools_popup()
         self._close_other_popups(keep=popup)

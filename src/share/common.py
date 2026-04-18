@@ -87,7 +87,8 @@ try:
         QPalette, QFontInfo, QFontDatabase, QRegularExpressionValidator,
         QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
         QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
-        QTextCursor
+        QTextCursor, QTextListFormat, QTextTableCellFormat, QTextTableFormat,
+        QTextLength
     )
     from PyQt5.QtWidgets import (
         QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
@@ -103,7 +104,7 @@ try:
         QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
         QScrollArea, QAbstractButton, QButtonGroup, QFormLayout,
-        QButtonGroup
+        QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,

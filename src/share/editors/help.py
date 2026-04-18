@@ -1,42 +1,15 @@
-# -*- coding: utf-8 -*-
+# ---------------------------------------------------------------------------
+# File:   help.py
+# Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+# All rights reserved
+# ---------------------------------------------------------------------------
 from __future__ import annotations
 
 import os
 import sys
-from dataclasses import dataclass
 
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import (
-    QColor,
-    QFont,
-    QTextCharFormat,
-    QTextCursor,
-    QTextListFormat,
-    QTextTableCellFormat,
-    QTextTableFormat,
-)
-from PyQt5.QtWidgets import (
-    QAction,
-    QApplication,
-    QColorDialog,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QFontComboBox,
-    QFormLayout,
-    QLabel,
-    QMainWindow,
-    QMessageBox,
-    QInputDialog,
-    QPlainTextEdit,
-    QSpinBox,
-    QStatusBar,
-    QTextEdit,
-    QToolBar,
-    QVBoxLayout,
-    QWidget,
-)
+from   dataclasses import dataclass
+from   share.common import *
 
 @dataclass
 class TableSpec:
@@ -51,22 +24,25 @@ class TableInsertDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Tabelle einfügen')
-        lay = QVBoxLayout(self)
+        self.resize(360, 220)
+        self.setStyleSheet(self._qss())
+        
+        lay  = QVBoxLayout(self)
         form = QFormLayout()
 
-        self.spin_rows = QSpinBox(); self.spin_rows.setRange(1, 100); self.spin_rows.setValue(2)
-        self.spin_cols = QSpinBox(); self.spin_cols.setRange(1, 50); self.spin_cols.setValue(2)
-        self.spin_border = QSpinBox(); self.spin_border.setRange(0, 20); self.spin_border.setValue(1)
-        self.spin_padding = QSpinBox(); self.spin_padding.setRange(0, 50); self.spin_padding.setValue(4)
-        self.spin_spacing = QSpinBox(); self.spin_spacing.setRange(0, 50); self.spin_spacing.setValue(0)
-        self.spin_width = QSpinBox(); self.spin_width.setRange(10, 100); self.spin_width.setValue(100)
+        self.spin_rows    = QSpinBox(); self.spin_rows   .setRange( 1, 100); self.spin_rows.setValue(2)
+        self.spin_cols    = QSpinBox(); self.spin_cols   .setRange( 1,  50); self.spin_cols.setValue(2)
+        self.spin_border  = QSpinBox(); self.spin_border .setRange( 0,  20); self.spin_border.setValue(1)
+        self.spin_padding = QSpinBox(); self.spin_padding.setRange( 0,  50); self.spin_padding.setValue(4)
+        self.spin_spacing = QSpinBox(); self.spin_spacing.setRange( 0,  50); self.spin_spacing.setValue(0)
+        self.spin_width   = QSpinBox(); self.spin_width  .setRange(10, 100); self.spin_width.setValue(100)
 
-        form.addRow('Zeilen:', self.spin_rows)
-        form.addRow('Spalten:', self.spin_cols)
-        form.addRow('Rahmen:', self.spin_border)
-        form.addRow('Innenabstand:', self.spin_padding)
+        form.addRow('Zeilen:'       , self.spin_rows)
+        form.addRow('Spalten:'      , self.spin_cols)
+        form.addRow('Rahmen:'       , self.spin_border)
+        form.addRow('Innenabstand:' , self.spin_padding)
         form.addRow('Zellenabstand:', self.spin_spacing)
-        form.addRow('Breite %:', self.spin_width)
+        form.addRow('Breite %:'     , self.spin_width)
         lay.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -76,19 +52,43 @@ class TableInsertDialog(QDialog):
 
     def spec(self) -> TableSpec:
         return TableSpec(
-            rows=self.spin_rows.value(),
-            cols=self.spin_cols.value(),
-            border=self.spin_border.value(),
-            cell_padding=self.spin_padding.value(),
-            cell_spacing=self.spin_spacing.value(),
-            width_percent=self.spin_width.value(),
+            rows          = self.spin_rows   .value(),
+            cols          = self.spin_cols   .value(),
+            border        = self.spin_border .value(),
+            cell_padding  = self.spin_padding.value(),
+            cell_spacing  = self.spin_spacing.value(),
+            width_percent = self.spin_width  .value(),
         )
+
+    def _qss(self) -> str:
+        return """
+        QDialog { background:#131313; color:#ffd84d; }
+        QLabel { color:#ffd84d; }
+        QSpinBox {
+            background:#1d1d1d; color:white; border:1px solid #3a3a3a; min-height:22px;
+        }
+        QPushButton {
+            background:#1a1a1a; color:#ffd84d; border:1px solid #3a3a3a; min-height:24px; padding:4px 10px;
+        }
+        QPushButton:hover { background:#232323; }
+        """
 
 class HtmlSourceDialog(QDialog):
     def __init__(self, html: str, parent=None):
         super().__init__(parent)
         self.setWindowTitle('HTML-Quelltext')
         self.resize(900, 700)
+        self.setStyleSheet("""
+            QDialog { background:#131313; color:#ffd84d; }
+            QPlainTextEdit {
+                background:#1b1b1b; color:white; border:1px solid #555;
+                selection-background-color:#0b57d0;
+            }
+            QPushButton {
+                background:#1a1a1a; color:#ffd84d; border:1px solid #3a3a3a; min-height:24px; padding:4px 10px;
+            }
+        """)
+
         lay = QVBoxLayout(self)
         self.editor = QPlainTextEdit()
         self.editor.setPlainText(html)
@@ -110,7 +110,7 @@ class HelpAuthoringEditor(QMainWindow):
         self.current_path = file_path or ''
         self._is_dirty = False
         self.setWindowTitle('Help Authoring')
-        self.resize(1200, 820)
+        self.resize(800, 620)
 
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(True)
@@ -129,6 +129,9 @@ class HelpAuthoringEditor(QMainWindow):
         self.lbl_status = QLabel('Bereit')
         sb.addPermanentWidget(self.lbl_status)
 
+        self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
+        self._settings.setFallbacksEnabled(False)
+
         if initial_html:
             self.editor.setHtml(initial_html)
             self._is_dirty = False
@@ -138,17 +141,18 @@ class HelpAuthoringEditor(QMainWindow):
         self._sync_toolbar_state()
         self._update_window_title()
         self._update_status()
+        self._restore_window_state()
 
     def _build_toolbar(self):
         tb_file = QToolBar('Datei', self)
         tb_file.setIconSize(QSize(16, 16))
         self.addToolBar(tb_file)
 
-        act_new = QAction('Neu', self); act_new.triggered.connect(self.file_new)
-        act_open = QAction('Öffnen', self); act_open.triggered.connect(self.file_open)
-        act_save = QAction('Speichern', self); act_save.triggered.connect(self.file_save)
+        act_new     = QAction('Neu'               , self); act_new    .triggered.connect(self.file_new)
+        act_open    = QAction('Öffnen'            , self); act_open   .triggered.connect(self.file_open)
+        act_save    = QAction('Speichern'         , self); act_save   .triggered.connect(self.file_save)
         act_save_as = QAction('Speichern unter...', self); act_save_as.triggered.connect(self.file_save_as)
-        act_source = QAction('HTML', self); act_source.triggered.connect(self.edit_html_source)
+        act_source  = QAction('HTML'              , self); act_source .triggered.connect(self.edit_html_source)
 
         tb_file.addAction(act_new)
         tb_file.addAction(act_open)
@@ -160,10 +164,10 @@ class HelpAuthoringEditor(QMainWindow):
         tb_fmt = QToolBar('Format', self)
         self.addToolBar(tb_fmt)
 
-        self.act_bold = QAction('F', self); self.act_bold.setCheckable(True); self.act_bold.triggered.connect(self.toggle_bold)
-        self.act_italic = QAction('K', self); self.act_italic.setCheckable(True); self.act_italic.triggered.connect(self.toggle_italic)
+        self.act_bold      = QAction('F', self); self.act_bold     .setCheckable(True); self.act_bold     .triggered.connect(self.toggle_bold)
+        self.act_italic    = QAction('K', self); self.act_italic   .setCheckable(True); self.act_italic   .triggered.connect(self.toggle_italic)
         self.act_underline = QAction('U', self); self.act_underline.setCheckable(True); self.act_underline.triggered.connect(self.toggle_underline)
-        self.act_strike = QAction('S', self); self.act_strike.setCheckable(True); self.act_strike.triggered.connect(self.toggle_strike)
+        self.act_strike    = QAction('S', self); self.act_strike   .setCheckable(True); self.act_strike   .triggered.connect(self.toggle_strike)
 
         tb_fmt.addAction(self.act_bold)
         tb_fmt.addAction(self.act_italic)
@@ -178,6 +182,7 @@ class HelpAuthoringEditor(QMainWindow):
         self.size_combo = QComboBox()
         for s in [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]:
             self.size_combo.addItem(str(s))
+            
         self.size_combo.setEditable(True)
         self.size_combo.setCurrentText('11')
         self.size_combo.currentTextChanged.connect(self.set_font_size_from_text)
@@ -196,13 +201,15 @@ class HelpAuthoringEditor(QMainWindow):
         tb_para = QToolBar('Absatz', self)
         self.addToolBar(tb_para)
         for title, align in [('Links', Qt.AlignLeft), ('Zentriert', Qt.AlignHCenter), ('Rechts', Qt.AlignRight), ('Blocksatz', Qt.AlignJustify)]:
-            act = QAction(title, self); act.triggered.connect(lambda _=False, a=align: self.editor.setAlignment(a)); tb_para.addAction(act)
+            act = QAction(title, self)
+            act.triggered.connect(lambda _=False, a=align: self.editor.setAlignment(a))
+            tb_para.addAction(act)
 
-        act_bullets = QAction('Liste', self); act_bullets.triggered.connect(self.insert_bullet_list)
-        act_numbers = QAction('Nummeriert', self); act_numbers.triggered.connect(self.insert_numbered_list)
-        act_link = QAction('Link', self); act_link.triggered.connect(self.insert_link)
-        act_unlink = QAction('Link entfernen', self); act_unlink.triggered.connect(self.remove_link)
-        act_image = QAction('Bild', self); act_image.triggered.connect(self.insert_image)
+        act_bullets = QAction('Liste'         , self); act_bullets.triggered.connect(self.insert_bullet_list)
+        act_numbers = QAction('Nummeriert'    , self); act_numbers.triggered.connect(self.insert_numbered_list)
+        act_link    = QAction('Link'          , self); act_link   .triggered.connect(self.insert_link)
+        act_unlink  = QAction('Link entfernen', self); act_unlink .triggered.connect(self.remove_link)
+        act_image   = QAction('Bild'          , self); act_image  .triggered.connect(self.insert_image)
 
         tb_para.addSeparator()
         tb_para.addAction(act_bullets)
@@ -226,6 +233,41 @@ class HelpAuthoringEditor(QMainWindow):
         ]
         for title, fn in entries:
             act = QAction(title, self); act.triggered.connect(fn); tb_table.addAction(act)
+
+    def _ini_path(self) -> str:
+        try:
+            base = os.path.dirname(os.path.abspath(sys.argv[0]))
+        except Exception:
+            base = os.getcwd()
+        return os.path.join(base, 'dBaseRunner.ini')
+
+    def _restore_window_state(self):
+        try:
+            geom = self._settings.value('help_authoring/main_geom')
+            if geom is not None:
+                self.restoreGeometry(geom)
+        except Exception:
+            pass
+        try:
+            state = self._settings.value('help_authoring/main_state')
+            if state is not None:
+                self.restoreState(state)
+        except Exception:
+            pass
+
+    def _save_window_state(self):
+        try:
+            parent = self.parentWidget()
+            if parent is not None and parent.__class__.__name__ == 'QMdiSubWindow':
+                self._settings.setValue('help_authoring/sub_geom', parent.saveGeometry())
+        except Exception:
+            pass
+        try:
+            self._settings.setValue('help_authoring/main_geom', self.saveGeometry())
+            self._settings.setValue('help_authoring/main_state', self.saveState())
+            self._settings.sync()
+        except Exception:
+            pass
 
     def _default_document_html(self) -> str:
         return '''<!DOCTYPE html>
@@ -283,7 +325,11 @@ td, th { border: 1px solid #666; padding: 4px; }
     def maybe_save(self) -> bool:
         if not self._is_dirty:
             return True
-        ret = QMessageBox.question(self, 'Änderungen speichern?', 'Das Dokument wurde geändert.\nSoll es gespeichert werden?', QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Yes)
+        ret = QMessageBox.question(self,
+            'Änderungen speichern?',
+            'Das Dokument wurde geändert.\nSoll es gespeichert werden?',
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            QMessageBox.Yes)
         if ret == QMessageBox.Cancel:
             return False
         if ret == QMessageBox.Yes:
@@ -302,7 +348,9 @@ td, th { border: 1px solid #666; padding: 4px; }
     def file_open(self):
         if not self.maybe_save():
             return
-        path, _ = QFileDialog.getOpenFileName(self, 'HTML-Datei öffnen', '', 'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
+        path, _ = QFileDialog.getOpenFileName(self,
+            'HTML-Datei öffnen', '',
+            'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
         if not path:
             return
         try:
@@ -314,7 +362,9 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._update_window_title()
             self._update_status()
         except Exception as e:
-            QMessageBox.warning(self, 'Öffnen', f'Datei konnte nicht gelesen werden:\n{e}')
+            QMessageBox.warning(self,
+                'Öffnen',
+                f'Datei konnte nicht gelesen werden:\n{e}')
 
     def file_save(self) -> bool:
         if not self.current_path:
@@ -326,12 +376,17 @@ td, th { border: 1px solid #666; padding: 4px; }
             self._update_window_title()
             return True
         except Exception as e:
-            QMessageBox.warning(self, 'Speichern', f'Datei konnte nicht gespeichert werden:\n{e}')
+            QMessageBox.warning(self,
+                'Speichern',
+                f'Datei konnte nicht gespeichert werden:\n{e}')
             return False
 
     def file_save_as(self) -> bool:
         suggested = self.current_path or 'help_page.html'
-        path, _ = QFileDialog.getSaveFileName(self, 'HTML-Datei speichern', suggested, 'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
+        path, _ = QFileDialog.getSaveFileName(self,
+            'HTML-Datei speichern',
+            suggested,
+            'HTML Dateien (*.html *.htm);;Alle Dateien (*.*)')
         if not path:
             return False
         self.current_path = path
@@ -339,6 +394,7 @@ td, th { border: 1px solid #666; padding: 4px; }
 
     def closeEvent(self, event):
         if self.maybe_save():
+            self._save_window_state()
             event.accept()
         else:
             event.ignore()
@@ -447,7 +503,7 @@ td, th { border: 1px solid #666; padding: 4px; }
         fmt.setBorder(spec.border)
         fmt.setCellPadding(spec.cell_padding)
         fmt.setCellSpacing(spec.cell_spacing)
-        fmt.setWidth(f'{spec.width_percent}%')
+        fmt.setWidth(QTextLength(QTextLength.PercentageLength, spec.width_percent))
         fmt.setHeaderRowCount(1)
         table = self.editor.textCursor().insertTable(spec.rows, spec.cols, fmt)
         cell_fmt = QTextTableCellFormat()
@@ -539,7 +595,16 @@ td, th { border: 1px solid #666; padding: 4px; }
         editor = HelpAuthoringEditor(parent=main_window)
         sub = main_window.mdi.addSubWindow(editor)
         sub.setWindowTitle('Help Authoring')
-        sub.resize(1180, 800)
+        try:
+            settings = QSettings(editor._ini_path(), QSettings.IniFormat)
+            settings.setFallbacksEnabled(False)
+            sub_geom = settings.value('help_authoring/sub_geom')
+            if sub_geom is not None:
+                sub.restoreGeometry(sub_geom)
+            else:
+                sub.resize(900, 800)
+        except Exception:
+            sub.resize(900, 800)
         editor.show()
         sub.show()
         try:
