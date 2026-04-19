@@ -1,37 +1,27 @@
-# ---------------------------------------------------------------------------
-# File:   doxygen.py
-# Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
-# All rights reserved
-# ---------------------------------------------------------------------------
-from __future__   import annotations
-from share.common import *
-from datetime     import *
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget, QListWidgetItem,
+    QLabel, QPushButton, QTabWidget, QTextEdit, QScrollArea, QFrame,
+    QFileDialog, QMessageBox
+)
+
+
+DOXYGEN_EXPERT_ITEMS = [
+    "Project", "Build", "Messages", "Input", "Source Browser", "Index",
+    "HTML", "LaTeX", "RTF", "Man", "XML", "DocBook", "AutoGen",
+    "SQLite3", "PerlMod", "Preprocessor", "External", "Dot"
+]
 
 HEADER_FORMAT = "dBase2Many Project File"
 HEADER_TOOL = "doxygen-dialog"
 HEADER_KIND = "doxygen-project"
 HEADER_VERSION = 1
 
-DOXYGEN_EXPERT_ITEMS = [
-    "Project",
-    "Build",
-    "Messages",
-    "Input",
-    "Source Browser",
-    "Index",
-    "HTML",
-    "LaTeX",
-    "RTF",
-    "Man",
-    "XML",
-    "DocBook",
-    "AutoGen",
-    "SQLite3",
-    "PerlMod",
-    "Preprocessor",
-    "External",
-    "Dot"
-]
 
 def _default_project_dir() -> Path:
     base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
@@ -42,7 +32,6 @@ def _default_project_dir() -> Path:
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
-
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 4, 6, 4)
         lay.setSpacing(0)
@@ -55,20 +44,19 @@ class ProjectListItemWidget(QWidget):
         self.lbl_dt.setStyleSheet("QLabel { font: 8pt Arial; color: #c0c0c0; }")
         lay.addWidget(self.lbl_dt)
 
-class DoxyGenToolWidget(QWidget):
+
+class MeineKlasse(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        
         self.project_dir = _default_project_dir()
         self.current_project_path = ""
-        
         self._build_ui()
         self._reload_project_list()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(4, 4, 4, 4)
-        
+
         self.main_splitter = QSplitter(Qt.Horizontal)
         root.addWidget(self.main_splitter)
 
@@ -328,23 +316,4 @@ class DoxyGenToolWidget(QWidget):
             QMessageBox.critical(self, "Löschen", str(e))
 
 
-class DoxyGenToolWindow(QMainWindow):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("DoxyGen")
-        self.resize(1100, 720)
-        self.setCentralWidget(DoxyGenToolWidget(self))
-
-    @staticmethod
-    def open_in_mdi(main_window):
-        widget = DoxyGenToolWindow(parent=main_window)
-        sub = main_window.mdi.addSubWindow(widget)
-        sub.setWindowTitle("DoxyGen")
-        sub.resize(1100, 720)
-        widget.show()
-        sub.show()
-        try:
-            main_window.mdi.setActiveSubWindow(sub)
-        except Exception:
-            pass
-        return sub
+DoxygenToolWidget = MeineKlasse

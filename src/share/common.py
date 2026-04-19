@@ -43,7 +43,7 @@ try:
     import re
     import sys
     import pprint
-    import datetime
+    import datetime as dt
     import time
 
     # -----------------------------------------------------------------------
