@@ -31,7 +31,6 @@ from . import legacy_api
 
 legacy = legacy_api.module
 
-
 import inspect
 
 # -----------------------------------------------------------------------
@@ -95,8 +94,10 @@ class ProfiledIconTab(legacy.IconTab):
                 continue
             icon = self._special_icon(spec.get("icon", "new"))
             item = legacy.QListWidgetItem(icon, title)
+            
             item.setData(legacy.Qt.UserRole, "")
             item.setData(legacy.Qt.UserRole + 1, dict(spec))
+            
             tip = str(spec.get("tooltip", title)).strip()
             item.setToolTip(tip)
             self.insertItem(idx, item)
@@ -121,7 +122,9 @@ class ProfiledIconTab(legacy.IconTab):
 
                 def add_new_action(title, action_name):
                     act = legacy.QAction(title, self)
-                    act.triggered.connect(lambda _=False, a=action_name: self._dispatch_special_action({"action": a}))
+                    act.triggered.connect(
+                        lambda _  = False,
+                        a         = action_name: self._dispatch_special_action({"action": a}))
                     m_new.addAction(act)
 
                 add_new_action("HTML", "new_webdoc_html")
@@ -130,11 +133,11 @@ class ProfiledIconTab(legacy.IconTab):
 
                 menu.addSeparator()
 
-                act_run = legacy.QAction("Ausführen", self)
+                act_run = legacy.QAction(share.locales.tr("Run"), self)
                 act_run.triggered.connect(lambda: self._dispatch_special_action(dict(spec)))
                 menu.addAction(act_run)
 
-                act_edit = legacy.QAction("Bearbeiten", self)
+                act_edit = legacy.QAction(share.locales.tr("Edit"), self)
                 act_edit.triggered.connect(lambda: self._dispatch_special_action(dict(spec)))
                 menu.addAction(act_edit)
 
@@ -182,11 +185,16 @@ class ProfiledIconTab(legacy.IconTab):
         except Exception:
             pass
 
-    def _open_text_in_editor(self, title: str, text: str, default_suffix: str = "", name_filters=None) -> bool:
+    def _open_text_in_editor(self,
+        title           : str,
+        text            : str,
+        default_suffix  : str = "",
+        name_filters    = None) -> bool:
+        
         mw = self._resolve_main_window()
         if mw is None or not hasattr(mw, "mdi"):
             return False
-
+        
         try:
             sub = mw.mdi.activeSubWindow()
             win = sub.widget() if sub else None
@@ -198,16 +206,16 @@ class ProfiledIconTab(legacy.IconTab):
             if isinstance(win, legacy.FileEditorWindow) and hasattr(win, "new_tab"):
                 try:
                     idx = win.new_tab(
-                        title=title,
-                        path="",
-                        text=text,
-                        default_suffix=default_suffix,
-                        name_filters=name_filters,
+                        title           = title,
+                        path            = "",
+                        text            = text,
+                        default_suffix  = default_suffix,
+                        name_filters    = name_filters,
                     )
                 except TypeError:
                     # Fallback, falls editor.py noch die alte new_tab-Signatur hat
                     idx = win.new_tab(title=title, path="", text=text)
-
+                
                 try:
                     win.editor_tabs.setCurrentIndex(idx)
                 except Exception:
@@ -239,11 +247,11 @@ class ProfiledIconTab(legacy.IconTab):
 
             try:
                 idx = new_win.new_tab(
-                    title=title,
-                    path="",
-                    text=text,
-                    default_suffix=default_suffix,
-                    name_filters=name_filters,
+                    title           = title,
+                    path            = "",
+                    text            = text,
+                    default_suffix  = default_suffix,
+                    name_filters    = name_filters,
                 )
             except TypeError:
                 idx = new_win.new_tab(title=title, path="", text=text)
@@ -438,7 +446,7 @@ class ProfiledRegieCenter(legacy.QDialog):
         self.combo.setInsertPolicy(legacy.QComboBox.NoInsert)
         self.combo.currentTextChanged.connect(self._on_dir_changed)
 
-        self.btn_pick = legacy.QPushButton("Verzeichnis…")
+        self.btn_pick = legacy.QPushButton(share.locales.tr("Directory ..."))
         self.btn_pick.clicked.connect(self.pick_directory_non_native)
 
         top = legacy.QHBoxLayout()
@@ -481,12 +489,12 @@ class ProfiledRegieCenter(legacy.QDialog):
             profile, ext_projekte,
             parent        = self,
             icon_provider = self.icon_provider,
-            tab_name      = "Projekte",
+            tab_name      = share.locales.tr("Projects"),
             special_items = [{
-                "title"   : "Neu Projekt",
+                "title"   : share.locales.tr("New Project"),
                 "action"  : "new_project",
                 "icon"    : "project",
-                "tooltip" : "Neues Projekt anlegen",
+                "tooltip" : share.locales.tr("Create New Project"),
             }])
         self.tabs.addTab(self.lw2, "Projekte")
         self.icon_lists.append(self.lw2)
@@ -497,50 +505,50 @@ class ProfiledRegieCenter(legacy.QDialog):
             icon_provider = self.icon_provider,
             tab_name      = profile.program_tab_title,
             special_items = [{
-                "title"   : "Neu Programm",
+                "title"   : share.locales.tr("New Program"),
                 "action"  : "new_program",
                 "icon"    : "form",
-                "tooltip" : "Neues Programm anlegen",
+                "tooltip" : share.locales.tr("Create New Program")
             }])
-        self.tabs.addTab(self.lw3, "Programm")
+        self.tabs.addTab(self.lw3, share.locales.tr("Program"))
         self.icon_lists.append(self.lw3)
         # ---------------------------------------------------
         self.lw4 = ProfiledIconTab(
             profile, ext_formulare,
             parent        = self,
             icon_provider = self.icon_provider,
-            tab_name      = "Formulare",
+            tab_name      = share.locales.tr("Forms"),
             special_items = [{
-                "title"   : "Neu Designer",
+                "title"   : share.locales.tr("New Designer"),
                 "action"  : "new_form_designer",
                 "icon"    : "form",
-                "tooltip" : "Neues Formular im Design-Modus anlegen",
+                "tooltip" : share.locales.tr("Create New Form with Designer"),
             },{
-                "title"   : "Neu Experte",
+                "title"   : share.locales.tr("New Expert"),
                 "action"  : "new_form_expert",
                 "icon"    : "form",
-                "tooltip" : "Neues Formular im Experten-Modus anlegen",
+                "tooltip" : share.locales.tr("Create New Form with Expert"),
             }])
-        self.tabs.addTab(self.lw4, "Formular")
+        self.tabs.addTab(self.lw4, share.locales.tr("Forms"))
         self.icon_lists.append(self.lw4)
         # ---------------------------------------------------
         self.lw5 = ProfiledIconTab(
             profile, ext_tabellen,
             parent        = self,
             icon_provider = self.icon_provider,
-            tab_name      = "Tabellen",
+            tab_name      = share.locales.tr("Tables"),
             special_items = [{
-                "title"   : "Neu Designer",
+                "title"   : share.locales.tr("New Designer"),
                 "action"  : "new_table_designer",
                 "icon"    : "form",
-                "tooltip" : "Neu Tabelle im Design-Modus anlegen",
+                "tooltip" : share.locales.tr("Create New Table with Designer"),
             },{
-                "title"   : "Neu Experte",
+                "title"   : share.locales.tr("New Expert"),
                 "action"  : "new_table_expert",
                 "icon"    : "form",
-                "tooltip" : "Neu Tabelle im Experten-Modus anlegen",
+                "tooltip" : share.locales.tr("Create New Table with Expert"),
             }])
-        self.tabs.addTab(self.lw5, "Tabellen")
+        self.tabs.addTab(self.lw5, share.locales.tr("Tables"))
         self.icon_lists.append(self.lw5)
         # ---------------------------------------------------
         self.lw6 = ProfiledIconTab(
@@ -549,10 +557,10 @@ class ProfiledRegieCenter(legacy.QDialog):
             icon_provider = self.icon_provider,
             tab_name      = "SQL",
             special_items = [{
-                "title"   : "Neu SQL",
+                "title"   : share.locales.tr("New SQL"),
                 "action"  : "new_sql_designer",
                 "icon"    : "form",
-                "tooltip" : "Neue Abfrage anlegen",
+                "tooltip" : share.locales.tr("Create New SQL-Query"),
             }])
         self.tabs.addTab(self.lw6, "SQL")
         self.icon_lists.append(self.lw6)
@@ -563,10 +571,10 @@ class ProfiledRegieCenter(legacy.QDialog):
             icon_provider = self.icon_provider,
             tab_name      = "Berichte",
             special_items = [{
-                "title"   : "Neu Bericht",
+                "title"   : share.locales.tr("New Report"),
                 "action"  : "new_report",
                 "icon"    : "form",
-                "tooltip" : "Neuen Bericht anlegen",
+                "tooltip" : share.locales.tr("Create New Report"),
             }])
         self.tabs.addTab(self.lw7, "Berichte")
         self.icon_lists.append(self.lw7)
@@ -575,12 +583,12 @@ class ProfiledRegieCenter(legacy.QDialog):
             profile, ext_grafiken,
             parent        = self,
             icon_provider = self.icon_provider,
-            tab_name      = "Grafiken",
+            tab_name      = share.locales.tr("Graphics"),
             special_items = [{
-                "title"   : "Neu Grafik",
+                "title"   : share.locales.tr("New Graphic"),
                 "action"  : "new_graphic",
                 "icon"    : "form",
-                "tooltip" : "Neue Grafik anlegen",
+                "tooltip" : share.locales.tr("Create New Graphic"),
             }])
         self.tabs.addTab(self.lw8, "Grafiken")
         self.icon_lists.append(self.lw8)
@@ -591,20 +599,20 @@ class ProfiledRegieCenter(legacy.QDialog):
             icon_provider = self.icon_provider,
             tab_name      = "Internet",
             special_items = [{
-                "title"   : "Neu HTML",
+                "title"   : share.locales.tr("New HTML"),
                 "action"  : "new_webdoc_html",
                 "icon"    : "form",
-                "tooltip" : "Neues HTML-Dokument anlegen",
+                "tooltip" : share.locales.tr("Create New HTML-Document"),
             },{
-                "title"   : "Neu CSS",
+                "title"   : share.locales.tr("New CSS"),
                 "action"  : "new_webdoc_css",
                 "icon"    : "form",
-                "tooltip" : "Neues CSS-Dokument anlegen",
+                "tooltip" : share.locales.tr("Create New CSS-Document"),
             },{
-                "title"   : "Neu JavaScript",
+                "title"   : share.locales.tr("New JavaScript"),
                 "action"  : "new_webdoc_js",
                 "icon"    : "form",
-                "tooltip" : "Neues JavaScript-Dokument anlegen",
+                "tooltip" : share.locales.tr("Create New JavaScript-Document"),
             }])
         try:
             self.lw9.itemDoubleClicked.connect(self._on_internet_item_double_clicked)
@@ -624,18 +632,19 @@ class ProfiledRegieCenter(legacy.QDialog):
         )
         self.lwA = ProfiledIconTab(
             profile,
-            exclude_exts=ext_all_known,
-            parent=self,
-            icon_provider=self.icon_provider,
-            tab_name="Sonstiges",
+            exclude_exts    = ext_all_known,
+            parent          = self,
+            icon_provider   = self.icon_provider,
+            tab_name        = share.locales.tr("Misc"),
             special_items=[{
-                "title": "Neu Localize",
-                "action": "new_localize",
-                "icon": "locales",
-                "tooltip": "Neues Localize-Fenster öffnen",
+                "title"     : share.locales.tr("New Locales"),
+                "action"    : "new_localize",
+                "icon"      : "locales",
+                "tooltip"   : share.locales.tr("Open New Locales Window"),
             }],
         )
-        self.icon_lists.append(self.lwA); self.tabs.addTab(self.lwA, "Sonstiges")
+        self.icon_lists.append(self.lwA)
+        self.tabs.addTab(self.lwA, share.locales.tr("Misc"))
 
         root = legacy.QVBoxLayout(self)
         root.addLayout(top)

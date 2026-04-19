@@ -18,10 +18,10 @@ module = legacy
 # Wiederverwendete Basisbausteine
 ErrorMessage = legacy.ErrorMessage
 CollectProgressDialog = legacy.CollectProgressDialog
-#CodeEditor = legacy.CodeEditor
-#MiniMap = legacy.MiniMap
+CodeEditor = legacy.CodeEditor
+MiniMap = legacy.MiniMap
 EditorWidget = legacy.EditorWidget
-#FileEditorWindow = legacy.FileEditorWindow
+FileEditorWindow = legacy.FileEditorWindow
 TableDesignerDialog = legacy.TableDesignerDialog
 TableRecordEditorDialog = legacy.TableRecordEditorDialog
 RegieCenter = legacy.RegieCenter

@@ -23,6 +23,7 @@ import share.utildef
 from   share.utildef.sysinfo        import SystemInfo
 from   share.utildef.helpwin        import *
 from   share.utildef.theme          import *
+from   share.modules.locales        import *
 from   share.widgets.button.glossy  import *
 
 from   parse.dbase.parser           import *
@@ -55,6 +56,27 @@ def load_qss(rel_path: str) -> str:
     return p.read_text(encoding="utf-8")
 
 _RUNNER_LANGUAGE = (os.environ.get("DBASERUNNER_LANGUAGE") or "dbase").strip().lower()
+
+DOXYGEN_EXPERT_ITEMS = [
+    "Project",
+    "Build",
+    "Messages",
+    "Input",
+    "Source Browser",
+    "Index",
+    "HTML",
+    "LaTeX",
+    "RTF",
+    "Man",
+    "XML",
+    "DocBook",
+    "AutoGen",
+    "SQLite3",
+    "PerlMod",
+    "Preprocessor",
+    "External",
+    "Dot"
+]
 
 def _runner_window_title() -> str:
     author = f"Runner 2026 - (c) Jens Kallup - paule32"
@@ -531,6 +553,7 @@ def _resolve_global_shortcut_host(obj: Any):
             "SqlBuilderWindow",
             "ProjectDialog",
             "LocalizeToolWindow",
+            "DoxyGenToolWindow",
             "RegieCenter",
             "MainWindow",
         },
@@ -6579,22 +6602,22 @@ class DesignerControl(QWidget):
         act_help = QAction(share.locales.tr("Hilfe\tF1"), self)
         act_help.setShortcut("F1")
         act_help.triggered.connect(lambda: QMessageBox.information(self,
-            share.locales.tr("Hilfe"), f"{share.locales.tr("Komponente")}: {self.tool_name}"))
+            share.locales.tr("Help"), f"{share.locales.tr("Komponente")}: {self.tool_name}"))
         menu.addAction(act_help)
 
         menu.addSeparator()
 
         host = _find_form_designer_host(self)
 
-        act_load_form = QAction(share.locales.tr("Laden"), self)
+        act_load_form = QAction(share.locales.tr("Load"), self)
         act_load_form.triggered.connect(lambda: getattr(host, "_action_load_form", lambda: None)())
         menu.addAction(act_load_form)
 
-        act_save_form = QAction(share.locales.tr("Speichern"), self)
+        act_save_form = QAction(share.locales.tr("Save"), self)
         act_save_form.triggered.connect(lambda: getattr(host, "_action_save_form", lambda: None)())
         menu.addAction(act_save_form)
 
-        act_save_form_as = QAction(share.locales.tr("Speichern unter..."), self)
+        act_save_form_as = QAction(share.locales.tr("Sava As ..."), self)
         act_save_form_as.triggered.connect(lambda: getattr(host, "_action_save_form_as", lambda: None)())
         menu.addAction(act_save_form_as)
 
@@ -7648,8 +7671,8 @@ class EventEditorWindow(QWidget):
         btns = QHBoxLayout()
         btns.addStretch(1)
 
-        self.btn_apply = QPushButton("Apply", self)
-        self.btn_help = QPushButton("Help", self)
+        self.btn_apply  = QPushButton("Apply" , self)
+        self.btn_help   = QPushButton("Help"  , self)
         self.btn_cancel = QPushButton("Cancel", self)
 
         btns.addWidget(self.btn_apply)
@@ -7657,8 +7680,8 @@ class EventEditorWindow(QWidget):
         btns.addWidget(self.btn_cancel)
         root.addLayout(btns)
 
-        self.btn_apply.clicked.connect(self._apply)
-        self.btn_help.clicked.connect(self._help)
+        self.btn_apply .clicked.connect(self._apply)
+        self.btn_help  .clicked.connect(self._help)
         self.btn_cancel.clicked.connect(self.close)
 
         self._load_existing_code()
@@ -7783,7 +7806,9 @@ class EventEditorWindow(QWidget):
                 return
         except Exception:
             pass
-        QMessageBox.information(self, "Help", "Keine Hilfe verfügbar.")
+        QMessageBox.information(self,
+            share.locales.tr("Help"),
+            share.locales.tr("No Help available"))
 
 class ObjectInspectorPanel(QWidget):
     def __init__(self, main_window):
@@ -7801,7 +7826,13 @@ class ObjectInspectorPanel(QWidget):
         self.obj_combo = QComboBox(self)
         self.obj_combo.setEditable(False)
         self.obj_combo.setFont(self._ui_font)
-        self.obj_combo.setStyleSheet("QComboBox { padding-left: 1px; padding-right: 1px; padding-top: 0px; padding-bottom: 0px; }")
+        self.obj_combo.setStyleSheet("""
+        QComboBox {
+            padding-left: 1px;
+            padding-right: 1px;
+            padding-top: 0px;
+            padding-bottom: 0px; }
+        """)
         self.obj_combo.currentIndexChanged.connect(self._on_combo_changed)
         lay.addWidget(self.obj_combo)
 
@@ -8634,14 +8665,14 @@ class FormDesignerDock(QDockWidget):
 
         self.setWidget(host)
 
-        self.btn_up.clicked.connect(self._scroll_up)
-        self.btn_down.clicked.connect(self._scroll_down)
-        self.btn_actions.clicked.connect(self._toggle_actions_popup)
-        self.btn_projects.clicked.connect(self._toggle_projects_popup)
-        self.btn_help.clicked.connect(self._show_help)
-        self.btn_convert.clicked.connect(self._toggle_convert_popup)
-        self.btn_settings.clicked.connect(self._open_settings)
-        self.btn_tools.clicked.connect(self._toggle_tools_popup)
+        self.btn_up         .clicked.connect(self._scroll_up)
+        self.btn_down       .clicked.connect(self._scroll_down)
+        self.btn_actions    .clicked.connect(self._toggle_actions_popup)
+        self.btn_projects   .clicked.connect(self._toggle_projects_popup)
+        self.btn_help       .clicked.connect(self._show_help)
+        self.btn_convert    .clicked.connect(self._toggle_convert_popup)
+        self.btn_settings   .clicked.connect(self._open_settings)
+        self.btn_tools      .clicked.connect(self._toggle_tools_popup)
 
     def _scroll_up(self):
         try:
@@ -8708,12 +8739,24 @@ class FormDesignerDock(QDockWidget):
         if self._convert_popup is not None:
             return self._convert_popup
         p = SidebarPopupWidget(self, title="Convert")
-        p.add_action("Convert to Python", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Python")))
-        p.add_action("Convert to Pascal", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Pascal")))
-        p.add_action("Convert to JavaScript", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to JavaScript")))
-        p.add_action("Convert to Java", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Java")))
-        p.add_action("Convert to C/C++", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to C/C++")))
-        p.add_action("Convert to Visual Basic", lambda: self._run_and_close(p, lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Visual Basic")))
+        p.add_action(share.locales.tr("Convert to Python"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Python")))
+        p.add_action(share.locales.tr("Convert to Pascal"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Pascal")))
+        p.add_action(share.locales.tr("Convert to JavaScript"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to JavaScript")))
+        p.add_action(share.locales.tr("Convert to Java"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Java")))
+        p.add_action(share.locales.tr("Convert to C/C++"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to C/C++")))
+        p.add_action(share.locales.tr("Convert to Visual Basic"),
+            lambda: self._run_and_close(p,
+            lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Visual Basic")))
         self._convert_popup = p
         return p
 
@@ -8727,16 +8770,23 @@ class FormDesignerDock(QDockWidget):
             w = item.widget()
             if w is not None:
                 w.deleteLater()
+        
         p.add_action(
-            "Localize",
-            lambda: self._run_and_close(
-                p, lambda: self.main_window.ensure_localize_tool(focus=True)
+            "Locales",
+                lambda: self._run_and_close(p,
+                lambda: self.main_window.ensure_localize_tool(focus=True)
             ),
         )
         p.add_action(
             "Help Authoring",
             lambda: self._run_and_close(
                 p, self._open_help_authoring
+            ),
+        )
+        p.add_action(
+            "DoxyGen",
+                lambda: self._run_and_close(p,
+                lambda: self.main_window.ensure_doxygen_tool(focus=True)
             ),
         )
         return p
@@ -9026,6 +9076,624 @@ class LocalizeCodeEditor(QPlainTextEdit):
             sel.cursor.clearSelection()
             extra.append(sel)
         self.setExtraSelections(extra)
+
+
+class ProjectDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(share.locales.tr("Project"))
+        self.resize(760, 440)
+        self._project_file_path = ""
+
+        root_layout = QVBoxLayout(self)
+        self.tabs = QTabWidget(self)
+
+        # ------------------------------------------------------------------
+        # Tab 1: Allgemein
+        # ------------------------------------------------------------------
+        self.tab_general = QWidget(self)
+        self.tab_general.setObjectName("project_tab_general")
+        general_layout = QVBoxLayout(self.tab_general)
+
+        self.ed_path = QLineEdit(self.tab_general)
+        self.ed_path.setObjectName("project_path_edit")
+        general_layout.addWidget(self.ed_path, 0)
+
+        self.split_vertical = QSplitter(Qt.Vertical, self.tab_general)
+        self.split_vertical.setObjectName("project_splitter_vertical")
+
+        self.split_horizontal = QSplitter(Qt.Horizontal, self.split_vertical)
+        self.split_horizontal.setObjectName("project_splitter_horizontal")
+
+        self.tree_project = QTreeWidget(self.split_horizontal)
+        self.tree_project.setObjectName("project_tree")
+        self.tree_project.setHeaderHidden(True)
+        self.tree_project.setColumnCount(1)
+        self.tree_project.setMinimumWidth(220)
+
+        self.project_roots = {}
+        for key, caption in [
+            ("forms", share.locales.tr("Formulare")),
+            ("programs", share.locales.tr("Programme")),
+            ("reports", share.locales.tr("Berichte")),
+            ("queries", share.locales.tr("Abfragen")),
+            ("internet", share.locales.tr("Internet")),
+            ("localize", share.locales.tr("Localize")),
+            ("graphics", share.locales.tr("Grafiken")),
+            ("misc", share.locales.tr("Sonstiges")),
+        ]:
+            item = QTreeWidgetItem([caption])
+            item.setData(0, Qt.UserRole, {"kind": "root", "root_key": key})
+            self.tree_project.addTopLevelItem(item)
+            self.project_roots[key] = item
+
+        self._project_clipboard = None
+        self.tree_project.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree_project.customContextMenuRequested.connect(self._on_project_tree_context_menu)
+
+        right_side = QWidget(self.split_horizontal)
+        right_side.setObjectName("project_right_side")
+        right_side_layout = QHBoxLayout(right_side)
+        right_side_layout.setContentsMargins(0, 0, 0, 0)
+        right_side_layout.setSpacing(6)
+
+        scroll_host = QWidget(right_side)
+        scroll_host.setObjectName("project_scroll_host")
+        scroll_host.setMinimumWidth(330)
+        scroll_host_layout = QVBoxLayout(scroll_host)
+        scroll_host_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_host_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea(scroll_host)
+        self.scroll_area.setObjectName("project_scroll_area")
+        self.scroll_area.setWidgetResizable(True)
+
+        self.scroll_widget = QWidget(self.scroll_area)
+        self.scroll_widget.setObjectName("project_scroll_widget")
+        self.scroll_form_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_form_layout.setContentsMargins(6, 6, 6, 6)
+        self.scroll_form_layout.setSpacing(8)
+
+        manifest_form = QFormLayout()
+        self.ed_manifest_version = QLineEdit(self.scroll_widget)
+        self.ed_manifest_version.setObjectName("project_manifest_version")
+        manifest_form.addRow(share.locales.tr("Manifest-Version"), self.ed_manifest_version)
+        self.scroll_form_layout.addLayout(manifest_form)
+
+        self.gb_identity = QGroupBox(share.locales.tr("Identity"), self.scroll_widget)
+        identity_form = QFormLayout(self.gb_identity)
+        self.ed_identity_type = QLineEdit(self.gb_identity)
+        self.ed_identity_name = QLineEdit(self.gb_identity)
+        self.ed_identity_language = QLineEdit(self.gb_identity)
+        self.ed_identity_arch = QLineEdit(self.gb_identity)
+        self.ed_identity_version = QLineEdit(self.gb_identity)
+        self.ed_identity_public_key = QLineEdit(self.gb_identity)
+        identity_form.addRow(share.locales.tr("Art"), self.ed_identity_type)
+        identity_form.addRow(share.locales.tr("Name"), self.ed_identity_name)
+        identity_form.addRow(share.locales.tr("Sprache"), self.ed_identity_language)
+        identity_form.addRow(share.locales.tr("Prozessor-Architektur"), self.ed_identity_arch)
+        identity_form.addRow(share.locales.tr("Version"), self.ed_identity_version)
+        identity_form.addRow(share.locales.tr("publicKeyToken"), self.ed_identity_public_key)
+        self.scroll_form_layout.addWidget(self.gb_identity)
+
+        self.gb_compat = QGroupBox(share.locales.tr("Kompatibilität"), self.scroll_widget)
+        compat_layout = QVBoxLayout(self.gb_compat)
+
+        self.gb_application = QGroupBox(share.locales.tr("Anwendung"), self.gb_compat)
+        application_layout = QVBoxLayout(self.gb_application)
+
+        self.gb_supported_os = QGroupBox(share.locales.tr("Unterstützte OS"), self.gb_application)
+        os_layout = QVBoxLayout(self.gb_supported_os)
+        self.chk_os_xp = QCheckBox("Windows XP", self.gb_supported_os)
+        self.chk_os_vista = QCheckBox("Windows Vista", self.gb_supported_os)
+        self.chk_os_7 = QCheckBox("Windows 7", self.gb_supported_os)
+        self.chk_os_8 = QCheckBox("Windows 8", self.gb_supported_os)
+        self.chk_os_81 = QCheckBox("Windows 8.1", self.gb_supported_os)
+        self.chk_os_10 = QCheckBox("Windows 10", self.gb_supported_os)
+        self.chk_os_11 = QCheckBox("Windows 11", self.gb_supported_os)
+        for chk in [
+            self.chk_os_xp,
+            self.chk_os_vista,
+            self.chk_os_7,
+            self.chk_os_8,
+            self.chk_os_81,
+            self.chk_os_10,
+            self.chk_os_11,
+        ]:
+            os_layout.addWidget(chk)
+        application_layout.addWidget(self.gb_supported_os)
+
+        app_form = QFormLayout()
+        self.ed_active_codepage = QLineEdit(self.gb_application)
+        self.cb_supported_arch = QComboBox(self.gb_application)
+        self.cb_supported_arch.addItems([
+            "",
+            "x86",
+            "x64",
+            "arm64",
+            "x86,x64",
+            "x86,x64,arm64",
+        ])
+        app_form.addRow(share.locales.tr("Aktive CodePage"), self.ed_active_codepage)
+        app_form.addRow(share.locales.tr("supported Architectures"), self.cb_supported_arch)
+        application_layout.addLayout(app_form)
+
+        self.gb_console_policies = QGroupBox("consolePolicies", self.gb_application)
+        console_layout = QVBoxLayout(self.gb_console_policies)
+        self.chk_console_v2 = QCheckBox("V2", self.gb_console_policies)
+        self.chk_console_force_v1 = QCheckBox("ForceV1", self.gb_console_policies)
+        self.chk_console_terminal = QCheckBox("TerminalLevelAware", self.gb_console_policies)
+        self.chk_console_wrap = QCheckBox("WrapTextAtEOL", self.gb_console_policies)
+        for chk in [
+            self.chk_console_v2,
+            self.chk_console_force_v1,
+            self.chk_console_terminal,
+            self.chk_console_wrap,
+        ]:
+            console_layout.addWidget(chk)
+        application_layout.addWidget(self.gb_console_policies)
+
+        compat_layout.addWidget(self.gb_application)
+        self.scroll_form_layout.addWidget(self.gb_compat)
+        self.scroll_form_layout.addStretch(1)
+
+        self.scroll_area.setWidget(self.scroll_widget)
+        scroll_host_layout.addWidget(self.scroll_area, 1)
+
+        self.button_panel = QWidget(right_side)
+        self.button_panel.setObjectName("project_button_panel")
+        button_layout = QVBoxLayout(self.button_panel)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(6)
+
+        self.btn_load = QPushButton(share.locales.tr("Laden"), self.button_panel)
+        self.btn_save = QPushButton(share.locales.tr("Speichern"), self.button_panel)
+        self.btn_save_as = QPushButton(share.locales.tr("Speichern unter"), self.button_panel)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self.button_panel)
+
+        self.btn_load.setObjectName("project_btn_load")
+        self.btn_save.setObjectName("project_btn_save")
+        self.btn_save_as.setObjectName("project_btn_save_as")
+        self.btn_cancel.setObjectName("project_btn_cancel")
+
+        button_layout.addWidget(self.btn_load)
+        button_layout.addWidget(self.btn_save)
+        button_layout.addWidget(self.btn_save_as)
+        button_layout.addWidget(self.btn_cancel)
+        button_layout.addStretch(1)
+
+        right_side_layout.addWidget(scroll_host, 1)
+        right_side_layout.addWidget(self.button_panel, 0)
+
+        self.split_horizontal.setChildrenCollapsible(False)
+        self.split_horizontal.setStretchFactor(0, 1)
+        self.split_horizontal.setStretchFactor(1, 2)
+
+        self.editor_notes = QPlainTextEdit(self.split_vertical)
+        self.editor_notes.setObjectName("project_editor")
+
+        self.split_vertical.setStretchFactor(0, 3)
+        self.split_vertical.setStretchFactor(1, 2)
+
+        general_layout.addWidget(self.split_vertical, 1)
+        self.tabs.addTab(self.tab_general, share.locales.tr("Allgemein"))
+
+        # ------------------------------------------------------------------
+        # Tab 2: GitHub
+        # ------------------------------------------------------------------
+        self.tab_github = QWidget(self)
+        self.tab_github.setObjectName("project_tab_github")
+        github_layout = QVBoxLayout(self.tab_github)
+
+        self.gb_github_repo = QGroupBox("GitHub", self.tab_github)
+        gh_form = QFormLayout(self.gb_github_repo)
+        self.ed_gh_owner = QLineEdit(self.gb_github_repo)
+        self.ed_gh_repo = QLineEdit(self.gb_github_repo)
+        self.ed_gh_branch = QLineEdit(self.gb_github_repo)
+        self.ed_gh_token = QLineEdit(self.gb_github_repo)
+        self.ed_gh_token.setEchoMode(QLineEdit.Password)
+        gh_form.addRow(share.locales.tr("Owner"), self.ed_gh_owner)
+        gh_form.addRow(share.locales.tr("Repository"), self.ed_gh_repo)
+        gh_form.addRow(share.locales.tr("Branch"), self.ed_gh_branch)
+        gh_form.addRow(share.locales.tr("Token"), self.ed_gh_token)
+        github_layout.addWidget(self.gb_github_repo)
+
+        gh_button_row = QHBoxLayout()
+        self.btn_gh_init = QPushButton(share.locales.tr("Einrichten"), self.tab_github)
+        self.btn_gh_upload = QPushButton(share.locales.tr("Hochladen"), self.tab_github)
+        self.btn_gh_download = QPushButton(share.locales.tr("Herunterladen"), self.tab_github)
+        gh_button_row.addWidget(self.btn_gh_init)
+        gh_button_row.addWidget(self.btn_gh_upload)
+        gh_button_row.addWidget(self.btn_gh_download)
+        gh_button_row.addStretch(1)
+        github_layout.addLayout(gh_button_row)
+
+        self.memo_github = QPlainTextEdit(self.tab_github)
+        self.memo_github.setObjectName("project_github_log")
+        github_layout.addWidget(self.memo_github, 1)
+
+        self.tabs.addTab(self.tab_github, "GitHub")
+        root_layout.addWidget(self.tabs, 1)
+
+        self.btn_cancel.clicked.connect(self.close)
+        self.btn_load.clicked.connect(self._on_load_project)
+        self.btn_save.clicked.connect(self._on_save_project)
+        self.btn_save_as.clicked.connect(self._on_save_project_as)
+
+        try:
+            self.split_horizontal.setSizes([240, 480])
+        except Exception:
+            pass
+        try:
+            self.split_vertical.setSizes([300, 110])
+        except Exception:
+            pass
+        try:
+            self.tree_project.expandAll()
+        except Exception:
+            pass
+
+    def _project_root(self, key: str):
+        return self.project_roots.get(key)
+
+    def _tree_item_payload(self, item):
+        try:
+            data = item.data(0, Qt.UserRole)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _clear_project_children(self):
+        for root in self.project_roots.values():
+            while root.childCount():
+                root.removeChild(root.child(0))
+
+    def _collect_tree_data(self):
+        data = {}
+        for key, root in self.project_roots.items():
+            files = []
+            for i in range(root.childCount()):
+                child = root.child(i)
+                payload = self._tree_item_payload(child)
+                files.append({
+                    "text": child.text(0),
+                    "path": payload.get("path", ""),
+                })
+            data[key] = files
+        return data
+
+    def _metadata_to_dict(self):
+        return {
+            "manifest_version": self.ed_manifest_version.text(),
+            "identity": {
+                "type": self.ed_identity_type.text(),
+                "name": self.ed_identity_name.text(),
+                "language": self.ed_identity_language.text(),
+                "processor_architecture": self.ed_identity_arch.text(),
+                "version": self.ed_identity_version.text(),
+                "publicKeyToken": self.ed_identity_public_key.text(),
+            },
+            "application": {
+                "supported_os": {
+                    "xp": self.chk_os_xp.isChecked(),
+                    "vista": self.chk_os_vista.isChecked(),
+                    "win7": self.chk_os_7.isChecked(),
+                    "win8": self.chk_os_8.isChecked(),
+                    "win81": self.chk_os_81.isChecked(),
+                    "win10": self.chk_os_10.isChecked(),
+                    "win11": self.chk_os_11.isChecked(),
+                },
+                "active_codepage": self.ed_active_codepage.text(),
+                "supported_architectures": self.cb_supported_arch.currentText(),
+                "consolePolicies": {
+                    "v2": self.chk_console_v2.isChecked(),
+                    "force_v1": self.chk_console_force_v1.isChecked(),
+                    "terminal_level_aware": self.chk_console_terminal.isChecked(),
+                    "wrap_text_at_eol": self.chk_console_wrap.isChecked(),
+                },
+            },
+            "github": {
+                "owner": self.ed_gh_owner.text(),
+                "repository": self.ed_gh_repo.text(),
+                "branch": self.ed_gh_branch.text(),
+                "token": self.ed_gh_token.text(),
+                "log": self.memo_github.toPlainText(),
+            },
+            "notes": self.editor_notes.toPlainText(),
+            "path_hint": self.ed_path.text(),
+        }
+
+    def _apply_metadata(self, meta: dict):
+        meta = meta or {}
+        identity = meta.get("identity") or {}
+        application = meta.get("application") or {}
+        supported_os = application.get("supported_os") or {}
+        console = application.get("consolePolicies") or {}
+        github = meta.get("github") or {}
+
+        self.ed_manifest_version.setText(meta.get("manifest_version", ""))
+        self.ed_identity_type.setText(identity.get("type", ""))
+        self.ed_identity_name.setText(identity.get("name", ""))
+        self.ed_identity_language.setText(identity.get("language", ""))
+        self.ed_identity_arch.setText(identity.get("processor_architecture", ""))
+        self.ed_identity_version.setText(identity.get("version", ""))
+        self.ed_identity_public_key.setText(identity.get("publicKeyToken", ""))
+
+        self.chk_os_xp.setChecked(bool(supported_os.get("xp")))
+        self.chk_os_vista.setChecked(bool(supported_os.get("vista")))
+        self.chk_os_7.setChecked(bool(supported_os.get("win7")))
+        self.chk_os_8.setChecked(bool(supported_os.get("win8")))
+        self.chk_os_81.setChecked(bool(supported_os.get("win81")))
+        self.chk_os_10.setChecked(bool(supported_os.get("win10")))
+        self.chk_os_11.setChecked(bool(supported_os.get("win11")))
+
+        self.ed_active_codepage.setText(application.get("active_codepage", ""))
+        idx = self.cb_supported_arch.findText(application.get("supported_architectures", ""))
+        self.cb_supported_arch.setCurrentIndex(idx if idx >= 0 else 0)
+
+        self.chk_console_v2.setChecked(bool(console.get("v2")))
+        self.chk_console_force_v1.setChecked(bool(console.get("force_v1")))
+        self.chk_console_terminal.setChecked(bool(console.get("terminal_level_aware")))
+        self.chk_console_wrap.setChecked(bool(console.get("wrap_text_at_eol")))
+
+        self.ed_gh_owner.setText(github.get("owner", ""))
+        self.ed_gh_repo.setText(github.get("repository", ""))
+        self.ed_gh_branch.setText(github.get("branch", ""))
+        self.ed_gh_token.setText(github.get("token", ""))
+        self.memo_github.setPlainText(github.get("log", ""))
+
+        self.editor_notes.setPlainText(meta.get("notes", ""))
+        self.ed_path.setText(meta.get("path_hint", ""))
+
+    def _project_to_dict(self):
+        return {
+            "project_file": self._project_file_path,
+            "tree": self._collect_tree_data(),
+            "meta": self._metadata_to_dict(),
+        }
+
+    def _apply_project_dict(self, data: dict):
+        self._clear_project_children()
+
+        tree = (data or {}).get("tree") or {}
+        for key, items in tree.items():
+            root = self._project_root(key)
+            if root is None:
+                continue
+            for entry in items or []:
+                file_path = entry.get("path", "")
+                text = entry.get("text") or (os.path.basename(file_path) if file_path else "")
+                node = QTreeWidgetItem([text])
+                node.setData(0, Qt.UserRole, {
+                    "kind": "file",
+                    "root_key": key,
+                    "path": file_path,
+                })
+                root.addChild(node)
+            root.setExpanded(True)
+
+        self._apply_metadata((data or {}).get("meta") or {})
+        try:
+            self.tree_project.expandAll()
+        except Exception:
+            pass
+
+    def _save_project_to_file(self, file_path: str):
+        data = self._project_to_dict()
+        with open(file_path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, ensure_ascii=False)
+        self._project_file_path = file_path
+        self.ed_path.setText(file_path)
+
+    def _load_project_from_file(self, file_path: str):
+        with open(file_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self._project_file_path = file_path
+        self.ed_path.setText(file_path)
+        self._apply_project_dict(data)
+
+    def _on_save_project_as(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            share.locales.tr("Projekt speichern unter"),
+            self._project_file_path or "projekt.pro",
+            "Projektdateien (*.pro);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith(".pro"):
+            file_path += ".pro"
+        self._save_project_to_file(file_path)
+
+    def _on_save_project(self):
+        if not self._project_file_path:
+            self._on_save_project_as()
+            return
+        self._save_project_to_file(self._project_file_path)
+
+    def _on_load_project(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            share.locales.tr("Projekt laden"),
+            "",
+            "Projektdateien (*.pro);;Alle Dateien (*.*)",
+        )
+        if not file_path:
+            return
+        self._load_project_from_file(file_path)
+
+    def _add_files_to_root(self, root_key: str, title: str, file_filter: str):
+        root_item = self._project_root(root_key)
+        if root_item is None:
+            return
+
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            share.locales.tr(title),
+            "",
+            file_filter,
+        )
+        if not files:
+            return
+
+        existing = set()
+        for i in range(root_item.childCount()):
+            child = root_item.child(i)
+            payload = self._tree_item_payload(child)
+            path = payload.get("path") or ""
+            if path:
+                existing.add(os.path.normcase(os.path.normpath(path)))
+
+        for file_path in files:
+            norm = os.path.normcase(os.path.normpath(file_path))
+            if norm in existing:
+                continue
+            node = QTreeWidgetItem([os.path.basename(file_path)])
+            node.setData(0, Qt.UserRole, {
+                "kind": "file",
+                "root_key": root_key,
+                "path": file_path,
+            })
+            root_item.addChild(node)
+            existing.add(norm)
+
+        root_item.setExpanded(True)
+
+    def _copy_selected_tree_item(self):
+        item = self.tree_project.currentItem()
+        if item is None:
+            return
+        payload = self._tree_item_payload(item)
+        if payload.get("kind") != "file":
+            return
+        self._project_clipboard = {
+            "text": item.text(0),
+            "payload": dict(payload),
+        }
+
+    def _paste_tree_item(self):
+        clip = self._project_clipboard
+        if not isinstance(clip, dict):
+            return
+
+        item = self.tree_project.currentItem()
+        target_root = None
+        if item is not None:
+            payload = self._tree_item_payload(item)
+            if payload.get("kind") == "root":
+                target_root = item
+            elif item.parent() is not None:
+                target_root = item.parent()
+
+        if target_root is None:
+            target_root = self._project_root(clip.get("payload", {}).get("root_key", ""))
+
+        if target_root is None:
+            return
+
+        new_payload = dict(clip.get("payload") or {})
+        node = QTreeWidgetItem([clip.get("text") or ""])
+        node.setData(0, Qt.UserRole, new_payload)
+        target_root.addChild(node)
+        target_root.setExpanded(True)
+
+    def _delete_selected_tree_item(self):
+        item = self.tree_project.currentItem()
+        if item is None:
+            return
+        payload = self._tree_item_payload(item)
+        if payload.get("kind") == "root":
+            return
+        parent = item.parent()
+        if parent is None:
+            return
+        parent.removeChild(item)
+
+    def _on_project_tree_context_menu(self, pos):
+        menu = QMenu(self.tree_project)
+
+        m_add = menu.addMenu(share.locales.tr("Hinzufügen"))
+
+        act_add_program = QAction(share.locales.tr("Programm"), self.tree_project)
+        act_add_program.triggered.connect(
+            lambda: self._add_files_to_root(
+                "programs",
+                "Datei laden",
+                "Programme (*.prg);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_program)
+
+        act_add_form = QAction(share.locales.tr("Formular"), self.tree_project)
+        act_add_form.triggered.connect(
+            lambda: self._add_files_to_root(
+                "forms",
+                "Datei laden",
+                "Formulare (*.wfm *.frm);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_form)
+
+        act_add_report = QAction(share.locales.tr("Bericht"), self.tree_project)
+        act_add_report.triggered.connect(
+            lambda: self._add_files_to_root(
+                "reports",
+                "Datei laden",
+                "Berichte (*.rep *.rpt *.frx *.rtm);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_report)
+
+        act_add_sql = QAction(share.locales.tr("SQL"), self.tree_project)
+        act_add_sql.triggered.connect(
+            lambda: self._add_files_to_root(
+                "queries",
+                "Datei laden",
+                "SQL Dateien (*.sql *.sqlb.json);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_sql)
+
+        act_add_graphic = QAction(share.locales.tr("Grafik"), self.tree_project)
+        act_add_graphic.triggered.connect(
+            lambda: self._add_files_to_root(
+                "graphics",
+                "Datei laden",
+                "Grafiken (*.png *.jpg *.jpeg *.bmp *.gif *.svg *.ico *.webp);;Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_graphic)
+
+        act_add_misc = QAction(share.locales.tr("Sonstiges"), self.tree_project)
+        act_add_misc.triggered.connect(
+            lambda: self._add_files_to_root(
+                "misc",
+                "Datei laden",
+                "Alle Dateien (*.*)"
+            )
+        )
+        m_add.addAction(act_add_misc)
+
+        menu.addSeparator()
+
+        current_item = self.tree_project.itemAt(pos)
+        if current_item is not None:
+            self.tree_project.setCurrentItem(current_item)
+        payload = self._tree_item_payload(self.tree_project.currentItem()) if self.tree_project.currentItem() else {}
+
+        act_copy = menu.addAction(share.locales.tr("Kopieren"))
+        act_copy.setEnabled(payload.get("kind") == "file")
+        act_copy.triggered.connect(self._copy_selected_tree_item)
+
+        act_paste = menu.addAction(share.locales.tr("Einfügen"))
+        act_paste.setEnabled(isinstance(self._project_clipboard, dict))
+        act_paste.triggered.connect(self._paste_tree_item)
+
+        act_delete = menu.addAction(share.locales.tr("Löschen"))
+        act_delete.setEnabled(payload.get("kind") == "file")
+        act_delete.triggered.connect(self._delete_selected_tree_item)
+
+        menu.exec_(self.tree_project.viewport().mapToGlobal(pos))
 
 
 class LocalizeToolWindow(QWidget):
@@ -9721,625 +10389,154 @@ class LocalizeToolWindow(QWidget):
             pass
 
 
-class ProjectDialog(QDialog):
+class DoxyGenToolWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(share.locales.tr("Project"))
-        self.resize(760, 440)
-        self._project_file_path = ""
+        self._build_ui()
 
-        root_layout = QVBoxLayout(self)
-        self.tabs = QTabWidget(self)
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 4, 4)
 
-        # ------------------------------------------------------------------
-        # Tab 1: Allgemein
-        # ------------------------------------------------------------------
-        self.tab_general = QWidget(self)
-        self.tab_general.setObjectName("project_tab_general")
-        general_layout = QVBoxLayout(self.tab_general)
+        self.tabs = QTabWidget()
+        root.addWidget(self.tabs)
 
-        self.ed_path = QLineEdit(self.tab_general)
-        self.ed_path.setObjectName("project_path_edit")
-        general_layout.addWidget(self.ed_path, 0)
+        self.tab_wizard = self._build_wizard_tab()
+        self.tab_expert = self._build_expert_tab()
+        self.tab_run = self._build_run_tab()
 
-        self.split_vertical = QSplitter(Qt.Vertical, self.tab_general)
-        self.split_vertical.setObjectName("project_splitter_vertical")
+        self.tabs.addTab(self.tab_wizard, "Wizard")
+        self.tabs.addTab(self.tab_expert, "Expert")
+        self.tabs.addTab(self.tab_run, "Run")
 
-        self.split_horizontal = QSplitter(Qt.Horizontal, self.split_vertical)
-        self.split_horizontal.setObjectName("project_splitter_horizontal")
+    def _build_wizard_tab(self):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        info = QTextEdit()
+        info.setReadOnly(True)
+        info.setHtml(
+            "<h3>DoxyGen Wizard</h3>"
+            "<p>Hier kann später ein geführter Assistent für die Doxygen-Konfiguration eingebettet werden.</p>"
+        )
+        lay.addWidget(info)
+        return page
 
-        self.tree_project = QTreeWidget(self.split_horizontal)
-        self.tree_project.setObjectName("project_tree")
-        self.tree_project.setHeaderHidden(True)
-        self.tree_project.setColumnCount(1)
-        self.tree_project.setMinimumWidth(220)
+    def _build_expert_tab(self):
+        page = QWidget()
+        page_lay = QVBoxLayout(page)
+        page_lay.setContentsMargins(0, 0, 0, 0)
 
-        self.project_roots = {}
-        for key, caption in [
-            ("forms", share.locales.tr("Formulare")),
-            ("programs", share.locales.tr("Programme")),
-            ("reports", share.locales.tr("Berichte")),
-            ("queries", share.locales.tr("Abfragen")),
-            ("internet", share.locales.tr("Internet")),
-            ("localize", share.locales.tr("Localize")),
-            ("graphics", share.locales.tr("Grafiken")),
-            ("misc", share.locales.tr("Sonstiges")),
-        ]:
-            item = QTreeWidgetItem([caption])
-            item.setData(0, Qt.UserRole, {"kind": "root", "root_key": key})
-            self.tree_project.addTopLevelItem(item)
-            self.project_roots[key] = item
+        self.expert_splitter_v = QSplitter(Qt.Vertical)
+        page_lay.addWidget(self.expert_splitter_v)
 
-        self._project_clipboard = None
-        self.tree_project.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree_project.customContextMenuRequested.connect(self._on_project_tree_context_menu)
+        top_host = QWidget()
+        top_lay = QVBoxLayout(top_host)
+        top_lay.setContentsMargins(0, 0, 0, 0)
 
-        right_side = QWidget(self.split_horizontal)
-        right_side.setObjectName("project_right_side")
-        right_side_layout = QHBoxLayout(right_side)
-        right_side_layout.setContentsMargins(0, 0, 0, 0)
-        right_side_layout.setSpacing(6)
+        self.expert_splitter_h = QSplitter(Qt.Horizontal)
+        top_lay.addWidget(self.expert_splitter_h)
 
-        scroll_host = QWidget(right_side)
-        scroll_host.setObjectName("project_scroll_host")
-        scroll_host.setMinimumWidth(330)
-        scroll_host_layout = QVBoxLayout(scroll_host)
-        scroll_host_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_host_layout.setSpacing(0)
+        self.list_categories = QListWidget()
+        self.list_categories.addItems(DOXYGEN_EXPERT_ITEMS)
+        self.list_categories.setMinimumWidth(180)
+        self.list_categories.currentTextChanged.connect(self._on_expert_item_changed)
+        self.expert_splitter_h.addWidget(self.list_categories)
 
-        self.scroll_area = QScrollArea(scroll_host)
-        self.scroll_area.setObjectName("project_scroll_area")
+        self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.StyledPanel)
+        self.scroll_area_widget = QWidget()
+        self.scroll_area_layout = QVBoxLayout(self.scroll_area_widget)
+        self.scroll_area_layout.setContentsMargins(8, 8, 8, 8)
+        self.scroll_area_layout.setSpacing(6)
 
-        self.scroll_widget = QWidget(self.scroll_area)
-        self.scroll_widget.setObjectName("project_scroll_widget")
-        self.scroll_form_layout = QVBoxLayout(self.scroll_widget)
-        self.scroll_form_layout.setContentsMargins(6, 6, 6, 6)
-        self.scroll_form_layout.setSpacing(8)
+        self.lbl_expert_title = QLabel("<b>Project</b>")
+        self.lbl_expert_title.setTextFormat(Qt.RichText)
+        self.scroll_area_layout.addWidget(self.lbl_expert_title)
 
-        manifest_form = QFormLayout()
-        self.ed_manifest_version = QLineEdit(self.scroll_widget)
-        self.ed_manifest_version.setObjectName("project_manifest_version")
-        manifest_form.addRow(share.locales.tr("Manifest-Version"), self.ed_manifest_version)
-        self.scroll_form_layout.addLayout(manifest_form)
+        self.lbl_expert_desc = QLabel(
+            "Hier können später die Experten-Optionen des ausgewählten Doxygen-Bereichs angezeigt werden."
+        )
+        self.lbl_expert_desc.setWordWrap(True)
+        self.scroll_area_layout.addWidget(self.lbl_expert_desc)
 
-        self.gb_identity = QGroupBox(share.locales.tr("Identity"), self.scroll_widget)
-        identity_form = QFormLayout(self.gb_identity)
-        self.ed_identity_type = QLineEdit(self.gb_identity)
-        self.ed_identity_name = QLineEdit(self.gb_identity)
-        self.ed_identity_language = QLineEdit(self.gb_identity)
-        self.ed_identity_arch = QLineEdit(self.gb_identity)
-        self.ed_identity_version = QLineEdit(self.gb_identity)
-        self.ed_identity_public_key = QLineEdit(self.gb_identity)
-        identity_form.addRow(share.locales.tr("Art"), self.ed_identity_type)
-        identity_form.addRow(share.locales.tr("Name"), self.ed_identity_name)
-        identity_form.addRow(share.locales.tr("Sprache"), self.ed_identity_language)
-        identity_form.addRow(share.locales.tr("Prozessor-Architektur"), self.ed_identity_arch)
-        identity_form.addRow(share.locales.tr("Version"), self.ed_identity_version)
-        identity_form.addRow(share.locales.tr("publicKeyToken"), self.ed_identity_public_key)
-        self.scroll_form_layout.addWidget(self.gb_identity)
+        for idx in range(6):
+            row = QFrame()
+            row.setFrameShape(QFrame.StyledPanel)
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(8, 6, 8, 6)
+            row_lay.addWidget(QLabel(f"Option {idx + 1}"))
+            row_lay.addStretch(1)
+            row_lay.addWidget(QPushButton("Bearbeiten"))
+            self.scroll_area_layout.addWidget(row)
 
-        self.gb_compat = QGroupBox(share.locales.tr("Kompatibilität"), self.scroll_widget)
-        compat_layout = QVBoxLayout(self.gb_compat)
+        self.scroll_area_layout.addStretch(1)
+        self.scroll_area.setWidget(self.scroll_area_widget)
+        self.expert_splitter_h.addWidget(self.scroll_area)
+        self.expert_splitter_h.setSizes([220, 700])
 
-        self.gb_application = QGroupBox(share.locales.tr("Anwendung"), self.gb_compat)
-        application_layout = QVBoxLayout(self.gb_application)
+        self.html_preview = QTextEdit()
+        self.html_preview.setAcceptRichText(True)
+        self.html_preview.setReadOnly(False)
+        self.html_preview.setHtml(
+            "<b>Project</b><br>"
+            "<p>Hier erscheinen einfache HTML-formatierte Texte. "
+            "Zum Beispiel ist <b>foo</b> fett.</p>"
+        )
 
-        self.gb_supported_os = QGroupBox(share.locales.tr("Unterstützte OS"), self.gb_application)
-        os_layout = QVBoxLayout(self.gb_supported_os)
-        self.chk_os_xp = QCheckBox("Windows XP", self.gb_supported_os)
-        self.chk_os_vista = QCheckBox("Windows Vista", self.gb_supported_os)
-        self.chk_os_7 = QCheckBox("Windows 7", self.gb_supported_os)
-        self.chk_os_8 = QCheckBox("Windows 8", self.gb_supported_os)
-        self.chk_os_81 = QCheckBox("Windows 8.1", self.gb_supported_os)
-        self.chk_os_10 = QCheckBox("Windows 10", self.gb_supported_os)
-        self.chk_os_11 = QCheckBox("Windows 11", self.gb_supported_os)
-        for chk in [
-            self.chk_os_xp,
-            self.chk_os_vista,
-            self.chk_os_7,
-            self.chk_os_8,
-            self.chk_os_81,
-            self.chk_os_10,
-            self.chk_os_11,
-        ]:
-            os_layout.addWidget(chk)
-        application_layout.addWidget(self.gb_supported_os)
+        self.expert_splitter_v.addWidget(top_host)
+        self.expert_splitter_v.addWidget(self.html_preview)
+        self.expert_splitter_v.setSizes([420, 180])
 
-        app_form = QFormLayout()
-        self.ed_active_codepage = QLineEdit(self.gb_application)
-        self.cb_supported_arch = QComboBox(self.gb_application)
-        self.cb_supported_arch.addItems([
-            "",
-            "x86",
-            "x64",
-            "arm64",
-            "x86,x64",
-            "x86,x64,arm64",
-        ])
-        app_form.addRow(share.locales.tr("Aktive CodePage"), self.ed_active_codepage)
-        app_form.addRow(share.locales.tr("supported Architectures"), self.cb_supported_arch)
-        application_layout.addLayout(app_form)
+        self.list_categories.setCurrentRow(0)
+        return page
 
-        self.gb_console_policies = QGroupBox("consolePolicies", self.gb_application)
-        console_layout = QVBoxLayout(self.gb_console_policies)
-        self.chk_console_v2 = QCheckBox("V2", self.gb_console_policies)
-        self.chk_console_force_v1 = QCheckBox("ForceV1", self.gb_console_policies)
-        self.chk_console_terminal = QCheckBox("TerminalLevelAware", self.gb_console_policies)
-        self.chk_console_wrap = QCheckBox("WrapTextAtEOL", self.gb_console_policies)
-        for chk in [
-            self.chk_console_v2,
-            self.chk_console_force_v1,
-            self.chk_console_terminal,
-            self.chk_console_wrap,
-        ]:
-            console_layout.addWidget(chk)
-        application_layout.addWidget(self.gb_console_policies)
+    def _build_run_tab(self):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        info = QTextEdit()
+        info.setReadOnly(True)
+        info.setHtml(
+            "<h3>DoxyGen Run</h3>"
+            "<p>Hier kann später die Ausführung von Doxygen, Konsolen-Ausgabe und Log-Informationen erscheinen.</p>"
+        )
+        lay.addWidget(info)
+        return page
 
-        compat_layout.addWidget(self.gb_application)
-        self.scroll_form_layout.addWidget(self.gb_compat)
-        self.scroll_form_layout.addStretch(1)
+    def _on_expert_item_changed(self, text):
+        if not text:
+            return
+        self.lbl_expert_title.setText(f"<b>{text}</b>")
+        self.lbl_expert_desc.setText(
+            f"Dies ist der Platzhalterbereich für die Doxygen-Experteneinstellungen von <b>{text}</b>."
+        )
+        self.html_preview.setHtml(
+            f"<b>{text}</b><br>"
+            f"<p>Hier können HTML-formatierte Hinweise für <b>{text}</b> angezeigt werden.</p>"
+        )
 
-        self.scroll_area.setWidget(self.scroll_widget)
-        scroll_host_layout.addWidget(self.scroll_area, 1)
 
-        self.button_panel = QWidget(right_side)
-        self.button_panel.setObjectName("project_button_panel")
-        button_layout = QVBoxLayout(self.button_panel)
-        button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.setSpacing(6)
+class DoxyGenToolWindow(QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("DoxyGen")
+        self.resize(1100, 720)
+        self.setCentralWidget(DoxyGenToolWidget(self))
 
-        self.btn_load = QPushButton(share.locales.tr("Laden"), self.button_panel)
-        self.btn_save = QPushButton(share.locales.tr("Speichern"), self.button_panel)
-        self.btn_save_as = QPushButton(share.locales.tr("Speichern unter"), self.button_panel)
-        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self.button_panel)
-
-        self.btn_load.setObjectName("project_btn_load")
-        self.btn_save.setObjectName("project_btn_save")
-        self.btn_save_as.setObjectName("project_btn_save_as")
-        self.btn_cancel.setObjectName("project_btn_cancel")
-
-        button_layout.addWidget(self.btn_load)
-        button_layout.addWidget(self.btn_save)
-        button_layout.addWidget(self.btn_save_as)
-        button_layout.addWidget(self.btn_cancel)
-        button_layout.addStretch(1)
-
-        right_side_layout.addWidget(scroll_host, 1)
-        right_side_layout.addWidget(self.button_panel, 0)
-
-        self.split_horizontal.setChildrenCollapsible(False)
-        self.split_horizontal.setStretchFactor(0, 1)
-        self.split_horizontal.setStretchFactor(1, 2)
-
-        self.editor_notes = QPlainTextEdit(self.split_vertical)
-        self.editor_notes.setObjectName("project_editor")
-
-        self.split_vertical.setStretchFactor(0, 3)
-        self.split_vertical.setStretchFactor(1, 2)
-
-        general_layout.addWidget(self.split_vertical, 1)
-        self.tabs.addTab(self.tab_general, share.locales.tr("Allgemein"))
-
-        # ------------------------------------------------------------------
-        # Tab 2: GitHub
-        # ------------------------------------------------------------------
-        self.tab_github = QWidget(self)
-        self.tab_github.setObjectName("project_tab_github")
-        github_layout = QVBoxLayout(self.tab_github)
-
-        self.gb_github_repo = QGroupBox("GitHub", self.tab_github)
-        gh_form = QFormLayout(self.gb_github_repo)
-        self.ed_gh_owner = QLineEdit(self.gb_github_repo)
-        self.ed_gh_repo = QLineEdit(self.gb_github_repo)
-        self.ed_gh_branch = QLineEdit(self.gb_github_repo)
-        self.ed_gh_token = QLineEdit(self.gb_github_repo)
-        self.ed_gh_token.setEchoMode(QLineEdit.Password)
-        gh_form.addRow(share.locales.tr("Owner"), self.ed_gh_owner)
-        gh_form.addRow(share.locales.tr("Repository"), self.ed_gh_repo)
-        gh_form.addRow(share.locales.tr("Branch"), self.ed_gh_branch)
-        gh_form.addRow(share.locales.tr("Token"), self.ed_gh_token)
-        github_layout.addWidget(self.gb_github_repo)
-
-        gh_button_row = QHBoxLayout()
-        self.btn_gh_init = QPushButton(share.locales.tr("Einrichten"), self.tab_github)
-        self.btn_gh_upload = QPushButton(share.locales.tr("Hochladen"), self.tab_github)
-        self.btn_gh_download = QPushButton(share.locales.tr("Herunterladen"), self.tab_github)
-        gh_button_row.addWidget(self.btn_gh_init)
-        gh_button_row.addWidget(self.btn_gh_upload)
-        gh_button_row.addWidget(self.btn_gh_download)
-        gh_button_row.addStretch(1)
-        github_layout.addLayout(gh_button_row)
-
-        self.memo_github = QPlainTextEdit(self.tab_github)
-        self.memo_github.setObjectName("project_github_log")
-        github_layout.addWidget(self.memo_github, 1)
-
-        self.tabs.addTab(self.tab_github, "GitHub")
-        root_layout.addWidget(self.tabs, 1)
-
-        self.btn_cancel.clicked.connect(self.close)
-        self.btn_load.clicked.connect(self._on_load_project)
-        self.btn_save.clicked.connect(self._on_save_project)
-        self.btn_save_as.clicked.connect(self._on_save_project_as)
-
+    @staticmethod
+    def open_in_mdi(main_window):
+        widget = DoxyGenToolWindow(parent=main_window)
+        sub = main_window.mdi.addSubWindow(widget)
+        sub.setWindowTitle("DoxyGen")
+        sub.resize(1100, 720)
+        widget.show()
+        sub.show()
         try:
-            self.split_horizontal.setSizes([240, 480])
+            main_window.mdi.setActiveSubWindow(sub)
         except Exception:
             pass
-        try:
-            self.split_vertical.setSizes([300, 110])
-        except Exception:
-            pass
-        try:
-            self.tree_project.expandAll()
-        except Exception:
-            pass
-
-    def _project_root(self, key: str):
-        return self.project_roots.get(key)
-
-    def _tree_item_payload(self, item):
-        try:
-            data = item.data(0, Qt.UserRole)
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            return {}
-
-    def _clear_project_children(self):
-        for root in self.project_roots.values():
-            while root.childCount():
-                root.removeChild(root.child(0))
-
-    def _collect_tree_data(self):
-        data = {}
-        for key, root in self.project_roots.items():
-            files = []
-            for i in range(root.childCount()):
-                child = root.child(i)
-                payload = self._tree_item_payload(child)
-                files.append({
-                    "text": child.text(0),
-                    "path": payload.get("path", ""),
-                })
-            data[key] = files
-        return data
-
-    def _metadata_to_dict(self):
-        return {
-            "manifest_version": self.ed_manifest_version.text(),
-            "identity": {
-                "type": self.ed_identity_type.text(),
-                "name": self.ed_identity_name.text(),
-                "language": self.ed_identity_language.text(),
-                "processor_architecture": self.ed_identity_arch.text(),
-                "version": self.ed_identity_version.text(),
-                "publicKeyToken": self.ed_identity_public_key.text(),
-            },
-            "application": {
-                "supported_os": {
-                    "xp": self.chk_os_xp.isChecked(),
-                    "vista": self.chk_os_vista.isChecked(),
-                    "win7": self.chk_os_7.isChecked(),
-                    "win8": self.chk_os_8.isChecked(),
-                    "win81": self.chk_os_81.isChecked(),
-                    "win10": self.chk_os_10.isChecked(),
-                    "win11": self.chk_os_11.isChecked(),
-                },
-                "active_codepage": self.ed_active_codepage.text(),
-                "supported_architectures": self.cb_supported_arch.currentText(),
-                "consolePolicies": {
-                    "v2": self.chk_console_v2.isChecked(),
-                    "force_v1": self.chk_console_force_v1.isChecked(),
-                    "terminal_level_aware": self.chk_console_terminal.isChecked(),
-                    "wrap_text_at_eol": self.chk_console_wrap.isChecked(),
-                },
-            },
-            "github": {
-                "owner": self.ed_gh_owner.text(),
-                "repository": self.ed_gh_repo.text(),
-                "branch": self.ed_gh_branch.text(),
-                "token": self.ed_gh_token.text(),
-                "log": self.memo_github.toPlainText(),
-            },
-            "notes": self.editor_notes.toPlainText(),
-            "path_hint": self.ed_path.text(),
-        }
-
-    def _apply_metadata(self, meta: dict):
-        meta = meta or {}
-        identity = meta.get("identity") or {}
-        application = meta.get("application") or {}
-        supported_os = application.get("supported_os") or {}
-        console = application.get("consolePolicies") or {}
-        github = meta.get("github") or {}
-
-        self.ed_manifest_version.setText(meta.get("manifest_version", ""))
-        self.ed_identity_type.setText(identity.get("type", ""))
-        self.ed_identity_name.setText(identity.get("name", ""))
-        self.ed_identity_language.setText(identity.get("language", ""))
-        self.ed_identity_arch.setText(identity.get("processor_architecture", ""))
-        self.ed_identity_version.setText(identity.get("version", ""))
-        self.ed_identity_public_key.setText(identity.get("publicKeyToken", ""))
-
-        self.chk_os_xp.setChecked(bool(supported_os.get("xp")))
-        self.chk_os_vista.setChecked(bool(supported_os.get("vista")))
-        self.chk_os_7.setChecked(bool(supported_os.get("win7")))
-        self.chk_os_8.setChecked(bool(supported_os.get("win8")))
-        self.chk_os_81.setChecked(bool(supported_os.get("win81")))
-        self.chk_os_10.setChecked(bool(supported_os.get("win10")))
-        self.chk_os_11.setChecked(bool(supported_os.get("win11")))
-
-        self.ed_active_codepage.setText(application.get("active_codepage", ""))
-        idx = self.cb_supported_arch.findText(application.get("supported_architectures", ""))
-        self.cb_supported_arch.setCurrentIndex(idx if idx >= 0 else 0)
-
-        self.chk_console_v2.setChecked(bool(console.get("v2")))
-        self.chk_console_force_v1.setChecked(bool(console.get("force_v1")))
-        self.chk_console_terminal.setChecked(bool(console.get("terminal_level_aware")))
-        self.chk_console_wrap.setChecked(bool(console.get("wrap_text_at_eol")))
-
-        self.ed_gh_owner.setText(github.get("owner", ""))
-        self.ed_gh_repo.setText(github.get("repository", ""))
-        self.ed_gh_branch.setText(github.get("branch", ""))
-        self.ed_gh_token.setText(github.get("token", ""))
-        self.memo_github.setPlainText(github.get("log", ""))
-
-        self.editor_notes.setPlainText(meta.get("notes", ""))
-        self.ed_path.setText(meta.get("path_hint", ""))
-
-    def _project_to_dict(self):
-        return {
-            "project_file": self._project_file_path,
-            "tree": self._collect_tree_data(),
-            "meta": self._metadata_to_dict(),
-        }
-
-    def _apply_project_dict(self, data: dict):
-        self._clear_project_children()
-
-        tree = (data or {}).get("tree") or {}
-        for key, items in tree.items():
-            root = self._project_root(key)
-            if root is None:
-                continue
-            for entry in items or []:
-                file_path = entry.get("path", "")
-                text = entry.get("text") or (os.path.basename(file_path) if file_path else "")
-                node = QTreeWidgetItem([text])
-                node.setData(0, Qt.UserRole, {
-                    "kind": "file",
-                    "root_key": key,
-                    "path": file_path,
-                })
-                root.addChild(node)
-            root.setExpanded(True)
-
-        self._apply_metadata((data or {}).get("meta") or {})
-        try:
-            self.tree_project.expandAll()
-        except Exception:
-            pass
-
-    def _save_project_to_file(self, file_path: str):
-        data = self._project_to_dict()
-        with open(file_path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2, ensure_ascii=False)
-        self._project_file_path = file_path
-        self.ed_path.setText(file_path)
-
-    def _load_project_from_file(self, file_path: str):
-        with open(file_path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        self._project_file_path = file_path
-        self.ed_path.setText(file_path)
-        self._apply_project_dict(data)
-
-    def _on_save_project_as(self):
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            share.locales.tr("Projekt speichern unter"),
-            self._project_file_path or "projekt.pro",
-            "Projektdateien (*.pro);;Alle Dateien (*.*)",
-        )
-        if not file_path:
-            return
-        if not file_path.lower().endswith(".pro"):
-            file_path += ".pro"
-        self._save_project_to_file(file_path)
-
-    def _on_save_project(self):
-        if not self._project_file_path:
-            self._on_save_project_as()
-            return
-        self._save_project_to_file(self._project_file_path)
-
-    def _on_load_project(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            share.locales.tr("Projekt laden"),
-            "",
-            "Projektdateien (*.pro);;Alle Dateien (*.*)",
-        )
-        if not file_path:
-            return
-        self._load_project_from_file(file_path)
-
-    def _add_files_to_root(self, root_key: str, title: str, file_filter: str):
-        root_item = self._project_root(root_key)
-        if root_item is None:
-            return
-
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            share.locales.tr(title),
-            "",
-            file_filter,
-        )
-        if not files:
-            return
-
-        existing = set()
-        for i in range(root_item.childCount()):
-            child = root_item.child(i)
-            payload = self._tree_item_payload(child)
-            path = payload.get("path") or ""
-            if path:
-                existing.add(os.path.normcase(os.path.normpath(path)))
-
-        for file_path in files:
-            norm = os.path.normcase(os.path.normpath(file_path))
-            if norm in existing:
-                continue
-            node = QTreeWidgetItem([os.path.basename(file_path)])
-            node.setData(0, Qt.UserRole, {
-                "kind": "file",
-                "root_key": root_key,
-                "path": file_path,
-            })
-            root_item.addChild(node)
-            existing.add(norm)
-
-        root_item.setExpanded(True)
-
-    def _copy_selected_tree_item(self):
-        item = self.tree_project.currentItem()
-        if item is None:
-            return
-        payload = self._tree_item_payload(item)
-        if payload.get("kind") != "file":
-            return
-        self._project_clipboard = {
-            "text": item.text(0),
-            "payload": dict(payload),
-        }
-
-    def _paste_tree_item(self):
-        clip = self._project_clipboard
-        if not isinstance(clip, dict):
-            return
-
-        item = self.tree_project.currentItem()
-        target_root = None
-        if item is not None:
-            payload = self._tree_item_payload(item)
-            if payload.get("kind") == "root":
-                target_root = item
-            elif item.parent() is not None:
-                target_root = item.parent()
-
-        if target_root is None:
-            target_root = self._project_root(clip.get("payload", {}).get("root_key", ""))
-
-        if target_root is None:
-            return
-
-        new_payload = dict(clip.get("payload") or {})
-        node = QTreeWidgetItem([clip.get("text") or ""])
-        node.setData(0, Qt.UserRole, new_payload)
-        target_root.addChild(node)
-        target_root.setExpanded(True)
-
-    def _delete_selected_tree_item(self):
-        item = self.tree_project.currentItem()
-        if item is None:
-            return
-        payload = self._tree_item_payload(item)
-        if payload.get("kind") == "root":
-            return
-        parent = item.parent()
-        if parent is None:
-            return
-        parent.removeChild(item)
-
-    def _on_project_tree_context_menu(self, pos):
-        menu = QMenu(self.tree_project)
-
-        m_add = menu.addMenu(share.locales.tr("Hinzufügen"))
-
-        act_add_program = QAction(share.locales.tr("Programm"), self.tree_project)
-        act_add_program.triggered.connect(
-            lambda: self._add_files_to_root(
-                "programs",
-                "Datei laden",
-                "Programme (*.prg);;Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_program)
-
-        act_add_form = QAction(share.locales.tr("Formular"), self.tree_project)
-        act_add_form.triggered.connect(
-            lambda: self._add_files_to_root(
-                "forms",
-                "Datei laden",
-                "Formulare (*.wfm *.frm);;Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_form)
-
-        act_add_report = QAction(share.locales.tr("Bericht"), self.tree_project)
-        act_add_report.triggered.connect(
-            lambda: self._add_files_to_root(
-                "reports",
-                "Datei laden",
-                "Berichte (*.rep *.rpt *.frx *.rtm);;Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_report)
-
-        act_add_sql = QAction(share.locales.tr("SQL"), self.tree_project)
-        act_add_sql.triggered.connect(
-            lambda: self._add_files_to_root(
-                "queries",
-                "Datei laden",
-                "SQL Dateien (*.sql *.sqlb.json);;Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_sql)
-
-        act_add_graphic = QAction(share.locales.tr("Grafik"), self.tree_project)
-        act_add_graphic.triggered.connect(
-            lambda: self._add_files_to_root(
-                "graphics",
-                "Datei laden",
-                "Grafiken (*.png *.jpg *.jpeg *.bmp *.gif *.svg *.ico *.webp);;Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_graphic)
-
-        act_add_misc = QAction(share.locales.tr("Sonstiges"), self.tree_project)
-        act_add_misc.triggered.connect(
-            lambda: self._add_files_to_root(
-                "misc",
-                "Datei laden",
-                "Alle Dateien (*.*)"
-            )
-        )
-        m_add.addAction(act_add_misc)
-
-        menu.addSeparator()
-
-        current_item = self.tree_project.itemAt(pos)
-        if current_item is not None:
-            self.tree_project.setCurrentItem(current_item)
-        payload = self._tree_item_payload(self.tree_project.currentItem()) if self.tree_project.currentItem() else {}
-
-        act_copy = menu.addAction(share.locales.tr("Kopieren"))
-        act_copy.setEnabled(payload.get("kind") == "file")
-        act_copy.triggered.connect(self._copy_selected_tree_item)
-
-        act_paste = menu.addAction(share.locales.tr("Einfügen"))
-        act_paste.setEnabled(isinstance(self._project_clipboard, dict))
-        act_paste.triggered.connect(self._paste_tree_item)
-
-        act_delete = menu.addAction(share.locales.tr("Löschen"))
-        act_delete.setEnabled(payload.get("kind") == "file")
-        act_delete.triggered.connect(self._delete_selected_tree_item)
-
-        menu.exec_(self.tree_project.viewport().mapToGlobal(pos))
-
-
-
+        return sub
+        
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -11751,7 +11948,40 @@ class MainWindow(QMainWindow):
         pass
     def on_action_file_web_wizard(self):
         pass
-        
+    
+    def ensure_doxygen_tool(self, focus: bool = True):
+        try:
+            existing = getattr(self, '_doxygen_tool_window', None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+        try:
+            widget = DoxyGenToolWindow(self)
+            self._doxygen_tool_window = widget
+            sub = self.mdi.addSubWindow(widget)
+            mark_escape_close(sub)
+            sub.setWindowTitle('DoxyGen')
+            sub.resize(856, 580)
+            widget.show()
+            sub.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            try:
+                widget.destroyed.connect(lambda *_: setattr(self, '_doxygen_tool_window', None))
+            except Exception:
+                pass
+            return widget
+        except Exception as e:
+            QMessageBox.warning(self, 'DoxyGen', f'DoxyGen konnte nicht geöffnet werden:\n{e}')
+            return None
+            
     def ensure_localize_tool(self, focus: bool = True, po_path: str = ""):
         po_path = os.path.normpath((po_path or '').strip()) if po_path else ''
         try:
@@ -11847,6 +12077,7 @@ class MainWindow(QMainWindow):
             "SqlBuilderWindow",
             "ProjectDialog",
             "LocalizeToolWindow",
+            "DoxyGenToolWindow",
         }
 
     def _invoke_save_on_widget(self, widget, save_as: bool = False) -> bool:
