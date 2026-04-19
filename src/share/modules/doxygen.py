@@ -11,20 +11,61 @@ from __future__   import annotations
 from share.common import *
 
 DOXYGEN_EXPERT_ITEMS = [
-    "Project", "Build", "Messages", "Input", "Source Browser", "Index",
-    "HTML", "LaTeX", "RTF", "Man", "XML", "DocBook", "AutoGen",
-    "SQLite3", "PerlMod", "Preprocessor", "External", "Dot"
+    "Project",
+    "Build",
+    "Messages",
+    "Input",
+    "Source Browser",
+    "Index",
+    "HTML",
+    "LaTeX",
+    "RTF",
+    "Man",
+    "XML",
+    "DocBook",
+    "AutoGen",
+    "SQLite3",
+    "PerlMod",
+    "Preprocessor",
+    "External",
+    "Dot"
 ]
 
-HEADER_FORMAT = "dBase2Many Project File"
-HEADER_TOOL = "doxygen-dialog"
-HEADER_KIND = "doxygen-project"
-HEADER_VERSION = 1
+HEADER_FORMAT   = "dBase2Many Project File"
+HEADER_TOOL     = "doxygen-dialog"
+HEADER_KIND     = "doxygen-project"
+HEADER_VERSION  = 1
 
-PROJECT_FIELDS = [
-    {"name": "DOXYFILE_ENCODING",   "type": "lineedit", "help_key": "doxygen.project.DOXYFILE_ENCODING.help"},
-    {"name": "PROJECT_NAME",        "type": "lineedit", "help_key": "doxygen.project.PROJECT_NAME.help"},
-    {"name": "PROJECT_NUMBER",      "type": "lineedit", "help_key": "doxygen.project.PROJECT_NUMBER.help"},
+PROJECT_FIELDS  = [
+    {"name": "DOXYFILE_ENCODING",        "type": "lineedit"      , "help_key": "doxygen.project.DOXYFILE_ENCODING.help"},
+    {"name": "PROJECT_NAME",             "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_NAME.help"},
+    {"name": "PROJECT_NUMBER",           "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_NUMBER.help"},
+    {"name": "PROJECT_BRIEF",            "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_BRIEF.help"},
+    {"name": "PROJECT_LOGO",             "type": "lineedit_btn"  , "help_key": "doxygen.project.PROJECT_LOGO.help"},
+    {"name": "_LOGO_LABEL",              "type": "_label"        , "help_key": ""},
+    {"name": "_SPACER",                  "type": "_spacer"       , "help_key": ""},
+    {"name": "PROJECT_ICON",             "type": "lineedit_btn"  , "help_key": "doxygen.project.PROJECT_ICON.help"},
+    {"name": "_LOGO_LABEL",              "type": "_label"        , "help_key": ""},
+    {"name": "_SPACER",                  "type": "_spacer"       , "help_key": ""},
+    {"name": "OUTPUT_DIRECTORY",         "type": "lineedit_btn"  , "help_key": "doxygen.project.OUTPUT_DIRECTORY.help"},
+    {"name": "CREATE_SUBDIRS",           "type": "checkbox"      , "help_key": "doxygen.project.CREATE_SUBDIRS.help"},
+    {"name": "CREATE_SUBDIRS_LEVEL",     "type": "spinedit"      , "help_key": "doxygen.project.CREATE_SUBDIRS_LEVEL.help"},
+    {"name": "ALLOW_UNICODE_NAMES",      "type": "checkbox"      , "help_key": "doxygen.project.ALLOW_UNICODE_NAMES.help"},
+    {"name": "OUTPUT_LANGUAGE",          "type": "combobox_lang" , "help_key": "doxygen.project.OUTPUT_LANGUAGE.help"},
+    {"name": "BRIEF_MEMBER_DESC",        "type": "checkbox"      , "help_key": "doxygen.project.BRIEF_MEMBER_DESC.help"},
+    {"name": "REPEAT_BRIEF",             "type": "checkbox"      , "help_key": "doxygen.project.REPEAT_BRIEF.help"},
+    {"name": "ABBREVIATVE_BRIEF",        "type": "lineedit_btn3" , "help_key": "doxygen.project.ABBREVIATVE_BRIEF.help"},
+    {"name": "ABBREVIATVE",              "type": "textedit"      , "help_key": "doxygen.project.ABBREVIATVE.help"},
+    {"name": "ALWAYS_DETAILED_SEC",      "type": "checkbox"      , "help_key": "doxygen.project.ALWAYS_DETAILED_SEC.help"},
+    {"name": "INLINE_INHERITED_MEMB",    "type": "checkbox"      , "help_key": "doxygen.project.INLINE_INHERITED_MEMB.help"},
+    {"name": "FULL_PATH_NAMES",          "type": "checkbox"      , "help_key": "doxygen.project.FULL_PATH_NAMES.help"},
+    {"name": "STRIP_FROM_PATH",          "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_PATH.help"},
+    {"name": "STRIP_FROM_PATH_EDIT",     "type": "textedit"      , "help_key": "doxygen.project.STRIP_FROM_PATH.help"},
+    {"name": "STRIP_FROM_INC_PATH",      "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_INC_PATH.help"},
+    {"name": "STRIP_FROM_INC_PATH_EDIT", "type": "textedit"      , "help_key": "doxygen.project.STRIP_FROM_INC_PATH_EDIT.help"},
+    {"name": "SHORT_NAMES",              "type": "checkbox"      , "help_key": "doxygen.project.SHPRT_NAMES.help"},
+    {"name": "JAVADOC_AUTOBRIEF",        "type": "checkbox"      , "help_key": "doxygen.project.JAVADOC_AUTOBRIEF.help"},
+    {"name": "",   "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_INC_PATH.help"},
 ]
 
 
@@ -34,9 +75,68 @@ def _default_project_dir() -> Path:
     return base
 
 
+class LineEditButton(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(2,2,2,2)
+        
+        self.parent = parent
+        
+        self.edit = QLineEdit()
+        self.edit.setContentsMargins(2, 2, 2, 2)
+        self.btn = QPushButton("...")
+        self.btn.clicked.connect(self._open_dialog)
+        
+        lay.addWidget(self.edit)
+        lay.addWidget(self.btn)
+    
+    def _open_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(self,
+            share.locales.tr("Load DoxyGen Project"),
+            "", "Alle (*.*)")
+        if not path:
+            self.edit.setText("")
+            return
+        self.edit.setText(path)
+
+
+class ComboBoxLanguage(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0,0,0,0)
+        
+        self.parent = parent
+        
+        self.combo = QComboBox()
+        self.combo.addItems([
+            "English",
+            "German",
+            "French",
+            "Italian",
+            "Polsky"
+        ])
+        lay.addWidget(self.combo)
+
+
+class LineEditButton3(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0,0,0,0)
+        
+        self.parent = parent
+        
+        
+
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
+        
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 4, 6, 4)
         lay.setSpacing(0)
@@ -76,17 +176,19 @@ class DoxyGenToolWindow(QWidget):
         left_lay.addWidget(self.project_list, 1)
 
         btn_row = QHBoxLayout()
-        self.btn_save = QPushButton("Speichern")
-        self.btn_delete = QPushButton("Löschen")
-        self.btn_load = QPushButton("Laden")
+        self.btn_save   = QPushButton(share.locales.tr("Save"))
+        self.btn_delete = QPushButton(share.locales.tr("Delete"))
+        self.btn_load   = QPushButton(share.locales.tr("Load"))
+        
         btn_row.addWidget(self.btn_save)
         btn_row.addWidget(self.btn_delete)
         btn_row.addWidget(self.btn_load)
+        
         left_lay.addLayout(btn_row)
 
-        self.btn_save.clicked.connect(self._save_project_as)
-        self.btn_delete.clicked.connect(self._delete_selected_project)
-        self.btn_load.clicked.connect(self._load_selected_project)
+        self.btn_save   .clicked.connect(self._save_project_as)
+        self.btn_delete .clicked.connect(self._delete_selected_project)
+        self.btn_load   .clicked.connect(self._load_selected_project)
 
         self.main_splitter.addWidget(self.left_host)
 
@@ -258,13 +360,35 @@ class DoxyGenToolWindow(QWidget):
                 label.setContentsMargins(2, 2, 2, 2)
                 self._bind_help(label, field["help_key"], field["name"])
 
-                edit = QLineEdit()
-                edit.setObjectName("doxyEdit")
-                edit.setContentsMargins(2, 2, 2, 2)
-                self._bind_help(edit, field["help_key"], field["name"])
-                self.project_edits[field["name"]] = edit
-                form.addRow(label, edit)
-
+                if field["type"] == "lineedit":
+                    edit = QLineEdit()
+                    edit.setObjectName("doxyEdit")
+                    edit.setContentsMargins(2, 2, 2, 2)
+                    self._bind_help(edit, field["help_key"], field["name"])
+                    self.project_edits[field["name"]] = edit
+                    form.addRow(label, edit)
+                elif field["type"] == "lineedit_btn":
+                    edit = LineEditButton(self)
+                    edit.setObjectName("doxyEditButton")
+                    self._bind_help(edit, field["help_key"], field["name"])
+                    self.project_edits[field["name"]] = edit
+                    form.addRow(label, edit)
+                elif field["type"] == "checkbox":
+                    check = QCheckBox()
+                    check.setObjectName("doxyCheck")
+                    self._bind_help(check, field["help_key"], field["name"])
+                    form.addRow(label, check)
+                elif field["type"] == "combobox_lang":
+                    combo = ComboBoxLanguage(self)
+                    combo.setObjectName("doxyComboBoxLangauge")
+                    self._bind_help(combo, field["help_key"], field["name"])
+                    form.addRow(label, combo)
+                elif field["type"] == "lineedit_btn3":
+                    edit = LineEditButton3(self)
+                    edit.setObjectName("doxyLineEditButton3")
+                    self._bind_help(combo, field["help_key"], field["name"])
+                    form.addRow(label, edit)
+            
             self.scroll_lay.addWidget(form_host)
             self.scroll_lay.addStretch(1)
         else:
@@ -291,23 +415,23 @@ class DoxyGenToolWindow(QWidget):
         p = Path(path)
         return {
             "header": {
-                "format": HEADER_FORMAT,
-                "tool": HEADER_TOOL,
-                "kind": HEADER_KIND,
-                "version": HEADER_VERSION,
+                "format"        : HEADER_FORMAT,
+                "tool"          : HEADER_TOOL,
+                "kind"          : HEADER_KIND,
+                "version"       : HEADER_VERSION,
             },
             "meta": {
-                "date": now.strftime("%Y-%m-%d"),
-                "time": now.strftime("%H:%M:%S"),
-                "filename": p.name,
-                "filepath": str(p),
+                "date"          : now.strftime("%Y-%m-%d"),
+                "time"          : now.strftime("%H:%M:%S"),
+                "filename"      : p.name,
+                "filepath"      : str(p),
             },
             "state": {
-                "current_tab": self.tabs.currentIndex(),
-                "expert_item": self.list_categories.currentRow(),
-                "wizard_html": self.wizard_text.toHtml(),
-                "expert_html": self.html_preview.toHtml(),
-                "run_html": self.run_text.toHtml(),
+                "current_tab"   : self.tabs.currentIndex(),
+                "expert_item"   : self.list_categories.currentRow(),
+                "wizard_html"   : self.wizard_text.toHtml(),
+                "expert_html"   : self.html_preview.toHtml(),
+                "run_html"      : self.run_text.toHtml(),
                 "project_values": self._collect_project_values(),
             },
         }
@@ -347,6 +471,15 @@ class DoxyGenToolWindow(QWidget):
             path += ".json"
         payload = self._project_payload(path)
         try:
+            reply = QMessageBox.question(
+                self,
+                share.locales.tr("Save Project As ..."),
+                f"{share.locales.tr("Did you realy want to overwrite the file:\n\n")}{Path(path).name}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply != QMessageBox.NO:
+                return
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
             self.current_project_path = path
