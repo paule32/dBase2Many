@@ -2,36 +2,31 @@
 # File:   doxygen.py
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
+#
+# die Datei erwartet die .mo-Datei standardmäßig unter
+# src/data/po/locales/<sprache>/LC_MESSAGES/doxygen.mo
 # ---------------------------------------------------------------------------
 from __future__   import annotations
+
 from share.common import *
-from datetime     import *
+
+DOXYGEN_EXPERT_ITEMS = [
+    "Project", "Build", "Messages", "Input", "Source Browser", "Index",
+    "HTML", "LaTeX", "RTF", "Man", "XML", "DocBook", "AutoGen",
+    "SQLite3", "PerlMod", "Preprocessor", "External", "Dot"
+]
 
 HEADER_FORMAT = "dBase2Many Project File"
 HEADER_TOOL = "doxygen-dialog"
 HEADER_KIND = "doxygen-project"
 HEADER_VERSION = 1
 
-DOXYGEN_EXPERT_ITEMS = [
-    "Project",
-    "Build",
-    "Messages",
-    "Input",
-    "Source Browser",
-    "Index",
-    "HTML",
-    "LaTeX",
-    "RTF",
-    "Man",
-    "XML",
-    "DocBook",
-    "AutoGen",
-    "SQLite3",
-    "PerlMod",
-    "Preprocessor",
-    "External",
-    "Dot"
+PROJECT_FIELDS = [
+    {"name": "DOXYFILE_ENCODING",   "type": "lineedit", "help_key": "doxygen.project.DOXYFILE_ENCODING.help"},
+    {"name": "PROJECT_NAME",        "type": "lineedit", "help_key": "doxygen.project.PROJECT_NAME.help"},
+    {"name": "PROJECT_NUMBER",      "type": "lineedit", "help_key": "doxygen.project.PROJECT_NUMBER.help"},
 ]
+
 
 def _default_project_dir() -> Path:
     base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
@@ -42,7 +37,6 @@ def _default_project_dir() -> Path:
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
-
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 4, 6, 4)
         lay.setSpacing(0)
@@ -55,20 +49,21 @@ class ProjectListItemWidget(QWidget):
         self.lbl_dt.setStyleSheet("QLabel { font: 8pt Arial; color: #c0c0c0; }")
         lay.addWidget(self.lbl_dt)
 
-class DoxyGenToolWidget(QWidget):
+
+class DoxyGenToolWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        
         self.project_dir = _default_project_dir()
         self.current_project_path = ""
-        
+        self.project_edits = {}
+        self.help_translator = self._load_help_translator()
         self._build_ui()
         self._reload_project_list()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(4, 4, 4, 4)
-        
+
         self.main_splitter = QSplitter(Qt.Horizontal)
         root.addWidget(self.main_splitter)
 
@@ -116,6 +111,9 @@ class DoxyGenToolWidget(QWidget):
             "QTabWidget::pane { border:1px solid #333333; }"
             "QTabBar::tab { background:#1b1b1b; color:#ffd84d; padding:6px 10px; }"
             "QTextEdit { background:#1b1b1b; color:white; border:1px solid #333333; font: 10pt Arial; }"
+            "QLineEdit#doxyEdit { border:none; padding:4px; background:#1b1b1b; color:white; }"
+            "QLineEdit#doxyEdit:hover, QLineEdit#doxyEdit:focus { background:#262626; }"
+            "QFrame { border:none; }"
         )
 
     def _build_wizard_tab(self):
@@ -151,28 +149,9 @@ class DoxyGenToolWidget(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QWidget()
-        scroll_lay = QVBoxLayout(self.scroll_widget)
-        scroll_lay.setContentsMargins(8, 8, 8, 8)
-
-        self.lbl_expert_title = QLabel("<b>Project</b>")
-        self.lbl_expert_title.setTextFormat(Qt.RichText)
-        scroll_lay.addWidget(self.lbl_expert_title)
-
-        self.lbl_expert_info = QLabel("Hier können projektspezifische Doxygen-Einstellungen eingeblendet werden.")
-        self.lbl_expert_info.setWordWrap(True)
-        scroll_lay.addWidget(self.lbl_expert_info)
-
-        for idx in range(6):
-            row = QFrame()
-            row.setFrameShape(QFrame.StyledPanel)
-            row_lay = QHBoxLayout(row)
-            row_lay.setContentsMargins(8, 6, 8, 6)
-            row_lay.addWidget(QLabel(f"Option {idx + 1}"))
-            row_lay.addStretch(1)
-            row_lay.addWidget(QPushButton("Bearbeiten"))
-            scroll_lay.addWidget(row)
-
-        scroll_lay.addStretch(1)
+        self.scroll_lay = QVBoxLayout(self.scroll_widget)
+        self.scroll_lay.setContentsMargins(2, 2, 2, 2)
+        self.scroll_lay.setSpacing(2)
         self.scroll_area.setWidget(self.scroll_widget)
         self.expert_splitter_h.addWidget(self.scroll_area)
         self.expert_splitter_h.setSizes([220, 700])
@@ -188,6 +167,7 @@ class DoxyGenToolWidget(QWidget):
         self.expert_splitter_v.setSizes([420, 180])
 
         self.list_categories.setCurrentRow(0)
+        self._populate_option_panel("Project")
         return page
 
     def _build_run_tab(self):
@@ -203,14 +183,111 @@ class DoxyGenToolWidget(QWidget):
     def _on_expert_item_changed(self, text):
         if not text:
             return
-        self.lbl_expert_title.setText(f"<b>{text}</b>")
-        self.lbl_expert_info.setText(f"Dies ist der Platzhalterbereich für <b>{text}</b>.")
-        self.html_preview.setHtml(
-            f"<b>{text}</b><br><p>Hier können HTML-formatierte Hinweise für <b>{text}</b> angezeigt werden.</p>"
-        )
+        self._populate_option_panel(text)
+        self._show_help_for_key(f"doxygen.section.{text}.help", title=text)
+
+    def _locales_dir(self) -> Path:
+        return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
+
+    def _load_help_translator(self):
+        lang = (locale.getdefaultlocale()[0] or "de") if locale.getdefaultlocale() else "de"
+        lang = lang.split("_")[0].lower()
+        try:
+            return gettext.translation("doxygen", localedir=str(self._locales_dir()), languages=[lang], fallback=True)
+        except Exception:
+            return gettext.NullTranslations()
+
+    def _help_html(self, help_key: str, title: str = "") -> str:
+        html = self.help_translator.gettext(help_key)
+        if html == help_key:
+            head = title or help_key
+            return f"<b>{head}</b><br><p>Keine Beschreibung in der .mo-Datei gefunden.</p>"
+        return html
+
+    def _clear_scroll_area(self):
+        while self.scroll_lay.count():
+            item = self.scroll_lay.takeAt(0)
+            widget = item.widget()
+            child_lay = item.layout()
+            if widget is not None:
+                widget.deleteLater()
+            elif child_lay is not None:
+                while child_lay.count():
+                    citem = child_lay.takeAt(0)
+                    cwidget = citem.widget()
+                    if cwidget is not None:
+                        cwidget.deleteLater()
+
+    def _bind_help(self, obj, help_key: str, title: str = ""):
+        obj.setProperty("help_key", help_key)
+        obj.setProperty("help_title", title)
+        obj.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.Enter, QEvent.FocusIn):
+            help_key = obj.property("help_key")
+            help_title = obj.property("help_title") or ""
+            if help_key:
+                self._show_help_for_key(help_key, title=help_title)
+        return QWidget.eventFilter(self, obj, event)
+
+    def _show_help_for_key(self, help_key: str, title: str = ""):
+        self.html_preview.clear()
+        self.html_preview.setHtml(self._help_html(help_key, title=title))
+
+    def _populate_option_panel(self, section_name: str):
+        self._clear_scroll_area()
+        if section_name == "Project":
+            form_host = QWidget()
+            form = QFormLayout(form_host)
+            form.setContentsMargins(2, 2, 2, 2)
+            form.setHorizontalSpacing(6)
+            form.setVerticalSpacing(2)
+            form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            form.setFormAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+            label_font = QFont("Consolas", 10)
+            metrics = QFontMetrics(label_font)
+            max_label_width = max(metrics.horizontalAdvance(field["name"]) for field in PROJECT_FIELDS) + 8
+            self.project_edits = {}
+
+            for field in PROJECT_FIELDS:
+                label = QLabel(field["name"])
+                label.setFont(label_font)
+                label.setFixedWidth(max_label_width)
+                label.setContentsMargins(2, 2, 2, 2)
+                self._bind_help(label, field["help_key"], field["name"])
+
+                edit = QLineEdit()
+                edit.setObjectName("doxyEdit")
+                edit.setContentsMargins(2, 2, 2, 2)
+                self._bind_help(edit, field["help_key"], field["name"])
+                self.project_edits[field["name"]] = edit
+                form.addRow(label, edit)
+
+            self.scroll_lay.addWidget(form_host)
+            self.scroll_lay.addStretch(1)
+        else:
+            label = QLabel(section_name)
+            label.setFont(QFont("Consolas", 10))
+            label.setContentsMargins(2, 2, 2, 2)
+            self._bind_help(label, f"doxygen.section.{section_name}.help", section_name)
+            self.scroll_lay.addWidget(label)
+            self.scroll_lay.addStretch(1)
+
+    def _collect_project_values(self):
+        return {name: edit.text() for name, edit in self.project_edits.items()}
+
+    def _apply_project_values(self, values: dict):
+        if not isinstance(values, dict):
+            return
+        for name, value in values.items():
+            edit = self.project_edits.get(name)
+            if edit is not None:
+                edit.setText(str(value))
 
     def _project_payload(self, path: str) -> dict:
-        now = datetime.now()
+        now = dt.datetime.now()
         p = Path(path)
         return {
             "header": {
@@ -231,6 +308,7 @@ class DoxyGenToolWidget(QWidget):
                 "wizard_html": self.wizard_text.toHtml(),
                 "expert_html": self.html_preview.toHtml(),
                 "run_html": self.run_text.toHtml(),
+                "project_values": self._collect_project_values(),
             },
         }
 
@@ -252,11 +330,11 @@ class DoxyGenToolWidget(QWidget):
         self.project_list.clear()
         files = sorted(self.project_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
         for path in files:
-            dt = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            dt_text = dt.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
             item = QListWidgetItem(self.project_list)
             item.setData(Qt.UserRole, str(path))
             item.setSizeHint(QSize(220, 42))
-            widget = ProjectListItemWidget(path.name, dt)
+            widget = ProjectListItemWidget(path.name, dt_text)
             self.project_list.addItem(item)
             self.project_list.setItemWidget(item, widget)
 
@@ -301,6 +379,7 @@ class DoxyGenToolWidget(QWidget):
             self.wizard_text.setHtml(state.get("wizard_html", ""))
             self.html_preview.setHtml(state.get("expert_html", ""))
             self.run_text.setHtml(state.get("run_html", ""))
+            self._apply_project_values(state.get("project_values", {}))
             self.current_project_path = path
             self._reload_project_list()
         except Exception as e:
@@ -326,25 +405,3 @@ class DoxyGenToolWidget(QWidget):
             self._reload_project_list()
         except Exception as e:
             QMessageBox.critical(self, "Löschen", str(e))
-
-
-class DoxyGenToolWindow(QMainWindow):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("DoxyGen")
-        self.resize(1100, 720)
-        self.setCentralWidget(DoxyGenToolWidget(self))
-
-    @staticmethod
-    def open_in_mdi(main_window):
-        widget = DoxyGenToolWindow(parent=main_window)
-        sub = main_window.mdi.addSubWindow(widget)
-        sub.setWindowTitle("DoxyGen")
-        sub.resize(1100, 720)
-        widget.show()
-        sub.show()
-        try:
-            main_window.mdi.setActiveSubWindow(sub)
-        except Exception:
-            pass
-        return sub

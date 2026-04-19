@@ -40,6 +40,7 @@ try:
     import ctypes
 
     import traceback
+    import locale
     import re
     import sys
     import pprint

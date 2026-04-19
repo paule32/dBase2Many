@@ -265,3 +265,4 @@ src/dbase_run_parser_input_dump.prg
 src/dbase_run.prg
 src/share/editors/1
 src/dbaserunner.ibk
+src/share/modules/1
