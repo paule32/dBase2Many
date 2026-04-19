@@ -29,6 +29,7 @@ IconTab = legacy.IconTab
 FormDesignerWindow = legacy.FormDesignerWindow
 ObjectInspectorDock = legacy.ObjectInspectorDock
 ObjectPaletteDock = legacy.ObjectPaletteDock
+DoxyGenToolWindow = legacy.DoxyGenToolWindow
 SqlBuilderWindow = legacy.SqlBuilderWindow
 SqlCanvas = legacy.SqlCanvas
 SqlConnection = legacy.SqlConnection
@@ -52,6 +53,7 @@ __all__ = [
     "RegieCenter",
     "IconTab",
     "FormDesignerWindow",
+    "DoxyGenToolWindow",
     "ObjectInspectorDock",
     "ObjectPaletteDock",
     "SqlBuilderWindow",
