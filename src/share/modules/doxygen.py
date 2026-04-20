@@ -65,7 +65,23 @@ PROJECT_FIELDS  = [
     {"name": "STRIP_FROM_INC_PATH_EDIT", "type": "textedit"      , "help_key": "doxygen.project.STRIP_FROM_INC_PATH_EDIT.help"},
     {"name": "SHORT_NAMES",              "type": "checkbox"      , "help_key": "doxygen.project.SHPRT_NAMES.help"},
     {"name": "JAVADOC_AUTOBRIEF",        "type": "checkbox"      , "help_key": "doxygen.project.JAVADOC_AUTOBRIEF.help"},
-    {"name": "",   "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_INC_PATH.help"},
+    
+    {"name": "AUTOLINK_IGNORE_WORDS",    "type": "lineedit_btn3" , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    {"name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
+    
+    {"name": "LOOKUP_CACHE_SIZE",        "type": "spinedit"      , "help_key": "doxygen.project.LOOKUP_CACHE_SIZE.help"},
+    {"name": "NUM_PROC_THREADS",         "type": "spinedit"      , "help_key": "doxygen.project.NUM_PROC_THREADS.help"},
+    {"name": "TIMESTAMP",                "type": "combobox"      , "help_key": "doxygen.project.TIMESTAMP.help"},
 ]
 
 
@@ -131,8 +147,43 @@ class LineEditButton3(QWidget):
         
         self.parent = parent
         
+        self.edit = QLineEdit()
+        self.edit.setContentsMargins(2, 2, 2, 2)
         
+        self.btn1 = QPushButton("...")
+        self.btn1.clicked.connect(self._open_dialog)
+        
+        self.btn2 = QPushButton("...")
+        self.btn2.clicked.connect(self._open_dialog)
+        
+        self.btn3 = QPushButton("...")
+        self.btn3.clicked.connect(self._open_dialog)
+        
+        lay.addWidget(self.edit)
+        
+        lay.addWidget(self.btn1)
+        lay.addWidget(self.btn2)
+        lay.addWidget(self.btn3)
+    
+    def _open_dialog(self):
+        pass
 
+
+class DoxySpinEdit(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0,0,0,0)
+        
+        self.parent = parent
+        
+        self.spin = QSpinBox()
+        self.spin.setValue(8)
+        
+        lay.addWidget(self.spin)
+    
+    
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
@@ -386,8 +437,13 @@ class DoxyGenToolWindow(QWidget):
                 elif field["type"] == "lineedit_btn3":
                     edit = LineEditButton3(self)
                     edit.setObjectName("doxyLineEditButton3")
-                    self._bind_help(combo, field["help_key"], field["name"])
+                    self._bind_help(edit, field["help_key"], field["name"])
                     form.addRow(label, edit)
+                elif field["type"] == "spinedit":
+                    spin = DoxySpinEdit(self)
+                    spin.setObjectName("doxySpinEdit")
+                    self._bind_help(spin, field["help_key"], field["name"])
+                    form.addRow(label, spin)
             
             self.scroll_lay.addWidget(form_host)
             self.scroll_lay.addStretch(1)
