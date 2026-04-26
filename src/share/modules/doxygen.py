@@ -891,10 +891,143 @@ class DoxyGenToolWindow(QWidget):
         for item in self.messages_items:
             messages_lay.addWidget(item)
         messages_lay.addStretch()
-        # -------------------------------------------------------------------------
-        # -----------------------------------------------------------
         
-        #self.scroll_area.setWidget(self.scroll_widget)
+        # -------------------------------------------------------------------------
+        self.input_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        input_lay = self.scroll_pages["Input"]["layout"]
+        for item in self.input_items:
+            input_lay.addWidget(item)
+        input_lay.addStretch()
+
+        # -------------------------------------------------------------------------
+        self.browser_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        browser_lay = self.scroll_pages["Source Browser"]["layout"]
+        for item in self.browser_items:
+            browser_lay.addWidget(item)
+        browser_lay.addStretch()
+
+        # -------------------------------------------------------------------------
+        self.index_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        index_lay = self.scroll_pages["Index"]["layout"]
+        for item in self.index_items:
+            index_lay.addWidget(item)
+        index_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.html_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        html_lay = self.scroll_pages["HTML"]["layout"]
+        for item in self.html_items:
+            html_lay.addWidget(item)
+        html_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.latex_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        latex_lay = self.scroll_pages["LaTeX"]["layout"]
+        for item in self.latex_items:
+            latex_lay.addWidget(item)
+        latex_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.rtf_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        rtf_lay = self.scroll_pages["RTF"]["layout"]
+        for item in self.rtf_items:
+            rtf_lay.addWidget(item)
+        rtf_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.man_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        man_lay = self.scroll_pages["Man"]["layout"]
+        for item in self.man_items:
+            man_lay.addWidget(item)
+        man_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.xml_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        xml_lay = self.scroll_pages["XML"]["layout"]
+        for item in self.xml_items:
+            xml_lay.addWidget(item)
+        xml_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.docbook_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        docbook_lay = self.scroll_pages["DocBook"]["layout"]
+        for item in self.docbook_items:
+            docbook_lay.addWidget(item)
+        docbook_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.autogen_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        autogen_lay = self.scroll_pages["AutoGen"]["layout"]
+        for item in self.autogen_items:
+            autogen_lay.addWidget(item)
+        autogen_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.sqlite3_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        sqlite3_lay = self.scroll_pages["SQLite3"]["layout"]
+        for item in self.sqlite3_items:
+            sqlite3_lay.addWidget(item)
+        sqlite3_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.perlmod_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        perlmod_lay = self.scroll_pages["PerlMod"]["layout"]
+        for item in self.perlmod_items:
+            perlmod_lay.addWidget(item)
+        perlmod_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.preproc_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        preproc_lay = self.scroll_pages["Preprocessor"]["layout"]
+        for item in self.preproc_items:
+            preproc_lay.addWidget(item)
+        preproc_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.external_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        external_lay = self.scroll_pages["External"]["layout"]
+        for item in self.external_items:
+            external_lay.addWidget(item)
+        external_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.dot_items = [
+            DoxyCheckBox("BUILDxxx"),
+        ]
+        dot_lay = self.scroll_pages["Dot"]["layout"]
+        for item in self.dot_items:
+            dot_lay.addWidget(item)
+        dot_lay.addStretch()
+        
+        # -----------------------------------------------------------
         self.scroll_area.setWidget(self.expert_pages)
         self.expert_splitter_h.addWidget(self.scroll_area)
         self.expert_splitter_h.setSizes([220, 700])
@@ -913,113 +1046,6 @@ class DoxyGenToolWindow(QWidget):
         self.list_categories.setCurrentRow(0)
         return page
         
-        
-        """# -----------------------------------------------------------
-        self.scroll_widget_input = QWidget()
-        self.scroll_lay_input = QVBoxLayout(self.scroll_widget_input)
-        self.scroll_lay_input.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_input.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_input
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_browser = QWidget()
-        self.scroll_lay_browser = QVBoxLayout(self.scroll_widget_browser)
-        self.scroll_lay_browser.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_browser.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_browser
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_index = QWidget()
-        self.scroll_lay_index = QVBoxLayout(self.scroll_widget_index)
-        self.scroll_lay_index.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_index.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_index
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_html = QWidget()
-        self.scroll_lay_html = QVBoxLayout(self.scroll_widget_html)
-        self.scroll_lay_html.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_html.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_html
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_latex = QWidget()
-        self.scroll_lay_latex = QVBoxLayout(self.scroll_widget_latex)
-        self.scroll_lay_latex.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_latex.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_latex
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_rtf = QWidget()
-        self.scroll_lay_rtf = QVBoxLayout(self.scroll_widget_rtf)
-        self.scroll_lay_rtf.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_rtf.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_rtf
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_man = QWidget()
-        self.scroll_lay_man = QVBoxLayout(self.scroll_widget_man)
-        self.scroll_lay_man.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_man.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_man
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_xml = QWidget()
-        self.scroll_lay_xml = QVBoxLayout(self.scroll_widget_xml)
-        self.scroll_lay_xml.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_xml.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_xml
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_docbook = QWidget()
-        self.scroll_lay_docbook = QVBoxLayout(self.scroll_widget_docbook)
-        self.scroll_lay_docbook.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_docbook.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_docbook
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_autogen = QWidget()
-        self.scroll_lay_autogen = QVBoxLayout(self.scroll_widget_autogen)
-        self.scroll_lay_autogen.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_autogen.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_autogen
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_sqlite3 = QWidget()
-        self.scroll_lay_sqlite3 = QVBoxLayout(self.scroll_widget_sqlite3)
-        self.scroll_lay_sqlite3.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_sqlite3.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_sqlite3
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_perlmod = QWidget()
-        self.scroll_lay_perlmod = QVBoxLayout(self.scroll_widget_perlmod)
-        self.scroll_lay_perlmod.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_perlmod.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_perlmod
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_preproc = QWidget()
-        self.scroll_lay_preproc = QVBoxLayout(self.scroll_widget_preproc)
-        self.scroll_lay_preproc.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_preproc.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_preproc
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_external = QWidget()
-        self.scroll_lay_external = QVBoxLayout(self.scroll_widget_external)
-        self.scroll_lay_external.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_external.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_external
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_dot = QWidget()
-        self.scroll_lay_dot = QVBoxLayout(self.scroll_widget_dot)
-        self.scroll_lay_dot.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_dot.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_dot
-        pos += 1
-        """
     def _on_expert_item_changed(self, text):
         if not text:
             return
