@@ -105,7 +105,8 @@ try:
         QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
         QScrollArea, QAbstractButton, QButtonGroup, QFormLayout,
-        QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox
+        QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox,
+        QStackedWidget,
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,

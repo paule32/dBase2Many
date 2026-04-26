@@ -156,67 +156,22 @@ BUILD_FIELDS  = [
     {"obj": None, "name": "",                         "type": "textedit"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
 ]
 
-MESSAGES_FIELDS = [
-    {"obj": None, "name": "QUIET",                    "type": "checkbox"      , "help_key": "doxygen.project.QUIET.help"},
-    {"obj": None, "name": "WARNINGS",                 "type": "checkbox"      , "help_key": "doxygen.project.WARNINGS.help"},
-    {"obj": None, "name": "WARN_IF_UNDOCUMENTED",     "type": "checkbox"      , "help_key": "doxygen.project.WARN_IF_UNDOCUMENTED.help"},
-    {"obj": None, "name": "WARN_IF_DOC_ERROR",        "type": "checkbox"      , "help_key": "doxygen.project.WARN_IF_DOC_ERROR.help"},
-    {"obj": None, "name": "WARN_IF_INCOMPLETE_DOC",   "type": "checkbox"      , "help_key": "doxygen.project.WARN_IF_INCOMPLETE_DOC.help"},
-    {"obj": None, "name": "WARN_NO_PARAMDOC",         "type": "checkbox"      , "help_key": "doxygen.project.WARN_NO_PARAMDOC.help"},
-    {"obj": None, "name": "WARN_IF_UNDOC_ENUM_VAL",   "type": "checkbox"      , "help_key": "doxygen.project.WARN_IF_UNDOC_ENUM_VAL.help"},
-    {"obj": None, "name": "WARN_LAYOUT_FILE",         "type": "checkbox"      , "help_key": "doxygen.project.WARN_LAYOUT_FILE.help"},
-    {"obj": None, "name": "WARN_AS_ERROR",            "type": "combobox_warn" , "help_key": "doxygen.project.WARN_AS_ERROR.help"},
-    {"obj": None, "name": "WARN_FORMAT",              "type": "lineedit"      , "help_key": "doxygen.project.WARN_FORMAT.help"},
-    {"obj": None, "name": "WARN_LINE_FORMAT",         "type": "lineedit"      , "help_key": "doxygen.project.WARN_LINE_FORMAT.help"},
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-
-INPUT_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-SOURCE_BROWSER_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-INDEX_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-HTML_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-LATEX_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-RTF_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-MAN_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-XML_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-DOCBOOK_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-AUTOGEN_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-SQLITE3_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-PERLMOD_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-PREPROCESSOR_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-EXTERNAL_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-DOC_FIELDS = [
-    {"obj": None, "name": "WARN_LOGFILE",             "type": "lineedit_btn"  , "help_key": "doxygen.project.WARN_LOGFILE.help"},
-]
-
+MESSAGES_FIELDS = []
+INPUT_FIELDS = []
+SOURCE_BROWSER_FIELDS = []
+INDEX_FIELDS = []
+HTML_FIELDS = []
+LATEX_FIELDS = []
+RTF_FIELDS = []
+MAN_FIELDS = []
+XML_FIELDS = []
+DOCBOOK_FIELDS = []
+AUTOGEN_FIELDS = []
+SQLITE3_FIELDS = []
+PERLMOD_FIELDS = []
+PREPROCESSOR_FIELDS = []
+EXTERNAL_FIELDS = []
+DOC_FIELDS = []
 
 def _default_project_dir() -> Path:
     base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
@@ -754,6 +709,19 @@ class DoxyGenToolWindow(QWidget):
         self.wizard_text = txt
         return page
 
+    def _create_scroll_page(self):
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_widget = QWidget()
+        scroll_lay = QVBoxLayout(scroll_widget)
+        scroll_lay.setContentsMargins(2, 2, 2, 2)
+        scroll_lay.setSpacing(2)
+
+        scroll_area.setWidget(scroll_widget)
+
+        return scroll_area, scroll_widget, scroll_lay
+    
     def _build_expert_tab(self):
         page     = QWidget()
         page_lay = QVBoxLayout(page)
@@ -777,23 +745,29 @@ class DoxyGenToolWindow(QWidget):
         self.list_categories.currentTextChanged.connect(self._on_expert_item_changed)
         self.expert_splitter_h.addWidget(self.list_categories)
         
-        str_text = "_text"
-        str_help = "_help"
-        str_type = "_type"
-        
         # -----------------------------------------------------------
+        self.expert_pages = QStackedWidget()
+        self.expert_splitter_h.addWidget(self.expert_pages)
+        
+        self.scroll_pages = {}
+
+        for name, _ in DOXYGEN_EXPERT_ITEMS:
+            scroll_area, scroll_widget, scroll_lay = self._create_scroll_page()
+            self.scroll_pages[str(name)] = {
+                "area"  : scroll_area,
+                "widget": scroll_widget,
+                "layout": scroll_lay,
+            }
+            self.expert_pages.addWidget(scroll_area)
+        
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_widget_project = QWidget()
         
-        self.scroll_lay_project = QVBoxLayout(self.scroll_widget_project)
-        self.scroll_lay_project.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_project.setSpacing(2)
+        self.scroll_lay = QVBoxLayout(self.expert_pages)
+        self.scroll_lay.setContentsMargins(2, 2, 2, 2)
+        self.scroll_lay.setSpacing(2)
         
         # -------------------------------------------------------------------------
-        pos = 0
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_project
-        pos += 1
         self.project_items = [
             DoxyLineEdit("DOXYFILE_ENCODING", "UTF-8"),
             
@@ -880,26 +854,67 @@ class DoxyGenToolWindow(QWidget):
             DoxySpinEdit("NUM_PROC_THREADS"),
             DoxyComboBox("TIMESTAMP", ["YES", "NO", "DATETIME", "DATE"]),
         ]
+        project_lay = self.scroll_pages["Project"]["layout"]
         for item in self.project_items:
-            self.scroll_lay_project.addWidget(item)
+            project_lay.addWidget(item)
+        project_lay.addStretch()
+        
         # -------------------------------------------------------------------------
+        self.build_items = [
+            DoxyCheckBox("BUILD"),
+        ]
+        build_lay = self.scroll_pages["Build"]["layout"]
+        for item in self.build_items:
+            build_lay.addWidget(item)
+        build_lay.addStretch()
+        
+        # -------------------------------------------------------------------------
+        self.messages_items = [
+            DoxyCheckBox("QUIET"),
+            DoxyCheckBox("WARNINGS"),
+            DoxyCheckBox("WARN_IF_UNDOCUMENTED"),
+            DoxyCheckBox("WARN_IF_DOC_ERROR"),
+            DoxyCheckBox("WARN_IF_INCOMPLETE_DOC"),
+            DoxyCheckBox("WARN_NO_PARAMDOC"),
+            DoxyCheckBox("WARN_IF_UNDOC_ENUM_VAL"),
+            DoxyCheckBox("WARN_LAYOUT_FILE"),
+            DoxyComboBox("WARN_AS_ERROR", [
+                "NO",
+                "YES",
+                "FAIL_ON_WARNINGS",
+                "FAIL_ON_WARNINGS_PRINT"]),
+            DoxyLineEdit("WARN_FORMAT"),
+            DoxyLineEdit("WARN_LINE_FORMAT"),
+            DoxyLineBtn1("WARN_LOGFILE"),
+        ]
+        messages_lay = self.scroll_pages["Messages"]["layout"]
+        for item in self.messages_items:
+            messages_lay.addWidget(item)
+        messages_lay.addStretch()
+        # -------------------------------------------------------------------------
+        # -----------------------------------------------------------
+        
+        #self.scroll_area.setWidget(self.scroll_widget)
+        self.scroll_area.setWidget(self.expert_pages)
+        self.expert_splitter_h.addWidget(self.scroll_area)
+        self.expert_splitter_h.setSizes([220, 700])
+
+        self.html_preview = QTextEdit()
+        self.html_preview.setAcceptRichText(True)
+        self.html_preview.setHtml(
+            "<b>Project</b><br><p>Hier erscheinen einfache HTML-formatierte Texte. "
+            "Zum Beispiel ist <b>foo</b> fett.</p>"
+        )
+        self.expert_splitter_v.addWidget(top_host)
+        self.expert_splitter_v.addWidget(self.html_preview)
+        self.expert_splitter_v.setSizes([420, 180])
+
+        self.list_categories.setCurrentRow(1)
+        self.list_categories.setCurrentRow(0)
+        return page
         
         
-        # -----------------------------------------------------------
-        self.scroll_widget_build = QWidget()
-        self.scroll_lay_build = QVBoxLayout(self.scroll_widget_build)
-        self.scroll_lay_build.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_build.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_build
-        pos += 1
-        # -----------------------------------------------------------
-        self.scroll_widget_messages = QWidget()
-        self.scroll_lay_messages = QVBoxLayout(self.scroll_widget_messages)
-        self.scroll_lay_messages.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_messages.setSpacing(2)
-        DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_messages
-        pos += 1
-        # -----------------------------------------------------------
+        """# -----------------------------------------------------------
         self.scroll_widget_input = QWidget()
         self.scroll_lay_input = QVBoxLayout(self.scroll_widget_input)
         self.scroll_lay_input.setContentsMargins(2, 2, 2, 2)
@@ -1004,26 +1019,14 @@ class DoxyGenToolWindow(QWidget):
         self.scroll_lay_dot.setSpacing(2)
         DOXYGEN_EXPERT_ITEMS[pos][1] = self.scroll_widget_dot
         pos += 1
-        # -----------------------------------------------------------
-        
-        self.scroll_area.setWidget(self.scroll_widget_project)
-        self.expert_splitter_h.addWidget(self.scroll_area)
-        self.expert_splitter_h.setSizes([220, 700])
-
-        self.html_preview = QTextEdit()
-        self.html_preview.setAcceptRichText(True)
-        self.html_preview.setHtml(
-            "<b>Project</b><br><p>Hier erscheinen einfache HTML-formatierte Texte. "
-            "Zum Beispiel ist <b>foo</b> fett.</p>"
-        )
-        self.expert_splitter_v.addWidget(top_host)
-        self.expert_splitter_v.addWidget(self.html_preview)
-        self.expert_splitter_v.setSizes([420, 180])
-
-        self.list_categories.setCurrentRow(1)
-        self.list_categories.setCurrentRow(0)
-        return page
-
+        """
+    def _on_expert_item_changed(self, text):
+        if not text:
+            return
+        page = self.scroll_pages.get(text)
+        if page:
+            self.expert_pages.setCurrentWidget(page["area"])
+    
     def _build_run_tab(self):
         page = QWidget()
         lay = QVBoxLayout(page)
@@ -1033,20 +1036,7 @@ class DoxyGenToolWindow(QWidget):
         lay.addWidget(txt)
         self.run_text = txt
         return page
-
-    def _on_expert_item_changed(self, text):
-        if not text:
-            return
-            
-        for item in DOXYGEN_EXPERT_ITEMS:
-            item[1].hide()
-            
-        for item in DOXYGEN_EXPERT_ITEMS:
-            if item[0] == text:
-                item[1].show()
-                print(text)
-                break
-    
+                
     def _locales_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
 
