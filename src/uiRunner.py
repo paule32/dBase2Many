@@ -11040,7 +11040,15 @@ class MainWindow(QMainWindow):
                 pass
             return widget
         except Exception as e:
-            QMessageBox.warning(self, 'DoxyGen', f'DoxyGen konnte nicht geöffnet werden:\n{e}')
+            info = share.excepts.exception_info(e)
+            emsg = (
+                  f"Doxygen konnte nicht geöffnet werden:\n"
+                + f"file: {info['file']}: line: {info['line']}:\n"
+                + f"{info['function']}\n"
+                + f"code: {info['code']}\n"
+                + f"error: {info['error']}"
+            )
+            QMessageBox.warning(self, 'DoxyGen', emsg)
             return None
             
     def ensure_localize_tool(self, focus: bool = True, po_path: str = ""):

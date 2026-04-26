@@ -38,85 +38,6 @@ HEADER_VERSION  = 1
 
 PROJECT_FIELDS  = [
     {"obj": None, "name": "DOXYFILE_ENCODING",        "type": "lineedit"      , "help_key": "doxygen.project.DOXYFILE_ENCODING.help"},
-    {"obj": None, "name": "PROJECT_NAME",             "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_NAME.help"},
-    {"obj": None, "name": "PROJECT_NUMBER",           "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_NUMBER.help"},
-    {"obj": None, "name": "PROJECT_BRIEF",            "type": "lineedit"      , "help_key": "doxygen.project.PROJECT_BRIEF.help"},
-    {"obj": None, "name": "PROJECT_LOGO",             "type": "lineedit_btn"  , "help_key": "doxygen.project.PROJECT_LOGO.help"},
-    {"obj": None, "name": "_LOGO_LABEL",              "type": "_label"        , "help_key": ""},
-    {"obj": None, "name": "_SPACER",                  "type": "_spacer"       , "help_key": ""},
-    {"obj": None, "name": "PROJECT_ICON",             "type": "lineedit_btn"  , "help_key": "doxygen.project.PROJECT_ICON.help"},
-    {"obj": None, "name": "_LOGO_LABEL",              "type": "_label"        , "help_key": ""},
-    {"obj": None, "name": "_SPACER",                  "type": "_spacer"       , "help_key": ""},
-    
-    {"obj": None, "name": "OUTPUT_DIRECTORY",         "type": "lineedit_btn"  , "help_key": "doxygen.project.OUTPUT_DIRECTORY.help"},
-    {"obj": None, "name": "CREATE_SUBDIRS",           "type": "checkbox"      , "help_key": "doxygen.project.CREATE_SUBDIRS.help"},
-    {"obj": None, "name": "CREATE_SUBDIRS_LEVEL",     "type": "spinedit"      , "help_key": "doxygen.project.CREATE_SUBDIRS_LEVEL.help"},
-    
-    {"obj": None, "name": "ALLOW_UNICODE_NAMES",      "type": "checkbox"      , "help_key": "doxygen.project.ALLOW_UNICODE_NAMES.help"},
-    {"obj": None, "name": "OUTPUT_LANGUAGE",          "type": "combobox_lang" , "help_key": "doxygen.project.OUTPUT_LANGUAGE.help"},
-    
-    {"obj": None, "name": "BRIEF_MEMBER_DESC",        "type": "checkbox"      , "help_key": "doxygen.project.BRIEF_MEMBER_DESC.help"},
-    {"obj": None, "name": "REPEAT_BRIEF",             "type": "checkbox"      , "help_key": "doxygen.project.REPEAT_BRIEF.help"},
-    {"obj": None, "name": "ABBREVIATVE_BRIEF",        "type": "lineedit_btn3" , "help_key": "doxygen.project.ABBREVIATVE_BRIEF.help"},
-    {"obj": None, "name": "ABBREVIATVE_BRIEF",        "type": "textedit"      , "help_key": "doxygen.project.ABBREVIATVE.help"},
-    
-    {"obj": None, "name": "ALWAYS_DETAILED_SEC",      "type": "checkbox"      , "help_key": "doxygen.project.ALWAYS_DETAILED_SEC.help"},
-    {"obj": None, "name": "INLINE_INHERITED_MEMB",    "type": "checkbox"      , "help_key": "doxygen.project.INLINE_INHERITED_MEMB.help"},
-    {"obj": None, "name": "FULL_PATH_NAMES",          "type": "checkbox"      , "help_key": "doxygen.project.FULL_PATH_NAMES.help"},
-    
-    {"obj": None, "name": "STRIP_FROM_PATH",          "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_PATH.help"},
-    {"obj": None, "name": "STRIP_FROM_PATH",          "type": "textedit"      , "help_key": "doxygen.project.STRIP_FROM_PATH.help"},
-    {"obj": None, "name": "STRIP_FROM_INC_PATH",      "type": "lineedit_btn4" , "help_key": "doxygen.project.STRIP_FROM_INC_PATH.help"},
-    {"obj": None, "name": "STRIP_FROM_INC_PATH",      "type": "textedit"      , "help_key": "doxygen.project.STRIP_FROM_INC_PATH.help"},
-    {"obj": None, "name": "SHORT_NAMES",              "type": "checkbox"      , "help_key": "doxygen.project.SHPRT_NAMES.help"},
-    
-    {"obj": None, "name": "JAVADOC_AUTOBRIEF",        "type": "checkbox"      , "help_key": "doxygen.project.JAVADOC_AUTOBRIEF.help"},
-    {"obj": None, "name": "JAVADOC_BANNER",           "type": "checkbox"      , "help_key": "doxygen.project.JAVADOC_BANNER.help"},
-    {"obj": None, "name": "QT_AUTOBRIEF",             "type": "checkbox"      , "help_key": "doxygen.project.QT_AUTOBRIEF.help"},
-    
-    {"obj": None, "name": "PYTHON_DOCSTRING",         "type": "checkbox"      , "help_key": "doxygen.project.PYTHON_DOCSTRING.help"},
-    {"obj": None, "name": "INHERIT_DOCS",             "type": "checkbox"      , "help_key": "doxygen.project.INHERIT_DOCS.help"},
-    {"obj": None, "name": "SEPARATE_MEMBER_PAGES",    "type": "checkbox"      , "help_key": "doxygen.project.SEPARATE_MEMBER_PAGES.help"},
-    
-    {"obj": None, "name": "TAB_SIZE",                 "type": "spinedit"      , "help_key": "doxygen.project.TAB_SIZE.help"},
-    
-    {"obj": None, "name": "ALIASES",                  "type": "lineedit_btn3" , "help_key": "doxygen.project.ALIASES.help"},
-    {"obj": None, "name": "ALIASES",                  "type": "textedit"      , "help_key": "doxygen.project.ALIASES.help"},
-    
-    {"obj": None, "name": "OPTIMIZE_OUTPUT_FOR_C",    "type": "checkbox"      , "help_key": "doxygen.project.OPTIMIZE_OUTPUT_FOR_C.help"},
-    {"obj": None, "name": "OPTIMIZE_OUTPUT_JAVA",     "type": "checkbox"      , "help_key": "doxygen.project.OPTIMIZE_OUTPUT_JAVA.help"},
-    {"obj": None, "name": "OPTIMIZE_FOR_FORTRAN",     "type": "checkbox"      , "help_key": "doxygen.project.OPTIMIZE_FOR_FORTRAN.help"},
-    {"obj": None, "name": "OPTIMIZE_OUTPUT_VHDL",     "type": "checkbox"      , "help_key": "doxygen.project.OPTIMIZE_OUTPUT_VHDL.help"},
-    {"obj": None, "name": "OPTIMIZE_OUTPUT_SLICE",    "type": "checkbox"      , "help_key": "doxygen.project.OPTIMIZE_OUTPUT_SLICE.help"},
-    
-    {"obj": None, "name": "EXTERNAL_MAPPING",         "type": "lineedit_btn3" , "help_key": "doxygen.project.EXTERNAL_MAPPING.help"},
-    {"obj": None, "name": "EXTERNAL_MAPPING",         "type": "textedit"      , "help_key": "doxygen.project.EXTERNAL_MAPPING.help"},
-    
-    {"obj": None, "name": "MARKDOWN_SUPPORT",         "type": "checkbox"      , "help_key": "doxygen.project.MARKDOWN_SUPPORT.help"},
-    {"obj": None, "name": "MARKDOWN_STRICT",          "type": "checkbox"      , "help_key": "doxygen.project.MARKDOWN_STRICT.help"},
-    
-    {"obj": None, "name": "TOC_INCLUDE_HEADINGS",     "type": "spinedit"      , "help_key": "doxygen.project.TOC_INCLUDE_HEADINGS.help"},
-    {"obj": None, "name": "MARKDOWN_ID_STYLE",        "type": "combobox_md"   , "help_key": "doxygen.project.MARKDOWN_ID_STYLE.help"},
-    {"obj": None, "name": "AUTOLINK_SUPPORT",         "type": "checkbox"      , "help_key": "doxygen.project.AUTOLINK_SUPPORT.help"},
-    {"obj": None, "name": "AUTOLINK_IGNORE_WORDS",    "type": "lineedit_btn3" , "help_key": "doxygen.project.AUTOLINK_IGNORE_WORDS.help"},
-    {"obj": None, "name": "AUTOLINK_IGNORE_WORDS",    "type": "textedit"      , "help_key": "doxygen.project.AUTOLINK_IGNORE_WORDS.help"},
-    
-    {"obj": None, "name": "BUILTiN_STL_SUPPORT",      "type": "checkbox"      , "help_key": "doxygen.project.BUILTiN_STL_SUPPORT.help"},
-    {"obj": None, "name": "CPP_CLI_SUPPORT",          "type": "checkbox"      , "help_key": "doxygen.project.CPP_CLI_SUPPORT.help"},
-    {"obj": None, "name": "SIP_SUPPORT",              "type": "checkbox"      , "help_key": "doxygen.project.SIP_SUPPORT.help"},
-    {"obj": None, "name": "IDL_PROPERTY_SUPPORT",     "type": "checkbox"      , "help_key": "doxygen.project.IDL_PROPERTY_SUPPORT.help"},
-    
-    {"obj": None, "name": "DISTRIBUTE_GROUP_DOC",     "type": "checkbox"      , "help_key": "doxygen.project.DISTRIBUTE_GROUP_DOC.help"},
-    {"obj": None, "name": "GROUP_NESTED_COMPOUNDS",   "type": "checkbox"      , "help_key": "doxygen.project.GROUP_NESTED_COMPOUNDS.help"},
-    {"obj": None, "name": "SUBGROUPING",              "type": "checkbox"      , "help_key": "doxygen.project.SUBGROUPING.help"},
-    {"obj": None, "name": "INLINE_GROUPED_CLASSES",   "type": "checkbox"      , "help_key": "doxygen.project.INLINE_GROUPED_CLASSES.help"},
-    {"obj": None, "name": "INLINE_SIMPLE_STRUCTS",    "type": "checkbox"      , "help_key": "doxygen.project.INLINE_SIMPLE_STRUCTS.help"},
-    {"obj": None, "name": "TYPEDEF_HIDE_STRUCT",      "type": "checkbox"      , "help_key": "doxygen.project.TYPEDEF_HIDE_STRUCT.help"},
-    
-    {"obj": None, "name": "LOOKUP_CACHE_SIZE",        "type": "spinedit"      , "help_key": "doxygen.project.LOOKUP_CACHE_SIZE.help"},
-    {"obj": None, "name": "NUM_PROC_THREADS",         "type": "spinedit"      , "help_key": "doxygen.project.NUM_PROC_THREADS.help"},
-    {"obj": None, "name": "TIMESTAMP",                "type": "combobox_time" , "help_key": "doxygen.project.TIMESTAMP.help"},
-    
     {"obj": None, "name": "",                         "type": "panelspacer"   , "help_key": ""},
 ]
 
@@ -299,66 +220,6 @@ class ComboBoxMarkDown(QWidget):
         lay.addWidget(self.combo)
 
 
-class ComboBoxLanguage(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            share.locales.tr("Afrikans"),
-            share.locales.tr("Arabic"),
-            share.locales.tr("Armeniam"),
-            share.locales.tr("Brazilian"),
-            share.locales.tr("Bulgarian"),
-            share.locales.tr("Catalan"),
-            share.locales.tr("Chinese"),
-            share.locales.tr("Chinese Traditional"),
-            share.locales.tr("Croatian"),
-            share.locales.tr("Czech"),
-            share.locales.tr("Danish"),
-            share.locales.tr("Dutch"),
-            share.locales.tr("English"),
-            share.locales.tr("Esperanto"),
-            share.locales.tr("Farsil"),
-            share.locales.tr("Finnish"),
-            share.locales.tr("French"),
-            share.locales.tr("German"),
-            share.locales.tr("Greek"),
-            share.locales.tr("Hindi"),
-            share.locales.tr("Hungarian"),
-            share.locales.tr("Indonesian"),
-            share.locales.tr("Italian"),
-            share.locales.tr("Japanese"),
-            share.locales.tr("Japanese-en"),
-            share.locales.tr("Korean"),
-            share.locales.tr("Korean-en"),
-            share.locales.tr("Latvian"),
-            share.locales.tr("Lithuanian"),
-            share.locales.tr("Macedonian"),
-            share.locales.tr("Norwegian"),
-            share.locales.tr("Persian"),
-            share.locales.tr("Polish"),
-            share.locales.tr("Portuguese"),
-            share.locales.tr("Romanian"),
-            share.locales.tr("Russian"),
-            share.locales.tr("Serbian"),
-            share.locales.tr("Serbian-Cyrillic"),
-            share.locales.tr("Slovak"),
-            share.locales.tr("Slovene"),
-            share.locales.tr("Spanish"),
-            share.locales.tr("Swedish"),
-            share.locales.tr("Turkish"),
-            share.locales.tr("Ukrainian"),
-            share.locales.tr("Vietnamese"),
-        ])
-        lay.addWidget(self.combo)
-
-
 class ComboBoxTimeStamp(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -434,29 +295,6 @@ class ComboBoxSense(QWidget):
         lay.addWidget(self.combo)
 
 
-class DoxyCheckBox(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.check = QCheckBox("NO")
-        self.check.setStyleSheet("color: red;")
-        self.check.toggled.connect(self._on_changed)
-        
-        lay.addWidget(self.check)
-    
-    def _on_changed(self, checked):
-        if checked:
-            self.check.setText("YES")
-            self.check.setStyleSheet("color: yellow;")
-        else:
-            self.check.setText("NO")
-            self.check.setStyleSheet("color: red;")
-
 class LineEditButton3(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -523,21 +361,6 @@ class LineEditButton4(QWidget):
         pass
 
 
-class DoxySpinEdit(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.spin = QSpinBox()
-        self.spin.setValue(8)
-        
-        lay.addWidget(self.spin)
-
-
 class DoxyTextEdit(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -568,23 +391,248 @@ class ProjectListItemWidget(QWidget):
         lay.addWidget(self.lbl_dt)
 
 
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QHBoxLayout to reduce code space.
+# \param parent - QWidget as the parent, default: None.
+# ---------------------------------------------------------------------------
+class DoxyHBoxLayout(QHBoxLayout):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setContentsMargins(0, 0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QPushButton to reduce code space.
+# ---------------------------------------------------------------------------
+class DoxyButton(QPushButton):
+    def __init__(self, help_str:str=""):
+        super().__init__(None)
+        self.setProperty("help", help_str)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QLabel to reduce code space.
+# \param help_str - string for the label and help id, default: "".
+# ---------------------------------------------------------------------------
+class DoxyLabel(QLabel):
+    def __init__(self, help_str:str=""):
+        super().__init__(None)
+        self.setText(help_str)
+        self.setFont(QFont("Consolas", 10))
+        self.setMinimumWidth(156)
+        self.setStyleSheet("color: white;")
+        self.setProperty("help", help_str)
+
+
+# ---------------------------------------------------------------------------
+# \brief construct a QCheckBox as a helper class to reduce code space.
+# ---------------------------------------------------------------------------
+class DoxyCheckBox(QWidget):
+    def __init__(self, help_str:str=""):
+        super().__init__(None)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.label  = DoxyLabel(help_str)
+        self.check  = QCheckBox("NO")
+
+        self.check.setStyleSheet("color: red;")
+        self.check.toggled.connect(self.on_changed)
+        
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.check)
+        self.layout.addStretch(1)
+    
+    def on_changed(self, checked):
+        if checked:
+            self.check.setText("YES")
+            self.check.setStyleSheet("color: yellow;")
+        else:
+            self.check.setText("NO")
+            self.check.setStyleSheet("color: red;")
+
+
+# ---------------------------------------------------------------------------
+# \brief construct a QSpinBox as a helper class to reduce code space.
+# ---------------------------------------------------------------------------
+class DoxySpinEdit(QWidget):
+    def __init__(self ,
+        help_str:str =  "",
+        v_min : int  =   0,
+        v_max : int  = 100,
+        v_def : int  =   0):
+            
+        super().__init__(None)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.label  = DoxyLabel(help_str)
+        self.spin   = QSpinBox()
+        
+        self.spin.setMinimum(v_min)
+        self.spin.setMaximum(v_max)
+        self.spin.setValue  (v_def)
+        
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.spin)
+        self.layout.addStretch(1)
+
+
+# ---------------------------------------------------------------------------
+# \brief construct a QLineEdit with a label
+# \param parent   - QWidget as the parent
+# \param help_str - string for the label and help id, default: "".
+# \param text_str - string for the input content, default: "".
+# ---------------------------------------------------------------------------
+class DoxyLineEdit(QWidget):
+    def __init__(self, help_str:str="", text_str: str=""):
+        super().__init__(None)
+        
+        self.setProperty("help", help_str)
+        self.setProperty("text", text_str)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.label  = DoxyLabel(help_str)
+        self.input  = QLineEdit()
+        
+        self.input.setProperty("help", help_str)
+        self.input.setFont(QFont("Consolas", 10))
+        self.input.setText(text_str)
+        
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.input)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QLineEdit with a Button to reduce code.
+# ---------------------------------------------------------------------------
+class DoxyLineBtn1(QWidget):
+    def __init__(self, help_str:str="", text_str:str=""):
+        super().__init__(None)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.input  = DoxyLineEdit(help_str, text_str)
+        self.buttn  = DoxyButton  (help_str)
+        
+        self.layout.addWidget(self.input)
+        self.layout.addWidget(self.buttn)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QLabel with a image to reduce code space.
+# \param help_str - string for the label and help id, default: "".
+# \param text_str - string for the label and help id, default: "".
+# ---------------------------------------------------------------------------
+class DoxyImage(QWidget):
+    def __init__(self, help_str:str="", text_str:str=""):
+        super().__init__(None)
+        
+        self.setMinimumHeight(74)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.label1 = DoxyLabel("")
+        self.label2 = QLabel(text_str)
+        
+        self.label2.setAlignment(Qt.AlignLeft)
+        self.label2.setProperty("help", help_str)
+        
+        self.label2.setFont(QFont("Arial", 9))
+        self.label2.setStyleSheet("color:yellow;")
+        
+        self.layout.addWidget(self.label1, alignment=Qt.AlignLeft)
+        self.layout.addWidget(self.label2, alignment=Qt.AlignLeft)
+        self.layout.addStretch(1)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is a helper class for QLineEdit to reduce code space.
+# \param help_str - string for the label and help id, default: "".
+# \param text_str - string for the input content, default: "".
+# ---------------------------------------------------------------------------
+class DoxyLineButt(QWidget):
+    def __init__(self, help_str:str="", text_str:str=""):
+        super().__init__(None)
+        
+        self.setProperty("help", help_str)
+        self.setProperty("text", text_str)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.setLayout(self.layout)
+        
+        self.input = DoxyLineEdit(help_str, text_str)
+        self.buttn = DoxyButton(help_str)
+        
+        self.layout.addWidget(self.input)
+        self.layout.addWidget(self.buttn)
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+class DoxyComboBoxLanguage(QWidget):
+    def __init__(self, help_str:str=""):
+        super().__init__(None)
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.label  = DoxyLabel(help_str)
+        self.combo  = QComboBox()
+        
+        self.combo.addItems([
+            share.locales.tr("Afrikans"),
+            share.locales.tr("Arabic"),
+            share.locales.tr("Armeniam"),
+            share.locales.tr("Brazilian"),
+            share.locales.tr("Bulgarian"),
+            share.locales.tr("Catalan"),
+            share.locales.tr("Chinese"),
+            share.locales.tr("Chinese Traditional"),
+            share.locales.tr("Croatian"),
+            share.locales.tr("Czech"),
+            share.locales.tr("Danish"),
+            share.locales.tr("Dutch"),
+            share.locales.tr("English"),
+            share.locales.tr("Esperanto"),
+            share.locales.tr("Farsil"),
+            share.locales.tr("Finnish"),
+            share.locales.tr("French"),
+            share.locales.tr("German"),
+            share.locales.tr("Greek"),
+            share.locales.tr("Hindi"),
+            share.locales.tr("Hungarian"),
+            share.locales.tr("Indonesian"),
+            share.locales.tr("Italian"),
+            share.locales.tr("Japanese"),
+            share.locales.tr("Japanese-en"),
+            share.locales.tr("Korean"),
+            share.locales.tr("Korean-en"),
+            share.locales.tr("Latvian"),
+            share.locales.tr("Lithuanian"),
+            share.locales.tr("Macedonian"),
+            share.locales.tr("Norwegian"),
+            share.locales.tr("Persian"),
+            share.locales.tr("Polish"),
+            share.locales.tr("Portuguese"),
+            share.locales.tr("Romanian"),
+            share.locales.tr("Russian"),
+            share.locales.tr("Serbian"),
+            share.locales.tr("Serbian-Cyrillic"),
+            share.locales.tr("Slovak"),
+            share.locales.tr("Slovene"),
+            share.locales.tr("Spanish"),
+            share.locales.tr("Swedish"),
+            share.locales.tr("Turkish"),
+            share.locales.tr("Ukrainian"),
+            share.locales.tr("Vietnamese"),
+        ])
+        
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.combo)
+        self.layout.addStretch(1)
+
+
+# ---------------------------------------------------------------------------
+# \brief this is the doxygen tool window for help / documenting the source.
+# ---------------------------------------------------------------------------
 class DoxyGenToolWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        
-        self.doxy_Counter_LineEdit          = 1
-        self.doxy_Counter_EditButton        = 1
-        self.doxy_Counter_CheckBox          = 1
-        self.doxy_Counter_ComboBox_MarkDown = 1
-        self.doxy_Counter_ComboBox_Time     = 1
-        self.doxy_Counter_ComboBox_Warn     = 1
-        self.doxy_Counter_ComboBox_Sense    = 1
-        self.doxy_Counter_ComboBox_Info     = 1
-        self.doxy_Counter_ComboBox_Language = 1
-        self.doxy_Counter_LineEdit_Button   = 1
-        self.doxy_Counter_SpinEdit          = 1
-        self.doxy_Counter_TextEdit          = 1
-        self.doxy_Counter_PanelSpacer       = 1
         
         self.holder  = self
         
@@ -678,158 +726,83 @@ class DoxyGenToolWindow(QWidget):
         str_type = "_type"
         
         # -----------------------------------------------------------
-        self.scroll_area_project = QScrollArea()
-        self.scroll_area_project.setWidgetResizable(True)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
         self.scroll_widget_project = QWidget()
+        
         
         self.scroll_lay_project = QVBoxLayout(self.scroll_widget_project)
         self.scroll_lay_project.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_project.setSpacing(2)
         # -------------------------------------------------------------------------
-        self.lineEdit_DOXYFILE_ENCODING = QLineEdit()
-        self.lineEdit_DOXYFILE_ENCODING.setProperty(str_help, "DOXYFILE_ENCODING")
-        self.lineEdit_DOXYFILE_ENCODING.setProperty(str_type, "text")
-        self.lineEdit_DOXYFILE_ENCODING.setProperty(str_text, "")
+        self.lineEdit_DOXYFILE_ENCODING     = DoxyLineEdit("DOXYFILE_ENCODING", "UTF-8")
+        
+        self.lineEdit_PROJECT_NAME          = DoxyLineEdit("PROJECT_NAME", "MyProject")
+        self.lineEdit_PROJECT_NUMBER        = DoxyLineEdit("PROJECT_NUMBER")
+        self.lineEdit_PROJECT_BRIEF         = DoxyLineEdit("PROJECT_BRIEF")
+        self.lineBtn1_PROJECT_LOGO          = DoxyLineButt("PROJECT_LOGO")
+        self.lineBtn1_PROJECT_LOGO_IMAGE    = DoxyImage   ("PROJECT_LOGO", share.locales.tr("No Project Logo selected."))
+        self.lineBtn1_PROJECT_ICON          = DoxyLineBtn1("PROJECT_ICON")
+        self.lineBtn1_PROJECT_ICON_IMAGE    = DoxyImage   ("PROJECT_ICON", share.locales.tr("No Project Icon selected."))
+        
+        self.lineBtn1_OUTPUT_DIRECTORY      = DoxyLineBtn1("OUTPUT_DIRECTORY")
+        self.checkBox_CREATE_SUBDIRS        = DoxyCheckBox("CREATE_SUBDIRS")
+        self.spinEdit_CREATE_SUBDIRS_LEVEL  = DoxySpinEdit("CREATE_SUBDIRS_LEVEL", 0, 64, 4)
+        
+        self.checkBox_ALLOW_UNICODE_NAMES   = DoxyCheckBox("ALLOW_UNICODE_NAMES")
+        self.comboBox_OUTPUT_LANGUAGE       = DoxyComboBoxLanguage("OUTPUT_LANGUAGE")
+        
         # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.lineEdit_DOXYFILE_ENCODING)
-        
-        self.lineEdit_PROJECT_NAME = QLineEdit()
-        self.lineEdit_PROJECT_NAME.setProperty(str_help, "PROJECT_NAME")
-        self.lineEdit_PROJECT_NAME.setProperty(str_type, "text")
-        self.lineEdit_PROJECT_NAME.setProperty(str_text, "")
-        # -------------------------------------------------------------------------
+        #
         self.scroll_lay_project.addWidget(self.lineEdit_PROJECT_NAME)
-        
-        self.lineEdit_PROJECT_NUMBER = QLineEdit()
-        self.lineEdit_PROJECT_NUMBER.setProperty(str_help, "PROJECT_NUMBER")
-        self.lineEdit_PROJECT_NUMBER.setProperty(str_type, "text")
-        self.lineEdit_PROJECT_NUMBER.setProperty(str_text, "")
-        # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.lineEdit_PROJECT_NUMBER)
-        
-        self.lineEdit_PROJECT_BRIEF = QLineEdit()
-        self.lineEdit_PROJECT_BRIEF.setProperty(str_help, "PROJECT_BRIEF")
-        self.lineEdit_PROJECT_BRIEF.setProperty(str_type, "text")
-        self.lineEdit_PROJECT_BRIEF.setProperty(str_text, "")
-        # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.lineEdit_PROJECT_BRIEF)
-        
-        self.lineLay1_PRPJECT_LOGO = QHBoxLayout()
-        self.lineButt_PROJECT_LOGO = QLineEdit()
-        self.lineButt_PROJECT_LOGO.setProperty(str_help, "PROJECT_LOGO")
-        self.lineButt_PROJECT_LOGO.setProperty(str_type, "text")
-        self.lineButt_PROJECT_LOGO.setProperty(str_text, "")
-        self.lineButt_PROJECT_LOGO_BTN = QPushButton("...")
-        self.lineButt_PROJECT_LOGO_BTN.setProperty(str_help, "PROJECT_LOGO")
-        self.lineButt_PROJECT_LOGO_BTN.setProperty(str_type, "button")
+        self.scroll_lay_project.addWidget(self.lineBtn1_PROJECT_LOGO)
+        self.scroll_lay_project.addWidget(self.lineBtn1_PROJECT_LOGO_IMAGE)
+        self.scroll_lay_project.addWidget(self.lineBtn1_PROJECT_ICON)
+        self.scroll_lay_project.addWidget(self.lineBtn1_PROJECT_ICON_IMAGE)
         #
-        self.lineLay1_PRPJECT_LOGO.addWidget(self.lineButt_PROJECT_LOGO)
-        self.lineLay1_PRPJECT_LOGO.addWidget(self.lineButt_PROJECT_LOGO_BTN)
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addLayout(self.lineLay1_PRPJECT_LOGO)
-        
-        self.lineLabl_LOGO_LABEL = QLabel("Logo")
-        self.scroll_lay_project.addWidget(self.lineLabl_LOGO_LABEL)
-        
-        self.spacerLn_SPACER = QWidget()
-        self.spacerLn_SPACER.setProperty(str_help, "")
-        self.spacerLn_SPACER.setProperty(str_type, "spacer")
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addWidget(self.spacerLn_SPACER)
-
-        self.lineLay1_PROJECT_ICON = QHBoxLayout()
-        self.lineBtn1_PROJECT_ICON = QLineEdit()
-        self.lineBtn1_PROJECT_ICON_BTN1 = QPushButton("...")
-        self.lineBtn1_PROJECT_ICON_BTN1.setProperty(str_help, "PROJECT_ICON")
-        self.lineBtn1_PROJECT_ICON_BTN1.setProperty(str_type, "button")
-        #
-        self.lineLay1_PROJECT_ICON.addWidget(self.lineBtn1_PROJECT_ICON)
-        self.lineLay1_PROJECT_ICON.addWidget(self.lineBtn1_PROJECT_ICON_BTN1)
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addWidget(self.lineLay1_PROJECT_ICON)
-        
-        self.lineLab1_LOGO_LABEL = QLabel("")
-        self.lineLab1_LOGO_LABEL.setProperty(str_help, "")
-        self.lineLab1_LOGO_LABEL.setProperty(str_type, "label")
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addWidget(self.lineLab1)
-        
-        self.spacerLn_SPACER = QWidget()
-        self.spacerLn_SPACER.setProperty(str_help, "")
-        self.spacerLn_SPACER.setProperty(str_type, "spacer")
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addWidget(self.spacerLn_SPACER)
-        
-        self.lineLay1_OUTPUT_DIRECTORY = QHBoxLayout()
-        self.lineBtn1_OUTPUT_DIRECTORY = QLineEdit()
-        self.lineBtn1_OUTPUT_DIRECTORY.setProperty(str_help, "OUTPUT_DIRECTORY")
-        self.lineBtn1_OUTPUT_DIRECTORY.setProperty(str_type, "text")
-        #
-        self.lineBtn1_OUTPUT_DIRECTORY_BTN1 = QPushButton("...")
-        self.lineBtn1_OUTPUT_DIRECTORY_BTN1.setProperty(str_help, "OUTPUT_DIRECTORY")
-        self.lineBtn1_OUTPUT_DIRECTORY_BTN1.setProperty(str_type, "button")
-        #
-        self.lineLay1_OUTPUT_DIRECTORY.addWidget(self.lineBtn1_OUTPUT_DIRECTORY)
-        self.lineLay1_OUTPUT_DIRECTORY.addWidget(self.lineBtn1_OUTPUT_DIRECTORY_BTN1)
-        # -------------------------------------------------------------------------
-        self.scroll_lay_project.addLayout(self.lineLay1_OUTPUT_DIRECTORY)
-        
-        self.checkBox_CREATE_SUBDIRS = QCheckBox("NO")
-        self.checkBox_CREATE_SUBDIRS.setProperty(str_helü, "CREATE_SUBDIRS")
-        self.checkBox_CREATE_SUBDIRS.setProperty(str_type, "checkbox")
-        # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.lineBtn1_OUTPUT_DIRECTORY)
         self.scroll_lay_project.addWidget(self.checkBox_CREATE_SUBDIRS)
-        
-        self.spinEdit_CREATE_SUBDIRS_LEVEL = QSpinEdit()
-        self.spinEdit_CREATE_SUBDIRS_LEVEL.setProperty(str_help, "CREATE_SUBDIRS_LEVEL")
-        self.spinEdit_CREATE_SUBDIRS_LEVEL.setProperty(str_type, "spinedit")
-        # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.spinEdit_CREATE_SUBDIRS_LEVEL)
-        
-        self.checkBox_ALLOW_UNICODE_NAMES = QCheckBox("NO")
-        self.checkBox_ALLOW_UNICODE_NAMES.setProperty(str_help, "ALLOW_UNICODE_NAMES")
-        self.checkBox_ALLOW_UNICODE_NAMES.setProperty(str_type, "checkbox")
-        # -------------------------------------------------------------------------
+        #
         self.scroll_lay_project.addWidget(self.checkBox_ALLOW_UNICODE_NAMES)
-        
-        self.comboBox_OUTPUT_LANGUAGE = QComboBox()
-        self.comboBox_OUTPUT_LANGUAGE.setProperty(str_help, "OUTPUT_LANGUAGE")
-        self.comboBox_OUTPUT_LANGUAGE.setProperty(str_type, "combobox")
-        # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.comboBox_OUTPUT_LANGUAGE)
+        
         
         self.checkBox_BRIEF_MEMBER_DESC = QCheckBox("NO")
         self.checkBox_BRIEF_MEMBER_DESC.setProperty(str_help, "BRIEF_MEMBER_DESC")
-        self.checkBox_BRIEF_MEMBER_DESC.setProperty(set_type, "checkbox")
+        self.checkBox_BRIEF_MEMBER_DESC.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.checkBox_BRIEF_MEMBER_DESC)
         
         self.checkBox_REPEAT_BRIEF = QCheckBox("NO")
-        self.checkBox_REPEAT_BRIEF.setProperty(str_help, "REPEAT_BRIEF"
+        self.checkBox_REPEAT_BRIEF.setProperty(str_help, "REPEAT_BRIEF")
         self.checkBox_REPEAT_BRIEF.setProperty(str_help, "checkbox")
         # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.checkBox_REPEAT_BRIEF)
         
         self.lineLay1_ABBREVIATVE_BRIEF = QHBoxLayout()
-        self.lineBtn3_ABBREVIATVE_BRIEF = QLineEdit()
-        self.lineBtn3_ABBREVIATVE_BRIEF_BTN1 = QPushButton("...")
-        self.lineBtn3_ABBREVIATVE_BRIEF_BTN2 = QPushButton("...")
-        self.lineBtn3_ABBREVIATVE_BRIEF_BTN3 = QPushButton("...")
+        self.lineBTN3_ABBREVIATVE_BRIEF = QLineEdit()
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN1 = QPushButton("...")
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN2 = QPushButton("...")
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN3 = QPushButton("...")
         #
         self.lineBTN3_ABBREVIATVE_BRIEF     .setProperty(str_help, "ABBREVIATVE_BRIEF")
-        self.lineBTN3_ABBREVIATVE_BRIEF_Btn1.setProperty(str_help, "ABBREVIATVE_BRIEF")
-        self.lineBTN3_ABBREVIATVE_BRIEF_Btn2.setProperty(str_help, "ABBREVIATVE_BRIEF")
-        self.lineBTN3_ABBREVIATVE_BRIEF_Btn3.setProperty(str_help, "ABBREVIATVE_BRIEF")
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN1.setProperty(str_help, "ABBREVIATVE_BRIEF")
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN2.setProperty(str_help, "ABBREVIATVE_BRIEF")
+        self.lineBTN3_ABBREVIATVE_BRIEF_BTN3.setProperty(str_help, "ABBREVIATVE_BRIEF")
         #
         self.lineBTN3_ABBREVIATVE_BRIEF     .setProperty(str_type, "text")
         self.lineBTN3_ABBREVIATVE_BRIEF_BTN1.setProperty(str_type, "button")
         self.lineBTN3_ABBREVIATVE_BRIEF_BTN2.setProperty(str_type, "button")
         self.lineBTN3_ABBREVIATVE_BRIEF_BTN3.setProperty(str_type, "button")
         #
-        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBtn3_ABBREVIATVE_BRIEF)
-        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBtn3_ABBREVIATVE_BRIEF_BTN1)
-        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBtn3_ABBREVIATVE_BRIEF_BTN2)
-        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBtn3_ABBREVIATVE_BRIEF_BTN3)
+        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBTN3_ABBREVIATVE_BRIEF)
+        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBTN3_ABBREVIATVE_BRIEF_BTN1)
+        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBTN3_ABBREVIATVE_BRIEF_BTN2)
+        self.lineLay1_ABBREVIATVE_BRIEF.addWidget(self.lineBTN3_ABBREVIATVE_BRIEF_BTN3)
         # -------------------------------------------------------------------------
         self.scroll_lay_project.addLayout(self.lineLay1_ABBREVIATVE_BRIEF)
         
@@ -837,32 +810,49 @@ class DoxyGenToolWindow(QWidget):
         self.textEdit_ABBREVIATVE_BRIEF.setProperty(str_help, "ABBREVIATVE_BRIEF")
         self.textEdit_ABBREVIATVE_BRIEF.setProperty(str_type, "edit")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.textEdit_ABBREVIATVE_BRIEF)
+        self.scroll_lay_project.addWidget(self.textEdit_ABBREVIATVE_BRIEF)
         
-        self.checkBox_ALWAYS_DETAILED_SEC = QCheckBox("NO")"
+        self.checkBox_ALWAYS_DETAILED_SEC = QCheckBox("NO")
         self.checkBox_ALWAYS_DETAILED_SEC.setProperty(str_help, "ALWAYS_DETAILED_SEC")
         self.checkBox_ALWAYS_DETAILED_SEC.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.checkBox_ALWAYS_DETAILED_SEC)
+        self.scroll_lay_project.addWidget(self.checkBox_ALWAYS_DETAILED_SEC)
         
         self.checkBox_INLINE_INHERITED_MEMB = QCheckBox("NO")
         self.checkBox_INLINE_INHERITED_MEMB.setProperty(str_help, "INLINE_INHERITED_MEMB")
         self.checkBox_INLINE_INHERITED_MEMB.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.checkBox_INLINE_INHERITED_MEMB)
+        self.scroll_lay_project.addWidget(self.checkBox_INLINE_INHERITED_MEMB)
         
         self.checkBox_FULL_PATH_NAMES = QCheckBox("NO")
         self.checkBox_FULL_PATH_NAMES.setProperty(str_help, "FULL_PATH_NAMES")
         self.checkBox_FULL_PATH_NAMES.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.checkBox_FULL_PATH_NAMES)
+        self.scroll_lay_project.addWidget(self.checkBox_FULL_PATH_NAMES)
         
+        self.lineBtn4_STRIP_FROM_PATH_layout = QHBoxLayout()
         self.lineBtn4_STRIP_FROM_PATH = QLineEdit()
         self.lineBtn4_STRIP_FROM_PATH.setProperty(str_help, "STRIP_FROM_PATH")
         self.lineBtn4_STRIP_FROM_PATH.setProperty(str_type, "text")
         self.lineBtn4_STRIP_FROM_PATH.setProperty(str_text, "")
+        #
+        self.lineBtn4_STRIP_FROM_PATH_BTN1 = QPushButton("...")
+        self.lineBtn4_STRIP_FROM_PATH_BTN2 = QPushButton("...")
+        self.lineBtn4_STRIP_FROM_PATH_BTN3 = QPushButton("...")
+        self.lineBtn4_STRIP_FROM_PATH_BTN4 = QPushButton("...")
+        #
+        self.lineBtn4_STRIP_FROM_PATH_BTN1.setProperty(str_help, "STRIP_FROM_PATH")
+        self.lineBtn4_STRIP_FROM_PATH_BTN2.setProperty(str_help, "STRIP_FROM_PATH")
+        self.lineBtn4_STRIP_FROM_PATH_BTN3.setProperty(str_help, "STRIP_FROM_PATH")
+        self.lineBtn4_STRIP_FROM_PATH_BTN4.setProperty(str_help, "STRIP_FROM_PATH")
+        #
+        self.lineBtn4_STRIP_FROM_PATH_layout.addWidget(self.lineBtn4_STRIP_FROM_PATH)
+        self.lineBtn4_STRIP_FROM_PATH_layout.addWidget(self.lineBtn4_STRIP_FROM_PATH_BTN1)
+        self.lineBtn4_STRIP_FROM_PATH_layout.addWidget(self.lineBtn4_STRIP_FROM_PATH_BTN2)
+        self.lineBtn4_STRIP_FROM_PATH_layout.addWidget(self.lineBtn4_STRIP_FROM_PATH_BTN3)
+        self.lineBtn4_STRIP_FROM_PATH_layout.addWidget(self.lineBtn4_STRIP_FROM_PATH_BTN4)
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.checkBox_STRIP_FROM_PATH)
+        self.scroll_lay_project.addLayout(self.lineBtn4_STRIP_FROM_PATH_layout)
         
         self.textEdit_STRIP_FROM_PATH = QPlainTextEdit()
         self.textEdit_STRIP_FROM_PATH.setProperty(str_help, "STRIP_FROM_PATH")
@@ -882,16 +872,16 @@ class DoxyGenToolWindow(QWidget):
         self.textEdit_STRIP_FROM_INC_PATH.setProperty(str_type, "edit")
         self.textEdit_STRIP_FROM_INC_PATH.setProperty(str_text, "")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.textEdit_STRIP_FROM_INC_PATH)
+        self.scroll_lay_project.addWidget(self.textEdit_STRIP_FROM_INC_PATH)
         
         self.checkBox_SHORT_NAMES = QCheckBox("NO")
         self.checkBox_SHORT_NAMES.setProperty(str_help, "SHORT_NAMES")
         self.checkBox_SHORT_NAMES.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
-        self.scroll_ley_project.addWidget(self.checkBox_SHORT_NAMES)
+        self.scroll_lay_project.addWidget(self.checkBox_SHORT_NAMES)
         
         self.checkBox_JAVADOC_AUTOBRIEF = QCheckBox("NO")
-        self.checkBox_JAVADOC_AUTOBRIEF.setProperty(str_helü, "JAVADOC_AUTOBRIEF")
+        self.checkBox_JAVADOC_AUTOBRIEF.setProperty(str_help, "JAVADOC_AUTOBRIEF")
         self.checkBox_JAVADOC_AUTOBRIEF.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
         self.scroll_lay_project.addWidget(self.checkBox_JAVADOC_AUTOBRIEF)
@@ -916,235 +906,323 @@ class DoxyGenToolWindow(QWidget):
         self.checkBox_PYTHON_DOCSTRING.setProperty(str_help, "PYTHON_DOCSTRING")
         self.checkBox_PYTHON_DOCSTRING.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_PYTHON_DOCSTRING)
         
         self.checkBox_INHERIT_DOCS = QCheckBox("NO")
         self.checkBox_INHERIT_DOCS.setProperty(str_help, "INHERIT_DOCS")
         self.checkBox_INHERIT_DOCS.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_INHERIT_DOCS)
         
         self.checkBox_SEPARATE_MEMBER_PAGES = QCheckBox("NO")
-        self.checkBox_SEPARATE_MEMBER_PAGES.setProperty(str_help, "
+        self.checkBox_SEPARATE_MEMBER_PAGES.setProperty(str_help, "SEPARATE_MEMBER_PAGES")
         self.checkBox_SEPARATE_MEMBER_PAGES.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_SEPARATE_MEMBER_PAGES)
         
-        self.spinEdit_TAB_SIZE = QSpinEdit()
+        self.spinEdit_TAB_SIZE = QSpinBox()
         self.spinEdit_TAB_SIZE.setProperty(str_help, "TAB_SIZE")
         self.spinEdit_TAB_SIZE.setProperty(str_type, "spinedit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.spinEdit_TAB_SIZE)
         
-        self.lineBtn3_ALIASES = QLineEdit()
-        self.lineBtn3_ALIASES.setProperty(str_help, "ALIASES")
-        self.lineBtn3_ALIASES.setProperty(str_type, "text")
+        self.lineBTN3_ALIASES_layout = QHBoxLayout()
+        self.lineBTN3_ALIASES = QLineEdit()
+        self.lineBTN3_ALIASES.setProperty(str_help, "ALIASES")
+        self.lineBTN3_ALIASES.setProperty(str_type, "text")
+        #
+        self.lineBTN3_ALIASES_BTN1 = QPushButton("...")
+        self.lineBTN3_ALIASES_BTN2 = QPushButton("...")
+        self.lineBTN3_ALIASES_BTN3 = QPushButton("...")
+        #
+        self.lineBTN3_ALIASES_BTN1.setProperty(str_help, "ALIASES")
+        self.lineBTN3_ALIASES_BTN2.setProperty(str_help, "ALIASES")
+        self.lineBTN3_ALIASES_BTN3.setProperty(str_help, "ALIASES")
+        #
+        self.lineBTN3_ALIASES_layout.addWidget(self.lineBTN3_ALIASES)
+        self.lineBTN3_ALIASES_layout.addWidget(self.lineBTN3_ALIASES_BTN1)
+        self.lineBTN3_ALIASES_layout.addWidget(self.lineBTN3_ALIASES_BTN2)
+        self.lineBTN3_ALIASES_layout.addWidget(self.lineBTN3_ALIASES_BTN3)
+        # -------------------------------------------------------------------------
+        self.scroll_lay_project.addLayout(self.lineBTN3_ALIASES_layout)
+        #
         self.textEdit_ALIASES = QPlainTextEdit()
+        self.textEdit_ALIASES.setProperty(str_help, "ALIASES")
+        self.textEdit_ALIASES.setProperty(str_type, "edit")
+        #
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.lineBTN3_ALIASES)
+        self.scroll_lay_project.addWidget(self.textEdit_ALIASES)
         
-        self_checkBox_OPTIMIZE_OUTPUT_FOR_C = QCheckBox("NO")
-        self_checkBox_OPTIMIZE_OUTPUT_FOR_C.setProperty(str_help, "OPTIMIZE_OUTPUT_FOR_C")
-        self_checkBox_OPTIMIZE_OUTPUT_FOR_C.setProperty(str_type, "checkbox")
+        self.checkBox_OPTIMIZE_OUTPUT_FOR_C = QCheckBox("NO")
+        self.checkBox_OPTIMIZE_OUTPUT_FOR_C.setProperty(str_help, "OPTIMIZE_OUTPUT_FOR_C")
+        self.checkBox_OPTIMIZE_OUTPUT_FOR_C.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_OPTIMIZE_OUTPUT_FOR_C)
     
         self.checkBox_OPTIMIZE_OUTPUT_JAVA = QCheckBox("NO")
         self.checkBox_OPTIMIZE_OUTPUT_JAVA.setProperty(str_help, "OPTIMIZE_OUTPUT_JAVA")
         self.checkBox_OPTIMIZE_OUTPUT_JAVA.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_OPTIMIZE_OUTPUT_JAVA)
 
         self.checkBox_OPTIMIZE_FOR_FORTRAN = QCheckBox("NO")
         self.checkBox_OPTIMIZE_FOR_FORTRAN.setProperty(str_help, "OPTIMIZE_FOR_FORTRAN")
         self.checkBox_OPTIMIZE_FOR_FORTRAN.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_OPTIMIZE_FOR_FORTRAN)
     
         self.checkBox_OPTIMIZE_OUTPUT_VHDL = QCheckBox("NO")
         self.checkBox_OPTIMIZE_OUTPUT_VHDL.setProperty(str_help, "OPTIMIZE_OUTPUT_VHDL")
         self.checkBox_OPTIMIZE_OUTPUT_VHDL.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_OPTIMIZE_OUTPUT_VHDL)
         
         self.checkBox_OPTIMIZE_OUTPUT_SLICE = QCheckBox("NO")
-        self.checkBox_OPTIMIZE_OUTPUT_SLICE.serProperty(str_help, "OPTIMIZE_OUTPUT_SLICE")
+        self.checkBox_OPTIMIZE_OUTPUT_SLICE.setProperty(str_help, "OPTIMIZE_OUTPUT_SLICE")
         self.checkBox_OPTIMIZE_OUTPUT_SLICE.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_OPTIMIZE_OUTPUT_SLICE)
         
-        self.lineBtn3_EXTERNAL_MAPPING = QLineEdit()
-        self.lineBtn3_EXTERNAL_MAPPING.setProperty(str_help, "")
-        self.lineBtn3_EXTERNAL_MAPPING.setProperty(str_type, "text")
+        self.lineBTN3_EXTERNAL_MAPPING = QLineEdit()
+        self.lineBTN3_EXTERNAL_MAPPING.setProperty(str_help, "")
+        self.lineBTN3_EXTERNAL_MAPPING.setProperty(str_type, "text")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.lineBTN3_EXTERNAL_MAPPING)
         
         self.textEdit_EXTERNAL_MAPPING = QPlainTextEdit()
         self.textEdit_EXTERNAL_MAPPING.setProperty(str_help, "")
         self.textEdit_EXTERNAL_MAPPING.setProperty(str_type, "edit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.textEdit_EXTERNAL_MAPPING)
         
         self.checkBox_MARKDOWN_SUPPORT = QCheckBox("NO")
         self.checkBox_MARKDOWN_SUPPORT.setProperty(str_help, "")
         self.checkBox_MARKDOWN_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_MARKDOWN_SUPPORT)
         
         self.checkBox_MARKDOWN_STRICT = QCheckBox("NO")
         self.checkBox_MARKDOWN_STRICT.setProperty(str_help, "")
         self.checkBox_MARKDOWN_STRICT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_MARKDOWN_STRICT)
         
-        self.spinEdit_TOC_INCLUDE_HEADINGS = QSpinEdit()
+        self.spinEdit_TOC_INCLUDE_HEADINGS = QSpinBox()
         self.spinEdit_TOC_INCLUDE_HEADINGS.setProperty(str_help, "")
         self.spinEdit_TOC_INCLUDE_HEADINGS.setProperty(str_type, "spinedit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.spinEdit_TOC_INCLUDE_HEADINGS)
         
         self.comboBox_MARKDOWN_ID_STYLE = QComboBox()
         self.comboBox_MARKDOWN_ID_STYLE.setProperty(str_help, "")
         self.comboBox_MARKDOWN_ID_STYLE.setProperty(str_type, "combobox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.comboBox_MARKDOWN_ID_STYLE)
         
         self.checkBox_AUTOLINK_SUPPORT  = QCheckBox("NO")
         self.checkBox_AUTOLINK_SUPPORT.setProperty(str_help, "")
         self.checkBox_AUTOLINK_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_AUTOLINK_SUPPORT)
         
-        self.lineBtn3_AUTOLINK_IGNORE_WORDS = QLineEdit()
-        self.lineBtn3_AUTOLINK_IGNORE_WORDS.setProperty(str_help, "")
-        self.lineBtn3_AUTOLINK_IGNORE_WORDS.setProperty(str_type, "text")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout = QHBoxLayout()
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_Edit = QLineEdit()
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_Edit.setProperty(str_help, "AUTOLINK_IGNORE_WORDS")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_Edit.setProperty(str_type, "text")
+        #
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN1 = QPushButton("...")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN2 = QPushButton("...")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN3 = QPushButton("...")
+        #
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN1.setProperty(str_help, "AUTOLINK_IGNORE_WORDS")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN2.setProperty(str_help, "AUTOLINK_IGNORE_WORDS")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN3.setProperty(str_help, "AUTOLINK_IGNORE_WORDS")
+        #
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN1.setProperty(str_type, "button")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN2.setProperty(str_type, "button")
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN3.setProperty(str_type, "button")
+        #
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout.addWidget(self.lineBTN3_AUTOLINK_IGNORE_WORDS_Edit)
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout.addWidget(self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN1)
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout.addWidget(self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN2)
+        self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout.addWidget(self.lineBTN3_AUTOLINK_IGNORE_WORDS_BTN3)
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addLayout(self.lineBTN3_AUTOLINK_IGNORE_WORDS_layout)
         #
         self.textEdit_AUTOLINK_IGNORE_WORDS = QPlainTextEdit()
-        self.textEdit_AUTOLINK_IGNORE_WORDS.setProperty(str_help, "")
+        self.textEdit_AUTOLINK_IGNORE_WORDS.setProperty(str_help, "AUTOLINK_IGNORE_WORDS")
         self.textEdit_AUTOLINK_IGNORE_WORDS.setProperty(str_type, "edit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.textEdit_AUTOLINK_IGNORE_WORDS)
         
         self.checkBox_BUILTiN_STL_SUPPORT = QCheckBox("NO")
-        self.checkBox_BUILTiN_STL_SUPPORT.setProperty(str_help, "")
+        self.checkBox_BUILTiN_STL_SUPPORT.setProperty(str_help, "BUILTiN_STL_SUPPORT")
         self.checkBox_BUILTiN_STL_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_BUILTiN_STL_SUPPORT)
         
         self.checkBox_CPP_CLI_SUPPORT = QCheckBox("NO")
-        self.checkBox_CPP_CLI_SUPPORT.setProperty(str_help, "")
+        self.checkBox_CPP_CLI_SUPPORT.setProperty(str_help, "CPP_CLI_SUPPORT")
         self.checkBox_CPP_CLI_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_CPP_CLI_SUPPORT)
         
         self.checkBox_SIP_SUPPORT = QCheckBox("NO")
-        self.checkBox_SIP_SUPPORT.setProperty(str_help, "")
+        self.checkBox_SIP_SUPPORT.setProperty(str_help, "SIP_SUPPORT")
         self.checkBox_SIP_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_SIP_SUPPORT)
         
         self.checkBox_IDL_PROPERTY_SUPPORT = QCheckBox("NO")
-        self.checkBox_IDL_PROPERTY_SUPPORT.setProperty(str_help, "")
+        self.checkBox_IDL_PROPERTY_SUPPORT.setProperty(str_help, "IDL_PROPERTY_SUPPORT")
         self.checkBox_IDL_PROPERTY_SUPPORT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_IDL_PROPERTY_SUPPORT)
         
         self.checkBox_DISTRIBUTE_GROUP_DOC = QCheckBox("NO")
-        self.checkBox_DISTRIBUTE_GROUP_DOC.setProperty(str_help, "")
+        self.checkBox_DISTRIBUTE_GROUP_DOC.setProperty(str_help, "DISTRIBUTE_GROUP_DOC")
         self.checkBox_DISTRIBUTE_GROUP_DOC.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_DISTRIBUTE_GROUP_DOC)
         
         self.checkBox_GROUP_NESTED_COMPOUNDS = QCheckBox("NO")
-        self.checkBox_GROUP_NESTED_COMPOUNDS.setProperty(str_help, "")
+        self.checkBox_GROUP_NESTED_COMPOUNDS.setProperty(str_help, "GROUP_NESTED_COMPOUNDS")
         self.checkBox_GROUP_NESTED_COMPOUNDS.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_GROUP_NESTED_COMPOUNDS)
         
         self.checkBox_SUBGROUPING = QCheckBox("NO")
-        self.checkBox_SUBGROUPING.setProperty(str_help, "")
+        self.checkBox_SUBGROUPING.setProperty(str_help, "SUBGROUPING")
         self.checkBox_SUBGROUPING.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_SUBGROUPING)
         
         self.checkBox_INLINE_GROUPED_CLASSES = QCheckBox("NO")
-        self.checkBox_INLINE_GROUPED_CLASSES.setProperty(str_help, "")
+        self.checkBox_INLINE_GROUPED_CLASSES.setProperty(str_help, "INLINE_GROUPED_CLASSES")
         self.checkBox_INLINE_GROUPED_CLASSES.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_INLINE_GROUPED_CLASSES)
         
         self.checkBox_INLINE_SIMPLE_STRUCTS = QCheckBox("NO")
-        self.checkBox_INLINE_SIMPLE_STRUCTS.setProperty(str_help, "")
+        self.checkBox_INLINE_SIMPLE_STRUCTS.setProperty(str_help, "INLINE_SIMPLE_STRUCTS")
         self.checkBox_INLINE_SIMPLE_STRUCTS.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_INLINE_SIMPLE_STRUCTS)
         
         self.checkBox_TYPEDEF_HIDE_STRUCT = QCheckBox("NO")
-        self.checkBox_TYPEDEF_HIDE_STRUCT.setProperty(str_help, "")
+        self.checkBox_TYPEDEF_HIDE_STRUCT.setProperty(str_help, "TYPEDEF_HIDE_STRUCT")
         self.checkBox_TYPEDEF_HIDE_STRUCT.setProperty(str_type, "checkbox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.checkBox_TYPEDEF_HIDE_STRUCT)
         
-        self.spinEdit_LOOKUP_CACHE_SIZE = QSpinEdit()
-        self.spinEdit_LOOKUP_CACHE_SIZE.setProperty(str_help, "")
+        self.spinEdit_LOOKUP_CACHE_SIZE = QSpinBox()
+        self.spinEdit_LOOKUP_CACHE_SIZE.setProperty(str_help, "LOOKUP_CACHE_SIZE")
         self.spinEdit_LOOKUP_CACHE_SIZE.setProperty(str_type, "spinedit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.spinEdit_LOOKUP_CACHE_SIZE)
         
-        self.spinEdit_NUM_PROC_THREADS = QSpinEdit()
-        self.spinEdit_NUM_PROC_THREADS.setProperty(str_help, "")
+        self.spinEdit_NUM_PROC_THREADS = QSpinBox()
+        self.spinEdit_NUM_PROC_THREADS.setProperty(str_help, "NUM_PROC_THREADS")
         self.spinEdit_NUM_PROC_THREADS.setProperty(str_type, "spinedit")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.spinEdit_NUM_PROC_THREADS)
         
-        self.comboBox_TIMESTAMP = QomboBox()
-        self.comboBox_TIMESTAMP.setProperty(str_help, "")
+        self.comboBox_TIMESTAMP = QComboBox()
+        self.comboBox_TIMESTAMP.setProperty(str_help, "TIMESTAMP")
         self.comboBox_TIMESTAMP.setProperty(str_type, "cmbobox")
         # -------------------------------------------------------------------------
+        self.scroll_lay_project.addWidget(self.comboBox_TIMESTAMP)
         
         
         # -----------------------------------------------------------
-        self.scroll_lay_build = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_build = QWidget()
+        self.scroll_lay_build = QVBoxLayout(self.scroll_widget_build)
         self.scroll_lay_build.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_build.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_messages = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_messages = QWidget()
+        self.scroll_lay_messages = QVBoxLayout(self.scroll_widget_messages)
         self.scroll_lay_messages.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_messages.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_input = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_input = QWidget()
+        self.scroll_lay_input = QVBoxLayout(self.scroll_widget_input)
         self.scroll_lay_input.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_input.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_browser = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_browser = QWidget()
+        self.scroll_lay_browser = QVBoxLayout(self.scroll_widget_browser)
         self.scroll_lay_browser.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_browser.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_index = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_index = QWidget()
+        self.scroll_lay_index = QVBoxLayout(self.scroll_widget_index)
         self.scroll_lay_index.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_index.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_html = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_html = QWidget()
+        self.scroll_lay_html = QVBoxLayout(self.scroll_widget_html)
         self.scroll_lay_html.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_html.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_latex = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_latex = QWidget()
+        self.scroll_lay_latex = QVBoxLayout(self.scroll_widget_latex)
         self.scroll_lay_latex.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_latex.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_rtf = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_rtf = QWidget()
+        self.scroll_lay_rtf = QVBoxLayout(self.scroll_widget_rtf)
         self.scroll_lay_rtf.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_rtf.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_man = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_man = QWidget()
+        self.scroll_lay_man = QVBoxLayout(self.scroll_widget_man)
         self.scroll_lay_man.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_man.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_xml = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_xml = QWidget()
+        self.scroll_lay_xml = QVBoxLayout(self.scroll_widget_xml)
         self.scroll_lay_xml.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_xml.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_docbook = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_docbook = QWidget()
+        self.scroll_lay_docbook = QVBoxLayout(self.scroll_widget_docbook)
         self.scroll_lay_docbook.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_docbook.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_autogen = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_autogen = QWidget()
+        self.scroll_lay_autogen = QVBoxLayout(self.scroll_widget_autogen)
         self.scroll_lay_autogen.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_autogen.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_sqlite3 = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_sqlite3 = QWidget()
+        self.scroll_lay_sqlite3 = QVBoxLayout(self.scroll_widget_sqlite3)
         self.scroll_lay_sqlite3.setContentsMargins(2, 2, 2, 2)
-        self.scroll_lay_sqlitr3.setSpacing(2)
+        self.scroll_lay_sqlite3.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_perlmod = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_perlmod = QWidget()
+        self.scroll_lay_perlmod = QVBoxLayout(self.scroll_widget_perlmod)
         self.scroll_lay_perlmod.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_perlmod.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_preproc = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_preproc = QWidget()
+        self.scroll_lay_preproc = QVBoxLayout(self.scroll_widget_preproc)
         self.scroll_lay_preproc.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_preproc.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_external = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_external = QWidget()
+        self.scroll_lay_external = QVBoxLayout(self.scroll_widget_external)
         self.scroll_lay_external.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_external.setSpacing(2)
         # -----------------------------------------------------------
-        self.scroll_lay_dot = QVBoxLayout(self.scroll_widget)
+        self.scroll_widget_dot = QWidget()
+        self.scroll_lay_dot = QVBoxLayout(self.scroll_widget_dot)
         self.scroll_lay_dot.setContentsMargins(2, 2, 2, 2)
         self.scroll_lay_dot.setSpacing(2)
         # -----------------------------------------------------------
         
-        self.scroll_area.setWidget(self.scroll_widget)
+        self.scroll_area.setWidget(self.scroll_widget_project)
         self.expert_splitter_h.addWidget(self.scroll_area)
         self.expert_splitter_h.setSizes([220, 700])
 
@@ -1158,9 +1236,6 @@ class DoxyGenToolWindow(QWidget):
         self.expert_splitter_v.addWidget(self.html_preview)
         self.expert_splitter_v.setSizes([420, 180])
 
-        for pan in DOXYGEN_EXPERT_ITEMS:
-            self._populate_option_panel(pan)
-        
         self.list_categories.setCurrentRow(1)
         self.list_categories.setCurrentRow(0)
         return page
@@ -1178,75 +1253,8 @@ class DoxyGenToolWindow(QWidget):
     def _on_expert_item_changed(self, text):
         if not text:
             return
-        self._populate_option_panel(text)
-        self._show_help_for_key(f"doxygen.section.{text}.help", title=text)
-        
-        with open(self.propath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        ok, err = self._validate_payload(data)
-        if not ok:
-            QMessageBox.critical(self, "Ungültige Projektdatei", err)
-            return
-        
-        # --------------------------------------------------------------
-        # get config values ...
-        # --------------------------------------------------------------
-        state = data.get("config", {})
-        count = 1
-        
-        # --------------------------------------------------------------
-        """for field in PROJECT_FIELDS:
-            try:
-                obj = field["obj"]
-                if obj is not None:
-                    if isinstance(obj, DoxyCheckBox):
-                        value = state.get(obj.objectName(), 0)
-                        if value:
-                            obj.check.setChecked(True)
-                        else:
-                            obj.check.setChecked(False)
-            except RuntimeError as e:
-                if share.locales.tr("has been deleted") in str(e):
-                    pass
-                else:
-                    raise
-            except Exception as e:
-                raise
-        # --------------------------------------------------------------
-        for field in BUILD_FIELDS:
-            try:
-                obj = field["obj"]
-                if obj is not None:
-                    if isinstance(obj, DoxyCheckBox):
-                        value = state.get(obj.objectName(), 0)
-                        if value:
-                            obj.check.setChecked(True)
-                        else:
-                            obj.check.setChecked(False)
-            except RuntimeError as e:
-                if share.locales.tr("has been deleted") in str(e):
-                    pass
-                else:
-                    raise
-            except Exception as e:
-                raise
-        # --------------------------------------------------------------
-        for field in PROJECT_FIELDS:
-            try:
-                obj = field["obj"]
-                if obj is not None:
-                    if isinstance(obj, QLineEdit):
-                        value = state.get(obj.objectName(), "")
-                        obj.setText(value)
-            except RuntimeError as e:
-                if share.locales.tr("has been deleted") in str(e):
-                    pass
-                else:
-                    raise
-            except Exception as e:
-                raise"""
-        # --------------------------------------------------------------
-
+        print(text)
+    
     def _locales_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
 
@@ -1254,7 +1262,10 @@ class DoxyGenToolWindow(QWidget):
         lang = (locale.getdefaultlocale()[0] or "de") if locale.getdefaultlocale() else "de"
         lang = lang.split("_")[0].lower()
         try:
-            return gettext.translation("doxygen", localedir=str(self._locales_dir()), languages=[lang], fallback=True)
+            return gettext.translation("doxygen",
+            localedir = str(self._locales_dir()),
+            languages = [lang],
+            fallback  = True)
         except Exception:
             return gettext.NullTranslations()
 
@@ -1282,197 +1293,6 @@ class DoxyGenToolWindow(QWidget):
         self.html_preview.clear()
         self.html_preview.setHtml(self._help_html(help_key, title=title))
 
-    def _populate_option_panel(self, section_name: str):
-        return
-        self._clear_scroll_area()
-        se = [
-            share.locales.tr("Project"),
-            share.locales.tr("Build"),
-            share.locales.tr("Messages"),
-            share.locales.tr("Dot"),
-            share.locales.tr("External"),
-            share.locales.tr("Preprocessor"),
-            share.locales.tr("Perlmod"),
-            share.locales.tr("SQLite3"),
-            share.locales.tr("AutoGen"),
-            share.locales.tr("DocBook"),
-            share.locales.tr("XML"),
-            share.locales.tr("Man"),
-            share.locales.tr("RTF"),
-            share.locales.tr("LaTeX"),
-            share.locales.tr("HTML"),
-            share.locales.tr("Index"),
-            share.locales.tr("Source Browser"),
-            share.locales.tr("Input"),
-            share.locales.tr("Messages"),
-            share.locales.tr("Build"),
-            share.locales.tr("Project"),
-        ]
-        if section_name in se:
-            form_host = QWidget()
-            form = QFormLayout(form_host)
-            form.setContentsMargins(2, 2, 2, 2)
-            form.setHorizontalSpacing(6)
-            form.setVerticalSpacing(2)
-            form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            form.setFormAlignment (Qt.AlignTop   | Qt.AlignLeft)
-
-            label_font         = QFont("Consolas", 10)
-            metrics            = QFontMetrics(label_font)
-            max_label_width    = max(metrics.horizontalAdvance(
-                field["name"]) for field in PROJECT_FIELDS) + 20
-            
-            self.project_edits = {}
-            
-            lf = []
-            if   section_name == share.locales.tr("Project"):        lf = PROJECT_FIELDS
-            elif section_name == share.locales.tr("Build"):          lf = BUILD_FIELDS
-            elif section_name == share.locales.tr("Messages"):       lf = MESSAGES_FIELDS
-            elif section_name == share.locales.tr("Input"):          lf = INPUT_FIELDS
-            elif section_name == share.locales.tr("Source Browser"): lf = SOURCE_BROWSER_FIELDS
-            elif section_name == share.locales.tr("Index"):          lf = INDEX_FIELDS
-            elif section_name == share.locales.tr("HTML"):           lf = HTML_FIELDS
-            elif section_name == share.locales.tr("LaTeX"):          lf = LATEX_FIELDS
-            elif section_name == share.locales.tr("RTF"):            lf = RTF_FIELDS
-            elif section_name == share.locales.tr("Man"):            lf = MAN_FIELDS
-            elif section_name == share.locales.tr("XML"):            lf = XML_FIELDS
-            elif section_name == share.locales.tr("DocBook"):        lf = DOCBOOK_FIELDS
-            elif section_name == share.locales.tr("AutoGen"):        lf = AUTOGEN_FIELDS
-            elif section_name == share.locales.tr("SQLite3"):        lf = SQLITE3_FIELDS
-            elif section_name == share.locales.tr("PerlMod"):        lf = PERLMOD_FIELDS
-            elif section_name == share.locales.tr("Preprocessor"):   lf = PREPROCESSOR_FIELDS
-            elif section_name == share.locales.tr("External"):       lf = EXTERNAL_FIELDS
-            elif section_name == share.locales.tr("Doc"):            lf = DOC_FIELDS
-            
-            try:
-                for field in lf:
-                    label = QLabel(field["name"])
-                    label.setFont(label_font)
-                    label.setFixedWidth(max_label_width)
-                    label.setContentsMargins(2, 2, 2, 2)
-                    
-                    self._bind_help(label,
-                        field["help_key"],
-                        field["name"])
-                    
-                    if field["type"] == "lineedit":
-                        edit = QLineEdit()
-                        edit.setObjectName(f"doxy_LineEdit_{self.doxy_Counter_LineEdit}")
-                        self.doxy_Counter_LineEdit += 1
-                        field["obj"] = edit
-                        edit.setContentsMargins(2, 2, 2, 2)
-                        self._bind_help(edit, field["help_key"], field["name"])
-                        self.project_edits[field["name"]] = edit
-                        form.addRow(label, edit)
-                    elif field["type"] == "lineedit_btn":
-                        edit = LineEditButton(self)
-                        edit.setObjectName(f"doxy_EditButton_{self.doxy_Counter_EditButton}")
-                        self.doxy_Counter_EditButton += 1
-                        field["obj"] = edit
-                        self._bind_help(edit, field["help_key"], field["name"])
-                        self.project_edits[field["name"]] = edit
-                        form.addRow(label, edit)
-                    elif field["type"] == "checkbox":
-                        check = DoxyCheckBox(self.holder)
-                        check.setObjectName(f"doxy_CheckBox_{self.doxy_Counter_CheckBox}")
-                        self.doxy_Counter_CheckBox += 1
-                        field["obj"] = check
-                        self._bind_help(check, field["help_key"], field["name"])
-                        form.addRow(label, check)
-                    elif field["type"] == "combobox_md":
-                        combo = ComboBoxMarkDown(self)
-                        combo.setObjectName(f"doxy_ComboBox_MarkDown_{self.doxy_Counter_ComboBox_MarkDown}")
-                        self.doxy_Counter_ComboBox_MarkDown += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "combobox_time":
-                        combo = ComboBoxTimeStamp(self)
-                        combo.setObjectName(f"doxy_ComboBox_Time_{self.doxy_Counter_ComboBox_Time}")
-                        self.doxy_Counter_ComboBox_Time += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "combobox_warn":
-                        combo = ComboBoxWarning(self)
-                        combo.setObjectName(f"doxy_ComboBox_Warning_{self.doxy_Counter_ComboBox_Warn}")
-                        self.doxy_Counter_ComboBox_Warn += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "combobox_sense":
-                        combo = ComboBoxSense(self)
-                        combo.setObjectName(f"doxy_ComboBox_Sense_{self.doxy_Counter_ComboBox_Sense}")
-                        self.doxy_Counter_ComboBox_Sense += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "combobox_info":
-                        combo = ComboBoxInfo(self)
-                        combo.setObjectName(f"doxyComboBoxInfo_{self.doxy_Counter_ComboBox_Info}")
-                        self.doxy_Counter_ComboBox_Info += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "combobox_lang":
-                        combo = ComboBoxLanguage(self)
-                        combo.setObjectName(f"doxy_ComboBox_Langauge_{self.doxy_Counter_ComboBox_Language}")
-                        self.doxy_Counter_ComboBox_Language += 1
-                        field["obj"] = combo
-                        self._bind_help(combo, field["help_key"], field["name"])
-                        form.addRow(label, combo)
-                    elif field["type"] == "lineedit_btn3":
-                        edit = LineEditButton3(self)
-                        edit.setObjectName(f"doxy_LineEdit_Button_{self.doxy_Counter_LineEdit_Button}")
-                        self.doxy_Counter_LineEdit_Button += 1
-                        field["obj"] = edit
-                        self._bind_help(edit, field["help_key"], field["name"])
-                        form.addRow(label, edit)
-                    elif field["type"] == "lineedit_btn4":
-                        edit = LineEditButton4(self)
-                        edit.setObjectName(f"doxy_LineEdit_Button_{self.doxy_Counter_LineEdit_Button}")
-                        self.doxy_Counter_LineEdit_Button += 1
-                        field["obj"] = edit
-                        self._bind_help(edit, field["help_key"], field["name"])
-                        form.addRow(label, edit)
-                    elif field["type"] == "spinedit":
-                        spin = DoxySpinEdit(self)
-                        spin.setObjectName(f"doxy_SpinEdit_{self.doxy_Counter_SpinEdit}")
-                        self.doxy_Counter_SpinEdit += 1
-                        field["obj"] = spin
-                        self._bind_help(spin, field["help_key"], field["name"])
-                        form.addRow(label, spin)
-                    elif field["type"] == "textedit":
-                        label.setText("")
-                        edit = DoxyTextEdit(self)
-                        edit.setObjectName(f"doxy_TextEdit_{self.doxy_Counter_TextEdit}")
-                        self.doxy_Counter_TextEdit += 1
-                        field["obj"] = edit
-                        self._bind_help(edit, field["help_key"], field["name"])
-                        form.addRow(label, edit)
-                    elif field["type"] == "panelspacer":
-                        panel = QWidget(self)
-                        panel.setObjectName(f"doxy_PanelSpacer_{self.doxy_Counter_PanelSpacer}")
-                        self.doxy_Counter_PanelSpacer += 1
-                        field["obj"] = panel
-                        panel.setMinimumHeight(100)
-                        form.addRow(label, panel)
-                        
-            except Exception as e:
-                QMessageBox.critical(self, share.locales.tr("11internal build error"), str(e))
-                return False
-            
-            self.scroll_lay.addWidget(form_host)
-            self.scroll_lay.addStretch(1)
-            
-            return True
-        else:
-            label = QLabel(section_name)
-            label.setFont(QFont("Consolas", 10))
-            label.setContentsMargins(2, 2, 2, 2)
-            self._bind_help(label, f"doxygen.section.{section_name}.help", section_name)
-            self.scroll_lay.addWidget(label)
-            self.scroll_lay.addStretch(1)
 
     def _project_payload(self, path: str) -> dict:
         now = dt.datetime.now()
@@ -1545,7 +1365,6 @@ class DoxyGenToolWindow(QWidget):
                 return
             
             config = {}
-            
             
             payload["config"] = config
             

@@ -153,3 +153,13 @@ class ErrorMessage(QDialog):
         )
         # Optional: Button deaktivieren, weil Datei weg ist
         self.btn_delete_log.setEnabled(False)
+
+def exception_info(e):
+    last = traceback.extract_tb(e.__traceback__)[-1]
+    return {
+        "file": last.filename,
+        "line": last.lineno,
+        "function": last.name,
+        "code": last.line,
+        "error": str(e),
+    }
