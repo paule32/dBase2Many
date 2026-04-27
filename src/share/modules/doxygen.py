@@ -11,24 +11,24 @@ from __future__   import annotations
 from share.common import *
 
 DOXYGEN_EXPERT_ITEMS = [
-    [share.locales.tr("Project"),           None],
-    [share.locales.tr("Build"),             None],
-    [share.locales.tr("Messages"),          None],
-    [share.locales.tr("Input"),             None],
-    [share.locales.tr("Source Browser"),    None],
-    [share.locales.tr("Index"),             None],
-    [share.locales.tr("HTML"),              None],
-    [share.locales.tr("LaTeX"),             None],
-    [share.locales.tr("RTF"),               None],
-    [share.locales.tr("Man"),               None],
-    [share.locales.tr("XML"),               None],
-    [share.locales.tr("DocBook"),           None],
-    [share.locales.tr("AutoGen"),           None],
-    [share.locales.tr("SQLite3"),           None],
-    [share.locales.tr("PerlMod"),           None],
-    [share.locales.tr("Preprocessor"),      None],
-    [share.locales.tr("External"),          None],
-    [share.locales.tr("Dot"),               None],
+    share.locales.tr("Project"),
+    share.locales.tr("Build"),
+    share.locales.tr("Messages"),
+    share.locales.tr("Input"),
+    share.locales.tr("Source Browser"),
+    share.locales.tr("Index"),
+    share.locales.tr("HTML"),
+    share.locales.tr("LaTeX"),
+    share.locales.tr("RTF"),
+    share.locales.tr("Man"),
+    share.locales.tr("XML"),
+    share.locales.tr("DocBook"),
+    share.locales.tr("AutoGen"),
+    share.locales.tr("SQLite3"),
+    share.locales.tr("PerlMod"),
+    share.locales.tr("Preprocessor"),
+    share.locales.tr("External"),
+    share.locales.tr("Dot")
 ]
 
 SUPPORTED_LANGUAGES = [
@@ -84,284 +84,11 @@ HEADER_TOOL     = "doxygen-dialog"
 HEADER_KIND     = "doxygen-project"
 HEADER_VERSION  = 1
 
-PROJECT_FIELDS  = [
-    {"obj": None, "name": "DOXYFILE_ENCODING",        "type": "lineedit"      , "help_key": "doxygen.project.DOXYFILE_ENCODING.help"},
-    {"obj": None, "name": "",                         "type": "panelspacer"   , "help_key": ""},
-]
-
-BUILD_FIELDS  = [
-    {"obj": None, "name": "EXTRACT_ALL",              "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_ALL.help"},
-    {"obj": None, "name": "EXTRACT_PRIVATE",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_PRIVATE.help"},
-    {"obj": None, "name": "EXTRACT_PRIV_VIRTUAL",     "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_PRIV_VIRTUAL.help"},
-    {"obj": None, "name": "EXTRACT_PACKAGE",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_PACKAGE.help"},
-    {"obj": None, "name": "EXTRACT_STATIC",           "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_STATIC.help"},
-    
-    {"obj": None, "name": "EXTRACT_LOCAL_CLASSES",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_CLASSES.help"},
-    {"obj": None, "name": "EXTRACT_LOCAL_METHODS",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "EXTRACT_ANON_NSPACES",     "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "RESOLVE_UNNAMED_PARAMS",   "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "HIDE_UNDOC_MEMBERS",       "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "HIDE_UNDOC_CLASSES",       "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "HIDE_UNDOC_NAMESPACES",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "HIDE_FRIEND_COMPOUNDS",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "HIDE_IN_BODY_DOCS",        "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "INTERNAL_DOCS",            "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "CASE_SENSE_NAMES",         "type": "combobox_sense", "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "HIDE_UNDOC_MEMBERS",       "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "HIDE_SCOPE_NAMES",         "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "HIDE_COMPOUND_REFERENCE",  "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "SHOW_HEADERFILE",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SHOW_INCLUDE_FILES",       "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "FORCE_LOCAL_INCLUDES",     "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "INLINE_INFO",              "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "SORT_MEMBER_DOCS",         "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SORT_BRIEF_DOCS",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SORT_MEMBER_CTORS_1ST",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SORT_GROUP_NAMES",         "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SORT_BY_SCOPE_NAME",       "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "STRICT_PROTO_MATCHING",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "GENERATE_TODOLIST",        "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "GENERATE_TESTLIST",        "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "GENERATE_BUGLIST",         "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "GENERATE_DEPRECATEDLIST",  "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "GENERATE_REQUIREMENTS",    "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "REQ_TRACEABILITY_INFO",    "type": "combobox_info" , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "ENABLE_SECTIONS",          "type": "lineedit_btn3" , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "",                         "type": "textedit"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "MAX_INITIALIZER_LINES",    "type": "spinedit"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "SHOW_USED_FILES",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SHOW_FILES",               "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "SHOW_NAMESPACES",          "type": "checkbox"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "FILE_VERSION_FILTER",      "type": "lineedit_btn"  , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "LAYOUT_FILE",              "type": "lineedit_btn"  , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "CITE_BIB_FILES",           "type": "lineedit_btn4" , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "",                         "type": "textedit"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    
-    {"obj": None, "name": "EXTERNAL_TOOL_PATH",       "type": "lineedit_btn4" , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-    {"obj": None, "name": "",                         "type": "textedit"      , "help_key": "doxygen.project.EXTRACT_LOCAL_METHODS.help"},
-]
-
-MESSAGES_FIELDS = []
-INPUT_FIELDS = []
-SOURCE_BROWSER_FIELDS = []
-INDEX_FIELDS = []
-HTML_FIELDS = []
-LATEX_FIELDS = []
-RTF_FIELDS = []
-MAN_FIELDS = []
-XML_FIELDS = []
-DOCBOOK_FIELDS = []
-AUTOGEN_FIELDS = []
-SQLITE3_FIELDS = []
-PERLMOD_FIELDS = []
-PREPROCESSOR_FIELDS = []
-EXTERNAL_FIELDS = []
-DOC_FIELDS = []
 
 def _default_project_dir() -> Path:
     base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
     base.mkdir(parents=True, exist_ok=True)
     return base
-
-
-class LineEditButton(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(2,2,2,2)
-        
-        self.parent = parent
-        
-        self.edit = QLineEdit()
-        self.edit.setContentsMargins(2, 2, 2, 2)
-        self.btn = QPushButton("...")
-        self.btn.clicked.connect(self._open_dialog)
-        
-        lay.addWidget(self.edit)
-        lay.addWidget(self.btn)
-    
-    def _open_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self,
-            share.locales.tr("Load DoxyGen Project"),
-            "", "Alle (*.*)")
-        if not path:
-            self.edit.setText("")
-            return
-        self.edit.setText(path)
-
-
-class ComboBoxMarkDown(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            "DOXYGEN",
-            "GITHUB"
-        ])
-        lay.addWidget(self.combo)
-
-
-class ComboBoxTimeStamp(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            share.locales.tr("NO"),
-            share.locales.tr("YES"),
-            share.locales.tr("DATETIME"),
-            share.locales.tr("DATE")
-        ])
-        lay.addWidget(self.combo)
-
-
-class ComboBoxWarning(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            share.locales.tr("NO"),
-            share.locales.tr("YES"),
-            share.locales.tr("FAIL_ON_WARNINGS"),
-            share.locales.tr("FAIL_ON_WARNINGS_PRINT")
-        ])
-        lay.addWidget(self.combo)
-
-
-class ComboBoxInfo(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            share.locales.tr("YES"),
-            share.locales.tr("NO"),
-            share.locales.tr("UNSATISFIED_ONLY"),
-            share.locales.tr("UNVERIFIED_ONLY")
-        ])
-        lay.addWidget(self.combo)
-
-
-class ComboBoxSense(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.combo = QComboBox()
-        self.combo.addItems([
-            share.locales.tr("SYSTEM"),
-            share.locales.tr("NO"),
-            share.locales.tr("YES")
-        ])
-        lay.addWidget(self.combo)
-
-
-class LineEditButton3(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.edit = QLineEdit()
-        self.edit.setContentsMargins(2, 2, 2, 2)
-        
-        self.btn1 = QPushButton("...")
-        self.btn1.clicked.connect(self._open_dialog)
-        
-        self.btn2 = QPushButton("...")
-        self.btn2.clicked.connect(self._open_dialog)
-        
-        self.btn3 = QPushButton("...")
-        self.btn3.clicked.connect(self._open_dialog)
-        
-        lay.addWidget(self.edit)
-        
-        lay.addWidget(self.btn1)
-        lay.addWidget(self.btn2)
-        lay.addWidget(self.btn3)
-    
-    def _open_dialog(self):
-        pass
-
-
-class LineEditButton4(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0)
-        
-        self.parent = parent
-        
-        self.edit = QLineEdit()
-        self.edit.setContentsMargins(2, 2, 2, 2)
-        
-        self.btn1 = QPushButton("...")
-        self.btn1.clicked.connect(self._open_dialog)
-        
-        self.btn2 = QPushButton("...")
-        self.btn2.clicked.connect(self._open_dialog)
-        
-        self.btn3 = QPushButton("...")
-        self.btn3.clicked.connect(self._open_dialog)
-        
-        self.btn4 = QPushButton("...")
-        self.btn4.clicked.connect(self._open_dialog)
-        
-        lay.addWidget(self.edit)
-        
-        lay.addWidget(self.btn1)
-        lay.addWidget(self.btn2)
-        lay.addWidget(self.btn3)
-        lay.addWidget(self.btn4)
-    
-    def _open_dialog(self):
-        pass
 
 
 class ProjectListItemWidget(QWidget):
@@ -740,7 +467,7 @@ class DoxyGenToolWindow(QWidget):
         self.list_categories = QListWidget()
         
         for item in DOXYGEN_EXPERT_ITEMS:
-            self.list_categories.addItem(str(item[0]))
+            self.list_categories.addItem(item)
         
         self.list_categories.currentTextChanged.connect(self._on_expert_item_changed)
         self.expert_splitter_h.addWidget(self.list_categories)
@@ -751,7 +478,7 @@ class DoxyGenToolWindow(QWidget):
         
         self.scroll_pages = {}
 
-        for name, _ in DOXYGEN_EXPERT_ITEMS:
+        for name in DOXYGEN_EXPERT_ITEMS:
             scroll_area, scroll_widget, scroll_lay = self._create_scroll_page()
             self.scroll_pages[str(name)] = {
                 "area"  : scroll_area,
@@ -861,7 +588,79 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.build_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox("EXTRACT_ALL"),
+            DoxyCheckBox("EXTRACT_PRIVATE"),
+            DoxyCheckBox("EXTRACT_PRIV_VIRTUAL"),
+            DoxyCheckBox("EXTRACT_PACKAGE"),
+            DoxyCheckBox("EXTRACT_STATIC"),
+            
+            DoxyCheckBox("EXTRACT_LOCAL_CLASSES"),
+            DoxyCheckBox("EXTRACT_LOCAL_METHODS"),
+            
+            DoxyCheckBox("EXTRACT_ANON_NSPACES"),
+            DoxyCheckBox("RESOLVE_UNNAMED_PARAMS"),
+            
+            DoxyCheckBox("HIDE_UNDOC_MEMBERS"),
+            DoxyCheckBox("HIDE_UNDOC_CLASSES"),
+            DoxyCheckBox("HIDE_UNDOC_NAMESPACES"),
+            
+            DoxyCheckBox("HIDE_FRIEND_COMPOUNDS"),
+            DoxyCheckBox("HIDE_IN_BODY_DOCS"),
+            
+            DoxyCheckBox("INTERNAL_DOCS"),
+            DoxyComboBox("CASE_SENSE_NAMES", [
+                "SYSTEM",
+                "YES",
+                "NO"
+            ]),
+            
+            DoxyCheckBox("HIDE_UNDOC_MEMBERS"),
+            DoxyCheckBox("HIDE_SCOPE_NAMES"),
+            DoxyCheckBox("HIDE_COMPOUND_REFERENCE"),
+            
+            DoxyCheckBox("SHOW_HEADERFILE"),
+            DoxyCheckBox("SHOW_INCLUDE_FILES"),
+            
+            DoxyCheckBox("FORCE_LOCAL_INCLUDES"),
+            DoxyCheckBox("INLINE_INFO"),
+            
+            DoxyCheckBox("SORT_MEMBER_DOCS"),
+            DoxyCheckBox("SORT_BRIEF_DOCS"),
+            DoxyCheckBox("SORT_MEMBER_CTORS_1ST"),
+            DoxyCheckBox("SORT_GROUP_NAMES"),
+            DoxyCheckBox("SORT_BY_SCOPE_NAME"),
+            
+            DoxyCheckBox("STRICT_PROTO_MATCHING"),
+            
+            DoxyCheckBox("GENERATE_TODOLIST"),
+            DoxyCheckBox("GENERATE_TESTLIST"),
+            DoxyCheckBox("GENERATE_BUGLIST"),
+            DoxyCheckBox("GENERATE_DEPRECATEDLIST"),
+            DoxyCheckBox("GENERATE_REQUIREMENTS"),
+            
+            DoxyComboBox("REQ_TRACEABILITY_INFO", [
+                "YES",
+                "NO",
+                "UNSATISFIED_ONLY",
+                "UNVERIFIED_ONLY"
+            ]),
+            
+            DoxyLineBtn3("ENABLE_SECTIONS"),
+            DoxyTextEdit("ENABLE_SECTIONS"),
+            
+            DoxySpinEdit("MAX_INITIALIZER_LINES"),
+            
+            DoxyCheckBox("SHOW_USED_FILES"),
+            DoxyCheckBox("SHOW_FILES"),
+            DoxyCheckBox("SHOW_NAMESPACES"),
+            
+            DoxyLineBtn1("FILE_VERSION_FILTER"),
+            DoxyLineBtn1("LAYOUT_FILE"),
+            DoxyLineBtn4("CITE_BIB_FILES"),
+            DoxyTextEdit("CITE_BIB_FILES"),
+            
+            DoxyLineBtn4("EXTERNAL_TOOL_PATH"),
+            DoxyTextEdit("EXTERNAL_TOOL_PATH")
         ]
         build_lay = self.scroll_pages["Build"]["layout"]
         for item in self.build_items:
