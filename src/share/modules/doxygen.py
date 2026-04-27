@@ -144,7 +144,7 @@ class DoxyLabel(QLabel):
         else:         self.setText("")
             
         self.setFont(QFont("Consolas", 10))
-        self.setMinimumWidth(156)
+        self.setMinimumWidth(164)
         self.setStyleSheet("color: white;")
         self.setProperty("help", help_str)
 
@@ -154,7 +154,7 @@ class DoxyLabel(QLabel):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyTextEdit(QWidget):
-    def __init__(self, help_str:str=""):
+    def __init__(self, help_str:str="", text:list=[]):
         super().__init__(None)
         
         self.layout = DoxyHBoxLayout(self)
@@ -162,6 +162,9 @@ class DoxyTextEdit(QWidget):
         self.label  = DoxyLabel(help_str, 1)
         self.edit   = QPlainTextEdit()
         self.edit.setStyleSheet("background-color: #303030;")
+        
+        for line in text:
+            self.edit.appendPlainText(line)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.edit)
@@ -517,7 +520,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox("REPEAT_BRIEF"),
             
             DoxyLineBtn3("ABBREVIATVE_BRIEF"),
-            DoxyTextEdit("ABBREVIATVE_BRIEF"),
+            DoxyTextEdit("ABBREVIATVE_BRIEF", []),
             
             DoxyCheckBox("ALWAYS_DETAILED_SEC"),
             DoxyCheckBox("INLINE_INHERITED_MEMB"),
@@ -525,10 +528,10 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox("FULL_PATH_NAMES"),
             
             DoxyLineBtn4("STRIP_FROM_PATH"),
-            DoxyTextEdit("STRIP_FROM_PATH"),
+            DoxyTextEdit("STRIP_FROM_PATH", []),
             
             DoxyLineBtn4("STRIP_FROM_INC_PATH"),
-            DoxyTextEdit("STRIP_FROM_INC_PATH"),
+            DoxyTextEdit("STRIP_FROM_INC_PATH", []),
             
             DoxyCheckBox("SHORT_NAMES"),
             
@@ -543,7 +546,7 @@ class DoxyGenToolWindow(QWidget):
             DoxySpinEdit("TAB_SIZE", 2, 16, 2),
             
             DoxyLineBtn3("ALIASES"),
-            DoxyTextEdit("ALIASES"),
+            DoxyTextEdit("ALIASES", []),
             
             DoxyCheckBox("OPTIMIZE_OUTPUT_C"),
             DoxyCheckBox("OPTIMIZE_OUTPUT_JAVA"),
@@ -552,7 +555,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox("OPTIMIZE_OUTPUT_SLICE"),
             
             DoxyLineBtn3("EXTERNAL_MAPPING"),
-            DoxyTextEdit("EXTERNAL_MAPPING"),
+            DoxyTextEdit("EXTERNAL_MAPPING", []),
             
             DoxyCheckBox("MARKDOWN_SUPPORT"),
             DoxyCheckBox("MARKDOWN_STRICT"),
@@ -562,7 +565,7 @@ class DoxyGenToolWindow(QWidget):
             
             DoxyCheckBox("AUTOLINK_SUPPORT"),
             DoxyLineBtn3("AUTOLINK_IGNORE_WORDS"),
-            DoxyTextEdit("AUTOLINK_IGNORE_WORDS"),
+            DoxyTextEdit("AUTOLINK_IGNORE_WORDS", []),
             
             DoxyCheckBox("BUILTiN_STL_SUPPORT"),
             DoxyCheckBox("CPP_CLI_SUPPORT"),
@@ -646,7 +649,7 @@ class DoxyGenToolWindow(QWidget):
             ]),
             
             DoxyLineBtn3("ENABLE_SECTIONS"),
-            DoxyTextEdit("ENABLE_SECTIONS"),
+            DoxyTextEdit("ENABLE_SECTIONS", []),
             
             DoxySpinEdit("MAX_INITIALIZER_LINES"),
             
@@ -657,10 +660,10 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineBtn1("FILE_VERSION_FILTER"),
             DoxyLineBtn1("LAYOUT_FILE"),
             DoxyLineBtn4("CITE_BIB_FILES"),
-            DoxyTextEdit("CITE_BIB_FILES"),
+            DoxyTextEdit("CITE_BIB_FILES", []),
             
             DoxyLineBtn4("EXTERNAL_TOOL_PATH"),
-            DoxyTextEdit("EXTERNAL_TOOL_PATH")
+            DoxyTextEdit("EXTERNAL_TOOL_PATH", [])
         ]
         build_lay = self.scroll_pages["Build"]["layout"]
         for item in self.build_items:
@@ -693,7 +696,47 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.input_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyLineBtn4("INPUT"),
+            DoxyTextEdit("INPUT", []),
+            DoxyLineEdit("INPUT_ENCODING"),
+            DoxyLineBtn3("INPUT_FILE"),
+            DoxyTextEdit("INPUT_FILE_ENCODING", []),
+            
+            DoxyLineBtn3("FILE_PATTERNS"),
+            DoxyTextEdit("FILE_PATTERNS", ["*.c", "*.cc"]),
+            
+            DoxyCheckBox("RECURSIVE"),
+            
+            DoxyLineBtn4("EXCLUDE"),
+            DoxyTextEdit("EXCLUDE", []),
+            
+            DoxyLineBtn3("EXCLUDE_PATTERNS"),
+            DoxyTextEdit("EXCLUDE_PATTERNS", []),
+            DoxyLineBtn3("EXCLUDE_SYMBOLS"),
+            DoxyTextEdit("EXCLUDE_SYMBOLS", []),
+            
+            DoxyLineBtn4("EXAMPLE_PATH"),
+            DoxyTextEdit("EXAMPLE_PATH", []),
+            DoxyLineBtn3("EXAMPLE_PATTERNS"),
+            DoxyTextEdit("EXAMPLE_PATTERNS", ["*"]),
+            DoxyCheckBox("EXAMPLE_RECURSIVE"),
+            
+            DoxyLineBtn4("IMAGE_PATH"),
+            DoxyTextEdit("IMAGE_PATH", []),
+            
+            DoxyLineBtn1("INPUT_FILTER"),
+            
+            DoxyLineBtn3("FILTER_PATTERNS"),
+            DoxyTextEdit("FILTER_PATTERNS", []),
+            
+            DoxyCheckBox("FILTER_SOURCE_FILES"),
+            DoxyLineBtn3("FILTER_SOURCE_PATTERNS"),
+            DoxyTextEdit("FILTER_SOURCE_PATTERNS", []),
+            
+            DoxyLineEdit("USE_MDFILE_AS_MAINPAGE"),
+            
+            DoxyCheckBox("IMPLICIT_DIR_DOCS"),
+            DoxySpinEdit("FORTRAN_COMMENT_AFTER", 0, 128, 72)
         ]
         input_lay = self.scroll_pages["Input"]["layout"]
         for item in self.input_items:
@@ -702,7 +745,22 @@ class DoxyGenToolWindow(QWidget):
 
         # -------------------------------------------------------------------------
         self.browser_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox("SOURCE_BROWSER"),
+            DoxyCheckBox("INLINE_SOURCES"),
+            DoxyCheckBox("STRIP_CODE_COMMENTS"),
+            
+            DoxyCheckBox("REFERENCED_BY_RELATION"),
+            DoxyCheckBox("REFERENCED_LINK_SOURCE"),
+            
+            DoxyCheckBox("SOURCE_TOOLTIPS"),
+            DoxyCheckBox("USE_HTAGS"),
+            DoxyCheckBox("VERBATIM_HEADERS"),
+            
+            DoxyCheckBox("CLANG_ASSISTED_PARSING"),
+            DoxyCheckBox("CLANG_ADD_INC_PATHS"),
+            DoxyLineBtn3("CLANG_OPTIONS"),
+            DoxyTextEdit("CLANG_OPTIONS", []),
+            DoxyLineBtn1("CLANG_DATABASE_PATH")
         ]
         browser_lay = self.scroll_pages["Source Browser"]["layout"]
         for item in self.browser_items:
@@ -711,7 +769,8 @@ class DoxyGenToolWindow(QWidget):
 
         # -------------------------------------------------------------------------
         self.index_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox("ALPHABETICAL_INDEX"),
+            DoxyTextEdit("ALPHABETICAL_INDEX", [])
         ]
         index_lay = self.scroll_pages["Index"]["layout"]
         for item in self.index_items:
@@ -720,7 +779,30 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.html_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox("GENERATE_HTML"),
+            DoxyLineBtn1("HTML_OUTPUT"),
+            DoxyLineEdit("HTML_FILE_EXTENSION"),
+            
+            DoxyLineBtn1("HTML_HEADER"),
+            DoxyLineBtn1("HTML_FOOTER"),
+            
+            DoxyLineBtn1("HTML_STYLESHEET"),
+            DoxyLineBtn4("HTML_EXTRA_STYLESHEET"),
+            DoxyTextEdit("HTML_EXTRA_STYLESHEET"),
+            DoxyLineBtn4("HTML_EXTRA_FILES"),
+            DoxyTextEdit("HTML_EXTRA_FILES", []),
+            
+            DoxyComboBox("HTML_COLORSTYLE", [
+                "LIGHT",
+                "DARK",
+                "AUTO_LIGHT",
+                "AUTP_DARK",
+                "TOGGLE"
+            ]),
+            
+            DoxySpinEdit("COLOR_STYLE_HUE"  , 0, 255, 220),
+            DoxySpinEdit("COLOR_STYLE_SAT"  , 0, 255, 100),
+            DoxySpinEdit("COLOR_STYLE_GAMMA", 0, 255,  80)
         ]
         html_lay = self.scroll_pages["HTML"]["layout"]
         for item in self.html_items:
@@ -729,7 +811,7 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.latex_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox("GENERATE_LATEX"),
         ]
         latex_lay = self.scroll_pages["LaTeX"]["layout"]
         for item in self.latex_items:
