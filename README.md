@@ -21,3 +21,7 @@ Preview Setup B
 
 Preview
 ![Preview](img/screen002.png)
+
+
+Tools used during programming: Qt5 Resource Builder
+![Preview](img/res_builder.png)

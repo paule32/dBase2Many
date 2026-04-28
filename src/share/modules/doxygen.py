@@ -8,7 +8,8 @@
 # ---------------------------------------------------------------------------
 from __future__   import annotations
 
-from share.common import *
+import share.resrces.images_rc
+from   share.common            import *
 
 DOXYGEN_EXPERT_ITEMS = [
     share.locales.tr("Project"),
@@ -123,11 +124,34 @@ class DoxyHBoxLayout(QHBoxLayout):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyButton(QPushButton):
-    def __init__(self, help_str:str=""):
-        super().__init__(None)
+    def __init__(self,
+        help_str:str="",
+        icon_norm:QIcon = None,
+        icon_hovr:QIcon = None):
         
-        self.setText("...")
+        super().__init__()
+        
+        self.icon_norm  = icon_norm
+        self.icon_hovr  = icon_hovr
+        
+        self.setIconSize(QSize(22, 22))
         self.setProperty("help", help_str)
+        
+        self.setMaximumWidth (26)
+        self.setMaximumHeight(26)
+        
+        if self.icon_norm is not None:
+            self.setIcon(self.icon_norm)
+    
+    def enterEvent(self, event):
+        if self.icon_hovr is not None:
+            self.setIcon(self.icon_hovr)
+        super().enterEvent(event)
+    
+    def leaveEvent(self, event):
+        if self.icon_norm is not None:
+            self.setIcon(self.icon_norm)
+        super().leaveEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -251,15 +275,19 @@ class DoxyLineEdit(QWidget):
 # \brief this is a helper class for QLineEdit with a Button to reduce code.
 # ---------------------------------------------------------------------------
 class DoxyLineBtn1(QWidget):
-    def __init__(self, help_str:str="", text_str:str=""):
+    def __init__(self, help_str:str="", text_str:str="", item=None):
         super().__init__(None)
+        
+        self.setProperty("help", help_str)
+        self.setProperty("text", text_str)
         
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(help_str, text_str)
-        self.buttn  = DoxyButton  (help_str)
+        self.buttn  = DoxyButton  (help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
         
         self.layout.addWidget(self.input)
         self.layout.addWidget(self.buttn)
+
 
 class DoxyLineBtn3(QWidget):
     def __init__(self, help_str:str="", text_str:str=""):
@@ -268,9 +296,9 @@ class DoxyLineBtn3(QWidget):
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(help_str, text_str)
         
-        self.butt1  = DoxyButton(help_str)
-        self.butt2  = DoxyButton(help_str)
-        self.butt3  = DoxyButton(help_str)
+        self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
+        self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
+        self.butt3  = DoxyButton(help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
         
         self.layout.addWidget(self.input)
         
@@ -282,13 +310,16 @@ class DoxyLineBtn4(QWidget):
     def __init__(self, help_str:str="", text_str:str=""):
         super().__init__(None)
         
+        self.setProperty("help", help_str)
+        self.setProperty("text", text_str)
+        
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(help_str, text_str)
         
-        self.butt1  = DoxyButton(help_str)
-        self.butt2  = DoxyButton(help_str)
-        self.butt3  = DoxyButton(help_str)
-        self.butt4  = DoxyButton(help_str)
+        self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
+        self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
+        self.butt3  = DoxyButton(help_str, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"))
+        self.butt4  = DoxyButton(help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
         
         self.layout.addWidget(self.input)
         
@@ -322,28 +353,6 @@ class DoxyImage(QWidget):
         self.layout.addWidget(self.label1, alignment=Qt.AlignLeft)
         self.layout.addWidget(self.label2, alignment=Qt.AlignLeft)
         self.layout.addStretch(1)
-
-
-# ---------------------------------------------------------------------------
-# \brief this is a helper class for QLineEdit to reduce code space.
-# \param help_str - string for the label and help id, default: "".
-# \param text_str - string for the input content, default: "".
-# ---------------------------------------------------------------------------
-class DoxyLineButt(QWidget):
-    def __init__(self, help_str:str="", text_str:str=""):
-        super().__init__(None)
-        
-        self.setProperty("help", help_str)
-        self.setProperty("text", text_str)
-        
-        self.layout = DoxyHBoxLayout(self)
-        self.setLayout(self.layout)
-        
-        self.input = DoxyLineEdit(help_str, text_str)
-        self.buttn = DoxyButton(help_str)
-        
-        self.layout.addWidget(self.input)
-        self.layout.addWidget(self.buttn)
 
 
 # ---------------------------------------------------------------------------
@@ -504,10 +513,10 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineEdit("PROJECT_NAME", "MyProject"),
             DoxyLineEdit("PROJECT_NUMBER"),
             DoxyLineEdit("PROJECT_BRIEF"),
-            DoxyLineButt("PROJECT_LOGO"),
-            DoxyImage   ("PROJECT_LOGO", share.locales.tr("No Project Logo selected.")),
-            DoxyLineBtn1("PROJECT_ICON"),
-            DoxyImage   ("PROJECT_ICON", share.locales.tr("No Project Icon selected.")),
+            DoxyLineBtn1("PROJECT_LOGO", "",
+                DoxyImage("", share.locales.tr("No Project Logo selected."))),
+            DoxyLineBtn1("PROJECT_ICON", "",
+                DoxyImage("", share.locales.tr("No Project Icon selected."))),
             
             DoxyLineBtn1("OUTPUT_DIRECTORY"),
             DoxyCheckBox("CREATE_SUBDIRS"),
@@ -788,7 +797,7 @@ class DoxyGenToolWindow(QWidget):
             
             DoxyLineBtn1("HTML_STYLESHEET"),
             DoxyLineBtn4("HTML_EXTRA_STYLESHEET"),
-            DoxyTextEdit("HTML_EXTRA_STYLESHEET"),
+            DoxyTextEdit("HTML_EXTRA_STYLESHEET", []),
             DoxyLineBtn4("HTML_EXTRA_FILES"),
             DoxyTextEdit("HTML_EXTRA_FILES", []),
             
@@ -802,7 +811,48 @@ class DoxyGenToolWindow(QWidget):
             
             DoxySpinEdit("COLOR_STYLE_HUE"  , 0, 255, 220),
             DoxySpinEdit("COLOR_STYLE_SAT"  , 0, 255, 100),
-            DoxySpinEdit("COLOR_STYLE_GAMMA", 0, 255,  80)
+            DoxySpinEdit("COLOR_STYLE_GAMMA", 0, 255,  80),
+            
+            DoxyCheckBox("HTML_DYNAMIC_MENUS"),
+            DoxyCheckBox("HTML_DYNAMIC_SECTIONS"),
+            
+            DoxyCheckBox("HTML_CODE_FOLDING"),
+            DoxyCheckBox("HTML_COPY_CLIPBOARD"),
+            DoxyLineEdit("HTML_PROJECT_COOKIE"),
+            DoxySpinEdit("HTML_INDEX_NUM_ENTRIES", 0, 255, 100),
+            DoxyLineEdit("HTML_SITEMAP_URL"),
+            
+            DoxyCheckBox("GENERATE_HTMLHELP"),
+            DoxyLineBtn1("HHC_LOCATION"),
+            DoxyLineBtn1("CHM_FILE"),
+            DoxyLineEdit("CHM_INDEX_ENCODING"),
+            DoxyCheckBox("CHM_BINARY_TOC"),
+            
+            DoxyCheckBox("GENERATE_CHI"),
+            
+            DoxyCheckBox("GENERATE_DOCSET"),
+            DoxyLineEdit("DOCSET_FEEDNAME"),
+            DoxyLineEdit("DOCSET_FEEDURL"),
+            DoxyLineEdit("DOCSET_BUNDLE_ID"),
+            DoxyLineEdit("DOCSET_PUBLISER_ID"),
+            DoxyLineEdit("DOCSET_PUBLISER_NAME"),
+            
+            DoxyCheckBox("GENERATE_QHP"),
+            DoxyLineBtn1("QCH_FILE"),
+            
+            DoxyLineEdit("QHP_NAMESPACE"),
+            DoxyLineEdit("QHP_VIRTUAL_FOLDER"),
+            DoxyLineEdit("QHP_CUST_FILTER_NAME"),
+            DoxyLineEdit("QHP_CUST_FILTER_ATTRS"),
+            DoxyLineEdit("QHP_SECT_FILTER_ATTRS"),
+            
+            DoxyLineBtn1("QHG_LOCATION"),
+            
+            DoxyCheckBox("GENERATE_ECLIPSE_HELP"),
+            DoxyLineEdit("ECLIPSE_DOC_ID"),
+            
+            DoxyCheckBox("GENERATE_TREEVIEW"),
+            DoxySpinEdit("TREEVIEW_WIDTH", 50, 800, 100)
         ]
         html_lay = self.scroll_pages["HTML"]["layout"]
         for item in self.html_items:
