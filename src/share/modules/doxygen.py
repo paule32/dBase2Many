@@ -386,6 +386,7 @@ class DoxyLineBtn4(QWidget):
         
         self.parent = parent
         self.owner  = parent.owner
+        self.help   = help_str
         
         self.setProperty("help", help_str)
         self.setProperty("text", text_str)

@@ -101,17 +101,25 @@ class ErrorMessage(QDialog):
         # Button-Leiste
         btn_row = QHBoxLayout()
         
-        self.btn_delete_log = QPushButton("LOG löschen")
+        self.btn_delete_log = QPushButton(share.locales.tr("Delete LOG"))
         self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
         self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
+        
+        btn_style = """QPushButton {
+        background-color: #2f2f2f;
+        color: white;
+        border: 1px solid black;
+        }"""
+        self.btn_delete_log.setStyleSheet(btn_style)
         
         btn_row.addWidget(self.btn_delete_log)
         btn_row.addStretch()
         
-        self.btn_close = QPushButton("Schließen")
+        self.btn_close = QPushButton(share.locales.tr("Close"))
         self.btn_close.clicked.connect(self.accept)
-        btn_row.addWidget(self.btn_close)
+        self.btn_close.setStyleSheet(btn_style)
         
+        btn_row.addWidget(self.btn_close)
         layout.addLayout(btn_row)
 
     def _on_delete_log_clicked(self):
