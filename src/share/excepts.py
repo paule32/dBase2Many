@@ -76,12 +76,12 @@ class showException(QDialog):
         self.close()
 
 class ErrorMessage(QDialog):
-    def __init__(self, title="Fehler", message="", log_path=None, parent=None):
+    def __init__(self, title="Error", message="", log_path=None, parent=None):
         super().__init__(parent)
         
         self.log_path = log_path  # Pfad zur Logdatei (oder None)
         
-        self.setWindowTitle(title)
+        self.setWindowTitle(share.locales.tr(title))
         self.resize(750, 420)
         
         layout = QVBoxLayout(self)

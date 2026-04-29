@@ -139,11 +139,16 @@ class DoxyHBoxLayout(QHBoxLayout):
 # ---------------------------------------------------------------------------
 class DoxyButton(QPushButton):
     def __init__(self,
-        help_str:str="",
+        owner           = None,
+        help_str :str   =   "",
         icon_norm:QIcon = None,
-        icon_hovr:QIcon = None):
+        icon_hovr:QIcon = None, flag:int=0):
         
         super().__init__()
+        
+        self.owner      = owner
+        self.flag       = flag
+        self.filename   = ""
         
         self.icon_norm  = icon_norm
         self.icon_hovr  = icon_hovr
@@ -154,8 +159,77 @@ class DoxyButton(QPushButton):
         self.setMaximumWidth (26)
         self.setMaximumHeight(26)
         
+        self.clicked.connect(self.on_click)
+        
         if self.icon_norm is not None:
             self.setIcon(self.icon_norm)
+    
+    def open_file(self) -> str:
+        try:
+            text = share.locales.tr("All Files")
+            self.filename, _ = QFileDialog.getOpenFileName(
+                self, share.locales.tr("Open File..."),
+                "", f"{text} (*.*)")
+            if self.filename:
+                return self.filename
+            return str("")
+        except FileNotFoundError as e:
+            dlg = ErrorMessage("File not found Error",
+            f"The requested file: {self.filename} could not be found.")
+            dlg.exec_()
+            return ""
+        except PermissionError as e:
+            dlg = ErrorMessage("File Permission Error",
+            f"You have not enough permissions to open file: {self.filename}.")
+            dlg.exec_()
+            return ""
+        except RuntimeError as e:
+            dlg = ErrorMessage("Runtime Error",
+            f"The Python Library throws a Runtime Error on opening file: {self.filename}.")
+            dlg.exec_()
+            return ""
+        except OSError as e:
+            dlg = ErrorMessage("Operating System Error",
+            f"The System is not able to open file: {self.filename}.")
+            dlg.exec_()
+            return ""
+        except Exception as e:
+            dlg = ErrorMessage("Common Exception Error",
+            f"Common Exception throwed on open file: {self.filename}.")
+            dlg.exec_()
+            return ""
+    
+    def on_click(self, text):
+        if self.owner is not None:
+            if isinstance(self.owner, DoxyLineBtn1):
+                if self.flag == 1:
+                    if self.open_file():
+                        self.owner.input.input.setText(self.filename)
+            elif isinstance(self.owner, DoxyLineBtn3):
+                if self.flag == 1:
+                    if self.open_file():
+                        self.owner.input.input.setText(self.filename)
+                elif self.flag == 2:
+                    text = self.owner.input.input.text().strip()
+                    print("ADD text:", text)
+                elif self.flag == 3:
+                    print("deL text")
+            elif isinstance(self.owner, DoxyLineBtn4):
+                if self.flag == 1:
+                    if self.open_file():
+                        self.owner.input.input.setText(self.filename)
+                elif self.flag == 2:
+                    text = self.owner.input.input.text().strip()
+                    print("+++ Text:", text)
+                elif self.flag == 3:
+                    print("Del text")
+                elif self.flag == 4:
+                    text = self.owner.input.input.text().strip()
+                    print("refresh:", text)
+        else:
+            QMessageBox.warning(self,
+                share.locales.tr("No button binding"),
+                share.locales.tr("The button have no binding component."))
     
     def enterEvent(self, event):
         if self.icon_hovr is not None:
@@ -344,7 +418,7 @@ class DoxyLineBtn1(QWidget):
         
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(self, help_str, text_str)
-        self.buttn  = DoxyButton  (help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
+        self.buttn  = DoxyButton  (self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
         self.layout.addWidget(self.input)
         self.layout.addWidget(self.buttn)
@@ -365,9 +439,9 @@ class DoxyLineBtn3(QWidget):
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(self, help_str, text_str)
         
-        self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
-        self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
-        self.butt3  = DoxyButton(help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
+        self.butt1  = DoxyButton(self, help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
+        self.butt2  = DoxyButton(self, help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
+        self.butt3  = DoxyButton(self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
         self.layout.addWidget(self.input)
         
@@ -394,10 +468,10 @@ class DoxyLineBtn4(QWidget):
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(parent, help_str, text_str)
         
-        self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
-        self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
-        self.butt3  = DoxyButton(help_str, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"))
-        self.butt4  = DoxyButton(help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
+        self.butt1  = DoxyButton(self, help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
+        self.butt2  = DoxyButton(self, help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
+        self.butt3  = DoxyButton(self, help_str, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"), 4)
+        self.butt4  = DoxyButton(self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
         self.layout.addWidget(self.input)
         
