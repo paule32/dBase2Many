@@ -26,6 +26,7 @@ from   share.utildef.theme          import *
 
 from   share.modules.locales        import *
 from   share.modules.doxygen        import *
+from   share.modules.aliasbuilder   import *
 
 from   share.widgets.button.glossy  import *
 
@@ -535,6 +536,8 @@ def _resolve_global_shortcut_host(obj: Any):
             "SqlBuilderWindow",
             "ProjectDialog",
             "LocalizeToolWindow",
+            "ResourceBuilderToolWindow",
+            "HelpAuthoringToolWindow",
             "DoxyGenToolWindow",
             "RegieCenter",
             "MainWindow",
@@ -8754,19 +8757,25 @@ class FormDesignerDock(QDockWidget):
                 w.deleteLater()
         
         p.add_action(
-            "Locales",
+            share.locales.tr("Locales"),
                 lambda: self._run_and_close(p,
                 lambda: self.main_window.ensure_localize_tool(focus=True)
             ),
         )
         p.add_action(
-            "Help Authoring",
-            lambda: self._run_and_close(
-                p, self._open_help_authoring
+            share.locales.tr("Resource Builder"),
+                lambda: self._run_and_close(p,
+                lambda: seöf.main_window.ensure_resourcebuilder_tool(focus=True)
             ),
         )
         p.add_action(
-            "DoxyGen",
+            share.locales.tr("Help Authoring"),
+                lambda: self._run_and_close(p,
+                lambda: self.main_window.ensure_help_authoring_tool(focus=True)
+            ),
+        )
+        p.add_action(
+            share.locales.tr("DoxyGen"),
                 lambda: self._run_and_close(p,
                 lambda: self.main_window.ensure_doxygen_tool(focus=True)
             ),
@@ -8776,7 +8785,8 @@ class FormDesignerDock(QDockWidget):
     def _open_help_authoring(self):
         try:
             if hasattr(self.main_window, "status_left"):
-                self.main_window.status_left.setText("Help Authoring wird geladen...")
+                self.main_window.status_left.setText(
+                    share.locales.tr("Help Authoring wird geladen..."))
                 QApplication.processEvents()
 
             from share.editors.help import HelpAuthoringEditor
@@ -10319,6 +10329,9 @@ class MainWindow(QMainWindow):
             "SqlBuilderWindow",
             "ProjectDialog",
             "LocalizeToolWindow",
+            "ResourceBuilderToolWindow",
+            "HelpAuthoringToolWindow",
+            "DoxyGenToolWindow",
         }
 
         try:
@@ -11050,7 +11063,79 @@ class MainWindow(QMainWindow):
             )
             QMessageBox.warning(self, 'DoxyGen', emsg)
             return None
+    
+    def ensure_resourcebuilder_tool(self, focus: bool = True):
+        try:
+            existing = getattr(self, '_resourcebuilder_tool_window', None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+        try:
+            widget = ResourceBuilderToolWindow(self)
+            self._resourcebuilder_tool_window = widget
+            sub = self.mdi.addSubWindow(widget)
+            mark_escape_close(sub)
+            sub.setWindowTitle(share.locales.tr('Resource Builder'))
+            sub.resize(856, 580)
+            widget.show()
+            sub.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            try:
+                widget.destroyed.connect(lambda *_: setattr(self, '_resourcebuilder_tool_window', None))
+            except Exception:
+                pass
+            return widget
+        except Exception as e:
+            msg = share.locales.tr("Resource Builder konnte nicht geöffnet werden")
+            tle = share.locales.tr("Resource Builder")
             
+            QMessageBox.warning(self, tle, f"{msg}:\n{e}")
+            return None
+    
+    def ensure_help_authoring_tool(self, focus: bool = True):
+        try:
+            existing = getattr(self, '_helpauthoring_tool_window', None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+        try:
+            widget = HelpAuthoringToolWindow(self)
+            self._helpauthoring_tool_window = widget
+            sub = self.mdi.addSubWindow(widget)
+            mark_escape_close(sub)
+            sub.setWindowTitle(share.locales.tr('Help Authoring Editor'))
+            sub.resize(856, 580)
+            widget.show()
+            sub.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            try:
+                widget.destroyed.connect(lambda *_: setattr(self, '_helpauthoring_tool_window', None))
+            except Exception:
+                pass
+            return widget
+        except Exception as e:
+            msg = share.locales.tr("Help Authoring Editor konnte nicht geöffnet werden")
+            tle = share.locales.tr("Help Authoring")
+            
+            QMessageBox.warning(self, tle, f"{msg}:\n{e}")
+            return None
+    
     def ensure_localize_tool(self, focus: bool = True, po_path: str = ""):
         po_path = os.path.normpath((po_path or '').strip()) if po_path else ''
         try:
@@ -11146,6 +11231,8 @@ class MainWindow(QMainWindow):
             "SqlBuilderWindow",
             "ProjectDialog",
             "LocalizeToolWindow",
+            "ResourceBuilderToolWindow",
+            "HelpAuthoringToolWindow",
             "DoxyGenToolWindow",
         }
 

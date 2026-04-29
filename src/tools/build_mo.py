@@ -102,6 +102,7 @@ if __name__ == "__main__":
     build_all_locales("../data/po/locales", "cc")
     build_all_locales("../data/po/locales", "lisp")
     build_all_locales("../data/po/locales", "pascal")
+    build_all_locales("../data/po/locales", "doxygen")
     
     build_all_styles ("../data/po/styles", "light")
     build_all_styles ("../data/po/styles", "dark")

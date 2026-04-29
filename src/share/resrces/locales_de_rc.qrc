@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/locales/de">
+        <file alias="cc.mo">cc.mo</file>
+        <file alias="dbase.mo">dbase.mo</file>
+        <file alias="doxygen.mo">doxygen.mo</file>
+        <file alias="lisp.mo">lisp.mo</file>
+        <file alias="pascal.mo">pascal.mo</file>
+    </qresource>
+</RCC>

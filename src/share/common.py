@@ -32,6 +32,7 @@ try:
          PredictionContextCache, ParseTreeListener, ParseTreeVisitor
     )
     from antlr4.error.ErrorListener import ErrorListener
+    from io import BytesIO
 
     import share.utildef.sysinfo
     #from   share.utildef.sysinfo    import SystemInfo
@@ -50,7 +51,6 @@ try:
     # -----------------------------------------------------------------------
     # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
     # -----------------------------------------------------------------------
-    import io
     import zipfile
     import gettext
     import polib
@@ -76,7 +76,7 @@ try:
     # -----------------------------------------------------------------------
     from PyQt5.QtCore    import (
         QObject, Qt, QSocketNotifier, pyqtSignal, QEvent, QRect, QSize,
-        QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex,
+        QRegExp, QFileInfo, QPoint, QAbstractProxyModel, QModelIndex, QFile,
         QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
         qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
         QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,

@@ -6,10 +6,14 @@
 # die Datei erwartet die .mo-Datei standardmäßig unter
 # src/data/po/locales/<sprache>/LC_MESSAGES/doxygen.mo
 # ---------------------------------------------------------------------------
-from __future__   import annotations
+from __future__ import annotations
 
 import share.resrces.images_rc
-from   share.common            import *
+import share.resrces.locales_de_rc
+
+from   share.common import *
+
+DOXYGEN_PROJECT_PAGES = {}
 
 DOXYGEN_EXPERT_ITEMS = [
     share.locales.tr("Project"),
@@ -86,12 +90,22 @@ HEADER_KIND     = "doxygen-project"
 HEADER_VERSION  = 1
 
 
+class DoxyScrollPage:
+    def __init__(self, owner, area, widget, layout):
+        self.owner = owner
+        self.area = area
+        self.widget = widget
+        self.layout = layout
+        
 def _default_project_dir() -> Path:
     base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
     base.mkdir(parents=True, exist_ok=True)
     return base
 
-
+def bind_help(parent, obj, help_key: str, title: str = ""):
+    obj.setProperty("help_key", help_key)
+    obj.setProperty("help_title", title)
+    
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
@@ -159,10 +173,16 @@ class DoxyButton(QPushButton):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyLabel(QLabel):
-    def __init__(self, help_str:str="", flag:int=0):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", flag:int=0):
+        super().__init__(parent.owner)
         
         self.setProperty("help", help_str)
+        
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
+        
+        bind_help(self.parent, self, help_str)
         
         if flag == 0: self.setText(help_str)
         else:         self.setText("")
@@ -171,6 +191,10 @@ class DoxyLabel(QLabel):
         self.setMinimumWidth(164)
         self.setStyleSheet("color: white;")
         self.setProperty("help", help_str)
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -178,12 +202,16 @@ class DoxyLabel(QLabel):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyTextEdit(QWidget):
-    def __init__(self, help_str:str="", text:list=[]):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", text:list=[]):
+        super().__init__(parent.owner)
+        
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
         
         self.layout = DoxyHBoxLayout(self)
         
-        self.label  = DoxyLabel(help_str, 1)
+        self.label  = DoxyLabel(self.parent, help_str, 1)
         self.edit   = QPlainTextEdit()
         self.edit.setStyleSheet("background-color: #303030;")
         
@@ -192,17 +220,25 @@ class DoxyTextEdit(QWidget):
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.edit)
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
 # \brief construct a QCheckBox as a helper class to reduce code space.
 # ---------------------------------------------------------------------------
 class DoxyCheckBox(QWidget):
-    def __init__(self, help_str:str=""):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str=""):
+        super().__init__(parent.owner)
+        
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
         
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(help_str)
+        self.label  = DoxyLabel(self, help_str)
         self.check  = QCheckBox("NO")
 
         self.check.setStyleSheet("color: red;")
@@ -219,6 +255,10 @@ class DoxyCheckBox(QWidget):
         else:
             self.check.setText("NO")
             self.check.setStyleSheet("color: red;")
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -226,15 +266,20 @@ class DoxyCheckBox(QWidget):
 # ---------------------------------------------------------------------------
 class DoxySpinEdit(QWidget):
     def __init__(self ,
-        help_str:str =  "",
-        v_min : int  =   0,
-        v_max : int  = 100,
+        parent       = None,
+        help_str:str =   "",
+        v_min : int  =    0,
+        v_max : int  =  100,
         v_def : int  =   0):
             
         super().__init__(None)
         
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
+        
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(help_str)
+        self.label  = DoxyLabel(self, help_str)
         self.spin   = QSpinBox()
         
         self.spin.setMinimum(v_min)
@@ -244,6 +289,10 @@ class DoxySpinEdit(QWidget):
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.spin)
         self.layout.addStretch(1)
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -253,14 +302,18 @@ class DoxySpinEdit(QWidget):
 # \param text_str - string for the input content, default: "".
 # ---------------------------------------------------------------------------
 class DoxyLineEdit(QWidget):
-    def __init__(self, help_str:str="", text_str: str=""):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", text_str: str=""):
+        super().__init__(parent.owner)
         
         self.setProperty("help", help_str)
         self.setProperty("text", text_str)
         
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
+        
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(help_str)
+        self.label  = DoxyLabel(self, help_str)
         self.input  = QLineEdit()
         
         self.input.setProperty("help", help_str)
@@ -269,32 +322,48 @@ class DoxyLineEdit(QWidget):
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.input)
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
 # \brief this is a helper class for QLineEdit with a Button to reduce code.
 # ---------------------------------------------------------------------------
 class DoxyLineBtn1(QWidget):
-    def __init__(self, help_str:str="", text_str:str="", item=None):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", text_str:str="", item=None):
+        super().__init__(parent.owner)
         
         self.setProperty("help", help_str)
         self.setProperty("text", text_str)
         
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
+        
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(help_str, text_str)
+        self.input  = DoxyLineEdit(self, help_str, text_str)
         self.buttn  = DoxyButton  (help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"))
         
         self.layout.addWidget(self.input)
         self.layout.addWidget(self.buttn)
+        
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 class DoxyLineBtn3(QWidget):
-    def __init__(self, help_str:str="", text_str:str=""):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", text_str:str=""):
+        super().__init__(parent.owner)
+        
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(help_str, text_str)
+        self.input  = DoxyLineEdit(self, help_str, text_str)
         
         self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
         self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
@@ -305,16 +374,24 @@ class DoxyLineBtn3(QWidget):
         self.layout.addWidget(self.butt1)
         self.layout.addWidget(self.butt2)
         self.layout.addWidget(self.butt3)
+    
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
+
 
 class DoxyLineBtn4(QWidget):
-    def __init__(self, help_str:str="", text_str:str=""):
+    def __init__(self, parent=None, help_str:str="", text_str:str=""):
         super().__init__(None)
+        
+        self.parent = parent
+        self.owner  = parent.owner
         
         self.setProperty("help", help_str)
         self.setProperty("text", text_str)
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(help_str, text_str)
+        self.input  = DoxyLineEdit(parent, help_str, text_str)
         
         self.butt1  = DoxyButton(help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"))
         self.butt2  = DoxyButton(help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"))
@@ -327,6 +404,10 @@ class DoxyLineBtn4(QWidget):
         self.layout.addWidget(self.butt2)
         self.layout.addWidget(self.butt3)
         self.layout.addWidget(self.butt4)
+        
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -335,13 +416,16 @@ class DoxyLineBtn4(QWidget):
 # \param text_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyImage(QWidget):
-    def __init__(self, help_str:str="", text_str:str=""):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", text_str:str=""):
+        super().__init__(parent.owner)
         
         self.setMinimumHeight(74)
         
+        self.parent = parent
+        self.owner  = parent.owner
+        
         self.layout = DoxyHBoxLayout(self)
-        self.label1 = DoxyLabel(help_str, 1)
+        self.label1 = DoxyLabel(self, help_str, 1)
         self.label2 = QLabel(text_str)
         
         self.label2.setAlignment(Qt.AlignLeft)
@@ -353,18 +437,26 @@ class DoxyImage(QWidget):
         self.layout.addWidget(self.label1, alignment=Qt.AlignLeft)
         self.layout.addWidget(self.label2, alignment=Qt.AlignLeft)
         self.layout.addStretch(1)
+        
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 class DoxyComboBox(QWidget):
-    def __init__(self, help_str:str="", items:list=[]):
-        super().__init__(None)
+    def __init__(self, parent=None, help_str:str="", items:list=[]):
+        super().__init__(parent.owner)
         
         self.setProperty("help", help_str)
         
+        self.parent = parent
+        self.owner  = parent.owner
+        self.help   = help_str
+        
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(help_str)
+        self.label  = DoxyLabel(self, help_str)
         self.combo  = QComboBox()
         
         self.combo.addItems(items)
@@ -372,6 +464,10 @@ class DoxyComboBox(QWidget):
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.combo)
         self.layout.addStretch(1)
+        
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help)
+        super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
@@ -381,15 +477,16 @@ class DoxyGenToolWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        self.holder  = self
+        self.owner       = self
         
         self.project_dir = _default_project_dir()
         self.propath     = self.project_dir / "doxygen_project.json"
         
         self.current_project_path = ""
-        self.project_edits   = {}
-        self.help_translator = self._load_help_translator()
-        
+
+        self.lang = self._get_default_lang().split("_")[0].lower()
+        self.trmo = self._load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
+            
         self._build_ui()
         self._reload_project_list()
         
@@ -451,15 +548,17 @@ class DoxyGenToolWindow(QWidget):
     def _create_scroll_page(self):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-
+        
+        scroll_owner  = self
         scroll_widget = QWidget()
-        scroll_lay = QVBoxLayout(scroll_widget)
+        
+        scroll_lay    = QVBoxLayout(scroll_widget)
         scroll_lay.setContentsMargins(2, 2, 2, 2)
         scroll_lay.setSpacing(2)
 
         scroll_area.setWidget(scroll_widget)
 
-        return scroll_area, scroll_widget, scroll_lay
+        return scroll_owner, scroll_area, scroll_widget, scroll_lay
     
     def _build_expert_tab(self):
         page     = QWidget()
@@ -488,15 +587,14 @@ class DoxyGenToolWindow(QWidget):
         self.expert_pages = QStackedWidget()
         self.expert_splitter_h.addWidget(self.expert_pages)
         
-        self.scroll_pages = {}
-
         for name in DOXYGEN_EXPERT_ITEMS:
-            scroll_area, scroll_widget, scroll_lay = self._create_scroll_page()
-            self.scroll_pages[str(name)] = {
-                "area"  : scroll_area,
-                "widget": scroll_widget,
-                "layout": scroll_lay,
-            }
+            scroll_owner, scroll_area, scroll_widget, scroll_lay = self._create_scroll_page()
+            DOXYGEN_PROJECT_PAGES[str(name)] = DoxyScrollPage(
+                scroll_owner,
+                scroll_area,
+                scroll_widget,
+                scroll_lay
+            )
             self.expert_pages.addWidget(scroll_area)
         
         self.scroll_area = QScrollArea()
@@ -507,301 +605,315 @@ class DoxyGenToolWindow(QWidget):
         self.scroll_lay.setSpacing(2)
         
         # -------------------------------------------------------------------------
+        self.par1 = DOXYGEN_PROJECT_PAGES["Project"]
+        #self.par1 = self.par1.owner
         self.project_items = [
-            DoxyLineEdit("DOXYFILE_ENCODING", "UTF-8"),
+            DoxyLineEdit(self.par1, "DOXYFILE_ENCODING", "UTF-8"),
             
-            DoxyLineEdit("PROJECT_NAME", "MyProject"),
-            DoxyLineEdit("PROJECT_NUMBER"),
-            DoxyLineEdit("PROJECT_BRIEF"),
-            DoxyLineBtn1("PROJECT_LOGO", "",
-                DoxyImage("", share.locales.tr("No Project Logo selected."))),
-            DoxyLineBtn1("PROJECT_ICON", "",
-                DoxyImage("", share.locales.tr("No Project Icon selected."))),
+            DoxyLineEdit (self.par1, "PROJECT_NAME", "MyProject"),
+            DoxyLineEdit (self.par1, "PROJECT_NUMBER"),
+            DoxyLineEdit (self.par1, "PROJECT_BRIEF"),
+            DoxyLineBtn1 (self.par1, "PROJECT_LOGO", "",
+                DoxyImage(self.par1, "", share.locales.tr("No Project Logo selected."))),
+            DoxyLineBtn1 (self.par1, "PROJECT_ICON", "",
+                DoxyImage(self.par1, "", share.locales.tr("No Project Icon selected."))),
             
-            DoxyLineBtn1("OUTPUT_DIRECTORY"),
-            DoxyCheckBox("CREATE_SUBDIRS"),
-            DoxySpinEdit("CREATE_SUBDIRS_LEVEL", 0, 64, 4),
+            DoxyLineBtn1(self.par1, "OUTPUT_DIRECTORY"),
+            DoxyCheckBox(self.par1, "CREATE_SUBDIRS"),
+            DoxySpinEdit(self.par1, "CREATE_SUBDIRS_LEVEL", 0, 64, 4),
             
-            DoxyCheckBox("ALLOW_UNICODE_NAMES"),
-            DoxyComboBox("OUTPUT_LANGUAGE", SUPPORTED_LANGUAGES),
+            DoxyCheckBox(self.par1, "ALLOW_UNICODE_NAMES"),
+            DoxyComboBox(self.par1, "OUTPUT_LANGUAGE", SUPPORTED_LANGUAGES),
             
-            DoxyCheckBox("BRIEF_MEMBER_DESC"),
-            DoxyCheckBox("REPEAT_BRIEF"),
+            DoxyCheckBox(self.par1, "BRIEF_MEMBER_DESC"),
+            DoxyCheckBox(self.par1, "REPEAT_BRIEF"),
             
-            DoxyLineBtn3("ABBREVIATVE_BRIEF"),
-            DoxyTextEdit("ABBREVIATVE_BRIEF", []),
+            DoxyLineBtn3(self.par1, "ABBREVIATVE_BRIEF"),
+            DoxyTextEdit(self.par1, "ABBREVIATVE_BRIEF", []),
             
-            DoxyCheckBox("ALWAYS_DETAILED_SEC"),
-            DoxyCheckBox("INLINE_INHERITED_MEMB"),
+            DoxyCheckBox(self.par1, "ALWAYS_DETAILED_SEC"),
+            DoxyCheckBox(self.par1, "INLINE_INHERITED_MEMB"),
             
-            DoxyCheckBox("FULL_PATH_NAMES"),
+            DoxyCheckBox(self.par1, "FULL_PATH_NAMES"),
             
-            DoxyLineBtn4("STRIP_FROM_PATH"),
-            DoxyTextEdit("STRIP_FROM_PATH", []),
+            DoxyLineBtn4(self.par1, "STRIP_FROM_PATH"),
+            DoxyTextEdit(self.par1, "STRIP_FROM_PATH", []),
             
-            DoxyLineBtn4("STRIP_FROM_INC_PATH"),
-            DoxyTextEdit("STRIP_FROM_INC_PATH", []),
+            DoxyLineBtn4(self.par1, "STRIP_FROM_INC_PATH"),
+            DoxyTextEdit(self.par1, "STRIP_FROM_INC_PATH", []),
             
-            DoxyCheckBox("SHORT_NAMES"),
+            DoxyCheckBox(self.par1, "SHORT_NAMES"),
             
-            DoxyCheckBox("JAVADOC_AUTOBRIEF"),
-            DoxyCheckBox("JAVADOC_BANNER"),
+            DoxyCheckBox(self.par1, "JAVADOC_AUTOBRIEF"),
+            DoxyCheckBox(self.par1, "JAVADOC_BANNER"),
             
-            DoxyCheckBox("QT_AUTOBRIEF"),
-            DoxyCheckBox("PYTHON_DOCSTRING"),
-            DoxyCheckBox("INHERIT_DOCS"),
+            DoxyCheckBox(self.par1, "QT_AUTOBRIEF"),
+            DoxyCheckBox(self.par1, "PYTHON_DOCSTRING"),
+            DoxyCheckBox(self.par1, "INHERIT_DOCS"),
             
-            DoxyCheckBox("SEPARATE_MEMBER_PAGES"),
-            DoxySpinEdit("TAB_SIZE", 2, 16, 2),
+            DoxyCheckBox(self.par1, "SEPARATE_MEMBER_PAGES"),
+            DoxySpinEdit(self.par1, "TAB_SIZE", 2, 16, 2),
             
-            DoxyLineBtn3("ALIASES"),
-            DoxyTextEdit("ALIASES", []),
+            DoxyLineBtn3(self.par1, "ALIASES"),
+            DoxyTextEdit(self.par1, "ALIASES", []),
             
-            DoxyCheckBox("OPTIMIZE_OUTPUT_C"),
-            DoxyCheckBox("OPTIMIZE_OUTPUT_JAVA"),
-            DoxyCheckBox("OPTIMIZE_OUTPUT_FORTRAN"),
-            DoxyCheckBox("OPTIMIZE_OUTPUT_VHDL"),
-            DoxyCheckBox("OPTIMIZE_OUTPUT_SLICE"),
+            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_C"),
+            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_JAVA"),
+            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_FORTRAN"),
+            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_VHDL"),
+            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_SLICE"),
             
-            DoxyLineBtn3("EXTERNAL_MAPPING"),
-            DoxyTextEdit("EXTERNAL_MAPPING", []),
+            DoxyLineBtn3(self.par1, "EXTERNAL_MAPPING"),
+            DoxyTextEdit(self.par1, "EXTERNAL_MAPPING", []),
             
-            DoxyCheckBox("MARKDOWN_SUPPORT"),
-            DoxyCheckBox("MARKDOWN_STRICT"),
-            DoxyComboBox("MARKDOWN_ID_STYLE", ["DOXYGEN", "GITHUB"]),
+            DoxyCheckBox(self.par1, "MARKDOWN_SUPPORT"),
+            DoxyCheckBox(self.par1, "MARKDOWN_STRICT"),
+            DoxyComboBox(self.par1, "MARKDOWN_ID_STYLE", ["DOXYGEN", "GITHUB"]),
             
-            DoxySpinEdit("TOC_INCLUDE_HEADINGS"),
+            DoxySpinEdit(self.par1, "TOC_INCLUDE_HEADINGS"),
             
-            DoxyCheckBox("AUTOLINK_SUPPORT"),
-            DoxyLineBtn3("AUTOLINK_IGNORE_WORDS"),
-            DoxyTextEdit("AUTOLINK_IGNORE_WORDS", []),
+            DoxyCheckBox(self.par1, "AUTOLINK_SUPPORT"),
+            DoxyLineBtn3(self.par1, "AUTOLINK_IGNORE_WORDS"),
+            DoxyTextEdit(self.par1, "AUTOLINK_IGNORE_WORDS", []),
             
-            DoxyCheckBox("BUILTiN_STL_SUPPORT"),
-            DoxyCheckBox("CPP_CLI_SUPPORT"),
-            DoxyCheckBox("SIP_SUPPORT"),
-            DoxyCheckBox("IDL_PROPERTY_SUPPORT"),
-            DoxyCheckBox("DISTRIBUTE_GROUP_DOC"),
-            DoxyCheckBox("GROUP_NESTED_COMPOUNDS"),
+            DoxyCheckBox(self.par1, "BUILTiN_STL_SUPPORT"),
+            DoxyCheckBox(self.par1, "CPP_CLI_SUPPORT"),
+            DoxyCheckBox(self.par1, "SIP_SUPPORT"),
+            DoxyCheckBox(self.par1, "IDL_PROPERTY_SUPPORT"),
+            DoxyCheckBox(self.par1, "DISTRIBUTE_GROUP_DOC"),
+            DoxyCheckBox(self.par1, "GROUP_NESTED_COMPOUNDS"),
             
-            DoxyCheckBox("SUBGROUPING"),
-            DoxyCheckBox("INLINE_GROUPED_CLASSES"),
-            DoxyCheckBox("INLINE_SIMPLE_STRUCTS"),
+            DoxyCheckBox(self.par1, "SUBGROUPING"),
+            DoxyCheckBox(self.par1, "INLINE_GROUPED_CLASSES"),
+            DoxyCheckBox(self.par1, "INLINE_SIMPLE_STRUCTS"),
             
-            DoxyCheckBox("TYPEDEF_HIDE_STRUCT"),
-            DoxySpinEdit("LOOKUP_CACHE_SIZE"),
+            DoxyCheckBox(self.par1, "TYPEDEF_HIDE_STRUCT"),
+            DoxySpinEdit(self.par1, "LOOKUP_CACHE_SIZE"),
             
-            DoxySpinEdit("NUM_PROC_THREADS"),
-            DoxyComboBox("TIMESTAMP", ["YES", "NO", "DATETIME", "DATE"]),
+            DoxySpinEdit(self.par1, "NUM_PROC_THREADS"),
+            DoxyComboBox(self.par1, "TIMESTAMP", ["YES", "NO", "DATETIME", "DATE"]),
         ]
-        project_lay = self.scroll_pages["Project"]["layout"]
+        project_lay = DOXYGEN_PROJECT_PAGES["Project"].layout
         for item in self.project_items:
             project_lay.addWidget(item)
         project_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par2 = DOXYGEN_PROJECT_PAGES["Build"]
+        #self.par2 = self.par2.owner
         self.build_items = [
-            DoxyCheckBox("EXTRACT_ALL"),
-            DoxyCheckBox("EXTRACT_PRIVATE"),
-            DoxyCheckBox("EXTRACT_PRIV_VIRTUAL"),
-            DoxyCheckBox("EXTRACT_PACKAGE"),
-            DoxyCheckBox("EXTRACT_STATIC"),
+            DoxyCheckBox(self.par2, "EXTRACT_ALL"),
+            DoxyCheckBox(self.par2, "EXTRACT_PRIVATE"),
+            DoxyCheckBox(self.par2, "EXTRACT_PRIV_VIRTUAL"),
+            DoxyCheckBox(self.par2, "EXTRACT_PACKAGE"),
+            DoxyCheckBox(self.par2, "EXTRACT_STATIC"),
             
-            DoxyCheckBox("EXTRACT_LOCAL_CLASSES"),
-            DoxyCheckBox("EXTRACT_LOCAL_METHODS"),
+            DoxyCheckBox(self.par2, "EXTRACT_LOCAL_CLASSES"),
+            DoxyCheckBox(self.par2, "EXTRACT_LOCAL_METHODS"),
             
-            DoxyCheckBox("EXTRACT_ANON_NSPACES"),
-            DoxyCheckBox("RESOLVE_UNNAMED_PARAMS"),
+            DoxyCheckBox(self.par2, "EXTRACT_ANON_NSPACES"),
+            DoxyCheckBox(self.par2, "RESOLVE_UNNAMED_PARAMS"),
             
-            DoxyCheckBox("HIDE_UNDOC_MEMBERS"),
-            DoxyCheckBox("HIDE_UNDOC_CLASSES"),
-            DoxyCheckBox("HIDE_UNDOC_NAMESPACES"),
+            DoxyCheckBox(self.par2, "HIDE_UNDOC_MEMBERS"),
+            DoxyCheckBox(self.par2, "HIDE_UNDOC_CLASSES"),
+            DoxyCheckBox(self.par2, "HIDE_UNDOC_NAMESPACES"),
             
-            DoxyCheckBox("HIDE_FRIEND_COMPOUNDS"),
-            DoxyCheckBox("HIDE_IN_BODY_DOCS"),
+            DoxyCheckBox(self.par2, "HIDE_FRIEND_COMPOUNDS"),
+            DoxyCheckBox(self.par2, "HIDE_IN_BODY_DOCS"),
             
-            DoxyCheckBox("INTERNAL_DOCS"),
-            DoxyComboBox("CASE_SENSE_NAMES", [
+            DoxyCheckBox(self.par2, "INTERNAL_DOCS"),
+            DoxyComboBox(self.par2, "CASE_SENSE_NAMES", [
                 "SYSTEM",
                 "YES",
                 "NO"
             ]),
             
-            DoxyCheckBox("HIDE_UNDOC_MEMBERS"),
-            DoxyCheckBox("HIDE_SCOPE_NAMES"),
-            DoxyCheckBox("HIDE_COMPOUND_REFERENCE"),
+            DoxyCheckBox(self.par2, "HIDE_UNDOC_MEMBERS"),
+            DoxyCheckBox(self.par2, "HIDE_SCOPE_NAMES"),
+            DoxyCheckBox(self.par2, "HIDE_COMPOUND_REFERENCE"),
             
-            DoxyCheckBox("SHOW_HEADERFILE"),
-            DoxyCheckBox("SHOW_INCLUDE_FILES"),
+            DoxyCheckBox(self.par2, "SHOW_HEADERFILE"),
+            DoxyCheckBox(self.par2, "SHOW_INCLUDE_FILES"),
             
-            DoxyCheckBox("FORCE_LOCAL_INCLUDES"),
-            DoxyCheckBox("INLINE_INFO"),
+            DoxyCheckBox(self.par2, "FORCE_LOCAL_INCLUDES"),
+            DoxyCheckBox(self.par2, "INLINE_INFO"),
             
-            DoxyCheckBox("SORT_MEMBER_DOCS"),
-            DoxyCheckBox("SORT_BRIEF_DOCS"),
-            DoxyCheckBox("SORT_MEMBER_CTORS_1ST"),
-            DoxyCheckBox("SORT_GROUP_NAMES"),
-            DoxyCheckBox("SORT_BY_SCOPE_NAME"),
+            DoxyCheckBox(self.par2, "SORT_MEMBER_DOCS"),
+            DoxyCheckBox(self.par2, "SORT_BRIEF_DOCS"),
+            DoxyCheckBox(self.par2, "SORT_MEMBER_CTORS_1ST"),
+            DoxyCheckBox(self.par2, "SORT_GROUP_NAMES"),
+            DoxyCheckBox(self.par2, "SORT_BY_SCOPE_NAME"),
             
-            DoxyCheckBox("STRICT_PROTO_MATCHING"),
+            DoxyCheckBox(self.par2, "STRICT_PROTO_MATCHING"),
             
-            DoxyCheckBox("GENERATE_TODOLIST"),
-            DoxyCheckBox("GENERATE_TESTLIST"),
-            DoxyCheckBox("GENERATE_BUGLIST"),
-            DoxyCheckBox("GENERATE_DEPRECATEDLIST"),
-            DoxyCheckBox("GENERATE_REQUIREMENTS"),
+            DoxyCheckBox(self.par2, "GENERATE_TODOLIST"),
+            DoxyCheckBox(self.par2, "GENERATE_TESTLIST"),
+            DoxyCheckBox(self.par2, "GENERATE_BUGLIST"),
+            DoxyCheckBox(self.par2, "GENERATE_DEPRECATEDLIST"),
+            DoxyCheckBox(self.par2, "GENERATE_REQUIREMENTS"),
             
-            DoxyComboBox("REQ_TRACEABILITY_INFO", [
+            DoxyComboBox(self.par2, "REQ_TRACEABILITY_INFO", [
                 "YES",
                 "NO",
                 "UNSATISFIED_ONLY",
                 "UNVERIFIED_ONLY"
             ]),
             
-            DoxyLineBtn3("ENABLE_SECTIONS"),
-            DoxyTextEdit("ENABLE_SECTIONS", []),
+            DoxyLineBtn3(self.par2, "ENABLE_SECTIONS"),
+            DoxyTextEdit(self.par2, "ENABLE_SECTIONS", []),
             
-            DoxySpinEdit("MAX_INITIALIZER_LINES"),
+            DoxySpinEdit(self.par2, "MAX_INITIALIZER_LINES"),
             
-            DoxyCheckBox("SHOW_USED_FILES"),
-            DoxyCheckBox("SHOW_FILES"),
-            DoxyCheckBox("SHOW_NAMESPACES"),
+            DoxyCheckBox(self.par2, "SHOW_USED_FILES"),
+            DoxyCheckBox(self.par2, "SHOW_FILES"),
+            DoxyCheckBox(self.par2, "SHOW_NAMESPACES"),
             
-            DoxyLineBtn1("FILE_VERSION_FILTER"),
-            DoxyLineBtn1("LAYOUT_FILE"),
-            DoxyLineBtn4("CITE_BIB_FILES"),
-            DoxyTextEdit("CITE_BIB_FILES", []),
+            DoxyLineBtn1(self.par2, "FILE_VERSION_FILTER"),
+            DoxyLineBtn1(self.par2, "LAYOUT_FILE"),
+            DoxyLineBtn4(self.par2, "CITE_BIB_FILES"),
+            DoxyTextEdit(self.par2, "CITE_BIB_FILES", []),
             
-            DoxyLineBtn4("EXTERNAL_TOOL_PATH"),
-            DoxyTextEdit("EXTERNAL_TOOL_PATH", [])
+            DoxyLineBtn4(self.par2, "EXTERNAL_TOOL_PATH"),
+            DoxyTextEdit(self.par2, "EXTERNAL_TOOL_PATH", [])
         ]
-        build_lay = self.scroll_pages["Build"]["layout"]
+        build_lay = DOXYGEN_PROJECT_PAGES["Build"].layout
         for item in self.build_items:
             build_lay.addWidget(item)
         build_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par3 = DOXYGEN_PROJECT_PAGES["Messages"]
+        #self.par3 = self.par3.owner
         self.messages_items = [
-            DoxyCheckBox("QUIET"),
-            DoxyCheckBox("WARNINGS"),
-            DoxyCheckBox("WARN_IF_UNDOCUMENTED"),
-            DoxyCheckBox("WARN_IF_DOC_ERROR"),
-            DoxyCheckBox("WARN_IF_INCOMPLETE_DOC"),
-            DoxyCheckBox("WARN_NO_PARAMDOC"),
-            DoxyCheckBox("WARN_IF_UNDOC_ENUM_VAL"),
-            DoxyCheckBox("WARN_LAYOUT_FILE"),
-            DoxyComboBox("WARN_AS_ERROR", [
+            DoxyCheckBox(self.par3, "QUIET"),
+            DoxyCheckBox(self.par3, "WARNINGS"),
+            DoxyCheckBox(self.par3, "WARN_IF_UNDOCUMENTED"),
+            DoxyCheckBox(self.par3, "WARN_IF_DOC_ERROR"),
+            DoxyCheckBox(self.par3, "WARN_IF_INCOMPLETE_DOC"),
+            DoxyCheckBox(self.par3, "WARN_NO_PARAMDOC"),
+            DoxyCheckBox(self.par3, "WARN_IF_UNDOC_ENUM_VAL"),
+            DoxyCheckBox(self.par3, "WARN_LAYOUT_FILE"),
+            DoxyComboBox(self.par3, "WARN_AS_ERROR", [
                 "NO",
                 "YES",
                 "FAIL_ON_WARNINGS",
                 "FAIL_ON_WARNINGS_PRINT"]),
-            DoxyLineEdit("WARN_FORMAT"),
-            DoxyLineEdit("WARN_LINE_FORMAT"),
-            DoxyLineBtn1("WARN_LOGFILE"),
+            DoxyLineEdit(self.par3, "WARN_FORMAT"),
+            DoxyLineEdit(self.par3, "WARN_LINE_FORMAT"),
+            DoxyLineBtn1(self.par3, "WARN_LOGFILE"),
         ]
-        messages_lay = self.scroll_pages["Messages"]["layout"]
+        messages_lay = DOXYGEN_PROJECT_PAGES["Messages"].layout
         for item in self.messages_items:
             messages_lay.addWidget(item)
         messages_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par4 = DOXYGEN_PROJECT_PAGES["Input"]
+        #self.par4.owner
         self.input_items = [
-            DoxyLineBtn4("INPUT"),
-            DoxyTextEdit("INPUT", []),
-            DoxyLineEdit("INPUT_ENCODING"),
-            DoxyLineBtn3("INPUT_FILE"),
-            DoxyTextEdit("INPUT_FILE_ENCODING", []),
+            DoxyLineBtn4(self.par4, "INPUT"),
+            DoxyTextEdit(self.par4, "INPUT", []),
+            DoxyLineEdit(self.par4, "INPUT_ENCODING"),
+            DoxyLineBtn3(self.par4, "INPUT_FILE"),
+            DoxyTextEdit(self.par4, "INPUT_FILE_ENCODING", []),
             
-            DoxyLineBtn3("FILE_PATTERNS"),
-            DoxyTextEdit("FILE_PATTERNS", ["*.c", "*.cc"]),
+            DoxyLineBtn3(self.par4, "FILE_PATTERNS"),
+            DoxyTextEdit(self.par4, "FILE_PATTERNS", ["*.c", "*.cc"]),
             
-            DoxyCheckBox("RECURSIVE"),
+            DoxyCheckBox(self.par4, "RECURSIVE"),
             
-            DoxyLineBtn4("EXCLUDE"),
-            DoxyTextEdit("EXCLUDE", []),
+            DoxyLineBtn4(self.par4, "EXCLUDE"),
+            DoxyTextEdit(self.par4, "EXCLUDE", []),
             
-            DoxyLineBtn3("EXCLUDE_PATTERNS"),
-            DoxyTextEdit("EXCLUDE_PATTERNS", []),
-            DoxyLineBtn3("EXCLUDE_SYMBOLS"),
-            DoxyTextEdit("EXCLUDE_SYMBOLS", []),
+            DoxyLineBtn3(self.par4, "EXCLUDE_PATTERNS"),
+            DoxyTextEdit(self.par4, "EXCLUDE_PATTERNS", []),
+            DoxyLineBtn3(self.par4, "EXCLUDE_SYMBOLS"),
+            DoxyTextEdit(self.par4, "EXCLUDE_SYMBOLS", []),
             
-            DoxyLineBtn4("EXAMPLE_PATH"),
-            DoxyTextEdit("EXAMPLE_PATH", []),
-            DoxyLineBtn3("EXAMPLE_PATTERNS"),
-            DoxyTextEdit("EXAMPLE_PATTERNS", ["*"]),
-            DoxyCheckBox("EXAMPLE_RECURSIVE"),
+            DoxyLineBtn4(self.par4, "EXAMPLE_PATH"),
+            DoxyTextEdit(self.par4, "EXAMPLE_PATH", []),
+            DoxyLineBtn3(self.par4, "EXAMPLE_PATTERNS"),
+            DoxyTextEdit(self.par4, "EXAMPLE_PATTERNS", ["*"]),
+            DoxyCheckBox(self.par4, "EXAMPLE_RECURSIVE"),
             
-            DoxyLineBtn4("IMAGE_PATH"),
-            DoxyTextEdit("IMAGE_PATH", []),
+            DoxyLineBtn4(self.par4, "IMAGE_PATH"),
+            DoxyTextEdit(self.par4, "IMAGE_PATH", []),
             
-            DoxyLineBtn1("INPUT_FILTER"),
+            DoxyLineBtn1(self.par4, "INPUT_FILTER"),
             
-            DoxyLineBtn3("FILTER_PATTERNS"),
-            DoxyTextEdit("FILTER_PATTERNS", []),
+            DoxyLineBtn3(self.par4, "FILTER_PATTERNS"),
+            DoxyTextEdit(self.par4, "FILTER_PATTERNS", []),
             
-            DoxyCheckBox("FILTER_SOURCE_FILES"),
-            DoxyLineBtn3("FILTER_SOURCE_PATTERNS"),
-            DoxyTextEdit("FILTER_SOURCE_PATTERNS", []),
+            DoxyCheckBox(self.par4, "FILTER_SOURCE_FILES"),
+            DoxyLineBtn3(self.par4, "FILTER_SOURCE_PATTERNS"),
+            DoxyTextEdit(self.par4, "FILTER_SOURCE_PATTERNS", []),
             
-            DoxyLineEdit("USE_MDFILE_AS_MAINPAGE"),
+            DoxyLineEdit(self.par4, "USE_MDFILE_AS_MAINPAGE"),
             
-            DoxyCheckBox("IMPLICIT_DIR_DOCS"),
-            DoxySpinEdit("FORTRAN_COMMENT_AFTER", 0, 128, 72)
+            DoxyCheckBox(self.par4, "IMPLICIT_DIR_DOCS"),
+            DoxySpinEdit(self.par4, "FORTRAN_COMMENT_AFTER", 0, 128, 72)
         ]
-        input_lay = self.scroll_pages["Input"]["layout"]
+        input_lay = DOXYGEN_PROJECT_PAGES["Input"].layout
         for item in self.input_items:
             input_lay.addWidget(item)
         input_lay.addStretch()
 
         # -------------------------------------------------------------------------
+        self.par5 = DOXYGEN_PROJECT_PAGES["Source Browser"]
+        #self.par5 = self.par5.owner
         self.browser_items = [
-            DoxyCheckBox("SOURCE_BROWSER"),
-            DoxyCheckBox("INLINE_SOURCES"),
-            DoxyCheckBox("STRIP_CODE_COMMENTS"),
+            DoxyCheckBox(self.par5, "SOURCE_BROWSER"),
+            DoxyCheckBox(self.par5, "INLINE_SOURCES"),
+            DoxyCheckBox(self.par5, "STRIP_CODE_COMMENTS"),
             
-            DoxyCheckBox("REFERENCED_BY_RELATION"),
-            DoxyCheckBox("REFERENCED_LINK_SOURCE"),
+            DoxyCheckBox(self.par5, "REFERENCED_BY_RELATION"),
+            DoxyCheckBox(self.par5, "REFERENCED_LINK_SOURCE"),
             
-            DoxyCheckBox("SOURCE_TOOLTIPS"),
-            DoxyCheckBox("USE_HTAGS"),
-            DoxyCheckBox("VERBATIM_HEADERS"),
+            DoxyCheckBox(self.par5, "SOURCE_TOOLTIPS"),
+            DoxyCheckBox(self.par5, "USE_HTAGS"),
+            DoxyCheckBox(self.par5, "VERBATIM_HEADERS"),
             
-            DoxyCheckBox("CLANG_ASSISTED_PARSING"),
-            DoxyCheckBox("CLANG_ADD_INC_PATHS"),
-            DoxyLineBtn3("CLANG_OPTIONS"),
-            DoxyTextEdit("CLANG_OPTIONS", []),
-            DoxyLineBtn1("CLANG_DATABASE_PATH")
+            DoxyCheckBox(self.par5, "CLANG_ASSISTED_PARSING"),
+            DoxyCheckBox(self.par5, "CLANG_ADD_INC_PATHS"),
+            DoxyLineBtn3(self.par5, "CLANG_OPTIONS"),
+            DoxyTextEdit(self.par5, "CLANG_OPTIONS", []),
+            DoxyLineBtn1(self.par5, "CLANG_DATABASE_PATH")
         ]
-        browser_lay = self.scroll_pages["Source Browser"]["layout"]
+        browser_lay = DOXYGEN_PROJECT_PAGES["Source Browser"].layout
         for item in self.browser_items:
             browser_lay.addWidget(item)
         browser_lay.addStretch()
 
         # -------------------------------------------------------------------------
+        self.par6 = DOXYGEN_PROJECT_PAGES["Index"]
+        #self.par6 = self.par6.owner
         self.index_items = [
-            DoxyCheckBox("ALPHABETICAL_INDEX"),
-            DoxyTextEdit("ALPHABETICAL_INDEX", [])
+            DoxyCheckBox(self.par6, "ALPHABETICAL_INDEX"),
+            DoxyTextEdit(self.par6, "ALPHABETICAL_INDEX", [])
         ]
-        index_lay = self.scroll_pages["Index"]["layout"]
+        index_lay = DOXYGEN_PROJECT_PAGES["Index"].layout
         for item in self.index_items:
             index_lay.addWidget(item)
         index_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par7 = DOXYGEN_PROJECT_PAGES["HTML"]
+        #self.par7 = self.par7.owner
         self.html_items = [
-            DoxyCheckBox("GENERATE_HTML"),
-            DoxyLineBtn1("HTML_OUTPUT"),
-            DoxyLineEdit("HTML_FILE_EXTENSION"),
+            DoxyCheckBox(self.par7, "GENERATE_HTML"),
+            DoxyLineBtn1(self.par7, "HTML_OUTPUT"),
+            DoxyLineEdit(self.par7, "HTML_FILE_EXTENSION"),
             
-            DoxyLineBtn1("HTML_HEADER"),
-            DoxyLineBtn1("HTML_FOOTER"),
+            DoxyLineBtn1(self.par7, "HTML_HEADER"),
+            DoxyLineBtn1(self.par7, "HTML_FOOTER"),
             
-            DoxyLineBtn1("HTML_STYLESHEET"),
-            DoxyLineBtn4("HTML_EXTRA_STYLESHEET"),
-            DoxyTextEdit("HTML_EXTRA_STYLESHEET", []),
-            DoxyLineBtn4("HTML_EXTRA_FILES"),
-            DoxyTextEdit("HTML_EXTRA_FILES", []),
+            DoxyLineBtn1(self.par7, "HTML_STYLESHEET"),
+            DoxyLineBtn4(self.par7, "HTML_EXTRA_STYLESHEET"),
+            DoxyTextEdit(self.par7, "HTML_EXTRA_STYLESHEET", []),
+            DoxyLineBtn4(self.par7, "HTML_EXTRA_FILES"),
+            DoxyTextEdit(self.par7, "HTML_EXTRA_FILES", []),
             
-            DoxyComboBox("HTML_COLORSTYLE", [
+            DoxyComboBox(self.par7, "HTML_COLORSTYLE", [
                 "LIGHT",
                 "DARK",
                 "AUTO_LIGHT",
@@ -809,151 +921,173 @@ class DoxyGenToolWindow(QWidget):
                 "TOGGLE"
             ]),
             
-            DoxySpinEdit("COLOR_STYLE_HUE"  , 0, 255, 220),
-            DoxySpinEdit("COLOR_STYLE_SAT"  , 0, 255, 100),
-            DoxySpinEdit("COLOR_STYLE_GAMMA", 0, 255,  80),
+            DoxySpinEdit(self.par7, "COLOR_STYLE_HUE"  , 0, 255, 220),
+            DoxySpinEdit(self.par7, "COLOR_STYLE_SAT"  , 0, 255, 100),
+            DoxySpinEdit(self.par7, "COLOR_STYLE_GAMMA", 0, 255,  80),
             
-            DoxyCheckBox("HTML_DYNAMIC_MENUS"),
-            DoxyCheckBox("HTML_DYNAMIC_SECTIONS"),
+            DoxyCheckBox(self.par7, "HTML_DYNAMIC_MENUS"),
+            DoxyCheckBox(self.par7, "HTML_DYNAMIC_SECTIONS"),
             
-            DoxyCheckBox("HTML_CODE_FOLDING"),
-            DoxyCheckBox("HTML_COPY_CLIPBOARD"),
-            DoxyLineEdit("HTML_PROJECT_COOKIE"),
-            DoxySpinEdit("HTML_INDEX_NUM_ENTRIES", 0, 255, 100),
-            DoxyLineEdit("HTML_SITEMAP_URL"),
+            DoxyCheckBox(self.par7, "HTML_CODE_FOLDING"),
+            DoxyCheckBox(self.par7, "HTML_COPY_CLIPBOARD"),
+            DoxyLineEdit(self.par7, "HTML_PROJECT_COOKIE"),
+            DoxySpinEdit(self.par7, "HTML_INDEX_NUM_ENTRIES", 0, 255, 100),
+            DoxyLineEdit(self.par7, "HTML_SITEMAP_URL"),
             
-            DoxyCheckBox("GENERATE_HTMLHELP"),
-            DoxyLineBtn1("HHC_LOCATION"),
-            DoxyLineBtn1("CHM_FILE"),
-            DoxyLineEdit("CHM_INDEX_ENCODING"),
-            DoxyCheckBox("CHM_BINARY_TOC"),
+            DoxyCheckBox(self.par7, "GENERATE_HTMLHELP"),
+            DoxyLineBtn1(self.par7, "HHC_LOCATION"),
+            DoxyLineBtn1(self.par7, "CHM_FILE"),
+            DoxyLineEdit(self.par7, "CHM_INDEX_ENCODING"),
+            DoxyCheckBox(self.par7, "CHM_BINARY_TOC"),
             
-            DoxyCheckBox("GENERATE_CHI"),
+            DoxyCheckBox(self.par7, "GENERATE_CHI"),
             
-            DoxyCheckBox("GENERATE_DOCSET"),
-            DoxyLineEdit("DOCSET_FEEDNAME"),
-            DoxyLineEdit("DOCSET_FEEDURL"),
-            DoxyLineEdit("DOCSET_BUNDLE_ID"),
-            DoxyLineEdit("DOCSET_PUBLISER_ID"),
-            DoxyLineEdit("DOCSET_PUBLISER_NAME"),
+            DoxyCheckBox(self.par7, "GENERATE_DOCSET"),
+            DoxyLineEdit(self.par7, "DOCSET_FEEDNAME"),
+            DoxyLineEdit(self.par7, "DOCSET_FEEDURL"),
+            DoxyLineEdit(self.par7, "DOCSET_BUNDLE_ID"),
+            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_ID"),
+            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_NAME"),
             
-            DoxyCheckBox("GENERATE_QHP"),
-            DoxyLineBtn1("QCH_FILE"),
+            DoxyCheckBox(self.par7, "GENERATE_QHP"),
+            DoxyLineBtn1(self.par7, "QCH_FILE"),
             
-            DoxyLineEdit("QHP_NAMESPACE"),
-            DoxyLineEdit("QHP_VIRTUAL_FOLDER"),
-            DoxyLineEdit("QHP_CUST_FILTER_NAME"),
-            DoxyLineEdit("QHP_CUST_FILTER_ATTRS"),
-            DoxyLineEdit("QHP_SECT_FILTER_ATTRS"),
+            DoxyLineEdit(self.par7, "QHP_NAMESPACE"),
+            DoxyLineEdit(self.par7, "QHP_VIRTUAL_FOLDER"),
+            DoxyLineEdit(self.par7, "QHP_CUST_FILTER_NAME"),
+            DoxyLineEdit(self.par7, "QHP_CUST_FILTER_ATTRS"),
+            DoxyLineEdit(self.par7, "QHP_SECT_FILTER_ATTRS"),
             
-            DoxyLineBtn1("QHG_LOCATION"),
+            DoxyLineBtn1(self.par7, "QHG_LOCATION"),
             
-            DoxyCheckBox("GENERATE_ECLIPSE_HELP"),
-            DoxyLineEdit("ECLIPSE_DOC_ID"),
+            DoxyCheckBox(self.par7, "GENERATE_ECLIPSE_HELP"),
+            DoxyLineEdit(self.par7, "ECLIPSE_DOC_ID"),
             
-            DoxyCheckBox("GENERATE_TREEVIEW"),
-            DoxySpinEdit("TREEVIEW_WIDTH", 50, 800, 100)
+            DoxyCheckBox(self.par7, "GENERATE_TREEVIEW"),
+            DoxySpinEdit(self.par7, "TREEVIEW_WIDTH", 50, 800, 100)
         ]
-        html_lay = self.scroll_pages["HTML"]["layout"]
+        html_lay = DOXYGEN_PROJECT_PAGES["HTML"].layout
         for item in self.html_items:
             html_lay.addWidget(item)
         html_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par8 = DOXYGEN_PROJECT_PAGES["LaTeX"]
+        #self.par8 = self.par8.owner
         self.latex_items = [
-            DoxyCheckBox("GENERATE_LATEX"),
+            DoxyCheckBox(self.par8, "GENERATE_LATEX"),
         ]
-        latex_lay = self.scroll_pages["LaTeX"]["layout"]
+        latex_lay = DOXYGEN_PROJECT_PAGES["LaTeX"].layout
         for item in self.latex_items:
             latex_lay.addWidget(item)
         latex_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par9 = DOXYGEN_PROJECT_PAGES["RTF"]
+        #self.par9 = self.par9.owner
         self.rtf_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par9, "BUILD"),
         ]
-        rtf_lay = self.scroll_pages["RTF"]["layout"]
+        rtf_lay = DOXYGEN_PROJECT_PAGES["RTF"].layout
         for item in self.rtf_items:
             rtf_lay.addWidget(item)
         rtf_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par10 = DOXYGEN_PROJECT_PAGES["Man"]
+        #self.par10 = self.par10.owner
         self.man_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par10, "BUILD"),
         ]
-        man_lay = self.scroll_pages["Man"]["layout"]
+        man_lay = DOXYGEN_PROJECT_PAGES["Man"].layout
         for item in self.man_items:
             man_lay.addWidget(item)
         man_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par11 = DOXYGEN_PROJECT_PAGES["XML"]
+        #self.par11 = self.par11.owner
         self.xml_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par11, "BUILD"),
         ]
-        xml_lay = self.scroll_pages["XML"]["layout"]
+        xml_lay = DOXYGEN_PROJECT_PAGES["XML"].layout
         for item in self.xml_items:
             xml_lay.addWidget(item)
         xml_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par12 = DOXYGEN_PROJECT_PAGES["DocBook"]
+        #self.par12 = self.par12.owner
         self.docbook_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par12, "BUILD"),
         ]
-        docbook_lay = self.scroll_pages["DocBook"]["layout"]
+        docbook_lay = DOXYGEN_PROJECT_PAGES["DocBook"].layout
         for item in self.docbook_items:
             docbook_lay.addWidget(item)
         docbook_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par13 = DOXYGEN_PROJECT_PAGES["AutoGen"]
+        #self.par13 = self.par13.owner
         self.autogen_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par13, "BUILD"),
         ]
-        autogen_lay = self.scroll_pages["AutoGen"]["layout"]
+        autogen_lay = DOXYGEN_PROJECT_PAGES["AutoGen"].layout
         for item in self.autogen_items:
             autogen_lay.addWidget(item)
         autogen_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par14 = DOXYGEN_PROJECT_PAGES["SQLite3"]
+        #self.par14 = self.par14.owner
         self.sqlite3_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par14, "BUILD"),
         ]
-        sqlite3_lay = self.scroll_pages["SQLite3"]["layout"]
+        sqlite3_lay = DOXYGEN_PROJECT_PAGES["SQLite3"].layout
         for item in self.sqlite3_items:
             sqlite3_lay.addWidget(item)
         sqlite3_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par15 = DOXYGEN_PROJECT_PAGES["PerlMod"]
+        #self.par15 = self.par15.owner
         self.perlmod_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par15, "BUILD"),
         ]
-        perlmod_lay = self.scroll_pages["PerlMod"]["layout"]
+        perlmod_lay = DOXYGEN_PROJECT_PAGES["PerlMod"].layout
         for item in self.perlmod_items:
             perlmod_lay.addWidget(item)
         perlmod_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par16 = DOXYGEN_PROJECT_PAGES["Preprocessor"]
+        #self.par16 = self.par16.owner
         self.preproc_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par16, "BUILD"),
         ]
-        preproc_lay = self.scroll_pages["Preprocessor"]["layout"]
+        preproc_lay = DOXYGEN_PROJECT_PAGES["Preprocessor"].layout
         for item in self.preproc_items:
             preproc_lay.addWidget(item)
         preproc_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par17 = DOXYGEN_PROJECT_PAGES["External"]
+        #self.par17 = self.par17.owner
         self.external_items = [
-            DoxyCheckBox("BUILD"),
+            DoxyCheckBox(self.par17, "BUILD"),
         ]
-        external_lay = self.scroll_pages["External"]["layout"]
+        external_lay = DOXYGEN_PROJECT_PAGES["External"].layout
         for item in self.external_items:
             external_lay.addWidget(item)
         external_lay.addStretch()
         
         # -------------------------------------------------------------------------
+        self.par18 = DOXYGEN_PROJECT_PAGES["Dot"]
+        #self.par18 = self.par18.owner
         self.dot_items = [
-            DoxyCheckBox("BUILDxxx"),
+            DoxyCheckBox(self.par18, "BUILDxxx"),
         ]
-        dot_lay = self.scroll_pages["Dot"]["layout"]
+        dot_lay = DOXYGEN_PROJECT_PAGES["Dot"].layout
         for item in self.dot_items:
             dot_lay.addWidget(item)
         dot_lay.addStretch()
@@ -980,9 +1114,9 @@ class DoxyGenToolWindow(QWidget):
     def _on_expert_item_changed(self, text):
         if not text:
             return
-        page = self.scroll_pages.get(text)
+        page = DOXYGEN_PROJECT_PAGES.get(text)
         if page:
-            self.expert_pages.setCurrentWidget(page["area"])
+            self.expert_pages.setCurrentWidget(page.area)
     
     def _build_run_tab(self):
         page = QWidget()
@@ -997,42 +1131,31 @@ class DoxyGenToolWindow(QWidget):
     def _locales_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
 
-    def _load_help_translator(self):
-        lang = (locale.getdefaultlocale()[0] or "de") if locale.getdefaultlocale() else "de"
-        lang = lang.split("_")[0].lower()
-        try:
-            return gettext.translation("doxygen",
-            localedir = str(self._locales_dir()),
-            languages = [lang],
-            fallback  = True)
-        except Exception:
-            return gettext.NullTranslations()
-
-    def _help_html(self, help_key: str, title: str = "") -> str:
-        html = self.help_translator.gettext(help_key)
-        if html == help_key:
-            head = title or help_key
-            return f"<b>{head}</b><br><p>Keine Beschreibung in der .mo-Datei gefunden.</p>"
-        return html
-
-    def _bind_help(self, obj, help_key: str, title: str = ""):
-        obj.setProperty("help_key", help_key)
-        obj.setProperty("help_title", title)
-        obj.installEventFilter(self)
-
-    def eventFilter(self, obj, event):
-        if event.type() in (QEvent.Enter, QEvent.FocusIn):
-            help_key   = obj.property("help_key")
-            help_title = obj.property("help_title") or ""
-            if help_key:
-                self._show_help_for_key(help_key, title=help_title)
-        return QWidget.eventFilter(self, obj, event)
-
-    def _show_help_for_key(self, help_key: str, title: str = ""):
+    def _get_default_lang(self):
+        loc = locale.getdefaultlocale()
+        
+        if loc is None:
+            return "en"
+        
+        lang = loc[0]
+        if not lang:
+            return "en"
+        
+        return lang
+    
+    def _load_mo_from_resource(self, resource_path: str):
+        f = QFile(resource_path)
+        if not f.open(QFile.ReadOnly):
+            raise FileNotFoundError(resource_path)
+        data = bytes(f.readAll())
+        f.close()
+        return gettext.GNUTranslations(BytesIO(data))
+    
+    def show_help_for_key(self, help_key: str, title: str = ""):
+        translated = self.trmo.gettext(help_key)
         self.html_preview.clear()
-        self.html_preview.setHtml(self._help_html(help_key, title=title))
-
-
+        self.html_preview.setHtml(translated)
+    
     def _project_payload(self, path: str) -> dict:
         now = dt.datetime.now()
         p = Path(path)
