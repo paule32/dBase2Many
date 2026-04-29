@@ -1158,7 +1158,7 @@ class DoxyGenToolWindow(QWidget):
         self.html_preview.setHtml(translated)
     
     def _project_payload(self, path: str) -> dict:
-        now = dt.now()
+        now = datetime.now()
         p = Path(path)
         return {
             "header": {
@@ -1197,7 +1197,7 @@ class DoxyGenToolWindow(QWidget):
         self.project_list.clear()
         files = sorted(self.project_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
         for path in files:
-            dt_text = dt.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            dt_text = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
             item = QListWidgetItem(self.project_list)
             item.setData(Qt.UserRole, str(path))
             item.setSizeHint(QSize(220, 42))
