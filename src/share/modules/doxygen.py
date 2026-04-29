@@ -150,11 +150,13 @@ class DoxyButton(QPushButton):
         self.flag       = flag
         self.filename   = ""
         
+        self.help       = help_str
+        
         self.icon_norm  = icon_norm
         self.icon_hovr  = icon_hovr
         
         self.setIconSize(QSize(22, 22))
-        self.setProperty("help", help_str)
+        self.setProperty("help", self.help)
         
         self.setMaximumWidth (26)
         self.setMaximumHeight(26)
@@ -210,8 +212,17 @@ class DoxyButton(QPushButton):
                     if self.open_file():
                         self.owner.input.input.setText(self.filename)
                 elif self.flag == 2:
-                    text = self.owner.input.input.text().strip()
-                    print("ADD text:", text)
+                    if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+                    and (DOXYGEN_PROJECT_PAGES is not None):
+                        for res in DOXYGEN_EXPERT_ITEMS:
+                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            if page is not None:
+                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                if item is not None:
+                                    text = self.owner.input.input.text().strip()
+                                    item.edit.appendPlainText(text)
+                                    print("ADD text:", text)
+                                    break
                 elif self.flag == 3:
                     print("deL text")
             elif isinstance(self.owner, DoxyLineBtn4):
@@ -219,8 +230,17 @@ class DoxyButton(QPushButton):
                     if self.open_file():
                         self.owner.input.input.setText(self.filename)
                 elif self.flag == 2:
-                    text = self.owner.input.input.text().strip()
-                    print("+++ Text:", text)
+                    if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+                    and (DOXYGEN_PROJECT_PAGES is not None):
+                        for res in DOXYGEN_EXPERT_ITEMS:
+                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            if page is not None:
+                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                if item is not None:
+                                    text = self.owner.input.input.text().strip()
+                                    item.edit.appendPlainText(text)
+                                    print("add text:", text)
+                                    break
                 elif self.flag == 3:
                     print("Del text")
                 elif self.flag == 4:
@@ -283,6 +303,7 @@ class DoxyTextEdit(QWidget):
         self.owner  = parent.owner
         self.help   = help_str
         
+        self.setObjectName(self.help)
         self.layout = DoxyHBoxLayout(self)
         
         self.label  = DoxyLabel(self.parent, help_str, 1)
