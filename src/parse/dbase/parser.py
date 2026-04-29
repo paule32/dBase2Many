@@ -32,7 +32,7 @@ _RUNTIME_OUTPUT_FORMAT = "SCREEN"
 _RUNTIME_PRINT_ENABLED = False
 _RUNTIME_PRINT_LINES: list[dict[str, Any]] = []
 _RUNTIME_PRINT_PDF_PATH: Path | None = None
-_RUNTIME_PRINT_STARTED_AT: datetime.datetime | None = None
+_RUNTIME_PRINT_STARTED_AT: datetime | None = None
 _RUNTIME_PRINT_SCRIPT_PATH: Path | None = None
 _RUNTIME_PRINT_MARGIN_DEFAULTS = {
     "left": 42.0,
@@ -280,7 +280,7 @@ def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None
     _RUNTIME_PRINT_ENABLED      = False
     _RUNTIME_PRINT_LINES        = []
     _RUNTIME_PRINT_PDF_PATH     = None
-    _RUNTIME_PRINT_STARTED_AT   = datetime.datetime.now()
+    _RUNTIME_PRINT_STARTED_AT   = datetime.now()
     _RUNTIME_PRINT_MARGINS      = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
     _RUNTIME_ESCAPE_ENABLED     = False
     _RUNTIME_CONFIRM_ENABLED    = False
@@ -920,7 +920,7 @@ def _ensure_runtime_print_pdf_path() -> Path:
         return Path(_RUNTIME_PRINT_PDF_PATH)
 
     base_path = _RUNTIME_PRINT_SCRIPT_PATH or (Path.cwd() / "script.prg")
-    started = _RUNTIME_PRINT_STARTED_AT or datetime.datetime.now()
+    started = _RUNTIME_PRINT_STARTED_AT or datetime.now()
     stamp_date = started.strftime("%Y-%m-%d")
     stamp_time = started.strftime("%H-%M-%S")
     pdf_name = f"protokoll_{stamp_date}_{stamp_time}.pdf"
@@ -1970,7 +1970,7 @@ class ExecVisitor(dBaseParserVisitor):
         self._confirm_memfile_overwrite(path)
         payload = {
             'format': 'dbase.mem.json',
-            'saved_at': datetime.datetime.now().isoformat(timespec='seconds'),
+            'saved_at': datetime.now().isoformat(timespec='seconds'),
             'variables': payload_vars,
         }
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding='utf-8')

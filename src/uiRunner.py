@@ -11,26 +11,26 @@ import builtins
 import re
 import json
 import tempfile
-from   datetime import datetime
+import datetime as dt
 
-from   share.common                 import *
-from   share.excepts                import *
-from   share.locales                import *
-from   share.editors.editor         import *
-from   share.editors.help           import *
+from   share.common                     import *
+from   share.excepts                    import *
+from   share.locales                    import *
+from   share.editors.editor             import *
+from   share.editors.help               import *
 
 import share.utildef
-from   share.utildef.sysinfo        import SystemInfo
-from   share.utildef.helpwin        import *
-from   share.utildef.theme          import *
+from   share.utildef.sysinfo            import SystemInfo
+from   share.utildef.helpwin            import *
+from   share.utildef.theme              import *
 
-from   share.modules.locales        import *
-from   share.modules.doxygen        import *
-from   share.modules.aliasbuilder   import *
+from   share.modules.locales            import *
+from   share.modules.doxygen            import *
+from   share.modules.resource_builder   import *
 
-from   share.widgets.button.glossy  import *
+from   share.widgets.button.glossy      import *
 
-from   parse.dbase.parser           import *
+from   parse.dbase.parser               import *
 import parse.dbase.parser as _dbase_parser_runtime
 
 # ---------------------------------------------------------------------------
@@ -1637,7 +1637,7 @@ QLabel#TableCornerOverlay{
             header_len = 32 + 32 * nfields + 1
             record_len = 1 + sum(f.length for f in self.fields)
 
-            today = datetime.date.today()
+            today = dt.date.today()
             num_records = self.model.rowCount()
 
             hdr = bytearray(32)
@@ -2810,7 +2810,7 @@ class TableDesignerDialog(QDialog):
             header_len = 32 + 32 * n + 1
             record_len = 1 + sum(f[2] for f in fields)  # deletion flag + field widths
 
-            today = datetime.date.today()
+            today = dt.date.today()
             ver = 0x03  # dBASE III+ style, widely accepted as "dBase 5 compatible" for schema
             num_records = 0
 
@@ -3342,7 +3342,11 @@ class IconTab(QListWidget):
             if not path:
                 return
             lower = path.lower()
-            if lower.endswith(".prg") or lower.endswith(".dbf") or lower.endswith(".sqlb.json") or lower.endswith(".po") or lower.endswith(".pro"):
+            if lower.endswith(".prg")       \
+            or lower.endswith(".dbf")       \
+            or lower.endswith(".sqlb.json") \
+            or lower.endswith(".po")        \
+            or lower.endswith(".pro"):
                 self._run_file(path)
         except Exception:
             # keine harte Fehlermeldung bei UI-Events
@@ -3752,7 +3756,7 @@ body {
         try:
             lower = path.lower()
             if lower.endswith(".prg"):
-                parse(path)
+                parse(lower)
                 return
             if lower.endswith(".html") or lower.endswith(".css") or lower.endswith(".js"):
                 self._edit_in_editor(path)
@@ -3782,7 +3786,7 @@ body {
             #else:
             #    subprocess.Popen(["xdg-open", path])
         except Exception as e:
-            QMessageBox.warning(self, "Ausführen", f"Konnte Datei nicht starten:\n{e}")
+            QMessageBox.warning(self, "Ausführen", f"Konnte 11Datei nicht starten:\n{e}")
     
     def _compile_output_path(self, src_path: str, lang_folder: str, ext: str) -> str:
         src_path = os.path.abspath(src_path)
@@ -3914,8 +3918,11 @@ class RegieCenter(QDialog):
         self.icon_lists.append(self.lw9); self.tabs.addTab(self.lw9, 'Internet')
 
         # Sonstiges = alles, was in keinem der anderen Filter steckt
-        ext_all_known = (ext_projekte + ext_formulare + ext_berichte + ext_programme +
-                        ext_tabellen + ext_sql + ext_grafiken + ext_internet)
+        ext_all_known = (
+            ext_projekte + ext_formulare +
+            ext_berichte + ext_programme +
+            ext_tabellen + ext_sql +
+            ext_grafiken + ext_internet)
         self.lwA = IconTab(exclude_exts=ext_all_known, parent=self, icon_provider=self.icon_provider)
         self.icon_lists.append(self.lwA); self.tabs.addTab(self.lwA, 'Sonstiges')
         # --- Layout ---
@@ -4826,7 +4833,7 @@ class DesktopPropertiesDialog(QDialog):
 
     def _update_country_date_preview(self):
         try:
-            today = datetime.date.today()
+            today = dt.date.today()
         except Exception:
             today = None
 
@@ -7117,7 +7124,7 @@ class FormDesignerWindow(QWidget):
         form_name = (self.form_class_name or "ParentForm").strip() or "ParentForm"
         host = self._designer_host_widget()
 
-        generated_on = datetime.now().strftime("%d.%m.%Y")
+        generated_on = dt.now().strftime("%d.%m.%Y")
         header_lines = [
             "** END HEADER -- do not remove this line",
             f"// Generated on {generated_on}",
@@ -8765,7 +8772,7 @@ class FormDesignerDock(QDockWidget):
         p.add_action(
             share.locales.tr("Resource Builder"),
                 lambda: self._run_and_close(p,
-                lambda: seöf.main_window.ensure_resourcebuilder_tool(focus=True)
+                lambda: self.main_window.ensure_resourcebuilder_tool(focus=True)
             ),
         )
         p.add_action(
@@ -11083,7 +11090,7 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(widget)
             mark_escape_close(sub)
             sub.setWindowTitle(share.locales.tr('Resource Builder'))
-            sub.resize(856, 580)
+            sub.resize(856, 480)
             widget.show()
             sub.show()
             if focus:
@@ -11114,7 +11121,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         try:
-            widget = HelpAuthoringToolWindow(self)
+            widget = HelpAuthoringEditor(self)
             self._helpauthoring_tool_window = widget
             sub = self.mdi.addSubWindow(widget)
             mark_escape_close(sub)

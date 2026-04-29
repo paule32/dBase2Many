@@ -423,6 +423,7 @@ class DoxyImage(QWidget):
         
         self.parent = parent
         self.owner  = parent.owner
+        self.help   = help_str
         
         self.layout = DoxyHBoxLayout(self)
         self.label1 = DoxyLabel(self, help_str, 1)
@@ -1157,7 +1158,7 @@ class DoxyGenToolWindow(QWidget):
         self.html_preview.setHtml(translated)
     
     def _project_payload(self, path: str) -> dict:
-        now = dt.datetime.now()
+        now = dt.now()
         p = Path(path)
         return {
             "header": {
@@ -1196,7 +1197,7 @@ class DoxyGenToolWindow(QWidget):
         self.project_list.clear()
         files = sorted(self.project_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
         for path in files:
-            dt_text = dt.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            dt_text = dt.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
             item = QListWidgetItem(self.project_list)
             item.setData(Qt.UserRole, str(path))
             item.setSizeHint(QSize(220, 42))

@@ -32,7 +32,7 @@ _RUNTIME_OUTPUT_FORMAT = "SCREEN"
 _RUNTIME_PRINT_ENABLED = False
 _RUNTIME_PRINT_LINES: list[dict[str, Any]] = []
 _RUNTIME_PRINT_PDF_PATH: Path | None = None
-_RUNTIME_PRINT_STARTED_AT: datetime.datetime | None = None
+_RUNTIME_PRINT_STARTED_AT: datetime | None = None
 _RUNTIME_PRINT_SCRIPT_PATH: Path | None = None
 _RUNTIME_PRINT_MARGIN_DEFAULTS = {
     "left": 42.0,
@@ -280,7 +280,7 @@ def _runtime_output_session_begin(script_filename: str | os.PathLike[str] | None
     _RUNTIME_PRINT_ENABLED      = False
     _RUNTIME_PRINT_LINES        = []
     _RUNTIME_PRINT_PDF_PATH     = None
-    _RUNTIME_PRINT_STARTED_AT   = datetime.datetime.now()
+    _RUNTIME_PRINT_STARTED_AT   = dt.now()
     _RUNTIME_PRINT_MARGINS      = dict(_RUNTIME_PRINT_MARGIN_DEFAULTS)
     _RUNTIME_ESCAPE_ENABLED     = False
     _RUNTIME_CONFIRM_ENABLED    = False
@@ -919,12 +919,15 @@ def _ensure_runtime_print_pdf_path() -> Path:
     if _RUNTIME_PRINT_PDF_PATH is not None:
         return Path(_RUNTIME_PRINT_PDF_PATH)
 
-    base_path = _RUNTIME_PRINT_SCRIPT_PATH or (Path.cwd() / "script.prg")
-    started = _RUNTIME_PRINT_STARTED_AT or datetime.datetime.now()
+    base_path  = _RUNTIME_PRINT_SCRIPT_PATH or (Path.cwd() / "script.prg")
+    started    = _RUNTIME_PRINT_STARTED_AT or dt.now()
+    
     stamp_date = started.strftime("%Y-%m-%d")
     stamp_time = started.strftime("%H-%M-%S")
-    pdf_name = f"protokoll_{stamp_date}_{stamp_time}.pdf"
-    proto_dir = base_path.resolve().parent / "proto"
+    
+    pdf_name   = f"protokoll_{stamp_date}_{stamp_time}.pdf"
+    proto_dir  = base_path.resolve().parent / "proto"
+    
     _RUNTIME_PRINT_PDF_PATH = proto_dir / pdf_name
     return Path(_RUNTIME_PRINT_PDF_PATH)
 
@@ -1669,7 +1672,8 @@ class ExecVisitor(dBaseParserVisitor):
         nfields = len(fields)
         header_len = 32 + 32 * nfields + 1
         record_len = 1 + sum(f.length for f in fields)
-        today = datetime.date.today()
+
+        today      = datetime.date.today()
 
         hdr        = bytearray(32)
         hdr[0]     = int(ws.get("version", 0x03) or 0x03)
@@ -1970,7 +1974,7 @@ class ExecVisitor(dBaseParserVisitor):
         self._confirm_memfile_overwrite(path)
         payload = {
             'format': 'dbase.mem.json',
-            'saved_at': datetime.datetime.now().isoformat(timespec='seconds'),
+            'saved_at': dt.now().isoformat(timespec='seconds'),
             'variables': payload_vars,
         }
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding='utf-8')
@@ -5728,7 +5732,6 @@ def _count_collect_entities(visitor: "ExecVisitor") -> tuple[int, int]:
 def parse(filename: str, show_collect_dialog: bool = True):
     collect_dlg = None
     _runtime_output_session_begin(filename)
-
     # 0 pre-procession
     pp  = Preprocessor(include_paths=[Path("includes")])
     pre = pp.process(filename)
@@ -5739,7 +5742,6 @@ def parse(filename: str, show_collect_dialog: bool = True):
     if parser_input and not parser_input.endswith("\n"):
         parser_input += "\n"
     parser_dump_path = _write_parser_input_dump(filename, parser_input)
-
     if show_collect_dialog and QApplication.instance() is not None:
         try:
             collect_dlg  = share.utildef.dialogs.CollectProgressDialog(

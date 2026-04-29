@@ -45,9 +45,11 @@ try:
     import re
     import sys
     import pprint
-    import datetime as dt
     import time
-
+    
+    import datetime
+    from   datetime import *
+    
     # -----------------------------------------------------------------------
     # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
     # -----------------------------------------------------------------------
