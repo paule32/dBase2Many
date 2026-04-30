@@ -10192,6 +10192,13 @@ class MainWindow(QMainWindow):
             pass
     
     def on_tools_locales_menu(self):
+        mw = globals().get("MAINAPP", None)
+        if mw is not None and hasattr(mw, "mdi"):
+            sub = mw.mdi.activeSubWindow()
+            if sub is not None:
+                w = sub.widget()
+                if w is not None:
+                    QMessageBox.information(self, "Title", sub.windowTitle())
         self.ensure_localize_tool(focus = True)
         
     def on_tools_doxygen_menu(self):
@@ -10277,9 +10284,30 @@ class MainWindow(QMainWindow):
         return None
 
     def on_action_file_save(self):
-        widget = self._active_document_widget()
-        self._invoke_save_on_widget(widget, save_as=False)
-        self._update_file_menu_dynamic_actions()
+        title = ""
+        w     = None
+        mw    = globals().get("MAINAPP", None)
+        if mw is not None and hasattr(mw, "mdi"):
+            sub = mw.mdi.activeSubWindow()
+            if sub is not None:
+                w = sub.widget()
+                if w is not None:
+                    title = sub.windowTitle()
+        if title:
+            if title == "DoxyGen":
+                w.save_project_as()
+            else:
+                QMessageBox.information(self,
+                share.locales.tr("Information"),
+                share.locales.tr("not implemented"))
+        else:
+            QMessageBox.information(self,
+            share.locales.tr("Information"),
+            share.locales.tr("nothing to save"))
+        
+        #widget = self._active_document_widget()
+        #self._invoke_save_on_widget(widget, save_as=False)
+        #self._update_file_menu_dynamic_actions()
 
     def on_action_file_save_as(self):
         widget = self._active_document_widget()
@@ -10328,11 +10356,11 @@ class MainWindow(QMainWindow):
             "DoxyGenToolWindow",
         }
 
-        try:
-            self.action_file_save.setEnabled(can_save)
-            self.action_file_save_as.setEnabled(can_save)
-        except Exception:
-            pass
+        #try:
+        #    #self.action_file_save.setEnabled(can_save)
+        #    #self.action_file_save_as.setEnabled(can_save)
+        #except Exception:
+        #    pass
 
     def on_action_view_debug_window(self):
         try:
@@ -11263,11 +11291,11 @@ class MainWindow(QMainWindow):
     def _update_file_menu_dynamic_actions(self):
         widget = self._active_document_widget()
         can_save = self._is_save_capable_widget(widget)
-        try:
-            self.action_file_save.setEnabled(can_save)
-            self.action_file_save_as.setEnabled(can_save)
-        except Exception:
-            pass
+        #try:
+        #    self.action_file_save.setEnabled(can_save)
+        #    self.action_file_save_as.setEnabled(can_save)
+        #except Exception:
+        #    pass
 
     def on_action_file_close(self):
         # Datei -> Schließen: Tab schließen (wenn Editor aktiv), sonst SubWindow schließen

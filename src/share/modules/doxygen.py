@@ -14,6 +14,7 @@ import share.resrces.locales_de_rc
 from   share.common import *
 
 DOXYGEN_PROJECT_PAGES = {}
+DOXYGEN_ITEMS = []
 
 DOXYGEN_EXPERT_ITEMS = [
     share.locales.tr("Project"),
@@ -249,6 +250,9 @@ class DoxyButton(QPushButton):
         
         self.icon_norm  = icon_norm
         self.icon_hovr  = icon_hovr
+
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
         
         self.setIconSize(QSize(22, 22))
         self.setProperty("help", self.help)
@@ -414,7 +418,10 @@ class DoxyLabel(QLabel):
         self.parent = parent
         self.owner  = parent.owner
         self.help   = help_str
-        
+       
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         bind_help(self.parent, self, help_str)
         
         if flag == 0: self.setText(help_str)
@@ -449,6 +456,9 @@ class DoxyTextEdit(QWidget):
         self.edit   = DoxyCodeEditor()
         self.edit.setStyleSheet("background-color: #303030;")
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         for line in text:
             self.edit.appendPlainText(line)
         
@@ -474,7 +484,10 @@ class DoxyCheckBox(QWidget):
         self.layout = DoxyHBoxLayout(self)
         self.label  = DoxyLabel(self, help_str)
         self.check  = QCheckBox("NO")
-
+        
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.check.setStyleSheet("color: red;")
         self.check.toggled.connect(self.on_changed)
         
@@ -516,6 +529,9 @@ class DoxySpinEdit(QWidget):
         self.label  = DoxyLabel(self, help_str)
         self.spin   = QSpinBox()
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.spin.setMinimum(v_min)
         self.spin.setMaximum(v_max)
         self.spin.setValue  (v_def)
@@ -536,7 +552,12 @@ class DoxySpinEdit(QWidget):
 # \param text_str - string for the input content, default: "".
 # ---------------------------------------------------------------------------
 class DoxyLineEdit(QWidget):
-    def __init__(self, parent=None, help_str:str="", text_str: str=""):
+    def __init__(self,
+        parent=None,
+        help_str : str = "",
+        text_str : str = "",
+        flag     : int = 0):
+        
         super().__init__(parent.owner)
         
         self.setProperty("help", help_str)
@@ -545,11 +566,15 @@ class DoxyLineEdit(QWidget):
         self.parent = parent
         self.owner  = parent.owner
         self.help   = help_str
+        self.flag   = flag
         
         self.layout = DoxyHBoxLayout(self)
         self.label  = DoxyLabel(self, help_str)
         self.input  = QLineEdit()
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.input.setProperty("help", help_str)
         self.input.setFont(QFont("Consolas", 10))
         self.input.setText(text_str)
@@ -580,6 +605,9 @@ class DoxyLineBtn1(QWidget):
         self.input  = DoxyLineEdit(self, help_str, text_str)
         self.buttn  = DoxyButton  (self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.layout.addWidget(self.input)
         self.layout.addWidget(self.buttn)
         
@@ -597,12 +625,15 @@ class DoxyLineBtn3(QWidget):
         self.help   = help_str
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(self, help_str, text_str)
+        self.input  = DoxyLineEdit(self, help_str, text_str, 1)
         
         self.butt1  = DoxyButton(self, help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
         self.butt2  = DoxyButton(self, help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
         self.butt3  = DoxyButton(self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.layout.addWidget(self.input)
         
         self.layout.addWidget(self.butt1)
@@ -615,24 +646,33 @@ class DoxyLineBtn3(QWidget):
 
 
 class DoxyLineBtn4(QWidget):
-    def __init__(self, parent=None, help_str:str="", text_str:str=""):
+    def __init__(self,
+        parent         = None,
+        help_str : str = "",
+        text_str : str = "",
+        flag     : int = 0):
+        
         super().__init__(None)
         
         self.parent = parent
         self.owner  = parent.owner
         self.help   = help_str
+        self.flag   = flag
         
         self.setProperty("help", help_str)
         self.setProperty("text", text_str)
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(parent, help_str, text_str)
+        self.input  = DoxyLineEdit(parent, help_str, text_str, 1)
         
         self.butt1  = DoxyButton(self, help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
         self.butt2  = DoxyButton(self, help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
         self.butt3  = DoxyButton(self, help_str, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"), 4)
         self.butt4  = DoxyButton(self, help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.layout.addWidget(self.input)
         
         self.layout.addWidget(self.butt1)
@@ -695,6 +735,9 @@ class DoxyComboBox(QWidget):
         self.label  = DoxyLabel(self, help_str)
         self.combo  = QComboBox()
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.combo.addItems(items)
         
         self.layout.addWidget(self.label)
@@ -714,6 +757,8 @@ class DoxyGenToolWindow(QWidget):
         super().__init__(parent)
         
         self.owner       = self
+        self.config      = {}
+        self.state       = {}
         
         self.project_dir = _default_project_dir()
         self.propath     = self.project_dir / "doxygen_project.json"
@@ -752,7 +797,7 @@ class DoxyGenToolWindow(QWidget):
         
         left_lay.addLayout(btn_row)
 
-        self.btn_save  .clicked.connect(self._save_project_as)
+        self.btn_save  .clicked.connect(self.save_project_as)
         self.btn_delete.clicked.connect(self._delete_selected_project)
         self.btn_load  .clicked.connect(self._load_selected_project)
 
@@ -842,7 +887,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par1 = DOXYGEN_PROJECT_PAGES["Project"]
-        #self.par1 = self.par1.owner
         self.project_items = [
             DoxyLineEdit(self.par1, "DOXYFILE_ENCODING", "UTF-8"),
             
@@ -936,7 +980,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par2 = DOXYGEN_PROJECT_PAGES["Build"]
-        #self.par2 = self.par2.owner
         self.build_items = [
             DoxyCheckBox(self.par2, "EXTRACT_ALL"),
             DoxyCheckBox(self.par2, "EXTRACT_PRIVATE"),
@@ -1096,7 +1139,6 @@ class DoxyGenToolWindow(QWidget):
 
         # -------------------------------------------------------------------------
         self.par5 = DOXYGEN_PROJECT_PAGES["Source Browser"]
-        #self.par5 = self.par5.owner
         self.browser_items = [
             DoxyCheckBox(self.par5, "SOURCE_BROWSER"),
             DoxyCheckBox(self.par5, "INLINE_SOURCES"),
@@ -1122,7 +1164,6 @@ class DoxyGenToolWindow(QWidget):
 
         # -------------------------------------------------------------------------
         self.par6 = DOXYGEN_PROJECT_PAGES["Index"]
-        #self.par6 = self.par6.owner
         self.index_items = [
             DoxyCheckBox(self.par6, "ALPHABETICAL_INDEX"),
             DoxyTextEdit(self.par6, "ALPHABETICAL_INDEX", [])
@@ -1134,7 +1175,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par7 = DOXYGEN_PROJECT_PAGES["HTML"]
-        #self.par7 = self.par7.owner
         self.html_items = [
             DoxyCheckBox(self.par7, "GENERATE_HTML"),
             DoxyLineBtn1(self.par7, "HTML_OUTPUT"),
@@ -1209,7 +1249,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par8 = DOXYGEN_PROJECT_PAGES["LaTeX"]
-        #self.par8 = self.par8.owner
         self.latex_items = [
             DoxyCheckBox(self.par8, "GENERATE_LATEX"),
         ]
@@ -1220,7 +1259,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par9 = DOXYGEN_PROJECT_PAGES["RTF"]
-        #self.par9 = self.par9.owner
         self.rtf_items = [
             DoxyCheckBox(self.par9, "BUILD"),
         ]
@@ -1231,7 +1269,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par10 = DOXYGEN_PROJECT_PAGES["Man"]
-        #self.par10 = self.par10.owner
         self.man_items = [
             DoxyCheckBox(self.par10, "BUILD"),
         ]
@@ -1242,7 +1279,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par11 = DOXYGEN_PROJECT_PAGES["XML"]
-        #self.par11 = self.par11.owner
         self.xml_items = [
             DoxyCheckBox(self.par11, "BUILD"),
         ]
@@ -1253,7 +1289,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par12 = DOXYGEN_PROJECT_PAGES["DocBook"]
-        #self.par12 = self.par12.owner
         self.docbook_items = [
             DoxyCheckBox(self.par12, "BUILD"),
         ]
@@ -1264,7 +1299,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par13 = DOXYGEN_PROJECT_PAGES["AutoGen"]
-        #self.par13 = self.par13.owner
         self.autogen_items = [
             DoxyCheckBox(self.par13, "BUILD"),
         ]
@@ -1275,7 +1309,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par14 = DOXYGEN_PROJECT_PAGES["SQLite3"]
-        #self.par14 = self.par14.owner
         self.sqlite3_items = [
             DoxyCheckBox(self.par14, "BUILD"),
         ]
@@ -1286,7 +1319,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par15 = DOXYGEN_PROJECT_PAGES["PerlMod"]
-        #self.par15 = self.par15.owner
         self.perlmod_items = [
             DoxyCheckBox(self.par15, "BUILD"),
         ]
@@ -1297,7 +1329,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par16 = DOXYGEN_PROJECT_PAGES["Preprocessor"]
-        #self.par16 = self.par16.owner
         self.preproc_items = [
             DoxyCheckBox(self.par16, "BUILD"),
         ]
@@ -1308,7 +1339,6 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par17 = DOXYGEN_PROJECT_PAGES["External"]
-        #self.par17 = self.par17.owner
         self.external_items = [
             DoxyCheckBox(self.par17, "BUILD"),
         ]
@@ -1319,9 +1349,8 @@ class DoxyGenToolWindow(QWidget):
         
         # -------------------------------------------------------------------------
         self.par18 = DOXYGEN_PROJECT_PAGES["Dot"]
-        #self.par18 = self.par18.owner
         self.dot_items = [
-            DoxyCheckBox(self.par18, "BUILDxxx"),
+            DoxyCheckBox(self.par18, "BUILD"),
         ]
         dot_lay = DOXYGEN_PROJECT_PAGES["Dot"].layout
         for item in self.dot_items:
@@ -1388,24 +1417,20 @@ class DoxyGenToolWindow(QWidget):
                 "filename"      : p.name,
                 "filepath"      : str(p),
             },
-            "state": {
-                "current_tab"   : self.tabs.currentIndex(),
-                "expert_item"   : self.list_categories.currentRow(),
-            }
         }
 
     def _validate_payload(self, data: dict):
         if not isinstance(data, dict):
-            return False, "Die JSON-Datei enthält kein gültiges Projektobjekt."
+            return False, share.locales.tr("The JSON-File is not a valid project file.")
         header = data.get("header")
         if not isinstance(header, dict):
-            return False, "Die Header-Informationen fehlen."
+            return False, share.locales.tr("missing Header-Information's.")
         if header.get("format") != HEADER_FORMAT:
-            return False, "Ungültiges dBase2Many-Projektformat."
+            return False, share.locales.tr("project format is invalid.")
         if header.get("tool") != HEADER_TOOL:
-            return False, f"Die JSON-Datei gehört nicht zum DoxyGen Dialog (gefunden: {header.get('tool', 'unbekannt')})."
+            return False, share.locales.tr(f"the JSON-File does not cover the DoxyGen-Dialog: {header.get('tool', 'unknown')}).")
         if header.get("kind") != HEADER_KIND:
-            return False, "Ungültiger Projekttyp für den DoxyGen Dialog."
+            return False, share.locales.tr("invalid project type.")
         return True, ""
 
     def _reload_project_list(self):
@@ -1420,7 +1445,7 @@ class DoxyGenToolWindow(QWidget):
             self.project_list.addItem(item)
             self.project_list.setItemWidget(item, widget)
 
-    def _save_project_as(self):
+    def save_project_as(self):
         start = self.project_dir / "doxygen_project.json"
         path, _ = QFileDialog.getSaveFileName(self,
             share.locales.tr("Save DoxyGen-Project"),
@@ -1442,13 +1467,37 @@ class DoxyGenToolWindow(QWidget):
             if reply == QMessageBox.No:
                 return
             
-            config = {}
+            self.state  = {
+                "current_tab": self.tabs.currentIndex(),
+                "expert_item": self.list_categories.currentRow()
+            }
             
-            payload["config"] = config
+            self.save_items(self.project_items)
+            self.save_items(self.build_items)
+            self.save_items(self.messages_items)
+            self.save_items(self.input_items)
+            """self.save_items(self.browser_items)
+            self.save_items(self.index_items)
+            self.save_items(self.html_items)
+            self.save_items(self.latex_items)
+            self.save_items(self.rtf_items)
+            self.save_items(self.man_items)
+            self.save_items(self.xml_items)
+            self.save_items(self.docbook_items)
+            self.save_items(self.autogen_items)
+            self.save_items(self.sqlite3_items)
+            self.save_items(self.perlmod_items)
+            self.save_items(self.preproc_items)
+            self.save_items(self.external_items)
+            self.save_items(self.dot_items)"""
+            
+            
+            payload["state" ] = self.state
+            payload["config"] = self.config
             
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
-                
+                 
         except Exception as e:
             QMessageBox.critical(self, share.locales.tr("Save"), str(e))
 
@@ -1472,16 +1521,102 @@ class DoxyGenToolWindow(QWidget):
                 data = json.load(f)
             ok, err = self._validate_payload(data)
             if not ok:
-                QMessageBox.critical(self, "Ungültige Projektdatei", err)
+                QMessageBox.critical(self,
+                    share.locales.tr("Invalide project file"),
+                    err)
                 return
-            state = data.get("state", {})
-            self.tabs.setCurrentIndex(int(state.get("current_tab", 0)))
-            self.list_categories.setCurrentRow(int(state.get("expert_item", 0)))
+            
+            self.state = data.get("state", {})
+            self.tabs.setCurrentIndex(int(self.state.get("current_tab", 0)))
+            self.list_categories.setCurrentRow(int(self.state.get("expert_item", 0)))
+            
+            # ------------------------
+            # set new item values ...
+            # ------------------------
+            self.config = data.get("config",{})
+            
+            self.load_items(self.project_items)
+            self.load_items(self.build_items)
+            self.load_items(self.messages_items)
+            """self.load_items(self.input_items)
+            self.load_items(self.browser_items)
+            self.load_items(self.index_items)
+            self.load_items(self.html_items)
+            self.load_items(self.latex_items)
+            self.load_items(self.rtf_items)
+            self.load_items(self.man_items)
+            self.load_items(self.xml_items)
+            self.load_items(self.docbook_items)
+            self.load_items(self.autogen_items)
+            self.load_items(self.sqlite3_items)
+            self.load_items(self.perlmod_items)
+            self.load_items(self.preproc_items)
+            self.load_items(self.external_items)
+            self.load_items(self.dot_items)"""
+            
         except RuntimeError as e:
-            QMessageBox.critical(self, share.locales.tr("bOpen"), str(e))
+            QMessageBox.critical(self, share.locales.tr("Open"), str(e))
         except Exception as e:
-            QMessageBox.critical(self, share.locales.tr("aOpen"), str(e))
-
+            QMessageBox.critical(self, share.locales.tr("Open"), str(e))
+    
+    def save_items(self, items):
+        for item in items:
+            if isinstance(item, DoxyLineEdit):
+                if not item.flag:
+                    text = item.input.text()
+                    self.config[item.help] = text
+            elif isinstance(item, DoxyLineBtn1):
+                text = item.input.input.text()
+                self.config[item.help] = text
+            elif isinstance(item, DoxyLineBtn3):
+                text = item.input.input.text()
+                self.config[item.help] = text
+            elif isinstance(item, DoxyLineBtn4):
+                text = item.input.input.text()
+                self.config[item.help] = text
+            elif isinstance(item, DoxySpinEdit):
+                value = item.spin.value()
+                self.config[item.help] = value
+            elif isinstance(item, DoxyCheckBox):
+                if item.check.isChecked():
+                    self.config[item.help] = 1
+                else:
+                    self.config[item.help] = 0
+            elif isinstance(item, DoxyTextEdit):
+                text = item.edit.toPlainText()
+                self.config[item.help] = text
+            elif isinstance(item, DoxyComboBox):
+                text = item.combo.currentText()
+                self.config[item.help] = text
+    
+    def load_items(self, items):
+        for item in items:
+            if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help, "")))
+            elif isinstance(item, DoxyLineBtn1): item.input.input.setText(str(self.config.get(item.help, "")))
+            elif isinstance(item, DoxyLineBtn3):
+                if not item.input.flag:
+                    item.input.input.setText(str(self.config.get(item.help, "")))
+                else:
+                    item.input.input.setText("")
+            elif isinstance(item, DoxyLineBtn4):
+                if not item.input.flag:
+                    item.input.input.setText(str(self.config.get(item.help, "")))
+                else:
+                    item.input.input.setText("")
+            elif isinstance(item, DoxyCheckBox):
+                check = int(self.config.get(item.help, 0))
+                if check:
+                    item.check.setChecked(True)
+                else:
+                    item.check.setChecked(False)
+            elif isinstance(item, DoxyTextEdit):
+                item.edit.clear()
+                item.edit.appendPlainText(str(self.config.get(item.help, "")))
+            elif isinstance(item, DoxySpinEdit): item.spin.setValue (int(self.config.get(item.help, 0)))
+            elif isinstance(item, DoxyComboBox):
+                index = item.combo.findText(str(self.config.get(item.help, "English")))
+                if index >= 0:
+                    item.combo.setCurrentIndex(index)
     
     def _delete_selected_project(self):
         path = self._selected_project_path()
