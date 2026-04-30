@@ -8635,18 +8635,12 @@ class FormDesignerDock(QDockWidget):
             st.standardIcon(QStyle.SP_FileDialogContentsView),
             inner,
         )
-        self.btn_tools = SidebarIconButton(
-            "Tools",
-            st.standardIcon(QStyle.SP_ComputerIcon),
-            inner,
-        )
 
         lay.addWidget(self.btn_actions, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_projects, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_help, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_convert, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addWidget(self.btn_settings, 0, Qt.AlignTop | Qt.AlignHCenter)
-        lay.addWidget(self.btn_tools, 0, Qt.AlignTop | Qt.AlignHCenter)
         lay.addStretch(1)
 
         self.scroll.setWidget(inner)
@@ -8664,7 +8658,6 @@ class FormDesignerDock(QDockWidget):
         self.btn_help       .clicked.connect(self._show_help)
         self.btn_convert    .clicked.connect(self._toggle_convert_popup)
         self.btn_settings   .clicked.connect(self._open_settings)
-        self.btn_tools      .clicked.connect(self._toggle_tools_popup)
 
     def _scroll_up(self):
         try:
@@ -8681,7 +8674,7 @@ class FormDesignerDock(QDockWidget):
             pass
 
     def _close_other_popups(self, keep=None):
-        for popup in (self._actions_popup, self._projects_popup, self._convert_popup, self._tools_popup):
+        for popup in (self._actions_popup, self._projects_popup, self._convert_popup):
             try:
                 if popup is not None and popup is not keep and popup.isVisible():
                     popup.hide()
@@ -8751,44 +8744,7 @@ class FormDesignerDock(QDockWidget):
             lambda: self._placeholder_message("Convert", "Platzhalter: Convert to Visual Basic")))
         self._convert_popup = p
         return p
-
-    def _ensure_tools_popup(self):
-        p = self._tools_popup
-        if p is None:
-            p = SidebarPopupWidget(self, title="Tools")
-            self._tools_popup = p
-        while p._items_layout.count():
-            item = p._items_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
-        
-        p.add_action(
-            share.locales.tr("Locales"),
-                lambda: self._run_and_close(p,
-                lambda: self.main_window.ensure_localize_tool(focus=True)
-            ),
-        )
-        p.add_action(
-            share.locales.tr("Resource Builder"),
-                lambda: self._run_and_close(p,
-                lambda: self.main_window.ensure_resourcebuilder_tool(focus=True)
-            ),
-        )
-        p.add_action(
-            share.locales.tr("Help Authoring"),
-                lambda: self._run_and_close(p,
-                lambda: self.main_window.ensure_help_authoring_tool(focus=True)
-            ),
-        )
-        p.add_action(
-            share.locales.tr("DoxyGen"),
-                lambda: self._run_and_close(p,
-                lambda: self.main_window.ensure_doxygen_tool(focus=True)
-            ),
-        )
-        return p
-
+    
     def _open_help_authoring(self):
         try:
             if hasattr(self.main_window, "status_left"):
@@ -8812,14 +8768,6 @@ class FormDesignerDock(QDockWidget):
             except Exception:
                 pass
             
-    def _toggle_tools_popup(self):
-        popup = self._ensure_tools_popup()
-        self._close_other_popups(keep=popup)
-        if popup.isVisible():
-            popup.hide()
-        else:
-            popup.popup_next_to(self.btn_tools)
-
     def _run_and_close(self, popup, callback):
         try:
             if callable(callback):
@@ -9638,13 +9586,13 @@ class MainWindow(QMainWindow):
 
         # Menüs (nur wenn vorhanden)
         try:
-            if hasattr(self, "menu_file"):       self.menu_file      .setTitle(share.locales.tr("File"))
-            if hasattr(self, "menu_edit"):       self.menu_edit      .setTitle(share.locales.tr("Edit"))
-            if hasattr(self, "menu_display"):    self.menu_display   .setTitle(share.locales.tr("View"))
-            if hasattr(self, "menu_properties") and self.menu_properties is not None: self.menu_properties.setTitle(share.locales.tr("Properties"))
-            if hasattr(self, "menu_windows"):    self.menu_windows   .setTitle(share.locales.tr("Window"))
-            if hasattr(self, "menu_help"):       self.menu_help      .setTitle(share.locales.tr("Help"))
-            if hasattr(self, "menu_language"):   self.menu_language  .setTitle(share.locales.tr("Language"))
+            if hasattr(self, "menu_file"):        self.menu_file       .setTitle(share.locales.tr("File"))
+            if hasattr(self, "menu_edit"):        self.menu_edit       .setTitle(share.locales.tr("Edit"))
+            if hasattr(self, "menu_display"):     self.menu_display    .setTitle(share.locales.tr("View"))
+            if hasattr(self, "menu_tools"):       self.menu_tools      .setTitle(share.locales.tr("Tools"))
+            if hasattr(self, "menu_windows"):     self.menu_windows    .setTitle(share.locales.tr("Window"))
+            if hasattr(self, "menu_help"):        self.menu_help       .setTitle(share.locales.tr("Help"))
+            if hasattr(self, "menu_language"):    self.menu_language   .setTitle(share.locales.tr("Language"))
             if hasattr(self, "action_workplace"): self.action_workplace.setText(share.locales.tr("Eigenschaften"))
         except Exception:
             pass
@@ -9960,54 +9908,61 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        self.menu_file       = menubar.addMenu(share.locales.tr("File"))
+        self.menu_file = menubar.addMenu(share.locales.tr("File"))
         self.menu_file.setFont(f2)
 
-        self.menu_edit       = menubar.addMenu(share.locales.tr("Edit"))
+        self.menu_edit = menubar.addMenu(share.locales.tr("Edit"))
         self.menu_edit.setFont(f2)
 
-        self.menu_display    = menubar.addMenu(share.locales.tr("View"))
+        self.menu_display = menubar.addMenu(share.locales.tr("View"))
         self.menu_display.setFont(f2)
-
-        self.menu_properties = QMenu(share.locales.tr("Properties"), self)
-        self.menu_windows    = menubar.addMenu(share.locales.tr("Window"))
-        self.menu_help       = menubar.addMenu(share.locales.tr("Help"))
+        
+        self.menu_tools = menubar.addMenu(share.locales.tr("Tools"))
+        self.menu_tools.setFont(f2)
+        
+        self.menu_windows = menubar.addMenu(share.locales.tr("Window"))
+        self.menu_windows.setFont(f2)
+        
+        self.menu_help = menubar.addMenu(share.locales.tr("Help"))
         self.menu_help.setFont(f2)
 
-        self.action_help_contents = QAction(share.locales.tr("Contents"), self)
-        self.action_help_contents.setShortcut(QKeySequence("F1"))
-        self.action_help_contents.triggered.connect(self.on_action_help_contents)
+        self.action_help_contents   = QAction(share.locales.tr("Contents"), self)
+        self.action_help_contents   .setShortcut(QKeySequence("F1"))
+        self.action_help_contents   .triggered.connect(self.on_action_help_contents)
         self.menu_help.addAction(self.action_help_contents)
 
-        self.action_help_whatis = QAction(share.locales.tr("What is ... ?"), self)
-        self.action_help_whatis.setCheckable(True)
-        self.action_help_whatis.toggled.connect(self.on_action_help_whatis)
+        self.action_help_whatis     = QAction(share.locales.tr("What is ... ?"), self)
+        self.action_help_whatis     .setCheckable(True)
+        self.action_help_whatis     .toggled.connect(self.on_action_help_whatis)
         self.menu_help.addAction(self.action_help_whatis)
 
         self.menu_help.addSeparator()
-        self.action_help_about = QAction(share.locales.tr("About ..."), self)
-        self.action_help_about.triggered.connect(self.on_action_help_about)
+        self.action_help_about      = QAction(share.locales.tr("About ..."), self)
+        self.action_help_about      .triggered.connect(self.on_action_help_about)
         self.menu_help.addAction(self.action_help_about)
 
-        self.action_workplace = QAction(share.locales.tr("Eigenschaften"), self)
-        self.action_workplace.triggered.connect(self.open_workplace_properties)
+        self.action_workplace       = QAction(share.locales.tr("Settings"), self)
+        self.action_workplace       .triggered.connect(self.open_workplace_properties)
         self.menu_display.addAction(self.action_workplace)
         self.menu_display.addSeparator()
 
-        self.act_view_debug_window = QAction(share.locales.tr("Debug Window"), self)
-        self.act_view_regie        = QAction(share.locales.tr("Control Center"), self)
-        self.act_view_designer     = QAction(share.locales.tr("Designer"), self)
-        self.act_view_editor       = QAction(share.locales.tr("Editor"), self)
-        self.act_view_table        = QAction(share.locales.tr("Table Designer"), self)
-        self.act_view_sql          = QAction(share.locales.tr("SQL Builder"), self)
-        self.act_edit_minimap      = QAction(share.locales.tr("Mini-Map"), self, checkable=True, checked=True)
+        self.act_view_debug_window  = QAction(share.locales.tr("Debug Window"), self)
+        self.act_view_regie         = QAction(share.locales.tr("Control Center"), self)
+        self.act_view_designer      = QAction(share.locales.tr("Designer"), self)
+        self.act_view_editor        = QAction(share.locales.tr("Editor"), self)
+        self.act_view_table         = QAction(share.locales.tr("Table Designer"), self)
+        self.act_view_sql           = QAction(share.locales.tr("SQL Builder"), self)
+        
+        self.act_edit_minimap       = QAction(share.locales.tr("Mini-Map"), self, checkable=True, checked=True)
         self.act_edit_minimap.toggled.connect(self.on_action_edit_minimap)
-        self.act_view_debug_window.triggered.connect(self.on_action_view_debug_window)
-        self.act_view_regie.triggered.connect(self.on_action_view_regiecenter)
-        self.act_view_designer.triggered.connect(self.on_action_view_designer)
-        self.act_view_editor.triggered.connect(self.on_action_view_editor)
-        self.act_view_table.triggered.connect(self.on_action_view_table_designer)
-        self.act_view_sql.triggered.connect(self.on_action_view_sql_builder)
+        
+        self.act_view_debug_window  .triggered.connect(self.on_action_view_debug_window)
+        self.act_view_regie         .triggered.connect(self.on_action_view_regiecenter)
+        self.act_view_designer      .triggered.connect(self.on_action_view_designer)
+        self.act_view_editor        .triggered.connect(self.on_action_view_editor)
+        self.act_view_table         .triggered.connect(self.on_action_view_table_designer)
+        self.act_view_sql           .triggered.connect(self.on_action_view_sql_builder)
+        
         self.menu_display.addAction(self.act_view_debug_window)
         self.menu_display.addSeparator()
         self.menu_display.addAction(self.act_view_regie)
@@ -10039,25 +9994,29 @@ class MainWindow(QMainWindow):
         else:
             self.act_lang_en.setChecked(True)
         self._set_language('de')
+        
         self.act_lang_en.triggered.connect(lambda: self._set_language('en'))
         self.act_lang_de.triggered.connect(lambda: self._set_language('de'))
+        
         self.menu_language.addAction(self.act_lang_en)
         self.menu_language.addAction(self.act_lang_de)
 
-        self.act_edit_undo = QAction('Undo', self, shortcut=QKeySequence('Ctrl+Z'))
-        self.act_edit_redo = QAction('Redo', self, shortcut=QKeySequence('Ctrl+Y'))
-        self.act_edit_paste = QAction('Paste', self, shortcut=QKeySequence('Ctrl+V'))
-        self.act_edit_copy = QAction('Copy', self, shortcut=QKeySequence('Ctrl+C'))
-        self.act_edit_cut = QAction('Cut', self, shortcut=QKeySequence('Ctrl+X'))
-        self.act_edit_replace = QAction('Replace', self, shortcut=QKeySequence('Ctrl+H'))
-        self.act_edit_search = QAction('Search', self, shortcut=QKeySequence('Ctrl+F'))
-        self.act_edit_undo.triggered.connect(self.on_action_edit_undo)
-        self.act_edit_redo.triggered.connect(self.on_action_edit_redo)
-        self.act_edit_paste.triggered.connect(self.on_action_edit_paste)
-        self.act_edit_copy.triggered.connect(self.on_action_edit_copy)
-        self.act_edit_cut.triggered.connect(self.on_action_edit_cut)
-        self.act_edit_replace.triggered.connect(self.on_action_edit_replace)
-        self.act_edit_search.triggered.connect(self.on_action_edit_search)
+        self.act_edit_undo      = QAction(share.locales.tr('Undo')    , self, shortcut=QKeySequence('Ctrl+Z'))
+        self.act_edit_redo      = QAction(share.locales.tr('Redo')    , self, shortcut=QKeySequence('Ctrl+Y'))
+        self.act_edit_paste     = QAction(share.locales.tr('Paste')   , self, shortcut=QKeySequence('Ctrl+V'))
+        self.act_edit_copy      = QAction(share.locales.tr('Copy')    , self, shortcut=QKeySequence('Ctrl+C'))
+        self.act_edit_cut       = QAction(share.locales.tr('Cut')     , self, shortcut=QKeySequence('Ctrl+X'))
+        self.act_edit_replace   = QAction(share.locales.tr('Replace') , self, shortcut=QKeySequence('Ctrl+H'))
+        self.act_edit_search    = QAction(share.locales.tr('Search')  , self, shortcut=QKeySequence('Ctrl+F'))
+        
+        self.act_edit_undo      .triggered.connect(self.on_action_edit_undo)
+        self.act_edit_redo      .triggered.connect(self.on_action_edit_redo)
+        self.act_edit_paste     .triggered.connect(self.on_action_edit_paste)
+        self.act_edit_copy      .triggered.connect(self.on_action_edit_copy)
+        self.act_edit_cut       .triggered.connect(self.on_action_edit_cut)
+        self.act_edit_replace   .triggered.connect(self.on_action_edit_replace)
+        self.act_edit_search    .triggered.connect(self.on_action_edit_search)
+        
         self.menu_edit.addAction(self.act_edit_undo)
         self.menu_edit.addAction(self.act_edit_redo)
         self.menu_edit.addSeparator()
@@ -10070,49 +10029,53 @@ class MainWindow(QMainWindow):
 
         menu_file_new = self.menu_file.addMenu(share.locales.tr("New"))
         menu_file_new.setFont(f2)
-
-        self.action_file_open = QAction(share.locales.tr("Open"), self)
-        self.action_file_close = QAction(share.locales.tr("Close"), self)
-        self.action_file_save = QAction(share.locales.tr("Speichern"), self)
-        self.action_file_save_as = QAction(share.locales.tr("Speichern unter..."), self)
-
-        self.action_file_open.setShortcut(QKeySequence("Ctrl+O"))
-        self.action_file_close.setShortcut(QKeySequence("Ctrl+F4"))
-        self.action_file_save.setShortcut(QKeySequence("Ctrl+S"))
-        self.action_file_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
-
-        self.action_file_open.triggered.connect(self.on_action_file_open)
-        self.action_file_close.triggered.connect(self.on_action_file_close)
         
-        self.action_file_save.triggered.connect(self.on_action_file_save)
-        self.action_file_save_as.triggered.connect(self.on_action_file_save_as)
-
-        action_file_new_project = QAction(share.locales.tr("New Project"), self)
-        action_file_open_project = QAction(share.locales.tr("Open Project"), self)
-        action_file_print = QAction(share.locales.tr("Print"), self)
-        action_file_print.setShortcut(QKeySequence("Ctrl+P"))
-        action_file_new_project.triggered.connect(self.on_action_file_new_project)
-        action_file_open_project.triggered.connect(self.on_action_file_open_project)
-        action_file_print_preview = QAction(share.locales.tr("Print Preview"), self)
-        action_file_window_app = QAction(share.locales.tr("One-Click Application"), self)
-        action_file_web_wizard = QAction(share.locales.tr("Web Wizard"), self)
-        action_file_database = QAction(share.locales.tr("Database Manager"), self)
-        action_file_exit = QAction(share.locales.tr("Exit"), self)
-        action_file_print.triggered.connect(self.on_action_file_print)
-        action_file_print_preview.triggered.connect(self.on_action_file_print_preview)
-        action_file_window_app.triggered.connect(self.on_action_file_window_app)
-        action_file_web_wizard.triggered.connect(self.on_action_file_web_wizard)
-        action_file_database.triggered.connect(self.on_action_file_database)
-        action_file_exit.triggered.connect(self.on_action_file_exit)
+        self.action_file_open       = QAction(share.locales.tr("Open"), self)
+        self.action_file_close      = QAction(share.locales.tr("Close"), self)
+        self.action_file_save       = QAction(share.locales.tr("Save"), self)
+        self.action_file_save_as    = QAction(share.locales.tr("Save As..."), self)
         
-        action_file_new_form = QAction(share.locales.tr("Forms"), self)
-        action_file_new_menu = QAction(share.locales.tr("Menue"), self)
-        action_file_new_popupmenu = QAction(share.locales.tr("Popup-Menu"), self)
-        action_file_new_report = QAction(share.locales.tr("Reports"), self)
-        action_file_new_labels = QAction(share.locales.tr("Labels"), self)
-        action_file_new_program = QAction(share.locales.tr("Programs"), self)
-        action_file_new_table = QAction(share.locales.tr("Tables"), self)
-        action_file_new_sql = QAction(share.locales.tr("Queries"), self)
+        self.action_file_open       .setShortcut(QKeySequence("Ctrl+O"))
+        self.action_file_close      .setShortcut(QKeySequence("Ctrl+F4"))
+        self.action_file_save       .setShortcut(QKeySequence("Ctrl+S"))
+        self.action_file_save_as    .setShortcut(QKeySequence("Ctrl+Shift+S"))
+        
+        self.action_file_open       .triggered.connect(self.on_action_file_open)
+        self.action_file_close      .triggered.connect(self.on_action_file_close)
+        
+        self.action_file_save       .triggered.connect(self.on_action_file_save)
+        self.action_file_save_as    .triggered.connect(self.on_action_file_save_as)
+        
+        action_file_new_project     = QAction(share.locales.tr("New Project")   , self)
+        action_file_open_project    = QAction(share.locales.tr("Open Project")  , self)
+        action_file_print           = QAction(share.locales.tr("Print")         , self)
+        
+        action_file_print           .setShortcut(QKeySequence("Ctrl+P"))
+        
+        action_file_new_project     .triggered.connect(self.on_action_file_new_project)
+        action_file_open_project    .triggered.connect(self.on_action_file_open_project)
+        
+        action_file_print_preview   = QAction(share.locales.tr("Print Preview"), self)
+        action_file_window_app      = QAction(share.locales.tr("One-Click Application"), self)
+        action_file_web_wizard      = QAction(share.locales.tr("Web Wizard"), self)
+        action_file_database        = QAction(share.locales.tr("Database Manager"), self)
+        action_file_exit            = QAction(share.locales.tr("Exit"), self)
+        
+        action_file_print           .triggered.connect(self.on_action_file_print)
+        action_file_print_preview   .triggered.connect(self.on_action_file_print_preview)
+        action_file_window_app      .triggered.connect(self.on_action_file_window_app)
+        action_file_web_wizard      .triggered.connect(self.on_action_file_web_wizard)
+        action_file_database        .triggered.connect(self.on_action_file_database)
+        action_file_exit            .triggered.connect(self.on_action_file_exit)
+        
+        action_file_new_form        = QAction(share.locales.tr("Forms")     , self)
+        action_file_new_menu        = QAction(share.locales.tr("Menue")     , self)
+        action_file_new_popupmenu   = QAction(share.locales.tr("Popup-Menu"), self)
+        action_file_new_report      = QAction(share.locales.tr("Reports")   , self)
+        action_file_new_labels      = QAction(share.locales.tr("Labels")    , self)
+        action_file_new_program     = QAction(share.locales.tr("Programs")  , self)
+        action_file_new_table       = QAction(share.locales.tr("Tables")    , self)
+        action_file_new_sql         = QAction(share.locales.tr("Queries")   , self)
         
         menu_file_new.addAction(action_file_new_form)
         menu_file_new.addAction(action_file_new_menu)
@@ -10144,13 +10107,26 @@ class MainWindow(QMainWindow):
         self.menu_file.addSeparator()
         self.menu_file.addAction(action_file_database)
         self.menu_file.addAction(action_file_exit)
+        
+        self.action_window_cascade   = QAction('Cascade',   self, triggered = self.mdi.cascadeSubWindows)
+        self.action_window_tile      = QAction('Tiled',     self, triggered = self.mdi.tileSubWindows)
+        self.action_window_close_all = QAction('Close All', self, triggered = self.close_all_mdi_subwindows)
+        
+        
+        action_tools_locales    = QAction(share.locales.tr("Locales"),          self, triggered = self.on_tools_locales_menu)
+        action_tools_doxygen    = QAction(share.locales.tr("DoxyGen"),          self, triggered = self.on_tools_doxygen_menu)
+        action_tools_helpwriter = QAction(share.locales.tr("Help Writer"),      self, triggered = self.on_tools_helpwriter_menu)
+        action_tools_resources  = QAction(share.locales.tr("Resource Builder"), self, triggered = self.on_tools_resourcesb_menu)
+        
+        self.menu_tools.addAction(action_tools_locales   )
+        self.menu_tools.addAction(action_tools_doxygen   )
+        self.menu_tools.addSeparator()
+        self.menu_tools.addAction(action_tools_helpwriter)
+        self.menu_tools.addAction(action_tools_resources )
 
-        self.action_window_cascade = QAction('Cascade', self, triggered=self.mdi.cascadeSubWindows)
-        self.action_window_tile = QAction('Tiled', self, triggered=self.mdi.tileSubWindows)
-        self.action_window_close_all = QAction('Alle schließen', self, triggered=self.close_all_mdi_subwindows)
         try:
             self.menu_windows.aboutToShow.connect(self.rebuild_windows_menu)
-            self.mdi.subWindowActivated.connect(lambda _=None: self.rebuild_windows_menu())
+            self.mdi.subWindowActivated  .connect(lambda _=None: self.rebuild_windows_menu())
         except Exception:
             pass
 
@@ -10214,7 +10190,18 @@ class MainWindow(QMainWindow):
             self.ensure_debug_console(focus=False)
         except Exception:
             pass
-
+    
+    def on_tools_locales_menu(self):
+        self.ensure_localize_tool(focus = True)
+        
+    def on_tools_doxygen_menu(self):
+        self.ensure_doxygen_tool(focus = True)
+        
+    def on_tools_helpwriter_menu(self):
+        self.ensure_help_authoring_tool(focus = True)
+        
+    def on_tools_resourcesb_menu(self):
+        self.ensure_resourcebuilder_tool(focus = True)
 
     # Debug Console als weiteres Sub-MDI (Split: Output/Input)
     # -------- INI / State --------

@@ -3,9 +3,9 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from __future__   import annotations
-from share.common import *
-
+from __future__    import annotations
+from share.common  import *
+#from share.locales import tr
 # ---------------------------------------------------------------------------
 # Exception classes ...
 # ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ class ErrorMessage(QDialog):
         
         self.log_path = log_path  # Pfad zur Logdatei (oder None)
         
-        self.setWindowTitle(share.locales.tr(title))
+        self.setWindowTitle(self.tr(title))
         self.resize(750, 420)
         
         layout = QVBoxLayout(self)
@@ -101,7 +101,7 @@ class ErrorMessage(QDialog):
         # Button-Leiste
         btn_row = QHBoxLayout()
         
-        self.btn_delete_log = QPushButton(share.locales.tr("Delete LOG"))
+        self.btn_delete_log = QPushButton(self.tr("Delete LOG"))
         self.btn_delete_log.clicked.connect(self._on_delete_log_clicked)
         self.btn_delete_log.setEnabled(bool(self.log_path))  # nur aktiv, wenn Pfad vorhanden
         
@@ -115,7 +115,7 @@ class ErrorMessage(QDialog):
         btn_row.addWidget(self.btn_delete_log)
         btn_row.addStretch()
         
-        self.btn_close = QPushButton(share.locales.tr("Close"))
+        self.btn_close = QPushButton(self.tr("Close"))
         self.btn_close.clicked.connect(self.accept)
         self.btn_close.setStyleSheet(btn_style)
         

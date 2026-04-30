@@ -35,7 +35,7 @@ try:
     from io import BytesIO
 
     import share.utildef.sysinfo
-    #from   share.utildef.sysinfo    import SystemInfo
+    from   share.utildef.sysinfo    import SystemInfo
     
     import mimetypes
     import ctypes
@@ -127,6 +127,7 @@ try:
     # resources suff like icons, ...
     # -----------------------------------------------------------------------
     import resources_rc
+    import share.resrces.locales_de_rc
     
     # -----------------------------------------------------------------------
     # debug log file beyond the exe application ...

@@ -105,7 +105,7 @@ def _default_project_dir() -> Path:
 def bind_help(parent, obj, help_key: str, title: str = ""):
     obj.setProperty("help_key", help_key)
     obj.setProperty("help_title", title)
-    
+
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
@@ -131,6 +131,101 @@ class DoxyHBoxLayout(QHBoxLayout):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setContentsMargins(0, 0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# \brief line number helper class for QPlainTextEdit.
+# ---------------------------------------------------------------------------
+class LineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+    
+    def sizeHint(self):
+        return self.editor.lineNumberAreaWidth(), 0
+    
+    def paintEvent(self, event):
+        self.editor.lineNumberAreaPaintEvent(event)
+
+
+class DoxyCodeEditor(QPlainTextEdit):
+    def __init__(self):
+        super().__init__()
+
+        self.lineNumberArea = LineNumberArea(self)
+
+        self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
+        self.updateRequest.connect(self.updateLineNumberArea)
+        self.cursorPositionChanged.connect(self.highlightCurrentLine)
+
+        self.updateLineNumberAreaWidth(0)
+        self.highlightCurrentLine()
+
+    # Breite des linken Randes berechnen
+    def lineNumberAreaWidth(self):
+        digits = len(str(max(1, self.blockCount())))
+        space = 10 + self.fontMetrics().width('9') * digits
+        return space
+
+    def updateLineNumberAreaWidth(self, _):
+        self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
+
+    def updateLineNumberArea(self, rect, dy):
+        if dy:
+            self.lineNumberArea.scroll(0, dy)
+        else:
+            self.lineNumberArea.update(0, rect.y(), self.lineNumberArea.width(), rect.height())
+
+        if rect.contains(self.viewport().rect()):
+            self.updateLineNumberAreaWidth(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        cr = self.contentsRect()
+        self.lineNumberArea.setGeometry(
+            QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height())
+        )
+
+    def lineNumberAreaPaintEvent(self, event):
+        painter = QPainter(self.lineNumberArea)
+        painter.fillRect(event.rect(), QColor("#2b2b2b"))
+
+        block = self.firstVisibleBlock()
+        blockNumber = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(blockNumber + 1)
+                painter.setPen(Qt.lightGray)
+                painter.drawText(
+                    0,
+                    top,
+                    self.lineNumberArea.width() - 4,
+                    self.fontMetrics().height(),
+                    Qt.AlignRight,
+                    number
+                )
+
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            blockNumber += 1
+
+    def highlightCurrentLine(self):
+        extraSelections = []
+
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            selection.format.setBackground(QColor("#333333"))
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extraSelections.append(selection)
+
+        self.setExtraSelections(extraSelections)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +296,33 @@ class DoxyButton(QPushButton):
             dlg.exec_()
             return ""
     
+    def delete_current_line(self, edit):
+        cursor = edit.textCursor()
+        
+        # 1-basierte Zeilennummer
+        line_no = cursor.blockNumber() + 1
+        
+        text = edit.toPlainText()
+        lines = text.splitlines()
+        
+        index = line_no - 1
+        
+        if 0 <= index < len(lines):
+            removed_line = lines.pop(index)
+            edit.setPlainText("\n".join(lines))
+            
+            # Cursor auf die neue Position setzen
+            cursor = edit.textCursor()
+            cursor.movePosition(cursor.Start)
+            
+            for _ in range(min(index, len(lines) - 1)):
+                cursor.movePosition(cursor.Down)
+            
+            edit.setTextCursor(cursor)
+            return line_no, removed_line
+
+        return line_no, ""
+    
     def on_click(self, text):
         if self.owner is not None:
             if isinstance(self.owner, DoxyLineBtn1):
@@ -224,7 +346,16 @@ class DoxyButton(QPushButton):
                                     print("ADD text:", text)
                                     break
                 elif self.flag == 3:
-                    print("deL text")
+                    if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+                    and (DOXYGEN_PROJECT_PAGES is not None):
+                        for res in DOXYGEN_EXPERT_ITEMS:
+                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            if page is not None:
+                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                if item is not None:
+                                    line, text = self.delete_current_line(item.edit)
+                                    self.owner.input.input.setText(text)
+                                    break
             elif isinstance(self.owner, DoxyLineBtn4):
                 if self.flag == 1:
                     if self.open_file():
@@ -239,10 +370,18 @@ class DoxyButton(QPushButton):
                                 if item is not None:
                                     text = self.owner.input.input.text().strip()
                                     item.edit.appendPlainText(text)
-                                    print("add text:", text)
                                     break
                 elif self.flag == 3:
-                    print("Del text")
+                    if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+                    and (DOXYGEN_PROJECT_PAGES is not None):
+                        for res in DOXYGEN_EXPERT_ITEMS:
+                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            if page is not None:
+                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                if item is not None:
+                                    line, text = self.delete_current_line(item.edit)
+                                    self.owner.input.input.setText(text)
+                                    break
                 elif self.flag == 4:
                     text = self.owner.input.input.text().strip()
                     print("refresh:", text)
@@ -307,7 +446,7 @@ class DoxyTextEdit(QWidget):
         self.layout = DoxyHBoxLayout(self)
         
         self.label  = DoxyLabel(self.parent, help_str, 1)
-        self.edit   = QPlainTextEdit()
+        self.edit   = DoxyCodeEditor()
         self.edit.setStyleSheet("background-color: #303030;")
         
         for line in text:
@@ -581,8 +720,8 @@ class DoxyGenToolWindow(QWidget):
         
         self.current_project_path = ""
 
-        self.lang = self._get_default_lang().split("_")[0].lower()
-        self.trmo = self._load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
+        self.lang = share.locales.get_default_lang().split("_")[0].lower()
+        self.trmo = share.locales.load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
             
         self._build_ui()
         self._reload_project_list()
@@ -1227,26 +1366,6 @@ class DoxyGenToolWindow(QWidget):
                 
     def _locales_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
-
-    def _get_default_lang(self):
-        loc = locale.getdefaultlocale()
-        
-        if loc is None:
-            return "en"
-        
-        lang = loc[0]
-        if not lang:
-            return "en"
-        
-        return lang
-    
-    def _load_mo_from_resource(self, resource_path: str):
-        f = QFile(resource_path)
-        if not f.open(QFile.ReadOnly):
-            raise FileNotFoundError(resource_path)
-        data = bytes(f.readAll())
-        f.close()
-        return gettext.GNUTranslations(BytesIO(data))
     
     def show_help_for_key(self, help_key: str, title: str = ""):
         translated = self.trmo.gettext(help_key)
