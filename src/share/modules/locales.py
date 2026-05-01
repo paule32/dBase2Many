@@ -117,15 +117,24 @@ class LocalizeToolWindow(QWidget):
 
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
+        
         self.main_window = main_window
+        
+        self.setMinimumWidth (890)
+        self.setMinimumHeight(420)
+        
         self.entries = []
+        
         self._current_index = -1
         self._block_lang_sync = False
+        
         self.setFont(QFont("Arial", 10))
         self.setAttribute(Qt.WA_DeleteOnClose, False)
+        
         self._build_ui()
         self._load_state()
         self._apply_default_headers()
+        
         try:
             if hasattr(self, "_sync_language_buttons"):
                 self._sync_language_buttons()
@@ -140,7 +149,7 @@ class LocalizeToolWindow(QWidget):
 
         self.tabs = QTabWidget(self)
         root.addWidget(self.tabs, 1)
-
+        
         self.tabs.addTab(self._build_entries_tab(), "Entries")
         self.tabs.addTab(self._build_settings_tab(), "Settings")
 
@@ -163,22 +172,38 @@ class LocalizeToolWindow(QWidget):
         outer.setContentsMargins(10, 10, 10, 10)
         outer.setSpacing(12)
 
-        left_col = QVBoxLayout()
-        left_col.setSpacing(10)
+        right_tabs = QTabWidget(content)
+        right_tabs.setMinimumWidth(240)
+
+        msgstr_tab = QWidget(right_tabs)
+        msgstr_lay = QVBoxLayout(msgstr_tab)
+        
+        msgstr_lay.setContentsMargins(6, 6, 6, 6)
+        msgstr_lay.setSpacing(6)
+
+        lang_tab = QWidget(right_tabs)
+        lang_lay = QVBoxLayout(lang_tab)
+        
+        lang_lay.setContentsMargins(6, 6, 6, 6)
+        lang_lay.setSpacing(6)
+        
         lang_row = QHBoxLayout()
         lang_row.setSpacing(8)
 
-        self.gb_source  = QGroupBox("Source", content)
-        self.gb_dest    = QGroupBox("Destination", content)
+        self.gb_source  = QGroupBox("Source", lang_tab)
+        self.gb_dest    = QGroupBox("Destination", lang_tab)
         self.src_group  = QButtonGroup(self)
         self.dst_group  = QButtonGroup(self)
+        
         self.src_radios = {}
         self.dst_radios = {}
 
         src_lay = QVBoxLayout(self.gb_source)
         dst_lay = QVBoxLayout(self.gb_dest)
+        
         src_lay.setSpacing(4)
         dst_lay.setSpacing(4)
+        
         for code, title in self.LANGUAGE_CODES:
             rb_src = QRadioButton(code, self.gb_source)
             rb_src.setToolTip(title)
@@ -190,29 +215,45 @@ class LocalizeToolWindow(QWidget):
             self.dst_group.addButton(rb_dst)
             self.dst_radios[code] = rb_dst
             dst_lay.addWidget(rb_dst)
+        
         lang_row.addWidget(self.gb_source)
         lang_row.addWidget(self.gb_dest)
-        left_col.addLayout(lang_row)
+        lang_lay.addLayout(lang_row)
+        lang_lay.addStretch(1)
 
-        self.msgid_list = QListWidget(content)
+        self.msgid_list = QListWidget(msgstr_tab)
         self.msgid_list.setMinimumWidth(240)
-        left_col.addWidget(self.msgid_list, 1)
+        
+        msgstr_lay.addWidget(self.msgid_list, 1)
+
+        right_tabs.addTab(msgstr_tab, "MSGSTR")
+        right_tabs.addTab(lang_tab, "Language")
 
         editor_col = QVBoxLayout()
         editor_col.setSpacing(6)
         editor_col.addWidget(QLabel("MSGID:", content))
+        
+        self.btn_insert = QPushButton(share.locales.tr("Insert"), content)
+        self.btn_insert.clicked.connect(self._insert_entry)
+        editor_col.addWidget(self.btn_insert)
+        
         self.ed_msgid = QLineEdit(content)
         self.ed_msgid.setFont(QFont("Arial", 10))
+        
         editor_col.addWidget(self.ed_msgid)
         editor_col.addWidget(QLabel("MSGSTR:", content))
+        
         self.text_msgstr = LocalizeCodeEditor(content)
-        self.text_msgstr.setMinimumSize(420, 340)
+        self.text_msgstr.setMinimumSize(420, 260)
         editor_col.addWidget(self.text_msgstr, 1)
 
         btn_col = QVBoxLayout()
         btn_col.setSpacing(6)
         
-        self.btn_insert       = QPushButton(share.locales.tr("Insert")        , content)
+        self.ws1 = QWidget()
+        self.ws1.setMinimumHeight(20)
+        
+        #self.btn_insert       = QPushButton(share.locales.tr("Insert")        , content)
         self.btn_apply        = QPushButton(share.locales.tr("Apply")         , content)
         self.btn_delete_msgid = QPushButton(share.locales.tr("Delete MSGID")  , content)
         #
@@ -226,7 +267,7 @@ class LocalizeToolWindow(QWidget):
         self.btn_delete_text  = QPushButton(share.locales.tr("Delete")        , content)
 
         for b in (
-            self.btn_insert,
+            #self.btn_insert,
             self.btn_apply,
             self.btn_delete_msgid,
             #
@@ -241,7 +282,8 @@ class LocalizeToolWindow(QWidget):
         ):
             b.setMinimumWidth(110)
         
-        btn_col.addWidget(self.btn_insert)
+        btn_col.addWidget(self.ws1)
+        #btn_col.addWidget(self.btn_insert)
         btn_col.addWidget(self.btn_apply)
         btn_col.addWidget(self.btn_delete_msgid)
         btn_col.addSpacing(2)
@@ -258,9 +300,18 @@ class LocalizeToolWindow(QWidget):
 
         btn_col.addStretch(1)
 
+        center_right_splitter = QSplitter(Qt.Horizontal, content)
+
+        editor_host = QWidget(center_right_splitter)
+        editor_host.setLayout(editor_col)
+
+        center_right_splitter.addWidget(editor_host)
+        center_right_splitter.addWidget(right_tabs)
+        center_right_splitter.setStretchFactor(0, 1)
+        center_right_splitter.setStretchFactor(1, 0)
+
         outer.addLayout(btn_col, 0)
-        outer.addLayout(editor_col, 1)
-        outer.addLayout(left_col, 0)
+        outer.addWidget(center_right_splitter, 1)
         
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -282,7 +333,7 @@ class LocalizeToolWindow(QWidget):
         self.btn_delete_text    .clicked.connect(self._delete_in_focused)
         self.btn_delete_msgid   .clicked.connect(self._delete_selected_entry)
         
-        self.btn_insert.clicked .connect(self._insert_entry)
+        #self.btn_insert.clicked .connect(self._insert_entry)
         self.btn_apply.clicked  .connect(self._apply_entry)
         
         return scroll
@@ -615,21 +666,30 @@ class LocalizeToolWindow(QWidget):
             return self._save_po_as()
         try:
             self._write_po_file(path)
-            QMessageBox.information(self, 'Localize', 'PO-Datei wurde gespeichert.')
+            QMessageBox.information(self,
+            share.locales("Locales"),
+            share.locales("PO-Datei was saved."))
         except Exception as e:
-            QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht gespeichert werden:\n{e}')
+            msg = share.locales.tr("PO-File could not be saved")
+            QMessageBox.warning(self, share.locales.tr("Localies"), f"{msg}:\n{e}")
 
     def _save_po_as(self):
         start = self.ed_po_path.text().strip() or os.path.join(os.getcwd(), 'messages.po')
-        path, _ = QFileDialog.getSaveFileName(self, 'PO-Datei speichern', start, 'PO Dateien (*.po);;Alle Dateien (*.*)')
+        path, _ = QFileDialog.getSaveFileName(self,
+            share.locales.tr('Save PO-File'),
+            start,
+            'PO Dateien (*.po);;Alle Dateien (*.*)')
         path = (path or '').strip()
         if not path:
             return
         try:
             self._write_po_file(path)
-            QMessageBox.information(self, 'Localize', 'PO-Datei wurde gespeichert.')
+            QMessageBox.information(self,
+            share.locales.tr("Locales"),
+            share.locales.tr("PO-File successfull created."))
         except Exception as e:
-            QMessageBox.warning(self, 'Localize', f'PO-Datei konnte nicht gespeichert werden:\n{e}')
+            msg = share.locales.tr("PO-File could not be saved")
+            QMessageBox.warning(self, share.locales.tr("Locales"), f"{msg}:\n{e}")
 
     def _ensure_output_writable(self, path):
         folder = os.path.dirname(path) or os.getcwd()
@@ -642,12 +702,16 @@ class LocalizeToolWindow(QWidget):
         po_path = self.ed_po_path.text().strip()
         mo_path = self.ed_mo_path.text().strip()
         if not po_path:
-            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine Eingabedatei (*.po) angeben.')
+            QMessageBox.warning(self,
+            share.locales.tr('Locales'),
+            share.locales.tr("Firstly, select an input file (*.po)"))
             self.tabs.setCurrentIndex(1)
             self.ed_po_path.setFocus()
             return
         if not mo_path:
-            QMessageBox.warning(self, 'Localize', 'Bitte zuerst eine Ausgabedatei (*.mo) angeben.')
+            QMessageBox.warning(self,
+            share.locales.tr('Locales'),
+            share.locales.tr("Please select an output file (*.mo)"))
             self.tabs.setCurrentIndex(1)
             self.ed_mo_path.setFocus()
             return
@@ -657,16 +721,21 @@ class LocalizeToolWindow(QWidget):
             import polib
             po = polib.pofile(po_path)
             po.save_as_mofile(mo_path)
-            QMessageBox.information(self, 'Localize', 'MO-Datei wurde erzeugt.')
+            QMessageBox.information(self,
+            share.locales.tr('Locales'),
+            share.locales.tr('MO-File was created.'))
         except Exception as e:
-            QMessageBox.warning(self, 'Localize', f'MO-Datei konnte nicht erzeugt werden:\n{e}')
+            msg = share.locales.tr("MO-File could not be created")
+            QMessageBox.warning(self, share.locales.tr("Locales"), f'{msg}:\n{e}')
 
     def _show_help(self):
         try:
             help_mw = share.utildef.helpwin.HelpMainWindow()
             open_helpwindow(self.main_window.mdi, help_mw)
         except Exception:
-            QMessageBox.information(self, 'Help', 'Keine Hilfe verfügbar.')
+            QMessageBox.information(self,
+                share.locales.tr('Help'),
+                share.loclaes.tr("No Help Found."))
 
     def _close_self(self):
         try:
@@ -687,10 +756,25 @@ class LocalizeToolWindow(QWidget):
 
     def closeEvent(self, event):
         try:
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Warning)
+            box.setWindowTitle(share.locales.tr("Close Locales Window"))
+            box.setText(share.locales.tr("Do you want to close the Locales window?"))
+            box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            box.setDefaultButton(QMessageBox.No)
+            box.setEscapeButton (QMessageBox.No)
+            
+            result = box.exec_()
+            
+            if result == QMessageBox.No:
+                event.ignore()
+                return
+            
+            event.accept()
             self._save_state()
-        except Exception:
-            pass
-        super().closeEvent(event)
+        
+        except Exception as e:
+            print(e)
 
     def _current_source_code(self):
         for code, rb in self.src_radios.items():

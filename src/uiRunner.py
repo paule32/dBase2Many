@@ -235,6 +235,17 @@ class _GlobalEscapeCloseFilter(QObject):
         close_widget, close_sub = share.common.resolve_escape_close_target(candidate)
         if close_widget is not None or close_sub is not None:
             try:
+                title = close_sub.windowTitle()
+                names = [
+                    "Locales",
+                    "DoxyGen"
+                ]
+                for win in names:
+                    if title == win:
+                        event.ignore()
+                        QApplication.removePostedEvents(None, QEvent.KeyPress)
+                        QApplication.removePostedEvents(None, QEvent.ShortcutOverride)
+                        return True
                 event.accept()
             except Exception:
                 pass
@@ -3510,7 +3521,7 @@ body {
         act_new_sql.triggered.connect(self._new_sql_query)
         m_new.addAction(act_new_sql)
 
-        act_new_localize = QAction(share.locales.tr("Localize"), self)
+        act_new_localize = QAction(share.locales.tr("Locales"), self)
         act_new_localize.triggered.connect(self._new_localize)
         m_new.addAction(act_new_localize)
 
@@ -3670,7 +3681,9 @@ body {
                 return
         except Exception:
             pass
-        QMessageBox.information(self, "Neu", "Konnte Localize nicht öffnen (Hook fehlt).")
+        QMessageBox.information(self,
+        share.locales.tr("New"),
+        share.locales.tr("Could not open locales window (missing Hook)."))
 
     def _close_regiecenter(self):
         host = self._regiecenter_host()
@@ -3854,7 +3867,7 @@ class RegieCenter(QDialog):
         
         self.setFont(QFont("Arial", 10))
 
-        self.setWindowTitle(share.locales.tr("Regierzentrum"))
+        self.setWindowTitle(share.locales.tr("Regie Center"))
         self.setModal(False)
         self.setWindowModality(Qt.NonModal)
 
@@ -7274,11 +7287,11 @@ class FormDesignerWindow(QWidget):
                 except Exception:
                     return raw.strip('"')
 
-            width = _read_num(form_block, "Width", 700)
+            width  = _read_num(form_block, "Width", 700)
             height = _read_num(form_block, "Height", 520)
-            top = _read_num(form_block, "Top", 40)
-            left = _read_num(form_block, "Left", 220)
-            title = _read_str(form_block, "Title", "")
+            top    = _read_num(form_block, "Top", 40)
+            left   = _read_num(form_block, "Left", 220)
+            title  = _read_str(form_block, "Title", "")
 
             host = self._designer_host_widget()
             if host is not None:
@@ -8980,14 +8993,14 @@ class ProjectDialog(QDialog):
 
         self.project_roots = {}
         for key, caption in [
-            ("forms", share.locales.tr("Formulare")),
-            ("programs", share.locales.tr("Programme")),
-            ("reports", share.locales.tr("Berichte")),
-            ("queries", share.locales.tr("Abfragen")),
-            ("internet", share.locales.tr("Internet")),
-            ("localize", share.locales.tr("Localize")),
-            ("graphics", share.locales.tr("Grafiken")),
-            ("misc", share.locales.tr("Sonstiges")),
+            ("forms"    , share.locales.tr("Forms")),
+            ("programs" , share.locales.tr("Programs")),
+            ("reports"  , share.locales.tr("Reports")),
+            ("queries"  , share.locales.tr("Queries")),
+            ("internet" , share.locales.tr("Internet")),
+            ("locales"  , share.locales.tr("Locales")),
+            ("graphics" , share.locales.tr("Graphics")),
+            ("misc"     , share.locales.tr("Custom")),
         ]:
             item = QTreeWidgetItem([caption])
             item.setData(0, Qt.UserRole, {"kind": "root", "root_key": key})
@@ -9736,11 +9749,11 @@ class MainWindow(QMainWindow):
             self.set_whatis_mode(False)
             return False
 
-        title = meta.get("title") or _widget_display_name(widget)
-        help_id = meta.get("help_id") or f"qt.widgets.{meta.get('class_name') or widget.__class__.__name__}"
-        topic = meta.get("topic") or None
-        text = meta.get("text") or share.locales.tr("Für dieses Objekt sind noch keine speziellen Hilfetexte hinterlegt.")
-        class_name = meta.get("class_name") or widget.__class__.__name__
+        title       = meta.get("title") or _widget_display_name(widget)
+        help_id     = meta.get("help_id") or f"qt.widgets.{meta.get('class_name') or widget.__class__.__name__}"
+        topic       = meta.get("topic") or None
+        text        = meta.get("text") or share.locales.tr("Für dieses Objekt sind noch keine speziellen Hilfetexte hinterlegt.")
+        class_name  = meta.get("class_name") or widget.__class__.__name__
         object_name = ""
         try:
             object_name = widget.objectName() or ""
@@ -9854,7 +9867,7 @@ class MainWindow(QMainWindow):
         def create_help():
             # Beispiel: irgendein HelpMainWindow / HelpWidget
             mw = share.utildef.helpwin.HelpMainWindow()
-            mw.setWindowTitle(share.locales.tr("Hilfe"))
+            mw.setWindowTitle(share.locales.tr("Help"))
             #mw.setCentralWidget(QLabel("Hier kommt die Hilfe rein"))
             return mw
 
@@ -10192,13 +10205,13 @@ class MainWindow(QMainWindow):
             pass
     
     def on_tools_locales_menu(self):
-        mw = globals().get("MAINAPP", None)
-        if mw is not None and hasattr(mw, "mdi"):
-            sub = mw.mdi.activeSubWindow()
-            if sub is not None:
-                w = sub.widget()
-                if w is not None:
-                    QMessageBox.information(self, "Title", sub.windowTitle())
+        #mw = globals().get("MAINAPP", None)
+        #if mw is not None and hasattr(mw, "mdi"):
+        #    sub = mw.mdi.activeSubWindow()
+        #    if sub is not None:
+        #        w = sub.widget()
+        #        if w is not None:
+        #            QMessageBox.information(self, "Title", sub.windowTitle())
         self.ensure_localize_tool(focus = True)
         
     def on_tools_doxygen_menu(self):
@@ -11188,7 +11201,7 @@ class MainWindow(QMainWindow):
             self._localize_tool_window = widget
             sub = self.mdi.addSubWindow(widget)
             mark_escape_close(sub)
-            sub.setWindowTitle('Localize')
+            sub.setWindowTitle(share.locales.tr('Locales'))
             sub.resize(856, 580)
             if po_path:
                 try:
@@ -11211,7 +11224,8 @@ class MainWindow(QMainWindow):
                 pass
             return widget
         except Exception as e:
-            QMessageBox.warning(self, 'Localize', f'Localize konnte nicht geöffnet werden:\n{e}')
+            msg = share.locales.tr("Locales window could not be open")
+            QMessageBox.warning(self, share.locales.tr("Locales"), f"{msg}:\n{e}")
             return None
 
     def open_workplace_properties(self):
