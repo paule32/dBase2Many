@@ -1,0 +1,1 @@
+powershell.exe -ExecutionPolicy Bypass -File ".\ipv6.ps1"

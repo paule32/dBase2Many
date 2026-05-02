@@ -1,0 +1,59 @@
+# -----------------------------------------------------------
+# /etc/hosts
+# created on 2026-05-01 (c) 2026 Jens Kallup - paule32
+# all Rights reserved.
+#
+# We use this file as an alternative to the big DNS-Server
+# that is shiped by Microsoft Windows Server Platform to make
+# test cases much easier.
+# -----------------------------------------------------------
+
+# -------------------------------------------
+# the Standard devices on local machiene
+# -------------------------------------------
+127.0.0.1 localhost
+::1       localhost
+
+# -------------------------------------------
+# ipv6 Connection numbers
+# -------------------------------------------
+fd00::10  servera
+fd00::20  serverb
+fd00::30  serverc
+
+fd00::12  client1.servera
+fd00::14  client2.servera
+fd00::16  client3.servera
+fd00::18  client4.servera
+
+fd00::22  client1.serverb
+fd00::24  client2.serverb
+fd00::26  client3.serverb
+fd00::28  client4.serverb
+
+fd00::32  client1.serverc
+fd00::34  client2.serverc
+fd00::36  client3.serverc
+fd00::38  client4.serverc
+
+# -------------------------------------------
+# ipv4 Connection numbers
+# -------------------------------------------
+192.168.10.10 servera
+192.168.10.20 serverb
+192.168.10.30 serverc
+
+192.168.10.12 client1.servera
+192.168.10.14 client2.servera
+192.168.10.16 client3.servera
+192.168.10.18 client4.servera
+
+192.168.10.22 client1.serverb
+192.168.10.24 client2.serverb
+192.168.10.26 client3.serverb
+192.168.10.28 client4.serverb
+
+192.168.10.32 client1.serverc
+192.168.10.34 client2.serverc
+192.168.10.36 client3.serverc
+192.168.10.38 client4.serverc

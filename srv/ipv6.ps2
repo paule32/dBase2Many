@@ -1,3 +1,0 @@
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress fd00::10 -PrefixLength 64
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress fd00::20 -PrefixLength 64
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress fd00::30 -PrefixLength 64

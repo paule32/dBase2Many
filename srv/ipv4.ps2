@@ -1,3 +1,0 @@
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.10.10 -PrefixLength 24
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.10.20 -PrefixLength 24
-New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.10.30 -PrefixLength 24

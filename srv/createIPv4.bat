@@ -1,0 +1,1 @@
+powershell.exe -ExecutionPolicy Bypass -File ".\ipv4.ps1"
