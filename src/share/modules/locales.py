@@ -667,8 +667,8 @@ class LocalizeToolWindow(QWidget):
         try:
             self._write_po_file(path)
             QMessageBox.information(self,
-            share.locales("Locales"),
-            share.locales("PO-Datei was saved."))
+            share.locales.tr("Locales"),
+            share.locales.tr("PO-Datei was saved."))
         except Exception as e:
             msg = share.locales.tr("PO-File could not be saved")
             QMessageBox.warning(self, share.locales.tr("Localies"), f"{msg}:\n{e}")
