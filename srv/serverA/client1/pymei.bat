@@ -1,0 +1,1 @@
+python.exe T:\GitHub\dBase2Many\srv\serverA\client1\app.py
