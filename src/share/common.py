@@ -40,7 +40,9 @@ try:
     import mimetypes
     import ctypes
 
-    import traceback
+    import traceback        # exception trace
+    import threading        # catch exceptions
+
     import locale
     import re
     import sys

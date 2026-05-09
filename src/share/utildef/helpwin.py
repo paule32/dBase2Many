@@ -226,11 +226,13 @@ class HelpMainWindow(QMainWindow):
         #connect_toc(self.contents_tree, self.contents_model, self.web)
 
         tab_contents = QWidget()
+        
         vc = QVBoxLayout(tab_contents)
         vc.setContentsMargins(8, 8, 8, 8)
         vc.setSpacing(8)
         vc.addWidget(self.contents_filter)
         vc.addWidget(self.contents_tree)
+        
         self.tabs.addTab(tab_contents, "Contents")
 
         # Index model/view

@@ -3245,5 +3245,84 @@ class DBaseToPython:
         # memberExpr/handlerList erstmal roh:
         return f"rt.PRIMARY({ctx.getText()!r})"
 
+
+class ExceptionDialog(QDialog):
+    def __init__(self, title, message, details, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle(title)
+        self.resize(900, 520)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(message, self)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        self.details = QTextEdit(self)
+        self.details.setReadOnly(True)
+        self.details.setPlainText(details)
+        layout.addWidget(self.details, 1)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+
+        close_button = QPushButton("Close", self)
+        close_button.clicked.connect(self.accept)
+
+        buttons.addWidget(close_button)
+        layout.addLayout(buttons)
+
+# ---------------------------------------------------------------------------
+# \brief setup exception handler output to gui application for python throw
+# ---------------------------------------------------------------------------
+def show_exception_dialog(exc_type, exc_value, exc_traceback):
+    # KeyboardInterrupt normal durchlassen
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    details = "".join(
+        traceback.format_exception(exc_type, exc_value, exc_traceback)
+    )
+
+    with open("error.log", "a", encoding="utf-8") as f:
+        f.write(details)
+        f.write("\n" + "=" * 80 + "\n")
+
+    print(details)
+
+    app = QApplication.instance()
+    if app is None:
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    dlg = ExceptionDialog(
+        "Unhandled Exception",
+        str(exc_value),
+        details,
+        None
+    )
+    dlg.exec_()
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# \brief setup exception handler output to gui application for threaded throw
+# ---------------------------------------------------------------------------
+def show_thread_exception(args):
+    show_exception_dialog(
+        args.exc_type,
+        args.exc_value,
+        args.exc_traceback
+    )
+
+
+# ---------------------------------------------------------------------------
+# \brief this is the main entry point definition to start the qt5 application
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    sys      .excepthook = show_exception_dialog
+    threading.excepthook = show_thread_exception
+
     sys.exit(run_language_app("dbase"))
