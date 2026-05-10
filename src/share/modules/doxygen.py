@@ -888,90 +888,90 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par1 = DOXYGEN_PROJECT_PAGES["Project"]
         self.project_items = [
-            DoxyLineEdit(self.par1, "DOXYFILE_ENCODING", "UTF-8"),
+            DoxyLineEdit (self.par1, share.locales.tr("DOXYFILE_ENCODING"), "UTF-8"),
             
-            DoxyLineEdit (self.par1, "PROJECT_NAME", "MyProject"),
-            DoxyLineEdit (self.par1, "PROJECT_NUMBER"),
-            DoxyLineEdit (self.par1, "PROJECT_BRIEF"),
-            DoxyLineBtn1 (self.par1, "PROJECT_LOGO", "",
+            DoxyLineEdit (self.par1, share.locales.tr("PROJECT_NAME"), share.locales.tr("MyProject")),
+            DoxyLineEdit (self.par1, share.locales.tr("PROJECT_NUMBER")),
+            DoxyLineEdit (self.par1, share.locales.tr("PROJECT_BRIEF")),
+            DoxyLineBtn1 (self.par1, share.locales.tr("PROJECT_LOGO"), "",
                 DoxyImage(self.par1, "", share.locales.tr("No Project Logo selected."))),
-            DoxyLineBtn1 (self.par1, "PROJECT_ICON", "",
+            DoxyLineBtn1 (self.par1, share.locales.tr("PROJECT_ICON"), "",
                 DoxyImage(self.par1, "", share.locales.tr("No Project Icon selected."))),
             
-            DoxyLineBtn1(self.par1, "OUTPUT_DIRECTORY"),
-            DoxyCheckBox(self.par1, "CREATE_SUBDIRS"),
-            DoxySpinEdit(self.par1, "CREATE_SUBDIRS_LEVEL", 0, 64, 4),
+            DoxyLineBtn1(self.par1, share.locales.tr("OUTPUT_DIRECTORY")),
+            DoxyCheckBox(self.par1, share.locales.tr("CREATE_SUBDIRS")),
+            DoxySpinEdit(self.par1, share.locales.tr("CREATE_SUBDIRS_LEVEL"), 0, 64, 4),
             
-            DoxyCheckBox(self.par1, "ALLOW_UNICODE_NAMES"),
-            DoxyComboBox(self.par1, "OUTPUT_LANGUAGE", SUPPORTED_LANGUAGES),
+            DoxyCheckBox(self.par1, share.locales.tr("ALLOW_UNICODE_NAMES")),
+            DoxyComboBox(self.par1, share.locales.tr("OUTPUT_LANGUAGE"), SUPPORTED_LANGUAGES),
             
-            DoxyCheckBox(self.par1, "BRIEF_MEMBER_DESC"),
-            DoxyCheckBox(self.par1, "REPEAT_BRIEF"),
+            DoxyCheckBox(self.par1, share.locales.tr("BRIEF_MEMBER_DESC")),
+            DoxyCheckBox(self.par1, share.locales.tr("REPEAT_BRIEF")),
             
-            DoxyLineBtn3(self.par1, "ABBREVIATVE_BRIEF"),
-            DoxyTextEdit(self.par1, "ABBREVIATVE_BRIEF", []),
+            DoxyLineBtn3(self.par1, share.locales.tr("ABBREVIATVE_BRIEF")),
+            DoxyTextEdit(self.par1, share.locales.tr("ABBREVIATVE_BRIEF"), []),
             
-            DoxyCheckBox(self.par1, "ALWAYS_DETAILED_SEC"),
-            DoxyCheckBox(self.par1, "INLINE_INHERITED_MEMB"),
+            DoxyCheckBox(self.par1, share.locales.tr("ALWAYS_DETAILED_SEC")),
+            DoxyCheckBox(self.par1, share.locales.tr("INLINE_INHERITED_MEMB")),
             
-            DoxyCheckBox(self.par1, "FULL_PATH_NAMES"),
+            DoxyCheckBox(self.par1, share.locales.tr("FULL_PATH_NAMES")),
             
-            DoxyLineBtn4(self.par1, "STRIP_FROM_PATH"),
-            DoxyTextEdit(self.par1, "STRIP_FROM_PATH", []),
+            DoxyLineBtn4(self.par1, share.locales.tr("STRIP_FROM_PATH")),
+            DoxyTextEdit(self.par1, share.locales.tr("STRIP_FROM_PATH"), []),
             
-            DoxyLineBtn4(self.par1, "STRIP_FROM_INC_PATH"),
-            DoxyTextEdit(self.par1, "STRIP_FROM_INC_PATH", []),
+            DoxyLineBtn4(self.par1, share.locales.tr("STRIP_FROM_INC_PATH")),
+            DoxyTextEdit(self.par1, share.locales.tr("STRIP_FROM_INC_PATH"), []),
             
-            DoxyCheckBox(self.par1, "SHORT_NAMES"),
+            DoxyCheckBox(self.par1, share.locales.tr("SHORT_NAMES")),
             
-            DoxyCheckBox(self.par1, "JAVADOC_AUTOBRIEF"),
-            DoxyCheckBox(self.par1, "JAVADOC_BANNER"),
+            DoxyCheckBox(self.par1, share.locales.tr("JAVADOC_AUTOBRIEF")),
+            DoxyCheckBox(self.par1, share.locales.tr("JAVADOC_BANNER")),
             
-            DoxyCheckBox(self.par1, "QT_AUTOBRIEF"),
-            DoxyCheckBox(self.par1, "PYTHON_DOCSTRING"),
-            DoxyCheckBox(self.par1, "INHERIT_DOCS"),
+            DoxyCheckBox(self.par1, share.locales.tr("QT_AUTOBRIEF")),
+            DoxyCheckBox(self.par1, share.locales.tr("PYTHON_DOCSTRING")),
+            DoxyCheckBox(self.par1, share.locales.tr("INHERIT_DOCS")),
             
-            DoxyCheckBox(self.par1, "SEPARATE_MEMBER_PAGES"),
-            DoxySpinEdit(self.par1, "TAB_SIZE", 2, 16, 2),
+            DoxyCheckBox(self.par1, share.locales.tr("SEPARATE_MEMBER_PAGES")),
+            DoxySpinEdit(self.par1, share.locales.tr("TAB_SIZE"), 2, 16, 2),
             
-            DoxyLineBtn3(self.par1, "ALIASES"),
-            DoxyTextEdit(self.par1, "ALIASES", []),
+            DoxyLineBtn3(self.par1, share.locales.tr("ALIASES")),
+            DoxyTextEdit(self.par1, share.locales.tr("ALIASES"), []),
             
-            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_C"),
-            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_JAVA"),
-            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_FORTRAN"),
-            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_VHDL"),
-            DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_SLICE"),
+            DoxyCheckBox(self.par1, share.locales.tr("OPTIMIZE_OUTPUT_C")),
+            DoxyCheckBox(self.par1, share.locales.tr("OPTIMIZE_OUTPUT_JAVA")),
+            DoxyCheckBox(self.par1, share.locales.tr("OPTIMIZE_OUTPUT_FORTRAN")),
+            DoxyCheckBox(self.par1, share.locales.tr("OPTIMIZE_OUTPUT_VHDL")),
+            DoxyCheckBox(self.par1, share.locales.tr("OPTIMIZE_OUTPUT_SLICE")),
             
-            DoxyLineBtn3(self.par1, "EXTERNAL_MAPPING"),
-            DoxyTextEdit(self.par1, "EXTERNAL_MAPPING", []),
+            DoxyLineBtn3(self.par1, share.locales.tr("EXTERNAL_MAPPING")),
+            DoxyTextEdit(self.par1, share.locales.tr("EXTERNAL_MAPPING"), []),
             
-            DoxyCheckBox(self.par1, "MARKDOWN_SUPPORT"),
-            DoxyCheckBox(self.par1, "MARKDOWN_STRICT"),
-            DoxyComboBox(self.par1, "MARKDOWN_ID_STYLE", ["DOXYGEN", "GITHUB"]),
+            DoxyCheckBox(self.par1, share.locales.tr("MARKDOWN_SUPPORT")),
+            DoxyCheckBox(self.par1, share.locales.tr("MARKDOWN_STRICT")),
+            DoxyComboBox(self.par1, share.locales.tr("MARKDOWN_ID_STYLE"), ["DOXYGEN", "GITHUB"]),
             
-            DoxySpinEdit(self.par1, "TOC_INCLUDE_HEADINGS"),
+            DoxySpinEdit(self.par1, share.locales.tr("TOC_INCLUDE_HEADINGS")),
             
-            DoxyCheckBox(self.par1, "AUTOLINK_SUPPORT"),
-            DoxyLineBtn3(self.par1, "AUTOLINK_IGNORE_WORDS"),
-            DoxyTextEdit(self.par1, "AUTOLINK_IGNORE_WORDS", []),
+            DoxyCheckBox(self.par1, share.locales.tr("AUTOLINK_SUPPORT")),
+            DoxyLineBtn3(self.par1, share.locales.tr("AUTOLINK_IGNORE_WORDS")),
+            DoxyTextEdit(self.par1, share.locales.tr("AUTOLINK_IGNORE_WORDS"), []),
             
-            DoxyCheckBox(self.par1, "BUILTiN_STL_SUPPORT"),
-            DoxyCheckBox(self.par1, "CPP_CLI_SUPPORT"),
-            DoxyCheckBox(self.par1, "SIP_SUPPORT"),
-            DoxyCheckBox(self.par1, "IDL_PROPERTY_SUPPORT"),
-            DoxyCheckBox(self.par1, "DISTRIBUTE_GROUP_DOC"),
-            DoxyCheckBox(self.par1, "GROUP_NESTED_COMPOUNDS"),
+            DoxyCheckBox(self.par1, share.locales.tr("BUILTiN_STL_SUPPORT")),
+            DoxyCheckBox(self.par1, share.locales.tr("CPP_CLI_SUPPORT")),
+            DoxyCheckBox(self.par1, share.locales.tr("SIP_SUPPORT")),
+            DoxyCheckBox(self.par1, share.locales.tr("IDL_PROPERTY_SUPPORT")),
+            DoxyCheckBox(self.par1, share.locales.tr("DISTRIBUTE_GROUP_DOC")),
+            DoxyCheckBox(self.par1, share.locales.tr("GROUP_NESTED_COMPOUNDS")),
             
-            DoxyCheckBox(self.par1, "SUBGROUPING"),
-            DoxyCheckBox(self.par1, "INLINE_GROUPED_CLASSES"),
-            DoxyCheckBox(self.par1, "INLINE_SIMPLE_STRUCTS"),
+            DoxyCheckBox(self.par1, share.locales.tr("SUBGROUPING")),
+            DoxyCheckBox(self.par1, share.locales.tr("INLINE_GROUPED_CLASSES")),
+            DoxyCheckBox(self.par1, share.locales.tr("INLINE_SIMPLE_STRUCTS")),
             
-            DoxyCheckBox(self.par1, "TYPEDEF_HIDE_STRUCT"),
-            DoxySpinEdit(self.par1, "LOOKUP_CACHE_SIZE"),
+            DoxyCheckBox(self.par1, share.locales.tr("TYPEDEF_HIDE_STRUCT")),
+            DoxySpinEdit(self.par1, share.locales.tr("LOOKUP_CACHE_SIZE")),
             
-            DoxySpinEdit(self.par1, "NUM_PROC_THREADS"),
-            DoxyComboBox(self.par1, "TIMESTAMP", ["YES", "NO", "DATETIME", "DATE"]),
+            DoxySpinEdit(self.par1, share.locales.tr("NUM_PROC_THREADS")),
+            DoxyComboBox(self.par1, share.locales.tr("TIMESTAMP"), ["YES", "NO", "DATETIME", "DATE"]),
         ]
         project_lay = DOXYGEN_PROJECT_PAGES["Project"].layout
         for item in self.project_items:
@@ -981,79 +981,79 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par2 = DOXYGEN_PROJECT_PAGES["Build"]
         self.build_items = [
-            DoxyCheckBox(self.par2, "EXTRACT_ALL"),
-            DoxyCheckBox(self.par2, "EXTRACT_PRIVATE"),
-            DoxyCheckBox(self.par2, "EXTRACT_PRIV_VIRTUAL"),
-            DoxyCheckBox(self.par2, "EXTRACT_PACKAGE"),
-            DoxyCheckBox(self.par2, "EXTRACT_STATIC"),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_ALL")),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_PRIVATE")),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_PRIV_VIRTUAL")),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_PACKAGE")),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_STATIC")),
             
-            DoxyCheckBox(self.par2, "EXTRACT_LOCAL_CLASSES"),
-            DoxyCheckBox(self.par2, "EXTRACT_LOCAL_METHODS"),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_LOCAL_CLASSES")),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_LOCAL_METHODS")),
             
-            DoxyCheckBox(self.par2, "EXTRACT_ANON_NSPACES"),
-            DoxyCheckBox(self.par2, "RESOLVE_UNNAMED_PARAMS"),
+            DoxyCheckBox(self.par2, share.locales.tr("EXTRACT_ANON_NSPACES")),
+            DoxyCheckBox(self.par2, share.locales.tr("RESOLVE_UNNAMED_PARAMS")),
             
-            DoxyCheckBox(self.par2, "HIDE_UNDOC_MEMBERS"),
-            DoxyCheckBox(self.par2, "HIDE_UNDOC_CLASSES"),
-            DoxyCheckBox(self.par2, "HIDE_UNDOC_NAMESPACES"),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_UNDOC_MEMBERS")),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_UNDOC_CLASSES")),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_UNDOC_NAMESPACES")),
             
-            DoxyCheckBox(self.par2, "HIDE_FRIEND_COMPOUNDS"),
-            DoxyCheckBox(self.par2, "HIDE_IN_BODY_DOCS"),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_FRIEND_COMPOUNDS")),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_IN_BODY_DOCS")),
             
-            DoxyCheckBox(self.par2, "INTERNAL_DOCS"),
-            DoxyComboBox(self.par2, "CASE_SENSE_NAMES", [
+            DoxyCheckBox(self.par2, share.locales.tr("INTERNAL_DOCS")),
+            DoxyComboBox(self.par2, share.locales.tr("CASE_SENSE_NAMES"), [
                 "SYSTEM",
                 "YES",
                 "NO"
             ]),
             
-            DoxyCheckBox(self.par2, "HIDE_UNDOC_MEMBERS"),
-            DoxyCheckBox(self.par2, "HIDE_SCOPE_NAMES"),
-            DoxyCheckBox(self.par2, "HIDE_COMPOUND_REFERENCE"),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_UNDOC_MEMBERS")),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_SCOPE_NAMES")),
+            DoxyCheckBox(self.par2, share.locales.tr("HIDE_COMPOUND_REFERENCE")),
             
-            DoxyCheckBox(self.par2, "SHOW_HEADERFILE"),
-            DoxyCheckBox(self.par2, "SHOW_INCLUDE_FILES"),
+            DoxyCheckBox(self.par2, share.locales.tr("SHOW_HEADERFILE")),
+            DoxyCheckBox(self.par2, share.locales.tr("SHOW_INCLUDE_FILES")),
             
-            DoxyCheckBox(self.par2, "FORCE_LOCAL_INCLUDES"),
-            DoxyCheckBox(self.par2, "INLINE_INFO"),
+            DoxyCheckBox(self.par2, share.locales.tr("FORCE_LOCAL_INCLUDES")),
+            DoxyCheckBox(self.par2, share.locales.tr("INLINE_INFO")),
             
-            DoxyCheckBox(self.par2, "SORT_MEMBER_DOCS"),
-            DoxyCheckBox(self.par2, "SORT_BRIEF_DOCS"),
-            DoxyCheckBox(self.par2, "SORT_MEMBER_CTORS_1ST"),
-            DoxyCheckBox(self.par2, "SORT_GROUP_NAMES"),
-            DoxyCheckBox(self.par2, "SORT_BY_SCOPE_NAME"),
+            DoxyCheckBox(self.par2, share.locales.tr("SORT_MEMBER_DOCS")),
+            DoxyCheckBox(self.par2, share.locales.tr("SORT_BRIEF_DOCS")),
+            DoxyCheckBox(self.par2, share.locales.tr("SORT_MEMBER_CTORS_1ST")),
+            DoxyCheckBox(self.par2, share.locales.tr("SORT_GROUP_NAMES")),
+            DoxyCheckBox(self.par2, share.locales.tr("SORT_BY_SCOPE_NAME")),
             
-            DoxyCheckBox(self.par2, "STRICT_PROTO_MATCHING"),
+            DoxyCheckBox(self.par2, share.locales.tr("STRICT_PROTO_MATCHING")),
             
-            DoxyCheckBox(self.par2, "GENERATE_TODOLIST"),
-            DoxyCheckBox(self.par2, "GENERATE_TESTLIST"),
-            DoxyCheckBox(self.par2, "GENERATE_BUGLIST"),
-            DoxyCheckBox(self.par2, "GENERATE_DEPRECATEDLIST"),
-            DoxyCheckBox(self.par2, "GENERATE_REQUIREMENTS"),
+            DoxyCheckBox(self.par2, share.locales.tr("GENERATE_TODOLIST")),
+            DoxyCheckBox(self.par2, share.locales.tr("GENERATE_TESTLIST")),
+            DoxyCheckBox(self.par2, share.locales.tr("GENERATE_BUGLIST")),
+            DoxyCheckBox(self.par2, share.locales.tr("GENERATE_DEPRECATEDLIST")),
+            DoxyCheckBox(self.par2, share.locales.tr("GENERATE_REQUIREMENTS")),
             
-            DoxyComboBox(self.par2, "REQ_TRACEABILITY_INFO", [
+            DoxyComboBox(self.par2, share.locales.tr("REQ_TRACEABILITY_INFO"), [
                 "YES",
                 "NO",
                 "UNSATISFIED_ONLY",
                 "UNVERIFIED_ONLY"
             ]),
             
-            DoxyLineBtn3(self.par2, "ENABLE_SECTIONS"),
-            DoxyTextEdit(self.par2, "ENABLE_SECTIONS", []),
+            DoxyLineBtn3(self.par2, share.locales.tr("ENABLE_SECTIONS")),
+            DoxyTextEdit(self.par2, share.locales.tr("ENABLE_SECTIONS"), []),
             
-            DoxySpinEdit(self.par2, "MAX_INITIALIZER_LINES"),
+            DoxySpinEdit(self.par2, share.locales.tr("MAX_INITIALIZER_LINES")),
             
-            DoxyCheckBox(self.par2, "SHOW_USED_FILES"),
-            DoxyCheckBox(self.par2, "SHOW_FILES"),
-            DoxyCheckBox(self.par2, "SHOW_NAMESPACES"),
+            DoxyCheckBox(self.par2, share.locales.tr("SHOW_USED_FILES")),
+            DoxyCheckBox(self.par2, share.locales.tr("SHOW_FILES")),
+            DoxyCheckBox(self.par2, share.locales.tr("SHOW_NAMESPACES")),
             
-            DoxyLineBtn1(self.par2, "FILE_VERSION_FILTER"),
-            DoxyLineBtn1(self.par2, "LAYOUT_FILE"),
-            DoxyLineBtn4(self.par2, "CITE_BIB_FILES"),
-            DoxyTextEdit(self.par2, "CITE_BIB_FILES", []),
+            DoxyLineBtn1(self.par2, share.locales.tr("FILE_VERSION_FILTER")),
+            DoxyLineBtn1(self.par2, share.locales.tr("LAYOUT_FILE")),
+            DoxyLineBtn4(self.par2, share.locales.tr("CITE_BIB_FILES")),
+            DoxyTextEdit(self.par2, share.locales.tr("CITE_BIB_FILES"), []),
             
-            DoxyLineBtn4(self.par2, "EXTERNAL_TOOL_PATH"),
-            DoxyTextEdit(self.par2, "EXTERNAL_TOOL_PATH", [])
+            DoxyLineBtn4(self.par2, share.locales.tr("EXTERNAL_TOOL_PATH")),
+            DoxyTextEdit(self.par2, share.locales.tr("EXTERNAL_TOOL_PATH"), [])
         ]
         build_lay = DOXYGEN_PROJECT_PAGES["Build"].layout
         for item in self.build_items:
@@ -1064,22 +1064,22 @@ class DoxyGenToolWindow(QWidget):
         self.par3 = DOXYGEN_PROJECT_PAGES["Messages"]
         #self.par3 = self.par3.owner
         self.messages_items = [
-            DoxyCheckBox(self.par3, "QUIET"),
-            DoxyCheckBox(self.par3, "WARNINGS"),
-            DoxyCheckBox(self.par3, "WARN_IF_UNDOCUMENTED"),
-            DoxyCheckBox(self.par3, "WARN_IF_DOC_ERROR"),
-            DoxyCheckBox(self.par3, "WARN_IF_INCOMPLETE_DOC"),
-            DoxyCheckBox(self.par3, "WARN_NO_PARAMDOC"),
-            DoxyCheckBox(self.par3, "WARN_IF_UNDOC_ENUM_VAL"),
-            DoxyCheckBox(self.par3, "WARN_LAYOUT_FILE"),
-            DoxyComboBox(self.par3, "WARN_AS_ERROR", [
+            DoxyCheckBox(self.par3, share.locales.tr("QUIET")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARNINGS")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_IF_UNDOCUMENTED")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_IF_DOC_ERROR")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_IF_INCOMPLETE_DOC")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_NO_PARAMDOC")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_IF_UNDOC_ENUM_VAL")),
+            DoxyCheckBox(self.par3, share.locales.tr("WARN_LAYOUT_FILE")),
+            DoxyComboBox(self.par3, share.locales.tr("WARN_AS_ERROR"), [
                 "NO",
                 "YES",
                 "FAIL_ON_WARNINGS",
                 "FAIL_ON_WARNINGS_PRINT"]),
-            DoxyLineEdit(self.par3, "WARN_FORMAT"),
-            DoxyLineEdit(self.par3, "WARN_LINE_FORMAT"),
-            DoxyLineBtn1(self.par3, "WARN_LOGFILE"),
+            DoxyLineEdit(self.par3, share.locales.tr("WARN_FORMAT")),
+            DoxyLineEdit(self.par3, share.locales.tr("WARN_LINE_FORMAT")),
+            DoxyLineBtn1(self.par3, share.locales.tr("WARN_LOGFILE")),
         ]
         messages_lay = DOXYGEN_PROJECT_PAGES["Messages"].layout
         for item in self.messages_items:
@@ -1090,47 +1090,47 @@ class DoxyGenToolWindow(QWidget):
         self.par4 = DOXYGEN_PROJECT_PAGES["Input"]
         #self.par4.owner
         self.input_items = [
-            DoxyLineBtn4(self.par4, "INPUT"),
-            DoxyTextEdit(self.par4, "INPUT", []),
-            DoxyLineEdit(self.par4, "INPUT_ENCODING"),
-            DoxyLineBtn3(self.par4, "INPUT_FILE"),
-            DoxyTextEdit(self.par4, "INPUT_FILE_ENCODING", []),
+            DoxyLineBtn4(self.par4, share.locales.tr("INPUT")),
+            DoxyTextEdit(self.par4, share.locales.tr("INPUT"), []),
+            DoxyLineEdit(self.par4, share.locales.tr("INPUT_ENCODING")),
+            DoxyLineBtn3(self.par4, share.locales.tr("INPUT_FILE")),
+            DoxyTextEdit(self.par4, share.locales.tr("INPUT_FILE_ENCODING"), []),
             
-            DoxyLineBtn3(self.par4, "FILE_PATTERNS"),
-            DoxyTextEdit(self.par4, "FILE_PATTERNS", ["*.c", "*.cc"]),
+            DoxyLineBtn3(self.par4, share.locales.tr("FILE_PATTERNS")),
+            DoxyTextEdit(self.par4, share.locales.tr("FILE_PATTERNS"), ["*.c", "*.cc"]),
             
-            DoxyCheckBox(self.par4, "RECURSIVE"),
+            DoxyCheckBox(self.par4, share.locales.tr("RECURSIVE")),
             
-            DoxyLineBtn4(self.par4, "EXCLUDE"),
-            DoxyTextEdit(self.par4, "EXCLUDE", []),
+            DoxyLineBtn4(self.par4, share.locales.tr("EXCLUDE")),
+            DoxyTextEdit(self.par4, share.locales.tr("EXCLUDE"), []),
             
-            DoxyLineBtn3(self.par4, "EXCLUDE_PATTERNS"),
-            DoxyTextEdit(self.par4, "EXCLUDE_PATTERNS", []),
-            DoxyLineBtn3(self.par4, "EXCLUDE_SYMBOLS"),
-            DoxyTextEdit(self.par4, "EXCLUDE_SYMBOLS", []),
+            DoxyLineBtn3(self.par4, share.locales.tr("EXCLUDE_PATTERNS")),
+            DoxyTextEdit(self.par4, share.locales.tr("EXCLUDE_PATTERNS"), []),
+            DoxyLineBtn3(self.par4, share.locales.tr("EXCLUDE_SYMBOLS")),
+            DoxyTextEdit(self.par4, share.locales.tr("EXCLUDE_SYMBOLS"), []),
             
-            DoxyLineBtn4(self.par4, "EXAMPLE_PATH"),
-            DoxyTextEdit(self.par4, "EXAMPLE_PATH", []),
-            DoxyLineBtn3(self.par4, "EXAMPLE_PATTERNS"),
-            DoxyTextEdit(self.par4, "EXAMPLE_PATTERNS", ["*"]),
-            DoxyCheckBox(self.par4, "EXAMPLE_RECURSIVE"),
+            DoxyLineBtn4(self.par4, share.locales.tr("EXAMPLE_PATH")),
+            DoxyTextEdit(self.par4, share.locales.tr("EXAMPLE_PATH"), []),
+            DoxyLineBtn3(self.par4, share.locales.tr("EXAMPLE_PATTERNS")),
+            DoxyTextEdit(self.par4, share.locales.tr("EXAMPLE_PATTERNS"), ["*"]),
+            DoxyCheckBox(self.par4, share.locales.tr("EXAMPLE_RECURSIVE")),
             
-            DoxyLineBtn4(self.par4, "IMAGE_PATH"),
-            DoxyTextEdit(self.par4, "IMAGE_PATH", []),
+            DoxyLineBtn4(self.par4, share.locales.tr("IMAGE_PATH")),
+            DoxyTextEdit(self.par4, share.locales.tr("IMAGE_PATH"), []),
             
-            DoxyLineBtn1(self.par4, "INPUT_FILTER"),
+            DoxyLineBtn1(self.par4, share.locales.tr("INPUT_FILTER")),
             
-            DoxyLineBtn3(self.par4, "FILTER_PATTERNS"),
-            DoxyTextEdit(self.par4, "FILTER_PATTERNS", []),
+            DoxyLineBtn3(self.par4, share.locales.tr("FILTER_PATTERNS")),
+            DoxyTextEdit(self.par4, share.locales.tr("FILTER_PATTERNS"), []),
             
-            DoxyCheckBox(self.par4, "FILTER_SOURCE_FILES"),
-            DoxyLineBtn3(self.par4, "FILTER_SOURCE_PATTERNS"),
-            DoxyTextEdit(self.par4, "FILTER_SOURCE_PATTERNS", []),
+            DoxyCheckBox(self.par4, share.locales.tr("FILTER_SOURCE_FILES")),
+            DoxyLineBtn3(self.par4, share.locales.tr("FILTER_SOURCE_PATTERNS")),
+            DoxyTextEdit(self.par4, share.locales.tr("FILTER_SOURCE_PATTERNS"), []),
             
-            DoxyLineEdit(self.par4, "USE_MDFILE_AS_MAINPAGE"),
+            DoxyLineEdit(self.par4, share.locales.tr("USE_MDFILE_AS_MAINPAGE")),
             
-            DoxyCheckBox(self.par4, "IMPLICIT_DIR_DOCS"),
-            DoxySpinEdit(self.par4, "FORTRAN_COMMENT_AFTER", 0, 128, 72)
+            DoxyCheckBox(self.par4, share.locales.tr("IMPLICIT_DIR_DOCS")),
+            DoxySpinEdit(self.par4, share.locales.tr("FORTRAN_COMMENT_AFTER"), 0, 128, 72)
         ]
         input_lay = DOXYGEN_PROJECT_PAGES["Input"].layout
         for item in self.input_items:
@@ -1140,22 +1140,22 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par5 = DOXYGEN_PROJECT_PAGES["Source Browser"]
         self.browser_items = [
-            DoxyCheckBox(self.par5, "SOURCE_BROWSER"),
-            DoxyCheckBox(self.par5, "INLINE_SOURCES"),
-            DoxyCheckBox(self.par5, "STRIP_CODE_COMMENTS"),
+            DoxyCheckBox(self.par5, share.locales.tr("SOURCE_BROWSER")),
+            DoxyCheckBox(self.par5, share.locales.tr("INLINE_SOURCES")),
+            DoxyCheckBox(self.par5, share.locales.tr("STRIP_CODE_COMMENTS")),
             
-            DoxyCheckBox(self.par5, "REFERENCED_BY_RELATION"),
-            DoxyCheckBox(self.par5, "REFERENCED_LINK_SOURCE"),
+            DoxyCheckBox(self.par5, share.locales.tr("REFERENCED_BY_RELATION")),
+            DoxyCheckBox(self.par5, share.locales.tr("REFERENCED_LINK_SOURCE")),
             
-            DoxyCheckBox(self.par5, "SOURCE_TOOLTIPS"),
-            DoxyCheckBox(self.par5, "USE_HTAGS"),
-            DoxyCheckBox(self.par5, "VERBATIM_HEADERS"),
+            DoxyCheckBox(self.par5, share.locales.tr("SOURCE_TOOLTIPS")),
+            DoxyCheckBox(self.par5, share.locales.tr("USE_HTAGS")),
+            DoxyCheckBox(self.par5, share.locales.tr("VERBATIM_HEADERS")),
             
-            DoxyCheckBox(self.par5, "CLANG_ASSISTED_PARSING"),
-            DoxyCheckBox(self.par5, "CLANG_ADD_INC_PATHS"),
-            DoxyLineBtn3(self.par5, "CLANG_OPTIONS"),
-            DoxyTextEdit(self.par5, "CLANG_OPTIONS", []),
-            DoxyLineBtn1(self.par5, "CLANG_DATABASE_PATH")
+            DoxyCheckBox(self.par5, share.locales.tr("CLANG_ASSISTED_PARSING")),
+            DoxyCheckBox(self.par5, share.locales.tr("CLANG_ADD_INC_PATHS")),
+            DoxyLineBtn3(self.par5, share.locales.tr("CLANG_OPTIONS")),
+            DoxyTextEdit(self.par5, share.locales.tr("CLANG_OPTIONS"), []),
+            DoxyLineBtn1(self.par5, share.locales.tr("CLANG_DATABASE_PATH"))
         ]
         browser_lay = DOXYGEN_PROJECT_PAGES["Source Browser"].layout
         for item in self.browser_items:
@@ -1165,8 +1165,8 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par6 = DOXYGEN_PROJECT_PAGES["Index"]
         self.index_items = [
-            DoxyCheckBox(self.par6, "ALPHABETICAL_INDEX"),
-            DoxyTextEdit(self.par6, "ALPHABETICAL_INDEX", [])
+            DoxyCheckBox(self.par6, share.locales.tr("ALPHABETICAL_INDEX")),
+            DoxyTextEdit(self.par6, share.locales.tr("ALPHABETICAL_INDEX"), [])
         ]
         index_lay = DOXYGEN_PROJECT_PAGES["Index"].layout
         for item in self.index_items:
@@ -1176,20 +1176,20 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par7 = DOXYGEN_PROJECT_PAGES["HTML"]
         self.html_items = [
-            DoxyCheckBox(self.par7, "GENERATE_HTML"),
-            DoxyLineBtn1(self.par7, "HTML_OUTPUT"),
-            DoxyLineEdit(self.par7, "HTML_FILE_EXTENSION"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_HTML")),
+            DoxyLineBtn1(self.par7, share.locales.tr("HTML_OUTPUT")),
+            DoxyLineEdit(self.par7, share.locales.tr("HTML_FILE_EXTENSION")),
             
-            DoxyLineBtn1(self.par7, "HTML_HEADER"),
-            DoxyLineBtn1(self.par7, "HTML_FOOTER"),
+            DoxyLineBtn1(self.par7, share.locales.tr("HTML_HEADER")),
+            DoxyLineBtn1(self.par7, share.locales.tr("HTML_FOOTER")),
             
-            DoxyLineBtn1(self.par7, "HTML_STYLESHEET"),
-            DoxyLineBtn4(self.par7, "HTML_EXTRA_STYLESHEET"),
-            DoxyTextEdit(self.par7, "HTML_EXTRA_STYLESHEET", []),
-            DoxyLineBtn4(self.par7, "HTML_EXTRA_FILES"),
-            DoxyTextEdit(self.par7, "HTML_EXTRA_FILES", []),
+            DoxyLineBtn1(self.par7, share.locales.tr("HTML_STYLESHEET")),
+            DoxyLineBtn4(self.par7, share.locales.tr("HTML_EXTRA_STYLESHEET")),
+            DoxyTextEdit(self.par7, share.locales.tr("HTML_EXTRA_STYLESHEET"), []),
+            DoxyLineBtn4(self.par7, share.locales.tr("HTML_EXTRA_FILES")),
+            DoxyTextEdit(self.par7, share.locales.tr("HTML_EXTRA_FILES"), []),
             
-            DoxyComboBox(self.par7, "HTML_COLORSTYLE", [
+            DoxyComboBox(self.par7, share.locales.tr("HTML_COLORSTYLE"), [
                 "LIGHT",
                 "DARK",
                 "AUTO_LIGHT",
@@ -1197,50 +1197,84 @@ class DoxyGenToolWindow(QWidget):
                 "TOGGLE"
             ]),
             
-            DoxySpinEdit(self.par7, "COLOR_STYLE_HUE"  , 0, 255, 220),
-            DoxySpinEdit(self.par7, "COLOR_STYLE_SAT"  , 0, 255, 100),
-            DoxySpinEdit(self.par7, "COLOR_STYLE_GAMMA", 0, 255,  80),
+            DoxySpinEdit(self.par7, share.locales.tr("COLOR_STYLE_HUE"  ), 0, 255, 220),
+            DoxySpinEdit(self.par7, share.locales.tr("COLOR_STYLE_SAT"  ), 0, 255, 100),
+            DoxySpinEdit(self.par7, share.locales.tr("COLOR_STYLE_GAMMA"), 0, 255,  80),
             
-            DoxyCheckBox(self.par7, "HTML_DYNAMIC_MENUS"),
-            DoxyCheckBox(self.par7, "HTML_DYNAMIC_SECTIONS"),
+            DoxyCheckBox(self.par7, share.locales.tr("HTML_DYNAMIC_MENUS")),
+            DoxyCheckBox(self.par7, share.locales.tr("HTML_DYNAMIC_SECTIONS")),
             
-            DoxyCheckBox(self.par7, "HTML_CODE_FOLDING"),
-            DoxyCheckBox(self.par7, "HTML_COPY_CLIPBOARD"),
-            DoxyLineEdit(self.par7, "HTML_PROJECT_COOKIE"),
-            DoxySpinEdit(self.par7, "HTML_INDEX_NUM_ENTRIES", 0, 255, 100),
-            DoxyLineEdit(self.par7, "HTML_SITEMAP_URL"),
+            DoxyCheckBox(self.par7, share.locales.tr("HTML_CODE_FOLDING")),
+            DoxyCheckBox(self.par7, share.locales.tr("HTML_COPY_CLIPBOARD")),
+            DoxyLineEdit(self.par7, share.locales.tr("HTML_PROJECT_COOKIE")),
+            DoxySpinEdit(self.par7, share.locales.tr("HTML_INDEX_NUM_ENTRIES"), 0, 255, 100),
             
-            DoxyCheckBox(self.par7, "GENERATE_HTMLHELP"),
-            DoxyLineBtn1(self.par7, "HHC_LOCATION"),
-            DoxyLineBtn1(self.par7, "CHM_FILE"),
-            DoxyLineEdit(self.par7, "CHM_INDEX_ENCODING"),
-            DoxyCheckBox(self.par7, "CHM_BINARY_TOC"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_DOCSET")),
+            DoxyLineEdit(self.par7, share.locales.tr("DOCSET_FEEDNAME")),
+            DoxyLineEdit(self.par7, share.locales.tr("DOCSET_FEEDURL")),
+            DoxyLineEdit(self.par7, share.locales.tr("DOCSET_BUNDLE_ID")),
+            DoxyLineEdit(self.par7, share.locales.tr("DOCSET_PUBLISER_ID")),
+            DoxyLineEdit(self.par7, share.locales.tr("DOCSET_PUBLISER_NAME")),
             
-            DoxyCheckBox(self.par7, "GENERATE_CHI"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_HTMLHELP")),
+            DoxyLineBtn1(self.par7, share.locales.tr("CHM_FILE")),
+            DoxyLineBtn1(self.par7, share.locales.tr("HHC_LOCATION")),
             
-            DoxyCheckBox(self.par7, "GENERATE_DOCSET"),
-            DoxyLineEdit(self.par7, "DOCSET_FEEDNAME"),
-            DoxyLineEdit(self.par7, "DOCSET_FEEDURL"),
-            DoxyLineEdit(self.par7, "DOCSET_BUNDLE_ID"),
-            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_ID"),
-            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_NAME"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_CHI")),
+            DoxyLineEdit(self.par7, share.locales.tr("CHM_INDEX_ENCODING")),
+            DoxyCheckBox(self.par7, share.locales.tr("CHM_BINARY_TOC")),
+            DoxyCheckBox(self.par7, share.locales.tr("TOC_EXPAND")),
+            DoxyLineEdit(self.par7, share.locales.tr("SITEMAP_URL")),
             
-            DoxyCheckBox(self.par7, "GENERATE_QHP"),
-            DoxyLineBtn1(self.par7, "QCH_FILE"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_QHP")),
+            DoxyLineBtn1(self.par7, share.locales.tr("QCH_FILE")),
             
-            DoxyLineEdit(self.par7, "QHP_NAMESPACE"),
-            DoxyLineEdit(self.par7, "QHP_VIRTUAL_FOLDER"),
-            DoxyLineEdit(self.par7, "QHP_CUST_FILTER_NAME"),
-            DoxyLineEdit(self.par7, "QHP_CUST_FILTER_ATTRS"),
-            DoxyLineEdit(self.par7, "QHP_SECT_FILTER_ATTRS"),
+            DoxyLineEdit(self.par7, share.locales.tr("QHP_NAMESPACE")),
+            DoxyLineEdit(self.par7, share.locales.tr("QHP_VIRTUAL_FOLDER")),
+            DoxyLineEdit(self.par7, share.locales.tr("QHP_CUST_FILTER_NAME")),
+            DoxyLineEdit(self.par7, share.locales.tr("QHP_CUST_FILTER_ATTRS")),
+            DoxyLineEdit(self.par7, share.locales.tr("QHP_SECT_FILTER_ATTRS")),
             
-            DoxyLineBtn1(self.par7, "QHG_LOCATION"),
+            DoxyLineBtn1(self.par7, share.locales.tr("QHG_LOCATION")),
             
-            DoxyCheckBox(self.par7, "GENERATE_ECLIPSE_HELP"),
-            DoxyLineEdit(self.par7, "ECLIPSE_DOC_ID"),
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_ECLIPSE_HELP")),
+            DoxyLineEdit(self.par7, share.locales.tr("ECLIPSE_DOC_ID")),
+            DoxyCheckBox(self.par7, share.locales.tr("DISABLE_INDEX")),
             
-            DoxyCheckBox(self.par7, "GENERATE_TREEVIEW"),
-            DoxySpinEdit(self.par7, "TREEVIEW_WIDTH", 50, 800, 100)
+            DoxyCheckBox(self.par7, share.locales.tr("GENERATE_TREEVIEW")),
+            DoxyCheckBox(self.par7, share.locales.tr("PAGE_OUTLINE_PANEL")),
+            DoxyCheckBox(self.par7, share.locales.tr("FULL_SIDEBAR")),
+            
+            DoxySpinEdit(self.par7, share.locales.tr("ENUM_VALUES_PER_LINE"), 1, 200, 4),
+            DoxyCheckBox(self.par7, share.locales.tr("SHOW_ENUM_VALUES")),
+            
+            DoxySpinEdit(self.par7, share.locales.tr("TREEVIEW_WIDTH"), 50, 800, 250),
+            
+            DoxyCheckBox(self.par7, share.locales.tr("EXT_LINKS_IN_WINDOW")),
+            DoxyCheckBox(self.par7, share.locales.tr("OBFUSCATE_EMAIL")),
+            
+            DoxyComboBox(self.par7, share.locales.tr("HTML_FORMULA_FORMAT"), ["png", "svg"]),
+            
+            DoxySpinEdit(self.par7, share.locales.tr("FORMULA_FONTSIZE"), 9, 74, 10),
+            DoxyLineBtn1(self.par7, share.locales.tr("FORMULA_MACROFILE")),
+            
+            DoxyCheckBox(self.par7, share.locales.tr("USE_MATHJAX")),
+            
+            DoxyComboBox(self.par7, share.locales.tr("MATHJAX_VERSION"), ["MathJax2", "MathJax3", "MathJax4"]),
+            DoxyComboBox(self.par7, share.locales.tr("MATHJAX_FORMAT"), ["HTML-CSS", "NativeHtml", "chtml", "SVG"]),
+            DoxyLineEdit(self.par7, share.locales.tr("MATHJAX_RELPATH")),
+            DoxyLineBtn3(self.par7, share.locales.tr("MATHJAX_EXTENSIONS")),
+            DoxyTextEdit(self.par7, share.locales.tr("MATHJAX_EXTENSIONS"), []),
+            DoxyLineEdit(self.par7, share.locales.tr("MATHJAX_CODEFILE")),
+            
+            DoxyCheckBox(self.par7, share.locales.tr("SEARCHENGINE")),
+            DoxyCheckBox(self.par7, share.locales.tr("SERVER_BASED_SEARCH")),
+            DoxyCheckBox(self.par7, share.locales.tr("EXTERNAL_SEARCH")),
+            DoxyLineEdit(self.par7, share.locales.tr("SEARCHENGINE_URL")),
+            DoxyLineBtn1(self.par7, share.locales.tr("SEARCHDATA_FILE")),
+            DoxyLineEdit(self.par7, share.locales.tr("EXTERNAÖ_SEARCH_ID")),
+            DoxyLineBtn3(self.par7, share.locales.tr("EXTRA_SEARCH_MAPINGS")),
+            DoxyTextEdit(self.par7, share.locales.tr("EXTRA_SEARCH_MAPINGS"), []),
         ]
         html_lay = DOXYGEN_PROJECT_PAGES["HTML"].layout
         for item in self.html_items:
@@ -1476,10 +1510,10 @@ class DoxyGenToolWindow(QWidget):
             self.save_items(self.build_items)
             self.save_items(self.messages_items)
             self.save_items(self.input_items)
-            """self.save_items(self.browser_items)
+            self.save_items(self.browser_items)
             self.save_items(self.index_items)
             self.save_items(self.html_items)
-            self.save_items(self.latex_items)
+            """self.save_items(self.latex_items)
             self.save_items(self.rtf_items)
             self.save_items(self.man_items)
             self.save_items(self.xml_items)
@@ -1538,11 +1572,11 @@ class DoxyGenToolWindow(QWidget):
             self.load_items(self.project_items)
             self.load_items(self.build_items)
             self.load_items(self.messages_items)
-            """self.load_items(self.input_items)
+            self.load_items(self.input_items)
             self.load_items(self.browser_items)
             self.load_items(self.index_items)
             self.load_items(self.html_items)
-            self.load_items(self.latex_items)
+            """self.load_items(self.latex_items)
             self.load_items(self.rtf_items)
             self.load_items(self.man_items)
             self.load_items(self.xml_items)
@@ -1589,6 +1623,18 @@ class DoxyGenToolWindow(QWidget):
                 text = item.combo.currentText()
                 self.config[item.help] = text
     
+    def _to_int(self, value, default=0):
+        try:
+            if value is None:
+                return default
+            if isinstance(value, str):
+                value = value.strip()
+                if value == "":
+                    return default
+            return int(value)
+        except Exception:
+            return default
+    
     def load_items(self, items):
         for item in items:
             if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help, "")))
@@ -1604,7 +1650,7 @@ class DoxyGenToolWindow(QWidget):
                 else:
                     item.input.input.setText("")
             elif isinstance(item, DoxyCheckBox):
-                check = int(self.config.get(item.help, 0))
+                check = self._to_int(self.config.get(item.help, 0), 0)
                 if check:
                     item.check.setChecked(True)
                 else:
@@ -1612,7 +1658,7 @@ class DoxyGenToolWindow(QWidget):
             elif isinstance(item, DoxyTextEdit):
                 item.edit.clear()
                 item.edit.appendPlainText(str(self.config.get(item.help, "")))
-            elif isinstance(item, DoxySpinEdit): item.spin.setValue (int(self.config.get(item.help, 0)))
+            elif isinstance(item, DoxySpinEdit): item.spin.setValue(self._to_int(self.config.get(item.help, 0), 0))
             elif isinstance(item, DoxyComboBox):
                 index = item.combo.findText(str(self.config.get(item.help, "English")))
                 if index >= 0:

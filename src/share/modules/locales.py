@@ -3,9 +3,10 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
-from __future__   import annotations
+from __future__    import annotations
+from share.common  import *
 
-from share.common import *
+import share.resrces.flags_rc
 
 class _LocalizeLineNumberArea(QWidget):
     def __init__(self, editor):
@@ -18,6 +19,42 @@ class _LocalizeLineNumberArea(QWidget):
     def paintEvent(self, event):
         self.code_editor.lineNumberAreaPaintEvent(event)
 
+
+class LanguageRadioFlag(QWidget):
+    def __init__(self, code: str, text: str, flag_path: str, parent=None):
+        super().__init__(parent)
+
+        self.code      = code
+        self.text      = text
+        self.flag_path = flag_path
+
+        self.radio = QRadioButton(code)
+        self.radio.setToolTip(text)
+        
+        self.radio.setFont(QFont("Consolas", 10))
+
+        self.flag = QLabel()
+        self.flag.setFixedSize(22, 12)
+        self.flag.setAlignment(Qt.AlignCenter)
+
+        pix = QPixmap(flag_path)
+        if not pix.isNull():
+            self.flag.setPixmap(
+                pix.scaled(
+                    22,
+                    12,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+            )
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+
+        lay.addWidget(self.radio)
+        lay.addWidget(self.flag)
+        lay.addStretch(1)
 
 class LocalizeCodeEditor(QPlainTextEdit):
     def __init__(self, parent=None):
@@ -90,16 +127,75 @@ class LocalizeCodeEditor(QPlainTextEdit):
 
 class LocalizeToolWindow(QWidget):
     LANGUAGE_CODES = [
-        ("ENU", "English (USA)"),
-        ("ENG", "English"),
-        ("DEU", "Deutsch"),
-        ("FRE", "Français"),
-        ("ESP", "Español"),
-        ("ITA", "Italiano"),
-        ("NLD", "Nederlands"),
-        ("PTB", "Português"),
-        ("PLK", "Polski"),
-        ("RUS", "Русский"),
+        ("ENU", "English (USA)", ":/flags/enu.png"),
+        ("ENG", "English", ":/flags/eng.png"),
+        ("DEU", "German", ":/flags/deu.png"),
+        ("FRA", "French", ":/flags/fra.png"),
+        ("ESP", "Spanish", ":/flags/esp.png"),
+        ("ITA", "Italian", ":/flags/ita.png"),
+        ("NLD", "Dutch", ":/flags/nld.png"),
+        ("PTB", "Portuguese (Brazil)", ":/flags/ptb.png"),
+        ("POR", "Portuguese", ":/flags/por.png"),
+        ("PLK", "Polish", ":/flags/plk.png"),
+        ("RUS", "Russian", ":/flags/rus.png"),
+
+        ("AFR", "Afrikaans", ":/flags/afr.png"),
+        ("ALB", "Albanian", ":/flags/alb.png"),
+        ("ARA", "Arabic", ":/flags/ara.png"),
+        ("ARM", "Armenian", ":/flags/arm.png"),
+        ("AZE", "Azerbaijani", ":/flags/aze.png"),
+        ("BAQ", "Basque", ":/flags/baq.png"),
+        ("BEL", "Belarusian", ":/flags/bel.png"),
+        ("BEN", "Bengali", ":/flags/ben.png"),
+        ("BOS", "Bosnian", ":/flags/bos.png"),
+        ("BGR", "Bulgarian", ":/flags/bgr.png"),
+        ("CAT", "Catalan", ":/flags/cat.png"),
+        ("CHS", "Chinese (Simplified)", ":/flags/chs.png"),
+        ("CHT", "Chinese (Traditional)", ":/flags/cht.png"),
+        ("HRV", "Croatian", ":/flags/hrv.png"),
+        ("CSY", "Czech", ":/flags/csy.png"),
+        ("DAN", "Danish", ":/flags/dan.png"),
+        ("ETI", "Estonian", ":/flags/eti.png"),
+        ("FIN", "Finnish", ":/flags/fin.png"),
+        ("GLC", "Galician", ":/flags/glc.png"),
+        ("GEO", "Georgian", ":/flags/geo.png"),
+        ("ELL", "Greek", ":/flags/ell.png"),
+        ("HEB", "Hebrew", ":/flags/heb.png"),
+        ("HIN", "Hindi", ":/flags/hin.png"),
+        ("HUN", "Hungarian", ":/flags/hun.png"),
+        ("ISL", "Icelandic", ":/flags/isl.png"),
+        ("IND", "Indonesian", ":/flags/ind.png"),
+        ("GLE", "Irish", ":/flags/gle.png"),
+        ("JPN", "Japanese", ":/flags/jpn.png"),
+        ("KAN", "Kannada", ":/flags/kan.png"),
+        ("KAZ", "Kazakh", ":/flags/kaz.png"),
+        ("KOR", "Korean", ":/flags/kor.png"),
+        ("LVI", "Latvian", ":/flags/lvi.png"),
+        ("LTH", "Lithuanian", ":/flags/lth.png"),
+        ("MKD", "Macedonian", ":/flags/mkd.png"),
+        ("MSL", "Malay", ":/flags/msl.png"),
+        ("MAL", "Malayalam", ":/flags/mal.png"),
+        ("MAR", "Marathi", ":/flags/mar.png"),
+        ("MON", "Mongolian", ":/flags/mon.png"),
+        ("NEP", "Nepali", ":/flags/nep.png"),
+        ("NOR", "Norwegian", ":/flags/nor.png"),
+        ("NOB", "Norwegian Bokmål", ":/flags/nob.png"),
+        ("NNO", "Norwegian Nynorsk", ":/flags/nno.png"),
+        ("FAR", "Persian", ":/flags/far.png"),
+        ("ROM", "Romanian", ":/flags/rom.png"),
+        ("SRB", "Serbian", ":/flags/srb.png"),
+        ("SRL", "Serbian (Latin)", ":/flags/srl.png"),
+        ("SKY", "Slovak", ":/flags/sky.png"),
+        ("SLV", "Slovenian", ":/flags/slv.png"),
+        ("SVE", "Swedish", ":/flags/sve.png"),
+        ("SWA", "Swahili", ":/flags/swa.png"),
+        ("TAM", "Tamil", ":/flags/tam.png"),
+        ("TEL", "Telugu", ":/flags/tel.png"),
+        ("THA", "Thai", ":/flags/tha.png"),
+        ("TRK", "Turkish", ":/flags/trk.png"),
+        ("UKR", "Ukrainian", ":/flags/ukr.png"),
+        ("URD", "Urdu", ":/flags/urd.png"),
+        ("VIT", "Vietnamese", ":/flags/vit.png"),
     ]
 
     HEADER_FIELDS = [
@@ -120,7 +216,7 @@ class LocalizeToolWindow(QWidget):
         
         self.main_window = main_window
         
-        self.setMinimumWidth (890)
+        self.setMinimumWidth (920)
         self.setMinimumHeight(420)
         
         self.entries = []
@@ -150,13 +246,13 @@ class LocalizeToolWindow(QWidget):
         self.tabs = QTabWidget(self)
         root.addWidget(self.tabs, 1)
         
-        self.tabs.addTab(self._build_entries_tab(), "Entries")
-        self.tabs.addTab(self._build_settings_tab(), "Settings")
+        self.tabs.addTab(self._build_entries_tab (), share.locales.tr("Entries"))
+        self.tabs.addTab(self._build_settings_tab(), share.locales.tr("Settings"))
 
         btn_row = QHBoxLayout()
-        self.btn_create = QPushButton("Create", self)
-        self.btn_help   = QPushButton("Help", self)
-        self.btn_cancel = QPushButton("Cancel", self)
+        self.btn_create = QPushButton(share.locales.tr("Create"), self)
+        self.btn_help   = QPushButton(share.locales.tr("Help")  , self)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self)
         for b in (self.btn_create, self.btn_help, self.btn_cancel):
             b.setMinimumWidth(95)
             btn_row.addWidget(b)
@@ -180,7 +276,8 @@ class LocalizeToolWindow(QWidget):
         
         msgstr_lay.setContentsMargins(6, 6, 6, 6)
         msgstr_lay.setSpacing(6)
-
+        
+        
         lang_tab = QWidget(right_tabs)
         lang_lay = QVBoxLayout(lang_tab)
         
@@ -190,8 +287,9 @@ class LocalizeToolWindow(QWidget):
         lang_row = QHBoxLayout()
         lang_row.setSpacing(8)
 
-        self.gb_source  = QGroupBox("Source", lang_tab)
-        self.gb_dest    = QGroupBox("Destination", lang_tab)
+        self.gb_source  = QGroupBox(share.locales.tr("Source"), lang_tab)
+        self.gb_dest    = QGroupBox(share.locales.tr("Destination"), lang_tab)
+        
         self.src_group  = QButtonGroup(self)
         self.dst_group  = QButtonGroup(self)
         
@@ -204,17 +302,19 @@ class LocalizeToolWindow(QWidget):
         src_lay.setSpacing(4)
         dst_lay.setSpacing(4)
         
-        for code, title in self.LANGUAGE_CODES:
-            rb_src = QRadioButton(code, self.gb_source)
-            rb_src.setToolTip(title)
-            self.src_group.addButton(rb_src)
-            self.src_radios[code] = rb_src
-            src_lay.addWidget(rb_src)
-            rb_dst = QRadioButton(code, self.gb_dest)
-            rb_dst.setToolTip(title)
-            self.dst_group.addButton(rb_dst)
-            self.dst_radios[code] = rb_dst
-            dst_lay.addWidget(rb_dst)
+        for code, title, flag_path in self.LANGUAGE_CODES:
+            tr_code  = share.locales.tr(code)
+            tr_title = share.locales.tr(title)
+            
+            row_src = LanguageRadioFlag(tr_code + " ", tr_title, flag_path, self.gb_source)
+            self.src_group.addButton(row_src.radio)
+            self.src_radios[code] = row_src.radio
+            src_lay.addWidget(row_src)
+            
+            row_dst = LanguageRadioFlag(tr_code + " ", tr_title, flag_path, self.gb_dest)
+            self.dst_group.addButton(row_dst.radio)
+            self.dst_radios[code] = row_dst.radio
+            dst_lay.addWidget(row_dst)
         
         lang_row.addWidget(self.gb_source)
         lang_row.addWidget(self.gb_dest)
@@ -227,7 +327,7 @@ class LocalizeToolWindow(QWidget):
         msgstr_lay.addWidget(self.msgid_list, 1)
 
         right_tabs.addTab(msgstr_tab, "MSGSTR")
-        right_tabs.addTab(lang_tab, "Language")
+        right_tabs.addTab(lang_tab, share.locales.tr("Language"))
 
         editor_col = QVBoxLayout()
         editor_col.setSpacing(6)
@@ -350,7 +450,7 @@ class LocalizeToolWindow(QWidget):
         self.ed_po_path = QLineEdit(content)
         self.ed_po_path.setFont(QFont("Arial", 10))
         lay.addWidget(self.ed_po_path, row, 1)
-        self.btn_load_po_path = QPushButton("Load", content)
+        self.btn_load_po_path = QPushButton(share.locales.tr("Load"), content)
         lay.addWidget(self.btn_load_po_path, row, 2)
         row += 1
 
@@ -358,7 +458,7 @@ class LocalizeToolWindow(QWidget):
         self.ed_mo_path = QLineEdit(content)
         self.ed_mo_path.setFont(QFont("Arial", 10))
         lay.addWidget(self.ed_mo_path, row, 1)
-        self.btn_load_mo_path = QPushButton("Load", content)
+        self.btn_load_mo_path = QPushButton(share.locales.tr("Load"), content)
         lay.addWidget(self.btn_load_mo_path, row, 2)
         row += 1
 

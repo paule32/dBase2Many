@@ -798,4 +798,128 @@ QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
     width: 0px;
     height: 0px;
 }}
+
+/* --------------------------------------*/
+
+QComboBox,
+QDateEdit {{
+    background-color: #1f1f1f;
+    color: #ffffff;
+    border: 1px solid #555555;
+    border-radius: 6px;
+    padding: 4px 14px 4px 8px;
+    selection-background-color: #5a1020;
+    selection-color: #ffffff;
+}}
+
+QComboBox:hover,
+QDateEdit:hover {{
+    border: 1px solid #8b1e35;
+}}
+
+QComboBox:focus,
+QDateEdit:focus {{
+    border: 1px solid #b52b45;
+}}
+
+/*QComboBox::drop-down,*/
+QDateEdit::drop-down {{
+    image: url(:/icons/arrow_down.png);
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #555555;
+    background-color: #2a2a2a;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}}
+
+QComboBox::down-arrow,
+QDateEdit::down-arrow {{
+    width: 10px;
+    height: 10px;
+}}
+
+QComboBox QAbstractItemView {{
+    background-color: #202020;
+    color: #ffffff;
+    border: 1px solid #8b1e35;
+    selection-background-color: #5a1020;
+    selection-color: #ffffff;
+    outline: 0;
+}}
+
+QCalendarWidget {{
+    background-color: #202020;
+    color: #ffffff;
+}}
+
+QCalendarWidget QWidget {{
+    alternate-background-color: #2a2a2a;
+    background-color: #202020;
+    color: #ffffff;
+}}
+
+QCalendarWidget QToolButton {{
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px;
+}}
+
+QCalendarWidget QToolButton:hover {{
+    background-color: #5a1020;
+    border: 1px solid #b52b45;
+}}
+
+QCalendarWidget QMenu {{
+    background-color: #202020;
+    color: #ffffff;
+    border: 1px solid #8b1e35;
+}}
+
+QCalendarWidget QSpinBox {{
+    background-color: #1f1f1f;
+    color: #ffffff;
+    border: 1px solid #555555;
+}}
+
+QCalendarWidget QAbstractItemView {{
+    background-color: #202020;
+    color: #ffffff;
+    selection-background-color: #5a1020;
+    selection-color: #ffffff;
+}}
+
+QRadioButton {{
+    color: #ffffff;
+    spacing: 8px;
+}}
+
+QRadioButton::indicator {{
+    width: 15px;
+    height: 15px;
+    border-radius: 8px;
+    border: 2px solid #7a1f35;
+    background-color: #1f1f1f;
+}}
+
+QRadioButton::indicator:hover {{
+    border: 2px solid #b52b45;
+}}
+
+QRadioButton::indicator:checked {{
+    border: 2px solid #d64562;
+    background-color: #6e1026;
+}}
+
+QRadioButton::indicator:unchecked {{
+    background-color: #1f1f1f;
+}}
+
+QRadioButton::indicator:disabled {{
+    border: 2px solid #444444;
+    background-color: #2a2a2a;
+}}
 """)

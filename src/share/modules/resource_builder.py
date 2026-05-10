@@ -415,7 +415,7 @@ class ResourceBuilderToolWindow(QWidget):
             try:
                 stat = path.stat()
                 size_text = self._format_file_size(stat.st_size)
-                date_text = QDateTime.fromSecsSinceEpoch(int(stat.st_mtime)).toString("yyyy-MM-dd HH:mm:ss")
+                date_text = QDateTime.fromSecsSinceEpoch(int(stat.st_mtime)).toString("yyyy-MM-dd  HH:mm:ss")
             except Exception:
                 size_text = ""
                 date_text = ""
