@@ -1105,7 +1105,7 @@ class HelpAuthoringEditor(QMainWindow):
         cols    = values.cols
         border  = values.border
         padding = values.cell_padding
-        html    = [f'<table border="{border}" cellpadding="{padding}" cellspacing="0" style="border-collapse:collapse; width:100vh;">']
+        html    = [f'<table border="{border}" cellpadding="{padding}" cellspacing="0" style="border-collapse:collapse; width:100%;">']
         for _ in range(rows):
             html.append("<tr>")
             for _ in range(cols):

@@ -22,11 +22,11 @@ class AliasRow(QWidget):
 
         self.alias_edit = QLineEdit()
         self.alias_edit.setText(self.file_path.name)
-        self.alias_edit.setPlaceholderText("Alias, z.B. baz.ico")
+        self.alias_edit.setPlaceholderText("Alias, e.g. baz.ico")
 
         self.dir_edit = QLineEdit()
         self.dir_edit.setText(self.default_dir_name())
-        self.dir_edit.setPlaceholderText("Verzeichnis, z.B. bar")
+        self.dir_edit.setPlaceholderText(share.locales.tr("Directory, e.g. bar"))
 
         line1 = QHBoxLayout()
         line1.setContentsMargins(0, 0, 0, 0)
@@ -38,7 +38,7 @@ class AliasRow(QWidget):
         line2.setContentsMargins(0, 0, 0, 0)
         line2.setSpacing(6)
 
-        dir_label = QLabel("Pfad:")
+        dir_label = QLabel(share.locales.tr("Path:"))
         dir_label.setMinimumWidth(120)
         dir_label.setMaximumWidth(220)
         dir_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -141,19 +141,19 @@ class ResourceBuilderToolWindow(QWidget):
         self.dir_edit = QLineEdit()
         self.dir_edit.setText(str(self.current_dir))
 
-        btn_choose = QPushButton("Verzeichnis wählen")
+        btn_choose = QPushButton(share.locales.tr("Select Directory"))
         btn_choose.clicked.connect(self._choose_directory)
 
-        btn_reload = QPushButton("Neu laden")
+        btn_reload = QPushButton(share.locales.tr("Load New"))
         btn_reload.clicked.connect(lambda: self._load_directory(Path(self.dir_edit.text())))
 
-        dir_lay.addWidget(QLabel("Aktuelles Verzeichnis:"))
+        dir_lay.addWidget(QLabel(share.locales.tr("Actual Directory:")))
         dir_lay.addWidget(self.dir_edit)
         dir_lay.addWidget(btn_choose)
         dir_lay.addWidget(btn_reload)
         dir_lay.addStretch()
 
-        self.left_tabs.addTab(tab_dir, "Verzeichnis")
+        self.left_tabs.addTab(tab_dir, share.locales.tr("Directory"))
 
         tab_data = QWidget()
         data_lay = QVBoxLayout(tab_data)
@@ -170,6 +170,8 @@ class ResourceBuilderToolWindow(QWidget):
                 btn.setChecked(True)
             setattr(self, f"filter_btn_{name}", btn)
 
+        self.view_stack = QStackedWidget()
+        
         self.icon_view = QListWidget()
         self.icon_view.setViewMode(QListWidget.IconMode)
         self.icon_view.setIconSize(QSize(32, 32))
@@ -178,33 +180,92 @@ class ResourceBuilderToolWindow(QWidget):
         self.icon_view.setMovement(QListWidget.Static)
         self.icon_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.icon_view.setWordWrap(True)
+        self.icon_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        
+        self.icon_view.customContextMenuRequested.connect(self._on_resource_view_context_menu)
+        self.icon_view.itemDoubleClicked         .connect(self._on_icon_view_double_clicked)
 
+        self.detail_view = QTreeWidget()
+        self.detail_view.setColumnCount(3)
+        self.detail_view.setHeaderLabels([
+            share.locales.tr("Name"),
+            share.locales.tr("Size"),
+            share.locales.tr("Date")]
+        )
+        self.detail_view.setRootIsDecorated(False)
+        self.detail_view.setAlternatingRowColors(True)
+        self.detail_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.detail_view.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.detail_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        
+        self.detail_view.setSortingEnabled(True)
+        
+        self.detail_view.sortByColumn(2, Qt.AscendingOrder)
+        self.detail_view.sortByColumn(0, Qt.AscendingOrder)
+        
+        self.detail_view.customContextMenuRequested.connect(self._on_resource_view_context_menu)
+        self.detail_view.itemDoubleClicked         .connect(self._on_detail_view_double_clicked)
+        
+        self.detail_view.header().setStretchLastSection(False)
+        self.detail_view.header().setSectionsMovable(True)
+        self.detail_view.header().setSectionsClickable(True)
+        
+        self.detail_view.header().setSectionResizeMode(0, QHeaderView.Interactive)
+        self.detail_view.header().setSectionResizeMode(1, QHeaderView.Interactive)
+        self.detail_view.header().setSectionResizeMode(2, QHeaderView.Interactive)
+        
+        self.detail_view.setColumnWidth(0, 130)
+        self.detail_view.setColumnWidth(1,  79)
+        self.detail_view.setColumnWidth(2, 150)
+
+        self.view_stack.addWidget(self.icon_view)
+        self.view_stack.addWidget(self.detail_view)
+
+        self.current_view_mode = "icon"
+
+        button_lay = QHBoxLayout()
+        self.button_view_a = QPushButton(share.locales.tr("Icon View"))
+        self.button_view_b = QPushButton(share.locales.tr("List View"))
+        self.button_view_c = QPushButton(share.locales.tr("Detail View"))
+        
+        self.button_view_a.clicked.connect(self._on_button_view_a)
+        self.button_view_b.clicked.connect(self._on_button_view_b)
+        self.button_view_c.clicked.connect(self._on_button_view_c)
+        
+        button_lay.addWidget(self.button_view_a)
+        button_lay.addWidget(self.button_view_b)
+        button_lay.addWidget(self.button_view_c)
+        
         data_lay.addLayout(filter_lay)
-        data_lay.addWidget(self.icon_view, 1)
-
-        self.left_tabs.addTab(tab_data, "Daten")
+        data_lay.addWidget(self.view_stack, 1)
+        data_lay.addLayout(button_lay)
+        
+        self.left_tabs.addTab(tab_data, share.locales.tr("Data"))
 
     def _build_middle_buttons(self):
         lay = QVBoxLayout(self.middle_widget)
         lay.setContentsMargins(4, 24, 4, 4)
         lay.setSpacing(8)
 
-        self.btn_apply = QPushButton("Übernehmen")
-        self.btn_clear_all = QPushButton("Alle Löschen")
-        self.btn_delete = QPushButton("Löschen")
-        self.btn_xml = QPushButton("XML schreiben")
-        self.btn_py = QPushButton("PY schreiben")
+        self.btn_apply     = QPushButton(share.locales.tr("Apply"))
+        self.btn_clear_all = QPushButton(share.locales.tr("Delete All"))
+        self.btn_delete    = QPushButton(share.locales.tr("Delete"))
+        self.btn_xml       = QPushButton(share.locales.tr("Write XML"))
+        self.btn_py        = QPushButton(share.locales.tr("Write PY"))
 
-        self.chk_root_only = QCheckBox("nur Root")
+        self.chk_root_only = QCheckBox(share.locales.tr("only Root"))
         self.chk_root_only.setToolTip(
-            "Wenn aktiv, werden Dateien im gleichen Verzeichnis als <file>name</file> geschrieben."
+            share.locales.tr(
+                "When active, the files will be write to the same Directory:\n"
+                "<file>name</file>."
+            )
         )
 
-        self.btn_apply.clicked.connect(self._apply_selected_files)
-        self.btn_clear_all.clicked.connect(self._clear_all_aliases)
-        self.btn_delete.clicked.connect(self._delete_focused_alias)
-        self.btn_xml.clicked.connect(self._write_xml_to_editor)
-        self.btn_py.clicked.connect(self._write_py_resource)
+        self.btn_apply     .clicked.connect(self._apply_selected_files)
+        self.btn_clear_all .clicked.connect(self._clear_all_aliases)
+        self.btn_delete    .clicked.connect(self._delete_focused_alias)
+        self.btn_xml       .clicked.connect(self._write_xml_to_editor)
+        self.btn_py        .clicked.connect(self._write_py_resource)
 
         for btn in [self.btn_apply, self.btn_clear_all, self.btn_delete, self.btn_xml, self.btn_py]:
             btn.setMinimumHeight(32)
@@ -236,13 +297,67 @@ class ResourceBuilderToolWindow(QWidget):
 
         self.xml_edit = QPlainTextEdit()
         self.xml_edit.setFont(QFont("Consolas", 10))
-        self.xml_edit.setPlaceholderText("Hier wird das .qrc XML erzeugt...")
+        self.xml_edit.setPlaceholderText(
+            share.locales.tr("the .qrc XML will be created hehe..."))
 
         xml_lay.addWidget(self.xml_edit)
         self.right_tabs.addTab(tab_xml, "XML")
 
+    def _on_icon_view_context_menu(self, pos):
+        menu = QMenu(self.icon_view)
+
+        act_icon   = menu.addAction(share.locales.tr("Icon"   ))
+        act_list   = menu.addAction(share.locales.tr("List"   ))
+        act_detail = menu.addAction(share.locales.tr("Details"))
+
+        act_icon   .setCheckable(True)
+        act_list   .setCheckable(True)
+        act_detail .setCheckable(True)
+
+        view_mode = self.icon_view.viewMode()
+        if view_mode == QListWidget.IconMode:
+            act_icon.setChecked(True)
+        elif view_mode == QListWidget.ListMode:
+            if self.icon_view.gridSize().width() > 0:
+                act_detail.setChecked(True)
+            else:
+                act_list.setChecked(True)
+
+        act = menu.exec_(self.icon_view.viewport().mapToGlobal(pos))
+
+        if   act == act_icon:   self._set_icon_view_mode("icon")
+        elif act == act_list:   self._set_icon_view_mode("list")
+        elif act == act_detail: self._set_icon_view_mode("detail")
+
+    def _set_icon_view_mode(self, mode: str):
+        if mode == "icon":
+            self.icon_view.setViewMode(QListWidget.IconMode)
+            self.icon_view.setIconSize(QSize(32, 32))
+            self.icon_view.setGridSize(QSize(96, 76))
+            self.icon_view.setResizeMode(QListWidget.Adjust)
+            self.icon_view.setMovement(QListWidget.Static)
+            self.icon_view.setWordWrap(True)
+
+        elif mode == "list":
+            self.icon_view.setViewMode(QListWidget.ListMode)
+            self.icon_view.setIconSize(QSize(24, 24))
+            self.icon_view.setGridSize(QSize())
+            self.icon_view.setResizeMode(QListWidget.Adjust)
+            self.icon_view.setMovement(QListWidget.Static)
+            self.icon_view.setWordWrap(False)
+
+        elif mode == "detail":
+            self.icon_view.setViewMode(QListWidget.ListMode)
+            self.icon_view.setIconSize(QSize(32, 32))
+            self.icon_view.setGridSize(QSize(260, 42))
+            self.icon_view.setResizeMode(QListWidget.Adjust)
+            self.icon_view.setMovement(QListWidget.Static)
+            self.icon_view.setWordWrap(False)
+            
     def _choose_directory(self):
-        path = QFileDialog.getExistingDirectory(self, "Verzeichnis wählen", str(self.current_dir))
+        path = QFileDialog.getExistingDirectory(self,
+            share.locales.tr("Select Directory"),
+            str(self.current_dir))
         if path:
             self._load_directory(Path(path))
             self.left_tabs.setCurrentIndex(1)
@@ -261,19 +376,24 @@ class ResourceBuilderToolWindow(QWidget):
         directory = Path(directory)
 
         if not directory.exists() or not directory.is_dir():
-            QMessageBox.warning(self, "Fehler", f"Verzeichnis existiert nicht:\n{directory}")
+            msg = share.locales.tr("Verzeichnis existiert nicht")
+            QMessageBox.warning(self, "Fehler", f"{msg}:\n{directory}")
             return
 
         self.current_dir = directory
         self.dir_edit.setText(str(directory))
-        self.icon_view.clear()
+
+        self.icon_view  .clear()
+        self.detail_view.clear()
 
         suffixes = self.FILTERS.get(self.current_filter)
 
         try:
             files = sorted([p for p in directory.iterdir() if p.is_file()], key=lambda p: p.name.lower())
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self,
+                share.locales.tr("Error"),
+                str(e))
             return
 
         for path in files:
@@ -282,34 +402,60 @@ class ResourceBuilderToolWindow(QWidget):
             if suffixes is not None and suffix not in suffixes:
                 continue
 
+            icon = self._icon_for_file(path)
+
             item = QListWidgetItem()
             item.setText(path.name)
             item.setToolTip(str(path))
             item.setData(Qt.UserRole, str(path))
-
-            icon = self._icon_for_file(path)
             item.setIcon(icon)
-
+            
             self.icon_view.addItem(item)
+
+            try:
+                stat = path.stat()
+                size_text = self._format_file_size(stat.st_size)
+                date_text = QDateTime.fromSecsSinceEpoch(int(stat.st_mtime)).toString("yyyy-MM-dd HH:mm:ss")
+            except Exception:
+                size_text = ""
+                date_text = ""
+
+            tree_item = QTreeWidgetItem()
+            tree_item.setText(0, path.name)
+            tree_item.setText(1, size_text)
+            tree_item.setText(2, date_text)
+            tree_item.setTextAlignment(1, Qt.AlignRight | Qt.AlignVCenter)
+            tree_item.setToolTip(0, str(path))
+            tree_item.setData(0, Qt.UserRole, str(path))
+            tree_item.setIcon(0, icon)
+            
+            self.detail_view.addTopLevelItem(tree_item)
 
     def _icon_for_file(self, path: Path) -> QIcon:
         if path.suffix.lower() in [".png", ".jpg", ".jpeg", ".ico", ".bmp", ".gif"]:
             icon = QIcon(str(path))
             if not icon.isNull():
                 return icon
-        return QIcon.fromTheme("text-x-generic")
+                
+        icon = QIcon.fromTheme("text-x-generic")
+        if not icon.isNull():
+            return icon
+        
+        return self.style().standardIcon(QStyle.SP_FileIcon)
 
     def _apply_selected_files(self):
-        selected = self.icon_view.selectedItems()
+        selected_paths = self._selected_resource_paths()
 
-        if not selected:
-            QMessageBox.information(self, "Hinweis", "Keine Dateien ausgewählt.")
+        if not selected_paths:
+            QMessageBox.information(self,
+                share.locales.tr("Note"),
+                share.locales.tr("No Files selected."))
             return
 
         existing_files = {str(row.file_path) for row in self.alias_rows}
 
-        for item in selected:
-            path = Path(item.data(Qt.UserRole))
+        for path in selected_paths:
+            path = Path(path)
 
             if str(path) in existing_files:
                 continue
@@ -320,6 +466,98 @@ class ResourceBuilderToolWindow(QWidget):
 
         self.right_tabs.setCurrentIndex(0)
 
+    def _on_icon_view_double_clicked(self, item):
+        self._apply_selected_files()
+    
+    def _on_detail_view_double_clicked(self, item, column):
+        self._apply_selected_files()
+    
+    def _on_resource_view_context_menu(self, pos):
+        sender = self.sender()
+
+        menu = QMenu(self)
+
+        act_icon   = menu.addAction(share.locales.tr("Icon"  ))
+        act_list   = menu.addAction(share.locales.tr("List"  ))
+        act_detail = menu.addAction(share.locales.tr("Detail"))
+
+        act_icon.setCheckable(True)
+        act_list.setCheckable(True)
+        act_detail.setCheckable(True)
+
+        act_icon.setChecked  (self.current_view_mode == "icon"  )
+        act_list.setChecked  (self.current_view_mode == "list"  )
+        act_detail.setChecked(self.current_view_mode == "detail")
+
+        if sender is self.detail_view:
+            global_pos = self.detail_view.viewport().mapToGlobal(pos)
+        else:
+            global_pos = self.icon_view.viewport().mapToGlobal(pos)
+
+        act = menu.exec_(global_pos)
+
+        if   act == act_icon:   self._set_resource_view_mode("icon")
+        elif act == act_list:   self._set_resource_view_mode("list")
+        elif act == act_detail: self._set_resource_view_mode("detail")
+
+    def _on_button_view_a(self): self._set_resource_view_mode("icon")
+    def _on_button_view_b(self): self._set_resource_view_mode("list")
+    def _on_button_view_c(self): self._set_resource_view_mode("detail")
+    
+    def _set_resource_view_mode(self, mode: str):
+        self.current_view_mode = mode
+
+        if mode == "detail":
+            self.view_stack.setCurrentWidget(self.detail_view)
+            return
+
+        self.view_stack.setCurrentWidget(self.icon_view)
+
+        if mode == "icon":
+            self.icon_view.setViewMode(QListWidget.IconMode)
+            self.icon_view.setIconSize(QSize(32, 32))
+            self.icon_view.setGridSize(QSize(96, 76))
+            self.icon_view.setResizeMode(QListWidget.Adjust)
+            self.icon_view.setMovement(QListWidget.Static)
+            self.icon_view.setWordWrap(True)
+
+        elif mode == "list":
+            self.icon_view.setViewMode(QListWidget.ListMode)
+            self.icon_view.setIconSize(QSize(24, 24))
+            self.icon_view.setGridSize(QSize())
+            self.icon_view.setResizeMode(QListWidget.Adjust)
+            self.icon_view.setMovement(QListWidget.Static)
+            self.icon_view.setWordWrap(False)
+
+    def _selected_resource_paths(self):
+        result = []
+
+        if self.current_view_mode == "detail":
+            for item in self.detail_view.selectedItems():
+                path = item.data(0, Qt.UserRole)
+                if path:
+                    result.append(Path(path))
+        else:
+            for item in self.icon_view.selectedItems():
+                path = item.data(Qt.UserRole)
+                if path:
+                    result.append(Path(path))
+
+        return result
+
+    def _format_file_size(self, size: int) -> str:
+        units = ["B", "KB", "MB", "GB", "TB"]
+        value = float(size)
+
+        for unit in units:
+            if value < 1024.0 or unit == units[-1]:
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
+            value /= 1024.0
+
+        return f"{size} B"
+        
     def _clear_all_aliases(self):
         for row in self.alias_rows:
             row.setParent(None)
@@ -338,11 +576,9 @@ class ResourceBuilderToolWindow(QWidget):
                 row.deleteLater()
                 return
 
-        QMessageBox.information(
-            self,
-            "Hinweis",
-            "Setze den Fokus zuerst in die Alias-Eingabezeile, die gelöscht werden soll."
-        )
+        QMessageBox.information(self,
+            share.locales.tr("Note"),
+            share.locales.tr("To delete, set the focus into the Alias EditLine."))
 
     def _create_xml(self) -> str:
         lines = [
@@ -391,7 +627,9 @@ class ResourceBuilderToolWindow(QWidget):
 
     def _write_xml_to_editor(self):
         if not self.alias_rows:
-            QMessageBox.information(self, "Hinweis", "Es sind keine Aliase vorhanden.")
+            QMessageBox.information(self,
+                share.locales.tr("Note"),
+                share.locales.tr("No Aliases found."))
             return
 
         self.xml_edit.setPlainText(self._create_xml())
@@ -407,11 +645,11 @@ class ResourceBuilderToolWindow(QWidget):
         if not xml_text:
             return
 
-        qrc_file, _ = QFileDialog.getSaveFileName(
-            self,
-            "QRC-Datei speichern",
+        msg = share.locales.tr("All Files")
+        qrc_file, _ = QFileDialog.getSaveFileName(self,
+            share.locales.tr("Save QRC-File"),
             str(self.current_dir / "images.qrc"),
-            "Qt Resource (*.qrc);;XML (*.xml);;Alle Dateien (*.*)"
+            f"Qt Resource (*.qrc);;XML (*.xml);;{msg} (*.*)"
         )
 
         if not qrc_file:
@@ -420,11 +658,12 @@ class ResourceBuilderToolWindow(QWidget):
         qrc_path = Path(qrc_file)
         qrc_path.write_text(xml_text + "\n", encoding="utf-8")
 
+        msg = share.locales.tr("All Files")
         py_file, _ = QFileDialog.getSaveFileName(
             self,
-            "Resource-Python-Datei speichern",
+            share.locales.tr("Save Resource-Python-File"),
             str(qrc_path.with_name(qrc_path.stem + "_rc.py")),
-            "Python (*.py);;Alle Dateien (*.*)"
+            f"Python (*.py);;{msg} (*.*)"
         )
 
         if not py_file:
@@ -444,27 +683,29 @@ class ResourceBuilderToolWindow(QWidget):
         except FileNotFoundError:
             QMessageBox.critical(
                 self,
-                "pyrcc5 nicht gefunden",
-                "pyrcc5 wurde nicht gefunden.\n\n"
+                share.locales.tr("pyrcc5 not found."),
+                share.locales.tr("pyrcc5 could not found") + ".\n\n"
                 "Alternative:\npython -m PyQt5.pyrcc_main images.qrc -o images_rc.py"
             )
             return
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, share.locales.tr("Error"), str(e))
             return
         
         if proc.returncode != 0:
+            cmd = share.locales.tr("Command")
             QMessageBox.critical(
                 self,
-                "pyrcc5 Fehler",
-                f"Befehl:\n{' '.join(cmd)}\n\nSTDOUT:\n{proc.stdout}\n\nSTDERR:\n{proc.stderr}"
+                share.locales.tr("pyrcc5 Error"),
+                f"{cmd}:\n{' '.join(cmd)}\n\nSTDOUT:\n{proc.stdout}\n\nSTDERR:\n{proc.stderr}"
             )
             return
         
+        msg = share.locales.tr("Resource File successfully writen")
         QMessageBox.information(
             self,
             "Fertig",
-            f"Resource-Dateien wurden geschrieben:\n\n{qrc_path}\n{py_path}"
+            f"{msg}:\n\n{qrc_path}\n{py_path}"
         )
     
     @staticmethod
