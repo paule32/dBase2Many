@@ -61,8 +61,8 @@ class LocalizeCodeEditor(QPlainTextEdit):
         super().__init__(parent)
         self._line_number_area = _LocalizeLineNumberArea(self)
         try:
-            self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
-            self.updateRequest.connect(self.updateLineNumberArea)
+            self.blockCountChanged    .connect(self.updateLineNumberAreaWidth)
+            self.updateRequest        .connect(self.updateLineNumberArea)
             self.cursorPositionChanged.connect(self.highlightCurrentLine)
         except Exception:
             pass
@@ -217,7 +217,7 @@ class LocalizeToolWindow(QWidget):
         self.main_window = main_window
         
         self.setMinimumWidth (920)
-        self.setMinimumHeight(420)
+        self.setMinimumHeight(400)
         
         self.entries = []
         
@@ -290,6 +290,12 @@ class LocalizeToolWindow(QWidget):
         self.gb_source  = QGroupBox(share.locales.tr("Source"), lang_tab)
         self.gb_dest    = QGroupBox(share.locales.tr("Destination"), lang_tab)
         
+        self.gb_source.setMinimumHeight(1500)
+        self.gb_dest  .setMinimumHeight(1500)
+        
+        self.gb_source.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.gb_dest  .setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        
         self.src_group  = QButtonGroup(self)
         self.dst_group  = QButtonGroup(self)
         
@@ -318,8 +324,27 @@ class LocalizeToolWindow(QWidget):
         
         lang_row.addWidget(self.gb_source)
         lang_row.addWidget(self.gb_dest)
-        lang_lay.addLayout(lang_row)
-        lang_lay.addStretch(1)
+        
+        #lang_lay.addLayout(lang_row)
+        #lang_lay.addStretch(1)
+        
+        lang_scroll = QScrollArea(lang_tab)
+        lang_scroll.setWidgetResizable(True)
+        lang_scroll.setFrameShape(QFrame.NoFrame)
+        lang_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        lang_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        lang_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        lang_scroll_host = QWidget()
+        lang_scroll_lay = QVBoxLayout(lang_scroll_host)
+        lang_scroll_lay.setContentsMargins(0, 0, 0, 0)
+        lang_scroll_lay.setSpacing(0)
+        lang_scroll_lay.addLayout(lang_row)
+        lang_scroll_lay.addStretch(1)
+
+        lang_scroll.setWidget(lang_scroll_host)
+
+        lang_lay.addWidget(lang_scroll, 1)
 
         self.msgid_list = QListWidget(msgstr_tab)
         self.msgid_list.setMinimumWidth(240)
@@ -330,12 +355,24 @@ class LocalizeToolWindow(QWidget):
         right_tabs.addTab(lang_tab, share.locales.tr("Language"))
 
         editor_col = QVBoxLayout()
+        editor_hor = QHBoxLayout()
+        
         editor_col.setSpacing(6)
         editor_col.addWidget(QLabel("MSGID:", content))
         
         self.btn_insert = QPushButton(share.locales.tr("Insert"), content)
+        self.btn_apply  = QPushButton(share.locales.tr("Apply" ), content)
+        self.btn_delete = QPushButton(share.locales.tr("Delete"), content)
+        
         self.btn_insert.clicked.connect(self._insert_entry)
-        editor_col.addWidget(self.btn_insert)
+        self.btn_apply .clicked.connect(self._apply_entry)
+        self.btn_delete.clicked.connect(self._delete_selected_entry)
+        
+        editor_hor.addWidget(self.btn_insert)
+        editor_hor.addWidget(self.btn_apply)
+        editor_hor.addWidget(self.btn_delete)
+        
+        editor_col.addLayout(editor_hor)
         
         self.ed_msgid = QLineEdit(content)
         self.ed_msgid.setFont(QFont("Arial", 10))
@@ -344,9 +381,10 @@ class LocalizeToolWindow(QWidget):
         editor_col.addWidget(QLabel("MSGSTR:", content))
         
         self.text_msgstr = LocalizeCodeEditor(content)
-        self.text_msgstr.setMinimumSize(420, 260)
+        self.text_msgstr.setMinimumSize(350, 260)
         editor_col.addWidget(self.text_msgstr, 1)
-
+        editor_col.addStretch()
+        
         btn_col = QVBoxLayout()
         btn_col.setSpacing(6)
         
@@ -354,8 +392,8 @@ class LocalizeToolWindow(QWidget):
         self.ws1.setMinimumHeight(20)
         
         #self.btn_insert       = QPushButton(share.locales.tr("Insert")        , content)
-        self.btn_apply        = QPushButton(share.locales.tr("Apply")         , content)
-        self.btn_delete_msgid = QPushButton(share.locales.tr("Delete MSGID")  , content)
+        #self.btn_apply        = QPushButton(share.locales.tr("Apply")         , content)
+        #self.btn_delete_msgid = QPushButton(share.locales.tr("Delete MSGID")  , content)
         #
         self.btn_open_po      = QPushButton(share.locales.tr("Open")          , content)
         #
@@ -368,8 +406,8 @@ class LocalizeToolWindow(QWidget):
 
         for b in (
             #self.btn_insert,
-            self.btn_apply,
-            self.btn_delete_msgid,
+            #self.btn_apply,
+            #self.btn_delete_msgid,
             #
             self.btn_open_po,
             #
@@ -384,8 +422,8 @@ class LocalizeToolWindow(QWidget):
         
         btn_col.addWidget(self.ws1)
         #btn_col.addWidget(self.btn_insert)
-        btn_col.addWidget(self.btn_apply)
-        btn_col.addWidget(self.btn_delete_msgid)
+        #btn_col.addWidget(self.btn_apply)
+        #btn_col.addWidget(self.btn_delete_msgid)
         btn_col.addSpacing(2)
         
         btn_col.addWidget(self.btn_open_po)
@@ -431,10 +469,10 @@ class LocalizeToolWindow(QWidget):
         self.btn_cut.clicked    .connect(self._cut_from_focused)
         
         self.btn_delete_text    .clicked.connect(self._delete_in_focused)
-        self.btn_delete_msgid   .clicked.connect(self._delete_selected_entry)
+        #self.btn_delete_msgid   .clicked.connect(self._delete_selected_entry)
         
         #self.btn_insert.clicked .connect(self._insert_entry)
-        self.btn_apply.clicked  .connect(self._apply_entry)
+        #self.btn_apply.clicked  .connect(self._apply_entry)
         
         return scroll
 

@@ -193,75 +193,6 @@ QCheckBox::indicator:checked:disabled {{
     border: 1px solid {border_disabled};
 }}
 
-/* =========================
-   QRadioButton (Dark)
-   ========================= */
-QRadioButton {{
-    color: {text_fg};
-    spacing: 8px;
-}}
-
-QRadioButton:hover {{
-    color: {text_hover_fg};
-}}
-
-QRadioButton:disabled {{
-    color: {text_disabled_fg};
-}}
-
-QRadioButton::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 8px; /* rund */
-    border: 1px solid {border};
-    background: {input_bg};
-}}
-
-QRadioButton::indicator:hover {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:focus {{
-    border: 1px solid {accent};
-}}
-
-QRadioButton::indicator:checked {{
-    border: 1px solid {accent};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent},
-        stop:0.35 {accent},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:checked:hover {{
-    border: 1px solid {accent_hover};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_hover},
-        stop:0.35 {accent_hover},
-        stop:0.36 {input_bg},
-        stop:1.0 {input_bg}
-    );
-}}
-
-QRadioButton::indicator:disabled {{
-    background: {disabled_bg};
-    border: 1px solid {border_disabled};
-}}
-
-QRadioButton::indicator:checked:disabled {{
-    border: 1px solid {border_disabled};
-    background: qradialgradient(
-        cx:0.5, cy:0.5, radius:0.5,
-        stop:0.0 {accent_disabled},
-        stop:0.35 {accent_disabled},
-        stop:0.36 {disabled_bg},
-        stop:1.0 {disabled_bg}
-    );
-}}
 
 /* =========================
    QGroupBox (Dark)
@@ -345,14 +276,16 @@ QMdiSubWindow:title {{
     background: 0;
     color: #ffffff;
 }}
-QComboBox {{
-    background: #2a2a2a;          /* Feld grau */
+QComboBox,
+QDateEdit {{
+    background-color: #1f1f1f;
     color: #ffffff;
-    border: 1px solid #333333;
-    padding: 6px 10px;
-    padding-right: 28px;          /* Platz für den Pfeil */
+    border: 1px solid #555555;
+    border-radius: 6px;
+    padding: 4px 20px 4px 8px;
+    selection-background-color: #5a1020;
+    selection-color: #ffffff;
 }}
-
 QComboBox:hover {{
     background: #303030;
 }}
@@ -366,7 +299,7 @@ QComboBox:disabled {{
 QComboBox::drop-down {{
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 24px;
+    width: 12px;
     border-left: 1px solid #333333;
     background: #222222;
 }}
@@ -921,5 +854,43 @@ QRadioButton::indicator:unchecked {{
 QRadioButton::indicator:disabled {{
     border: 2px solid #444444;
     background-color: #2a2a2a;
+}}
+
+QListWidget,
+QListView {{
+    background: #181818;
+    color: #ffffff;
+    border: 1px solid cyan;
+    outline: 0;
+}}
+
+QListWidget::item,
+QListView::item {{
+    padding: 4px 6px;
+    color: #ffffff;
+}}
+
+QListWidget::item:hover,
+QListView::item:hover {{
+    background: #3a1822;
+    color: #ffffff;
+}}
+
+QListWidget::item:selected,
+QListView::item:selected {{
+    background: #5a1020;
+    color: #ffffff;
+}}
+
+QListWidget::item:selected:active,
+QListView::item:selected:active {{
+    background: #7a1f35;
+    color: #ffffff;
+}}
+
+QListWidget::item:selected:!active,
+QListView::item:selected:!active {{
+    background: #4a0d1a;
+    color: #ffffff;
 }}
 """)
