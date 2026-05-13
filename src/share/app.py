@@ -822,7 +822,15 @@ class ProfiledMainWindow(legacy.MainWindow):
     def on_action_file_open(self):
         dlg = legacy.QFileDialog(self, share.locales.tr("Open File..."))
         dlg.setFileMode(legacy.QFileDialog.ExistingFile)
-        filters = [self.language_profile.program_name_filter, "Alle Dateien (*.*)"]
+        filters = [
+            self.language_profile.program_name_filter,
+            "C64/PRG/BIN (*.prg *.bin *.c64 *.rom)",
+            "Assembler Files (*.asm *.s *.inc)",
+            "Disk Images (*.d64 *.d71 *.d81)",
+            "Tape Images (*.tap *.t64)",
+            "Cartridge Images (*.crt)",
+            "All Files (*.*)",
+        ]
         dlg.setNameFilters(filters)
         dlg.setDefaultSuffix(self.language_profile.default_source_extension.lstrip("."))
         dlg.setOption(legacy.QFileDialog.DontUseNativeDialog, True)
@@ -835,6 +843,13 @@ class ProfiledMainWindow(legacy.MainWindow):
 
         sub = self.mdi.activeSubWindow()
         win = sub.widget() if sub else None
+
+        # C64 hexviewer active ?
+        if isinstance(win, legacy.C64DisasmViewer):
+            win.close()
+            sub.close()
+            legacy.open_c64_disasm_viewer_from_menu(self, path)
+            return
 
         if isinstance(win, legacy.FileEditorWindow):
             win.open_path_in_tab(path)

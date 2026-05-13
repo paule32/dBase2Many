@@ -26,6 +26,7 @@ from   share.utildef.theme              import *
 
 from   share.modules.locales            import *
 from   share.modules.doxygen            import *
+from   share.modules.c64_disasm_viewer  import *
 from   share.modules.resource_builder   import *
 
 from   share.widgets.button.glossy      import *
@@ -9603,6 +9604,7 @@ class MainWindow(QMainWindow):
             if hasattr(self, "menu_edit"):        self.menu_edit       .setTitle(share.locales.tr("Edit"))
             if hasattr(self, "menu_display"):     self.menu_display    .setTitle(share.locales.tr("View"))
             if hasattr(self, "menu_tools"):       self.menu_tools      .setTitle(share.locales.tr("Tools"))
+            if hasattr(self, "menu_c64_tools"):   self.menu_c64_tools  .setTitle(share.locales.tr("C64 Tools"))
             if hasattr(self, "menu_windows"):     self.menu_windows    .setTitle(share.locales.tr("Window"))
             if hasattr(self, "menu_help"):        self.menu_help       .setTitle(share.locales.tr("Help"))
             if hasattr(self, "menu_language"):    self.menu_language   .setTitle(share.locales.tr("Language"))
@@ -9933,6 +9935,9 @@ class MainWindow(QMainWindow):
         self.menu_tools = menubar.addMenu(share.locales.tr("Tools"))
         self.menu_tools.setFont(f2)
         
+        self.menu_c64_tools = menubar.addMenu(share.locales.tr("C64 Tools"))
+        self.menu_c64_tools.setFont(f2)
+        
         self.menu_windows = menubar.addMenu(share.locales.tr("Window"))
         self.menu_windows.setFont(f2)
         
@@ -10121,9 +10126,9 @@ class MainWindow(QMainWindow):
         self.menu_file.addAction(action_file_database)
         self.menu_file.addAction(action_file_exit)
         
-        self.action_window_cascade   = QAction('Cascade',   self, triggered = self.mdi.cascadeSubWindows)
-        self.action_window_tile      = QAction('Tiled',     self, triggered = self.mdi.tileSubWindows)
-        self.action_window_close_all = QAction('Close All', self, triggered = self.close_all_mdi_subwindows)
+        self.action_window_cascade   = QAction(share.locales.tr("Cascade"),   self, triggered = self.mdi.cascadeSubWindows)
+        self.action_window_tile      = QAction(share.locales.tr("Tiled"),     self, triggered = self.mdi.tileSubWindows)
+        self.action_window_close_all = QAction(share.locales.tr("Close All"), self, triggered = self.close_all_mdi_subwindows)
         
         
         action_tools_locales    = QAction(share.locales.tr("Locales"),          self, triggered = self.on_tools_locales_menu)
@@ -10137,6 +10142,9 @@ class MainWindow(QMainWindow):
         self.menu_tools.addAction(action_tools_helpwriter)
         self.menu_tools.addAction(action_tools_resources )
 
+        action_c64_tools_hexviewer = QAction(share.locales.tr("Hex Viewer"), self, triggered = self.on_tools_c64_hexview_menu)
+        self.menu_c64_tools.addAction(action_c64_tools_hexviewer)
+        
         try:
             self.menu_windows.aboutToShow.connect(self.rebuild_windows_menu)
             self.mdi.subWindowActivated  .connect(lambda _=None: self.rebuild_windows_menu())
@@ -10162,16 +10170,6 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         
-        try:
-            self.menu_file.aboutToShow.connect(self._update_file_menu_dynamic_actions)
-        except Exception:
-            pass
-
-        try:
-            self.mdi.subWindowActivated.connect(lambda _=None: self._update_file_menu_dynamic_actions())
-        except Exception:
-            pass
-
         self._update_file_menu_dynamic_actions()
 
         try:
@@ -10213,6 +10211,9 @@ class MainWindow(QMainWindow):
         #        if w is not None:
         #            QMessageBox.information(self, "Title", sub.windowTitle())
         self.ensure_localize_tool(focus = True)
+
+    def on_tools_c64_hexview_menu(self):
+        self.ensure_c64_hexview_tool(focus = True)
         
     def on_tools_doxygen_menu(self):
         self.ensure_doxygen_tool(focus = True)
@@ -11057,6 +11058,47 @@ class MainWindow(QMainWindow):
         pass
     def on_action_file_web_wizard(self):
         pass
+
+    def ensure_c64_hexview_tool(self, focus: bool = True):
+        try:
+            existing = getattr(self, '_c64_hexview_tool_window', None)
+            if existing is not None:
+                for sub in self.mdi.subWindowList():
+                    if sub.widget() is existing:
+                        existing.show()
+                        existing.raise_()
+                        if focus:
+                            self.mdi.setActiveSubWindow(sub)
+                        return existing
+        except Exception:
+            pass
+        try:
+            widget = C64DisasmViewer(self)
+            self._c64_hexview_tool_window = widget
+            sub = self.mdi.addSubWindow(widget)
+            mark_escape_close(sub)
+            sub.setWindowTitle('Commodore-64 Hex-Viewer')
+            sub.resize(756, 420)
+            widget.show()
+            sub.show()
+            if focus:
+                self.mdi.setActiveSubWindow(sub)
+            try:
+                widget.destroyed.connect(lambda *_: setattr(self, '_c64_hexview_tool_window', None))
+            except Exception:
+                pass
+            return widget
+        except Exception as e:
+            info = share.excepts.exception_info(e)
+            emsg = (
+                  f"Hex viewer could not be open:\n"
+                + f"file: {info['file']}: line: {info['line']}:\n"
+                + f"{info['function']}\n"
+                + f"code: {info['code']}\n"
+                + f"error: {info['error']}"
+            )
+            QMessageBox.warning(self, 'C64 Hex viewer', emsg)
+            return None
     
     def ensure_doxygen_tool(self, focus: bool = True):
         try:
@@ -11328,7 +11370,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------------------
     def on_action_file_open(self):
         try:
-            dlg = QFileDialog(self, share.locales.tr("Open File..."))
+            dlg = QFileDialog(self, share.locales.tr("Open Filerr..."))
             dlg.setFileMode(QFileDialog.ExistingFiles)
             dlg.setNameFilters([ share.locales.tr("dBaseSourcecodeFiles"), share.locales.tr("allFiles")])
             dlg.selectNameFilter(share.locales.tr("dBaseSourcecodeFiles"))

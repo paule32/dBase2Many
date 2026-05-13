@@ -272,3 +272,5 @@ src/share/modules/2
 src/share/editors/1editor.py
 src/share/editors/2
 src/share/modules/3
+src/share/modules/c64_disasm_viewer_sync.py
+src/share/modules/c64_disasm_viewer - Kopie.py

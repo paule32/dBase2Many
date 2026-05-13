@@ -26,6 +26,7 @@ TableDesignerDialog = legacy.TableDesignerDialog
 TableRecordEditorDialog = legacy.TableRecordEditorDialog
 RegieCenter = legacy.RegieCenter
 IconTab = legacy.IconTab
+C64DisasmViewer = legacy.C64DisasmViewer
 FormDesignerWindow = legacy.FormDesignerWindow
 ObjectInspectorDock = legacy.ObjectInspectorDock
 ObjectPaletteDock = legacy.ObjectPaletteDock
@@ -54,6 +55,7 @@ __all__ = [
     "IconTab",
     "FormDesignerWindow",
     "DoxyGenToolWindow",
+    "C64DisasmViewer",
     "ObjectInspectorDock",
     "ObjectPaletteDock",
     "SqlBuilderWindow",
