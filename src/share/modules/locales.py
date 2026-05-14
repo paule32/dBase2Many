@@ -25,19 +25,20 @@ class LanguageRadioFlag(QWidget):
         super().__init__(parent)
 
         self.code      = code
-        self.text      = text
-        self.flag_path = flag_path
+        self.text      = share.locales.tr(text)
+        self.flag_path = f":/flags/{flag_path}.png"
 
-        self.radio = QRadioButton(code)
-        self.radio.setToolTip(text)
+        self.radio = QRadioButton(self.code)
+        self.radio.setToolTip(self.text)
         
         self.radio.setFont(QFont("Consolas", 10))
 
         self.flag = QLabel()
         self.flag.setFixedSize(22, 12)
         self.flag.setAlignment(Qt.AlignCenter)
+        self.flag.setToolTip(self.text)
 
-        pix = QPixmap(flag_path)
+        pix = QPixmap(self.flag_path)
         if not pix.isNull():
             self.flag.setPixmap(
                 pix.scaled(
@@ -127,75 +128,83 @@ class LocalizeCodeEditor(QPlainTextEdit):
 
 class LocalizeToolWindow(QWidget):
     LANGUAGE_CODES = [
-        ("ENU", "English (USA)", ":/flags/enu.png"),
-        ("ENG", "English", ":/flags/eng.png"),
-        ("DEU", "German", ":/flags/deu.png"),
-        ("FRA", "French", ":/flags/fra.png"),
-        ("ESP", "Spanish", ":/flags/esp.png"),
-        ("ITA", "Italian", ":/flags/ita.png"),
-        ("NLD", "Dutch", ":/flags/nld.png"),
-        ("PTB", "Portuguese (Brazil)", ":/flags/ptb.png"),
-        ("POR", "Portuguese", ":/flags/por.png"),
-        ("PLK", "Polish", ":/flags/plk.png"),
-        ("RUS", "Russian", ":/flags/rus.png"),
+        ("ENU", "English (USA)" , "enu"),
+        ("ENG", "English"       , "eng"),
+        ("DEU", "German"        , "deu"),
+        ("FRA", "French"        , "fra"),
+        ("ESP", "Spanish"       , "esp"),
+        ("ITA", "Italian"       , "ita"),
+        ("NLD", "Dutch"         , "nld"),
+        
+        ("PTB", "Portuguese (Brazil)", "ptb"),
+        
+        ("POR", "Portuguese"    , "por"),
+        ("PLK", "Polish"        , "plk"),
+        ("RUS", "Russian"       , "rus"),
 
-        ("AFR", "Afrikaans", ":/flags/afr.png"),
-        ("ALB", "Albanian", ":/flags/alb.png"),
-        ("ARA", "Arabic", ":/flags/ara.png"),
-        ("ARM", "Armenian", ":/flags/arm.png"),
-        ("AZE", "Azerbaijani", ":/flags/aze.png"),
-        ("BAQ", "Basque", ":/flags/baq.png"),
-        ("BEL", "Belarusian", ":/flags/bel.png"),
-        ("BEN", "Bengali", ":/flags/ben.png"),
-        ("BOS", "Bosnian", ":/flags/bos.png"),
-        ("BGR", "Bulgarian", ":/flags/bgr.png"),
-        ("CAT", "Catalan", ":/flags/cat.png"),
-        ("CHS", "Chinese (Simplified)", ":/flags/chs.png"),
-        ("CHT", "Chinese (Traditional)", ":/flags/cht.png"),
-        ("HRV", "Croatian", ":/flags/hrv.png"),
-        ("CSY", "Czech", ":/flags/csy.png"),
-        ("DAN", "Danish", ":/flags/dan.png"),
-        ("ETI", "Estonian", ":/flags/eti.png"),
-        ("FIN", "Finnish", ":/flags/fin.png"),
-        ("GLC", "Galician", ":/flags/glc.png"),
-        ("GEO", "Georgian", ":/flags/geo.png"),
-        ("ELL", "Greek", ":/flags/ell.png"),
-        ("HEB", "Hebrew", ":/flags/heb.png"),
-        ("HIN", "Hindi", ":/flags/hin.png"),
-        ("HUN", "Hungarian", ":/flags/hun.png"),
-        ("ISL", "Icelandic", ":/flags/isl.png"),
-        ("IND", "Indonesian", ":/flags/ind.png"),
-        ("GLE", "Irish", ":/flags/gle.png"),
-        ("JPN", "Japanese", ":/flags/jpn.png"),
-        ("KAN", "Kannada", ":/flags/kan.png"),
-        ("KAZ", "Kazakh", ":/flags/kaz.png"),
-        ("KOR", "Korean", ":/flags/kor.png"),
-        ("LVI", "Latvian", ":/flags/lvi.png"),
-        ("LTH", "Lithuanian", ":/flags/lth.png"),
-        ("MKD", "Macedonian", ":/flags/mkd.png"),
-        ("MSL", "Malay", ":/flags/msl.png"),
-        ("MAL", "Malayalam", ":/flags/mal.png"),
-        ("MAR", "Marathi", ":/flags/mar.png"),
-        ("MON", "Mongolian", ":/flags/mon.png"),
-        ("NEP", "Nepali", ":/flags/nep.png"),
-        ("NOR", "Norwegian", ":/flags/nor.png"),
-        ("NOB", "Norwegian Bokmål", ":/flags/nob.png"),
-        ("NNO", "Norwegian Nynorsk", ":/flags/nno.png"),
-        ("FAR", "Persian", ":/flags/far.png"),
-        ("ROM", "Romanian", ":/flags/rom.png"),
-        ("SRB", "Serbian", ":/flags/srb.png"),
-        ("SRL", "Serbian (Latin)", ":/flags/srl.png"),
-        ("SKY", "Slovak", ":/flags/sky.png"),
-        ("SLV", "Slovenian", ":/flags/slv.png"),
-        ("SVE", "Swedish", ":/flags/sve.png"),
-        ("SWA", "Swahili", ":/flags/swa.png"),
-        ("TAM", "Tamil", ":/flags/tam.png"),
-        ("TEL", "Telugu", ":/flags/tel.png"),
-        ("THA", "Thai", ":/flags/tha.png"),
-        ("TRK", "Turkish", ":/flags/trk.png"),
-        ("UKR", "Ukrainian", ":/flags/ukr.png"),
-        ("URD", "Urdu", ":/flags/urd.png"),
-        ("VIT", "Vietnamese", ":/flags/vit.png"),
+        ("AFR", "Afrikaans"     , "afr"),
+        ("ALB", "Albanian"      , "alb"),
+        ("ARA", "Arabic"        , "ara"),
+        ("ARM", "Armenian"      , "arm"),
+        ("AZE", "Azerbaijani"   , "aze"),
+        ("BAQ", "Basque"        , "baq"),
+        ("BEL", "Belarusian"    , "bel"),
+        ("BEN", "Bengali"       , "ben"),
+        ("BOS", "Bosnian"       , "bos"),
+        ("BGR", "Bulgarian"     , "bgr"),
+        ("CAT", "Catalan"       , "cat"),
+        
+        ("CHS", "Chinese (Simplified)" , "chs"),
+        ("CHT", "Chinese (Traditional)", "cht"),
+        
+        ("HRV", "Croatian"      , "hrv"),
+        ("CSY", "Czech"         , "csy"),
+        ("DAN", "Danish"        , "dan"),
+        ("ETI", "Estonian"      , "eti"),
+        ("FIN", "Finnish"       , "fin"),
+        ("GLC", "Galician"      , "glc"),
+        ("GEO", "Georgian"      , "geo"),
+        ("ELL", "Greek"         , "ell"),
+        ("HEB", "Hebrew"        , "heb"),
+        ("HIN", "Hindi"         , "hin"),
+        ("HUN", "Hungarian"     , "hun"),
+        ("ISL", "Icelandic"     , "isl"),
+        ("IND", "Indonesian"    , "ind"),
+        ("GLE", "Irish"         , "gle"),
+        ("JPN", "Japanese"      , "jpn"),
+        ("KAN", "Kannada"       , "kan"),
+        ("KAZ", "Kazakh"        , "kaz"),
+        ("KOR", "Korean"        , "kor"),
+        ("LVI", "Latvian"       , "lvi"),
+        ("LTH", "Lithuanian"    , "lth"),
+        ("MKD", "Macedonian"    , "mkd"),
+        ("MSL", "Malay"         , "msl"),
+        ("MAL", "Malayalam"     , "mal"),
+        ("MAR", "Marathi"       , "mar"),
+        ("MON", "Mongolian"     , "mon"),
+        ("NEP", "Nepali"        , "nep"),
+        ("NOR", "Norwegian"     , "nor"),
+        
+        ("NOB", "Norwegian Bokmål" , "nob"),
+        ("NNO", "Norwegian Nynorsk", "nno"),
+        
+        ("FAR", "Persian"       , "far"),
+        ("ROM", "Romanian"      , "rom"),
+        ("SRB", "Serbian"       , "srb"),
+        
+        ("SRL", "Serbian (Latin)", "srl"),
+        
+        ("SKY", "Slovak"        , "sky"),
+        ("SLV", "Slovenian"     , "slv"),
+        ("SVE", "Swedish"       , "sve"),
+        ("SWA", "Swahili"       , "swa"),
+        ("TAM", "Tamil"         , "tam"),
+        ("TEL", "Telugu"        , "tel"),
+        ("THA", "Thai"          , "tha"),
+        ("TRK", "Turkish"       , "trk"),
+        ("UKR", "Ukrainian"     , "ukr"),
+        ("URD", "Urdu"          , "urd"),
+        ("VIT", "Vietnamese"    , "vit"),
     ]
 
     HEADER_FIELDS = [
@@ -309,15 +318,12 @@ class LocalizeToolWindow(QWidget):
         dst_lay.setSpacing(4)
         
         for code, title, flag_path in self.LANGUAGE_CODES:
-            tr_code  = share.locales.tr(code)
-            tr_title = share.locales.tr(title)
-            
-            row_src = LanguageRadioFlag(tr_code + " ", tr_title, flag_path, self.gb_source)
+            row_src = LanguageRadioFlag(code + " ", title, flag_path, self.gb_source)
             self.src_group.addButton(row_src.radio)
             self.src_radios[code] = row_src.radio
             src_lay.addWidget(row_src)
             
-            row_dst = LanguageRadioFlag(tr_code + " ", tr_title, flag_path, self.gb_dest)
+            row_dst = LanguageRadioFlag(code + " ", title, flag_path, self.gb_dest)
             self.dst_group.addButton(row_dst.radio)
             self.dst_radios[code] = row_dst.radio
             dst_lay.addWidget(row_dst)
@@ -329,10 +335,12 @@ class LocalizeToolWindow(QWidget):
         #lang_lay.addStretch(1)
         
         lang_scroll = QScrollArea(lang_tab)
+        
         lang_scroll.setWidgetResizable(True)
         lang_scroll.setFrameShape(QFrame.NoFrame)
-        lang_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        lang_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        lang_scroll.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded )
+        lang_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded )
         lang_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         lang_scroll_host = QWidget()

@@ -11119,7 +11119,7 @@ class MainWindow(QMainWindow):
             sub = self.mdi.addSubWindow(widget)
             mark_escape_close(sub)
             sub.setWindowTitle('DoxyGen')
-            sub.resize(856, 580)
+            sub.resize(856, 480)
             widget.show()
             sub.show()
             if focus:

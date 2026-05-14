@@ -1,9 +1,9 @@
 <RCC>
     <qresource prefix="/locales/de">
         <file>cc.mo</file>
-        <file>dbase.mo</file>
         <file>doxygen.mo</file>
-        <file>lisp.mo</file>
         <file>pascal.mo</file>
+        <file>dbase.mo</file>
+        <file>lisp.mo</file>
     </qresource>
 </RCC>

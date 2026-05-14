@@ -858,6 +858,7 @@ QRadioButton::indicator:disabled {{
 
 QListWidget,
 QListView {{
+font-family: "Consolas";
     background: #181818;
     color: #ffffff;
     border: 1px solid cyan;
@@ -866,7 +867,7 @@ QListView {{
 
 QListWidget::item,
 QListView::item {{
-    padding: 4px 6px;
+    padding: 1px 6px;
     color: #ffffff;
 }}
 
@@ -957,5 +958,12 @@ QProgressBar QPushButton:hover {{
 }}
 QProgressBar QPushButton:pressed {{
     background-color: #600000;
+}}
+QToolTip {{
+    background-color: #303030;
+    color: yellow;
+    border: 1px solid #808080;
+    padding: 5px;
+    font: 11pt Arial;
 }}
 """)

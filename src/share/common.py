@@ -134,7 +134,8 @@ try:
     # resources suff like icons, ...
     # -----------------------------------------------------------------------
     import resources_rc
-    import share.resrces.locales_de_rc
+    import share.resrces.images_rc
+    import share.resrces.de_locales_rc
     
     # -----------------------------------------------------------------------
     # debug log file beyond the exe application ...
