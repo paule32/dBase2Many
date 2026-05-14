@@ -893,4 +893,69 @@ QListView::item:selected:!active {{
     background: #4a0d1a;
     color: #ffffff;
 }}
+QProgressDialog {{
+    background-color: #101010;
+    color: #ffffff;
+}}
+QProgressDialog QLabel {{
+    color: #ffffff;
+}}
+QProgressDialog QProgressBar {{
+    color: #ffffff;
+    background-color: #1a1a1a;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    text-align: center;
+}}
+QProgressDialog QProgressBar::chunk {{
+    background-color: #8b0000;
+    border-radius: 3px;
+}}
+QProgressDialog QPushButton {{
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border: 1px solid #8b0000;
+    border-radius: 5px;
+    padding: 4px 12px;
+}}
+QProgressDialog QPushButton:hover {{
+    background-color: #2a0000;
+    border: 1px solid #ff3333;
+}}
+QProgressDialog QPushButton:pressed {{
+    background-color: #600000;
+}}
+
+QProgressBar {{
+    background-color: #101010;
+    color: #ffffff;
+}}
+QProgressBar QLabel {{
+    color: #ffffff;
+}}
+QProgressBar {{
+    color: #ffffff;
+    background-color: #1a1a1a;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    text-align: center;
+}}
+QProgressBar::chunk {{
+    background-color: #8b0000;
+    border-radius: 3px;
+}}
+QProgressBar QPushButton {{
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border: 1px solid #8b0000;
+    border-radius: 5px;
+    padding: 4px 12px;
+}}
+QProgressBar QPushButton:hover {{
+    background-color: #2a0000;
+    border: 1px solid #ff3333;
+}}
+QProgressBar QPushButton:pressed {{
+    background-color: #600000;
+}}
 """)

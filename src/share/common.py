@@ -13,7 +13,7 @@ try:
     # import some internal used modules ...
     # -----------------------------------------------------------------------
     from dataclasses import dataclass, field
-    from typing      import Dict, List, Optional, Union, Any, TextIO
+    from typing      import Dict, List, Optional, Union, Any, TextIO, Tuple
     from pathlib     import Path
     from copy        import deepcopy
     
@@ -53,6 +53,11 @@ try:
     from   datetime import *
     
     # -----------------------------------------------------------------------
+    # disassembler stuff ...
+    # -----------------------------------------------------------------------
+    from   capstone import *
+    
+    # -----------------------------------------------------------------------
     # i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
     # -----------------------------------------------------------------------
     import zipfile
@@ -84,7 +89,7 @@ try:
         QRegularExpression, QRectF, QPointF, qRegisterResourceData, QUrl,
         qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
         QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
-        QBuffer, QSettings, QDateTime
+        QBuffer, QSettings, QDateTime, QProcess, QAbstractTableModel,
     )
     from PyQt5.QtGui     import (
         QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
@@ -110,7 +115,7 @@ try:
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
         QScrollArea, QAbstractButton, QButtonGroup, QFormLayout,
         QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox,
-        QStackedWidget,
+        QStackedWidget, QProgressDialog,
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,

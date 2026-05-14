@@ -3,3 +3,5 @@ reportlab
 PyQt5
 PyQtWebEngine
 antlr4-python3-runtime
+capstone
+pefile
