@@ -966,4 +966,93 @@ QToolTip {{
     padding: 5px;
     font: 11pt Arial;
 }}
+
+QSpinBox {{
+    background-color: #1e1418;
+    color: #f4d7df;
+    border: 1px solid #7a1f35;
+    border-radius: 4px;
+    padding: 2px 38px 2px 6px;
+    selection-background-color: #8b263f;
+    selection-color: #ffffff;
+    font: 10pt "Arial";
+}}
+
+/* DOWN links von UP */
+QSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: right center;
+    width: 18px;
+    right: 18px;
+    background-color: #5a1728;
+    border-left: 1px solid #7a1f35;
+}}
+
+/* UP ganz rechts */
+QSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: right center;
+    width: 18px;
+    right: 0px;
+    background-color: #5a1728;
+    border-left: 1px solid #7a1f35;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}}
+
+QSpinBox::down-button:hover,
+QSpinBox::up-button:hover {{
+    background-color: #8b263f;
+}}
+
+QSpinBox::down-button:pressed,
+QSpinBox::up-button:pressed {{
+    background-color: #b33755;
+}}
+
+QSpinBox::down-arrow {{
+    image: url(:/icons/spin_down.png);
+    width: 10px;
+    height: 10px;
+}}
+
+QSpinBox::up-arrow {{
+    image: url(:/icons/spin_up.png);
+    width: 10px;
+    height: 10px;
+}}
+
+QSpinBox::down-arrow {{
+    image: url(:/icons/arrow_down.png);
+}}
+QSpinBox::up-arrow {{
+    image: url(:/icons/arrow_up.png);
+}}
+
+/* ----------------- */
+QScrollArea::up-arrow:vertical,
+QScrollBar::up-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_up.png);
+}}
+QScrollArea::down-arrow:vertical,
+QScrollBar::down-arrow:vertical {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_down.png);
+}}
+QScrollArea::left-arrow:horizontal,
+QScrollBar::left-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_left.png);
+}}
+QScrollArea:right-arrow:horizontal
+QScrollBar::right-arrow:horizontal {{
+    width: 12px;
+    height: 12px;
+    image: url(:/icons/arrow_right.png);
+}}
+
 """)

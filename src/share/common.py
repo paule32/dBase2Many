@@ -90,6 +90,7 @@ try:
         qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
         QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
         QBuffer, QSettings, QDateTime, QProcess, QAbstractTableModel,
+        QStringListModel,
     )
     from PyQt5.QtGui     import (
         QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,
@@ -98,7 +99,7 @@ try:
         QIntValidator, QPainterPath, QLinearGradient, QRadialGradient,
         QKeySequence, QTextFormat, QBrush, QGuiApplication, QTextOption,
         QTextCursor, QTextListFormat, QTextTableCellFormat, QTextTableFormat,
-        QTextLength
+        QTextLength, QDesktopServices
     )
     from PyQt5.QtWidgets import (
         QApplication, QMainWindow, QWidget, QDialog, QFrame, QPushButton,
@@ -113,7 +114,7 @@ try:
         QTableView, QAbstractItemView, QStyleOptionComplex, QProxyStyle,
         QToolButton, QInputDialog, QTreeWidgetItem, QTreeView, QSplitter,
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
-        QScrollArea, QAbstractButton, QButtonGroup, QFormLayout,
+        QScrollArea, QAbstractButton, QButtonGroup, QFormLayout, QListView,
         QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox,
         QStackedWidget, QProgressDialog,
     )

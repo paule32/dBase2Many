@@ -412,15 +412,32 @@ class DoxyButton(QPushButton):
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+class LinkLabel(QLabel):
+    def __init__(self, text, url, parent=None):
+        super().__init__(text, parent)
+        self.url = url
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(url)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            QDesktopServices.openUrl(QUrl(self.url))
+        super().mousePressEvent(event)
+
+
+# ---------------------------------------------------------------------------
 # \brief this is a helper class for QLabel to reduce code space.
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
-class DoxyLabel(QLabel):
+class DoxyLabel(LinkLabel):
     def __init__(self, parent=None, help_str:str="", flag:int=0):
-        super().__init__(parent.owner)
-        
         self.help   = share.locales.tr(help_str)
+        web_url     = "https://www.doxygen.nl/manual/config.html#cfg_"
+        hlp_txt     = help_str.lower()
+        web_lnk     = f"{web_url}{hlp_txt}"
         
+        super().__init__(self.help, web_lnk, parent.owner)
         self.setProperty("help", self.help)
         
         self.parent = parent
@@ -772,6 +789,203 @@ class DoxyComboBox(QWidget):
         super().enterEvent(event)
 
 
+class WizardSettings(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.pages = [
+            "Project",
+            "Mode",
+            "Output",
+            "Diagrams"
+        ]
+
+        self.list_view = QListView(self)
+        self.model = QStringListModel(self.pages, self)
+        self.list_view.setModel(self.model)
+
+        self.stack = QStackedWidget(self)
+
+        self.stack.addWidget(self.create_page_project("Project Page"))
+        self.stack.addWidget(self.create_page("Mode Page"))
+        self.stack.addWidget(self.create_page("Output Page"))
+        self.stack.addWidget(self.create_page("Diagrams Page"))
+
+        splitter = QSplitter(Qt.Horizontal, self)
+        splitter.addWidget(self.list_view)
+        splitter.addWidget(self.stack)
+        splitter.setSizes([160, 500])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(splitter)
+
+        self.list_view.clicked.connect(self.on_page_selected)
+        self.list_view.setCurrentIndex(self.model.index(0, 0))
+        self.stack.setCurrentIndex(0)
+
+    def create_page(self, title):
+        page = QWidget(self)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0,0,0,0)
+        
+        scroll = QScrollArea(page)
+        scroll.setWidgetResizable(True)
+        
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4,4,4,4)
+        content_layout.setSpacing(4)
+
+        label = QLabel(title, page)
+        content_layout.addWidget(label)
+        content_layout.addStretch()
+        
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        
+        lbl_layout = QHBoxLayout()
+        btn_prev   = QPushButton(share.locales.tr("Prev"))
+        btn_next   = QPushButton(share.locales.tr("Next"))
+        
+        lbl_layout.addWidget(btn_prev)
+        lbl_layout.addStretch()
+        lbl_layout.addWidget(btn_next)
+        
+        page_layout.addLayout(lbl_layout)
+
+        return page
+    
+    def create_page_project(self, title):
+        page = QWidget(self)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0,0,0,0)
+        
+        scroll = QScrollArea(page)
+        scroll.setWidgetResizable(True)
+        
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4,4,4,4)
+        content_layout.setSpacing(4)
+
+        label = QLabel(share.locales.tr(
+            "Provide some information about "
+            "the project you are documenting"),
+            page)
+        content_layout.addWidget(label)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Project name:"))
+        label.setStyleSheet("color:white;weight:normal;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        content_layout.addLayout(hlay)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Project synopsis:"))
+        label.setStyleSheet("color:white;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        content_layout.addLayout(hlay)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Project version or id:"))
+        label.setStyleSheet("color:white;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        content_layout.addLayout(hlay)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Project logo:"))
+        label.setStyleSheet("color:white;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        lbbtn = QPushButton(share.locales.tr("Select..."))
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        hlay.addWidget(lbbtn)
+        content_layout.addLayout(hlay)
+        
+        skipper = QLabel("")
+        skipper.resize(120, 22)
+        content_layout.addWidget(skipper)
+        
+        label = QLabel(share.locales.tr("Specify the directory to scan for source code"))
+        content_layout.addWidget(label)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Source code directory:"))
+        label.setStyleSheet("color:white;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        lbbtn = QPushButton(share.locales.tr("Select..."))
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        hlay.addWidget(lbbtn)
+        content_layout.addLayout(hlay)
+        
+        skipper = QWidget()
+        skipper.resize(120, 22)
+        content_layout.addWidget(skipper)
+        
+        hlay  = QHBoxLayout()
+        label = QLabel(share.locales.tr("Destination directory:"))
+        label.setStyleSheet("color:white;weight:normal;")
+        label.setFont(QFont("Arial", 9))
+        label.font().setBold(False)
+        label.setMinimumWidth(130)
+        lined = QLineEdit()
+        lbbtn = QPushButton(share.locales.tr("Select..."))
+        
+        hlay.addWidget(label)
+        hlay.addWidget(lined)
+        hlay.addWidget(lbbtn)
+        content_layout.addLayout(hlay)
+        
+        content_layout.addStretch()
+        
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        
+        lbl_layout = QHBoxLayout()
+        btn_prev   = QPushButton(share.locales.tr("Prev"))
+        btn_next   = QPushButton(share.locales.tr("Next"))
+        
+        lbl_layout.addWidget(btn_prev)
+        lbl_layout.addStretch()
+        lbl_layout.addWidget(btn_next)
+        
+        page_layout.addLayout(lbl_layout)
+
+        return page
+
+    def on_page_selected(self, index):
+        self.stack.setCurrentIndex(index.row())
+
 # ---------------------------------------------------------------------------
 # \brief this is the doxygen tool window for help / documenting the source.
 # ---------------------------------------------------------------------------
@@ -819,34 +1033,42 @@ class DoxyGenToolWindow(QWidget):
         btn_row.addWidget(self.btn_load)
         
         left_lay.addLayout(btn_row)
-
+        
         self.btn_save  .clicked.connect(self.save_project_as)
         self.btn_delete.clicked.connect(self._delete_selected_project)
         self.btn_load  .clicked.connect(self._load_selected_project)
-
+        
         self.main_splitter.addWidget(self.left_host)
-
+        
         self.right_host = QWidget()
         right_lay = QVBoxLayout(self.right_host)
         right_lay.setContentsMargins(0, 0, 0, 0)
-
+        
+        hlay = QHBoxLayout()
+        self.lineCWD = QLineEdit()
+        self.btn_CWD = QPushButton(share.locales.tr("Select"))
+        self.txt_CWD = QLabel(share.locales.tr("Specify the working directory from which doxygen will run"))
+        
+        hlay.addWidget(self.lineCWD)
+        hlay.addWidget(self.btn_CWD)
+        
+        right_lay.addWidget(self.txt_CWD)
+        right_lay.addLayout(hlay)
+        
         self.tabs = QTabWidget()
         right_lay.addWidget(self.tabs)
+        
         self.main_splitter.addWidget(self.right_host)
         self.main_splitter.setSizes([260, 940])
-
+        
+        
         self.tabs.addTab(self._build_wizard_tab(), share.locales.tr("Wizard"))
         self.tabs.addTab(self._build_expert_tab(), share.locales.tr("Expert"))
         self.tabs.addTab(self._build_run_tab   (), share.locales.tr("Run"))
 
     def _build_wizard_tab(self):
-        page = QWidget()
-        lay = QVBoxLayout(page)
-        txt = QTextEdit()
-        txt.setReadOnly(False)
-        txt.setHtml("<b>DoxyGen Wizard</b><br><p>Hier kann später der geführte Assistent erweitert werden.</p>")
-        lay.addWidget(txt)
-        self.wizard_text = txt
+        page = WizardSettings()
+        #lay  = QVBoxLayout(page)
         return page
 
     def _create_scroll_page(self):
@@ -931,8 +1153,8 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par1, "BRIEF_MEMBER_DESC"),
             DoxyCheckBox(self.par1, "REPEAT_BRIEF"),
             
-            DoxyLineBtn3(self.par1, "ABBREVIATVE_BRIEF"),
-            DoxyTextEdit(self.par1, "ABBREVIATVE_BRIEF", []),
+            DoxyLineBtn3(self.par1, "ABBREVIATE_BRIEF"),
+            DoxyTextEdit(self.par1, "ABBREVIATE_BRIEF", []),
             
             DoxyCheckBox(self.par1, "ALWAYS_DETAILED_SEC"),
             DoxyCheckBox(self.par1, "INLINE_INHERITED_MEMB"),
@@ -966,8 +1188,8 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_VHDL"),
             DoxyCheckBox(self.par1, "OPTIMIZE_OUTPUT_SLICE"),
             
-            DoxyLineBtn3(self.par1, "EXTERNAL_MAPPING"),
-            DoxyTextEdit(self.par1, "EXTERNAL_MAPPING", []),
+            DoxyLineBtn3(self.par1, "EXTENSION_MAPPING"),
+            DoxyTextEdit(self.par1, "EXTENSION_MAPPING", []),
             
             DoxyCheckBox(self.par1, "MARKDOWN_SUPPORT"),
             DoxyCheckBox(self.par1, "MARKDOWN_STRICT"),
@@ -979,7 +1201,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineBtn3(self.par1, "AUTOLINK_IGNORE_WORDS"),
             DoxyTextEdit(self.par1, "AUTOLINK_IGNORE_WORDS", []),
             
-            DoxyCheckBox(self.par1, "BUILTiN_STL_SUPPORT"),
+            DoxyCheckBox(self.par1, "BUILTIN_STL_SUPPORT"),
             DoxyCheckBox(self.par1, "CPP_CLI_SUPPORT"),
             DoxyCheckBox(self.par1, "SIP_SUPPORT"),
             DoxyCheckBox(self.par1, "IDL_PROPERTY_SUPPORT"),
@@ -990,7 +1212,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par1, "INLINE_GROUPED_CLASSES"),
             DoxyCheckBox(self.par1, "INLINE_SIMPLE_STRUCTS"),
             
-            DoxyCheckBox(self.par1, "TYPEDEF_HIDE_STRUCT"),
+            DoxyCheckBox(self.par1, "TYPEDEF_HIDES_STRUCT"),
             DoxySpinEdit(self.par1, "LOOKUP_CACHE_SIZE"),
             
             DoxySpinEdit(self.par1, "NUM_PROC_THREADS"),
@@ -1061,8 +1283,8 @@ class DoxyGenToolWindow(QWidget):
                 "UNVERIFIED_ONLY"
             ]),
             
-            DoxyLineBtn3(self.par2, "ENABLE_SECTIONS"),
-            DoxyTextEdit(self.par2, "ENABLE_SECTIONS", []),
+            DoxyLineBtn3(self.par2, "ENABLED_SECTIONS"),
+            DoxyTextEdit(self.par2, "ENABLED_SECTIONS", []),
             
             DoxySpinEdit(self.par2, "MAX_INITIALIZER_LINES"),
             
@@ -1116,7 +1338,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineBtn4(self.par4, "INPUT"),
             DoxyTextEdit(self.par4, "INPUT", []),
             DoxyLineEdit(self.par4, "INPUT_ENCODING"),
-            DoxyLineBtn3(self.par4, "INPUT_FILE"),
+            DoxyLineBtn3(self.par4, "INPUT_FILE_ENCODING"),
             DoxyTextEdit(self.par4, "INPUT_FILE_ENCODING", []),
             
             DoxyLineBtn3(self.par4, "FILE_PATTERNS"),
@@ -1168,7 +1390,8 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par5, "STRIP_CODE_COMMENTS"),
             
             DoxyCheckBox(self.par5, "REFERENCED_BY_RELATION"),
-            DoxyCheckBox(self.par5, "REFERENCED_LINK_SOURCE"),
+            DoxyCheckBox(self.par5, "REFERENCES_RELATION"),
+            DoxyCheckBox(self.par5, "REFERENCES_LINK_SOURCE"),
             
             DoxyCheckBox(self.par5, "SOURCE_TOOLTIPS"),
             DoxyCheckBox(self.par5, "USE_HTAGS"),
@@ -1189,7 +1412,8 @@ class DoxyGenToolWindow(QWidget):
         self.par6 = DOXYGEN_PROJECT_PAGES["Index"]
         self.index_items = [
             DoxyCheckBox(self.par6, "ALPHABETICAL_INDEX"),
-            DoxyTextEdit(self.par6, "ALPHABETICAL_INDEX", [])
+            DoxyLineBtn3(self.par6, "IGNORE_PREFIX"),
+            DoxyTextEdit(self.par6, "IGNORE_PREFIX", [])
         ]
         index_lay = DOXYGEN_PROJECT_PAGES["Index"].layout
         for item in self.index_items:
@@ -1220,9 +1444,9 @@ class DoxyGenToolWindow(QWidget):
                 "TOGGLE"
             ]),
             
-            DoxySpinEdit(self.par7, "COLOR_STYLE_HUE"  , 0, 255, 220),
-            DoxySpinEdit(self.par7, "COLOR_STYLE_SAT"  , 0, 255, 100),
-            DoxySpinEdit(self.par7, "COLOR_STYLE_GAMMA", 0, 255,  80),
+            DoxySpinEdit(self.par7, "HTML_COLOR_STYLE_HUE"  , 0, 255, 220),
+            DoxySpinEdit(self.par7, "HTML_COLOR_STYLE_SAT"  , 0, 255, 100),
+            DoxySpinEdit(self.par7, "HTML_COLOR_STYLE_GAMMA", 0, 255,  80),
             
             DoxyCheckBox(self.par7, "HTML_DYNAMIC_MENUS"),
             DoxyCheckBox(self.par7, "HTML_DYNAMIC_SECTIONS"),
@@ -1236,8 +1460,8 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineEdit(self.par7, "DOCSET_FEEDNAME"),
             DoxyLineEdit(self.par7, "DOCSET_FEEDURL"),
             DoxyLineEdit(self.par7, "DOCSET_BUNDLE_ID"),
-            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_ID"),
-            DoxyLineEdit(self.par7, "DOCSET_PUBLISER_NAME"),
+            DoxyLineEdit(self.par7, "DOCSET_PUBLISHER_ID"),
+            DoxyLineEdit(self.par7, "DOCSET_PUBLISHER_NAME"),
             
             DoxyCheckBox(self.par7, "GENERATE_HTMLHELP"),
             DoxyLineBtn1(self.par7, "CHM_FILE"),
@@ -1245,7 +1469,7 @@ class DoxyGenToolWindow(QWidget):
             
             DoxyCheckBox(self.par7, "GENERATE_CHI"),
             DoxyLineEdit(self.par7, "CHM_INDEX_ENCODING"),
-            DoxyCheckBox(self.par7, "CHM_BINARY_TOC"),
+            DoxyCheckBox(self.par7, "BINARY_TOC"),
             DoxyCheckBox(self.par7, "TOC_EXPAND"),
             DoxyLineEdit(self.par7, "SITEMAP_URL"),
             
@@ -1274,7 +1498,7 @@ class DoxyGenToolWindow(QWidget):
             DoxySpinEdit(self.par7, "TREEVIEW_WIDTH", 50, 800, 250),
             
             DoxyCheckBox(self.par7, "EXT_LINKS_IN_WINDOW"),
-            DoxyCheckBox(self.par7, "OBFUSCATE_EMAIL"),
+            DoxyCheckBox(self.par7, "OBFUSCATE_EMAILS"),
             
             DoxyComboBox(self.par7, "HTML_FORMULA_FORMAT", ["png", "svg"]),
             
@@ -1295,9 +1519,9 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par7, "EXTERNAL_SEARCH"),
             DoxyLineEdit(self.par7, "SEARCHENGINE_URL"),
             DoxyLineBtn1(self.par7, "SEARCHDATA_FILE"),
-            DoxyLineEdit(self.par7, "EXTERNAÖ_SEARCH_ID"),
-            DoxyLineBtn3(self.par7, "EXTRA_SEARCH_MAPINGS"),
-            DoxyTextEdit(self.par7, "EXTRA_SEARCH_MAPINGS", []),
+            DoxyLineEdit(self.par7, "EXTERNAL_SEARCH_ID"),
+            DoxyLineBtn3(self.par7, "EXTRA_SEARCH_MAPPINGS"),
+            DoxyTextEdit(self.par7, "EXTRA_SEARCH_MAPPINGS", []),
         ]
         html_lay = DOXYGEN_PROJECT_PAGES["HTML"].layout
         for item in self.html_items:
@@ -1308,6 +1532,33 @@ class DoxyGenToolWindow(QWidget):
         self.par8 = DOXYGEN_PROJECT_PAGES["LaTeX"]
         self.latex_items = [
             DoxyCheckBox(self.par8, "GENERATE_LATEX"),
+            DoxyLineBtn1(self.par8, "LATEX_OUTPUT"),
+            DoxyLineBtn1(self.par8, "LATEX_CMD_NAME"),
+            DoxyLineBtn1(self.par8, "MAKEINDEX_CMD_NAME"),
+            DoxyLineEdit(self.par8, "LATEX_MAKEINDEX_CMD"),
+            DoxyCheckBox(self.par8, "COMPACT_LATEX"),
+            DoxyComboBox(self.par8, "PAPER_TYPE", ["a4", "letter", "legal", "executive"]),
+            DoxyLineBtn3(self.par8, "EXTRA_PACKAGES"),
+            DoxyTextEdit(self.par8, "EXTRA_PACKAGES", []),
+            DoxyLineBtn1(self.par8, "LATEX_HEADER"),
+            DoxyLineBtn1(self.par8, "LATEX_FOOTER"),
+            DoxyLineBtn4(self.par8, "LATEX_EXTRA_STYLESHEET"),
+            DoxyTextEdit(self.par8, "LATEX_EXTRA_STYLESHEET", []),
+            DoxyLineBtn4(self.par8, "LATEX_EXTRA_FILES"),
+            DoxyTextEdit(self.par8, "LATEX_EXTRA_FILES", []),
+            DoxyCheckBox(self.par8, "PDF_HYPERLINKS"),
+            DoxyCheckBox(self.par8, "USE_PDFLATEX"),
+            DoxyComboBox(self.par8, "LATEX_BATCHMODE", [
+                "NO",
+                "YES",
+                "BATCH",
+                "NON_STOP",
+                "SCROLL",
+                "ERROR_STOP"
+                ]),
+            DoxyCheckBox(self.par8, "LATEX_HIDE_INDICES"),
+            DoxyLineEdit(self.par8, "LATEX_BIB_STYLE"),
+            DoxyLineBtn1(self.par8, "LATEX_EMOJI_DIRECTORY")
         ]
         latex_lay = DOXYGEN_PROJECT_PAGES["LaTeX"].layout
         for item in self.latex_items:
@@ -1317,7 +1568,13 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par9 = DOXYGEN_PROJECT_PAGES["RTF"]
         self.rtf_items = [
-            DoxyCheckBox(self.par9, "BUILD"),
+            DoxyCheckBox(self.par9, "GENERATE_RTF"),
+            DoxyLineBtn1(self.par9, "RTF_OUTPUT"),
+            DoxyCheckBox(self.par9, "COMPACT_RTF"),
+            DoxyCheckBox(self.par9, "RTF_HYPERLINKS"),
+            DoxyLineBtn1(self.par9, "RTF_STYLESHEET_FILE"),
+            DoxyLineBtn1(self.par9, "RTF_EXTENSIONS_FILE"),
+            DoxyLineBtn4(self.par9, "RTF_EXTRA_FILES")
         ]
         rtf_lay = DOXYGEN_PROJECT_PAGES["RTF"].layout
         for item in self.rtf_items:
@@ -1327,7 +1584,11 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par10 = DOXYGEN_PROJECT_PAGES["Man"]
         self.man_items = [
-            DoxyCheckBox(self.par10, "BUILD"),
+            DoxyCheckBox(self.par10, "GENERATE_MAN"),
+            DoxyLineBtn1(self.par10, "MAN_OUTPUT"),
+            DoxyLineEdit(self.par10, "MAN_EXTENSION"),
+            DoxyLineEdit(self.par10, "MAN_SUBDIR"),
+            DoxyCheckBox(self.par10, "MAN_LINKS")
         ]
         man_lay = DOXYGEN_PROJECT_PAGES["Man"].layout
         for item in self.man_items:
@@ -1337,7 +1598,10 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par11 = DOXYGEN_PROJECT_PAGES["XML"]
         self.xml_items = [
-            DoxyCheckBox(self.par11, "BUILD"),
+            DoxyCheckBox(self.par11, "GENERATE_XML"),
+            DoxyLineBtn1(self.par11, "XML_OUTPUT"),
+            DoxyCheckBox(self.par11, "XML_PROGRAMLISTING"),
+            DoxyCheckBox(self.par11, "XML_NS_MEMB_FILE_SCOPE")
         ]
         xml_lay = DOXYGEN_PROJECT_PAGES["XML"].layout
         for item in self.xml_items:
@@ -1347,7 +1611,8 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par12 = DOXYGEN_PROJECT_PAGES["DocBook"]
         self.docbook_items = [
-            DoxyCheckBox(self.par12, "BUILD"),
+            DoxyCheckBox(self.par12, "GENERATE_DOCBOOK"),
+            DoxyLineBtn1(self.par12, "DOCBOOK_OUTPUT")
         ]
         docbook_lay = DOXYGEN_PROJECT_PAGES["DocBook"].layout
         for item in self.docbook_items:
@@ -1357,7 +1622,7 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par13 = DOXYGEN_PROJECT_PAGES["AutoGen"]
         self.autogen_items = [
-            DoxyCheckBox(self.par13, "BUILD"),
+            DoxyCheckBox(self.par13, "GENERATE_AUTOGEN_DEF"),
         ]
         autogen_lay = DOXYGEN_PROJECT_PAGES["AutoGen"].layout
         for item in self.autogen_items:
@@ -1367,7 +1632,9 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par14 = DOXYGEN_PROJECT_PAGES["SQLite3"]
         self.sqlite3_items = [
-            DoxyCheckBox(self.par14, "BUILD"),
+            DoxyCheckBox(self.par14, "GENERATE_SQLITE3"),
+            DoxyLineBtn1(self.par14, "SQLITE3_OUTPUT"),
+            DoxyCheckBox(self.par14, "SQLITE3_RECREATE_DB")
         ]
         sqlite3_lay = DOXYGEN_PROJECT_PAGES["SQLite3"].layout
         for item in self.sqlite3_items:
@@ -1377,7 +1644,10 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par15 = DOXYGEN_PROJECT_PAGES["PerlMod"]
         self.perlmod_items = [
-            DoxyCheckBox(self.par15, "BUILD"),
+            DoxyCheckBox(self.par15, "GENERATE_PERLMOD"),
+            DoxyCheckBox(self.par15, "PERLMOD_LATEX"),
+            DoxyCheckBox(self.par15, "PERLMOD_PRETTY"),
+            DoxyLineEdit(self.par15, "PERLMOD_MAKEVAR_PREFIX")
         ]
         perlmod_lay = DOXYGEN_PROJECT_PAGES["PerlMod"].layout
         for item in self.perlmod_items:
@@ -1387,7 +1657,19 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par16 = DOXYGEN_PROJECT_PAGES["Preprocessor"]
         self.preproc_items = [
-            DoxyCheckBox(self.par16, "BUILD"),
+            DoxyCheckBox(self.par16, "ENABLE_PREPROCESSING"),
+            DoxyCheckBox(self.par16, "MACRO_EXPANSION"),
+            DoxyCheckBox(self.par16, "EXPAND_ONLY_PREDEF"),
+            DoxyCheckBox(self.par16, "SEARCH_INCLUDES"),
+            DoxyLineBtn4(self.par16, "INCLUDE_PATH"),
+            DoxyTextEdit(self.par16, "INCLUDE_PATH", []),
+            DoxyLineBtn3(self.par16, "INCLUDE_FILE_PATTERNS"),
+            DoxyTextEdit(self.par16, "INCLUDE_FILE_PATTERNS"),
+            DoxyLineBtn3(self.par16, "PREDEFINED"),
+            DoxyTextEdit(self.par16, "PREDEFINED", []),
+            DoxyLineBtn3(self.par16, "EXPAND_AS_DEFINED"),
+            DoxyTextEdit(self.par16, "EXPAND_AS_DEFINED", []),
+            DoxyCheckBox(self.par16, "SKIP_FUNCTION_MACROS")
         ]
         preproc_lay = DOXYGEN_PROJECT_PAGES["Preprocessor"].layout
         for item in self.preproc_items:
@@ -1397,7 +1679,12 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par17 = DOXYGEN_PROJECT_PAGES["External"]
         self.external_items = [
-            DoxyCheckBox(self.par17, "BUILD"),
+            DoxyLineBtn4(self.par17, "TAGFILES"),
+            DoxyTextEdit(self.par17, "TAGFILES", []),
+            DoxyLineBtn1(self.par17, "GENERATE_TAGFILE"),
+            DoxyCheckBox(self.par17, "ALLEXTERNALS"),
+            DoxyCheckBox(self.par17, "EXTERNAL_GROUPS"),
+            DoxyCheckBox(self.par17, "EXTERNAL_PAGES")
         ]
         external_lay = DOXYGEN_PROJECT_PAGES["External"].layout
         for item in self.external_items:
@@ -1407,7 +1694,106 @@ class DoxyGenToolWindow(QWidget):
         # -------------------------------------------------------------------------
         self.par18 = DOXYGEN_PROJECT_PAGES["Dot"]
         self.dot_items = [
-            DoxyCheckBox(self.par18, "BUILD"),
+            DoxyCheckBox(self.par18, "HIDE_UNDOC_RELATIONS"),
+            DoxyCheckBox(self.par18, "HAVE_DOT"),
+            DoxySpinEdit(self.par18, "DOT_NUM_THREADS", 0,  64,  0),
+            DoxySpinEdit(self.par18, "DOT_BATCH_SIZE", 0, 100, 50),
+            DoxyLineEdit(self.par18, "DOT_COMMON_ATTR"),
+            DoxyLineEdit(self.par18, "DOT_EDGE_ATTR"),
+            DoxyLineEdit(self.par18, "DOT_NODE_ATTR"),
+            DoxyLineBtn1(self.par18, "DOT_FONTPATH"),
+            DoxyComboBox(self.par18, "CLASS_GRAPH", [
+                "YES",
+                "NO",
+                "TEXT",
+                "GRAPH",
+                "BUILTIN"]),
+            DoxyCheckBox(self.par18, "COLLABORATION_GRAPH"),
+            DoxyCheckBox(self.par18, "GROUP_PATHS"),
+            DoxyCheckBox(self.par18, "UML_LOOK"),
+            DoxySpinEdit(self.par18, "UML_LIMIT_NUM_FIELDS", 0, 100, 10),
+            DoxySpinEdit(self.par18, "UML_MAX_EDGE_LABELS" , 0, 100, 10),
+            DoxyComboBox(self.par18, "DOT_UML_DETAILS", ["NO", "YES", "NONE"]),
+            DoxySpinEdit(self.par18, "DOT_WRAP_THRESHOLD", 0, 100, 17),
+            DoxyCheckBox(self.par18, "TEMPLATE_RELATIONS"),
+            DoxyCheckBox(self.par18, "INCLUDE_GRAPH"),
+            DoxyCheckBox(self.par18, "INCLUDEED_BY_GRAPH"),
+            DoxyCheckBox(self.par18, "CALL_GRAPH"),
+            DoxyCheckBox(self.par18, "CALLER_GRAPH"),
+            DoxyCheckBox(self.par18, "GRAPHICAL_HIEARCHY"),
+            DoxyCheckBox(self.par18, "DIRECTORY_GRAPH"),
+            DoxySpinEdit(self.par18, "DIR_GRAPH_MAX_DEPTH", 1, 100, 1),
+            DoxyComboBox(self.par18, "DOT_IMAGE_FORMAT", [
+                "png",
+                "jpg",
+                "gif",
+                "svg",
+                
+                "png:cairo",
+                "png:cairo:cairo",
+                "png:cairo:gd",
+                "png:cairo:gdiplus",
+                
+                "png:gd",
+                "png:gd:gd",
+                
+                "png:gdiplus",
+                "png:gdiplus:gdiplus",
+                
+                "svg:cairo",
+                "svg:cairo:cairo",
+                
+                "svg:svg",
+                "svg:svg:core",
+                
+                "gif:cairo",
+                "gif:cairo:gd",
+                "gif:cairo:gdiplus",
+                
+                "gif:gd",
+                "gif:gd:gd",
+                
+                "gif:gdiplus",
+                "gif:gdiplus:gdiplus",
+                
+                "jpg:cairo",
+                "jpg:cairo:gd",
+                "jpg:cairo:gdiplus",
+                
+                "jpg:gd",
+                "jpg:gd:gd",
+                
+                "jpg:gdiplus",
+                "jpg:gdiplus:gdiplus"]),
+            DoxyCheckBox(self.par18, "INTERACTIVE_SVG"),
+            DoxyLineBtn1(self.par18, "DOT_PATH"),
+            DoxyLineBtn4(self.par18, "DOTFILE_DIRS"),
+            DoxyTextEdit(self.par18, "DORFILE_DIRS", []),
+            DoxyLineBtn1(self.par18, "DIA_PATH"),
+            DoxyLineBtn4(self.par18, "DIAFILE_DIRS"),
+            DoxyTextEdit(self.par18, "DIAFILE_DIRS", []),
+            DoxyLineBtn1(self.par18, "PLANTUM_JAR_PATH"),
+            DoxyLineBtn1(self.par18, "PLANTIM_CFG_FILE"),
+            DoxyLineBtn4(self.par18, "PLANTUM_INCLUDE_PATH"),
+            DoxyTextEdit(self.par18, "PLANTUM_INCLUDE_PATH", []),
+            DoxyLineBtn4(self.par18, "PLANTUMFILE_DIRS"),
+            DoxyTextEdit(self.par18, "PLANTUMFILE_DIRS", []),
+            DoxyLineBtn1(self.par18, "MERMAID_PATH"),
+            DoxyLineBtn1(self.par18, "MERMAID_CONFIG_FILE"),
+            DoxyComboBox(self.par18, "MERMAID_RENDER_MODE", [
+                "AUTO",
+                "CLI",
+                "CLIENT_SIDE"]),
+            DoxyLineEdit(self.par18, "MERMAID_JS_URL"),
+            DoxyLineBtn4(self.par18, "MERMAIDFILE_DIRS"),
+            DoxyTextEdit(self.par18, "MERMAIDFILE_DIRS", []),
+            DoxySpinEdit(self.par18, "DOT_GRAPH_MAX_NODES", 0, 100, 50),
+            DoxySpinEdit(self.par18, "MAX_DOT_GRAPH_DEPTH", 0, 100,  0),
+            DoxyCheckBox(self.par18, "GENERATE_LEGEND"),
+            DoxyCheckBox(self.par18, "DOT_CLEANUP"),
+            DoxyLineBtn1(self.par18, "MSCGEN_TOOL"),
+            DoxyLineBtn4(self.par18, "MSCFILE_DIRS"),
+            DoxyTextEdit(self.par18, "MSCFILE_DIRS", [])
         ]
         dot_lay = DOXYGEN_PROJECT_PAGES["Dot"].layout
         for item in self.dot_items:
@@ -1537,7 +1923,7 @@ class DoxyGenToolWindow(QWidget):
             self.save_items(self.browser_items)
             self.save_items(self.index_items)
             self.save_items(self.html_items)
-            """self.save_items(self.latex_items)
+            self.save_items(self.latex_items)
             self.save_items(self.rtf_items)
             self.save_items(self.man_items)
             self.save_items(self.xml_items)
@@ -1547,7 +1933,7 @@ class DoxyGenToolWindow(QWidget):
             self.save_items(self.perlmod_items)
             self.save_items(self.preproc_items)
             self.save_items(self.external_items)
-            self.save_items(self.dot_items)"""
+            self.save_items(self.dot_items)
             
             
             payload["state" ] = self.state
@@ -1600,7 +1986,7 @@ class DoxyGenToolWindow(QWidget):
             self.load_items(self.browser_items)
             self.load_items(self.index_items)
             self.load_items(self.html_items)
-            """self.load_items(self.latex_items)
+            self.load_items(self.latex_items)
             self.load_items(self.rtf_items)
             self.load_items(self.man_items)
             self.load_items(self.xml_items)
@@ -1610,7 +1996,7 @@ class DoxyGenToolWindow(QWidget):
             self.load_items(self.perlmod_items)
             self.load_items(self.preproc_items)
             self.load_items(self.external_items)
-            self.load_items(self.dot_items)"""
+            self.load_items(self.dot_items)
             
         except RuntimeError as e:
             QMessageBox.critical(self, share.locales.tr("Open"), str(e))
