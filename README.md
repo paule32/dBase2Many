@@ -35,5 +35,9 @@ Preview
 ![Preview](img/screen005.png)
 
 
+Preview
+![Preview](img/screen006.png)
+
+
 Tools used during programming: Qt5 Resource Builder
 ![Preview](img/res_builder.png)

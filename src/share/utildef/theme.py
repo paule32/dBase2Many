@@ -198,6 +198,8 @@ QCheckBox::indicator:checked:disabled {{
    QGroupBox (Dark)
    ========================= */
 QGroupBox {{
+    font-family: "Arial";
+    font-size: 10pt;
     color: {text_fg};
     border: 1px solid {border};
     border-radius: 10px;
@@ -223,7 +225,8 @@ QGroupBox::title {{
     padding: 0 8px;
     left: 10px;
     top: 2px;
-
+    font-family: "Arial";
+    font-size: 10pt;
     color: {title_fg};
     background: {window_bg}; /* damit der Titel die Border "überdeckt" */
 }}
@@ -405,6 +408,9 @@ QAbstractItemView, QAbstractButton {{
 }}
 /* Optional: falls Qt dort eine Ecke der ScrollArea malt */
 QAbstractScrollArea::corner {{
+    font-family: "Arial";
+    font-size: 10pt;
+
     background-color: #000000;
     border: 1px solid #222222;
 }}
@@ -415,9 +421,25 @@ QLabel {{color: {tab_fg};}}
 QToolButton {{background: {toolbtn_bg};color: {toolbtn_fg};border: 1px solid {border};padding: 6px 10px;}}
 QToolButton:hover {{background: {toolbtn_hover};}}
 QToolButton:pressed {{background: {toolbtn_pressed};}}
-QTabWidget::pane {{border: 1px solid {border};top: -1px;background: {tab_bg};}}
+QTabWidget::pane {{
+    border: 1px solid {border};
+    top: -1px;
+    background: {tab_bg};
+    font-size: 10pt;
+    font-family: "Arial";
+}}
 QTabBar {{background: {tab_bar_bg};}}
-QTabBar::tab {{background: {tab_bar_bg};color: {tab_fg};border: 1px solid {border};border-bottom: none;padding: 7px 14px;margin-right: 6px;min-width: 90px;}}
+QTabBar::tab {{
+    font-size: 10pt;
+    font-family: "Arial";
+    background: {tab_bar_bg};
+    color: {tab_fg};
+    border: 1px solid {border};
+    border-bottom: none;
+    padding: 7px 14px;
+    margin-right: 6px;
+    min-width: 90px;
+}}
 QTabBar::tab:hover {{background: {tab_hover_bg};}}
 QTabBar::tab:selected {{background: {tab_sel_bg};color: {tab_fg_active};}}
 QTreeView {{border: none;background: {tree_bg};color: {tree_fg};}}
@@ -609,6 +631,8 @@ QScrollBar:vertical[dir="up"]::handle   {{ image: url(:/icons/arrow_up.png); }}
 /* Header (oben + links) */
 QTableView QHeaderView::section,
 QTableWidget QHeaderView::section {{
+    font-size: 10pt;
+    font-family: "Arial";
     background-color: #000000;
     border-right: 1px solid #333333;
     border-bottom: 1px solid #333333;
@@ -625,6 +649,8 @@ QTableWidget QTableCornerButton::section {{
 /* falls Qt statt CornerButton die ScrollArea-Ecke malt (wenn beide Scrollbars da sind) */
 QTableView QAbstractScrollArea::corner,
 QTableWidget QAbstractScrollArea::corner {{
+    font-size: 10pt;
+    font-family: "Arial";
     background-color: #000000;
     border: 1px solid #333333;
 }}
@@ -825,7 +851,11 @@ QCalendarWidget QAbstractItemView {{
     selection-color: #ffffff;
 }}
 
+QCheckBox,
 QRadioButton {{
+    font-family: "Arial";
+    font-size: 10pt;
+
     color: #ffffff;
     spacing: 8px;
 }}
@@ -972,7 +1002,7 @@ QSpinBox {{
     color: #f4d7df;
     border: 1px solid #7a1f35;
     border-radius: 4px;
-    padding: 2px 38px 2px 6px;
+    padding: 2px 16px 2px 6px;
     selection-background-color: #8b263f;
     selection-color: #ffffff;
     font: 10pt "Arial";
@@ -1048,11 +1078,17 @@ QScrollBar::left-arrow:horizontal {{
     height: 12px;
     image: url(:/icons/arrow_left.png);
 }}
+QGroupBox,
+QScrollArea {{
+    font-family: "Arial";
+    font-size: 10pt;
+    font-weight: bold;
+    color: yellow;
+}}
 QScrollArea:right-arrow:horizontal
 QScrollBar::right-arrow:horizontal {{
     width: 12px;
     height: 12px;
     image: url(:/icons/arrow_right.png);
 }}
-
 """)

@@ -99,10 +99,6 @@ def _default_project_dir() -> Path:
     base.mkdir(parents=True, exist_ok=True)
     return base
 
-def bind_help(parent, obj, help_key: str, title: str = ""):
-    obj.setProperty("help_key", help_key)
-    obj.setProperty("help_title", title)
-
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
         super().__init__(parent)
@@ -231,14 +227,15 @@ class DoxyCodeEditor(QPlainTextEdit):
 # ---------------------------------------------------------------------------
 class DoxyButton(QPushButton):
     def __init__(self,
-        owner           = None,
-        help_str :str   =   "",
-        icon_norm:QIcon = None,
-        icon_hovr:QIcon = None, flag:int=0):
+        owner             = None,
+        help_str  : str   =   "",
+        icon_norm : QIcon = None,
+        icon_hovr : QIcon = None,
+        flag      : int   =   0):
         
         super().__init__()
         
-        self.help       = share.locales.tr(help_str)
+        self.help_str   = help_str
         self.owner      = owner
         self.flag       = flag
         self.filename   = ""
@@ -250,7 +247,7 @@ class DoxyButton(QPushButton):
             DOXYGEN_ITEMS.append(self)
         
         self.setIconSize(QSize(22, 22))
-        self.setProperty("help", self.help)
+        self.setProperty("help", self.help_str)
         
         self.setMaximumWidth (26)
         self.setMaximumHeight(26)
@@ -333,7 +330,8 @@ class DoxyButton(QPushButton):
 
         return line_no, ""
     
-    def on_click(self, text):
+    def on_click(self, b):
+        found = False
         if self.owner is not None:
             if isinstance(self.owner, DoxyLineBtn1):
                 if self.flag == 1:
@@ -347,21 +345,19 @@ class DoxyButton(QPushButton):
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
-                            page = DOXYGEN_PROJECT_PAGES.get(res)
-                            if page is not None:
-                                item = page.area.findChild(DoxyTextEdit, self.help)
-                                if item is not None:
-                                    text = self.owner.input.input.text().strip()
-                                    item.edit.appendPlainText(text)
-                                    print("ADD text:", text)
-                                    break
+                            page  = DOXYGEN_PROJECT_PAGES.get(res)
+                            item1 = page.area.findChild(DoxyTextEdit, self.help_str)
+                            item2 = page.area.findChild(DoxyLineBtn3, self.help_str)
+                            if (item1 is not None) and (item1.help_str == item2.help_str):
+                                item1.edit.appendPlainText(item2.input.input.text())
+                                break
                 elif self.flag == 3:
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
                             page = DOXYGEN_PROJECT_PAGES.get(res)
                             if page is not None:
-                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
                                     line, text = self.delete_current_line(item.edit)
                                     self.owner.input.input.setText(text)
@@ -376,7 +372,7 @@ class DoxyButton(QPushButton):
                         for res in DOXYGEN_EXPERT_ITEMS:
                             page = DOXYGEN_PROJECT_PAGES.get(res)
                             if page is not None:
-                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
                                     text = self.owner.input.input.text().strip()
                                     item.edit.appendPlainText(text)
@@ -387,7 +383,7 @@ class DoxyButton(QPushButton):
                         for res in DOXYGEN_EXPERT_ITEMS:
                             page = DOXYGEN_PROJECT_PAGES.get(res)
                             if page is not None:
-                                item = page.area.findChild(DoxyTextEdit, self.help)
+                                item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
                                     line, text = self.delete_current_line(item.edit)
                                     self.owner.input.input.setText(text)
@@ -414,15 +410,24 @@ class DoxyButton(QPushButton):
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 class LinkLabel(QLabel):
-    def __init__(self, text, url, parent=None):
-        super().__init__(text, parent)
-        self.url = url
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        
+        self.web_url = "https://www.doxygen.nl/manual/config.html#cfg_"
+        self.hlp_txt = text.lower()
+        self.web_url = f"{self.web_url}{self.hlp_txt}"
+        
+        self.setFont(QFont("Consolas", 10))
+        self.setMinimumWidth(164)
+        self.setStyleSheet("color: white;")
+        self.setText(text)
+        
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip(url)
+        self.setToolTip(self.web_url)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            QDesktopServices.openUrl(QUrl(self.url))
+            QDesktopServices.openUrl(QUrl(self.web_url))
         super().mousePressEvent(event)
 
 
@@ -431,33 +436,27 @@ class LinkLabel(QLabel):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyLabel(LinkLabel):
-    def __init__(self, parent=None, help_str:str="", flag:int=0):
-        self.help   = share.locales.tr(help_str)
-        web_url     = "https://www.doxygen.nl/manual/config.html#cfg_"
-        hlp_txt     = help_str.lower()
-        web_lnk     = f"{web_url}{hlp_txt}"
+    def __init__(self,
+        parent         = None,
+        help_str : str =  "" ,
+        flag     : int =  0 ):
         
-        super().__init__(self.help, web_lnk, parent.owner)
-        self.setProperty("help", self.help)
+        super().__init__(help_str, parent.owner)
         
-        self.parent = parent
-        self.owner  = parent.owner
+        self.parent   = parent
+        self.owner    = parent.owner
+        self.help_str = help_str
+        self.flag     = flag
+        
+        self.setObjectName(self.help_str)
        
         if help_str not in DOXYGEN_ITEMS:
             DOXYGEN_ITEMS.append(self)
-            
-        bind_help(self.parent, self, self.help)
         
-        if flag == 0: self.setText(self.help)
-        else:         self.setText("")
-            
-        self.setFont(QFont("Consolas", 10))
-        self.setMinimumWidth(164)
-        self.setStyleSheet("color: white;")
-        self.setProperty("help", self.help)
+        self.setProperty("help", self.help_str)
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -466,19 +465,36 @@ class DoxyLabel(LinkLabel):
 # \param help_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyTextEdit(QWidget):
-    def __init__(self, parent=None, help_str:str="", text:list=[]):
+    def __init__(self,
+        parent          = None,
+        help_str : str  =  "" ,
+        text     : list =  []):
+        
         super().__init__(parent.owner)
         
-        self.help   = share.locales.tr(help_str)
+        self.help_str = help_str
+        self.text_str = text
+        self.link_str = help_str
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
+        self.flag   = 0
         
-        self.setObjectName(self.help)
         self.layout = DoxyHBoxLayout(self)
-        
-        self.label  = DoxyLabel(self.parent, self.help, 1)
         self.edit   = DoxyCodeEditor()
+        
+        self.label  = DoxyLabel(self.parent, self.help_str)
+        self.label.setStyleSheet("color: rgba(0,0,0,0);")
+        
+        self.edit.setProperty("help", self.help_str)
+        self.edit.setProperty("text", self.text_str)
+        self.edit.setProperty("link", self.link_str)
+        
         self.edit.setStyleSheet("background-color: #303030;")
         
         if help_str not in DOXYGEN_ITEMS:
@@ -491,7 +507,7 @@ class DoxyTextEdit(QWidget):
         self.layout.addWidget(self.edit)
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -499,24 +515,44 @@ class DoxyTextEdit(QWidget):
 # \brief construct a QCheckBox as a helper class to reduce code space.
 # ---------------------------------------------------------------------------
 class DoxyCheckBox(QWidget):
-    def __init__(self, parent=None, help_str:str=""):
+    def __init__(self,
+        parent         = None,
+        help_str : str =  ""):
+        
         super().__init__(parent.owner)
         
-        self.help   = share.locales.tr(help_str)
+        self.help_str = help_str
+        self.text_str = ""
+        self.link_str = help_str
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(self, self.help)
+        self.label  = DoxyLabel(self, self.help_str, 1)
         self.check  = QCheckBox(share.locales.tr("NO"))
         
-        if help_str not in DOXYGEN_ITEMS:
-            DOXYGEN_ITEMS.append(self)
+        self.label.setProperty("help", self.help_str)
+        self.label.setProperty("text", self.help_str)
+        self.label.setProperty("link", self.link_str)
+        
+        self.check.setProperty("help", self.help_str)
+        #self.check.setProperty("text", self.text_str)
+        self.check.setProperty("link", self.link_str)
             
         self.check.setStyleSheet("color: red;")
         self.check.toggled.connect(self.on_changed)
         
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.check)
         self.layout.addStretch(1)
@@ -530,7 +566,7 @@ class DoxyCheckBox(QWidget):
             self.check.setStyleSheet("color: red;")
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -546,29 +582,43 @@ class DoxySpinEdit(QWidget):
         v_def : int  =   0):
             
         super().__init__(None)
+
+        self.help_str = help_str
+        self.text_str = ""
+        self.link_str = help_str
         
-        self.help   = share.locales.tr(help_str)
+        self.setProperty("help", self.help_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(self, self.help)
+        self.label  = DoxyLabel(self, self.help_str, 1)
         self.spin   = QSpinBox()
+        
+        self.spin.setMinimum(v_min)
+        self.spin.setMaximum(v_max)
+        self.spin.setValue  (v_def)
         
         if help_str not in DOXYGEN_ITEMS:
             DOXYGEN_ITEMS.append(self)
             
-        self.spin.setMinimum(v_min)
-        self.spin.setMaximum(v_max)
-        self.spin.setValue  (v_def)
+        self.spin .setProperty("help", self.help_str)
+        self.spin .setProperty("link", self.link_str)
+        
+        self.label.setProperty("help", self.help_str)
+        self.label.setProperty("link", self.link_str)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.spin)
         self.layout.addStretch(1)
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -587,32 +637,39 @@ class DoxyLineEdit(QWidget):
         
         super().__init__(parent.owner)
         
-        self.help   = share.locales.tr(help_str)
-        self.txtstr = share.locales.tr(text_str)
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
         
-        self.setProperty("help", self.help)
-        self.setProperty("text", self.txtstr)
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
         self.flag   = flag
         
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(self, self.help)
+        self.label  = DoxyLabel(self, self.link_str)
         self.input  = QLineEdit()
         
         if help_str not in DOXYGEN_ITEMS:
             DOXYGEN_ITEMS.append(self)
             
-        self.input.setProperty("help", self.help)
+        self.input.setProperty("help", self.help_str)
+        self.input.setProperty("text", self.text_str)
+        self.input.setProperty("link", self.link_str)
+        
         self.input.setFont(QFont("Consolas", 10))
-        #self.input.setText(text_str)
+        self.input.setText(text_str)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.input)
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -620,21 +677,40 @@ class DoxyLineEdit(QWidget):
 # \brief this is a helper class for QLineEdit with a Button to reduce code.
 # ---------------------------------------------------------------------------
 class DoxyLineBtn1(QWidget):
-    def __init__(self, parent=None, help_str:str="", text_str:str="", item=None):
+    def __init__(self,
+        parent   = None,
+        help_str : str = "",
+        text_str : str = "",
+        item     = None):
+        
         super().__init__(parent.owner)
         
-        self.help   = share.locales.tr(help_str)
-        self.txtstr = share.locales.tr(help_str)
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
         
-        self.setProperty("help", self.help)
-        self.setProperty("text", self.txtstr)
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(self, self.help, self.txtstr)
-        self.buttn  = DoxyButton  (self, self.help, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
+        self.input  = DoxyLineEdit(self, self.help_str, self.text_str)
+        
+        self.input.setProperty("help", self.help_str)
+        self.input.setProperty("text", self.text_str)
+        self.input.setProperty("link", self.link_str)
+        
+        self.buttn  = DoxyButton(self  , self.help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
+        
+        self.buttn.setProperty  ("help", self.help_str)
+        self.buttn.setProperty  ("text", self.text_str)
+        self.buttn.setProperty  ("link", self.link_str)
         
         if help_str not in DOXYGEN_ITEMS:
             DOXYGEN_ITEMS.append(self)
@@ -643,37 +719,52 @@ class DoxyLineBtn1(QWidget):
         self.layout.addWidget(self.buttn)
         
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
 class DoxyLineBtn3(QWidget):
-    def __init__(self, parent=None, help_str:str="", text_str:str=""):
+    def __init__(self,
+        parent         = None,
+        help_str : str =  "" ,
+        text_str : str =  ""):
+            
         super().__init__(parent.owner)
+        
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
-        self.help   = share.locales.tr(help_str)
-        self.txtstr = share.locales.tr(text_str)
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(self, self.help, self.txtstr, 1)
+        self.input  = DoxyLineEdit(self, self.help_str, self.text_str)
         
-        self.butt1  = DoxyButton(self, self.help, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
-        self.butt2  = DoxyButton(self, self.help, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
-        self.butt3  = DoxyButton(self, self.help, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
-        
-        if help_str not in DOXYGEN_ITEMS:
-            DOXYGEN_ITEMS.append(self)
-            
         self.layout.addWidget(self.input)
         
-        self.layout.addWidget(self.butt1)
-        self.layout.addWidget(self.butt2)
-        self.layout.addWidget(self.butt3)
+        self.butt1  = DoxyButton(self, self.help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
+        self.butt2  = DoxyButton(self, self.help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
+        self.butt3  = DoxyButton(self, self.help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
+        
+        for item in [self.butt1, self.butt2, self.butt3]:
+            item.setProperty("help", self.help_str)
+            item.setProperty("text", self.text_str)
+            item.setProperty("link", self.link_str)
+            self.layout.addWidget(item)
+            
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
     
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -686,36 +777,41 @@ class DoxyLineBtn4(QWidget):
         
         super().__init__(None)
         
-        self.help   = share.locales.tr(help_str)
-        self.txtstr = share.locales.tr(text_str)
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
         self.flag   = flag
         
-        self.setProperty("help", self.help)
-        self.setProperty("text", self.txtstr)
-        
         self.layout = DoxyHBoxLayout(self)
-        self.input  = DoxyLineEdit(parent, self.help, self.txtstr, 1)
+        self.input  = DoxyLineEdit(parent, self.help_str, self.text_str, 1)
         
-        self.butt1  = DoxyButton(self, self.help, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
-        self.butt2  = DoxyButton(self, self.help, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
-        self.butt3  = DoxyButton(self, self.help, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"), 4)
-        self.butt4  = DoxyButton(self, self.help, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
-        
-        if help_str not in DOXYGEN_ITEMS:
-            DOXYGEN_ITEMS.append(self)
-            
         self.layout.addWidget(self.input)
         
-        self.layout.addWidget(self.butt1)
-        self.layout.addWidget(self.butt2)
-        self.layout.addWidget(self.butt3)
-        self.layout.addWidget(self.butt4)
+        self.butt1  = DoxyButton(self, self.help_str, QIcon(":/icons/add.ico"), QIcon(":/icons/add_hov.ico"), 2)
+        self.butt2  = DoxyButton(self, self.help_str, QIcon(":/icons/sub.ico"), QIcon(":/icons/sub_hov.ico"), 3)
+        self.butt3  = DoxyButton(self, self.help_str, QIcon(":/icons/frs.ico"), QIcon(":/icons/frs_hov.ico"), 4)
+        self.butt4  = DoxyButton(self, self.help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
         
+        for item in [self.butt1, self.butt2, self.butt3, self.butt3]:
+            item.setProperty("help", self.help_str)
+            item.setProperty("text", self.text_str)
+            item.setProperty("link", self.link_str)
+            self.layout.addWidget(item)
+            
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+    
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
@@ -725,25 +821,38 @@ class DoxyLineBtn4(QWidget):
 # \param text_str - string for the label and help id, default: "".
 # ---------------------------------------------------------------------------
 class DoxyImage(QWidget):
-    def __init__(self, parent=None, help_str:str="", text_str:str=""):
+    def __init__(self,
+        parent         = None,
+        help_str : str =  "" ,
+        text_str : str =  ""):
+        
         super().__init__(parent.owner)
         
         self.setMinimumHeight(74)
         
-        self.help   = share.locales.tr(help_str)
-        self.txtstr = share.locales.tr(text_str)
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
-        self.help   = help_str
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.label1 = DoxyLabel(self, self.help, 1)
-        self.label2 = QLabel(self.txtstr)
+        self.label2 = QLabel(self.text_str)
         
+        self.label1 = DoxyLabel(self, self.help_str, 1)
+        self.label1.setStyleSheet("color: rgba(0,0,0,0);")
         self.label2.setAlignment(Qt.AlignLeft)
-        self.label2.setProperty("help", self.help)
-        self.label2.setProperty("text", self.txtstr)
+        
+        self.label2.setProperty("help", self.help_str)
+        self.label2.setProperty("text", self.text_str)
+        self.label2.setProperty("link", self.link_str)
         
         self.label2.setFont(QFont("Arial", 9))
         self.label2.setStyleSheet("color:yellow;")
@@ -753,25 +862,36 @@ class DoxyImage(QWidget):
         self.layout.addStretch(1)
         
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 class DoxyComboBox(QWidget):
-    def __init__(self, parent=None, help_str:str="", items:list=[]):
+    def __init__(self,
+        parent          = None,
+        help_str : str  =   "",
+        items    : list =  []):
+        
         super().__init__(parent.owner)
         
-        self.help   = share.locales.tr(help_str)
+        self.help_str = help_str
+        self.text_str = ""
+        self.link_str = help_str
         
-        self.setProperty("help", self.help)
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
         
         self.parent = parent
         self.owner  = parent.owner
+        self.flag   = 0
         
         self.layout = DoxyHBoxLayout(self)
-        self.label  = DoxyLabel(self, self.help)
+        self.label  = DoxyLabel(self, self.help_str)
         self.combo  = QComboBox()
         
         if help_str not in DOXYGEN_ITEMS:
@@ -785,78 +905,46 @@ class DoxyComboBox(QWidget):
         self.layout.addStretch(1)
         
     def enterEvent(self, event):
-        self.owner.show_help_for_key(self.help)
+        self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
 
 class WizardSettings(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-
+        
         self.pages = [
-            "Project",
-            "Mode",
-            "Output",
-            "Diagrams"
+            share.locales.tr("Project"),
+            share.locales.tr("Mode"),
+            share.locales.tr("Output"),
+            share.locales.tr("Diagrams")
         ]
-
+        
         self.list_view = QListView(self)
         self.model = QStringListModel(self.pages, self)
         self.list_view.setModel(self.model)
-
+        
         self.stack = QStackedWidget(self)
-
-        self.stack.addWidget(self.create_page_project("Project Page"))
-        self.stack.addWidget(self.create_page("Mode Page"))
-        self.stack.addWidget(self.create_page("Output Page"))
-        self.stack.addWidget(self.create_page("Diagrams Page"))
-
+        
+        self.stack.addWidget(self.create_page_project ("Project Page"))
+        self.stack.addWidget(self.create_page_mode    ("Mode Page"))
+        self.stack.addWidget(self.create_page_output  ("Output Page"))
+        self.stack.addWidget(self.create_page_diagrams("Diagrams Page"))
+        
         splitter = QSplitter(Qt.Horizontal, self)
         splitter.addWidget(self.list_view)
         splitter.addWidget(self.stack)
         splitter.setSizes([160, 500])
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-
+        
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(splitter)
-
+        
         self.list_view.clicked.connect(self.on_page_selected)
         self.list_view.setCurrentIndex(self.model.index(0, 0))
         self.stack.setCurrentIndex(0)
-
-    def create_page(self, title):
-        page = QWidget(self)
-        page_layout = QVBoxLayout(page)
-        page_layout.setContentsMargins(0,0,0,0)
-        
-        scroll = QScrollArea(page)
-        scroll.setWidgetResizable(True)
-        
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(4,4,4,4)
-        content_layout.setSpacing(4)
-
-        label = QLabel(title, page)
-        content_layout.addWidget(label)
-        content_layout.addStretch()
-        
-        scroll.setWidget(content)
-        page_layout.addWidget(scroll)
-        
-        lbl_layout = QHBoxLayout()
-        btn_prev   = QPushButton(share.locales.tr("Prev"))
-        btn_next   = QPushButton(share.locales.tr("Next"))
-        
-        lbl_layout.addWidget(btn_prev)
-        lbl_layout.addStretch()
-        lbl_layout.addWidget(btn_next)
-        
-        page_layout.addLayout(lbl_layout)
-
-        return page
     
     def create_page_project(self, title):
         page = QWidget(self)
@@ -982,9 +1070,210 @@ class WizardSettings(QWidget):
         page_layout.addLayout(lbl_layout)
 
         return page
+    
+    def create_page_mode(self, title):
+        page = QWidget(self)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0,0,0,0)
+        
+        scroll = QScrollArea(page)
+        scroll.setWidgetResizable(True)
+        
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4,4,4,4)
+        content_layout.setSpacing(4)
+
+        group1 = QGroupBox(share.locales.tr("Select the desired extraction mode"), content)
+        group2 = QGroupBox(share.locales.tr("Select programming language to optimize the result for"), content)
+        
+        group1_layout = QVBoxLayout(group1)
+        group2_layout = QVBoxLayout(group2)
+        
+        group1_layout.setContentsMargins(4,4,4,4)
+        group2_layout.setContentsMargins(4,4,4,4)
+        
+        group1_layout.setSpacing(4)
+        group2_layout.setSpacing(4)
+        
+        g1rbt1 = QRadioButton(share.locales.tr("Documented entities only"))
+        g1rbt2 = QRadioButton(share.locales.tr("All Entities"))
+        g1chk1 = QCheckBox   (share.locales.tr("Include cross-referenced source code"))
+        
+        group1_layout.addWidget(g1rbt1)
+        group1_layout.addWidget(g1rbt2)
+        group1_layout.addWidget(g1chk1)
+        
+        txt1   = share.locales.tr("Optimize for")
+        txt2   = share.locales.tr("output")
+        
+        font   = QFont("Consolas", 10)
+        self.setStyleSheet("""
+        QRadioButton {
+            font-family: "Consolas";
+            font-size: 10pt;
+        }
+        """)
+        g2rbt1 = QRadioButton(f"{txt1} C++        {txt2}")
+        g2rbt2 = QRadioButton(f"{txt1} C++ CLI    {txt2}")
+        g2rbt3 = QRadioButton(f"{txt1} Java or C# {txt2}")
+        g2rbt4 = QRadioButton(f"{txt1} C or PHP   {txt2}")
+        g2rbt5 = QRadioButton(f"{txt1} Fortan     {txt2}")
+        g2rbt6 = QRadioButton(f"{txt1} VHDL       {txt2}")
+        g2rbt7 = QRadioButton(f"{txt1} SLICE      {txt2}")
+        
+        for item in [g2rbt1, g2rbt2, g2rbt3, g2rbt4, g2rbt5, g2rbt6, g2rbt7]:
+            item.setFont(QFont("Consolas", 1))
+            group2_layout.addWidget(item)
+        
+        content_layout.addWidget(group1)
+        content_layout.addWidget(group2)
+        
+        content_layout.addStretch()
+        
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        
+        lbl_layout = QHBoxLayout()
+        btn_prev   = QPushButton(share.locales.tr("Prev"))
+        btn_next   = QPushButton(share.locales.tr("Next"))
+        
+        lbl_layout.addWidget(btn_prev)
+        lbl_layout.addStretch()
+        lbl_layout.addWidget(btn_next)
+        
+        page_layout.addLayout(lbl_layout)
+        
+        return page
+    
+    def create_page_output(self, title):
+        page = QWidget(self)
+        page.setFont(QFont("Arial", 10))
+        
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0,0,0,0)
+        
+        scroll = QScrollArea(page)
+        scroll.setFont(QFont("Arial", 10))
+        scroll.setWidgetResizable(True)
+        
+        content = QWidget()
+        content.setFont(QFont("Arial", 10))
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4,4,4,4)
+        content_layout.setSpacing(4)
+
+        label = QLabel(share.locales.tr("Select the output format(s) to generate"), page)
+        content_layout.addWidget(label)
+        
+        group1 = QGroupBox(share.locales.tr("HTML" ), content)
+        group2 = QGroupBox(share.locales.tr("LaTeX"), content)
+        
+        group1.setCheckable(True)
+        group1.setChecked(True)
+        
+        group2.setCheckable(True)
+        group2.setChecked(True)
+        
+        group1.toggled.connect(lambda checked: self.set_group_content_enabled(group1, checked))
+        group2.toggled.connect(lambda checked: self.set_group_content_enabled(group2, checked))
+        
+        group1_layout = QVBoxLayout(group1)
+        group2_layout = QVBoxLayout(group2)
+        
+        group1_layout.setContentsMargins(4,4,4,4)
+        group2_layout.setContentsMargins(4,4,4,4)
+        
+        group1_layout.setSpacing(4)
+        group2_layout.setSpacing(4)
+        
+        g1btn1 = QRadioButton(share.locales.tr("plain HTML"))
+        g1btn2 = QRadioButton(share.locales.tr("with navigation panel"))
+        g1btn3 = QRadioButton(share.locales.tr("prepare for compressed HTML (.chm)"))
+        chkbox = QCheckBox   (share.locales.tr("with search function"))
+        
+        for item in [g1btn1, g1btn1, g1btn2, g1btn3, chkbox]:
+            group1_layout.addWidget(item)
+            
+        txtmsg = share.locales.tr("as intermediate format")
+        g2btn1 = QRadioButton(f"{txtmsg} hyperlinked PDF")
+        g2btn2 = QRadioButton(f"{txtmsg} PDF")
+        g2btn3 = QRadioButton(f"{txtmsg} PostSctipt")
+        
+        group2_layout.addWidget(g2btn1)
+        group2_layout.addWidget(g2btn2)
+        group2_layout.addWidget(g2btn3)
+        
+        content_layout.addWidget(group1)
+        content_layout.addWidget(group2)
+        
+        chk1 = QCheckBox(share.locales.tr("Man page"))
+        chk2 = QCheckBox(share.locales.tr("Richt Text Format (RTF)"))
+        chk3 = QCheckBox(share.locales.tr("XML"))
+        chk4 = QCheckBox(share.locales.tr("Docbook"))
+        
+        for item in [chk1, chk2, chk3, chk4]:
+            content_layout.addWidget(item)
+        
+        content_layout.addStretch()
+        
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        
+        lbl_layout = QHBoxLayout()
+        btn_prev   = QPushButton(share.locales.tr("Prev"))
+        btn_next   = QPushButton(share.locales.tr("Next"))
+        
+        lbl_layout.addWidget(btn_prev)
+        lbl_layout.addStretch()
+        lbl_layout.addWidget(btn_next)
+        
+        page_layout.addLayout(lbl_layout)
+        
+        return page
+    
+    def create_page_diagrams(self, title):
+        page = QWidget(self)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0,0,0,0)
+        
+        scroll = QScrollArea(page)
+        scroll.setWidgetResizable(True)
+        
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(4,4,4,4)
+        content_layout.setSpacing(4)
+
+        label = QLabel(share.locales.tr(
+            "Provide some information about "
+            "the project you are documenting"),
+            page)
+        content_layout.addWidget(label)
+        
+        content_layout.addStretch()
+        
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
+        
+        lbl_layout = QHBoxLayout()
+        btn_prev   = QPushButton(share.locales.tr("Prev"))
+        btn_next   = QPushButton(share.locales.tr("Next"))
+        
+        lbl_layout.addWidget(btn_prev)
+        lbl_layout.addStretch()
+        lbl_layout.addWidget(btn_next)
+        
+        page_layout.addLayout(lbl_layout)
+        
+        return page
 
     def on_page_selected(self, index):
         self.stack.setCurrentIndex(index.row())
+    
+    def set_group_content_enabled(self, group, checked):
+        for child in group.findChildren(QWidget):
+            child.setEnabled(checked)
 
 # ---------------------------------------------------------------------------
 # \brief this is the doxygen tool window for help / documenting the source.
@@ -1002,8 +1291,8 @@ class DoxyGenToolWindow(QWidget):
         
         self.current_project_path = ""
 
-        self.lang = share.locales.get_default_lang().split("_")[0].lower()
-        self.trmo = share.locales.load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
+        #self.lang = share.locales.get_default_lang().split("_")[0].lower()
+        #self.trmo = share.locales.load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
             
         self._build_ui()
         self._reload_project_list()
@@ -1068,7 +1357,6 @@ class DoxyGenToolWindow(QWidget):
 
     def _build_wizard_tab(self):
         page = WizardSettings()
-        #lay  = QVBoxLayout(page)
         return page
 
     def _create_scroll_page(self):
@@ -1840,7 +2128,7 @@ class DoxyGenToolWindow(QWidget):
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
     
     def show_help_for_key(self, help_key: str, title: str = ""):
-        translated = self.trmo.gettext(help_key)
+        translated = share.locales.tr(help_key)
         self.html_preview.clear()
         self.html_preview.setHtml(translated)
     
@@ -2008,30 +2296,30 @@ class DoxyGenToolWindow(QWidget):
             if isinstance(item, DoxyLineEdit):
                 if not item.flag:
                     text = item.input.text()
-                    self.config[item.help] = text
+                    self.config[item.help_str] = text
             elif isinstance(item, DoxyLineBtn1):
                 text = item.input.input.text()
-                self.config[item.help] = text
+                self.config[item.help_str] = text
             elif isinstance(item, DoxyLineBtn3):
                 text = item.input.input.text()
-                self.config[item.help] = text
+                self.config[item.help_str] = text
             elif isinstance(item, DoxyLineBtn4):
                 text = item.input.input.text()
-                self.config[item.help] = text
+                self.config[item.help_str] = text
             elif isinstance(item, DoxySpinEdit):
                 value = item.spin.value()
-                self.config[item.help] = value
+                self.config[item.help_str] = value
             elif isinstance(item, DoxyCheckBox):
                 if item.check.isChecked():
-                    self.config[item.help] = 1
+                    self.config[item.help_str] = 1
                 else:
-                    self.config[item.help] = 0
+                    self.config[item.help_str] = 0
             elif isinstance(item, DoxyTextEdit):
                 text = item.edit.toPlainText()
-                self.config[item.help] = text
+                self.config[item.help_str] = text
             elif isinstance(item, DoxyComboBox):
                 text = item.combo.currentText()
-                self.config[item.help] = text
+                self.config[item.help_str] = text
     
     def _to_int(self, value, default=0):
         try:
@@ -2047,30 +2335,30 @@ class DoxyGenToolWindow(QWidget):
     
     def load_items(self, items):
         for item in items:
-            if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help, "")))
-            elif isinstance(item, DoxyLineBtn1): item.input.input.setText(str(self.config.get(item.help, "")))
+            if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help_str, "")))
+            elif isinstance(item, DoxyLineBtn1): item.input.input.setText(str(self.config.get(item.help_str, "")))
             elif isinstance(item, DoxyLineBtn3):
                 if not item.input.flag:
-                    item.input.input.setText(str(self.config.get(item.help, "")))
+                    item.input.input.setText(str(self.config.get(item.help_str, "")))
                 else:
                     item.input.input.setText("")
             elif isinstance(item, DoxyLineBtn4):
                 if not item.input.flag:
-                    item.input.input.setText(str(self.config.get(item.help, "")))
+                    item.input.input.setText(str(self.config.get(item.help_str, "")))
                 else:
                     item.input.input.setText("")
             elif isinstance(item, DoxyCheckBox):
-                check = self._to_int(self.config.get(item.help, 0), 0)
+                check = self._to_int(self.config.get(item.help_str, 0), 0)
                 if check:
                     item.check.setChecked(True)
                 else:
                     item.check.setChecked(False)
             elif isinstance(item, DoxyTextEdit):
                 item.edit.clear()
-                item.edit.appendPlainText(str(self.config.get(item.help, "")))
-            elif isinstance(item, DoxySpinEdit): item.spin.setValue(self._to_int(self.config.get(item.help, 0), 0))
+                item.edit.appendPlainText(str(self.config.get(item.help_str, "")))
+            elif isinstance(item, DoxySpinEdit): item.spin.setValue(self._to_int(self.config.get(item.help_str, 0), 0))
             elif isinstance(item, DoxyComboBox):
-                index = item.combo.findText(str(self.config.get(item.help, "English")))
+                index = item.combo.findText(str(self.config.get(item.help_str, "English")))
                 if index >= 0:
                     item.combo.setCurrentIndex(index)
     

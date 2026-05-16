@@ -9577,6 +9577,65 @@ class ProjectDialog(QDialog):
         menu.exec_(self.tree_project.viewport().mapToGlobal(pos))
 
 
+class LanguageMenu(QMenu):
+    languageChanged = pyqtSignal(str, str, str)
+
+    def __init__(self, parent=None, current_code="DEU", columns=4, title="Language"):
+        super().__init__(title, parent)
+
+        self.current_code = current_code.upper()
+        self.columns = columns
+        self.checkboxes = {}
+        
+        self.build_menu()
+
+    def build_menu(self):
+        container = QWidget(self)
+        grid = QGridLayout(container)
+        grid.setContentsMargins(6, 6, 6, 6)
+        grid.setSpacing(4)
+
+        for index, (code_upper, language_name, code_lower) in enumerate(LANGUAGE_CODES):
+            row = index // self.columns
+            col = index % self.columns
+
+            item = QWidget(container)
+            item_layout = QHBoxLayout(item)
+            item_layout.setContentsMargins(4, 2, 8, 2)
+            item_layout.setSpacing(6)
+
+            icon_label = QLabel(item)
+            icon_label.setPixmap(QIcon(f":/flags/{code_lower}.png").pixmap(16, 16))
+
+            checkbox = QCheckBox(share.locales.tr(language_name), item)
+            checkbox.setChecked(code_upper == self.current_code)
+
+            checkbox.clicked.connect(
+                lambda checked, cu=code_upper, ln=language_name, cl=code_lower:
+                    self.on_language_clicked(cu, ln, cl)
+            )
+
+            item_layout.addWidget(icon_label)
+            item_layout.addWidget(checkbox)
+
+            grid.addWidget(item, row, col)
+            self.checkboxes[code_upper] = checkbox
+
+        action = QWidgetAction(self)
+        action.setDefaultWidget(container)
+        self.addAction(action)
+
+    def on_language_clicked(self, code_upper, language_name, code_lower):
+        for code, checkbox in self.checkboxes.items():
+            checkbox.blockSignals(True)
+            checkbox.setChecked(code == code_upper)
+            checkbox.blockSignals(False)
+
+        self.current_code = code_upper
+        self.languageChanged.emit(code_upper, language_name, code_lower)
+        self.close()
+
+
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -9584,7 +9643,9 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------------------
     def _set_language(self, lang: str):
         try:
-            share.locales.I18N.load_mo("po/locales/" + lang)
+            #share.locales.I18N.load_mo("po/locales/" + lang)
+            print(lang)
+            share.locales.LangSwitch(lang)
         except Exception:
             pass
         self._retranslate_ui()
@@ -9993,32 +10054,16 @@ class MainWindow(QMainWindow):
         self.menu_display.addSeparator()
         self.menu_display.addAction(self.act_edit_minimap)
 
-        self.menu_language = self.menu_display.addMenu(share.locales.tr("Language"))
-        try:
-            from PyQt5.QtWidgets import QActionGroup
-        except Exception:
-            QActionGroup = None
-        self.act_lang_en = QAction("English", self)
-        self.act_lang_de = QAction("Deutsch", self)
-        self.act_lang_en.setCheckable(True)
-        self.act_lang_de.setCheckable(True)
-        if QActionGroup is not None:
-            grp = QActionGroup(self)
-            grp.setExclusive(True)
-            grp.addAction(self.act_lang_en)
-            grp.addAction(self.act_lang_de)
-        if (share.locales.I18N.lang or '').lower().startswith('de'):
-            self.act_lang_de.setChecked(True)
-        else:
-            self.act_lang_en.setChecked(True)
-        self._set_language('de')
+        #self.menu_language = self.menu_display.addMenu(share.locales.tr("Language"))
         
-        self.act_lang_en.triggered.connect(lambda: self._set_language('en'))
-        self.act_lang_de.triggered.connect(lambda: self._set_language('de'))
+        self.menu_language = LanguageMenu(self, current_code = "DEU", columns=4)
+        self.menu_language.setTitle(share.locales.tr("Language"))
+        self.menu_language.languageChanged.connect(self.on_language_changed)
         
-        self.menu_language.addAction(self.act_lang_en)
-        self.menu_language.addAction(self.act_lang_de)
-
+        self.menu_display.addMenu(self.menu_language)
+        
+        
+        
         self.act_edit_undo      = QAction(share.locales.tr('Undo')    , self, shortcut=QKeySequence('Ctrl+Z'))
         self.act_edit_redo      = QAction(share.locales.tr('Redo')    , self, shortcut=QKeySequence('Ctrl+Y'))
         self.act_edit_paste     = QAction(share.locales.tr('Paste')   , self, shortcut=QKeySequence('Ctrl+V'))
@@ -10202,6 +10247,13 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
     
+    def on_language_changed(self, code_upper, language_name, code_lower):
+        if   code_lower == "deu":  share.locales.LangSwitch("de")
+        elif code_lower == "enu":  share.locales.LangSwitch("en")
+        elif code_lower == "eng":  share.locales.LangSwitch("en")
+        else:                      share.locales.LangSwitch("en")
+        self._retranslate_ui()
+        
     def on_tools_locales_menu(self):
         #mw = globals().get("MAINAPP", None)
         #if mw is not None and hasattr(mw, "mdi"):

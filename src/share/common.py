@@ -116,7 +116,7 @@ try:
         QTabBar, QRubberBand, QTreeWidget, QTreeWidgetItem, QHeaderView,
         QScrollArea, QAbstractButton, QButtonGroup, QFormLayout, QListView,
         QButtonGroup, QColorDialog, QDialogButtonBox, QFontComboBox,
-        QStackedWidget, QProgressDialog,
+        QStackedWidget, QProgressDialog, QActionGroup, QWidgetAction,
     )
     from PyQt5.QtWebEngineCore import (
         QWebEngineUrlSchemeHandler, QWebEngineUrlRequestJob,

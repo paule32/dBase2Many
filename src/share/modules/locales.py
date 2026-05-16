@@ -127,86 +127,6 @@ class LocalizeCodeEditor(QPlainTextEdit):
 
 
 class LocalizeToolWindow(QWidget):
-    LANGUAGE_CODES = [
-        ("ENU", "English (USA)" , "enu"),
-        ("ENG", "English"       , "eng"),
-        ("DEU", "German"        , "deu"),
-        ("FRA", "French"        , "fra"),
-        ("ESP", "Spanish"       , "esp"),
-        ("ITA", "Italian"       , "ita"),
-        ("NLD", "Dutch"         , "nld"),
-        
-        ("PTB", "Portuguese (Brazil)", "ptb"),
-        
-        ("POR", "Portuguese"    , "por"),
-        ("PLK", "Polish"        , "plk"),
-        ("RUS", "Russian"       , "rus"),
-
-        ("AFR", "Afrikaans"     , "afr"),
-        ("ALB", "Albanian"      , "alb"),
-        ("ARA", "Arabic"        , "ara"),
-        ("ARM", "Armenian"      , "arm"),
-        ("AZE", "Azerbaijani"   , "aze"),
-        ("BAQ", "Basque"        , "baq"),
-        ("BEL", "Belarusian"    , "bel"),
-        ("BEN", "Bengali"       , "ben"),
-        ("BOS", "Bosnian"       , "bos"),
-        ("BGR", "Bulgarian"     , "bgr"),
-        ("CAT", "Catalan"       , "cat"),
-        
-        ("CHS", "Chinese (Simplified)" , "chs"),
-        ("CHT", "Chinese (Traditional)", "cht"),
-        
-        ("HRV", "Croatian"      , "hrv"),
-        ("CSY", "Czech"         , "csy"),
-        ("DAN", "Danish"        , "dan"),
-        ("ETI", "Estonian"      , "eti"),
-        ("FIN", "Finnish"       , "fin"),
-        ("GLC", "Galician"      , "glc"),
-        ("GEO", "Georgian"      , "geo"),
-        ("ELL", "Greek"         , "ell"),
-        ("HEB", "Hebrew"        , "heb"),
-        ("HIN", "Hindi"         , "hin"),
-        ("HUN", "Hungarian"     , "hun"),
-        ("ISL", "Icelandic"     , "isl"),
-        ("IND", "Indonesian"    , "ind"),
-        ("GLE", "Irish"         , "gle"),
-        ("JPN", "Japanese"      , "jpn"),
-        ("KAN", "Kannada"       , "kan"),
-        ("KAZ", "Kazakh"        , "kaz"),
-        ("KOR", "Korean"        , "kor"),
-        ("LVI", "Latvian"       , "lvi"),
-        ("LTH", "Lithuanian"    , "lth"),
-        ("MKD", "Macedonian"    , "mkd"),
-        ("MSL", "Malay"         , "msl"),
-        ("MAL", "Malayalam"     , "mal"),
-        ("MAR", "Marathi"       , "mar"),
-        ("MON", "Mongolian"     , "mon"),
-        ("NEP", "Nepali"        , "nep"),
-        ("NOR", "Norwegian"     , "nor"),
-        
-        ("NOB", "Norwegian Bokmål" , "nob"),
-        ("NNO", "Norwegian Nynorsk", "nno"),
-        
-        ("FAR", "Persian"       , "far"),
-        ("ROM", "Romanian"      , "rom"),
-        ("SRB", "Serbian"       , "srb"),
-        
-        ("SRL", "Serbian (Latin)", "srl"),
-        
-        ("SKY", "Slovak"        , "sky"),
-        ("SLV", "Slovenian"     , "slv"),
-        ("SVE", "Swedish"       , "sve"),
-        ("SWA", "Swahili"       , "swa"),
-        ("TAM", "Tamil"         , "tam"),
-        ("TEL", "Telugu"        , "tel"),
-        ("THA", "Thai"          , "tha"),
-        ("TRK", "Turkish"       , "trk"),
-        ("UKR", "Ukrainian"     , "ukr"),
-        ("URD", "Urdu"          , "urd"),
-        ("VIT", "Vietnamese"    , "vit"),
-    ]
-
     HEADER_FIELDS = [
         "Project-Id-Version",
         "Report-Msgid-Bugs-To",
@@ -317,7 +237,7 @@ class LocalizeToolWindow(QWidget):
         src_lay.setSpacing(4)
         dst_lay.setSpacing(4)
         
-        for code, title, flag_path in self.LANGUAGE_CODES:
+        for code, title, flag_path in share.locales.LANGUAGE_CODES:
             row_src = LanguageRadioFlag(code + " ", title, flag_path, self.gb_source)
             self.src_group.addButton(row_src.radio)
             self.src_radios[code] = row_src.radio
