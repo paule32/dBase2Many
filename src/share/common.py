@@ -35,7 +35,10 @@ try:
     from io import BytesIO
 
     import share.utildef.sysinfo
-    from   share.utildef.sysinfo    import SystemInfo
+    from   share.utildef.sysinfo import SystemInfo
+    
+    import share.drives
+    from   share.drives import *
     
     import mimetypes
     import ctypes

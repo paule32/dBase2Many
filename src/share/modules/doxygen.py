@@ -87,6 +87,10 @@ HEADER_KIND     = "doxygen-project"
 HEADER_VERSION  = 1
 
 
+def set_tooltip_if_text(widget, text):
+    text = (text or "").strip()
+    widget.setToolTip(text)
+
 class DoxyScrollPage:
     def __init__(self, owner, area, widget, layout):
         self.owner = owner
@@ -423,7 +427,7 @@ class LinkLabel(QLabel):
         self.setText(text)
         
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip(self.web_url)
+        set_tooltip_if_text(self, self.web_url)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -1244,12 +1248,40 @@ class WizardSettings(QWidget):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(4,4,4,4)
         content_layout.setSpacing(4)
+        
+        group1 = QGroupBox(share.locales.tr("Diagrams to generate" ), content)
+        group2 = QGroupBox(share.locales.tr("Dot graphs to generate"), content)
 
-        label = QLabel(share.locales.tr(
-            "Provide some information about "
-            "the project you are documenting"),
-            page)
-        content_layout.addWidget(label)
+        group1_layout = QVBoxLayout(group1)
+        group2_layout = QVBoxLayout(group2)
+        
+        group1_layout.setContentsMargins(4,4,4,4)
+        group2_layout.setContentsMargins(4,4,4,4)
+        
+        group1_layout.setSpacing(4)
+        group2_layout.setSpacing(4)
+        
+        radio1 = QRadioButton(share.locales.tr("No diagrams"))
+        radio2 = QRadioButton(share.locales.tr("Text only"))
+        radio3 = QRadioButton(share.locales.tr("Use built-in class diagram generator"))
+        radio4 = QRadioButton(share.locales.tr("Use dot tool from the GraphWiz package"))
+        
+        for item in [radio1, radio2, radio3, radio4]:
+            group1_layout.addWidget(item)
+        
+        check1 = QCheckBox(share.locales.tr("Class graphs"))
+        check2 = QCheckBox(share.locales.tr("Collaboration Class Hierarchy"))
+        check3 = QCheckBox(share.locales.tr("Overall Class Hierarchy"))
+        check4 = QCheckBox(share.locales.tr("Include dependency graphs"))
+        check5 = QCheckBox(share.locales.tr("Included by dependency graphs"))
+        check6 = QCheckBox(share.locales.tr("Call Graphs"))
+        check7 = QCheckBox(share.locales.tr("Called by graphs"))
+        
+        for item in [check1, check2, check3, check4, check5, check6, check7]:
+            group2_layout.addWidget(item)
+        
+        content_layout.addWidget(group1)
+        content_layout.addWidget(group2)
         
         content_layout.addStretch()
         
