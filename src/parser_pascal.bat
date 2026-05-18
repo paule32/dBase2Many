@@ -6,3 +6,6 @@
 :: build C/C++ parser
 venv\Scripts\antlr4 -Dlanguage=Python3                            -o parse/pascal gramm/pascal/pascalLexer.g4
 venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -lib parse/pascal -o parse/pascal gramm/pascal/pascalParser.g4
+
+venv\Scripts\antlr4 -Dlanguage=Python3                            -o parse/pascal gramm/pascal/PasDocLexer.g4
+venv\Scripts\antlr4 -Dlanguage=Python3 -visitor -lib parse/pascal -o parse/pascal gramm/pascal/PasDocParser.g4

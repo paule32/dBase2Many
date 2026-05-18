@@ -6,8 +6,28 @@
 # die Datei erwartet die .mo-Datei standardmäßig unter
 # src/data/po/locales/<sprache>/LC_MESSAGES/doxygen.mo
 # ---------------------------------------------------------------------------
-from __future__   import annotations
-from share.common import *
+from   __future__   import annotations
+
+import os
+import html
+
+from   share.common import *
+
+# -----------------------------------------------------------------------
+# c++ documenting interpreter lexer + parser ...
+# -----------------------------------------------------------------------
+from parse.cc.CppDocLexer          import CppDocLexer
+from parse.cc.CppDocParser         import CppDocParser
+from parse.cc.CppDocParserListener import CppDocParserListener
+from parse.cc.CppDocParserVisitor  import CppDocParserVisitor
+
+# -----------------------------------------------------------------------
+# pascal documenting interpreter lexer + parser ...
+# -----------------------------------------------------------------------
+from parse.pascal.PasDocLexer          import PasDocLexer
+from parse.pascal.PasDocParser         import PasDocParser
+from parse.pascal.PasDocParserListener import PasDocParserListener
+from parse.pascal.PasDocParserVisitor  import PasDocParserVisitor
 
 DOXYGEN_PROJECT_PAGES = {}
 DOXYGEN_ITEMS = []
@@ -86,10 +106,904 @@ HEADER_TOOL     = "doxygen-dialog"
 HEADER_KIND     = "doxygen-project"
 HEADER_VERSION  = 1
 
+# ---------------------------------------------------------------------------
+# \brief global definition to write the css styles for dark mode html
+# ---------------------------------------------------------------------------
+def _write_css(output_dir):
+    filename = os.path.join(output_dir, "style.css")
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(""":root {
+--bg: #1f1f1f;
+--panel: #202020;
+--line: #343434;
+--line-soft: #2a2a2a;
+--text: #eeeeee;
+--muted: #b8b8b8;
+--green: #36d67a;
+}
+* {
+box-sizing: border-box;
+}
+body {
+margin: 0;
+background:
+radial-gradient(circle at top left, #2b2b2b 0, #1f1f1f 360px),
+var(--bg);
+color: var(--text);
+font-family: Arial, Helvetica, sans-serif;
+font-size: 15px;
+}
+.page {
+position: relative;
+width: 100%;
+padding: 18px 26px 28px 26px;
+}
+.version {
+position: absolute;
+right: 26px;
+top: 20px;
+color: var(--text);
+font-size: 14px;
+}
+h1 {
+margin: 0 0 8px 0;
+font-size: 34px;
+font-weight: 400;
+letter-spacing: -0.5px;
+}
+h2 {
+margin: 28px 0 10px 0;
+font-size: 26px;
+font-weight: 600;
+}
+.breadcrumb {
+display: flex;
+gap: 10px;
+align-items: center;
+padding-bottom: 14px;
+border-bottom: 1px solid var(--line);
+color: var(--green);
+font-weight: 600;
+}
+.breadcrumb a {
+color: var(--green);
+text-decoration: none;
+}
+.breadcrumb span {
+color: var(--green);
+}
+a {
+color: #ffffff;
+text-decoration: none;
+}
+a:visited {
+color: #e6e6e6;
+}
+a:hover {
+color: var(--green);
+text-decoration: underline;
+}
+a:active {
+color: #ffffff;
+}
+.inherits {
+color: var(--muted);
+margin: 16px 0 0 0;
+}
+.func-table {
+width: 100%;
+border-collapse: collapse;
+background: rgba(32, 32, 32, 0.88);
+border: 1px solid var(--line);
+}
+.func-table tr {
+border-bottom: 1px solid var(--line-soft);
+}
+.func-table tr:last-child {
+border-bottom: none;
+}
+.func-table td {
+padding: 6px 12px;
+vertical-align: middle;
+}
+.func-table .ret {
+width: 245px;
+color: var(--text);
+text-align: right;
+border-right: 1px solid var(--line);
+white-space: nowrap;
+}
+.func-table .sig {
+color: var(--text);
+}
+.func-name,
+.linklike {
+color: var(--green);
+font-weight: 700;
+}
+.member-docs {
+margin-top: 36px;
+}
+.member-doc {
+margin-top: 28px;
+max-width: 1100px;
+}
+.member-doc h3 {
+font-size: 18px;
+font-weight: 400;
+margin: 0;
+color: var(--text);
+}
+.member-line {
+height: 1px;
+background: var(--line);
+margin: 12px 0 20px 0;
+}
+.member-doc p {
+margin: 0 0 18px 0;
+line-height: 1.55;
+color: var(--text);
+}
+section p {
+line-height: 1.55;
+}
+footer {
+margin-top: 28px;
+padding-top: 14px;
+border-top: 1px solid var(--line);
+color: #999999;
+text-align: center;
+font-size: 13px;
+}
+footer span {
+color: var(--green);
+font-weight: 700;
+}
+""")
 
 def set_tooltip_if_text(widget, text):
     text = (text or "").strip()
     widget.setToolTip(text)
+
+# ---------------------------------------------------------------------------
+# \brief get the default documents home directory for the current user login
+# ---------------------------------------------------------------------------
+def _default_project_dir() -> Path:
+    base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+class CppClassInfo:
+    def __init__(self, name):
+        self.name    = name
+        self.kind    = "class"
+        self.bases   = []
+        self.methods = []
+        self.fields  = []
+
+class CppMemberInfo:
+    def __init__(self, access, signature):
+        self.access    = access
+        self.signature = signature
+
+
+class PasClassInfo:
+    def __init__(self, name):
+        self.name       = name
+        self.kind       = "class"
+        self.bases      = []
+        self.methods    = []
+        self.fields     = []
+        self.properties = []
+
+
+class PasMemberInfo:
+    def __init__(self, access, signature):
+        self.access    = access
+        self.signature = signature
+
+# ---------------------------------------------------------------------------
+# \brief definition to generate the html code (depend on file extension)
+# ---------------------------------------------------------------------------
+def generate_html(source_file, output_dir="html"):
+    name, ext = os.path.splitext(source_file)
+    ext       = ext[1:].lower()
+
+    try:
+        if ext in ["pas", "pp"]:
+            output_dir.join("/pas")
+            
+            input_stream = FileStream(source_file, encoding="utf-8")
+            lexer   = PasDocLexer(input_stream)
+            tokens  = CommonTokenStream(lexer)
+        
+            parser  = PasDocParser(tokens)
+            tree    = parser.unitFile()
+        
+            visitor = PasDocHtmlVisitor(output_dir)
+            visitor.visit(tree)
+            
+        elif ext in ["c", "c++", "cc", "cpp"]:
+            output_dir.join("/cpp")
+            
+            input_stream = FileStream(source_file, encoding="utf-8")
+            lexer   = CppDocLexer(input_stream)
+            tokens  = CommonTokenStream(lexer)
+        
+            parser  = CppDocParser(tokens)
+            tree    = parser.translationUnit()
+        
+            visitor = CppDocHtmlVisitor(output_dir)
+            visitor.visit(tree)
+            
+    except Exception as e:
+        print(e)
+    
+    print(f"HTML-Dokumentation erstellt in: {output_dir}")
+
+# ---------------------------------------------------------------------------
+# \brief pascal documentation visitor to generate the pascal html help ...
+# ---------------------------------------------------------------------------
+class PasDocHtmlVisitor(PasDocParserVisitor):
+    def __init__(self, output_dir = "html" ):
+        super().__init__()
+        
+        self.output_dir     = output_dir
+        self.classes        = []
+
+        self.current_class  = None
+        self.current_access = "public"
+    
+    def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
+        self.visitChildren(ctx)
+        self.write_index()
+        self.write_classes()
+        return self.classes
+    
+    def visitClassDeclaration(self, ctx: PasDocParser.ClassDeclarationContext):
+        class_name = ctx.IDENT().getText()
+        
+        old_class  = self.current_class
+        old_access = self.current_access
+        
+        info       = PasClassInfo(class_name)
+        info.kind  = "class"
+        
+        class_type = ctx.classType()
+        
+        if class_type and class_type.classInheritance():
+            for t in class_type.classInheritance().typeName():
+                info.bases.append(self.text_from_ctx(t))
+        
+        self.current_class  = info
+        self.current_access = "public"
+
+        self.visit(class_type.classBody())
+        self.classes.append(info)
+        
+        self.current_class  = old_class
+        self.current_access = old_access
+        
+        return info
+    
+    def visitVisibilitySection(self, ctx: PasDocParser.VisibilitySectionContext):
+        self.current_access = ctx.visibility().getText().lower()
+        return None
+    
+    def visitMethodDeclaration(self, ctx: PasDocParser.MethodDeclarationContext):
+        if self.current_class is None:
+            return None
+        signature = self.text_from_ctx(ctx)
+        self.current_class.methods.append(PasMemberInfo(self.current_access, signature))
+        return None
+    
+    def visitPropertyDeclaration(self, ctx: PasDocParser.PropertyDeclarationContext):
+        if self.current_class is None:
+            return None
+        signature = self.text_from_ctx(ctx)
+        self.current_class.properties.append(PasMemberInfo(self.current_access, signature))
+        return None
+    
+    def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
+        if self.current_class is None:
+            return None
+        signature = self.text_from_ctx(ctx)
+        self.current_class.fields.append(PasMemberInfo(self.current_access, signature))
+
+    def text_from_ctx(self, ctx):
+        tokens = []
+        for child in ctx.getChildren():
+            if hasattr(child, "symbol"):
+                tokens.append(child.getText())
+            else:
+                sub_text = self.text_from_ctx(child)
+                if sub_text:
+                    tokens.extend(sub_text.split(" "))
+        return self.join_pascal_tokens(tokens)
+    
+    def join_pascal_tokens(self, tokens):
+        result = ""
+        no_space_before = { ")", "]", ",", ".", ":" }
+        no_space_after  = { "(", "[", ".", "^"      }
+
+        for token in tokens:
+            if not token:
+                continue
+            if not result:
+                result = token
+                continue
+            prev = result[-1]
+            if token in no_space_before:
+                result += token
+            elif prev in "([.^":
+                result += token
+            else:
+                result += " " + token
+        result = result.strip()
+        
+        if result.endswith(";"):
+            result = result[:-1].strip()
+        
+        return result
+    
+    def html_escape(self, text):
+        return html.escape(text, quote=True)
+    
+    def safe_filename(self, name):
+        result = []
+        for ch in name:
+            if ch.isalnum() or ch in "_-":
+                result.append(ch)
+            else:
+                result.append("_")
+        return "".join(result)
+    
+    def write_index(self):
+        filename = os.path.join(self.output_dir, "pascal\\index.html")
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("<!DOCTYPE html>\n")
+            f.write("<html>\n")
+            f.write("<head>\n")
+            f.write("  <meta charset=\"utf-8\">\n")
+            f.write("  <title>Pascal Documentation</title>\n")
+            f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+            f.write("</head>\n")
+            f.write("<body>\n")
+            f.write("  <main class=\"page\">\n")
+            f.write("    <div class=\"version\">Pascal Doc</div>\n")
+            f.write("    <h1>Pascal Documentation</h1>\n")
+            f.write("    <div class=\"breadcrumb\">\n")
+            f.write("      <span>Overview</span>\n")
+            f.write("    </div>\n")
+            f.write("    <section>\n")
+            f.write("      <h2>Classes</h2>\n")
+            f.write("      <ul class=\"class-list\">\n")
+            
+            for cls in self.classes:
+                html_name = self.safe_filename(cls.name) + ".html"
+                f.write(
+                    f"        <li><a href=\"{html_name}\">{self.html_escape(cls.name)}</a></li>\n"
+                )
+            
+            f.write("      </ul>\n")
+            f.write("    </section>\n")
+            f.write("    <footer>\n")
+            f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
+            f.write("    </footer>\n")
+            f.write("  </main>\n")
+            f.write("</body>\n")
+            f.write("</html>\n")
+        
+        _write_css(os.path.join(self.output_dir, "pascal"))
+    
+    def write_classes(self):
+        os.makedirs(os.path.join(self.output_dir, "pascal" ), exist_ok=True)
+        for cls in self.classes:
+            filename = os.path.join(
+                self.output_dir, "pascal",
+                self.safe_filename(cls.name) + ".html")
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n")
+                f.write("<html>\n")
+                f.write("<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(cls.name)} Class</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("</head>\n")
+                f.write("<body>\n")
+                
+                f.write("  <main class=\"page\">\n")
+                f.write("    <div class=\"version\">Pascal Doc</div>\n")
+                f.write(f"    <h1>{self.html_escape(cls.name)} Class</h1>\n")
+                
+                f.write("    <div class=\"breadcrumb\">\n")
+                f.write("      <a href=\"index.html\">Overview</a>\n")
+                f.write("      <span>›</span>\n")
+                f.write(f"      <span>{self.html_escape(cls.name)}</span>\n")
+                f.write("    </div>\n")
+                
+                if cls.bases:
+                    f.write("    <p class=\"inherits\">Inherits: ")
+                    f.write(", ".join(self.html_escape(b) for b in cls.bases))
+                    f.write("</p>\n")
+                
+                self.write_member_table(f, "Public Methods", cls.methods, "public")
+                self.write_member_table(f, "Protected Methods", cls.methods, "protected")
+                self.write_member_table(f, "Private Methods", cls.methods, "private")
+                self.write_member_table(f, "Published Methods", cls.methods, "published")
+                
+                self.write_member_table(f, "Public Properties", cls.properties, "public")
+                self.write_member_table(f, "Protected Properties", cls.properties, "protected")
+                self.write_member_table(f, "Private Properties", cls.properties, "private")
+                self.write_member_table(f, "Published Properties", cls.properties, "published")
+                
+                self.write_member_table(f, "Public Fields", cls.fields, "public")
+                self.write_member_table(f, "Protected Fields", cls.fields, "protected")
+                self.write_member_table(f, "Private Fields", cls.fields, "private")
+                self.write_member_table(f, "Published Fields", cls.fields, "published")
+                
+                f.write("    <section>\n")
+                f.write("      <h2>Detailed Description</h2>\n")
+                f.write(f"      <p>The <span class=\"linklike\">{self.html_escape(cls.name)}</span> class.</p>\n")
+                f.write("    </section>\n")
+                
+                self.write_member_function_docs(f, cls)
+                
+                f.write("    <footer>\n")
+                f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
+                f.write("    </footer>\n")
+                
+                f.write("  </main>\n")
+                f.write("</body>\n")
+                f.write("</html>\n")
+    
+    def write_member_table(self, f, title, members, access_filter=None):
+        items = []
+        
+        for member in members:
+            if access_filter is None or member.access == access_filter:
+                items.append(member)
+        
+        if not items:
+            return
+        
+        f.write("    <section>\n")
+        f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+        
+        for member in items:
+            left, right = self.split_pascal_signature(member.signature)
+            
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
+            f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
+            f.write("        </tr>\n")
+        
+        f.write("      </table>\n")
+        f.write("    </section>\n")
+
+    def split_pascal_signature(self, signature):
+        text = signature.strip()
+        if text.lower().startswith("property "):
+            body = text[len("property "):].strip()
+            return "property", body
+        lower_text = text.lower()
+        for prefix in ["constructor", "destructor", "procedure", "function"]:
+            if lower_text.startswith(prefix + " "):
+                body = text[len(prefix):].strip()
+                return prefix, body
+        if ":" in text:
+            left, right = text.split(":", 1)
+            return right.strip(), left.strip()
+        parts = text.rsplit(" ", 1)
+        if len(parts) == 2:
+            return parts[0], parts[1]
+        return "", text
+
+    def highlight_signature(self, signature):
+        text = self.html_escape(signature)
+        pos = text.find("(")
+        colon_pos = text.find(":")
+        end_pos = -1
+        if pos >= 0 and colon_pos >= 0:
+            end_pos = min(pos, colon_pos)
+        elif pos >= 0:
+            end_pos = pos
+        elif colon_pos >= 0:
+            end_pos = colon_pos
+        if end_pos > 0:
+            name = text[:end_pos]
+            rest = text[end_pos:]
+            return f"<span class=\"func-name\">{name}</span>{rest}"
+        parts = text.split(" ", 1)
+        if len(parts) == 2:
+            return f"<span class=\"func-name\">{parts[0]}</span> {parts[1]}"
+        return f"<span class=\"func-name\">{text}</span>"
+
+    def write_member_function_docs(self, f, cls):
+        if not cls.methods:
+            return
+        
+        f.write("    <section class=\"member-docs\">\n")
+        f.write("      <h2>Member Function Documentation</h2>\n")
+        
+        msg = share.locales.tr("No documentation for this member")
+        for member in cls.methods:
+            full_signature = self.make_qualified_signature(cls.name, member.signature)
+            
+            f.write("      <article class=\"member-doc\">\n")
+            f.write(f"        <h3>{self.highlight_signature(full_signature)}</h3>\n")
+            f.write("        <div class=\"member-line\"></div>\n")
+            f.write("        <p>\n")
+            f.write(f"          {msg}.\n")
+            f.write("        </p>\n")
+            f.write("      </article>\n")
+        
+        f.write("    </section>\n")
+
+    def make_qualified_signature(self, class_name, signature):
+        text = signature.strip()
+        lower_text = text.lower()
+        for prefix in ["constructor", "destructor", "procedure", "function"]:
+            if lower_text.startswith(prefix + " "):
+                body      = text[len(prefix):].strip()
+                pos       = body.find("(")
+                colon_pos = body.find(":")
+                if pos >= 0 and colon_pos >= 0:
+                    end_pos = min(pos, colon_pos)
+                elif pos >= 0:
+                    end_pos = pos
+                elif colon_pos >= 0:
+                    end_pos = colon_pos
+                else:
+                    end_pos = len(body)
+                name = body[:end_pos].strip()
+                rest = body[end_pos:].strip()
+                return f"{prefix} {class_name}.{name}{rest}"
+        return text
+
+# ---------------------------------------------------------------------------
+# \brief c++ documentation visitor to generate the c++ html help ...
+# ---------------------------------------------------------------------------
+class CppDocHtmlVisitor(CppDocParserVisitor):
+    def __init__(self, output_dir="html"):
+        super().__init__()
+        
+        self.output_dir = output_dir
+        self.classes = []
+        self.current_class = None
+        self.current_access = "private"
+    
+    def visitTranslationUnit(self, ctx: CppDocParser.TranslationUnitContext):
+        self.visitChildren(ctx)
+        self.write_index()
+        self.write_classes()
+        return self.classes
+    
+    def visitClassDeclaration(self, ctx: CppDocParser.ClassDeclarationContext):
+        class_name = ctx.IDENT().getText()
+        
+        old_class  = self.current_class
+        old_access = self.current_access
+        
+        info = CppClassInfo(class_name)
+        info.kind = ctx.classKind().getText()
+
+        if info.kind == "struct":
+            self.current_access = "public"
+        else:
+            self.current_access = "private"
+
+        if ctx.inheritance():
+            for item in ctx.inheritance().inheritanceItem():
+                info.bases.append(self.text_from_ctx(item))
+
+        self.current_class = info
+        self.visit(ctx.classBody())
+        self.classes.append(info)
+
+        self.current_class  = old_class
+        self.current_access = old_access
+
+        return info
+
+    def visitAccessSection(self, ctx: CppDocParser.AccessSectionContext):
+        self.current_access = ctx.accessSpecifier().getText()
+        return None
+
+    def visitMethodDeclaration(self, ctx: CppDocParser.MethodDeclarationContext):
+        if self.current_class is None:
+            return None
+
+        signature = self.text_from_ctx(ctx)
+
+        self.current_class.methods.append(
+            CppMemberInfo(self.current_access, signature)
+        )
+
+        return None
+
+    def visitFieldDeclaration(self, ctx: CppDocParser.FieldDeclarationContext):
+        if self.current_class is None:
+            return None
+
+        signature = self.text_from_ctx(ctx)
+
+        self.current_class.fields.append(
+            CppMemberInfo(self.current_access, signature)
+        )
+
+        return None
+
+    def format_signature(self, text):
+        text = text.replace(";", "")
+        text = text.replace(",", ", ")
+        text = text.replace("(", "(")
+        text = text.replace(")", ")")
+        text = text.replace("*", " *")
+        text = text.replace("&", " &")
+        return text.strip()
+    
+    def text_from_ctx(self, ctx):
+        tokens = []
+        for child in ctx.getChildren():
+            if hasattr(child, "symbol"):
+                tokens.append(child.getText())
+            else:
+                sub_text = self.text_from_ctx(child)
+                if sub_text:
+                    tokens.extend(sub_text.split(" "))
+        return self.join_cpp_tokens(tokens)
+
+    def join_cpp_tokens(self, tokens):
+        result = ""
+        no_space_before = { ")", "]", "}", ";", ",", "::" }
+        no_space_after  = { "(", "[", "{", "::", "~"      }
+        
+        space_around    = { "*", "&", "=", "+", "-", "/", "%", "<", ">" }
+
+        for token in tokens:
+            if not token:
+                continue
+            if not result:
+                result = token
+                continue
+            prev = result[-1]
+            if token in no_space_before:
+                result += token
+            elif prev in "([{~":
+                result += token
+            elif token in space_around:
+                result += " " + token
+            elif prev in "*&=+-/%<>":
+                result += " " + token
+            else:
+                result += " " + token
+        return result.strip()
+    
+    def pretty_cpp_text(self, text):
+        text = text.strip()
+        
+        text = text.replace(" *", " *")
+        text = text.replace("* ", "* ")
+        text = text.replace(" &", " &")
+        text = text.replace("& ", "& ")
+
+        text = text.replace(" (", "(")
+        text = text.replace("( ", "(")
+        text = text.replace(" )", ")")
+        text = text.replace(" ,", ",")
+        text = text.replace(", ", ", ")
+
+        text = text.replace(" ;", "")
+
+        while "  " in text:
+            text = text.replace("  ", " ")
+
+        return text
+    
+    def safe_filename(self, name):
+        result = []
+
+        for ch in name:
+            if ch.isalnum() or ch in "_-":
+                result.append(ch)
+            else:
+                result.append("_")
+
+        return "".join(result)
+
+    def html_escape(self, text):
+        return html.escape(text, quote=True)
+
+    def write_index(self):
+        os.makedirs(os.path.join(self.output_dir, "cpp"), exist_ok=True)
+        filename  = os.path.join(self.output_dir, "cpp\\index.html")
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("<!DOCTYPE html>\n")
+            f.write("<html>\n")
+            f.write("<head>\n")
+            f.write("  <meta charset=\"utf-8\">\n")
+            f.write("  <title>C++ Documentation</title>\n")
+            f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+            f.write("</head>\n")
+            f.write("<body>\n")
+            f.write("  <h1>C++ Documentation</h1>\n")
+            f.write("  <h2>Classes</h2>\n")
+            f.write("  <ul>\n")
+
+            for cls in self.classes:
+                html_name = self.safe_filename(cls.name) + ".html"
+                f.write(
+                    f"    <li><a href=\"{html_name}\">{self.html_escape(cls.name)}</a></li>\n"
+                )
+
+            f.write("  </ul>\n")
+            f.write("</body>\n")
+            f.write("</html>\n")
+
+        _write_css(os.path.join(self.output_dir, "cpp"))
+
+    def write_classes(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(os.path.join(self.output_dir, "cpp" ), exist_ok=True)
+        for cls in self.classes:
+            filename = os.path.join(
+                self.output_dir, "cpp",
+                self.safe_filename(cls.name) + ".html")
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(cls.name)} Class</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("</head>\n<body>\n")
+
+                f.write("  <main class=\"page\">\n")
+                f.write(f"    <div class=\"version\">C++ Doc</div>\n")
+                f.write(f"    <h1>{self.html_escape(cls.name)} Class</h1>\n")
+
+                f.write("    <div class=\"breadcrumb\">\n")
+                f.write("      <a href=\"index.html\">Overview</a>")
+                f.write("      <span>›</span>")
+                f.write(f"      <span>{self.html_escape(cls.name)}</span>\n")
+                f.write("    </div>\n")
+
+                if cls.bases:
+                    f.write("    <p class=\"inherits\">Inherits: ")
+                    f.write(", ".join(self.html_escape(b) for b in cls.bases))
+                    f.write("</p>\n")
+
+                self.write_member_table(f, "Public Functions", cls.methods, "public")
+                self.write_member_table(f, "Protected Functions", cls.methods, "protected")
+                self.write_member_table(f, "Private Functions", cls.methods, "private")
+
+                self.write_member_table(f, "Public Fields", cls.fields, "public")
+                self.write_member_table(f, "Protected Fields", cls.fields, "protected")
+                self.write_member_table(f, "Private Fields", cls.fields, "private")
+                
+                
+                f.write("    <section>\n")
+                f.write("      <h2>Detailed Description</h2>\n")
+                f.write(f"      <p>The <span class=\"linklike\">{self.html_escape(cls.name)}</span> class.</p>\n")
+                f.write("    </section>\n")
+                
+                self.write_member_function_docs(f, cls)
+                
+                f.write("    <footer>\n")
+                f.write("      Generated by <span>dBase Lexer + Parser</span> | C++ Documentation Generator\n")
+                f.write("    </footer>\n")
+
+                f.write("  </main>\n")
+                f.write("</body>\n</html>\n")
+
+    def write_member_function_docs(self, f, cls):
+        if not cls.methods:
+            return
+
+        f.write("    <section class=\"member-docs\">\n")
+        f.write("      <h2>Member Function Documentation</h2>\n")
+
+        msg = share.locales.tr("No documentation for this member")
+        for member in cls.methods:
+            full_signature = self.make_qualified_signature(cls.name, member.signature)
+
+            f.write("      <article class=\"member-doc\">\n")
+            f.write(f"        <h3>{self.highlight_signature(full_signature)}</h3>\n")
+            f.write("        <div class=\"member-line\"></div>\n")
+
+            f.write("        <p>\n")
+            f.write(f"          {msg}.\n")
+            f.write("        </p>\n")
+
+            f.write("      </article>\n")
+
+        f.write("    </section>\n")
+
+
+    def make_qualified_signature(self, class_name, signature):
+        text = signature.strip()
+
+        pos = text.find("(")
+        if pos <= 0:
+            return text
+
+        before = text[:pos].strip()
+        rest = text[pos:].strip()
+
+        parts = before.rsplit(" ", 1)
+
+        if len(parts) == 2:
+            left = parts[0]
+            name = parts[1]
+
+            if name.startswith("~"):
+                return f"{left} {class_name}::{name}{rest}"
+
+            if name == class_name:
+                return f"{class_name}::{name}{rest}"
+
+            return f"{left} {class_name}::{name}{rest}"
+
+        name = before
+
+        if name.startswith("~"):
+            return f"{class_name}::{name}{rest}"
+
+        return f"{class_name}::{name}{rest}"
+    
+    def write_member_table(self, f, title, members, access_filter=None):
+        items = []
+
+        for member in members:
+            if access_filter is None or member.access == access_filter:
+                items.append(member)
+
+        if not items:
+            return
+
+        f.write("    <section>\n")
+        f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+
+        for member in items:
+            left, right = self.split_signature(member.signature)
+
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
+            f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
+            f.write("        </tr>\n")
+
+        f.write("      </table>\n")
+        f.write("    </section>\n")
+
+    def split_signature(self, signature):
+        text = self.pretty_cpp_text(signature)
+        pos  = text.find("(")
+        if pos > 0:
+            before = text[:pos].strip()
+            rest = text[pos:].strip()
+            parts = before.rsplit(" ", 1)
+            if len(parts) == 2:
+                return parts[0], parts[1] + rest
+            return "", text
+        parts = text.rsplit(" ", 1)
+        if len(parts) == 2:
+            return parts[0], parts[1]
+        return "", text
+
+    def highlight_signature(self, signature):
+        text = self.html_escape(signature)
+
+        pos = text.find("(")
+        if pos > 0:
+            name = text[:pos]
+            rest = text[pos:]
+            return f"<span class=\"func-name\">{name}</span>{rest}"
+
+        return f"<span class=\"func-name\">{text}</span>"
+
 
 class DoxyScrollPage:
     def __init__(self, owner, area, widget, layout):
@@ -97,11 +1011,7 @@ class DoxyScrollPage:
         self.area = area
         self.widget = widget
         self.layout = layout
-        
-def _default_project_dir() -> Path:
-    base = Path.home() / "Documents" / "dBase2Many" / "DoxygenProjects"
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+
 
 class ProjectListItemWidget(QWidget):
     def __init__(self, filename: str, dt_text: str, parent=None):
@@ -925,7 +1835,7 @@ class WizardSettings(QWidget):
         ]
         
         self.list_view = QListView(self)
-        self.model = QStringListModel(self.pages, self)
+        self.model     = QStringListModel(self.pages, self)
         self.list_view.setModel(self.model)
         
         self.stack = QStackedWidget(self)
@@ -1034,6 +1944,7 @@ class WizardSettings(QWidget):
         label.setMinimumWidth(130)
         lined = QLineEdit()
         lbbtn = QPushButton(share.locales.tr("Select..."))
+        self.on_button_clicked(lbbtn, lined, 1)
         
         hlay.addWidget(label)
         hlay.addWidget(lined)
@@ -1052,6 +1963,7 @@ class WizardSettings(QWidget):
         label.setMinimumWidth(130)
         lined = QLineEdit()
         lbbtn = QPushButton(share.locales.tr("Select..."))
+        self.on_button_clicked(lbbtn, lined, 2)
         
         hlay.addWidget(label)
         hlay.addWidget(lined)
@@ -1072,9 +1984,24 @@ class WizardSettings(QWidget):
         lbl_layout.addWidget(btn_next)
         
         page_layout.addLayout(lbl_layout)
-
         return page
+        
+    def on_button_clicked(self, btn, edit, mode=0):
+        if mode == 1:
+            self.button_src  = btn
+            self.button_edit = edit
+            btn.clicked.connect(self.on_button_clicked_src)
+        elif mode == 2:
+            self.button_dst  = btn
+            self.button_edit = edit
+            btn.clicked.connect(self.on_button_clicked_dst)
     
+    def on_button_clicked_src(self):
+        print("src")
+        
+    def on_button_clicked_dst(self):
+        print("dst")
+        
     def create_page_mode(self, title):
         page = QWidget(self)
         page_layout = QVBoxLayout(page)
@@ -1370,6 +2297,8 @@ class DoxyGenToolWindow(QWidget):
         self.btn_CWD = QPushButton(share.locales.tr("Select"))
         self.txt_CWD = QLabel(share.locales.tr("Specify the working directory from which doxygen will run"))
         
+        self.btn_CWD.clicked.connect(self.on_cwd_click)
+        
         hlay.addWidget(self.lineCWD)
         hlay.addWidget(self.btn_CWD)
         
@@ -1387,6 +2316,11 @@ class DoxyGenToolWindow(QWidget):
         self.tabs.addTab(self._build_expert_tab(), share.locales.tr("Expert"))
         self.tabs.addTab(self._build_run_tab   (), share.locales.tr("Run"))
 
+    def on_cwd_click(self):
+        file_name = share.drives.open_share_file_dialog(self)
+        print(file_name)
+        generate_html(file_name, "html")
+        
     def _build_wizard_tab(self):
         page = WizardSettings()
         return page

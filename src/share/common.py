@@ -31,14 +31,14 @@ try:
          Parser, DFA, ParserRuleContext, ATNDeserializer,
          PredictionContextCache, ParseTreeListener, ParseTreeVisitor
     )
+    from antlr4.tree.Tree import (
+        TerminalNodeImpl
+    )
     from antlr4.error.ErrorListener import ErrorListener
     from io import BytesIO
 
     import share.utildef.sysinfo
     from   share.utildef.sysinfo import SystemInfo
-    
-    import share.drives
-    from   share.drives import *
     
     import mimetypes
     import ctypes
@@ -137,6 +137,9 @@ try:
     # -----------------------------------------------------------------------
     # resources suff like icons, ...
     # -----------------------------------------------------------------------
+    import share.modules.locales
+    from   share.modules.locales import *
+    
     import resources_rc
     import share.resrces.images_rc
     import share.resrces.de_locales_rc
@@ -145,6 +148,12 @@ try:
     # debug log file beyond the exe application ...
     # -----------------------------------------------------------------------
     import faulthandler
+    
+    # -----------------------------------------------------------------------
+    # file handling per windows share ...
+    # -----------------------------------------------------------------------
+    import share.drives
+    from   share.drives import *
 
     # -----------------------------------------------------------------------
     # PDF printer output for SET FORMAT / SET PRINT
@@ -153,16 +162,17 @@ try:
     _PDF_BACKEND_AVAILABLE = True
     _PDF_BACKEND_IMPORT_ERROR = None
     try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors as rl_colors
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes  import A4
+        from reportlab.lib            import colors as rl_colors
+        from reportlab.pdfbase        import pdfmetrics
+        from reportlab.pdfgen         import canvas
     except ImportError as _pdf_import_error:
-        A4 = None
-        rl_colors = None
+        A4         = None
+        rl_colors  = None
         pdfmetrics = None
-        canvas = None
-        _PDF_BACKEND_AVAILABLE = False
+        canvas     = None
+        
+        _PDF_BACKEND_AVAILABLE    = False
         _PDF_BACKEND_IMPORT_ERROR = _pdf_import_error
 
 except ImportError as e:
