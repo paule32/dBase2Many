@@ -15,12 +15,44 @@
       <span>TPerson</span>
     </div>
     <p class="inherits">Inherits: TObject</p>
+    <p class="brief">This is the TPerson class</p>
+      <h2>Constants</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">3.1415</td>
+          <td class="sig"><span class="func-name">PI_VALUE</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the documentation for the PI const</td>
+        </tr>
+        <tr>
+          <td class="ret">&#x27;MyApp&#x27;</td>
+          <td class="sig"><span class="func-name">APP_NAME</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the application name</td>
+        </tr>
+        <tr>
+          <td class="ret">$1001</td>
+          <td class="sig"><span class="func-name">APP_VERSION</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the Version</td>
+        </tr>
+      </table>
     <section>
       <h2>Public Methods</h2>
       <table class="func-table">
         <tr>
           <td class="ret">constructor</td>
           <td class="sig"><span class="func-name">Create</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Erzeugt ein neues Objekt</td>
         </tr>
         <tr>
           <td class="ret">destructor</td>
@@ -30,9 +62,26 @@
           <td class="ret">procedure</td>
           <td class="sig"><span class="func-name">Save </span>(S1: string ; S2: string) ; virtual</td>
         </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Speichert die aktuellen Daten</td>
+        </tr>
         <tr>
           <td class="ret">function</td>
           <td class="sig"><span class="func-name">GetName</span>: string</td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Get the name of the class</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Protected Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><span class="func-name">Paint</span></td>
         </tr>
       </table>
     </section>
@@ -64,32 +113,99 @@
     </section>
     <section class="member-docs">
       <h2>Member Function Documentation</h2>
+      <article class="member-doc-box">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> TPerson.Paint
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <article class="member-doc-box">
+        <div class="member-doc-title">
+          <span class="func-name">constructor</span> TPerson.Create
+        </div>
+        <div class="member-doc-content">
+          <p>Erzeugt ein neues Objekt</p>
+        </div>
+      </article>
+      <article class="member-doc-box">
+        <div class="member-doc-title">
+          <span class="func-name">destructor</span> TPerson.Destroy ; override
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <article class="member-doc-box">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> TPerson.Save(<br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;S1: string;</span><br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;S2: string</span><br><span class="member-args">) ; virtual</span>
+        </div>
+        <div class="member-doc-content">
+          <p>Speichert die aktuellen Daten</p>
+          <h4>Parameters</h4>
+          <table class="param-table">
+            <tr>
+              <td class="param-name">S1</td>
+              <td>string 1</td>
+            </tr>
+            <tr>
+              <td class="param-name">S2</td>
+              <td>string 2</td>
+            </tr>
+          </table>
+          <div class="doc-box doc-box-note">
+            <div class="doc-box-title">Note</div>
+            <div class="doc-box-text">Wird intern gecached.</div>
+          </div>
+          <div class="doc-box doc-box-info">
+            <div class="doc-box-title">Info</div>
+            <div class="doc-box-text">Diese Methode ist thread-safe.</div>
+          </div>
+          <div class="doc-box doc-box-warn">
+            <div class="doc-box-title">Warning</div>
+            <div class="doc-box-text">X und Y dürfen nicht negativ sein.</div>
+          </div>
+        </div>
+      </article>
+      <article class="member-doc-box">
+        <div class="member-doc-title">
+          <span class="func-name">function</span> TPerson.GetName: string
+        </div>
+        <div class="member-doc-content">
+          <p>Get the name of the class</p>
+          <h4>Returns</h4>
+          <table class="return-table">
+            <tr>
+              <td class="return-indent"></td>
+              <td class="return-text">string - Ein String als Rückgabe</td>
+            </tr>
+          </table>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
       <article class="member-doc">
-        <h3><span class="func-name">constructor</span> TPerson.Create</h3>
+        <h3><span class="func-name">property Name</span>: string read FName write FName</h3>
         <div class="member-line"></div>
         <p>
-          No documentation for this member.
+          No documentation for this Property.
+        </p>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc">
+        <h3><span class="func-name">FName</span>: string</h3>
+        <div class="member-line"></div>
+        <p>
+          No documentation for this Field.
         </p>
       </article>
       <article class="member-doc">
-        <h3><span class="func-name">destructor</span> TPerson.Destroy ; override</h3>
+        <h3><span class="func-name">FAge</span>: Integer</h3>
         <div class="member-line"></div>
         <p>
-          No documentation for this member.
-        </p>
-      </article>
-      <article class="member-doc">
-        <h3><span class="func-name">procedure TPerson.Save</span>(S1: string ; S2: string) ; virtual</h3>
-        <div class="member-line"></div>
-        <p>
-          No documentation for this member.
-        </p>
-      </article>
-      <article class="member-doc">
-        <h3><span class="func-name">function TPerson.GetName</span>: string</h3>
-        <div class="member-line"></div>
-        <p>
-          No documentation for this member.
+          No documentation for this Field.
         </p>
       </article>
     </section>

@@ -126,7 +126,7 @@ try:
         QWebEngineUrlScheme
     )
     from PyQt5.QtWebEngineWidgets import (
-        QWebEngineView, QWebEngineScript
+        QWebEngineView, QWebEngineScript, QWebEnginePage, QWebEngineSettings
     )
     from PyQt5.QtSvg import QSvgRenderer
     # -----------------------------------------------------------------------

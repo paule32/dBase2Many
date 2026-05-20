@@ -29,6 +29,36 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#constSection.
+    def visitConstSection(self, ctx:PasDocParser.ConstSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#constDeclaration.
+    def visitConstDeclaration(self, ctx:PasDocParser.ConstDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#constItem.
+    def visitConstItem(self, ctx:PasDocParser.ConstItemContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#constValue.
+    def visitConstValue(self, ctx:PasDocParser.ConstValueContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#sign.
+    def visitSign(self, ctx:PasDocParser.SignContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#docComment.
+    def visitDocComment(self, ctx:PasDocParser.DocCommentContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#typeSection.
     def visitTypeSection(self, ctx:PasDocParser.TypeSectionContext):
         return self.visitChildren(ctx)
@@ -111,6 +141,11 @@ class PasDocParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PasDocParser#parameterItem.
     def visitParameterItem(self, ctx:PasDocParser.ParameterItemContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#parameterModifier.
+    def visitParameterModifier(self, ctx:PasDocParser.ParameterModifierContext):
         return self.visitChildren(ctx)
 
 

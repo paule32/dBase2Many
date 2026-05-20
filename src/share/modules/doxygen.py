@@ -30,9 +30,9 @@ from parse.pascal.PasDocParserListener import PasDocParserListener
 from parse.pascal.PasDocParserVisitor  import PasDocParserVisitor
 
 DOXYGEN_PROJECT_PAGES = {}
-DOXYGEN_ITEMS = []
-
-DOXYGEN_EXPERT_ITEMS = [
+DOXYGEN_ITEMS         = []
+DOXYGEN_WINDOW        = None
+DOXYGEN_EXPERT_ITEMS  = [
     "Project",
     "Build",
     "Messages",
@@ -244,8 +244,129 @@ margin: 0 0 18px 0;
 line-height: 1.55;
 color: var(--text);
 }
+.member-args {
+font-size: 0.9em;
+font-weight: 400;
+}
+.member-brief-row td {
+padding-top: 0;
+}
+.member-brief {
+color: var(--muted);
+font-size: 0.92em;
+padding-left: 24px;
+}
 section p {
 line-height: 1.55;
+}
+.func-table .sig {
+color: var(--text);
+white-space: pre-wrap;
+}
+.member-doc h3 {
+font-size: 18px;
+font-weight: 400;
+margin: 0;
+color: var(--text);
+line-height: 1.55;
+font-family: Consolas, "Courier New", monospace;
+}
+.member-doc-box {
+margin-top: 24px;
+border: 1px solid #223050;
+border-radius: 6px;
+overflow: hidden;
+background: #0f1728;
+}
+.member-doc-title {
+background: #1d2a44;
+padding: 10px 14px;
+font-family: Consolas, monospace;
+font-size: 15px;
+color: #d0d0d0;
+}
+.member-doc-content h4 {
+    margin-top: 18px;
+    margin-bottom: 8px;
+    color: white;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.param-table {
+    border-collapse: collapse;
+    margin-left: 18px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.param-table td {
+    padding: 4px 10px 4px 0;
+    vertical-align: top;
+    font-weight: 400;
+}
+
+.param-name {
+    color: white;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.return-text {
+    font-size: 0.92em;
+    font-weight: 400;
+}
+.return-table {
+    border-collapse: collapse;
+    margin-left: 18px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.return-table td {
+    padding: 4px 10px 4px 0;
+    vertical-align: top;
+    font-weight: 400;
+}
+
+.return-indent {
+    width: 26px;
+}
+
+.return-text {
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.doc-box {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 5px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.doc-box-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.doc-box-note {
+    background: #4f3f08;
+    border-left: 5px solid #f1c232;
+    color: #fff2b0;
+}
+
+.doc-box-info {
+    background: #123f25;
+    border-left: 5px solid #36d67a;
+    color: #d8ffe5;
+}
+
+.doc-box-warn {
+    background: #4a1414;
+    border-left: 5px solid #ff5555;
+    color: #ffd6d6;
 }
 footer {
 margin-top: 28px;
@@ -292,55 +413,85 @@ class PasClassInfo:
     def __init__(self, name):
         self.name       = name
         self.kind       = "class"
+        self.brief      = ""
         self.bases      = []
         self.methods    = []
         self.fields     = []
         self.properties = []
 
-
 class PasMemberInfo:
-    def __init__(self, access, signature):
+    def __init__(
+        self           ,
+        access         ,
+        signature      ,
+        brief   = ""   ,
+        params  = None ,
+        returns = ""   ,
+        notes   = None):
+        
         self.access    = access
         self.signature = signature
+        self.brief     = brief
+        self.params    = params or []
+        self.returns   = returns
+        self.notes     = notes  or []
+
+class PasConstInfo:
+    def __init__(self, name, value, brief=""):
+        self.name  = name
+        self.value = value
+        self.brief = brief
 
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
 # ---------------------------------------------------------------------------
-def generate_html(source_file, output_dir="html"):
-    name, ext = os.path.splitext(source_file)
-    ext       = ext[1:].lower()
-
-    try:
-        if ext in ["pas", "pp"]:
-            output_dir.join("/pas")
-            
-            input_stream = FileStream(source_file, encoding="utf-8")
-            lexer   = PasDocLexer(input_stream)
-            tokens  = CommonTokenStream(lexer)
+class HtmlToPdf(QObject):
+    def __init__(self, html_file, pdf__file, parent=None):
+        super().__init__(parent)
         
-            parser  = PasDocParser(tokens)
-            tree    = parser.unitFile()
+        self.html_file = os.path.abspath(html_file)
+        self.pdf__file = os.path.abspath(pdf__file)
         
-            visitor = PasDocHtmlVisitor(output_dir)
-            visitor.visit(tree)
-            
-        elif ext in ["c", "c++", "cc", "cpp"]:
-            output_dir.join("/cpp")
-            
-            input_stream = FileStream(source_file, encoding="utf-8")
-            lexer   = CppDocLexer(input_stream)
-            tokens  = CommonTokenStream(lexer)
+        self.view = QWebEngineView()
+        self.view.hide()
         
-            parser  = CppDocParser(tokens)
-            tree    = parser.translationUnit()
+        settings = self.view.settings()
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
         
-            visitor = CppDocHtmlVisitor(output_dir)
-            visitor.visit(tree)
-            
-    except Exception as e:
-        print(e)
+        self.view.loadFinished.connect(self.on_load_finished)
+        self.view.page().pdfPrintingFinished.connect(self.on_pdf_finished)
+        
+        self.load_html()
     
-    print(f"HTML-Dokumentation erstellt in: {output_dir}")
+    def load_html(self):
+        print("HTML:", self.html_file)
+
+        if not os.path.exists(self.html_file):
+            print("HTML existiert nicht")
+            return
+
+        with open(self.html_file, "r", encoding="utf-8") as f:
+            html_code = f.read()
+
+        base_dir = os.path.dirname(self.html_file)
+        base_url = QUrl.fromLocalFile(base_dir + os.sep + "test.pdf")
+
+        print("BASE:", base_url.toString())
+        self.view.setHtml(html_code, base_url)
+    
+    def on_load_finished(self, ok):
+        print("loadFinished:", ok)
+        if not ok:
+            return
+        QTimer.singleShot(250, self.print_pdf)
+    
+    def print_pdf(self):
+        print("PDF:", self.pdf__file)
+        self.view.page().printToPdf(self.pdf__file)
+
+    def on_pdf_finished(self, file_path, success):
+        print("pdfFinished:", file_path, success)
 
 # ---------------------------------------------------------------------------
 # \brief pascal documentation visitor to generate the pascal html help ...
@@ -349,11 +500,129 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def __init__(self, output_dir = "html" ):
         super().__init__()
         
-        self.output_dir     = output_dir
-        self.classes        = []
+        self.output_dir      = output_dir
+        self.classes         = []
+        
+        self.pending_brief   = ""
+        self.pending_params  = []
+        self.pending_returns = ""
+        
+        self.constants       = []
+        
+        self.current_class   = None
+        self.current_access  = "public"
+    
+    def parse_doc_comment(self, text):
+        self.pending_brief   = ""
+        self.pending_params  = []
+        self.pending_returns = ""
+        self.pending_notes   = []
 
-        self.current_class  = None
-        self.current_access = "public"
+        text = text.replace("(**!", "")
+        text = text.replace("{**!", "")
+        text = text.replace("*)"  , "")
+        text = text.replace("*}"  , "")
+
+        lines = text.splitlines()
+
+        current_tag = None
+        current_param_index = -1
+
+        for line in lines:
+            line = line.strip()
+            if line.startswith("*"):
+                line = line[1:].strip()
+            if not line:
+                continue
+            if line.startswith("@brief"):
+                self.pending_brief = line[len("@brief"):].strip()
+                current_tag = "brief"
+                current_param_index = -1
+            elif line.startswith("@note"):
+                self.pending_notes.append(["note", line[len("@note"):].strip()])
+                current_tag = "note"
+                current_param_index = len(self.pending_notes) - 1
+            elif line.startswith("@info"):
+                self.pending_notes.append(["info", line[len("@info"):].strip()])
+                current_tag = "info"
+                current_param_index = len(self.pending_notes) - 1
+            elif line.startswith("@warn"):
+                self.pending_notes.append(["warn", line[len("@warn"):].strip()])
+                current_tag = "warn"
+                current_param_index = len(self.pending_notes) - 1
+            elif line.startswith("@param"):
+                rest = line[len("@param"):].strip()
+                parts = rest.split(None, 1)
+                if len(parts) == 2:
+                    self.pending_params.append([parts[0], parts[1]])
+                elif len(parts) == 1:
+                    self.pending_params.append([parts[0], ""])
+                current_tag = "param"
+                current_param_index = len(self.pending_params) - 1
+            elif line.startswith("@return"):
+                self.pending_returns = line[len("@return"):].strip()
+                current_tag = "return"
+                current_param_index = -1
+            else:
+                if current_tag == "brief":
+                    self.pending_brief += " " + line
+                elif current_tag == "param" and current_param_index >= 0:
+                    self.pending_params[current_param_index][1] += " " + line
+                elif current_tag == "return":
+                    self.pending_returns += " " + line
+    
+    def extract_brief(self, text):
+        text  = text.replace("(**!", "")
+        text  = text.replace("{**!", "")
+        text  = text.replace("*)", "")
+        text  = text.replace("*}", "")
+        lines = text.splitlines()
+        for line in lines:
+            line = line.strip()
+            if line.startswith("*"):
+                line = line[1:].strip()
+            if line.startswith("@brief"):
+                return line[len("@brief"):].strip()
+        return ""
+    
+    def visitConstDeclaration(self, ctx):
+        item  = ctx.constItem()
+        name  = item.IDENT().getText()
+        value = self.text_from_ctx(item.constValue())
+        brief = ""
+        if ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+        else:
+            brief = self.pending_brief
+        self.constants.append(
+            PasConstInfo(name, value, brief)
+        )
+        self.pending_brief = ""
+        return None
+    
+    def visitConstItem(self, ctx: PasDocParser.ConstItemContext):
+        name  = ctx.IDENT().getText()
+        value = self.text_from_ctx(ctx.constValue())
+        print("const name:", name)
+        self.constants.append(
+            PasConstInfo(
+                name,
+                value,
+                self.pending_brief
+            )
+        )
+        self.pending_brief = ""
+        return None
+    
+    def visitDocComment(self, ctx: PasDocParser.DocCommentContext):
+        text = ctx.getText()
+        
+        self.pending_brief   = ""
+        self.pending_params  = []
+        self.pending_returns = ""
+        
+        self.parse_doc_comment(text)
+        return None
     
     def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
         self.visitChildren(ctx)
@@ -368,7 +637,10 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         old_access = self.current_access
         
         info       = PasClassInfo(class_name)
+        info.brief = self.pending_brief
         info.kind  = "class"
+        
+        self.pending_brief = ""
         
         class_type = ctx.classType()
         
@@ -395,22 +667,69 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         if self.current_class is None:
             return None
         signature = self.text_from_ctx(ctx)
-        self.current_class.methods.append(PasMemberInfo(self.current_access, signature))
+        self.current_class.methods.append(
+            PasMemberInfo(
+                self.current_access,
+                signature,
+                self.pending_brief,
+                self.pending_params,
+                self.pending_returns,
+                self.pending_notes
+            )
+        )
+        self.pending_brief   = ""
+        self.pending_params  = []
+        self.pending_returns = ""
+        self.pending_brief   = ""
+        self.pending_notes   = []
+        
         return None
     
     def visitPropertyDeclaration(self, ctx: PasDocParser.PropertyDeclarationContext):
         if self.current_class is None:
             return None
         signature = self.text_from_ctx(ctx)
-        self.current_class.properties.append(PasMemberInfo(self.current_access, signature))
+        self.current_class.properties.append(PasMemberInfo(self.current_access, signature, self.pending_brief))
+        self.pending_brief = ""
         return None
     
     def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
         if self.current_class is None:
             return None
         signature = self.text_from_ctx(ctx)
-        self.current_class.fields.append(PasMemberInfo(self.current_access, signature))
+        self.current_class.fields.append(PasMemberInfo(self.current_access, signature, self.pending_brief))
+        self.pending_brief = ""
 
+    def format_pascal_signature_multiline(self, signature):
+        text = signature.strip()
+
+        pos1 = text.find("(")
+        pos2 = text.rfind(")")
+
+        if pos1 < 0 or pos2 < 0 or pos2 <= pos1:
+            return text
+
+        before = text[:pos1 + 1]
+        params = text[pos1 + 1:pos2]
+        after  = text[pos2:]
+
+        parts = [p.strip() for p in params.split(";")]
+
+        if len(parts) <= 1:
+            return text
+
+        result = before + "\n"
+
+        for index, part in enumerate(parts):
+            if index > 0:
+                result += ";\n"
+
+            result += "    " + part
+
+        result += "\n" + after
+
+        return result
+    
     def text_from_ctx(self, ctx):
         tokens = []
         for child in ctx.getChildren():
@@ -528,6 +847,24 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write(", ".join(self.html_escape(b) for b in cls.bases))
                     f.write("</p>\n")
                 
+                if cls.brief:
+                    f.write(f"    <p class=\"brief\">{self.html_escape(cls.brief)}</p>\n")
+                
+                if self.constants:
+                    f.write("      <h2>Constants</h2>\n")
+                    f.write("      <table class=\"func-table\">\n")
+                    for c in self.constants:
+                        f.write("        <tr>\n")
+                        f.write(f"          <td class=\"ret\">{self.html_escape(c.value)}</td>\n")
+                        f.write(f"          <td class=\"sig\"><span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n")
+                        f.write("        </tr>\n")
+                        if c.brief:
+                            f.write("        <tr class=\"member-brief-row\">\n")
+                            f.write("          <td class=\"ret\"></td>\n")
+                            f.write(f"          <td class=\"sig member-brief\">{self.html_escape(c.brief)}</td>\n")
+                            f.write("        </tr>\n")
+                    f.write("      </table>\n")
+                    
                 self.write_member_table(f, "Public Methods", cls.methods, "public")
                 self.write_member_table(f, "Protected Methods", cls.methods, "protected")
                 self.write_member_table(f, "Private Methods", cls.methods, "private")
@@ -549,6 +886,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("    </section>\n")
                 
                 self.write_member_function_docs(f, cls)
+                self.write_property_docs(f, cls)
+                self.write_field_docs(f, cls)
                 
                 f.write("    <footer>\n")
                 f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
@@ -557,6 +896,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("  </main>\n")
                 f.write("</body>\n")
                 f.write("</html>\n")
+            
+            pdf_out = os.path.splitext(filename)[0] + ".pdf"
+            htm_out = filename
+            
+            self.pdf_export = HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW)
     
     def write_member_table(self, f, title, members, access_filter=None):
         items = []
@@ -580,9 +924,127 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
             f.write("        </tr>\n")
         
+            if getattr(member, "brief", ""):
+                f.write("        <tr class=\"member-brief-row\">\n")
+                f.write("          <td class=\"ret\"></td>\n")
+                f.write(f"          <td class=\"sig member-brief\">{self.html_escape(member.brief)}</td>\n")
+                f.write("        </tr>\n")
+                
         f.write("      </table>\n")
         f.write("    </section>\n")
 
+    def write_member_function_docs(self, f, cls):
+        if not cls.methods:
+            return
+        
+        f.write("    <section class=\"member-docs\">\n")
+        f.write("      <h2>Member Function Documentation</h2>\n")
+        
+        for member in cls.methods:
+            full_signature = self.make_qualified_signature(cls.name, member.signature)
+            full_signature = self.format_pascal_signature_multiline( full_signature  )
+            
+            f.write("      <article class=\"member-doc-box\">\n")
+            f.write("        <div class=\"member-doc-title\">\n")
+            f.write(f"          {self.highlight_multiline_signature(full_signature)}\n")
+            f.write("        </div>\n")
+            f.write("        <div class=\"member-doc-content\">\n")
+            
+            if member.brief:
+                f.write(f"          <p>{self.html_escape(member.brief)}</p>\n")
+            if member.params:
+                f.write("          <h4>Parameters</h4>\n")
+                f.write("          <table class=\"param-table\">\n")
+                for param_name, param_desc in member.params:
+                    f.write("            <tr>\n")
+                    f.write(f"              <td class=\"param-name\">{self.html_escape(param_name)}</td>\n")
+                    f.write(f"              <td>{self.html_escape(param_desc)}</td>\n")
+                    f.write("            </tr>\n")
+                f.write("          </table>\n")
+            if member.returns:
+                f.write("          <h4>Returns</h4>\n")
+                f.write("          <table class=\"return-table\">\n")
+                f.write("            <tr>\n")
+                f.write("              <td class=\"return-indent\"></td>\n")
+                f.write(f"              <td class=\"return-text\">{self.html_escape(member.returns)}</td>\n")
+                f.write("            </tr>\n")
+                f.write("          </table>\n")
+                
+            self.write_note_blocks(f, member)
+            
+            f.write("        </div>\n")
+            f.write("      </article>\n")
+        f.write("    </section>\n")
+    
+    def write_note_blocks(self, f, member):
+        for kind, text in getattr(member, "notes", []):
+            title = {
+                "note": "Note",
+                "info": "Info",
+                "warn": "Warning"
+            }.get(kind, "Note")
+
+            f.write(f"          <div class=\"doc-box doc-box-{kind}\">\n")
+            f.write(f"            <div class=\"doc-box-title\">{title}</div>\n")
+            f.write(f"            <div class=\"doc-box-text\">{self.html_escape(text)}</div>\n")
+            f.write("          </div>\n")
+            
+    def write_property_docs(self, f, cls):
+        if not cls.properties:
+            return
+        
+        f.write("    <section class=\"member-docs\">\n")
+        f.write("      <h2>Property Documentation</h2>\n")
+        
+        msg = share.locales.tr("No documentation for this Property")
+        for member in cls.properties:
+            f.write("      <article class=\"member-doc\">\n")
+            f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
+            f.write("        <div class=\"member-line\"></div>\n")
+            
+            brief = getattr(member, "brief", "")
+            
+            if brief:
+                f.write("        <p>\n")
+                f.write(f"       {self.html_escape(brief)}\n")
+                f.write("        </p>\n")
+            else:
+                f.write("        <p>\n")
+                f.write(f"          {msg}.\n")
+                f.write("        </p>\n")
+            
+            f.write("      </article>\n")
+        
+        f.write("    </section>\n")
+
+    def write_field_docs(self, f, cls):
+        if not cls.fields:
+            return
+        
+        f.write("    <section class=\"member-docs\">\n")
+        f.write("      <h2>Field Documentation</h2>\n")
+        
+        msg = share.locales.tr("No documentation for this Field")
+        for member in cls.fields:
+            f.write("      <article class=\"member-doc\">\n")
+            f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
+            f.write("        <div class=\"member-line\"></div>\n")
+            
+            brief = getattr(member, "brief", "")
+            
+            if brief:
+                f.write("        <p>\n")
+                f.write(f"       {self.html_escape(brief)}\n")
+                f.write("        </p>\n")
+            else:
+                f.write("        <p>\n")
+                f.write(f"          {msg}.\n")
+                f.write("        </p>\n")
+            
+            f.write("      </article>\n")
+        
+        f.write("    </section>\n")
+    
     def split_pascal_signature(self, signature):
         text = signature.strip()
         if text.lower().startswith("property "):
@@ -603,45 +1065,60 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
     def highlight_signature(self, signature):
         text = self.html_escape(signature)
-        pos = text.find("(")
+        text = text.replace("\n", "<br>")
+        pos  = text.find("(")
+        
         colon_pos = text.find(":")
-        end_pos = -1
+        end_pos   = -1
+        
         if pos >= 0 and colon_pos >= 0:
             end_pos = min(pos, colon_pos)
         elif pos >= 0:
             end_pos = pos
         elif colon_pos >= 0:
             end_pos = colon_pos
+            
         if end_pos > 0:
             name = text[:end_pos]
             rest = text[end_pos:]
             return f"<span class=\"func-name\">{name}</span>{rest}"
+            
         parts = text.split(" ", 1)
+        
         if len(parts) == 2:
             return f"<span class=\"func-name\">{parts[0]}</span> {parts[1]}"
         return f"<span class=\"func-name\">{text}</span>"
 
-    def write_member_function_docs(self, f, cls):
-        if not cls.methods:
-            return
+    def highlight_multiline_signature(self, signature):
+        text = self.html_escape(signature)
         
-        f.write("    <section class=\"member-docs\">\n")
-        f.write("      <h2>Member Function Documentation</h2>\n")
+        keywords = [
+            "constructor",
+            "destructor",
+            "procedure",
+            "function"
+        ]
         
-        msg = share.locales.tr("No documentation for this member")
-        for member in cls.methods:
-            full_signature = self.make_qualified_signature(cls.name, member.signature)
-            
-            f.write("      <article class=\"member-doc\">\n")
-            f.write(f"        <h3>{self.highlight_signature(full_signature)}</h3>\n")
-            f.write("        <div class=\"member-line\"></div>\n")
-            f.write("        <p>\n")
-            f.write(f"          {msg}.\n")
-            f.write("        </p>\n")
-            f.write("      </article>\n")
+        for keyword in keywords:
+            if text.lower().startswith(keyword + " "):
+                text = (
+                    f"<span class=\"func-name\">{text[:len(keyword)]}</span>"
+                    + text[len(keyword):]
+                )
+                break
         
-        f.write("    </section>\n")
+        lines = text.split("\n")
 
+        for i in range(1, len(lines)):
+            lines[i] = (
+                "<span class=\"member-args\">"
+                + lines[i].replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
+                + "</span>"
+            )
+
+        text = "<br>".join(lines)
+        return text
+        
     def make_qualified_signature(self, class_name, signature):
         text = signature.strip()
         lower_text = text.lower()
@@ -2241,6 +2718,8 @@ class DoxyGenToolWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        DOXYGEN_WINDOW   = self
+        
         self.owner       = self
         self.config      = {}
         self.state       = {}
@@ -2316,10 +2795,45 @@ class DoxyGenToolWindow(QWidget):
         self.tabs.addTab(self._build_expert_tab(), share.locales.tr("Expert"))
         self.tabs.addTab(self._build_run_tab   (), share.locales.tr("Run"))
 
+    def generate_html(self, source_file, output_dir="html"):
+        name, ext = os.path.splitext(source_file)
+        ext       = ext[1:].lower()
+        try:
+            if ext in ["pas", "pp"]:
+                output_dir.join("/pas")
+                
+                self.input_stream = FileStream(source_file, encoding="utf-8")
+                self.lexer   = PasDocLexer      (self.input_stream)
+                self.tokens  = CommonTokenStream(self.lexer)
+            
+                self.parser  = PasDocParser(self.tokens)
+                self.tree    = self.parser.unitFile()
+            
+                self.visitor = PasDocHtmlVisitor(output_dir)
+                self.visitor.visit(self.tree)
+                
+            elif ext in ["c", "c++", "cc", "cpp"]:
+                output_dir.join("/cpp")
+                
+                self.input_stream = FileStream(source_file, encoding="utf-8")
+                self.lexer   = CppDocLexer(self.input_stream)
+                self.tokens  = CommonTokenStream(self.lexer)
+            
+                self.parser  = CppDocParser(self.tokens)
+                self.tree    = parser.translationUnit()
+            
+                self.visitor = CppDocHtmlVisitor(output_dir)
+                self.visitor.visit(tree)
+                
+        except Exception as e:
+            print(e)
+        
+        print(f"HTML-Dokumentation erstellt in: {output_dir}")
+
     def on_cwd_click(self):
         file_name = share.drives.open_share_file_dialog(self)
         print(file_name)
-        generate_html(file_name, "html")
+        self.generate_html(file_name, "html")
         
     def _build_wizard_tab(self):
         page = WizardSettings()

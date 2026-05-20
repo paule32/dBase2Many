@@ -44,6 +44,60 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#constSection.
+    def enterConstSection(self, ctx:PasDocParser.ConstSectionContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#constSection.
+    def exitConstSection(self, ctx:PasDocParser.ConstSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#constDeclaration.
+    def enterConstDeclaration(self, ctx:PasDocParser.ConstDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#constDeclaration.
+    def exitConstDeclaration(self, ctx:PasDocParser.ConstDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#constItem.
+    def enterConstItem(self, ctx:PasDocParser.ConstItemContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#constItem.
+    def exitConstItem(self, ctx:PasDocParser.ConstItemContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#constValue.
+    def enterConstValue(self, ctx:PasDocParser.ConstValueContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#constValue.
+    def exitConstValue(self, ctx:PasDocParser.ConstValueContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#sign.
+    def enterSign(self, ctx:PasDocParser.SignContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#sign.
+    def exitSign(self, ctx:PasDocParser.SignContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#docComment.
+    def enterDocComment(self, ctx:PasDocParser.DocCommentContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#docComment.
+    def exitDocComment(self, ctx:PasDocParser.DocCommentContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#typeSection.
     def enterTypeSection(self, ctx:PasDocParser.TypeSectionContext):
         pass
@@ -194,6 +248,15 @@ class PasDocParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PasDocParser#parameterItem.
     def exitParameterItem(self, ctx:PasDocParser.ParameterItemContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#parameterModifier.
+    def enterParameterModifier(self, ctx:PasDocParser.ParameterModifierContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#parameterModifier.
+    def exitParameterModifier(self, ctx:PasDocParser.ParameterModifierContext):
         pass
 
 

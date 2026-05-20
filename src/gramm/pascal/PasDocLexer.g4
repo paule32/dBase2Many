@@ -29,15 +29,27 @@ REINTRODUCE     : [rR][eE][iI][nN][tT][rR][oO][dD][uU][cC][eE];
 READ            : [rR][eE][aA][dD];
 WRITE           : [wW][rR][iI][tT][eE];
 
+CONST           : [cC][oO][nN][sS][tT];
+
 IDENT           : [a-zA-Z_][a-zA-Z0-9_]*;
 STRING          : '\'' (~['\r\n] | '\'\'')* '\'';
-NUMBER          : [0-9]+;
+
+NUMBER          : '$' [0-9a-fA-F]+
+                | [0-9]+ ('.' [0-9]+)?
+                ;
+
+DOC_COMMENT     : '(**!' .*? '*)'
+                | '{**!' .*? '*}'
+                ;
 
 LINE_COMMENT    : '//' ~[\r\n]* -> channel(HIDDEN);
 BRACE_COMMENT   : '{' .*? '}' -> channel(HIDDEN);
 PAREN_COMMENT   : '(*' .*? '*)' -> channel(HIDDEN);
 
 WS              : [ \t\r\n]+ -> channel(HIDDEN);
+
+MINUS           : '-';
+PLUS            : '+';
 
 LPAREN          : '(';
 RPAREN          : ')';

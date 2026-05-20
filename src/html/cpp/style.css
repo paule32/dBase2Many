@@ -130,8 +130,24 @@ margin: 0 0 18px 0;
 line-height: 1.55;
 color: var(--text);
 }
+.member-args {
+font-size: 0.9em;
+font-weight: 400;
+}
 section p {
 line-height: 1.55;
+}
+.func-table .sig {
+color: var(--text);
+white-space: pre-wrap;
+}
+.member-doc h3 {
+font-size: 18px;
+font-weight: 400;
+margin: 0;
+color: var(--text);
+line-height: 1.55;
+font-family: Consolas, "Courier New", monospace;
 }
 footer {
 margin-top: 28px;

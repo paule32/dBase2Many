@@ -19,9 +19,38 @@ unitSection
     ;
 
 declaration
-    : typeSection
+    : docComment
+    | constSection
+    | typeSection
     | classDeclaration
     | otherToken
+    ;
+
+constSection
+    : CONST constDeclaration+
+    ;
+
+constDeclaration
+    : constItem SEMI docComment?
+    ;
+
+constItem
+    : IDENT EQ constValue
+    ;
+
+constValue
+    : sign? NUMBER
+    | STRING
+    | IDENT
+    ;
+
+sign
+    : PLUS
+    | MINUS
+    ;
+
+docComment
+    : DOC_COMMENT
     ;
 
 typeSection
@@ -59,7 +88,8 @@ classBody
     ;
 
 classMember
-    : visibilitySection
+    : docComment
+    | visibilitySection
     | methodDeclaration
     | propertyDeclaration
     | fieldDeclaration
@@ -101,7 +131,11 @@ parameterDecl
     ;
 
 parameterItem
-    : IDENT (COMMA IDENT)* COLON typeName
+    : parameterModifier? IDENT (COMMA IDENT)* COLON typeName
+    ;
+
+parameterModifier
+    : CONST
     ;
 
 returnType

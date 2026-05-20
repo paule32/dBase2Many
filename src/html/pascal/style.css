@@ -130,8 +130,129 @@ margin: 0 0 18px 0;
 line-height: 1.55;
 color: var(--text);
 }
+.member-args {
+font-size: 0.9em;
+font-weight: 400;
+}
+.member-brief-row td {
+padding-top: 0;
+}
+.member-brief {
+color: var(--muted);
+font-size: 0.92em;
+padding-left: 24px;
+}
 section p {
 line-height: 1.55;
+}
+.func-table .sig {
+color: var(--text);
+white-space: pre-wrap;
+}
+.member-doc h3 {
+font-size: 18px;
+font-weight: 400;
+margin: 0;
+color: var(--text);
+line-height: 1.55;
+font-family: Consolas, "Courier New", monospace;
+}
+.member-doc-box {
+margin-top: 24px;
+border: 1px solid #223050;
+border-radius: 6px;
+overflow: hidden;
+background: #0f1728;
+}
+.member-doc-title {
+background: #1d2a44;
+padding: 10px 14px;
+font-family: Consolas, monospace;
+font-size: 15px;
+color: #d0d0d0;
+}
+.member-doc-content h4 {
+    margin-top: 18px;
+    margin-bottom: 8px;
+    color: white;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.param-table {
+    border-collapse: collapse;
+    margin-left: 18px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.param-table td {
+    padding: 4px 10px 4px 0;
+    vertical-align: top;
+    font-weight: 400;
+}
+
+.param-name {
+    color: white;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.return-text {
+    font-size: 0.92em;
+    font-weight: 400;
+}
+.return-table {
+    border-collapse: collapse;
+    margin-left: 18px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.return-table td {
+    padding: 4px 10px 4px 0;
+    vertical-align: top;
+    font-weight: 400;
+}
+
+.return-indent {
+    width: 26px;
+}
+
+.return-text {
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.doc-box {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 5px;
+    font-size: 0.92em;
+    font-weight: 400;
+}
+
+.doc-box-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.doc-box-note {
+    background: #4f3f08;
+    border-left: 5px solid #f1c232;
+    color: #fff2b0;
+}
+
+.doc-box-info {
+    background: #123f25;
+    border-left: 5px solid #36d67a;
+    color: #d8ffe5;
+}
+
+.doc-box-warn {
+    background: #4a1414;
+    border-left: 5px solid #ff5555;
+    color: #ffd6d6;
 }
 footer {
 margin-top: 28px;
