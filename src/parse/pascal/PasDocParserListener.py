@@ -17,6 +17,15 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#programHeader.
+    def enterProgramHeader(self, ctx:PasDocParser.ProgramHeaderContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#programHeader.
+    def exitProgramHeader(self, ctx:PasDocParser.ProgramHeaderContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#unitHeader.
     def enterUnitHeader(self, ctx:PasDocParser.UnitHeaderContext):
         pass
@@ -41,6 +50,15 @@ class PasDocParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PasDocParser#declaration.
     def exitDeclaration(self, ctx:PasDocParser.DeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#varSection.
+    def enterVarSection(self, ctx:PasDocParser.VarSectionContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#varSection.
+    def exitVarSection(self, ctx:PasDocParser.VarSectionContext):
         pass
 
 
@@ -116,6 +134,15 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#unknownTypeDeclaration.
+    def enterUnknownTypeDeclaration(self, ctx:PasDocParser.UnknownTypeDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#unknownTypeDeclaration.
+    def exitUnknownTypeDeclaration(self, ctx:PasDocParser.UnknownTypeDeclarationContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#classDeclaration.
     def enterClassDeclaration(self, ctx:PasDocParser.ClassDeclarationContext):
         pass
@@ -125,30 +152,12 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by PasDocParser#recordDeclaration.
-    def enterRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
-        pass
-
-    # Exit a parse tree produced by PasDocParser#recordDeclaration.
-    def exitRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
-        pass
-
-
     # Enter a parse tree produced by PasDocParser#classType.
     def enterClassType(self, ctx:PasDocParser.ClassTypeContext):
         pass
 
     # Exit a parse tree produced by PasDocParser#classType.
     def exitClassType(self, ctx:PasDocParser.ClassTypeContext):
-        pass
-
-
-    # Enter a parse tree produced by PasDocParser#recordType.
-    def enterRecordType(self, ctx:PasDocParser.RecordTypeContext):
-        pass
-
-    # Exit a parse tree produced by PasDocParser#recordType.
-    def exitRecordType(self, ctx:PasDocParser.RecordTypeContext):
         pass
 
 
@@ -176,6 +185,87 @@ class PasDocParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PasDocParser#classMember.
     def exitClassMember(self, ctx:PasDocParser.ClassMemberContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#recordDeclaration.
+    def enterRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#recordDeclaration.
+    def exitRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#recordType.
+    def enterRecordType(self, ctx:PasDocParser.RecordTypeContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#recordType.
+    def exitRecordType(self, ctx:PasDocParser.RecordTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#recordBody.
+    def enterRecordBody(self, ctx:PasDocParser.RecordBodyContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#recordBody.
+    def exitRecordBody(self, ctx:PasDocParser.RecordBodyContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#recordMember.
+    def enterRecordMember(self, ctx:PasDocParser.RecordMemberContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#recordMember.
+    def exitRecordMember(self, ctx:PasDocParser.RecordMemberContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#arrayDeclaration.
+    def enterArrayDeclaration(self, ctx:PasDocParser.ArrayDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#arrayDeclaration.
+    def exitArrayDeclaration(self, ctx:PasDocParser.ArrayDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#arrayType.
+    def enterArrayType(self, ctx:PasDocParser.ArrayTypeContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#arrayType.
+    def exitArrayType(self, ctx:PasDocParser.ArrayTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#arrayIndex.
+    def enterArrayIndex(self, ctx:PasDocParser.ArrayIndexContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#arrayIndex.
+    def exitArrayIndex(self, ctx:PasDocParser.ArrayIndexContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#setDeclaration.
+    def enterSetDeclaration(self, ctx:PasDocParser.SetDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#setDeclaration.
+    def exitSetDeclaration(self, ctx:PasDocParser.SetDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#setType.
+    def enterSetType(self, ctx:PasDocParser.SetTypeContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#setType.
+    def exitSetType(self, ctx:PasDocParser.SetTypeContext):
         pass
 
 

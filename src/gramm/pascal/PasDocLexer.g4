@@ -1,11 +1,22 @@
 lexer grammar PasDocLexer;
 
+PROGRAM         : [pP][rR][oO][gG][rR][aA][mM];
+BEGIN           : [bB][eE][gG][iI][nN];
+
 UNIT            : [uU][nN][iI][tT];
 INTERFACE       : [iI][nN][tT][eE][rR][fF][aA][cC][eE];
 IMPLEMENTATION  : [iI][mM][pP][lL][eE][mM][eE][nN][tT][aA][tT][iI][oO][nN];
+
+CONST           : [cC][oO][nN][sS][tT];
 TYPE            : [tT][yY][pP][eE];
+VAR             : [vV][aA][rR];
+
 CLASS           : [cC][lL][aA][sS][sS];
 RECORD          : [rR][eE][cC][oO][rR][dD];
+ARRAY           : [aA][rR][rR][aA][yY];
+SET             : [sS][eE][tT];
+
+OF              : [oO][fF];
 END             : [eE][nN][dD];
 
 PUBLIC          : [pP][uU][bB][lL][iI][cC];
@@ -29,8 +40,6 @@ REINTRODUCE     : [rR][eE][iI][nN][tT][rR][oO][dD][uU][cC][eE];
 READ            : [rR][eE][aA][dD];
 WRITE           : [wW][rR][iI][tT][eE];
 
-CONST           : [cC][oO][nN][sS][tT];
-
 IDENT           : [a-zA-Z_][a-zA-Z0-9_]*;
 STRING          : '\'' (~['\r\n] | '\'\'')* '\'';
 
@@ -47,6 +56,8 @@ BRACE_COMMENT   : '{' .*? '}' -> channel(HIDDEN);
 PAREN_COMMENT   : '(*' .*? '*)' -> channel(HIDDEN);
 
 WS              : [ \t\r\n]+ -> channel(HIDDEN);
+
+DOTDOT          : '..';
 
 MINUS           : '-';
 PLUS            : '+';

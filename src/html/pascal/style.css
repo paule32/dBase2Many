@@ -172,13 +172,29 @@ font-size: 15px;
 color: #d0d0d0;
 }
 .member-doc-content h4 {
-    margin-top: 18px;
-    margin-bottom: 8px;
-    color: white;
-    font-size: 0.92em;
-    font-weight: 400;
+margin-top: 18px;
+margin-bottom: 8px;
+color: white;
+font-size: 0.92em;
+font-weight: 400;
+}
+.member-link {
+color: var(--text);
+text-decoration: none;
 }
 
+.member-link:visited {
+color: var(--text);
+}
+
+.member-link:hover .func-name {
+color: #ffffff;
+text-decoration: underline;
+}
+
+.member-doc-box {
+scroll-margin-top: 20px;
+}
 .param-table {
     border-collapse: collapse;
     margin-left: 18px;

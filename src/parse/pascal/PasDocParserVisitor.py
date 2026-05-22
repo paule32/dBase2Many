@@ -14,6 +14,11 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#programHeader.
+    def visitProgramHeader(self, ctx:PasDocParser.ProgramHeaderContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#unitHeader.
     def visitUnitHeader(self, ctx:PasDocParser.UnitHeaderContext):
         return self.visitChildren(ctx)
@@ -26,6 +31,11 @@ class PasDocParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PasDocParser#declaration.
     def visitDeclaration(self, ctx:PasDocParser.DeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#varSection.
+    def visitVarSection(self, ctx:PasDocParser.VarSectionContext):
         return self.visitChildren(ctx)
 
 
@@ -69,23 +79,18 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#unknownTypeDeclaration.
+    def visitUnknownTypeDeclaration(self, ctx:PasDocParser.UnknownTypeDeclarationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#classDeclaration.
     def visitClassDeclaration(self, ctx:PasDocParser.ClassDeclarationContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by PasDocParser#recordDeclaration.
-    def visitRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by PasDocParser#classType.
     def visitClassType(self, ctx:PasDocParser.ClassTypeContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by PasDocParser#recordType.
-    def visitRecordType(self, ctx:PasDocParser.RecordTypeContext):
         return self.visitChildren(ctx)
 
 
@@ -101,6 +106,51 @@ class PasDocParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PasDocParser#classMember.
     def visitClassMember(self, ctx:PasDocParser.ClassMemberContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#recordDeclaration.
+    def visitRecordDeclaration(self, ctx:PasDocParser.RecordDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#recordType.
+    def visitRecordType(self, ctx:PasDocParser.RecordTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#recordBody.
+    def visitRecordBody(self, ctx:PasDocParser.RecordBodyContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#recordMember.
+    def visitRecordMember(self, ctx:PasDocParser.RecordMemberContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#arrayDeclaration.
+    def visitArrayDeclaration(self, ctx:PasDocParser.ArrayDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#arrayType.
+    def visitArrayType(self, ctx:PasDocParser.ArrayTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#arrayIndex.
+    def visitArrayIndex(self, ctx:PasDocParser.ArrayIndexContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#setDeclaration.
+    def visitSetDeclaration(self, ctx:PasDocParser.SetDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#setType.
+    def visitSetType(self, ctx:PasDocParser.SetTypeContext):
         return self.visitChildren(ctx)
 
 

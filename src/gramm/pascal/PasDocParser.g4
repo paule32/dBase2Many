@@ -5,7 +5,11 @@ options {
 }
 
 unitFile
-    : unitHeader? unitSection* EOF
+    : programHeader? unitHeader? unitSection* EOF
+    ;
+
+programHeader
+    : PROGRAM IDENT SEMI
     ;
 
 unitHeader
@@ -21,9 +25,17 @@ unitSection
 declaration
     : docComment
     | constSection
+    | varSection
     | typeSection
     | classDeclaration
+    | recordDeclaration
+    | arrayDeclaration
+    | setDeclaration
     | otherToken
+    ;
+
+varSection
+    : VAR fieldDeclaration*
     ;
 
 constSection
@@ -60,23 +72,21 @@ typeSection
 typeDeclaration
     : classDeclaration
     | recordDeclaration
-    | otherToken
+    | arrayDeclaration
+    | setDeclaration
+    | unknownTypeDeclaration
+    ;
+
+unknownTypeDeclaration
+    : IDENT EQ .*? SEMI
     ;
 
 classDeclaration
     : IDENT EQ classType SEMI?
     ;
 
-recordDeclaration
-    : IDENT EQ recordType SEMI?
-    ;
-
 classType
     : CLASS classInheritance? classBody
-    ;
-
-recordType
-    : RECORD classBody
     ;
 
 classInheritance
@@ -94,6 +104,45 @@ classMember
     | propertyDeclaration
     | fieldDeclaration
     | otherToken
+    ;
+
+recordDeclaration
+    : IDENT EQ recordType SEMI?
+    ;
+
+recordType
+    : RECORD recordBody END
+    ;
+
+recordBody
+    : recordMember*
+    ;
+
+recordMember
+    : docComment
+    | fieldDeclaration
+    | otherToken
+    ;
+
+arrayDeclaration
+    : IDENT EQ arrayType SEMI?
+    ;
+
+arrayType
+    : ARRAY LBRACK arrayIndex RBRACK OF typeName
+    ;
+
+arrayIndex
+    : constValue DOTDOT constValue
+    | typeName
+    ;
+
+setDeclaration
+    : IDENT EQ setType SEMI?
+    ;
+
+setType
+    : SET OF typeName
     ;
 
 visibilitySection
@@ -176,6 +225,9 @@ otherToken
     : IDENT
     | STRING
     | NUMBER
+    | PROGRAM
+    | VAR
+    | BEGIN
     | LPAREN
     | RPAREN
     | LBRACK
@@ -183,9 +235,14 @@ otherToken
     | SEMI
     | COLON
     | COMMA
+    | DOTDOT
     | DOT
     | EQ
     | CARET
+    | ARRAY
+    | SET
+    | OF
+    | RECORD
     | END
     | OTHER
     ;

@@ -10,6 +10,7 @@ from   __future__   import annotations
 
 import os
 import html
+import hashlib
 
 from   share.common import *
 
@@ -32,6 +33,7 @@ from parse.pascal.PasDocParserVisitor  import PasDocParserVisitor
 DOXYGEN_PROJECT_PAGES = {}
 DOXYGEN_ITEMS         = []
 DOXYGEN_WINDOW        = None
+DOXYGEN_CONFIG        = []
 DOXYGEN_EXPERT_ITEMS  = [
     "Project",
     "Build",
@@ -286,13 +288,29 @@ font-size: 15px;
 color: #d0d0d0;
 }
 .member-doc-content h4 {
-    margin-top: 18px;
-    margin-bottom: 8px;
-    color: white;
-    font-size: 0.92em;
-    font-weight: 400;
+margin-top: 18px;
+margin-bottom: 8px;
+color: white;
+font-size: 0.92em;
+font-weight: 400;
+}
+.member-link {
+color: var(--text);
+text-decoration: none;
 }
 
+.member-link:visited {
+color: var(--text);
+}
+
+.member-link:hover .func-name {
+color: #ffffff;
+text-decoration: underline;
+}
+
+.member-doc-box {
+scroll-margin-top: 20px;
+}
 .param-table {
     border-collapse: collapse;
     margin-left: 18px;
@@ -394,6 +412,10 @@ def _default_project_dir() -> Path:
     base.mkdir(parents=True, exist_ok=True)
     return base
 
+def make_anchor(name, signature=""):
+    text = f"{name}:{signature}"
+    return hashlib.md5(text.encode("utf-8")).hexdigest()[:12]
+
 
 class CppClassInfo:
     def __init__(self, name):
@@ -409,6 +431,19 @@ class CppMemberInfo:
         self.signature = signature
 
 
+class PasTypeInfo:
+    def __init__(self       ,
+        name                ,
+        kind                ,
+        signature      = "" ,
+        brief          = ""):
+        
+        self.name      = name
+        self.kind      = kind
+        self.signature = signature
+        self.brief     = brief
+        self.fields    = []
+        
 class PasClassInfo:
     def __init__(self, name):
         self.name       = name
@@ -505,18 +540,87 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         self.pending_brief   = ""
         self.pending_params  = []
+        self.pending_notes   = []
         self.pending_returns = ""
         
         self.constants       = []
+        self.records         = []
+        self.arrays          = []
+        self.sets            = []
         
         self.current_class   = None
         self.current_access  = "public"
+        
+        DOXYGEN_CONFIG.append("# Doxyfile 1.17.3\n")
+        
+        com_line = ("# " + ('-' * 78))
+        com_text = share.locales.tr(" related configuration options")
+
+        self.already_seen = []
+        self.already_seen.clear()
+        
+        if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+        and (DOXYGEN_PROJECT_PAGES is not None):
+            for res in DOXYGEN_EXPERT_ITEMS:
+                txt  = share.locales.tr(res)
+                page = DOXYGEN_PROJECT_PAGES.get(txt)
+                
+                if page is None:
+                    continue
+                
+                DOXYGEN_CONFIG.extend([com_line, f"# {txt}{com_text}", com_line])
+                self.doxy_fields(page.area.findChildren(QWidget))
+                
+            for item in DOXYGEN_CONFIG:
+                print(f"{item}")
+
+    def doxy_fields(self, page_widgets):
+        for widget in page_widgets:
+            if isinstance(widget, DoxyLineBtn3)\
+            or isinstance(widget, DoxyLineBtn4): continue
+            
+            if isinstance(widget, DoxyTextEdit):
+                key = widget.help_str
+                if key in self.already_seen:
+                    continue
+                self.already_seen.append(key)
+                lines = widget.edit.toPlainText().splitlines()
+                p     = len(lines)
+                if p == 1:
+                    DOXYGEN_CONFIG.append(f"{key:<32}= \"{lines[0]}\"")
+                    continue
+                elif p > 1:
+                    if lines[0] == "":
+                        continue
+                    for line in lines:
+                        if p == len(lines): DOXYGEN_CONFIG.append(f"{key:<32}= \"{line}\" \\")
+                        elif p-1 > 0:       DOXYGEN_CONFIG.append(f"{' ':<32}= \"{line}\" \\")
+                        else:               DOXYGEN_CONFIG.append(f"{' ':<34}\"{line}\"")
+                        p = p-1
+                continue
+            if isinstance(widget, DoxySpinEdit):
+                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {str(widget.spin.value())}")
+                continue
+            if isinstance(widget, DoxyLineEdit):
+                if len(widget.input.text()) > 0:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= \"{widget.input.text()}\"")
+                    continue
+                else:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= ")
+                    continue
+            if isinstance(widget, DoxyCheckBox):
+                if widget.check.isChecked():
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= YES")
+                    continue
+                else:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= NO" )
+                    continue
+            if isinstance(widget, DoxyComboBox):
+                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {widget.combo.currentText()}")
+                continue
     
     def parse_doc_comment(self, text):
-        self.pending_brief   = ""
-        self.pending_params  = []
-        self.pending_returns = ""
-        self.pending_notes   = []
+        self.clear_pending_doc()
 
         text = text.replace("(**!", "")
         text = text.replace("{**!", "")
@@ -585,6 +689,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 return line[len("@brief"):].strip()
         return ""
     
+    def make_member_anchor(self, cls, member):
+        text   = cls.name + "_" + member.signature
+        result = []
+        for ch in text:
+            if ch.isalnum():
+                result.append(ch.lower())
+            else:
+                result.append("_")
+        anchor = "".join(result)
+        while "__" in anchor:
+            anchor = anchor.replace("__", "_")
+        return anchor.strip("_")
+    
     def visitConstDeclaration(self, ctx):
         item  = ctx.constItem()
         name  = item.IDENT().getText()
@@ -594,9 +711,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             brief = self.extract_brief(ctx.docComment().getText())
         else:
             brief = self.pending_brief
-        self.constants.append(
-            PasConstInfo(name, value, brief)
-        )
+        self.constants.append(PasConstInfo(name, value, brief))
         self.pending_brief = ""
         return None
     
@@ -614,11 +729,65 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_brief = ""
         return None
     
+    def visitSetDeclaration(self, ctx):
+        name = ctx.IDENT().getText()
+        print("SET FOUND:", name)
+        self.sets.append(
+            PasTypeInfo(
+                name,
+                "set",
+                self.text_from_ctx(ctx.setType()),
+                self.pending_brief
+            )
+        )
+        self.pending_brief = ""
+        return None
+    
+    def visitArrayDeclaration(self, ctx):
+        name = ctx.IDENT().getText()
+        print("ARRAY FOUND:", name)
+        self.arrays.append(
+            PasTypeInfo(
+                name,
+                "array",
+                self.text_from_ctx(ctx.arrayType()),
+                self.pending_brief
+            )
+        )
+        self.pending_brief = ""
+        return None
+        
+    def visitRecordDeclaration(self, ctx):
+        name = ctx.IDENT().getText()
+        print("RECORD FOUND:", name)
+        info = PasTypeInfo(
+            name,
+            "record",
+            self.text_from_ctx(ctx.recordType()),
+            self.pending_brief
+        )
+
+        self.pending_brief = ""
+
+        old_class  = self.current_class
+        old_access = self.current_access
+
+        self.current_class  = info
+        self.current_access = "public"
+        self.visit(ctx.recordType().recordBody())
+        self.records.append(info)
+
+        self.current_class = old_class
+        self.current_access = old_access
+
+        return info
+        
     def visitDocComment(self, ctx: PasDocParser.DocCommentContext):
         text = ctx.getText()
         
         self.pending_brief   = ""
         self.pending_params  = []
+        self.pending_notes   = []
         self.pending_returns = ""
         
         self.parse_doc_comment(text)
@@ -626,8 +795,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     
     def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
         self.visitChildren(ctx)
+        os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
+        
         self.write_index()
         self.write_classes()
+        
+        self.write_pascal_types(self.records)
+        self.write_pascal_types(self.arrays)
+        self.write_pascal_types(self.sets)
+        
         return self.classes
     
     def visitClassDeclaration(self, ctx: PasDocParser.ClassDeclarationContext):
@@ -677,12 +853,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 self.pending_notes
             )
         )
-        self.pending_brief   = ""
-        self.pending_params  = []
-        self.pending_returns = ""
-        self.pending_brief   = ""
-        self.pending_notes   = []
-        
+        self.clear_pending_doc()
         return None
     
     def visitPropertyDeclaration(self, ctx: PasDocParser.PropertyDeclarationContext):
@@ -693,12 +864,28 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_brief = ""
         return None
     
+    def clear_pending_doc(self):
+        self.pending_brief   = ""
+        self.pending_params  = []
+        self.pending_returns = ""
+        self.pending_notes   = []
+    
     def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
         if self.current_class is None:
             return None
         signature = self.text_from_ctx(ctx)
-        self.current_class.fields.append(PasMemberInfo(self.current_access, signature, self.pending_brief))
-        self.pending_brief = ""
+        self.current_class.fields.append(
+            PasMemberInfo(
+                self.current_access,
+                signature,
+                self.pending_brief,
+                self.pending_params,
+                self.pending_returns,
+                self.pending_notes
+            )
+        )
+        self.clear_pending_doc()
+        return None
 
     def format_pascal_signature_multiline(self, signature):
         text = signature.strip()
@@ -779,7 +966,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return "".join(result)
     
     def write_index(self):
-        filename = os.path.join(self.output_dir, "pascal\\index.html")
+        filename = os.path.join(self.output_dir, "pascal", "index.html")
         with open(filename, "w", encoding="utf-8") as f:
             f.write("<!DOCTYPE html>\n")
             f.write("<html>\n")
@@ -796,6 +983,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("      <span>Overview</span>\n")
             f.write("    </div>\n")
             f.write("    <section>\n")
+            
+            self.write_type_index_section(f, "Records", self.records)
+            self.write_type_index_section(f, "Arrays",  self.arrays)
+            self.write_type_index_section(f, "Sets",    self.sets)
+
             f.write("      <h2>Classes</h2>\n")
             f.write("      <ul class=\"class-list\">\n")
             
@@ -864,21 +1056,23 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                             f.write(f"          <td class=\"sig member-brief\">{self.html_escape(c.brief)}</td>\n")
                             f.write("        </tr>\n")
                     f.write("      </table>\n")
-                    
-                self.write_member_table(f, "Public Methods", cls.methods, "public")
-                self.write_member_table(f, "Protected Methods", cls.methods, "protected")
-                self.write_member_table(f, "Private Methods", cls.methods, "private")
-                self.write_member_table(f, "Published Methods", cls.methods, "published")
                 
-                self.write_member_table(f, "Public Properties", cls.properties, "public")
-                self.write_member_table(f, "Protected Properties", cls.properties, "protected")
-                self.write_member_table(f, "Private Properties", cls.properties, "private")
-                self.write_member_table(f, "Published Properties", cls.properties, "published")
+                self.current_output_class = cls
                 
-                self.write_member_table(f, "Public Fields", cls.fields, "public")
-                self.write_member_table(f, "Protected Fields", cls.fields, "protected")
-                self.write_member_table(f, "Private Fields", cls.fields, "private")
-                self.write_member_table(f, "Published Fields", cls.fields, "published")
+                self.write_member_table(f, "Public Methods"         , cls.methods, "public")
+                self.write_member_table(f, "Protected Methods"      , cls.methods, "protected")
+                self.write_member_table(f, "Private Methods"        , cls.methods, "private")
+                self.write_member_table(f, "Published Methods"      , cls.methods, "published")
+                
+                self.write_member_table(f, "Public Properties"      , cls.properties, "public")
+                self.write_member_table(f, "Protected Properties"   , cls.properties, "protected")
+                self.write_member_table(f, "Private Properties"     , cls.properties, "private")
+                self.write_member_table(f, "Published Properties"   , cls.properties, "published")
+                
+                self.write_member_table(f, "Public Fields"          , cls.fields, "public")
+                self.write_member_table(f, "Protected Fields"       , cls.fields, "protected")
+                self.write_member_table(f, "Private Fields"         , cls.fields, "private")
+                self.write_member_table(f, "Published Fields"       , cls.fields, "published")
                 
                 f.write("    <section>\n")
                 f.write("      <h2>Detailed Description</h2>\n")
@@ -902,6 +1096,61 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             
             self.pdf_export = HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW)
     
+    def write_pascal_types(self, items):
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
+
+        for item in items:
+            filename = os.path.join(out_dir, self.safe_filename(item.name) + ".html")
+
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(item.name)}</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("</head>\n<body>\n")
+                f.write("  <main class=\"page\">\n")
+                f.write("    <div class=\"version\">Pascal Doc</div>\n")
+                f.write(f"    <h1>{self.html_escape(item.name)} {self.html_escape(item.kind)}</h1>\n")
+
+                f.write("    <div class=\"breadcrumb\">\n")
+                f.write("      <a href=\"index.html\">Overview</a>\n")
+                f.write("      <span>›</span>\n")
+                f.write(f"      <span>{self.html_escape(item.name)}</span>\n")
+                f.write("    </div>\n")
+
+                if item.brief:
+                    f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+
+                f.write("    <section>\n")
+                f.write("      <h2>Declaration</h2>\n")
+                f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
+                f.write("    </section>\n")
+
+                if item.fields:
+                    self.write_member_table(f, "Fields", item.fields, "public")
+
+                f.write("  </main>\n")
+                f.write("</body>\n</html>\n")
+            
+    def write_type_index_section(self, f, title, items):
+        if not items:
+            return
+        f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+        for item in items:
+            html_name = self.safe_filename(item.name) + ".html"
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(item.kind)}</td>\n")
+            f.write(f"          <td class=\"sig\"><a href=\"{html_name}\">{self.html_escape(item.name)}</a></td>\n")
+            f.write("        </tr>\n")
+            if item.brief:
+                f.write("        <tr class=\"member-brief-row\">\n")
+                f.write("          <td class=\"ret\"></td>\n")
+                f.write(f"          <td class=\"sig member-brief\">{self.html_escape(item.brief)}</td>\n")
+                f.write("        </tr>\n")
+        f.write("      </table>\n")
+        
     def write_member_table(self, f, title, members, access_filter=None):
         items = []
         
@@ -921,9 +1170,17 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             
             f.write("        <tr>\n")
             f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
-            f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
+            
+            anchor = self.make_member_anchor(self.current_output_class, member)
+            f.write(
+                f"          <td class=\"sig\">"
+                f"<a class=\"member-link\" href=\"#{anchor}\">"
+                f"{self.highlight_signature(right)}"
+                f"</a></td>\n"
+            )
+            
             f.write("        </tr>\n")
-        
+            
             if getattr(member, "brief", ""):
                 f.write("        <tr class=\"member-brief-row\">\n")
                 f.write("          <td class=\"ret\"></td>\n")
@@ -934,6 +1191,67 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("    </section>\n")
 
     def write_member_function_docs(self, f, cls):
+        ctors_dtors = []
+        methods     = []
+        for member in cls.methods:
+            sig = member.signature.strip().lower()
+            if sig.startswith("constructor ") or sig.startswith("destructor "):
+                ctors_dtors.append(member)
+            else:
+                methods.append(member)
+        if not ctors_dtors and not methods:
+            return
+        f.write("    <section class=\"member-docs\">\n")
+        if ctors_dtors:
+            f.write("      <h2>Constructors and Destructor</h2>\n")
+            self.write_member_doc_items(f, cls, ctors_dtors)
+        if methods:
+            f.write("      <h2>Member Function Documentation</h2>\n")
+            self.write_member_doc_items(f, cls, methods)
+        f.write("    </section>\n")
+    
+    def write_member_doc_items(self, f, cls, members):
+        for member in members:
+            full_signature = self.make_qualified_signature(cls.name, member.signature)
+            full_signature = self.format_pascal_signature_multiline(full_signature)
+            anchor         = self.make_member_anchor(cls, member)
+            
+            f.write(f"      <article class=\"member-doc-box\" id=\"{anchor}\">\n")
+            f.write("        <div class=\"member-doc-title\">\n")
+            f.write(f"          {self.highlight_multiline_signature(full_signature)}\n")
+            f.write("        </div>\n")
+            f.write("        <div class=\"member-doc-content\">\n")
+            if member.brief:
+                f.write(f"          <p>{self.html_escape(member.brief)}</p>\n")
+            if member.params:
+                f.write("          <h4>Parameters</h4>\n")
+                f.write("          <table class=\"param-table\">\n")
+                for param_name, param_desc in member.params:
+                    f.write("            <tr>\n")
+                    f.write(f"              <td class=\"param-name\">{self.html_escape(param_name)}</td>\n")
+                    f.write(f"              <td>{self.html_escape(param_desc)}</td>\n")
+                    f.write("            </tr>\n")
+                f.write("          </table>\n")
+            if member.returns:
+                f.write("          <h4>Returns</h4>\n")
+                f.write("          <table class=\"return-table\">\n")
+                f.write("            <tr>\n")
+                f.write("              <td class=\"return-indent\"></td>\n")
+                f.write(f"              <td class=\"return-text\">{self.html_escape(member.returns)}</td>\n")
+                f.write("            </tr>\n")
+                f.write("          </table>\n")
+            self.write_note_blocks(f, member)
+            f.write("        </div>\n")
+            f.write("      </article>\n")
+    
+    def is_constructor_or_destructor(self, member):
+        sig = member.signature.strip().lower()
+        return (
+            sig.startswith("constructor ") or
+            sig.startswith("destructor ")
+        )
+    
+    def _write_member_function_docs(self, f, cls):
         if not cls.methods:
             return
         
@@ -1367,6 +1685,8 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
                 f.write("    </section>\n")
                 
                 self.write_member_function_docs(f, cls)
+                self.write_property_docs(f, cls)
+                self.write_field_docs(f, cls)
                 
                 f.write("    <footer>\n")
                 f.write("      Generated by <span>dBase Lexer + Parser</span> | C++ Documentation Generator\n")
@@ -1484,8 +1804,8 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
 
 class DoxyScrollPage:
     def __init__(self, owner, area, widget, layout):
-        self.owner = owner
-        self.area = area
+        self.owner  = owner
+        self.area   = area
         self.widget = widget
         self.layout = layout
 
@@ -1622,14 +1942,18 @@ class DoxyButton(QPushButton):
         help_str  : str   =   "",
         icon_norm : QIcon = None,
         icon_hovr : QIcon = None,
-        flag      : int   =   0):
+        flag      : int   =    0,
+        mode      : int   =    0):
         
         super().__init__()
         
         self.help_str   = help_str
         self.owner      = owner
         self.flag       = flag
+        self.mode       = mode
         self.filename   = ""
+        
+        self.config     = False
         
         self.icon_norm  = icon_norm
         self.icon_hovr  = icon_hovr
@@ -1647,6 +1971,15 @@ class DoxyButton(QPushButton):
         
         if self.icon_norm is not None:
             self.setIcon(self.icon_norm)
+    
+    def open_dir(self) -> str:
+        self.filename = QFileDialog.getExistingDirectory(self,
+            share.locales.tr("Select Directory"),
+            "",
+            QFileDialog.ShowDirsOnly)
+        if not self.filename:
+            return ""
+        return self.filename
     
     def open_file(self) -> str:
         try:
@@ -1728,6 +2061,10 @@ class DoxyButton(QPushButton):
                 if self.flag == 1:
                     if self.open_file():
                         self.owner.input.input.setText(self.filename)
+            elif isinstance(self.owner, DoxyLineBtnA):
+                if self.flag == 1:
+                    if self.open_dir():
+                        self.owner.input.input.setText(self.filename)
             elif isinstance(self.owner, DoxyLineBtn3):
                 if self.flag == 1:
                     if self.open_file():
@@ -1736,7 +2073,8 @@ class DoxyButton(QPushButton):
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
-                            page  = DOXYGEN_PROJECT_PAGES.get(res)
+                            trans = share.locales.tr(res)
+                            page  = DOXYGEN_PROJECT_PAGES.get(trans)
                             item1 = page.area.findChild(DoxyTextEdit, self.help_str)
                             item2 = page.area.findChild(DoxyLineBtn3, self.help_str)
                             if (item1 is not None) and (item1.help_str == item2.help_str):
@@ -1746,7 +2084,8 @@ class DoxyButton(QPushButton):
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
-                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            trans = share.locales.tr(res)
+                            page  = DOXYGEN_PROJECT_PAGES.get(trans)
                             if page is not None:
                                 item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
@@ -1761,7 +2100,8 @@ class DoxyButton(QPushButton):
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
-                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            trans = share.locales.tr(res)
+                            page  = DOXYGEN_PROJECT_PAGES.get(trans)
                             if page is not None:
                                 item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
@@ -1772,7 +2112,8 @@ class DoxyButton(QPushButton):
                     if  (DOXYGEN_EXPERT_ITEMS  is not None)\
                     and (DOXYGEN_PROJECT_PAGES is not None):
                         for res in DOXYGEN_EXPERT_ITEMS:
-                            page = DOXYGEN_PROJECT_PAGES.get(res)
+                            trans = share.locales.tr(res)
+                            page  = DOXYGEN_PROJECT_PAGES.get(trans)
                             if page is not None:
                                 item = page.area.findChild(DoxyTextEdit, self.help_str)
                                 if item is not None:
@@ -1839,6 +2180,8 @@ class DoxyLabel(LinkLabel):
         self.help_str = help_str
         self.flag     = flag
         
+        self.config   = False
+        
         self.setObjectName(self.help_str)
        
         if help_str not in DOXYGEN_ITEMS:
@@ -1866,6 +2209,8 @@ class DoxyTextEdit(QWidget):
         self.help_str = help_str
         self.text_str = text
         self.link_str = help_str
+        
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("link", self.link_str)
@@ -1915,6 +2260,8 @@ class DoxyCheckBox(QWidget):
         self.help_str = help_str
         self.text_str = ""
         self.link_str = help_str
+        
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
@@ -1978,6 +2325,8 @@ class DoxySpinEdit(QWidget):
         self.text_str = ""
         self.link_str = help_str
         
+        self.config   = False
+        
         self.setProperty("help", self.help_str)
         self.setProperty("link", self.link_str)
         
@@ -2032,6 +2381,8 @@ class DoxyLineEdit(QWidget):
         self.text_str = text_str
         self.link_str = help_str
         
+        self.config   = False
+        
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
         self.setProperty("link", self.link_str)
@@ -2054,7 +2405,7 @@ class DoxyLineEdit(QWidget):
         self.input.setProperty("link", self.link_str)
         
         self.input.setFont(QFont("Consolas", 10))
-        self.input.setText(text_str)
+        #self.input.setText(self.text_str)
         
         self.layout.addWidget(self.label)
         self.layout.addWidget(self.input)
@@ -2067,18 +2418,21 @@ class DoxyLineEdit(QWidget):
 # ---------------------------------------------------------------------------
 # \brief this is a helper class for QLineEdit with a Button to reduce code.
 # ---------------------------------------------------------------------------
-class DoxyLineBtn1(QWidget):
+class DoxyLineBtnA(QWidget):
     def __init__(self,
         parent   = None,
         help_str : str = "",
         text_str : str = "",
-        item     = None):
+        flag     : int =  0):
         
         super().__init__(parent.owner)
         
         self.help_str = help_str
         self.text_str = text_str
         self.link_str = help_str
+        
+        self.flag     = flag
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
@@ -2097,22 +2451,78 @@ class DoxyLineBtn1(QWidget):
         self.input.setProperty("text", self.text_str)
         self.input.setProperty("link", self.link_str)
         
-        self.buttn  = DoxyButton(self  , self.help_str, QIcon(":/icons/doc.ico"), QIcon(":/icons/doc_hov.ico"), 1)
+        self.button = DoxyButton(
+            self,
+            self.help_str,
+            QIcon(":/icons/doc.ico"),
+            QIcon(":/icons/doc_hov.ico"), 1, 1)
         
-        self.buttn.setProperty  ("help", self.help_str)
-        self.buttn.setProperty  ("text", self.text_str)
-        self.buttn.setProperty  ("link", self.link_str)
+        self.button.setProperty  ("help", self.help_str)
+        self.button.setProperty  ("text", self.text_str)
+        self.button.setProperty  ("link", self.link_str)
         
         if help_str not in DOXYGEN_ITEMS:
             DOXYGEN_ITEMS.append(self)
             
         self.layout.addWidget(self.input)
-        self.layout.addWidget(self.buttn)
+        self.layout.addWidget(self.button)
         
     def enterEvent(self, event):
         self.owner.show_help_for_key(self.help_str)
         super().enterEvent(event)
 
+class DoxyLineBtn1(QWidget):
+    def __init__(self,
+        parent   = None,
+        help_str : str = "",
+        text_str : str = "",
+        flag     : int =  0):
+        
+        super().__init__(parent.owner)
+        
+        self.help_str = help_str
+        self.text_str = text_str
+        self.link_str = help_str
+        
+        self.flag     = flag
+        self.config   = False
+        
+        self.setProperty("help", self.help_str)
+        self.setProperty("text", self.text_str)
+        self.setProperty("link", self.link_str)
+        
+        self.setObjectName(self.help_str)
+        
+        self.parent = parent
+        self.owner  = parent.owner
+        self.flag   = 0
+        
+        self.layout = DoxyHBoxLayout(self)
+        self.input  = DoxyLineEdit(self, self.help_str, self.text_str)
+        
+        self.input.setProperty("help", self.help_str)
+        self.input.setProperty("text", self.text_str)
+        self.input.setProperty("link", self.link_str)
+        
+        self.button = DoxyButton(
+            self,
+            self.help_str,
+            QIcon(":/icons/doc.ico"),
+            QIcon(":/icons/doc_hov.ico"), 1, 1)
+        
+        self.button.setProperty  ("help", self.help_str)
+        self.button.setProperty  ("text", self.text_str)
+        self.button.setProperty  ("link", self.link_str)
+        
+        if help_str not in DOXYGEN_ITEMS:
+            DOXYGEN_ITEMS.append(self)
+            
+        self.layout.addWidget(self.input)
+        self.layout.addWidget(self.button)
+        
+    def enterEvent(self, event):
+        self.owner.show_help_for_key(self.help_str)
+        super().enterEvent(event)
 
 class DoxyLineBtn3(QWidget):
     def __init__(self,
@@ -2125,6 +2535,8 @@ class DoxyLineBtn3(QWidget):
         self.help_str = help_str
         self.text_str = text_str
         self.link_str = help_str
+        
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
@@ -2171,6 +2583,8 @@ class DoxyLineBtn4(QWidget):
         self.help_str = help_str
         self.text_str = text_str
         self.link_str = help_str
+        
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
@@ -2225,6 +2639,8 @@ class DoxyImage(QWidget):
         self.text_str = text_str
         self.link_str = help_str
         
+        self.config   = False
+        
         self.setProperty("help", self.help_str)
         self.setProperty("link", self.link_str)
         
@@ -2270,6 +2686,8 @@ class DoxyComboBox(QWidget):
         self.help_str = help_str
         self.text_str = ""
         self.link_str = help_str
+        
+        self.config   = False
         
         self.setProperty("help", self.help_str)
         self.setProperty("text", self.text_str)
@@ -2776,6 +3194,9 @@ class DoxyGenToolWindow(QWidget):
         self.btn_CWD = QPushButton(share.locales.tr("Select"))
         self.txt_CWD = QLabel(share.locales.tr("Specify the working directory from which doxygen will run"))
         
+        self.lineCWD.setFont(QFont("Consolas", 9))
+        self.lineCWD.setText(str(_default_project_dir()))
+        
         self.btn_CWD.clicked.connect(self.on_cwd_click)
         
         hlay.addWidget(self.lineCWD)
@@ -2800,8 +3221,6 @@ class DoxyGenToolWindow(QWidget):
         ext       = ext[1:].lower()
         try:
             if ext in ["pas", "pp"]:
-                output_dir.join("/pas")
-                
                 self.input_stream = FileStream(source_file, encoding="utf-8")
                 self.lexer   = PasDocLexer      (self.input_stream)
                 self.tokens  = CommonTokenStream(self.lexer)
@@ -2872,7 +3291,7 @@ class DoxyGenToolWindow(QWidget):
         self.list_categories = QListWidget()
         
         for item in DOXYGEN_EXPERT_ITEMS:
-            self.list_categories.addItem(item)
+            self.list_categories.addItem(share.locales.tr(item))
         
         self.list_categories.currentTextChanged.connect(self._on_expert_item_changed)
         self.expert_splitter_h.addWidget(self.list_categories)
@@ -2883,7 +3302,7 @@ class DoxyGenToolWindow(QWidget):
         
         for name in DOXYGEN_EXPERT_ITEMS:
             scroll_owner, scroll_area, scroll_widget, scroll_lay = self._create_scroll_page()
-            DOXYGEN_PROJECT_PAGES[str(name)] = DoxyScrollPage(
+            DOXYGEN_PROJECT_PAGES[share.locales.tr(str(name))] = DoxyScrollPage(
                 scroll_owner,
                 scroll_area,
                 scroll_widget,
@@ -2899,19 +3318,31 @@ class DoxyGenToolWindow(QWidget):
         self.scroll_lay.setSpacing(2)
         
         # -------------------------------------------------------------------------
-        self.par1 = DOXYGEN_PROJECT_PAGES["Project"]
+        self.par1 = DOXYGEN_PROJECT_PAGES[share.locales.tr("Project")]
         self.project_items = [
             DoxyLineEdit (self.par1, "DOXYFILE_ENCODING", "UTF-8"),
             
             DoxyLineEdit(self.par1, "PROJECT_NAME", share.locales.tr("MyProject")),
             DoxyLineEdit(self.par1, "PROJECT_NUMBER"),
-            DoxyLineEdit(self.par1, "PROJECT_BRIEF"),
-            DoxyLineBtn1(self.par1, "PROJECT_LOGO"),
-            DoxyImage   (self.par1, "PROJECT_LOGO", "No Project Logo selected."),
-            DoxyLineBtn1(self.par1, "PROJECT_ICON"),
-            DoxyImage   (self.par1, "PROJECT_ICON", "No Project Icon selected."),
+            DoxyLineEdit(self.par1, "PROJECT_BRIEF", [
+                "\"The $name class\"",
+                "\"The $name widget\"",
+                "\"The $name file\"",
+                "is",
+                "provides",
+                "specifies",
+                "contains",
+                "represents",
+                "a",
+                "an",
+                "the",
+            ]),
+            DoxyLineBtn1(self.par1, "PROJECT_LOGO", "", 0),
+            DoxyImage   (self.par1, "PROJECT_LOGO", share.locales.tr("No Project Logo selected.")),
+            DoxyLineBtn1(self.par1, "PROJECT_ICON", "", 0),
+            DoxyImage   (self.par1, "PROJECT_ICON", share.locales.tr("No Project Icon selected.")),
             
-            DoxyLineBtn1(self.par1, "OUTPUT_DIRECTORY"),
+            DoxyLineBtnA(self.par1, "OUTPUT_DIRECTORY", "", 1),
             DoxyCheckBox(self.par1, "CREATE_SUBDIRS"),
             DoxySpinEdit(self.par1, "CREATE_SUBDIRS_LEVEL", 0, 64, 4),
             
@@ -2986,7 +3417,7 @@ class DoxyGenToolWindow(QWidget):
             DoxySpinEdit(self.par1, "NUM_PROC_THREADS"),
             DoxyComboBox(self.par1, "TIMESTAMP", ["YES", "NO", "DATETIME", "DATE"]),
         ]
-        project_lay = DOXYGEN_PROJECT_PAGES["Project"].layout
+        project_lay = DOXYGEN_PROJECT_PAGES[share.locales.tr("Project")].layout
         for item in self.project_items:
             project_lay.addWidget(item)
         project_lay.addStretch()
@@ -3090,8 +3521,8 @@ class DoxyGenToolWindow(QWidget):
                 "YES",
                 "FAIL_ON_WARNINGS",
                 "FAIL_ON_WARNINGS_PRINT"]),
-            DoxyLineEdit(self.par3, "WARN_FORMAT"),
-            DoxyLineEdit(self.par3, "WARN_LINE_FORMAT"),
+            DoxyLineEdit(self.par3, "WARN_FORMAT", ["$file:$line: $text"]),
+            DoxyLineEdit(self.par3, "WARN_LINE_FORMAT", ["at line $line of file $file"]),
             DoxyLineBtn1(self.par3, "WARN_LOGFILE"),
         ]
         messages_lay = DOXYGEN_PROJECT_PAGES["Messages"].layout
@@ -3105,12 +3536,63 @@ class DoxyGenToolWindow(QWidget):
         self.input_items = [
             DoxyLineBtn4(self.par4, "INPUT"),
             DoxyTextEdit(self.par4, "INPUT", []),
-            DoxyLineEdit(self.par4, "INPUT_ENCODING"),
+            DoxyLineEdit(self.par4, "INPUT_ENCODING", "UTF-8"),
             DoxyLineBtn3(self.par4, "INPUT_FILE_ENCODING"),
             DoxyTextEdit(self.par4, "INPUT_FILE_ENCODING", []),
             
             DoxyLineBtn3(self.par4, "FILE_PATTERNS"),
-            DoxyTextEdit(self.par4, "FILE_PATTERNS", ["*.c", "*.cc"]),
+            DoxyTextEdit(self.par4, "FILE_PATTERNS", [
+                "*.c",
+                "*.cc",
+                "*.cxx",
+                "*.cxxm",
+                "*.cpp",
+                "*.cppm",
+                "*.ccm",
+                "*.c++",
+                "*.c++m",
+                "*.java",
+                "*.ii",
+                "*.ixx",
+                "*.ipp",
+                "*.i++",
+                "*.inl",
+                "*.idl",
+                "*.ddl",
+                "*.odl",
+                "*.h",
+                "*.hh",
+                "*.hxx",
+                "*.hpp",
+                "*.h++",
+                "*.l",
+                "*.cs",
+                "*.d",
+                "*.php",
+                "*.php4",
+                "*.php5",
+                "*.phtml",
+                "*.inc",
+                "*.m",
+                "*.markdown",
+                "*.md",
+                "*.mm",
+                "*.dox",
+                "*.py",
+                "*.pyw",
+                "*.f90",
+                "*.f95",
+                "*.f03",
+                "*.f08",
+                "*.f18",
+                "*.f",
+                "*.for",
+                "*.vhd",
+                "*.vhdl",
+                "*.ucf",
+                "*.qsf",
+                "*.ice",
+            ]),
             
             DoxyCheckBox(self.par4, "RECURSIVE"),
             
@@ -3192,7 +3674,7 @@ class DoxyGenToolWindow(QWidget):
         self.par7 = DOXYGEN_PROJECT_PAGES["HTML"]
         self.html_items = [
             DoxyCheckBox(self.par7, "GENERATE_HTML"),
-            DoxyLineBtn1(self.par7, "HTML_OUTPUT"),
+            DoxyLineBtnA(self.par7, "HTML_OUTPUT", "", 1),
             DoxyLineEdit(self.par7, "HTML_FILE_EXTENSION"),
             
             DoxyLineBtn1(self.par7, "HTML_HEADER"),
@@ -3233,7 +3715,7 @@ class DoxyGenToolWindow(QWidget):
             
             DoxyCheckBox(self.par7, "GENERATE_HTMLHELP"),
             DoxyLineBtn1(self.par7, "CHM_FILE"),
-            DoxyLineBtn1(self.par7, "HHC_LOCATION"),
+            DoxyLineBtnA(self.par7, "HHC_LOCATION", "", 1),
             
             DoxyCheckBox(self.par7, "GENERATE_CHI"),
             DoxyLineEdit(self.par7, "CHM_INDEX_ENCODING"),
@@ -3250,7 +3732,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineEdit(self.par7, "QHP_CUST_FILTER_ATTRS"),
             DoxyLineEdit(self.par7, "QHP_SECT_FILTER_ATTRS"),
             
-            DoxyLineBtn1(self.par7, "QHG_LOCATION"),
+            DoxyLineBtnA(self.par7, "QHG_LOCATION", "", 1),
             
             DoxyCheckBox(self.par7, "GENERATE_ECLIPSE_HELP"),
             DoxyLineEdit(self.par7, "ECLIPSE_DOC_ID"),
@@ -3300,7 +3782,7 @@ class DoxyGenToolWindow(QWidget):
         self.par8 = DOXYGEN_PROJECT_PAGES["LaTeX"]
         self.latex_items = [
             DoxyCheckBox(self.par8, "GENERATE_LATEX"),
-            DoxyLineBtn1(self.par8, "LATEX_OUTPUT"),
+            DoxyLineBtnA(self.par8, "LATEX_OUTPUT", "", 1),
             DoxyLineBtn1(self.par8, "LATEX_CMD_NAME"),
             DoxyLineBtn1(self.par8, "MAKEINDEX_CMD_NAME"),
             DoxyLineEdit(self.par8, "LATEX_MAKEINDEX_CMD"),
@@ -3326,7 +3808,7 @@ class DoxyGenToolWindow(QWidget):
                 ]),
             DoxyCheckBox(self.par8, "LATEX_HIDE_INDICES"),
             DoxyLineEdit(self.par8, "LATEX_BIB_STYLE"),
-            DoxyLineBtn1(self.par8, "LATEX_EMOJI_DIRECTORY")
+            DoxyLineBtnA(self.par8, "LATEX_EMOJI_DIRECTORY", "", 1)
         ]
         latex_lay = DOXYGEN_PROJECT_PAGES["LaTeX"].layout
         for item in self.latex_items:
@@ -3337,7 +3819,7 @@ class DoxyGenToolWindow(QWidget):
         self.par9 = DOXYGEN_PROJECT_PAGES["RTF"]
         self.rtf_items = [
             DoxyCheckBox(self.par9, "GENERATE_RTF"),
-            DoxyLineBtn1(self.par9, "RTF_OUTPUT"),
+            DoxyLineBtnA(self.par9, "RTF_OUTPUT", "", 1),
             DoxyCheckBox(self.par9, "COMPACT_RTF"),
             DoxyCheckBox(self.par9, "RTF_HYPERLINKS"),
             DoxyLineBtn1(self.par9, "RTF_STYLESHEET_FILE"),
@@ -3353,7 +3835,7 @@ class DoxyGenToolWindow(QWidget):
         self.par10 = DOXYGEN_PROJECT_PAGES["Man"]
         self.man_items = [
             DoxyCheckBox(self.par10, "GENERATE_MAN"),
-            DoxyLineBtn1(self.par10, "MAN_OUTPUT"),
+            DoxyLineBtnA(self.par10, "MAN_OUTPUT", "", 1),
             DoxyLineEdit(self.par10, "MAN_EXTENSION"),
             DoxyLineEdit(self.par10, "MAN_SUBDIR"),
             DoxyCheckBox(self.par10, "MAN_LINKS")
@@ -3367,7 +3849,7 @@ class DoxyGenToolWindow(QWidget):
         self.par11 = DOXYGEN_PROJECT_PAGES["XML"]
         self.xml_items = [
             DoxyCheckBox(self.par11, "GENERATE_XML"),
-            DoxyLineBtn1(self.par11, "XML_OUTPUT"),
+            DoxyLineBtnA(self.par11, "XML_OUTPUT", "", 1),
             DoxyCheckBox(self.par11, "XML_PROGRAMLISTING"),
             DoxyCheckBox(self.par11, "XML_NS_MEMB_FILE_SCOPE")
         ]
@@ -3380,7 +3862,7 @@ class DoxyGenToolWindow(QWidget):
         self.par12 = DOXYGEN_PROJECT_PAGES["DocBook"]
         self.docbook_items = [
             DoxyCheckBox(self.par12, "GENERATE_DOCBOOK"),
-            DoxyLineBtn1(self.par12, "DOCBOOK_OUTPUT")
+            DoxyLineBtnA(self.par12, "DOCBOOK_OUTPUT", "", 1)
         ]
         docbook_lay = DOXYGEN_PROJECT_PAGES["DocBook"].layout
         for item in self.docbook_items:
@@ -3401,7 +3883,7 @@ class DoxyGenToolWindow(QWidget):
         self.par14 = DOXYGEN_PROJECT_PAGES["SQLite3"]
         self.sqlite3_items = [
             DoxyCheckBox(self.par14, "GENERATE_SQLITE3"),
-            DoxyLineBtn1(self.par14, "SQLITE3_OUTPUT"),
+            DoxyLineBtnA(self.par14, "SQLITE3_OUTPUT", "", 1),
             DoxyCheckBox(self.par14, "SQLITE3_RECREATE_DB")
         ]
         sqlite3_lay = DOXYGEN_PROJECT_PAGES["SQLite3"].layout
@@ -3469,7 +3951,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineEdit(self.par18, "DOT_COMMON_ATTR"),
             DoxyLineEdit(self.par18, "DOT_EDGE_ATTR"),
             DoxyLineEdit(self.par18, "DOT_NODE_ATTR"),
-            DoxyLineBtn1(self.par18, "DOT_FONTPATH"),
+            DoxyLineBtnA(self.par18, "DOT_FONTPATH", "", 1),
             DoxyComboBox(self.par18, "CLASS_GRAPH", [
                 "YES",
                 "NO",
@@ -3551,8 +4033,12 @@ class DoxyGenToolWindow(QWidget):
             DoxyComboBox(self.par18, "MERMAID_RENDER_MODE", [
                 "AUTO",
                 "CLI",
-                "CLIENT_SIDE"]),
-            DoxyLineEdit(self.par18, "MERMAID_JS_URL"),
+                "CLIENT_SIDE"
+            ]),
+            DoxyLineEdit(self.par18, "MERMAID_JS_URL",
+                "https://cdn.jsdelivr.net/npm/mermaid@11/"
+                "dist/mermaid.esm.min.mjs"
+            ),
             DoxyLineBtn4(self.par18, "MERMAIDFILE_DIRS"),
             DoxyTextEdit(self.par18, "MERMAIDFILE_DIRS", []),
             DoxySpinEdit(self.par18, "DOT_GRAPH_MAX_NODES", 0, 100, 50),
@@ -3684,25 +4170,26 @@ class DoxyGenToolWindow(QWidget):
                 "expert_item": self.list_categories.currentRow()
             }
             
-            self.save_items(self.project_items)
-            self.save_items(self.build_items)
-            self.save_items(self.messages_items)
-            self.save_items(self.input_items)
-            self.save_items(self.browser_items)
-            self.save_items(self.index_items)
-            self.save_items(self.html_items)
-            self.save_items(self.latex_items)
-            self.save_items(self.rtf_items)
-            self.save_items(self.man_items)
-            self.save_items(self.xml_items)
-            self.save_items(self.docbook_items)
-            self.save_items(self.autogen_items)
-            self.save_items(self.sqlite3_items)
-            self.save_items(self.perlmod_items)
-            self.save_items(self.preproc_items)
-            self.save_items(self.external_items)
-            self.save_items(self.dot_items)
-            
+            for page in [
+                self.project_items,
+                self.build_items,
+                self.messages_items,
+                self.input_items,
+                self.browser_items,
+                self.index_items,
+                self.html_items,
+                self.latex_items,
+                self.rtf_items,
+                self.man_items,
+                self.xml_items,
+                self.docbook_items,
+                self.autogen_items,
+                self.sqlite3_items,
+                self.perlmod_items,
+                self.preproc_items,
+                self.external_items,
+                self.dot_items]:
+                self.save_items(page)
             
             payload["state" ] = self.state
             payload["config"] = self.config
@@ -3747,24 +4234,26 @@ class DoxyGenToolWindow(QWidget):
             # ------------------------
             self.config = data.get("config",{})
             
-            self.load_items(self.project_items)
-            self.load_items(self.build_items)
-            self.load_items(self.messages_items)
-            self.load_items(self.input_items)
-            self.load_items(self.browser_items)
-            self.load_items(self.index_items)
-            self.load_items(self.html_items)
-            self.load_items(self.latex_items)
-            self.load_items(self.rtf_items)
-            self.load_items(self.man_items)
-            self.load_items(self.xml_items)
-            self.load_items(self.docbook_items)
-            self.load_items(self.autogen_items)
-            self.load_items(self.sqlite3_items)
-            self.load_items(self.perlmod_items)
-            self.load_items(self.preproc_items)
-            self.load_items(self.external_items)
-            self.load_items(self.dot_items)
+            for page in [
+                self.project_items,
+                self.build_items,
+                self.messages_items,
+                self.input_items,
+                self.browser_items,
+                self.index_items,
+                self.html_items,
+                self.latex_items,
+                self.rtf_items,
+                self.man_items,
+                self.xml_items,
+                self.docbook_items,
+                self.autogen_items,
+                self.sqlite3_items,
+                self.perlmod_items,
+                self.preproc_items,
+                self.external_items,
+                self.dot_items]:
+                self.load_items(page)
             
         except RuntimeError as e:
             QMessageBox.critical(self, share.locales.tr("Open"), str(e))
@@ -3777,26 +4266,37 @@ class DoxyGenToolWindow(QWidget):
                 if not item.flag:
                     text = item.input.text()
                     self.config[item.help_str] = text
+                    
             elif isinstance(item, DoxyLineBtn1):
                 text = item.input.input.text()
                 self.config[item.help_str] = text
+                
+            elif isinstance(item, DoxyLineBtnA):
+                text = item.input.input.text()
+                self.config[item.help_str] = text
+                
             elif isinstance(item, DoxyLineBtn3):
                 text = item.input.input.text()
                 self.config[item.help_str] = text
+                
             elif isinstance(item, DoxyLineBtn4):
                 text = item.input.input.text()
                 self.config[item.help_str] = text
+                
             elif isinstance(item, DoxySpinEdit):
                 value = item.spin.value()
                 self.config[item.help_str] = value
+                
             elif isinstance(item, DoxyCheckBox):
                 if item.check.isChecked():
                     self.config[item.help_str] = 1
                 else:
                     self.config[item.help_str] = 0
+                    
             elif isinstance(item, DoxyTextEdit):
                 text = item.edit.toPlainText()
                 self.config[item.help_str] = text
+                
             elif isinstance(item, DoxyComboBox):
                 text = item.combo.currentText()
                 self.config[item.help_str] = text
@@ -3816,17 +4316,13 @@ class DoxyGenToolWindow(QWidget):
     def load_items(self, items):
         for item in items:
             if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help_str, "")))
+            
             elif isinstance(item, DoxyLineBtn1): item.input.input.setText(str(self.config.get(item.help_str, "")))
-            elif isinstance(item, DoxyLineBtn3):
-                if not item.input.flag:
-                    item.input.input.setText(str(self.config.get(item.help_str, "")))
-                else:
-                    item.input.input.setText("")
-            elif isinstance(item, DoxyLineBtn4):
-                if not item.input.flag:
-                    item.input.input.setText(str(self.config.get(item.help_str, "")))
-                else:
-                    item.input.input.setText("")
+            elif isinstance(item, DoxyLineBtnA): item.input.input.setText(str(self.config.get(item.help_str, "")))
+            
+            elif isinstance(item, DoxyLineBtn3): item.input.input.setText("")
+            elif isinstance(item, DoxyLineBtn4): item.input.input.setText("")
+            
             elif isinstance(item, DoxyCheckBox):
                 check = self._to_int(self.config.get(item.help_str, 0), 0)
                 if check:
@@ -3836,6 +4332,7 @@ class DoxyGenToolWindow(QWidget):
             elif isinstance(item, DoxyTextEdit):
                 item.edit.clear()
                 item.edit.appendPlainText(str(self.config.get(item.help_str, "")))
+            
             elif isinstance(item, DoxySpinEdit): item.spin.setValue(self._to_int(self.config.get(item.help_str, 0), 0))
             elif isinstance(item, DoxyComboBox):
                 index = item.combo.findText(str(self.config.get(item.help_str, "English")))
