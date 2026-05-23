@@ -6,34 +6,355 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="page">
+  <div class="layout">
+    <aside id="tocPane" class="toc-pane">
+      <div class="toc-title">Table of Contents</div>
+      <ul class="treeview">
+        <li class="tree-node open">
+          <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
+          <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPerson.html">TPerson</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fname_string">FName</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fage_integer">FAge</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create">Create</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Destructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_destructor_destroy_override">Destroy ; override</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_function_getname_string">GetName</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_paint">Paint</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Records</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPoint.html">TPoint</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Arrays</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TIntArray.html">TIntArray</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Sets</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TCharSet.html">TCharSet</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constants</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_PI_VALUE">PI_VALUE</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_NAME">APP_NAME</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_VERSION">APP_VERSION</a></div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+    <div id="splitter" class="splitter"></div>
+    <main class="page content-pane">
     <div class="version">Pascal Doc</div>
     <h1>Pascal Documentation</h1>
     <div class="breadcrumb">
       <span>Overview</span>
     </div>
     <section>
-      <h2>Records</h2>
+      <h2>Classes</h2>
+      <div class="alpha-tabs">
+        <span>A</span>
+        <span>B</span>
+        <span>C</span>
+        <span>D</span>
+        <span>E</span>
+        <span>F</span>
+        <span>G</span>
+        <span>H</span>
+        <span>I</span>
+        <span>J</span>
+        <span>K</span>
+        <span>L</span>
+        <span>M</span>
+        <span>N</span>
+        <span>O</span>
+        <span>P</span>
+        <span>Q</span>
+        <span>R</span>
+        <span>S</span>
+        <a href="#Classes_T">T</a>
+        <span>U</span>
+        <span>V</span>
+        <span>W</span>
+        <span>X</span>
+        <span>Y</span>
+        <span>Z</span>
+      </div>
+      <h3 id="Classes_T">T</h3>
       <table class="func-table">
         <tr>
-          <td class="ret">record</td>
+          <td class="ret">Class</td>
+          <td class="sig"><a href="TPerson.html">TPerson</a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Records</h2>
+      <div class="alpha-tabs">
+        <span>A</span>
+        <span>B</span>
+        <span>C</span>
+        <span>D</span>
+        <span>E</span>
+        <span>F</span>
+        <span>G</span>
+        <span>H</span>
+        <span>I</span>
+        <span>J</span>
+        <span>K</span>
+        <span>L</span>
+        <span>M</span>
+        <span>N</span>
+        <span>O</span>
+        <span>P</span>
+        <span>Q</span>
+        <span>R</span>
+        <span>S</span>
+        <a href="#Records_T">T</a>
+        <span>U</span>
+        <span>V</span>
+        <span>W</span>
+        <span>X</span>
+        <span>Y</span>
+        <span>Z</span>
+      </div>
+      <h3 id="Records_T">T</h3>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Record</td>
           <td class="sig"><a href="TPoint.html">TPoint</a></td>
         </tr>
       </table>
+    </section>
+    <section>
       <h2>Arrays</h2>
+      <div class="alpha-tabs">
+        <span>A</span>
+        <span>B</span>
+        <span>C</span>
+        <span>D</span>
+        <span>E</span>
+        <span>F</span>
+        <span>G</span>
+        <span>H</span>
+        <span>I</span>
+        <span>J</span>
+        <span>K</span>
+        <span>L</span>
+        <span>M</span>
+        <span>N</span>
+        <span>O</span>
+        <span>P</span>
+        <span>Q</span>
+        <span>R</span>
+        <span>S</span>
+        <a href="#Arrays_T">T</a>
+        <span>U</span>
+        <span>V</span>
+        <span>W</span>
+        <span>X</span>
+        <span>Y</span>
+        <span>Z</span>
+      </div>
+      <h3 id="Arrays_T">T</h3>
       <table class="func-table">
         <tr>
-          <td class="ret">array</td>
+          <td class="ret">Array</td>
           <td class="sig"><a href="TIntArray.html">TIntArray</a></td>
         </tr>
       </table>
+    </section>
+    <section>
       <h2>Sets</h2>
+      <div class="alpha-tabs">
+        <span>A</span>
+        <span>B</span>
+        <span>C</span>
+        <span>D</span>
+        <span>E</span>
+        <span>F</span>
+        <span>G</span>
+        <span>H</span>
+        <span>I</span>
+        <span>J</span>
+        <span>K</span>
+        <span>L</span>
+        <span>M</span>
+        <span>N</span>
+        <span>O</span>
+        <span>P</span>
+        <span>Q</span>
+        <span>R</span>
+        <span>S</span>
+        <a href="#Sets_T">T</a>
+        <span>U</span>
+        <span>V</span>
+        <span>W</span>
+        <span>X</span>
+        <span>Y</span>
+        <span>Z</span>
+      </div>
+      <h3 id="Sets_T">T</h3>
       <table class="func-table">
         <tr>
-          <td class="ret">set</td>
+          <td class="ret">Set</td>
           <td class="sig"><a href="TCharSet.html">TCharSet</a></td>
         </tr>
       </table>
+    </section>
+    <section>
+      <h2>Constants</h2>
+      <div class="alpha-tabs">
+        <a href="#Constants_A">A</a>
+        <span>B</span>
+        <span>C</span>
+        <span>D</span>
+        <span>E</span>
+        <span>F</span>
+        <span>G</span>
+        <span>H</span>
+        <span>I</span>
+        <span>J</span>
+        <span>K</span>
+        <span>L</span>
+        <span>M</span>
+        <span>N</span>
+        <span>O</span>
+        <a href="#Constants_P">P</a>
+        <span>Q</span>
+        <span>R</span>
+        <span>S</span>
+        <span>T</span>
+        <span>U</span>
+        <span>V</span>
+        <span>W</span>
+        <span>X</span>
+        <span>Y</span>
+        <span>Z</span>
+      </div>
+      <h3 id="Constants_A">A</h3>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Constant</td>
+          <td class="sig"><a href="#const_APP_NAME">APP_NAME</a></td>
+        </tr>
+        <tr>
+          <td class="ret">Constant</td>
+          <td class="sig"><a href="#const_APP_VERSION">APP_VERSION</a></td>
+        </tr>
+      </table>
+      <h3 id="Constants_P">P</h3>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Constant</td>
+          <td class="sig"><a href="#const_PI_VALUE">PI_VALUE</a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Constants</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">3.1415</td>
+          <td class="sig" id="const_PI_VALUE"><span class="func-name">PI_VALUE</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the documentation for the PI const</td>
+        </tr>
+        <tr>
+          <td class="ret">&#x27;MyApp&#x27;</td>
+          <td class="sig" id="const_APP_NAME"><span class="func-name">APP_NAME</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the application name</td>
+        </tr>
+        <tr>
+          <td class="ret">$1001</td>
+          <td class="sig" id="const_APP_VERSION"><span class="func-name">APP_VERSION</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">This is the Version</td>
+        </tr>
+      </table>
+    </section>
+    <section>
       <h2>Classes</h2>
       <ul class="class-list">
         <li><a href="TPerson.html">TPerson</a></li>
@@ -42,6 +363,53 @@
     <footer>
       Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator
     </footer>
-  </main>
-</body>
+    </main>
+  </div>
+<script>
+        document.querySelectorAll('.tree-toggle').forEach(function(row) {
+            row.addEventListener('click', function(event) {
+                if (event.target.tagName.toLowerCase() === 'a') {
+                    return;
+                }
+                const li = row.closest('.tree-node');
+                const ul = li.querySelector(':scope > ul');
+                const twisty = row.querySelector('.twisty');
+                if (!ul) {
+                    return;
+                }
+                ul.classList.toggle('collapsed');
+                if (ul.classList.contains('collapsed')) {
+                    twisty.textContent = '▸';
+                } else {
+                    twisty.textContent = '▾';
+                }
+            });
+        });
+        const splitter = document.getElementById('splitter');
+        const tocPane = document.getElementById('tocPane');
+        let dragging = false;
+        splitter.addEventListener('mousedown', function(e) {
+            dragging = true;
+            document.body.classList.add('resizing');
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) {
+                return;
+            }
+            let newWidth = e.clientX;
+            if (newWidth < 120) {
+                newWidth = 120;
+            }
+            if (newWidth > 480) {
+                newWidth = 480;
+            }
+            tocPane.style.flexBasis = newWidth + 'px';
+            tocPane.style.width = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            dragging = false;
+            document.body.classList.remove('resizing');
+        });
+        </script>
+        </body>
 </html>

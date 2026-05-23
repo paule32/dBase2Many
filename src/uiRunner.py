@@ -8567,6 +8567,7 @@ class SidebarIconButton(QToolButton):
 class FormDesignerDock(QDockWidget):
     def __init__(self, main_window, parent=None):
         super().__init__("", parent)
+        #self.hide()
         self.main_window = main_window
         self._actions_popup = None
         self._projects_popup = None
@@ -9636,6 +9637,25 @@ class LanguageMenu(QMenu):
         self.close()
 
 
+class BlackStartup(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowFlags(
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint |
+            Qt.Tool
+        )
+
+        self.setAutoFillBackground(True)
+
+        pal = self.palette()
+        pal.setColor(QPalette.Window, QColor("#000000"))
+        self.setPalette(pal)
+
+        self.resize(600, 300)
+
+        
 class MainWindow(QMainWindow):
     # --- i18n ---------------------------------------------------------------
     # ---------------------------------------------------------------------------
@@ -9884,6 +9904,15 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.setWindowOpacity(0.0)
+        self.setAutoFillBackground(True)
+        
+        # helles blitzen vermeiden
+        QTimer.singleShot(1000, lambda: self.setWindowOpacity(1.0))
+
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), QColor("#000000"))
+        self.setPalette(pal)
 
         global MAINAPP
         try:
@@ -9892,23 +9921,26 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # INI Settings
-        self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
-        self._settings.setFallbacksEnabled(False)
-
         self._whatis_help_mode = False
         self._whatis_help_busy = False
         self.help_mainwindow = None
 
         self.mdi = QMdiArea(self)
+        self.mdi.setBackground(QColor("#000000"))
+        self.mdi.viewport().setAutoFillBackground(True)
         
-        pal = self.mdi.palette()
+        pal = self.mdi.viewport().palette()
         pal.setColor(QPalette.Window, QColor(18, 18, 18))
-        self.mdi.setPalette(pal)
-        self.mdi.setAutoFillBackground(True)
+        pal.setColor(QPalette.Base  , QColor("#000000"))
+        
+        self.mdi.viewport().setPalette(pal)
         
         self.mdi.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.mdi.setVerticalScrollBarPolicy  (Qt.ScrollBarAsNeeded)
+
+        # INI Settings
+        self._settings = QSettings(self._ini_path(), QSettings.IniFormat)
+        self._settings.setFallbacksEnabled(False)
         
         self.setWindowTitle(_runner_window_title())
 
@@ -10061,8 +10093,6 @@ class MainWindow(QMainWindow):
         self.menu_language.languageChanged.connect(self.on_language_changed)
         
         self.menu_display.addMenu(self.menu_language)
-        
-        
         
         self.act_edit_undo      = QAction(share.locales.tr('Undo')    , self, shortcut=QKeySequence('Ctrl+Z'))
         self.act_edit_redo      = QAction(share.locales.tr('Redo')    , self, shortcut=QKeySequence('Ctrl+Y'))
@@ -10231,7 +10261,7 @@ class MainWindow(QMainWindow):
         sub.setWindowTitle(share.locales.tr("Regiecenter"))
         dlg.show()
         sub.show()
-
+        
         # RegieCenter: zuletzt verwendetes Arbeitsverzeichnis (INI)
         try:
             last_dir = (self._settings.value("regiecenter/workdir", "", type=str) or "").strip()
@@ -11723,9 +11753,9 @@ class MainWindow(QMainWindow):
         self.status_left.setText(share.locales.tr("Gespeichert"))
         
     def _create_toolbar(self):
-        toolbar = QToolBar("Haupt-Toolbar", self)
-        toolbar.setIconSize(QSize(40, 40))
-        self.addToolBar(Qt.TopToolBarArea, toolbar)
+        self.toolbar = QToolBar("Haupt-Toolbar", self)
+        self.toolbar.setIconSize(QSize(40, 40))
+        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
         act_new  = QAction(QIcon(":/icons/new.png" ), share.locales.tr("Neu")      , self)
         act_open = QAction(QIcon(":/icons/open.png"), share.locales.tr("Öffnen")   , self)
@@ -11735,11 +11765,11 @@ class MainWindow(QMainWindow):
         act_open.triggered.connect(self.on_open)
         act_save.triggered.connect(self.on_save)
 
-        toolbar.addAction(act_new)
-        toolbar.addAction(act_open)
-        toolbar.addAction(act_save)
+        self.toolbar.addAction(act_new)
+        self.toolbar.addAction(act_open)
+        self.toolbar.addAction(act_save)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
         
     def _create_statusbar(self):
         status = QStatusBar(self)
@@ -12729,6 +12759,36 @@ def main():
     global APPINST
     APPINST = ensure_qt_app()
     if APPINST is not None:
+        APPINST.setStyle("Fusion")
+        APPINST.setStyleSheet("""
+QWidget {
+background-color: #000000;
+color: #ffffff;
+}
+QMainWindow,
+QDialog,
+QMdiArea,
+QMdiSubWindow,
+QMenuBar,
+QMenu,
+QToolBar,
+QStatusBar {
+background-color: #000000;
+}""")
+        palette = QPalette()
+        palette.setColor(QPalette.Window         , QColor("#000000"))
+        palette.setColor(QPalette.WindowText     , QColor("#ffffff"))
+        palette.setColor(QPalette.Base           , QColor("#000000"))
+        palette.setColor(QPalette.AlternateBase  , QColor("#111111"))
+        palette.setColor(QPalette.Text           , QColor("#ffffff"))
+        palette.setColor(QPalette.Button         , QColor("#111111"))
+        palette.setColor(QPalette.ButtonText     , QColor("#ffffff"))
+        palette.setColor(QPalette.Highlight      , QColor("#2b4c7e"))
+        palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+
+        APPINST.setPalette(palette)
+        
+        
         #register_chm_scheme()
         #chm_path = 
         
@@ -12744,11 +12804,17 @@ def main():
         global MAINAPP
         try:
             MAINAPP = MainWindow()
+            #MAINAPP.setAttribute(Qt.WA_DontShowOnScreen, True)
             try:
                 share.common.MAINAPP = MAINAPP
             except Exception:
                 pass
+            APPINST.processEvents()
+            
+            #MAINAPP.setAttribute(Qt.WA_DontShowOnScreen, False)
+            MAINAPP.setWindowOpacity(1.0)
             MAINAPP.show()
+            
             center_on_screen(MAINAPP)
         except Exception:
             import traceback as _tb

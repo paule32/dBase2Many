@@ -108,297 +108,18 @@ HEADER_TOOL     = "doxygen-dialog"
 HEADER_KIND     = "doxygen-project"
 HEADER_VERSION  = 1
 
+ALPHA_CHARS     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 # ---------------------------------------------------------------------------
 # \brief global definition to write the css styles for dark mode html
 # ---------------------------------------------------------------------------
 def _write_css(output_dir):
     filename = os.path.join(output_dir, "style.css")
+    doxy_css = share.locales.tr("doxy_html_css")
+    #doxy_css = doxy_css
+
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(""":root {
---bg: #1f1f1f;
---panel: #202020;
---line: #343434;
---line-soft: #2a2a2a;
---text: #eeeeee;
---muted: #b8b8b8;
---green: #36d67a;
-}
-* {
-box-sizing: border-box;
-}
-body {
-margin: 0;
-background:
-radial-gradient(circle at top left, #2b2b2b 0, #1f1f1f 360px),
-var(--bg);
-color: var(--text);
-font-family: Arial, Helvetica, sans-serif;
-font-size: 15px;
-}
-.page {
-position: relative;
-width: 100%;
-padding: 18px 26px 28px 26px;
-}
-.version {
-position: absolute;
-right: 26px;
-top: 20px;
-color: var(--text);
-font-size: 14px;
-}
-h1 {
-margin: 0 0 8px 0;
-font-size: 34px;
-font-weight: 400;
-letter-spacing: -0.5px;
-}
-h2 {
-margin: 28px 0 10px 0;
-font-size: 26px;
-font-weight: 600;
-}
-.breadcrumb {
-display: flex;
-gap: 10px;
-align-items: center;
-padding-bottom: 14px;
-border-bottom: 1px solid var(--line);
-color: var(--green);
-font-weight: 600;
-}
-.breadcrumb a {
-color: var(--green);
-text-decoration: none;
-}
-.breadcrumb span {
-color: var(--green);
-}
-a {
-color: #ffffff;
-text-decoration: none;
-}
-a:visited {
-color: #e6e6e6;
-}
-a:hover {
-color: var(--green);
-text-decoration: underline;
-}
-a:active {
-color: #ffffff;
-}
-.inherits {
-color: var(--muted);
-margin: 16px 0 0 0;
-}
-.func-table {
-width: 100%;
-border-collapse: collapse;
-background: rgba(32, 32, 32, 0.88);
-border: 1px solid var(--line);
-}
-.func-table tr {
-border-bottom: 1px solid var(--line-soft);
-}
-.func-table tr:last-child {
-border-bottom: none;
-}
-.func-table td {
-padding: 6px 12px;
-vertical-align: middle;
-}
-.func-table .ret {
-width: 245px;
-color: var(--text);
-text-align: right;
-border-right: 1px solid var(--line);
-white-space: nowrap;
-}
-.func-table .sig {
-color: var(--text);
-}
-.func-name,
-.linklike {
-color: var(--green);
-font-weight: 700;
-}
-.member-docs {
-margin-top: 36px;
-}
-.member-doc {
-margin-top: 28px;
-max-width: 1100px;
-}
-.member-doc h3 {
-font-size: 18px;
-font-weight: 400;
-margin: 0;
-color: var(--text);
-}
-.member-line {
-height: 1px;
-background: var(--line);
-margin: 12px 0 20px 0;
-}
-.member-doc p {
-margin: 0 0 18px 0;
-line-height: 1.55;
-color: var(--text);
-}
-.member-args {
-font-size: 0.9em;
-font-weight: 400;
-}
-.member-brief-row td {
-padding-top: 0;
-}
-.member-brief {
-color: var(--muted);
-font-size: 0.92em;
-padding-left: 24px;
-}
-section p {
-line-height: 1.55;
-}
-.func-table .sig {
-color: var(--text);
-white-space: pre-wrap;
-}
-.member-doc h3 {
-font-size: 18px;
-font-weight: 400;
-margin: 0;
-color: var(--text);
-line-height: 1.55;
-font-family: Consolas, "Courier New", monospace;
-}
-.member-doc-box {
-margin-top: 24px;
-border: 1px solid #223050;
-border-radius: 6px;
-overflow: hidden;
-background: #0f1728;
-}
-.member-doc-title {
-background: #1d2a44;
-padding: 10px 14px;
-font-family: Consolas, monospace;
-font-size: 15px;
-color: #d0d0d0;
-}
-.member-doc-content h4 {
-margin-top: 18px;
-margin-bottom: 8px;
-color: white;
-font-size: 0.92em;
-font-weight: 400;
-}
-.member-link {
-color: var(--text);
-text-decoration: none;
-}
-
-.member-link:visited {
-color: var(--text);
-}
-
-.member-link:hover .func-name {
-color: #ffffff;
-text-decoration: underline;
-}
-
-.member-doc-box {
-scroll-margin-top: 20px;
-}
-.param-table {
-    border-collapse: collapse;
-    margin-left: 18px;
-    font-size: 0.92em;
-    font-weight: 400;
-}
-
-.param-table td {
-    padding: 4px 10px 4px 0;
-    vertical-align: top;
-    font-weight: 400;
-}
-
-.param-name {
-    color: white;
-    font-weight: 400;
-    white-space: nowrap;
-}
-
-.return-text {
-    font-size: 0.92em;
-    font-weight: 400;
-}
-.return-table {
-    border-collapse: collapse;
-    margin-left: 18px;
-    font-size: 0.92em;
-    font-weight: 400;
-}
-
-.return-table td {
-    padding: 4px 10px 4px 0;
-    vertical-align: top;
-    font-weight: 400;
-}
-
-.return-indent {
-    width: 26px;
-}
-
-.return-text {
-    font-size: 0.92em;
-    font-weight: 400;
-}
-
-.doc-box {
-    margin-top: 16px;
-    padding: 12px 14px;
-    border-radius: 5px;
-    font-size: 0.92em;
-    font-weight: 400;
-}
-
-.doc-box-title {
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.doc-box-note {
-    background: #4f3f08;
-    border-left: 5px solid #f1c232;
-    color: #fff2b0;
-}
-
-.doc-box-info {
-    background: #123f25;
-    border-left: 5px solid #36d67a;
-    color: #d8ffe5;
-}
-
-.doc-box-warn {
-    background: #4a1414;
-    border-left: 5px solid #ff5555;
-    color: #ffd6d6;
-}
-footer {
-margin-top: 28px;
-padding-top: 14px;
-border-top: 1px solid var(--line);
-color: #999999;
-text-align: center;
-font-size: 13px;
-}
-footer span {
-color: var(--green);
-font-weight: 700;
-}
-""")
+        f.write(doxy_css)
 
 def set_tooltip_if_text(widget, text):
     text = (text or "").strip()
@@ -532,10 +253,14 @@ class HtmlToPdf(QObject):
 # \brief pascal documentation visitor to generate the pascal html help ...
 # ---------------------------------------------------------------------------
 class PasDocHtmlVisitor(PasDocParserVisitor):
-    def __init__(self, output_dir = "html" ):
+    def __init__(self,
+        output_dir   = "html",
+        use_treeview = False):
         super().__init__()
         
         self.output_dir      = output_dir
+        self.use_treeview    = use_treeview
+        
         self.classes         = []
         
         self.pending_brief   = ""
@@ -675,12 +400,33 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 elif current_tag == "return":
                     self.pending_returns += " " + line
     
+    def alpha_key(self, name):
+        if not name:
+            return "#"
+        ch = name[0].upper()
+        if "A" <= ch <= "Z":
+            return ch
+        return "#"
+    
+    def index_items(self):
+        items = []
+        
+        for cls in self.classes  : items.append(("Class"   , cls.name, self.safe_filename(cls.name) + ".html"))
+        for rec in self.records  : items.append(("Record"  , rec.name, self.safe_filename(rec.name) + ".html"))
+        for arr in self.arrays   : items.append(("Array"   , arr.name, self.safe_filename(arr.name) + ".html"))
+        for st  in self.sets     : items.append(("Set"     , st .name, self.safe_filename(st .name) + ".html"))
+        for c   in self.constants: items.append(("Constant", c  .name, "index.html#const_" + self.safe_filename(c.name)))
+        
+        return sorted(items, key=lambda x: x[1].lower())
+    
     def extract_brief(self, text):
         text  = text.replace("(**!", "")
         text  = text.replace("{**!", "")
-        text  = text.replace("*)", "")
-        text  = text.replace("*}", "")
+        text  = text.replace("*)"  , "")
+        text  = text.replace("*}"  , "")
+        
         lines = text.splitlines()
+        
         for line in lines:
             line = line.strip()
             if line.startswith("*"):
@@ -928,6 +674,32 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     tokens.extend(sub_text.split(" "))
         return self.join_pascal_tokens(tokens)
     
+    def build_type_links(self):
+        result = {}
+
+        for cls in self.classes: result[cls.name.lower()] = self.safe_filename(cls.name) + ".html"
+        for rec in self.records: result[rec.name.lower()] = self.safe_filename(rec.name) + ".html"
+        for arr in self.arrays : result[arr.name.lower()] = self.safe_filename(arr.name) + ".html"
+        for st  in self.sets   : result[st .name.lower()] = self.safe_filename(st .name) + ".html"
+
+        return result
+    
+    def link_known_types(self, text):
+        result       = self.html_escape(text)
+        type_links   = self.build_type_links()
+        for type_name_lower, link in type_links.items():
+            original = None
+            for name in list(type_links.keys()):
+                pass
+        for item in self.classes + self.records + self.arrays + self.sets:
+            name   = item.name
+            link   = self.safe_filename(name) + ".html"
+            result = result.replace(
+                self.html_escape(name),
+                f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(name)}</a>"
+            )
+        return result
+        
     def join_pascal_tokens(self, tokens):
         result = ""
         no_space_before = { ")", "]", ",", ".", ":" }
@@ -965,6 +737,34 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 result.append("_")
         return "".join(result)
     
+    def write_alpha_index(self, f):
+        items = self.index_items()
+        groups = {}
+        for kind, name, link in items:
+            key = self.alpha_key(name)
+            groups.setdefault(key, []).append((kind, name, link))
+        f.write("    <section class=\"alpha-index\">\n")
+        f.write("      <h2>Index</h2>\n")
+        f.write("      <div class=\"alpha-tabs\">\n")
+        for ch in ALPHA_CHARS:
+            if ch in groups:
+                f.write(f"        <a href=\"#idx_{ch}\">{ch}</a>\n")
+            else:
+                f.write(f"        <span>{ch}</span>\n")
+        f.write("      </div>\n")
+        for ch in ALPHA_CHARS:
+            if ch not in groups:
+                continue
+            f.write(f"      <h3 id=\"idx_{ch}\">{ch}</h3>\n")
+            f.write("      <table class=\"func-table\">\n")
+            for kind, name, link in groups[ch]:
+                f.write("        <tr>\n")
+                f.write(f"          <td class=\"ret\">{self.html_escape(kind)}</td>\n")
+                f.write(f"          <td class=\"sig\"><a href=\"{link}\">{self.html_escape(name)}</a></td>\n")
+                f.write("        </tr>\n")
+            f.write("      </table>\n")
+        f.write("    </section>\n")
+        
     def write_index(self):
         filename = os.path.join(self.output_dir, "pascal", "index.html")
         with open(filename, "w", encoding="utf-8") as f:
@@ -976,17 +776,57 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
             f.write("</head>\n")
             f.write("<body>\n")
-            f.write("  <main class=\"page\">\n")
+            if self.use_treeview:
+                f.write("  <div class=\"layout\">\n")
+                self.write_sidebar(f, None)
+                f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                f.write("    <main class=\"page content-pane\">\n")
+            else:
+                f.write("  <main class=\"page\">\n")
             f.write("    <div class=\"version\">Pascal Doc</div>\n")
             f.write("    <h1>Pascal Documentation</h1>\n")
             f.write("    <div class=\"breadcrumb\">\n")
             f.write("      <span>Overview</span>\n")
             f.write("    </div>\n")
+            
+            #self.write_alpha_index(f)
+            #self.write_constants_index_section(f)
+            
+            #f.write("    <section>\n")
+            
+            self.write_index_section_alpha(
+                f,
+                "Classes",
+                [("Class", cls.name, self.safe_filename(cls.name) + ".html") for cls in self.classes]
+            )
+            self.write_index_section_alpha(
+                f,
+                "Records",
+                [("Record", rec.name, self.safe_filename(rec.name) + ".html") for rec in self.records]
+            )
+            self.write_index_section_alpha(
+                f,
+                "Arrays",
+                [("Array", arr.name, self.safe_filename(arr.name) + ".html") for arr in self.arrays]
+            )
+            self.write_index_section_alpha(
+                f,
+                "Sets",
+                [("Set", st.name, self.safe_filename(st.name) + ".html") for st in self.sets]
+            )
+            self.write_index_section_alpha(
+                f,
+                "Constants",
+                [("Constant", c.name, "#const_" + self.safe_filename(c.name)) for c in self.constants]
+            )
+
+            self.write_constants_index_section(f)
+            
             f.write("    <section>\n")
             
-            self.write_type_index_section(f, "Records", self.records)
-            self.write_type_index_section(f, "Arrays",  self.arrays)
-            self.write_type_index_section(f, "Sets",    self.sets)
+            #self.write_type_index_section(f, "Records", self.records)
+            #self.write_type_index_section(f, "Arrays",  self.arrays)
+            #self.write_type_index_section(f, "Sets",    self.sets)
 
             f.write("      <h2>Classes</h2>\n")
             f.write("      <ul class=\"class-list\">\n")
@@ -1002,15 +842,44 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("    <footer>\n")
             f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
             f.write("    </footer>\n")
-            f.write("  </main>\n")
+            f.write("    </main>\n")
+
+            if self.use_treeview:
+                f.write("  </div>\n")
+                self.write_treeview_script(f)
+
             f.write("</body>\n")
             f.write("</html>\n")
         
         _write_css(os.path.join(self.output_dir, "pascal"))
     
+    def write_constants_index_section(self, f):
+        if not self.constants:
+            return
+        f.write("    <section>\n")
+        f.write("      <h2>Constants</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+        for c in self.constants:
+            anchor = "const_" + self.safe_filename(c.name)
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(c.value)}</td>\n")
+            f.write(
+                f"          <td class=\"sig\" id=\"{anchor}\">"
+                f"<span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n"
+            )
+            f.write("        </tr>\n")
+            if c.brief:
+                f.write("        <tr class=\"member-brief-row\">\n")
+                f.write("          <td class=\"ret\"></td>\n")
+                f.write(f"          <td class=\"sig member-brief\">{self.html_escape(c.brief)}</td>\n")
+                f.write("        </tr>\n")
+        f.write("      </table>\n")
+        f.write("    </section>\n")
+    
     def write_classes(self):
         os.makedirs(os.path.join(self.output_dir, "pascal" ), exist_ok=True)
         for cls in self.classes:
+            self.current_output_class = cls
             filename = os.path.join(
                 self.output_dir, "pascal",
                 self.safe_filename(cls.name) + ".html")
@@ -1024,7 +893,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("</head>\n")
                 f.write("<body>\n")
                 
-                f.write("  <main class=\"page\">\n")
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, cls)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+                    
                 f.write("    <div class=\"version\">Pascal Doc</div>\n")
                 f.write(f"    <h1>{self.html_escape(cls.name)} Class</h1>\n")
                 
@@ -1046,10 +922,16 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write("      <h2>Constants</h2>\n")
                     f.write("      <table class=\"func-table\">\n")
                     for c in self.constants:
+                        anchor = "const_" + self.safe_filename(c.name)
+                        
                         f.write("        <tr>\n")
                         f.write(f"          <td class=\"ret\">{self.html_escape(c.value)}</td>\n")
-                        f.write(f"          <td class=\"sig\"><span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n")
+                        f.write(
+                            f"          <td class=\"sig\" id=\"{anchor}\">"
+                            f"<span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n"
+                        )
                         f.write("        </tr>\n")
+                        
                         if c.brief:
                             f.write("        <tr class=\"member-brief-row\">\n")
                             f.write("          <td class=\"ret\"></td>\n")
@@ -1087,7 +969,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
                 f.write("    </footer>\n")
                 
-                f.write("  </main>\n")
+                f.write("    </main>\n")
+                
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+                
                 f.write("</body>\n")
                 f.write("</html>\n")
             
@@ -1095,6 +982,194 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             htm_out = filename
             
             self.pdf_export = HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW)
+    
+    def write_sidebar(self, f, current_item=None):
+        f.write("    <aside id=\"tocPane\" class=\"toc-pane\">\n")
+        f.write("      <div class=\"toc-title\">Table of Contents</div>\n")
+        f.write("      <ul class=\"treeview\">\n")
+
+        self.write_tree_group(f, "Classes", self.classes, "book")
+
+        self.write_tree_type_group(f, "Records", self.records)
+        self.write_tree_type_group(f, "Arrays",  self.arrays)
+        self.write_tree_type_group(f, "Sets",    self.sets)
+        
+        self.write_const_tree_group(f)
+
+        f.write("      </ul>\n")
+        f.write("    </aside>\n")
+    
+    def write_tree_type_group(self, f, title, items):
+        if not items:
+            return
+        f.write("        <li class=\"tree-node\">\n")
+        f.write(
+            f"          <div class=\"tree-row tree-toggle\">"
+            f"<span class=\"twisty\">▸</span>"
+            f"<span class=\"icon book-icon\"></span>"
+            f"<span>{self.html_escape(title)}</span></div>\n")
+        f.write("          <ul class=\"collapsed\">\n")
+        for item in items:
+            f.write("            <li>\n")
+            f.write(
+                f"              <div class=\"tree-row\">"
+                f"<span class=\"twisty empty\"></span>"
+                f"<span class=\"icon page-icon\"></span>"
+                f"<a href=\"{self.safe_filename(item.name)}.html\">{self.html_escape(item.name)}</a></div>\n")
+            f.write("            </li>\n")
+        f.write("          </ul>\n")
+        f.write("        </li>\n")
+    
+    def write_index_section_alpha(self, f, title, items):
+        if not items:
+            return
+        groups = {}
+        for kind, name, link in items:
+            key = self.alpha_key(name)
+            groups.setdefault(key, []).append((kind, name, link))
+        f.write("    <section>\n")
+        f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
+        f.write("      <div class=\"alpha-tabs\">\n")
+        for ch in ALPHA_CHARS:
+            if ch in groups:
+                f.write(f"        <a href=\"#{self.safe_filename(title)}_{ch}\">{ch}</a>\n")
+            else:
+                f.write(f"        <span>{ch}</span>\n")
+        f.write("      </div>\n")
+        for ch in ALPHA_CHARS:
+            if ch not in groups:
+                continue
+            f.write(f"      <h3 id=\"{self.safe_filename(title)}_{ch}\">{ch}</h3>\n")
+            f.write("      <table class=\"func-table\">\n")
+            for kind, name, link in groups[ch]:
+                f.write("        <tr>\n")
+                f.write(f"          <td class=\"ret\">{self.html_escape(kind)}</td>\n")
+                f.write(f"          <td class=\"sig\"><a href=\"{link}\">{self.html_escape(name)}</a></td>\n")
+                f.write("        </tr>\n")
+            f.write("      </table>\n")
+        f.write("    </section>\n")
+    
+    def write_const_tree_group(self, f, current_item=None):
+        if not self.constants:
+            return
+        page_name = "index.html"
+        if current_item is not None:
+            page_name = self.safe_filename(current_item.name) + ".html"
+        f.write("        <li class=\"tree-node\">\n")
+        f.write(
+            "          <div class=\"tree-row tree-toggle\">"
+            "<span class=\"twisty\">▸</span>"
+            "<span class=\"icon book-icon\"></span>"
+            "<span>Constants</span></div>\n"
+        )
+        f.write("          <ul class=\"collapsed\">\n")
+        for c in self.constants:
+            anchor = "const_" + self.safe_filename(c.name)
+            f.write("            <li>\n")
+            f.write(
+                f"              <div class=\"tree-row\">"
+                f"<span class=\"twisty empty\"></span>"
+                f"<span class=\"icon page-icon\"></span>"
+                f"<a href=\"{page_name}#{anchor}\">{self.html_escape(c.name)}</a></div>\n"
+            )
+            f.write("            </li>\n")
+        f.write("          </ul>\n")
+        f.write("        </li>\n")
+    
+    def write_treeview_script(self, f):
+        f.write(r"""<script>
+        document.querySelectorAll('.tree-toggle').forEach(function(row) {
+            row.addEventListener('click', function(event) {
+                if (event.target.tagName.toLowerCase() === 'a') {
+                    return;
+                }
+                const li = row.closest('.tree-node');
+                const ul = li.querySelector(':scope > ul');
+                const twisty = row.querySelector('.twisty');
+                if (!ul) {
+                    return;
+                }
+                ul.classList.toggle('collapsed');
+                if (ul.classList.contains('collapsed')) {
+                    twisty.textContent = '▸';
+                } else {
+                    twisty.textContent = '▾';
+                }
+            });
+        });
+        const splitter = document.getElementById('splitter');
+        const tocPane = document.getElementById('tocPane');
+        let dragging = false;
+        splitter.addEventListener('mousedown', function(e) {
+            dragging = true;
+            document.body.classList.add('resizing');
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) {
+                return;
+            }
+            let newWidth = e.clientX;
+            if (newWidth < 120) {
+                newWidth = 120;
+            }
+            if (newWidth > 480) {
+                newWidth = 480;
+            }
+            tocPane.style.flexBasis = newWidth + 'px';
+            tocPane.style.width = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            dragging = false;
+            document.body.classList.remove('resizing');
+        });
+        </script>
+        """)
+        
+    def write_tree_group(self, f, title, classes, icon):
+        if not classes:
+            return
+
+        f.write("        <li class=\"tree-node open\">\n")
+        f.write("          <div class=\"tree-row tree-toggle\"><span class=\"twisty\">▾</span><span class=\"icon book-icon\"></span><span>Classes</span></div>\n")
+        f.write("          <ul>\n")
+
+        for cls in classes:
+            f.write("            <li class=\"tree-node open\">\n")
+            f.write(
+                f"              <div class=\"tree-row tree-toggle\"><span class=\"twisty\">▾</span>"
+                f"<span class=\"icon book-icon\"></span>"
+                f"<a href=\"{self.safe_filename(cls.name)}.html\">{self.html_escape(cls.name)}</a></div>\n"
+            )
+            f.write("              <ul>\n")
+
+            self.write_member_tree_group(f, cls, "Fields", cls.fields)
+            self.write_member_tree_group(f, cls, "Properties", cls.properties)
+
+            ctors = []
+            dtors = []
+            funcs = []
+            procs = []
+
+            for member in cls.methods:
+                sig = member.signature.strip().lower()
+                if sig.startswith("constructor "):
+                    ctors.append(member)
+                elif sig.startswith("destructor "):
+                    dtors.append(member)
+                elif sig.startswith("function "):
+                    funcs.append(member)
+                elif sig.startswith("procedure "):
+                    procs.append(member)
+
+            self.write_member_tree_group(f, cls, "Constructors", ctors)
+            self.write_member_tree_group(f, cls, "Destructors", dtors)
+            self.write_member_tree_group(f, cls, "Functions", funcs)
+            self.write_member_tree_group(f, cls, "Procedures", procs)
+
+            f.write("              </ul>\n")
+            f.write("            </li>\n")
+        f.write("          </ul>\n")
+        f.write("        </li>\n")
     
     def write_pascal_types(self, items):
         out_dir = os.path.join(self.output_dir, "pascal")
@@ -1109,7 +1184,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write(f"  <title>{self.html_escape(item.name)}</title>\n")
                 f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
                 f.write("</head>\n<body>\n")
-                f.write("  <main class=\"page\">\n")
+                
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, item)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+                
                 f.write("    <div class=\"version\">Pascal Doc</div>\n")
                 f.write(f"    <h1>{self.html_escape(item.name)} {self.html_escape(item.kind)}</h1>\n")
 
@@ -1129,8 +1212,13 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
                 if item.fields:
                     self.write_member_table(f, "Fields", item.fields, "public")
-
-                f.write("  </main>\n")
+                
+                f.write("    </main>\n")
+                
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+                
                 f.write("</body>\n</html>\n")
             
     def write_type_index_section(self, f, title, items):
@@ -1316,7 +1404,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         msg = share.locales.tr("No documentation for this Property")
         for member in cls.properties:
-            f.write("      <article class=\"member-doc\">\n")
+            anchor = self.make_member_anchor(cls, member)
+            
+            f.write(f"      <article class=\"member-doc\" id=\"{anchor}\">\n")
             f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
             f.write("        <div class=\"member-line\"></div>\n")
             
@@ -1338,18 +1428,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def write_field_docs(self, f, cls):
         if not cls.fields:
             return
-        
         f.write("    <section class=\"member-docs\">\n")
         f.write("      <h2>Field Documentation</h2>\n")
-        
         msg = share.locales.tr("No documentation for this Field")
         for member in cls.fields:
-            f.write("      <article class=\"member-doc\">\n")
+            anchor = self.make_member_anchor(cls, member)
+            f.write(f"      <article class=\"member-doc\" id=\"{anchor}\">\n")
             f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
             f.write("        <div class=\"member-line\"></div>\n")
-            
             brief = getattr(member, "brief", "")
-            
             if brief:
                 f.write("        <p>\n")
                 f.write(f"       {self.html_escape(brief)}\n")
@@ -1358,10 +1445,95 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("        <p>\n")
                 f.write(f"          {msg}.\n")
                 f.write("        </p>\n")
-            
             f.write("      </article>\n")
-        
         f.write("    </section>\n")
+    
+    def write_member_tree(self, f, cls):
+        ctors = []
+        dtors = []
+        funcs = []
+        procs = []
+
+        for member in cls.methods:
+            sig = member.signature.strip()
+            low = sig.lower()
+
+            if   low.startswith("constructor "): ctors.append(member)
+            elif low.startswith("destructor " ): dtors.append(member)
+            elif low.startswith("function "   ): funcs.append(member)
+            elif low.startswith("procedure "  ): procs.append(member)
+
+        self.write_member_tree_group(f, cls, "Fields"    , cls.fields)
+        self.write_member_tree_group(f, cls, "Properties", cls.properties)
+        self.write_member_tree_group(f, cls, "Ctors"     , ctors)
+        self.write_member_tree_group(f, cls, "Dtors"     , dtors)
+        self.write_member_tree_group(f, cls, "Functions" , funcs)
+        self.write_member_tree_group(f, cls, "Procedures", procs)
+    
+    def write_member_tree_group(self, f, cls, title, members):
+        if not members:
+            return
+        f.write("                <li class=\"tree-node\">\n")
+        f.write(
+            f"                  <div class=\"tree-row tree-toggle\">"
+            f"<span class=\"twisty\">▸</span>"
+            f"<span class=\"icon book-icon\"></span>"
+            f"<span>{self.html_escape(title)}</span></div>\n"
+        )
+        f.write("                  <ul class=\"collapsed\">\n")
+        for member in members:
+            name   = self.member_display_name(member)
+            anchor = self.make_member_anchor(cls, member)
+            f.write("                    <li>\n")
+            f.write(
+                f"                      <div class=\"tree-row\">"
+                f"<span class=\"twisty empty\"></span>"
+                f"<span class=\"icon page-icon\"></span>"
+                f"<a href=\"{self.safe_filename(cls.name)}.html#{anchor}\">{self.html_escape(name)}</a></div>\n"
+            )
+            f.write("                    </li>\n")
+        f.write("                  </ul>\n")
+        f.write("                </li>\n")
+    
+    def member_display_name(self, member):
+        sig = member.signature.strip()
+        low = sig.lower()
+        for prefix in ["constructor", "destructor", "procedure", "function", "property"]:
+            if low.startswith(prefix + " "):
+                text = sig[len(prefix):].strip()
+                break
+        else:
+            text = sig
+        pos1 = text.find("(")
+        pos2 = text.find(":")
+        cuts = [p for p in [pos1, pos2] if p >= 0]
+        if cuts:
+            text = text[:min(cuts)].strip()
+        return text
+    
+    def write_type_tree_section(self, f, title, items):
+        if not items:
+            return
+        f.write("    <details>\n")
+        f.write(f"      <summary>{self.html_escape(title)}</summary>\n")
+        f.write("      <ul>\n")
+        for item in items:
+            f.write(
+                f"        <li><a href=\"{self.safe_filename(item.name)}.html\">"
+                f"{self.html_escape(item.name)}</a></li>\n")
+        f.write("      </ul>\n")
+        f.write("    </details>\n")
+    
+    def write_const_tree_section(self, f):
+        if not self.constants:
+            return
+        f.write("    <details>\n")
+        f.write("      <summary>Constants</summary>\n")
+        f.write("      <ul>\n")
+        for c in self.constants:
+            f.write(f"        <li>{self.html_escape(c.name)}</li>\n")
+        f.write("      </ul>\n")
+        f.write("    </details>\n")
     
     def split_pascal_signature(self, signature):
         text = signature.strip()
@@ -1382,7 +1554,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return "", text
 
     def highlight_signature(self, signature):
-        text = self.html_escape(signature)
+        text = self.link_known_types(signature)
         text = text.replace("\n", "<br>")
         pos  = text.find("(")
         
@@ -1408,15 +1580,13 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return f"<span class=\"func-name\">{text}</span>"
 
     def highlight_multiline_signature(self, signature):
-        text = self.html_escape(signature)
-        
+        text     = self.link_known_types(signature)
         keywords = [
             "constructor",
             "destructor",
             "procedure",
             "function"
         ]
-        
         for keyword in keywords:
             if text.lower().startswith(keyword + " "):
                 text = (
@@ -1424,16 +1594,13 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     + text[len(keyword):]
                 )
                 break
-        
         lines = text.split("\n")
-
         for i in range(1, len(lines)):
             lines[i] = (
                 "<span class=\"member-args\">"
                 + lines[i].replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
                 + "</span>"
             )
-
         text = "<br>".join(lines)
         return text
         
@@ -1766,8 +1933,17 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
 
         for member in items:
             left, right = self.split_signature(member.signature)
+            anchor = self.make_member_anchor(self.current_output_class, member)
 
             f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
+            f.write(
+                f"          <td class=\"sig\">"
+                f"<a class=\"member-link\" href=\"#{anchor}\">"
+                f"{self.highlight_signature(right)}"
+                f"</a></td>\n"
+            )
+            f.write("        </tr>\n")
             f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
             f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
             f.write("        </tr>\n")
@@ -3228,7 +3404,9 @@ class DoxyGenToolWindow(QWidget):
                 self.parser  = PasDocParser(self.tokens)
                 self.tree    = self.parser.unitFile()
             
-                self.visitor = PasDocHtmlVisitor(output_dir)
+                self.visitor = PasDocHtmlVisitor(
+                    output_dir,
+                    use_treeview = True)
                 self.visitor.visit(self.tree)
                 
             elif ext in ["c", "c++", "cc", "cpp"]:

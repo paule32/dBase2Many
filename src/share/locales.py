@@ -154,6 +154,9 @@ class TranslationManager:
             self.filename = f":/locales/{lang}/doxygen.mo"
             self.add_trans( self.load_mo_from_resource(self.filename))
             
+            self.filename = f":/locales/{lang}/runner.mo"
+            self.add_trans( self.load_mo_from_resource(self.filename))
+            
         except FileNotFoundError as e:
             app = self.ensure_app()
             dlg = ErrorMessage("File not found Error",
