@@ -84,6 +84,11 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#unknownTypeToken.
+    def visitUnknownTypeToken(self, ctx:PasDocParser.UnknownTypeTokenContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#classDeclaration.
     def visitClassDeclaration(self, ctx:PasDocParser.ClassDeclarationContext):
         return self.visitChildren(ctx)
@@ -154,6 +159,26 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#enumDeclaration.
+    def visitEnumDeclaration(self, ctx:PasDocParser.EnumDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#enumType.
+    def visitEnumType(self, ctx:PasDocParser.EnumTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#enumItemTail.
+    def visitEnumItemTail(self, ctx:PasDocParser.EnumItemTailContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#enumItem.
+    def visitEnumItem(self, ctx:PasDocParser.EnumItemContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#visibilitySection.
     def visitVisibilitySection(self, ctx:PasDocParser.VisibilitySectionContext):
         return self.visitChildren(ctx)
@@ -211,11 +236,6 @@ class PasDocParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PasDocParser#propertyDeclaration.
     def visitPropertyDeclaration(self, ctx:PasDocParser.PropertyDeclarationContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by PasDocParser#propertyType.
-    def visitPropertyType(self, ctx:PasDocParser.PropertyTypeContext):
         return self.visitChildren(ctx)
 
 

@@ -31,6 +31,7 @@ declaration
     | recordDeclaration
     | arrayDeclaration
     | setDeclaration
+    | enumDeclaration
     | otherToken
     ;
 
@@ -74,11 +75,27 @@ typeDeclaration
     | recordDeclaration
     | arrayDeclaration
     | setDeclaration
+    | enumDeclaration
     | unknownTypeDeclaration
     ;
 
 unknownTypeDeclaration
-    : IDENT EQ .*? SEMI
+    : IDENT EQ unknownTypeToken* SEMI
+    ;
+
+unknownTypeToken
+    : IDENT
+    | STRING
+    | NUMBER
+    | LPAREN
+    | RPAREN
+    | LBRACK
+    | RBRACK
+    | COLON
+    | COMMA
+    | DOTDOT
+    | DOT
+    | CARET
     ;
 
 classDeclaration
@@ -125,7 +142,7 @@ recordMember
     ;
 
 arrayDeclaration
-    : IDENT EQ arrayType SEMI?
+    : IDENT EQ arrayType SEMI docComment?
     ;
 
 arrayType
@@ -138,11 +155,27 @@ arrayIndex
     ;
 
 setDeclaration
-    : IDENT EQ setType SEMI?
+    : IDENT EQ setType SEMI docComment?
     ;
 
 setType
     : SET OF typeName
+    ;
+
+enumDeclaration
+    : IDENT EQ enumType SEMI docComment?
+    ;
+
+enumType
+    : LPAREN enumItem enumItemTail* RPAREN
+    ;
+
+enumItemTail
+    : COMMA docComment? enumItem
+    ;
+
+enumItem
+    : IDENT docComment?
     ;
 
 visibilitySection
@@ -201,20 +234,16 @@ methodDirective
     ;
 
 propertyDeclaration
-    : PROPERTY IDENT propertyType? propertyAccessor* SEMI
-    ;
-
-propertyType
-    : COLON typeName
+    : PROPERTY IDENT COLON typeName docComment? propertyAccessor* SEMI
     ;
 
 propertyAccessor
-    : READ IDENT
-    | WRITE IDENT
+    : READ  IDENT docComment?
+    | WRITE IDENT docComment?
     ;
 
 fieldDeclaration
-    : IDENT (COMMA IDENT)* COLON typeName SEMI
+    : IDENT (COMMA IDENT)* COLON typeName SEMI docComment?
     ;
 
 typeName

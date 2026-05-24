@@ -12,7 +12,9 @@ import os
 import html
 import hashlib
 
-from   share.common import *
+from share.common import *
+from PyQt5.QtGui  import QPageLayout, QPageSize
+from PyQt5.QtCore import QMarginsF
 
 # -----------------------------------------------------------------------
 # c++ documenting interpreter lexer + parser ...
@@ -116,7 +118,44 @@ ALPHA_CHARS     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def _write_css(output_dir):
     filename = os.path.join(output_dir, "style.css")
     doxy_css = share.locales.tr("doxy_html_css")
-    #doxy_css = doxy_css
+    doxy_css = doxy_css + """
+:root {
+--doc-header-height: 96px;
+}
+.doc-header-sticky {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+height: var(--doc-header-height);
+z-index: 99999;
+background: #1e1e1e;
+border-bottom: 1px solid #444;
+box-shadow: 0 3px 10px rgba(0,0,0,0.65);
+padding: 10px 16px;
+box-sizing: border-box;
+overflow: hidden;
+}
+.content-pane,
+.page {
+padding-top: calc(var(--doc-header-height) + 16px) !important;
+}
+.toc-pane {
+padding-top: calc(var(--doc-header-height) + 16px);
+}
+.property-doc-item {
+margin: 10px 0 14px 0;
+}
+.property-doc-label {
+font-weight: bold;
+color: #ffffff;
+}
+.property-doc-text {
+margin-top: 4px;
+padding-left: 18px;
+color: #dddddd;
+}
+"""
 
     with open(filename, "w", encoding="utf-8") as f:
         f.write(doxy_css)
@@ -191,12 +230,32 @@ class PasMemberInfo:
         self.params    = params or []
         self.returns   = returns
         self.notes     = notes  or []
+        
+        self.property_type_brief  = ""
+        self.property_read_brief  = ""
+        
+        self.property_write_brief = ""
 
 class PasConstInfo:
     def __init__(self, name, value, brief=""):
         self.name  = name
         self.value = value
         self.brief = brief
+
+class PasVarInfo:
+    def __init__(self, name, vtype, brief=""):
+        self.name  = name
+        self.vtype = vtype
+        self.brief = brief
+
+class PasEnumInfo(PasTypeInfo):
+    def __init__(self,
+        name,
+        signature  = "" ,
+        brief      = ""):
+        
+        super().__init__(name, "enum", signature, brief)
+        self.items = []
 
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
@@ -244,8 +303,14 @@ class HtmlToPdf(QObject):
     
     def print_pdf(self):
         print("PDF:", self.pdf__file)
-        self.view.page().printToPdf(self.pdf__file)
-
+        layout = QPageLayout(
+            QPageSize(QPageSize.A4),
+            QPageLayout.Portrait,
+            QMarginsF(0.0, 0.0, 0.0, 0.0),
+            QPageLayout.Millimeter
+        )
+        self.view.page().printToPdf(self.pdf__file, layout)
+        
     def on_pdf_finished(self, file_path, success):
         print("pdfFinished:", file_path, success)
 
@@ -269,11 +334,18 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_returns = ""
         
         self.constants       = []
+        self.global_vars     = []
         self.records         = []
         self.arrays          = []
         self.sets            = []
+        self.enums           = []
         
-        self.current_class   = None
+        self.pdf_exports     = []
+        self.global_methods  = []
+        
+        self.current_class        = None
+        self.current_output_class = None
+        
         self.current_access  = "public"
         
         DOXYGEN_CONFIG.append("# Doxyfile 1.17.3\n")
@@ -411,11 +483,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def index_items(self):
         items = []
         
-        for cls in self.classes  : items.append(("Class"   , cls.name, self.safe_filename(cls.name) + ".html"))
-        for rec in self.records  : items.append(("Record"  , rec.name, self.safe_filename(rec.name) + ".html"))
-        for arr in self.arrays   : items.append(("Array"   , arr.name, self.safe_filename(arr.name) + ".html"))
-        for st  in self.sets     : items.append(("Set"     , st .name, self.safe_filename(st .name) + ".html"))
-        for c   in self.constants: items.append(("Constant", c  .name, "index.html#const_" + self.safe_filename(c.name)))
+        for cls in self.classes    : items.append(("Class"   , cls.name, self.safe_filename(cls.name) + ".html"))
+        for rec in self.records    : items.append(("Record"  , rec.name, self.safe_filename(rec.name) + ".html"))
+        for arr in self.arrays     : items.append(("Array"   , arr.name, self.safe_filename(arr.name) + ".html"))
+        for st  in self.sets       : items.append(("Set"     , st .name, self.safe_filename(st .name) + ".html"))
+        
+        for c   in self.constants  : items.append(("Constant", c  .name, "index.html#const_" + self.safe_filename(c.name)))
+        for v   in self.global_vars: items.append(("Variable", v  .name, "index.html#var_"   + self.safe_filename(v.name)))
+        
+        for enm in self.enums      : items.append(("Enum"    , enm.name, self.safe_filename(enm.name) + ".html"))
         
         return sorted(items, key=lambda x: x[1].lower())
     
@@ -436,8 +512,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return ""
     
     def make_member_anchor(self, cls, member):
-        text   = cls.name + "_" + member.signature
-        result = []
+        cls_name = getattr(cls, "name", "")
+        text     = cls.name + "_" + member.signature
+        result   = []
         for ch in text:
             if ch.isalnum():
                 result.append(ch.lower())
@@ -448,6 +525,56 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             anchor = anchor.replace("__", "_")
         return anchor.strip("_")
     
+    def visitEnumDeclaration(self, ctx):
+        name  = ctx.IDENT().getText()
+        brief = self.pending_brief
+        
+        print("ENUM FOUND:", name)
+
+        if hasattr(ctx, "docComment") and ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+
+        info = PasEnumInfo(
+            name,
+            self.clean_pascal_signature(self.text_from_ctx(ctx.enumType())),
+            brief
+        )
+
+        enum_type = ctx.enumType()
+        items     = []
+
+        first_item = enum_type.enumItem()
+        items.append({
+            "ctx": first_item,
+            "brief": ""
+        })
+
+        for tail in enum_type.enumItemTail():
+            if tail.docComment():
+                items[-1]["brief"] = self.extract_brief(tail.docComment().getText())
+
+            items.append({
+                "ctx": tail.enumItem(),
+                "brief": ""
+            })
+
+        for entry in items:
+            enum_item  = entry["ctx"]
+            item_name  = enum_item.IDENT().getText()
+            item_brief = entry["brief"]
+
+            if hasattr(enum_item, "docComment") and enum_item.docComment():
+                item_brief = self.extract_brief(enum_item.docComment().getText())
+
+            info.items.append({
+                "name": item_name,
+                "brief": item_brief
+            })
+
+        self.enums.append(info)
+        self.clear_pending_doc()
+        return None
+        
     def visitConstDeclaration(self, ctx):
         item  = ctx.constItem()
         name  = item.IDENT().getText()
@@ -476,32 +603,70 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return None
     
     def visitSetDeclaration(self, ctx):
-        name = ctx.IDENT().getText()
-        print("SET FOUND:", name)
+        print("SET FOUND")
+        name  = ctx.IDENT().getText()
+        brief = self.pending_brief
+
+        if hasattr(ctx, "docComment") and ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+
         self.sets.append(
             PasTypeInfo(
                 name,
                 "set",
-                self.text_from_ctx(ctx.setType()),
-                self.pending_brief
+                self.clean_pascal_signature(self.text_from_ctx(ctx.setType())),
+                brief
             )
         )
-        self.pending_brief = ""
+
+        self.clear_pending_doc()
         return None
     
     def visitArrayDeclaration(self, ctx):
-        name = ctx.IDENT().getText()
-        print("ARRAY FOUND:", name)
+        print("ARRAY FOUND")
+        name  = ctx.IDENT().getText()
+        brief = self.pending_brief
+
+        if hasattr(ctx, "docComment") and ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+
         self.arrays.append(
             PasTypeInfo(
                 name,
                 "array",
-                self.text_from_ctx(ctx.arrayType()),
-                self.pending_brief
+                self.clean_pascal_signature(self.text_from_ctx(ctx.arrayType())),
+                brief
             )
         )
-        self.pending_brief = ""
+
+        self.clear_pending_doc()
         return None
+    
+    def clean_pascal_signature(self, text):
+        result = ""
+        i = 0
+        
+        while i < len(text):
+            if text.startswith("(**!", i):
+                end = text.find("*)", i + 4)
+                if end < 0:
+                    break
+                i = end + 2
+                continue
+            
+            if text.startswith("{**!", i):
+                end = text.find("*}", i + 4)
+                if end < 0:
+                    break
+                i = end + 2
+                continue
+            
+            result += text[i]
+            i += 1
+        
+        result = result.strip()
+        result = result.rstrip(";").strip()
+        return result
         
     def visitRecordDeclaration(self, ctx):
         name = ctx.IDENT().getText()
@@ -509,7 +674,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         info = PasTypeInfo(
             name,
             "record",
-            self.text_from_ctx(ctx.recordType()),
+            self.clean_pascal_signature(self.text_from_ctx(ctx.recordType())),
             self.pending_brief
         )
 
@@ -543,12 +708,28 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.visitChildren(ctx)
         os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
         
+        self.delete_old_topic_pdfs()
+        
+        print("WRITE INDEX")
         self.write_index()
+        
+        print("WRITE CLASSES")
         self.write_classes()
         
+        print("WRITE RECORDS")
         self.write_pascal_types(self.records)
+        
+        print("WRITE ARRAYS")
         self.write_pascal_types(self.arrays)
+        
+        print("WRITE SETS")
         self.write_pascal_types(self.sets)
+        
+        print("WRITE ENUMS")
+        self.write_pascal_enums()
+        
+        print("WRITE PDF DOCUMENT")
+        self.write_pascal_pdf_document()
         
         return self.classes
     
@@ -587,7 +768,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     
     def visitMethodDeclaration(self, ctx: PasDocParser.MethodDeclarationContext):
         if self.current_class is None:
+            self.global_methods.append(
+                PasMemberInfo(
+                    "public",
+                    self.text_from_ctx(ctx),
+                    self.pending_brief,
+                    self.pending_params,
+                    self.pending_returns,
+                    self.pending_notes
+                )
+            )
+            self.clear_pending_doc()
             return None
+        
         signature = self.text_from_ctx(ctx)
         self.current_class.methods.append(
             PasMemberInfo(
@@ -602,12 +795,49 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.clear_pending_doc()
         return None
     
-    def visitPropertyDeclaration(self, ctx: PasDocParser.PropertyDeclarationContext):
+    def visitPropertyDeclaration(self, ctx):
         if self.current_class is None:
             return None
-        signature = self.text_from_ctx(ctx)
-        self.current_class.properties.append(PasMemberInfo(self.current_access, signature, self.pending_brief))
-        self.pending_brief = ""
+
+        raw_signature = self.clean_pascal_signature(self.text_from_ctx(ctx))
+
+        member = PasMemberInfo(
+            self.current_access,
+            raw_signature,
+            self.pending_brief
+        )
+
+        # Kommentar direkt nach dem Typ:
+        # property Name: string (**! @brief Datentyp *)
+        if ctx.docComment():
+            comments = ctx.docComment()
+            if not isinstance(comments, list):
+                comments = [comments]
+
+            if comments:
+                member.property_type_brief = self.extract_brief(comments[0].getText())
+
+        # Kommentare bei read/write:
+        # read FName (**! @brief getter *)
+        # write FName (**! @brief setter *)
+        if hasattr(ctx, "propertyAccessor"):
+            for acc in ctx.propertyAccessor():
+                acc_text = acc.getText().lower()
+
+                if acc_text.startswith("read"):
+                    if acc.docComment():
+                        member.property_read_brief = self.extract_brief(
+                            acc.docComment().getText()
+                        )
+
+                elif acc_text.startswith("write"):
+                    if acc.docComment():
+                        member.property_write_brief = self.extract_brief(
+                            acc.docComment().getText()
+                        )
+
+        self.current_class.properties.append(member)
+        self.clear_pending_doc()
         return None
     
     def clear_pending_doc(self):
@@ -616,15 +846,42 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_returns = ""
         self.pending_notes   = []
     
+    def add_global_var_from_signature(self, signature, brief=""):
+        signature = self.clean_pascal_signature(signature)
+        
+        if ":" not in signature:
+            return
+            
+        left, right = signature.split(":", 1)
+        
+        names = [x.strip() for x in left.split(",")]
+        vtype = right.strip()
+        vtype = vtype.rstrip(";").strip()
+        
+        for name in names:
+            if name:
+                self.global_vars.append(PasVarInfo(name, vtype, brief))
+                
+        self.clear_pending_doc()
+    
     def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
-        if self.current_class is None:
-            return None
         signature = self.text_from_ctx(ctx)
+        brief     = self.pending_brief
+        
+        if hasattr(ctx, "docComment") and ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+        
+        clean_signature = self.clean_pascal_signature(signature)
+        
+        if self.current_class is None:
+            self.add_global_var_from_signature(clean_signature, brief)
+            return None
+            
         self.current_class.fields.append(
             PasMemberInfo(
                 self.current_access,
-                signature,
-                self.pending_brief,
+                clean_signature,
+                brief,
                 self.pending_params,
                 self.pending_returns,
                 self.pending_notes
@@ -635,32 +892,32 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
     def format_pascal_signature_multiline(self, signature):
         text = signature.strip()
-
+        
         pos1 = text.find("(")
         pos2 = text.rfind(")")
-
+        
         if pos1 < 0 or pos2 < 0 or pos2 <= pos1:
             return text
-
+        
         before = text[:pos1 + 1]
         params = text[pos1 + 1:pos2]
         after  = text[pos2:]
-
-        parts = [p.strip() for p in params.split(";")]
-
+        
+        parts  = [p.strip() for p in params.split(";")]
+        
         if len(parts) <= 1:
             return text
-
+        
         result = before + "\n"
-
+        
         for index, part in enumerate(parts):
             if index > 0:
                 result += ";\n"
 
             result += "    " + part
-
+        
         result += "\n" + after
-
+        
         return result
     
     def text_from_ctx(self, ctx):
@@ -673,6 +930,313 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if sub_text:
                     tokens.extend(sub_text.split(" "))
         return self.join_pascal_tokens(tokens)
+    
+    def make_var_anchor(self, name):
+        return "var_" + self.safe_filename(name).lower()
+    
+    def write_doc_header(self, f, title, current_name=None):
+        f.write("    <div class=\"doc-header-sticky\">\n")
+        f.write("      <div class=\"version\">Pascal Doc</div>\n")
+        f.write(f"      <h1>{self.html_escape(title)}</h1>\n")
+        f.write("      <div class=\"breadcrumb\">\n")
+        if current_name:
+            f.write("        <a href=\"index.html\">Overview</a>\n")
+            f.write("        <span>›</span>\n")
+            f.write(f"        <span>{self.html_escape(current_name)}</span>\n")
+        else:
+            f.write("        <span>Overview</span>\n")
+        f.write("      </div>\n")
+        f.write("    </div>\n")
+    
+    def write_pascal_pdf_document(self):
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
+
+        filename = os.path.join(out_dir, "print.html")
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+            f.write("  <meta charset=\"utf-8\">\n")
+            f.write("  <title>Pascal Documentation PDF</title>\n")
+            f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+            f.write("""
+<style>
+@page {
+    size: A4;
+    margin: 0;
+    background: #000000;
+}
+@media print {
+    .doc-header-sticky {
+        position: static !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .content-pane,
+    .page {
+        padding-top: 0 !important;
+        background: #000000;
+    }
+}
+html, body {
+    overflow: visible !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background: #000000 !important;
+}
+.splitter {
+    display: none !important;
+}
+.content-pane {
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    min-height: 100vh;
+    background: #000000 !important;
+}
+.page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    padding: 1cm !important;
+    background: #000000 !important;
+}
+section {
+    page-break-inside: auto !important;
+    background: #000000 !important;
+}
+pre {
+    white-space: pre-wrap;
+    background: #000000 !important;
+}
+main.page {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    padding: 1cm !important;
+    margin: 0 !important;
+    background: #000000 !important;
+}
+
+main.page > section,
+main.page > h1,
+main.page > h2,
+main.page > h3 {
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+</style>
+""")
+            f.write("</head>\n<body>\n")
+            f.write("<main class=\"page\">\n")
+            f.write("<h1>Pascal Documentation</h1>\n")
+
+            self._write_pdf_constants(f)
+            self._write_pdf_global_variables(f)
+            self._write_pdf_global_methods(f)
+
+            self._write_pdf_classes(f)
+            self._write_pdf_types(f, "Records", self.records)
+            self._write_pdf_types(f, "Arrays",  self.arrays)
+            self._write_pdf_types(f, "Sets",    self.sets)
+            self._write_pdf_enums(f)
+
+            f.write("</main>\n")
+            f.write("</body>\n</html>\n")
+
+        pdf_out = os.path.join(out_dir, "PascalDocumentation.pdf")
+        self.pdf_exports.append(HtmlToPdf(filename, pdf_out, DOXYGEN_WINDOW))
+
+    def _write_pdf_constants(self, f):
+        if not self.constants:
+            return
+        
+        f.write("<section>\n")
+        f.write("<h2>Constants</h2>\n")
+        f.write("<table class=\"func-table\">\n")
+        
+        for c in self.constants:
+            f.write("<tr>\n")
+            f.write(f"<td class=\"ret\">{self.html_escape(c.value)}</td>\n")
+            f.write(f"<td class=\"sig\"><span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n")
+            f.write("</tr>\n")
+            
+            if c.brief:
+                f.write("<tr class=\"member-brief-row\"><td></td>")
+                f.write(f"<td class=\"sig member-brief\">{self.html_escape(c.brief)}</td></tr>\n")
+        
+        f.write("</table>\n")
+        f.write("</section>\n")
+
+    def _write_pdf_global_variables(self, f):
+        if not self.global_vars:
+            return
+
+        f.write("<section>\n")
+        f.write("<h2>Global Variables</h2>\n")
+        f.write("<table class=\"func-table\">\n")
+
+        for v in self.global_vars:
+            f.write("<tr>\n")
+            f.write(f"<td class=\"ret\">{self.link_known_types(v.vtype)}</td>\n")
+            f.write(f"<td class=\"sig\"><span class=\"func-name\">{self.html_escape(v.name)}</span></td>\n")
+            f.write("</tr>\n")
+
+            if v.brief:
+                f.write("<tr class=\"member-brief-row\"><td></td>")
+                f.write(f"<td class=\"sig member-brief\">{self.html_escape(v.brief)}</td></tr>\n")
+
+        f.write("</table>\n")
+        f.write("</section>\n")
+
+
+    def _write_pdf_global_methods(self, f):
+        if not getattr(self, "global_methods", []):
+            return
+        
+        f.write("<section>\n")
+        f.write("<h2>Global Procedures and Functions</h2>\n")
+        f.write("<table class=\"func-table\">\n")
+        
+        for m in self.global_methods:
+            left, right = self.split_pascal_signature(m.signature)
+            
+            f.write("<tr>\n")
+            f.write(f"<td class=\"ret\">{self.html_escape(left)}</td>\n")
+            f.write(f"<td class=\"sig\">{self.highlight_signature(right)}</td>\n")
+            f.write("</tr>\n")
+            
+            if m.brief:
+                f.write("<tr class=\"member-brief-row\"><td></td>")
+                f.write(f"<td class=\"sig member-brief\">{self.html_escape(m.brief)}</td></tr>\n")
+        
+        f.write("</table>\n")
+        f.write("</section>\n")
+    
+    def _write_pdf_classes(self, f):
+        if not self.classes:
+            return
+        
+        f.write("<section>\n")
+        f.write("<h2>Classes</h2>\n")
+        
+        for cls in self.classes:
+            f.write(f"<h3>{self.html_escape(cls.name)}</h3>\n")
+            
+            if cls.brief:
+                f.write(f"<p class=\"brief\">{self.html_escape(cls.brief)}</p>\n")
+            
+            if cls.bases:
+                f.write("<p class=\"inherits\">Inherits: ")
+                f.write(", ".join(self.html_escape(b) for b in cls.bases))
+                f.write("</p>\n")
+            
+            self.current_output_class = cls
+            
+            self.write_member_table(f, "Public Methods",       cls.methods,    "public")
+            self.write_member_table(f, "Protected Methods",    cls.methods,    "protected")
+            self.write_member_table(f, "Private Methods",      cls.methods,    "private")
+            self.write_member_table(f, "Published Methods",    cls.methods,    "published")
+            
+            self.write_member_table(f, "Public Properties",    cls.properties, "public")
+            self.write_member_table(f, "Protected Properties", cls.properties, "protected")
+            self.write_member_table(f, "Private Properties",   cls.properties, "private")
+            self.write_member_table(f, "Published Properties", cls.properties, "published")
+            
+            self.write_member_table(f, "Public Fields",        cls.fields,     "public")
+            self.write_member_table(f, "Protected Fields",     cls.fields,     "protected")
+            self.write_member_table(f, "Private Fields",       cls.fields,     "private")
+            self.write_member_table(f, "Published Fields",     cls.fields,     "published")
+            
+            self.write_member_function_docs(f, cls)
+            self.write_property_docs(f, cls)
+            self.write_field_docs(f, cls)
+        
+        f.write("</section>\n")
+
+    def _write_pdf_types(self, f, title, items):
+        if not items:
+            return
+
+        f.write("<section>\n")
+        f.write(f"<h2>{self.html_escape(title)}</h2>\n")
+
+        for item in items:
+            f.write(f"<h3>{self.html_escape(item.name)}</h3>\n")
+
+            if item.brief:
+                f.write(f"<p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+
+            if item.signature:
+                f.write(f"<pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
+
+            self.current_output_class = item
+
+            if item.fields:
+                self.write_member_table(f, "Fields", item.fields, "public")
+
+        f.write("</section>\n")
+    
+    def _write_pdf_enums(self, f):
+        if not self.enums:
+            return
+
+        f.write("<section>\n")
+        f.write("<h2>Enums</h2>\n")
+
+        for item in self.enums:
+            f.write(f"<h3>{self.html_escape(item.name)}</h3>\n")
+
+            if item.brief:
+                f.write(f"<p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+
+            if item.signature:
+                f.write(f"<pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
+
+            if item.items:
+                f.write("<table class=\"func-table\">\n")
+
+                for enum_item in item.items:
+                    f.write("<tr>\n")
+                    f.write("<td class=\"ret\">enum</td>\n")
+                    f.write(f"<td class=\"sig\"><span class=\"func-name\">{self.html_escape(enum_item['name'])}</span></td>\n")
+                    f.write("</tr>\n")
+
+                    if enum_item.get("brief"):
+                        f.write("<tr class=\"member-brief-row\"><td></td>")
+                        f.write(f"<td class=\"sig member-brief\">{self.html_escape(enum_item['brief'])}</td></tr>\n")
+
+                f.write("</table>\n")
+
+        f.write("</section>\n")
+    
+    def write_global_variables_section(self, f):
+        if not self.global_vars:
+            return
+        
+        f.write('<section class="doc-section" id="global_variables">\n')
+        f.write('  <h2>Global Variables</h2>\n')
+        f.write('  <table class="member-table">\n')
+        f.write('    <tr><th>Type</th><th>Name</th><th>Description</th></tr>\n')
+        
+        for v in self.global_vars:
+            name   = v.get("name", "")
+            vtype  = v.get("type", "")
+            brief  = v.get("brief", "")
+            anchor = self.make_var_anchor(name)
+            
+            f.write(f'    <tr id="{anchor}">\n')
+            f.write(f'      <td class="ret">{self.build_type_links(vtype)}</td>\n')
+            f.write(f'      <td><a href="#{anchor}">{self.html_escape(name)}</a></td>\n')
+            f.write(f'      <td>{self.html_escape(brief)}</td>\n')
+            f.write('    </tr>\n')
+        
+        f.write('  </table>\n')
+        f.write('</section>\n')
     
     def build_type_links(self):
         result = {}
@@ -783,14 +1347,21 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("    <main class=\"page content-pane\">\n")
             else:
                 f.write("  <main class=\"page\">\n")
-            f.write("    <div class=\"version\">Pascal Doc</div>\n")
-            f.write("    <h1>Pascal Documentation</h1>\n")
-            f.write("    <div class=\"breadcrumb\">\n")
-            f.write("      <span>Overview</span>\n")
-            f.write("    </div>\n")
             
-            #self.write_alpha_index(f)
-            #self.write_constants_index_section(f)
+            #f.write("    <div class=\"version\">Pascal Doc</div>\n")
+            #f.write("    <h1>Pascal Documentation</h1>\n")
+            #f.write("    <div class=\"breadcrumb\">\n")
+            #f.write("      <span>Overview</span>\n")
+            #f.write("    </div>\n")
+            
+            self.write_doc_header(
+                f,
+                "Pascal Documentation",
+                None
+            )
+            
+            ###self.write_alpha_index(f)
+            ###self.write_constants_index_section(f)
             
             #f.write("    <section>\n")
             
@@ -816,11 +1387,27 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             )
             self.write_index_section_alpha(
                 f,
+                "Enums",
+                [("Enum", enm.name, self.safe_filename(enm.name) + ".html") for enm in self.enums]
+            )
+            self.write_index_section_alpha(
+                f,
                 "Constants",
                 [("Constant", c.name, "#const_" + self.safe_filename(c.name)) for c in self.constants]
             )
-
+            self.write_index_section_alpha(
+                f,
+                "Global Variables",
+                [("Variable", v.name, "#" + self.make_var_anchor(v.name)) for v in self.global_vars]
+            )
+            self.write_index_section_alpha(
+                f,
+                "Enums",
+                [("Enum", enm.name, self.safe_filename(enm.name) + ".html") for enm in self.enums]
+            )
+            
             self.write_constants_index_section(f)
+            self.write_global_variables_index_section(f)
             
             f.write("    <section>\n")
             
@@ -852,6 +1439,34 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("</html>\n")
         
         _write_css(os.path.join(self.output_dir, "pascal"))
+    
+    def write_global_variables_index_section(self, f):
+        if not self.global_vars:
+            return
+        
+        f.write("    <section>\n")
+        f.write("      <h2>Global Variables</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+        
+        for v in self.global_vars:
+            anchor = self.make_var_anchor(v.name)
+            
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.link_known_types(v.vtype)}</td>\n")
+            f.write(
+                f"          <td class=\"sig\" id=\"{anchor}\">"
+                f"<span class=\"func-name\">{self.html_escape(v.name)}</span></td>\n"
+            )
+            f.write("        </tr>\n")
+            
+            if v.brief:
+                f.write("        <tr class=\"member-brief-row\">\n")
+                f.write("          <td class=\"ret\"></td>\n")
+                f.write(f"          <td class=\"sig member-brief\">{self.html_escape(v.brief)}</td>\n")
+                f.write("        </tr>\n")
+        
+        f.write("      </table>\n")
+        f.write("    </section>\n")
     
     def write_constants_index_section(self, f):
         if not self.constants:
@@ -901,14 +1516,20 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 else:
                     f.write("  <main class=\"page\">\n")
                     
-                f.write("    <div class=\"version\">Pascal Doc</div>\n")
-                f.write(f"    <h1>{self.html_escape(cls.name)} Class</h1>\n")
+                #f.write("    <div class=\"version\">Pascal Doc</div>\n")
+                #f.write(f"    <h1>{self.html_escape(cls.name)} Class</h1>\n")
                 
-                f.write("    <div class=\"breadcrumb\">\n")
-                f.write("      <a href=\"index.html\">Overview</a>\n")
-                f.write("      <span>›</span>\n")
-                f.write(f"      <span>{self.html_escape(cls.name)}</span>\n")
-                f.write("    </div>\n")
+                #f.write("    <div class=\"breadcrumb\">\n")
+                #f.write("      <a href=\"index.html\">Overview</a>\n")
+                #f.write("      <span>›</span>\n")
+                #f.write(f"      <span>{self.html_escape(cls.name)}</span>\n")
+                #f.write("    </div>\n")
+                
+                self.write_doc_header(
+                    f,
+                    f"{cls.name} Class",
+                    cls.name
+                )
                 
                 if cls.bases:
                     f.write("    <p class=\"inherits\">Inherits: ")
@@ -978,10 +1599,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("</body>\n")
                 f.write("</html>\n")
             
-            pdf_out = os.path.splitext(filename)[0] + ".pdf"
-            htm_out = filename
-            
-            self.pdf_export = HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW)
+            #pdf_out = os.path.splitext(filename)[0] + ".pdf"
+            #htm_out = filename
+            #self.pdf_exports.append(HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW))
     
     def write_sidebar(self, f, current_item=None):
         f.write("    <aside id=\"tocPane\" class=\"toc-pane\">\n")
@@ -991,13 +1611,44 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.write_tree_group(f, "Classes", self.classes, "book")
 
         self.write_tree_type_group(f, "Records", self.records)
-        self.write_tree_type_group(f, "Arrays",  self.arrays)
-        self.write_tree_type_group(f, "Sets",    self.sets)
-        
-        self.write_const_tree_group(f)
+        self.write_tree_type_group(f, "Arrays" , self.arrays )
+        self.write_tree_type_group(f, "Sets"   , self.sets   )
+        self.write_tree_type_group(f, "Enums"  , self.enums  )
+
+        self.write_const_tree_group(f, current_item)
+        self.write_var_tree_group(f, current_item)
 
         f.write("      </ul>\n")
         f.write("    </aside>\n")
+    
+    def write_var_tree_group(self, f, current_item=None):
+        if not self.global_vars:
+            return
+        
+        page_name = "index.html"
+        
+        f.write("        <li class=\"tree-node\">\n")
+        f.write(
+            "          <div class=\"tree-row tree-toggle\">"
+            "<span class=\"twisty\">▸</span>"
+            "<span class=\"icon book-icon\"></span>"
+            "<span>Global Variables</span></div>\n"
+        )
+        f.write("          <ul class=\"collapsed\">\n")
+        
+        for v in self.global_vars:
+            anchor = self.make_var_anchor(v.name)
+            f.write("            <li>\n")
+            f.write(
+                f"              <div class=\"tree-row\">"
+                f"<span class=\"twisty empty\"></span>"
+                f"<span class=\"icon page-icon\"></span>"
+                f"<a href=\"{page_name}#{anchor}\">{self.html_escape(v.name)}</a></div>\n"
+            )
+            f.write("            </li>\n")
+        
+        f.write("          </ul>\n")
+        f.write("        </li>\n")
     
     def write_tree_type_group(self, f, title, items):
         if not items:
@@ -1052,9 +1703,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def write_const_tree_group(self, f, current_item=None):
         if not self.constants:
             return
+        
         page_name = "index.html"
-        if current_item is not None:
-            page_name = self.safe_filename(current_item.name) + ".html"
+        
         f.write("        <li class=\"tree-node\">\n")
         f.write(
             "          <div class=\"tree-row tree-toggle\">"
@@ -1063,6 +1714,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             "<span>Constants</span></div>\n"
         )
         f.write("          <ul class=\"collapsed\">\n")
+        
         for c in self.constants:
             anchor = "const_" + self.safe_filename(c.name)
             f.write("            <li>\n")
@@ -1073,6 +1725,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f"<a href=\"{page_name}#{anchor}\">{self.html_escape(c.name)}</a></div>\n"
             )
             f.write("            </li>\n")
+        
         f.write("          </ul>\n")
         f.write("        </li>\n")
     
@@ -1124,7 +1777,84 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         });
         </script>
         """)
+    
+    def write_pascal_enums(self):
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
         
+        for item in self.enums:
+            filename = os.path.join(out_dir, self.safe_filename(item.name) + ".html")
+            
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(item.name)}</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("</head>\n<body>\n")
+                
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, item)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+                
+                #f.write("    <div class=\"version\">Pascal Doc</div>\n")
+                #f.write(f"    <h1>{self.html_escape(item.name)} enum</h1>\n")
+                
+                self.write_doc_header(
+                    f,
+                    f"{item.name} enum",
+                    item.name
+                )
+                
+                if item.brief:
+                    f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+                
+                f.write("    <section>\n")
+                f.write("      <h2>Declaration</h2>\n")
+                f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
+                f.write("    </section>\n")
+                
+                if item.items:
+                    f.write("    <section>\n")
+                    f.write("      <h2>Enum Values</h2>\n")
+                    f.write("      <table class=\"func-table\">\n")
+                    
+                    for enum_item in item.items:
+                        f.write("        <tr>\n")
+                        f.write("          <td class=\"ret\">enum</td>\n")
+                        f.write(
+                            f"          <td class=\"sig\"><span class=\"func-name\">"
+                            f"{self.html_escape(enum_item['name'])}</span></td>\n"
+                        )
+                        f.write("        </tr>\n")
+                        
+                        if enum_item.get("brief"):
+                            f.write("        <tr class=\"member-brief-row\">\n")
+                            f.write("          <td class=\"ret\"></td>\n")
+                            f.write(
+                                f"          <td class=\"sig member-brief\">"
+                                f"{self.html_escape(enum_item['brief'])}</td>\n"
+                            )
+                            f.write("        </tr>\n")
+                    
+                    f.write("      </table>\n")
+                    f.write("    </section>\n")
+                
+                f.write("    </main>\n")
+                
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+                
+                f.write("</body>\n</html>\n")
+            
+            #pdf_out = os.path.splitext(filename)[0] + ".pdf"
+            #htm_out = filename
+            #self.pdf_exports.append(HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW))
+            
     def write_tree_group(self, f, title, classes, icon):
         if not classes:
             return
@@ -1193,14 +1923,20 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 else:
                     f.write("  <main class=\"page\">\n")
                 
-                f.write("    <div class=\"version\">Pascal Doc</div>\n")
-                f.write(f"    <h1>{self.html_escape(item.name)} {self.html_escape(item.kind)}</h1>\n")
+                #f.write("    <div class=\"version\">Pascal Doc</div>\n")
+                #f.write(f"    <h1>{self.html_escape(item.name)} {self.html_escape(item.kind)}</h1>\n")
 
-                f.write("    <div class=\"breadcrumb\">\n")
-                f.write("      <a href=\"index.html\">Overview</a>\n")
-                f.write("      <span>›</span>\n")
-                f.write(f"      <span>{self.html_escape(item.name)}</span>\n")
-                f.write("    </div>\n")
+                #f.write("    <div class=\"breadcrumb\">\n")
+                #f.write("      <a href=\"index.html\">Overview</a>\n")
+                #f.write("      <span>›</span>\n")
+                #f.write(f"      <span>{self.html_escape(item.name)}</span>\n")
+                #f.write("    </div>\n")
+                
+                self.write_doc_header(
+                    f,
+                    f"{item.name} {item.kind}",
+                    item.name
+                )
 
                 if item.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
@@ -1210,6 +1946,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
                 f.write("    </section>\n")
 
+                self.current_output_class = item
                 if item.fields:
                     self.write_member_table(f, "Fields", item.fields, "public")
                 
@@ -1220,6 +1957,10 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     self.write_treeview_script(f)
                 
                 f.write("</body>\n</html>\n")
+            
+            #pdf_out = os.path.splitext(filename)[0] + ".pdf"
+            #htm_out = filename
+            #self.pdf_exports.append(HtmlToPdf(htm_out, pdf_out, DOXYGEN_WINDOW))
             
     def write_type_index_section(self, f, title, items):
         if not items:
@@ -1412,10 +2153,36 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             
             brief = getattr(member, "brief", "")
             
-            if brief:
-                f.write("        <p>\n")
-                f.write(f"       {self.html_escape(brief)}\n")
-                f.write("        </p>\n")
+            type_brief  = getattr(member, "property_type_brief", "")
+            read_brief  = getattr(member, "property_read_brief", "")
+            write_brief = getattr(member, "property_write_brief", "")
+
+            has_any_doc = bool(brief or type_brief or read_brief or write_brief)
+
+            if has_any_doc:
+                if brief:
+                    f.write("        <p>\n")
+                    f.write(f"          {self.html_escape(brief)}\n")
+                    f.write("        </p>\n")
+                
+                if type_brief:
+                    f.write("        <div class=\"property-doc-item\">\n")
+                    f.write("          <div class=\"property-doc-label\">Type</div>\n")
+                    f.write(f"          <div class=\"property-doc-text\">{self.html_escape(type_brief)}</div>\n")
+                    f.write("        </div>\n")
+                
+                if read_brief:
+                    f.write("        <div class=\"property-doc-item\">\n")
+                    f.write("          <div class=\"property-doc-label\">Read</div>\n")
+                    f.write(f"          <div class=\"property-doc-text\">{self.html_escape(read_brief)}</div>\n")
+                    f.write("        </div>\n")
+                
+                if write_brief:
+                    f.write("        <div class=\"property-doc-item\">\n")
+                    f.write("          <div class=\"property-doc-label\">Write</div>\n")
+                    f.write(f"          <div class=\"property-doc-text\">{self.html_escape(write_brief)}</div>\n")
+                    f.write("        </div>\n")
+            
             else:
                 f.write("        <p>\n")
                 f.write(f"          {msg}.\n")
@@ -1578,7 +2345,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         if len(parts) == 2:
             return f"<span class=\"func-name\">{parts[0]}</span> {parts[1]}"
         return f"<span class=\"func-name\">{text}</span>"
-
+    
+    def delete_old_topic_pdfs(self):
+        out_dir = os.path.join(self.output_dir, "pascal")
+        if not os.path.isdir(out_dir):
+            return
+        keep = { "PascalDocumentation.pdf" }
+        for name in os.listdir(out_dir):
+            if name.lower().endswith(".pdf") and name not in keep:
+                try:
+                    os.remove(os.path.join(out_dir, name))
+                except Exception as e:
+                    print("PDF delete failed:", name, e)
+    
     def highlight_multiline_signature(self, signature):
         text     = self.link_known_types(signature)
         keywords = [
@@ -1919,22 +2698,22 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
     
     def write_member_table(self, f, title, members, access_filter=None):
         items = []
-
+        
         for member in members:
             if access_filter is None or member.access == access_filter:
                 items.append(member)
-
+        
         if not items:
             return
-
+        
         f.write("    <section>\n")
         f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
         f.write("      <table class=\"func-table\">\n")
-
+        
         for member in items:
             left, right = self.split_signature(member.signature)
             anchor = self.make_member_anchor(self.current_output_class, member)
-
+            
             f.write("        <tr>\n")
             f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
             f.write(
@@ -1947,7 +2726,7 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
             f.write(f"          <td class=\"ret\">{self.html_escape(left)}</td>\n")
             f.write(f"          <td class=\"sig\">{self.highlight_signature(right)}</td>\n")
             f.write("        </tr>\n")
-
+        
         f.write("      </table>\n")
         f.write("    </section>\n")
 
@@ -3312,6 +4091,7 @@ class DoxyGenToolWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        global DOXYGEN_WINDOW
         DOXYGEN_WINDOW   = self
         
         self.owner       = self
@@ -3423,7 +4203,8 @@ class DoxyGenToolWindow(QWidget):
                 self.visitor.visit(tree)
                 
         except Exception as e:
-            print(e)
+            traceback.print_exc()
+            return
         
         print(f"HTML-Dokumentation erstellt in: {output_dir}")
 

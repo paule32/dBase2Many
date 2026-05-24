@@ -143,6 +143,15 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#unknownTypeToken.
+    def enterUnknownTypeToken(self, ctx:PasDocParser.UnknownTypeTokenContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#unknownTypeToken.
+    def exitUnknownTypeToken(self, ctx:PasDocParser.UnknownTypeTokenContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#classDeclaration.
     def enterClassDeclaration(self, ctx:PasDocParser.ClassDeclarationContext):
         pass
@@ -269,6 +278,42 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#enumDeclaration.
+    def enterEnumDeclaration(self, ctx:PasDocParser.EnumDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#enumDeclaration.
+    def exitEnumDeclaration(self, ctx:PasDocParser.EnumDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#enumType.
+    def enterEnumType(self, ctx:PasDocParser.EnumTypeContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#enumType.
+    def exitEnumType(self, ctx:PasDocParser.EnumTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#enumItemTail.
+    def enterEnumItemTail(self, ctx:PasDocParser.EnumItemTailContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#enumItemTail.
+    def exitEnumItemTail(self, ctx:PasDocParser.EnumItemTailContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#enumItem.
+    def enterEnumItem(self, ctx:PasDocParser.EnumItemContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#enumItem.
+    def exitEnumItem(self, ctx:PasDocParser.EnumItemContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#visibilitySection.
     def enterVisibilitySection(self, ctx:PasDocParser.VisibilitySectionContext):
         pass
@@ -374,15 +419,6 @@ class PasDocParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PasDocParser#propertyDeclaration.
     def exitPropertyDeclaration(self, ctx:PasDocParser.PropertyDeclarationContext):
-        pass
-
-
-    # Enter a parse tree produced by PasDocParser#propertyType.
-    def enterPropertyType(self, ctx:PasDocParser.PropertyTypeContext):
-        pass
-
-    # Exit a parse tree produced by PasDocParser#propertyType.
-    def exitPropertyType(self, ctx:PasDocParser.PropertyTypeContext):
         pass
 
 
