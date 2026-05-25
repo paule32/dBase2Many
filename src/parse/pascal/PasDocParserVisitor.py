@@ -39,6 +39,11 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#varDeclaration.
+    def visitVarDeclaration(self, ctx:PasDocParser.VarDeclarationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#constSection.
     def visitConstSection(self, ctx:PasDocParser.ConstSectionContext):
         return self.visitChildren(ctx)
@@ -249,8 +254,38 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#interfaceDeclaration.
+    def visitInterfaceDeclaration(self, ctx:PasDocParser.InterfaceDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#interfaceBaseList.
+    def visitInterfaceBaseList(self, ctx:PasDocParser.InterfaceBaseListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#interfaceBody.
+    def visitInterfaceBody(self, ctx:PasDocParser.InterfaceBodyContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#interfaceMember.
+    def visitInterfaceMember(self, ctx:PasDocParser.InterfaceMemberContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#genericParams.
+    def visitGenericParams(self, ctx:PasDocParser.GenericParamsContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#typeName.
     def visitTypeName(self, ctx:PasDocParser.TypeNameContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#genericTypeArgs.
+    def visitGenericTypeArgs(self, ctx:PasDocParser.GenericTypeArgsContext):
         return self.visitChildren(ctx)
 
 

@@ -119,44 +119,55 @@ def _write_css(output_dir):
     filename = os.path.join(output_dir, "style.css")
     doxy_css = share.locales.tr("doxy_html_css")
     doxy_css = doxy_css + """
-:root {
---doc-header-height: 96px;
+.search-box {
+    margin: 8px 0 14px 0;
+    padding: 6px 10px 8px 10px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: #1b1b1b;
 }
-.doc-header-sticky {
-position: fixed;
-top: 0;
-left: 0;
-right: 0;
-height: var(--doc-header-height);
-z-index: 99999;
-background: #1e1e1e;
-border-bottom: 1px solid #444;
-box-shadow: 0 3px 10px rgba(0,0,0,0.65);
-padding: 10px 16px;
-box-sizing: border-box;
-overflow: hidden;
+.search-box h2 {
+    margin: 0 0 6px 0;
+    padding: 0;
+    line-height: 1.1;
 }
-.content-pane,
-.page {
-padding-top: calc(var(--doc-header-height) + 16px) !important;
+#docSearchInput {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    border: 1px solid #555;
+    border-radius: 6px;
+    background-color: #242424;
+    color: #ffffff;
+    font-family: Consolas, monospace;
 }
-.toc-pane {
-padding-top: calc(var(--doc-header-height) + 16px);
+#docSearchInput::placeholder {
+    color: #9a9a9a;
 }
-.property-doc-item {
-margin: 10px 0 14px 0;
+.search-result-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
 }
-.property-doc-label {
-font-weight: bold;
-color: #ffffff;
+.search-result-kind {
+    color: #d0a040;
+    font-size: 12px;
 }
-.property-doc-text {
-margin-top: 4px;
-padding-left: 18px;
-color: #dddddd;
+.search-result-title a {
+    color: #80bfff;
+    font-weight: bold;
+    text-decoration: none;
+}
+.search-result-title a:hover {
+    text-decoration: underline;
+}
+.search-result-text {
+    color: #cfcfcf;
+    font-size: 13px;
+}
+.search-empty {
+    color: #c08080;
 }
 """
-
     with open(filename, "w", encoding="utf-8") as f:
         f.write(doxy_css)
 
@@ -176,7 +187,9 @@ def make_anchor(name, signature=""):
     text = f"{name}:{signature}"
     return hashlib.md5(text.encode("utf-8")).hexdigest()[:12]
 
-
+# ---------------------------------------------------------------------------
+# \brief C++ Documentation classes used as records ...
+# ---------------------------------------------------------------------------
 class CppClassInfo:
     def __init__(self, name):
         self.name    = name
@@ -190,7 +203,9 @@ class CppMemberInfo:
         self.access    = access
         self.signature = signature
 
-
+# ---------------------------------------------------------------------------
+# \brief Pascal Documentation classes used as records ...
+# ---------------------------------------------------------------------------
 class PasTypeInfo:
     def __init__(self       ,
         name                ,
@@ -257,6 +272,75 @@ class PasEnumInfo(PasTypeInfo):
         super().__init__(name, "enum", signature, brief)
         self.items = []
 
+class PasVarGroupInfo:
+    def __init__(self, title="Global Variables"):
+        self.title = title
+        self.vars  = []
+
+@dataclass
+class PasInterfaceInfo:
+    name        : str
+    bases       : list
+    brief       : str
+    methods     : list
+    properties  : list
+
+class DoxyProgressDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.index_file = ""
+
+        self.setWindowTitle(share.locales.tr("Generate Documentation"))
+        self.resize(600, 400)
+
+        layout = QVBoxLayout(self)
+
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setValue(0)
+
+        self.log_edit = QPlainTextEdit()
+        self.log_edit.setReadOnly(True)
+        self.log_edit.setFont(QFont("Consolas", 9))
+
+        btn_layout = QHBoxLayout()
+
+        self.btn_open = QPushButton(share.locales.tr("Open HTML Documentation"))
+        self.btn_open.setEnabled(False)
+
+        self.btn_close = QPushButton(share.locales.tr("Close"))
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_open)
+        btn_layout.addWidget(self.btn_close)
+
+        layout.addWidget(self.progress)
+        layout.addWidget(self.log_edit)
+        layout.addLayout(btn_layout)
+
+        self.btn_open.clicked.connect(self.open_html)
+        self.btn_close.clicked.connect(self.accept)
+
+    def log(self, text):
+        self.log_edit.appendPlainText(str(text))
+        self.log_edit.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+
+    def setValue(self, value):
+        self.progress.setValue(value)
+        QApplication.processEvents()
+
+    def done_generation(self, index_file):
+        self.index_file = index_file
+        self.setValue(100)
+        self.log("DONE")
+        self.btn_open.setEnabled(True)
+
+    def open_html(self):
+        if self.index_file and os.path.exists(self.index_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self.index_file))
+
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
 # ---------------------------------------------------------------------------
@@ -267,8 +351,11 @@ class HtmlToPdf(QObject):
         self.html_file = os.path.abspath(html_file)
         self.pdf__file = os.path.abspath(pdf__file)
         
-        self.view = QWebEngineView()
+        self.owner = parent
+        self.view  = QWebEngineView()
         self.view.hide()
+        
+        self.progress = self.owner.visitor.progress
         
         settings = self.view.settings()
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
@@ -280,10 +367,13 @@ class HtmlToPdf(QObject):
         self.load_html()
     
     def load_html(self):
-        print("HTML:", self.html_file)
+        self.progress.log(share.locales.tr("Load HTML") + ": " + self.html_file)
 
         if not os.path.exists(self.html_file):
-            print("HTML existiert nicht")
+            QMessageBox.critical(
+                DOXYGEN_WINDOW,
+                share.locales.tr("HTML Error"),
+                share.locales.tr("HTML does not exists"))
             return
 
         with open(self.html_file, "r", encoding="utf-8") as f:
@@ -292,17 +382,17 @@ class HtmlToPdf(QObject):
         base_dir = os.path.dirname(self.html_file)
         base_url = QUrl.fromLocalFile(base_dir + os.sep + "test.pdf")
 
-        print("BASE:", base_url.toString())
+        self.progress.log(share.locales.tr("BASE") + ": " + base_url.toString())
         self.view.setHtml(html_code, base_url)
     
     def on_load_finished(self, ok):
-        print("loadFinished:", ok)
+        self.progress.log(share.locales.tr("HTML load Finished") + ": ok")
         if not ok:
             return
         QTimer.singleShot(250, self.print_pdf)
     
     def print_pdf(self):
-        print("PDF:", self.pdf__file)
+        self.progress.log(share.locales.tr("PDF") + ": " + self.pdf__file)
         layout = QPageLayout(
             QPageSize(QPageSize.A4),
             QPageLayout.Portrait,
@@ -312,7 +402,9 @@ class HtmlToPdf(QObject):
         self.view.page().printToPdf(self.pdf__file, layout)
         
     def on_pdf_finished(self, file_path, success):
-        print("pdfFinished:", file_path, success)
+        if success: success = share.locales.tr("success")
+        else:       success = share.locales.tr("failed")
+        self.progress.log(share.locales.tr("PDF created") + ": " + success)
 
 # ---------------------------------------------------------------------------
 # \brief pascal documentation visitor to generate the pascal html help ...
@@ -320,11 +412,14 @@ class HtmlToPdf(QObject):
 class PasDocHtmlVisitor(PasDocParserVisitor):
     def __init__(self,
         output_dir   = "html",
-        use_treeview = False):
+        use_treeview = False ,
+        progress     = None):
+        
         super().__init__()
         
         self.output_dir      = output_dir
         self.use_treeview    = use_treeview
+        self.progress        = progress
         
         self.classes         = []
         
@@ -343,10 +438,16 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pdf_exports     = []
         self.global_methods  = []
         
+        self.interfaces      = []
+        self.cross_refs      = {}
+        
         self.current_class        = None
         self.current_output_class = None
         
-        self.current_access  = "public"
+        self.global_var_groups = []
+        self.current_var_group = None
+        
+        self.current_access    = "public"
         
         DOXYGEN_CONFIG.append("# Doxyfile 1.17.3\n")
         
@@ -369,8 +470,16 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 self.doxy_fields(page.area.findChildren(QWidget))
                 
             for item in DOXYGEN_CONFIG:
-                print(f"{item}")
+                self.progress.log(f"{item}")
+    
+    def progress_log(self, text):
+        if self.progress:
+            self.progress.log(text)
 
+    def progress_value(self, value):
+        if self.progress:
+            self.progress.setValue(value)
+        
     def doxy_fields(self, page_widgets):
         for widget in page_widgets:
             if isinstance(widget, DoxyLineBtn3)\
@@ -416,6 +525,127 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {widget.combo.currentText()}")
                 continue
     
+    def all_pascal_types(self):
+        return (
+            self.classes +
+            self.interfaces +
+            self.records +
+            self.arrays +
+            self.sets +
+            self.enums
+        )
+    
+    def normalize_type_name(self, text):
+        text = text.strip()
+        if "<" in text:
+            text = text.split("<", 1)[0].strip()
+        return text.lower()
+    
+    def register_cross_ref(self, type_name, source_kind, source_name, source_link):
+        key = self.normalize_type_name(type_name)
+        if not key:
+            return
+        self.cross_refs.setdefault(key, [])
+        item = {
+            "kind": source_kind,
+            "name": source_name,
+            "link": source_link
+        }
+        if item not in self.cross_refs[key]:
+            self.cross_refs[key].append(item)
+    
+    def build_cross_references(self):
+        self.cross_refs = {}
+        known = {}
+        for item in self.all_pascal_types():
+            known[self.normalize_type_name(item.name)] = item
+        for cls in self.classes + self.interfaces:
+            for base in getattr(cls, "bases", []):
+                self.register_cross_ref(
+                    base,
+                    "Inherited by",
+                    cls.name,
+                    self.safe_filename(cls.name) + ".html"
+                )
+
+            members = (
+                getattr(cls, "fields", []) +
+                getattr(cls, "properties", []) +
+                getattr(cls, "methods", [])
+            )
+
+            for member in members:
+                sig = member.signature
+
+                for key, item in known.items():
+                    if key in sig.lower():
+                        self.register_cross_ref(
+                            item.name,
+                            "Used by",
+                            cls.name + "." + self.member_display_name(member),
+                            self.safe_filename(cls.name) + ".html#" + self.make_member_anchor(cls, member)
+                        )
+        for v in self.global_vars:
+            self.register_cross_ref(
+                v.vtype,
+                "Global variable",
+                v.name,
+                "index.html#" + self.make_var_anchor(v.name)
+            )
+    
+    def write_search_index(self):
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
+
+        items = []
+
+        for cls in self.classes:
+            items.append({
+                "kind": "Class",
+                "name": cls.name,
+                "text": cls.brief,
+                "link": self.safe_filename(cls.name) + ".html"
+            })
+
+        for item in self.interfaces:
+            items.append({
+                "kind": "Interface",
+                "name": item.name,
+                "text": item.brief,
+                "link": self.safe_filename(item.name) + ".html"
+            })
+
+        for item in self.records + self.arrays + self.sets + self.enums:
+            items.append({
+                "kind": item.kind,
+                "name": item.name,
+                "text": item.brief,
+                "link": self.safe_filename(item.name) + ".html"
+            })
+
+        for c in self.constants:
+            items.append({
+                "kind": "Constant",
+                "name": c.name,
+                "text": c.brief,
+                "link": "index.html#const_" + self.safe_filename(c.name)
+            })
+
+        for v in self.global_vars:
+            items.append({
+                "kind": "Variable",
+                "name": v.name,
+                "text": v.brief,
+                "link": "index.html#" + self.make_var_anchor(v.name)
+            })
+
+        filename = os.path.join(out_dir, "search_index.js")
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("window.PASCAL_SEARCH_INDEX = ")
+            f.write(json.dumps(items, ensure_ascii=False, indent=2))
+            f.write(";\n")
+        
     def parse_doc_comment(self, text):
         self.clear_pending_doc()
 
@@ -471,7 +701,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     self.pending_params[current_param_index][1] += " " + line
                 elif current_tag == "return":
                     self.pending_returns += " " + line
-    
+                    
+    def ensure_global_var_group(self):
+        if self.current_var_group is None:
+            self.current_var_group = PasVarGroupInfo("Global Variables")
+            self.global_var_groups.append(self.current_var_group)
+        
+        return self.current_var_group
+        
     def alpha_key(self, name):
         if not name:
             return "#"
@@ -525,12 +762,44 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             anchor = anchor.replace("__", "_")
         return anchor.strip("_")
     
+    def visitInterfaceDeclaration(self, ctx):
+        name  = ctx.IDENT().getText()
+        generic_params = self.generic_params_from_ctx(ctx)
+        
+        name  = name + generic_params
+        bases = []
+        
+        if ctx.interfaceBaseList():
+            for t in ctx.interfaceBaseList().typeName():
+                bases.append(t.getText())
+        
+        info = PasInterfaceInfo(
+            name        = name,
+            bases       = bases,
+            brief       = self.pending_brief,
+            methods     = [],
+            properties  = []
+        )
+        
+        old_class  = self.current_class
+        old_access = self.current_access
+        
+        self.current_class  = info
+        self.current_access = "public"
+        
+        self.interfaces.append(info)
+        self.visit( ctx.interfaceBody())
+        
+        self.current_class  = old_class
+        self.current_access = old_access
+        
+        self.clear_pending_doc()
+        return None
+    
     def visitEnumDeclaration(self, ctx):
         name  = ctx.IDENT().getText()
         brief = self.pending_brief
         
-        print("ENUM FOUND:", name)
-
         if hasattr(ctx, "docComment") and ctx.docComment():
             brief = self.extract_brief(ctx.docComment().getText())
 
@@ -591,7 +860,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def visitConstItem(self, ctx: PasDocParser.ConstItemContext):
         name  = ctx.IDENT().getText()
         value = self.text_from_ctx(ctx.constValue())
-        print("const name:", name)
+        
         self.constants.append(
             PasConstInfo(
                 name,
@@ -603,7 +872,6 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return None
     
     def visitSetDeclaration(self, ctx):
-        print("SET FOUND")
         name  = ctx.IDENT().getText()
         brief = self.pending_brief
 
@@ -623,7 +891,6 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return None
     
     def visitArrayDeclaration(self, ctx):
-        print("ARRAY FOUND")
         name  = ctx.IDENT().getText()
         brief = self.pending_brief
 
@@ -670,7 +937,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
     def visitRecordDeclaration(self, ctx):
         name = ctx.IDENT().getText()
-        print("RECORD FOUND:", name)
+        generic_params = self.generic_params_from_ctx(ctx)
+        name = name + generic_params
+        
         info = PasTypeInfo(
             name,
             "record",
@@ -692,7 +961,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.current_access = old_access
 
         return info
-        
+    
     def visitDocComment(self, ctx: PasDocParser.DocCommentContext):
         text = ctx.getText()
         
@@ -702,44 +971,93 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_returns = ""
         
         self.parse_doc_comment(text)
+        
+        #if self.current_class is None and self.pending_brief:
+        #    self.current_var_group = PasVarGroupInfo(self.pending_brief)
+        #    self.global_var_groups.append(self.current_var_group)
+        
         return None
     
+    def visitVarDeclaration(self, ctx):
+        if ctx.docComment():
+            brief = self.extract_brief(ctx.docComment().getText())
+            if brief:
+                self.current_var_group = PasVarGroupInfo(brief)
+                self.global_var_groups.append(self.current_var_group)
+            return None
+        return self.visitChildren(ctx)
+    
     def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
+        self.progress_log(share.locales.tr("Parse Pascal unit..."))
+        self.progress_value(5)
+        
         self.visitChildren(ctx)
         os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
         
+        self.progress_log("BUILD CROSS REFERENCES")
+        self.progress_value(8)
+        self.build_cross_references()
+        
+        self.progress_log(share.locales.tr("Delete old PDFs..."))
         self.delete_old_topic_pdfs()
         
-        print("WRITE INDEX")
+        self.progress_log(share.locales.tr("GLOBAL VARS COUNT")       + ": " + str(len(self.global_vars)))
+        self.progress_log(share.locales.tr("GLOBAL VAR GROUPS COUNT") + ": " + str(len(self.global_var_groups)))
+        
+        self.progress_log(share.locales.tr("WRITE INDEX"))
+        self.progress_value(10)
         self.write_index()
         
-        print("WRITE CLASSES")
+        self.progress_log("WRITE SEARCH INDEX")
+        self.progress_value(13)
+        self.write_search_index()
+
+        self.progress_log(share.locales.tr("WRITE CLASSES"))
+        self.progress_value(15)
         self.write_classes()
         
-        print("WRITE RECORDS")
+        self.progress_log(share.locales.tr("WRITE INTERFACES"))
+        self.progress_log(share.locales.tr("INTERFACES COUNT") + ": " + str(len(self.interfaces)))
+        self.progress_value(20)
+        self.write_interfaces()
+
+        self.progress_log(share.locales.tr("WRITE RECORDS"))
+        self.progress_value(25)
         self.write_pascal_types(self.records)
         
-        print("WRITE ARRAYS")
+        self.progress_log(share.locales.tr("WRITE ARRAYS"))
+        self.progress_value(30)
         self.write_pascal_types(self.arrays)
         
-        print("WRITE SETS")
+        self.progress_log(share.locales.tr("WRITE SETS"))
+        self.progress_value(35)
         self.write_pascal_types(self.sets)
         
-        print("WRITE ENUMS")
+        self.progress_log(share.locales.tr("WRITE ENUMS"))
+        self.progress_value(40)
         self.write_pascal_enums()
         
-        print("WRITE PDF DOCUMENT")
+        self.progress_log(share.locales.tr("WRITE PDF DOCUMENT"))
+        self.progress_value(45)
         self.write_pascal_pdf_document()
+        
+        index_file = os.path.abspath(
+            os.path.join(self.output_dir, "pascal", "index.html")
+        )
+        
+        self.progress_value(100)
+        self.progress.done_generation(index_file)
         
         return self.classes
     
     def visitClassDeclaration(self, ctx: PasDocParser.ClassDeclarationContext):
         class_name = ctx.IDENT().getText()
+        generic_params = self.generic_params_from_ctx(ctx)
         
         old_class  = self.current_class
         old_access = self.current_access
         
-        info       = PasClassInfo(class_name)
+        info = PasClassInfo(class_name + generic_params)
         info.brief = self.pending_brief
         info.kind  = "class"
         
@@ -851,17 +1169,22 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         if ":" not in signature:
             return
-            
+        
         left, right = signature.split(":", 1)
         
         names = [x.strip() for x in left.split(",")]
         vtype = right.strip()
         vtype = vtype.rstrip(";").strip()
         
+        group = self.ensure_global_var_group()
+        
         for name in names:
             if name:
-                self.global_vars.append(PasVarInfo(name, vtype, brief))
+                item = PasVarInfo(name, vtype, brief)
                 
+                self.global_vars.append(item)
+                group.vars.append(item)
+        
         self.clear_pending_doc()
     
     def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
@@ -874,6 +1197,10 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         clean_signature = self.clean_pascal_signature(signature)
         
         if self.current_class is None:
+            if brief and self.current_var_group is None:
+                self.current_var_group = PasVarGroupInfo(brief)
+                self.global_var_groups.append(self.current_var_group)
+
             self.add_global_var_from_signature(clean_signature, brief)
             return None
             
@@ -934,6 +1261,26 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def make_var_anchor(self, name):
         return "var_" + self.safe_filename(name).lower()
     
+    def write_cross_reference_section(self, f, item):
+        key  = self.normalize_type_name(item.name)
+        refs = self.cross_refs.get(key, [])
+        
+        if not refs:
+            return
+        
+        f.write("    <section>\n")
+        f.write("      <h2>Cross References</h2>\n")
+        f.write("      <table class=\"func-table\">\n")
+        
+        for ref in refs:
+            f.write("        <tr>\n")
+            f.write(f"          <td class=\"ret\">{self.html_escape(ref['kind'])}</td>\n")
+            f.write(f"          <td class=\"sig\"><a href=\"{ref['link']}\">{self.html_escape(ref['name'])}</a></td>\n")
+            f.write("        </tr>\n")
+        
+        f.write("      </table>\n")
+        f.write("    </section>\n")
+    
     def write_doc_header(self, f, title, current_name=None):
         f.write("    <div class=\"doc-header-sticky\">\n")
         f.write("      <div class=\"version\">Pascal Doc</div>\n")
@@ -947,6 +1294,36 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("        <span>Overview</span>\n")
         f.write("      </div>\n")
         f.write("    </div>\n")
+        
+        self.write_search_box(f)
+    
+    def write_global_variable_groups_index_section(self, f):
+        if not self.global_var_groups:
+            return
+        f.write("    <section>\n")
+        f.write("      <h2>Global Variables</h2>\n")
+        for group in self.global_var_groups:
+            if not group.vars:
+                continue
+            f.write(f"      <h3>{self.html_escape(group.title)}</h3>\n")
+            f.write("      <table class=\"func-table\">\n")
+            for v in group.vars:
+                anchor = self.make_var_anchor(v.name)
+                f.write("        <tr>\n")
+                f.write(f"          <td class=\"ret\">{self.link_known_types(v.vtype)}</td>\n")
+                f.write(
+                    f"          <td class=\"sig\" id=\"{anchor}\">"
+                    f"<span class=\"func-name\">{self.html_escape(v.name)}</span></td>\n"
+                )
+                f.write("        </tr>\n")
+                if v.brief:
+                    f.write("        <tr class=\"member-brief-row\">\n")
+                    f.write("          <td class=\"ret\"></td>\n")
+                    f.write(f"          <td class=\"sig member-brief\">{self.html_escape(v.brief)}</td>\n")
+                    f.write("        </tr>\n")
+            
+            f.write("      </table>\n")
+        f.write("    </section>\n")
     
     def write_pascal_pdf_document(self):
         out_dir = os.path.join(self.output_dir, "pascal")
@@ -957,98 +1334,32 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         with open(filename, "w", encoding="utf-8") as f:
             f.write("<!DOCTYPE html>\n<html>\n<head>\n")
             f.write("  <meta charset=\"utf-8\">\n")
-            f.write("  <title>Pascal Documentation PDF</title>\n")
+            f.write(f"  <title>{share.locales.tr('Pascal Documentation PDF')}</title>\n")
             f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
-            f.write("""
-<style>
-@page {
-    size: A4;
-    margin: 0;
-    background: #000000;
-}
-@media print {
-    .doc-header-sticky {
-        position: static !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-
-    .content-pane,
-    .page {
-        padding-top: 0 !important;
-        background: #000000;
-    }
-}
-html, body {
-    overflow: visible !important;
-    height: auto !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    background: #000000 !important;
-}
-.splitter {
-    display: none !important;
-}
-.content-pane {
-    width: auto !important;
-    max-width: none !important;
-    overflow: visible !important;
-    height: auto !important;
-    margin: 0 !important;
-    box-sizing: border-box;
-    min-height: 100vh;
-    background: #000000 !important;
-}
-.page {
-    box-sizing: border-box;
-    min-height: 100vh;
-    padding: 1cm !important;
-    background: #000000 !important;
-}
-section {
-    page-break-inside: auto !important;
-    background: #000000 !important;
-}
-pre {
-    white-space: pre-wrap;
-    background: #000000 !important;
-}
-main.page {
-    box-sizing: border-box !important;
-    width: 100% !important;
-    padding: 1cm !important;
-    margin: 0 !important;
-    background: #000000 !important;
-}
-
-main.page > section,
-main.page > h1,
-main.page > h2,
-main.page > h3 {
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-</style>
-""")
+            f.write("  <script src=\"search_index.js\"></script>\n")
+            f.write(f"<style>{share.locales.tr('doxy_html_css_print')}</style>")
+            
             f.write("</head>\n<body>\n")
             f.write("<main class=\"page\">\n")
-            f.write("<h1>Pascal Documentation</h1>\n")
+            f.write(f"<h1>{share.locales.tr('Pascal Documentation')}</h1>\n")
 
             self._write_pdf_constants(f)
             self._write_pdf_global_variables(f)
             self._write_pdf_global_methods(f)
 
             self._write_pdf_classes(f)
-            self._write_pdf_types(f, "Records", self.records)
-            self._write_pdf_types(f, "Arrays",  self.arrays)
-            self._write_pdf_types(f, "Sets",    self.sets)
+            self._write_pdf_interfaces(f)
+            
+            self._write_pdf_types(f, share.locales.tr("Records"), self.records)
+            self._write_pdf_types(f, share.locales.tr("Arrays" ), self.arrays)
+            self._write_pdf_types(f, share.locales.tr("Sets"   ), self.sets)
+            
             self._write_pdf_enums(f)
 
             f.write("</main>\n")
             f.write("</body>\n</html>\n")
 
-        pdf_out = os.path.join(out_dir, "PascalDocumentation.pdf")
+        pdf_out = os.path.join(out_dir, share.locales.tr("PascalDocumentation.pdf"))
         self.pdf_exports.append(HtmlToPdf(filename, pdf_out, DOXYGEN_WINDOW))
 
     def _write_pdf_constants(self, f):
@@ -1056,7 +1367,7 @@ main.page > h3 {
             return
         
         f.write("<section>\n")
-        f.write("<h2>Constants</h2>\n")
+        f.write(f"<h2>{share.locales.tr('Constants')}</h2>\n")
         f.write("<table class=\"func-table\">\n")
         
         for c in self.constants:
@@ -1077,7 +1388,7 @@ main.page > h3 {
             return
 
         f.write("<section>\n")
-        f.write("<h2>Global Variables</h2>\n")
+        f.write(f"<h2>{share.locales.tr('Global Variables')}</h2>\n")
         f.write("<table class=\"func-table\">\n")
 
         for v in self.global_vars:
@@ -1099,7 +1410,7 @@ main.page > h3 {
             return
         
         f.write("<section>\n")
-        f.write("<h2>Global Procedures and Functions</h2>\n")
+        f.write(f"<h2>{share.locales.tr("Global Procedures and Functions")}</h2>\n")
         f.write("<table class=\"func-table\">\n")
         
         for m in self.global_methods:
@@ -1122,7 +1433,7 @@ main.page > h3 {
             return
         
         f.write("<section>\n")
-        f.write("<h2>Classes</h2>\n")
+        f.write(f"<h2>{share.locales.tr('Classes')}</h2>\n")
         
         for cls in self.classes:
             f.write(f"<h3>{self.html_escape(cls.name)}</h3>\n")
@@ -1137,20 +1448,20 @@ main.page > h3 {
             
             self.current_output_class = cls
             
-            self.write_member_table(f, "Public Methods",       cls.methods,    "public")
-            self.write_member_table(f, "Protected Methods",    cls.methods,    "protected")
-            self.write_member_table(f, "Private Methods",      cls.methods,    "private")
-            self.write_member_table(f, "Published Methods",    cls.methods,    "published")
+            self.write_member_table(f, share.locales.tr("Public Methods"),       cls.methods,    "public")
+            self.write_member_table(f, share.locales.tr("Protected Methods"),    cls.methods,    "protected")
+            self.write_member_table(f, share.locales.tr("Private Methods"),      cls.methods,    "private")
+            self.write_member_table(f, share.locales.tr("Published Methods"),    cls.methods,    "published")
             
-            self.write_member_table(f, "Public Properties",    cls.properties, "public")
-            self.write_member_table(f, "Protected Properties", cls.properties, "protected")
-            self.write_member_table(f, "Private Properties",   cls.properties, "private")
-            self.write_member_table(f, "Published Properties", cls.properties, "published")
+            self.write_member_table(f, share.locales.tr("Public Properties"),    cls.properties, "public")
+            self.write_member_table(f, share.locales.tr("Protected Properties"), cls.properties, "protected")
+            self.write_member_table(f, share.locales.tr("Private Properties"),   cls.properties, "private")
+            self.write_member_table(f, share.locales.tr("Published Properties"), cls.properties, "published")
             
-            self.write_member_table(f, "Public Fields",        cls.fields,     "public")
-            self.write_member_table(f, "Protected Fields",     cls.fields,     "protected")
-            self.write_member_table(f, "Private Fields",       cls.fields,     "private")
-            self.write_member_table(f, "Published Fields",     cls.fields,     "published")
+            self.write_member_table(f, share.locales.tr("Public Fields"),        cls.fields,     "public")
+            self.write_member_table(f, share.locales.tr("Protected Fields"),     cls.fields,     "protected")
+            self.write_member_table(f, share.locales.tr("Private Fields"),       cls.fields,     "private")
+            self.write_member_table(f, share.locales.tr("Published Fields"),     cls.fields,     "published")
             
             self.write_member_function_docs(f, cls)
             self.write_property_docs(f, cls)
@@ -1249,21 +1560,35 @@ main.page > h3 {
         return result
     
     def link_known_types(self, text):
-        result       = self.html_escape(text)
-        type_links   = self.build_type_links()
-        for type_name_lower, link in type_links.items():
-            original = None
-            for name in list(type_links.keys()):
-                pass
-        for item in self.classes + self.records + self.arrays + self.sets:
-            name   = item.name
-            link   = self.safe_filename(name) + ".html"
-            result = result.replace(
-                self.html_escape(name),
-                f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(name)}</a>"
-            )
-        return result
+        result = self.html_escape(text)
         
+        known_items = (
+            self.classes +
+            self.interfaces +
+            self.records +
+            self.arrays +
+            self.sets +
+            self.enums
+        )
+        
+        for item in known_items:
+            full_name = item.name
+            base_name = full_name.split("<", 1)[0]
+            
+            link = self.safe_filename(full_name) + ".html"
+            
+            result = result.replace(
+                self.html_escape(full_name),
+                f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(full_name)}</a>"
+            )
+            
+            result = result.replace(
+                self.html_escape(base_name) + "&lt;",
+                f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(base_name)}</a>&lt;"
+            )
+        
+        return result
+    
     def join_pascal_tokens(self, tokens):
         result = ""
         no_space_before = { ")", "]", ",", ".", ":" }
@@ -1328,7 +1653,14 @@ main.page > h3 {
                 f.write("        </tr>\n")
             f.write("      </table>\n")
         f.write("    </section>\n")
-        
+    
+    def write_search_box(self, f):
+        f.write("    <section class=\"search-box\">\n")
+        f.write("      <h2>Search</h2>\n")
+        f.write("      <input id=\"docSearchInput\" type=\"text\" placeholder=\"Search documentation...\" autocomplete=\"off\">\n")
+        f.write("      <div id=\"docSearchResults\" class=\"search-results\"></div>\n")
+        f.write("    </section>\n")
+    
     def write_index(self):
         filename = os.path.join(self.output_dir, "pascal", "index.html")
         with open(filename, "w", encoding="utf-8") as f:
@@ -1338,6 +1670,7 @@ main.page > h3 {
             f.write("  <meta charset=\"utf-8\">\n")
             f.write("  <title>Pascal Documentation</title>\n")
             f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+            f.write("  <script src=\"search_index.js\"></script>\n")
             f.write("</head>\n")
             f.write("<body>\n")
             if self.use_treeview:
@@ -1359,6 +1692,7 @@ main.page > h3 {
                 "Pascal Documentation",
                 None
             )
+            #self.write_search_box(f)
             
             ###self.write_alpha_index(f)
             ###self.write_constants_index_section(f)
@@ -1367,47 +1701,48 @@ main.page > h3 {
             
             self.write_index_section_alpha(
                 f,
-                "Classes",
+                share.locales.tr("Classes"),
                 [("Class", cls.name, self.safe_filename(cls.name) + ".html") for cls in self.classes]
             )
             self.write_index_section_alpha(
                 f,
-                "Records",
+                share.locales.tr("Interfaces"),
+                [("Interface", item.name, self.safe_filename(item.name) + ".html") for item in self.interfaces]
+            )
+            self.write_index_section_alpha(
+                f,
+                share.locales.tr("Records"),
                 [("Record", rec.name, self.safe_filename(rec.name) + ".html") for rec in self.records]
             )
             self.write_index_section_alpha(
                 f,
-                "Arrays",
+                share.locales.tr("Arrays"),
                 [("Array", arr.name, self.safe_filename(arr.name) + ".html") for arr in self.arrays]
             )
             self.write_index_section_alpha(
                 f,
-                "Sets",
+                share.locales.tr("Sets"),
                 [("Set", st.name, self.safe_filename(st.name) + ".html") for st in self.sets]
             )
             self.write_index_section_alpha(
                 f,
-                "Enums",
+                share.locales.tr("Enums"),
                 [("Enum", enm.name, self.safe_filename(enm.name) + ".html") for enm in self.enums]
             )
             self.write_index_section_alpha(
                 f,
-                "Constants",
+                share.locales.tr("Constants"),
                 [("Constant", c.name, "#const_" + self.safe_filename(c.name)) for c in self.constants]
             )
             self.write_index_section_alpha(
                 f,
-                "Global Variables",
+                share.locales.tr("Global Variables"),
                 [("Variable", v.name, "#" + self.make_var_anchor(v.name)) for v in self.global_vars]
-            )
-            self.write_index_section_alpha(
-                f,
-                "Enums",
-                [("Enum", enm.name, self.safe_filename(enm.name) + ".html") for enm in self.enums]
             )
             
             self.write_constants_index_section(f)
-            self.write_global_variables_index_section(f)
+            self.write_global_variable_groups_index_section(f)
+            #self.write_global_variables_index_section(f)
             
             f.write("    <section>\n")
             
@@ -1415,7 +1750,7 @@ main.page > h3 {
             #self.write_type_index_section(f, "Arrays",  self.arrays)
             #self.write_type_index_section(f, "Sets",    self.sets)
 
-            f.write("      <h2>Classes</h2>\n")
+            f.write(f"      <h2>{share.locales.tr("Classes")}</h2>\n")
             f.write("      <ul class=\"class-list\">\n")
             
             for cls in self.classes:
@@ -1434,7 +1769,9 @@ main.page > h3 {
             if self.use_treeview:
                 f.write("  </div>\n")
                 self.write_treeview_script(f)
-
+                
+            self.write_search_script(f)
+            
             f.write("</body>\n")
             f.write("</html>\n")
         
@@ -1491,6 +1828,27 @@ main.page > h3 {
         f.write("      </table>\n")
         f.write("    </section>\n")
     
+    def write_inheritance_diagram(self, f, item):
+        if not getattr(item, "bases", []):
+            return
+        
+        f.write("    <section>\n")
+        f.write("      <h2>Inheritance Diagram</h2>\n")
+        f.write("      <div class=\"inheritance-diagram\">\n")
+        
+        for base in item.bases:
+            f.write("        <div class=\"inheritance-node base-node\">\n")
+            f.write(f"          {self.link_known_types(base)}\n")
+            f.write("        </div>\n")
+            f.write("        <div class=\"inheritance-arrow\">↓</div>\n")
+        
+        f.write("        <div class=\"inheritance-node current-node\">\n")
+        f.write(f"          {self.html_escape(item.name)}\n")
+        f.write("        </div>\n")
+        
+        f.write("      </div>\n")
+        f.write("    </section>\n")
+    
     def write_classes(self):
         os.makedirs(os.path.join(self.output_dir, "pascal" ), exist_ok=True)
         for cls in self.classes:
@@ -1505,6 +1863,7 @@ main.page > h3 {
                 f.write("  <meta charset=\"utf-8\">\n")
                 f.write(f"  <title>{self.html_escape(cls.name)} Class</title>\n")
                 f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("  <script src=\"search_index.js\"></script>\n")
                 f.write("</head>\n")
                 f.write("<body>\n")
                 
@@ -1538,6 +1897,9 @@ main.page > h3 {
                 
                 if cls.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(cls.brief)}</p>\n")
+                    
+                self.write_inheritance_diagram(f, cls)
+                self.write_cross_reference_section(f, cls)
                 
                 if self.constants:
                     f.write("      <h2>Constants</h2>\n")
@@ -1562,20 +1924,20 @@ main.page > h3 {
                 
                 self.current_output_class = cls
                 
-                self.write_member_table(f, "Public Methods"         , cls.methods, "public")
-                self.write_member_table(f, "Protected Methods"      , cls.methods, "protected")
-                self.write_member_table(f, "Private Methods"        , cls.methods, "private")
-                self.write_member_table(f, "Published Methods"      , cls.methods, "published")
+                self.write_member_table(f, share.locales.tr("Public Methods")         , cls.methods, "public")
+                self.write_member_table(f, share.locales.tr("Protected Methods")      , cls.methods, "protected")
+                self.write_member_table(f, share.locales.tr("Private Methods")        , cls.methods, "private")
+                self.write_member_table(f, share.locales.tr("Published Methods")      , cls.methods, "published")
                 
-                self.write_member_table(f, "Public Properties"      , cls.properties, "public")
-                self.write_member_table(f, "Protected Properties"   , cls.properties, "protected")
-                self.write_member_table(f, "Private Properties"     , cls.properties, "private")
-                self.write_member_table(f, "Published Properties"   , cls.properties, "published")
+                self.write_member_table(f, share.locales.tr("Public Properties")      , cls.properties, "public")
+                self.write_member_table(f, share.locales.tr("Protected Properties")   , cls.properties, "protected")
+                self.write_member_table(f, share.locales.tr("Private Properties")     , cls.properties, "private")
+                self.write_member_table(f, share.locales.tr("Published Properties")   , cls.properties, "published")
                 
-                self.write_member_table(f, "Public Fields"          , cls.fields, "public")
-                self.write_member_table(f, "Protected Fields"       , cls.fields, "protected")
-                self.write_member_table(f, "Private Fields"         , cls.fields, "private")
-                self.write_member_table(f, "Published Fields"       , cls.fields, "published")
+                self.write_member_table(f, share.locales.tr("Public Fields")          , cls.fields, "public")
+                self.write_member_table(f, share.locales.tr("Protected Fields")       , cls.fields, "protected")
+                self.write_member_table(f, share.locales.tr("Private Fields")         , cls.fields, "private")
+                self.write_member_table(f, share.locales.tr("Published Fields")       , cls.fields, "published")
                 
                 f.write("    <section>\n")
                 f.write("      <h2>Detailed Description</h2>\n")
@@ -1609,11 +1971,12 @@ main.page > h3 {
         f.write("      <ul class=\"treeview\">\n")
 
         self.write_tree_group(f, "Classes", self.classes, "book")
-
-        self.write_tree_type_group(f, "Records", self.records)
-        self.write_tree_type_group(f, "Arrays" , self.arrays )
-        self.write_tree_type_group(f, "Sets"   , self.sets   )
-        self.write_tree_type_group(f, "Enums"  , self.enums  )
+        
+        self.write_tree_type_group(f, share.locales.tr("Interfaces"), self.interfaces)
+        self.write_tree_type_group(f, share.locales.tr("Records")   , self.records)
+        self.write_tree_type_group(f, share.locales.tr("Arrays")    , self.arrays )
+        self.write_tree_type_group(f, share.locales.tr("Sets")      , self.sets   )
+        self.write_tree_type_group(f, share.locales.tr("Enums")     , self.enums  )
 
         self.write_const_tree_group(f, current_item)
         self.write_var_tree_group(f, current_item)
@@ -1729,6 +2092,66 @@ main.page > h3 {
         f.write("          </ul>\n")
         f.write("        </li>\n")
     
+    def write_search_script(self, f):
+        f.write(r"""
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
+        });
+    });
+})();
+</script>
+""")
+
     def write_treeview_script(self, f):
         f.write(r"""<script>
         document.querySelectorAll('.tree-toggle').forEach(function(row) {
@@ -1790,6 +2213,7 @@ main.page > h3 {
                 f.write("  <meta charset=\"utf-8\">\n")
                 f.write(f"  <title>{self.html_escape(item.name)}</title>\n")
                 f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("  <script src=\"search_index.js\"></script>\n")
                 f.write("</head>\n<body>\n")
                 
                 if self.use_treeview:
@@ -1913,6 +2337,7 @@ main.page > h3 {
                 f.write("  <meta charset=\"utf-8\">\n")
                 f.write(f"  <title>{self.html_escape(item.name)}</title>\n")
                 f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("  <script src=\"search_index.js\"></script>\n")
                 f.write("</head>\n<body>\n")
                 
                 if self.use_treeview:
@@ -1945,7 +2370,8 @@ main.page > h3 {
                 f.write("      <h2>Declaration</h2>\n")
                 f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
                 f.write("    </section>\n")
-
+                
+                self.write_cross_reference_section(f, item)
                 self.current_output_class = item
                 if item.fields:
                     self.write_member_table(f, "Fields", item.fields, "public")
@@ -2123,6 +2549,108 @@ main.page > h3 {
             f.write("      </article>\n")
         f.write("    </section>\n")
     
+    def _write_pdf_interfaces(self, f):
+        if not self.interfaces:
+            return
+
+        f.write("<section>\n")
+        f.write("<h2>Interfaces</h2>\n")
+
+        for item in self.interfaces:
+            f.write(f"<h3>{self.html_escape(item.name)}</h3>\n")
+
+            if item.brief:
+                f.write(f"<p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+
+            if item.bases:
+                f.write("<p class=\"inherits\">Inherits: ")
+                f.write(", ".join(self.html_escape(b) for b in item.bases))
+                f.write("</p>\n")
+
+            self.current_output_class = item
+            self.write_inheritance_diagram(f, item)
+
+            self.write_member_table(f, "Methods", item.methods, "public")
+            self.write_member_table(f, "Properties", item.properties, "public")
+
+            self.write_member_function_docs(f, item)
+            self.write_property_docs(f, item)
+
+        f.write("</section>\n")
+    
+    def write_interfaces(self):
+        os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
+
+        for item in self.interfaces:
+            self.current_output_class = item
+
+            filename = os.path.join(
+                self.output_dir,
+                "pascal",
+                self.safe_filename(item.name) + ".html"
+            )
+
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n")
+                f.write("<html>\n")
+                f.write("<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(item.name)} Interface</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("  <script src=\"search_index.js\"></script>\n")
+                f.write("</head>\n")
+                f.write("<body>\n")
+
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, item)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+
+                self.write_doc_header(
+                    f,
+                    f"{item.name} Interface",
+                    item.name
+                )
+
+                if item.bases:
+                    f.write("    <p class=\"inherits\">Inherits: ")
+                    f.write(", ".join(self.html_escape(b) for b in item.bases))
+                    f.write("</p>\n")
+
+                if item.brief:
+                    f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
+
+                self.current_output_class = item
+                self.write_inheritance_diagram(f, item)
+                self.write_cross_reference_section(f, item)
+                
+                self.write_member_table(f, "Methods", item.methods, "public")
+                self.write_member_table(f, "Properties", item.properties, "public")
+
+                f.write("    <section>\n")
+                f.write("      <h2>Detailed Description</h2>\n")
+                f.write(f"      <p>The <span class=\"linklike\">{self.html_escape(item.name)}</span> interface.</p>\n")
+                f.write("    </section>\n")
+
+                self.write_member_function_docs(f, item)
+                self.write_property_docs(f, item)
+
+                f.write("    <footer>\n")
+                f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
+                f.write("    </footer>\n")
+
+                f.write("    </main>\n")
+
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+
+                f.write("</body>\n")
+                f.write("</html>\n")
+            
     def write_note_blocks(self, f, member):
         for kind, text in getattr(member, "notes", []):
             title = {
@@ -2262,6 +2790,21 @@ main.page > h3 {
         f.write("                  </ul>\n")
         f.write("                </li>\n")
     
+    def generic_params_from_ctx(self, ctx):
+        if not hasattr(ctx, "genericParams"):
+            return ""
+        
+        gp = ctx.genericParams()
+        if not gp:
+            return ""
+        
+        names = []
+        
+        for ident in gp.IDENT():
+            names.append(ident.getText())
+        
+        return "<" + ", ".join(names) + ">"
+        
     def member_display_name(self, member):
         sig = member.signature.strip()
         low = sig.lower()
@@ -2356,7 +2899,10 @@ main.page > h3 {
                 try:
                     os.remove(os.path.join(out_dir, name))
                 except Exception as e:
-                    print("PDF delete failed:", name, e)
+                    QMessageBox.warning(DOXYGEN_WINDOW,
+                        share.locales.tr("PDF Error"),
+                        share.locales.tr("PDF delete failed") + ": " + name)
+                    return
     
     def highlight_multiline_signature(self, signature):
         text     = self.link_known_types(signature)
@@ -2616,13 +3162,13 @@ class CppDocHtmlVisitor(CppDocParserVisitor):
                     f.write(", ".join(self.html_escape(b) for b in cls.bases))
                     f.write("</p>\n")
 
-                self.write_member_table(f, "Public Functions", cls.methods, "public")
-                self.write_member_table(f, "Protected Functions", cls.methods, "protected")
-                self.write_member_table(f, "Private Functions", cls.methods, "private")
+                self.write_member_table(f, share.locales.tr("Public Functions")     , cls.methods, "public")
+                self.write_member_table(f, share.locales.tr("Protected Functions")  , cls.methods, "protected")
+                self.write_member_table(f, share.locales.tr("Private Functions")    , cls.methods, "private")
 
-                self.write_member_table(f, "Public Fields", cls.fields, "public")
-                self.write_member_table(f, "Protected Fields", cls.fields, "protected")
-                self.write_member_table(f, "Private Fields", cls.fields, "private")
+                self.write_member_table(f, share.locales.tr("Public Fields")        , cls.fields, "public")
+                self.write_member_table(f, share.locales.tr("Protected Fields")     , cls.fields, "protected")
+                self.write_member_table(f, share.locales.tr("Private Fields")       , cls.fields, "private")
                 
                 
                 f.write("    <section>\n")
@@ -4100,6 +4646,7 @@ class DoxyGenToolWindow(QWidget):
         
         self.project_dir = _default_project_dir()
         self.propath     = self.project_dir / "doxygen_project.json"
+        self.visitor     = None
         
         self.current_project_path = ""
 
@@ -4177,6 +4724,11 @@ class DoxyGenToolWindow(QWidget):
         ext       = ext[1:].lower()
         try:
             if ext in ["pas", "pp"]:
+                self.progress = DoxyProgressDialog(self)
+                self.progress.show()
+                self.progress.log(share.locales.tr("Start documentation generation..."))
+                self.progress.setValue(1)
+                
                 self.input_stream = FileStream(source_file, encoding="utf-8")
                 self.lexer   = PasDocLexer      (self.input_stream)
                 self.tokens  = CommonTokenStream(self.lexer)
@@ -4186,7 +4738,9 @@ class DoxyGenToolWindow(QWidget):
             
                 self.visitor = PasDocHtmlVisitor(
                     output_dir,
-                    use_treeview = True)
+                    use_treeview = True,
+                    progress     = self.progress
+                )
                 self.visitor.visit(self.tree)
                 
             elif ext in ["c", "c++", "cc", "cpp"]:
@@ -4206,7 +4760,7 @@ class DoxyGenToolWindow(QWidget):
             traceback.print_exc()
             return
         
-        print(f"HTML-Dokumentation erstellt in: {output_dir}")
+        self.progress.log(share.locales.tr("HTML created in") + ": " + output_dir)
 
     def on_cwd_click(self):
         file_name = share.drives.open_share_file_dialog(self)

@@ -4,9 +4,8 @@
   <meta charset="utf-8">
   <title>Pascal Documentation PDF</title>
   <link rel="stylesheet" href="style.css">
-
-<style>
-@page {
+  <script src="search_index.js"></script>
+<style>@page {
     size: A4;
     margin: 0;
     background: #000000;
@@ -20,7 +19,7 @@
 
     .content-pane,
     .page {
-        padding-top: 0 !important;
+        padding-top: 20px !important;
         background: #000000;
     }
 }
@@ -42,6 +41,7 @@ html, body {
     margin: 0 !important;
     box-sizing: border-box;
     min-height: 100vh;
+padding-top: 1cm !important;
     background: #000000 !important;
 }
 .page {
@@ -74,8 +74,7 @@ main.page > h3 {
     margin-left: 0 !important;
     margin-right: 0 !important;
 }
-</style>
-</head>
+</style></head>
 <body>
 <main class="page">
 <h1>Pascal Documentation</h1>
@@ -112,6 +111,14 @@ main.page > h3 {
 <td class="sig"><span class="func-name">score_text</span></td>
 </tr>
 <tr class="member-brief-row"><td></td><td class="sig member-brief">player name text</td></tr>
+<tr>
+<td class="ret">Integer</td>
+<td class="sig"><span class="func-name">main_width</span></td>
+</tr>
+<tr>
+<td class="ret">Integer</td>
+<td class="sig"><span class="func-name">main_height</span></td>
+</tr>
 </table>
 </section>
 <section>
@@ -302,6 +309,293 @@ main.page > h3 {
         </p>
       </article>
     </section>
+<h3>TRepository&lt;T&gt;</h3>
+<p class="brief">Generic repository class</p>
+    <section>
+      <h2>Public Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#trepository_t_procedure_add_entity_t"><span class="func-name">Add </span>(Entity: T)</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Add entity</td>
+        </tr>
+        <tr>
+          <td class="ret">function</td>
+          <td class="sig"><a class="member-link" href="#trepository_t_function_findbyid_id_integer_t"><span class="func-name">FindById </span>(Id: Integer): T</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Find entity by id</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Public Properties</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">property</td>
+          <td class="sig"><a class="member-link" href="#trepository_t_property_items_ilist_t_read_fitems"><span class="func-name">Items</span>: IList &lt; T &gt;  read FItems</a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Private Fields</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">IList &lt; T &gt;</td>
+          <td class="sig"><a class="member-link" href="#trepository_t_fitems_ilist_t"><span class="func-name">FItems</span></a></td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="trepository_t_procedure_add_entity_t">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="TRepository_T_.html"><a class="type-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt;</a>.Add(Entity: T)
+        </div>
+        <div class="member-doc-content">
+          <p>Add entity</p>
+        </div>
+      </article>
+      <article class="member-doc-box" id="trepository_t_function_findbyid_id_integer_t">
+        <div class="member-doc-title">
+          <span class="func-name">function</span> <a class="type-link" href="TRepository_T_.html"><a class="type-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt;</a>.FindById(Id: Integer): T
+        </div>
+        <div class="member-doc-content">
+          <p>Find entity by id</p>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
+      <article class="member-doc" id="trepository_t_property_items_ilist_t_read_fitems">
+        <h3><span class="func-name">property Items</span>: IList &lt; T &gt;  read FItems</h3>
+        <div class="member-line"></div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Type</div>
+          <div class="property-doc-text">list datatype</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Read</div>
+          <div class="property-doc-text">returns internal list</div>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc" id="trepository_t_fitems_ilist_t">
+        <h3><span class="func-name">FItems</span>: IList &lt; T &gt;</h3>
+        <div class="member-line"></div>
+        <p>
+          No documentation for this Field.
+        </p>
+      </article>
+    </section>
+</section>
+<section>
+<h2>Interfaces</h2>
+<h3>IDrawable</h3>
+<p class="brief">Basic drawable object interface</p>
+    <section>
+      <h2>Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#idrawable_procedure_draw"><span class="func-name">Draw</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Basic drawable object interface</td>
+        </tr>
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#idrawable_procedure_moveto_x_integer_y_integer"><span class="func-name">MoveTo </span>(X: Integer ; Y: Integer)</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Move the object to a new position</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Properties</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">property</td>
+          <td class="sig"><a class="member-link" href="#idrawable_property_name_string_read_getname"><span class="func-name">Name</span>: string  read GetName</a></td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="idrawable_procedure_draw">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="IDrawable.html">IDrawable</a>.Draw
+        </div>
+        <div class="member-doc-content">
+          <p>Basic drawable object interface</p>
+        </div>
+      </article>
+      <article class="member-doc-box" id="idrawable_procedure_moveto_x_integer_y_integer">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="IDrawable.html">IDrawable</a>.MoveTo(<br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;X: Integer;</span><br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;Y: Integer</span><br><span class="member-args">)</span>
+        </div>
+        <div class="member-doc-content">
+          <p>Move the object to a new position</p>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
+      <article class="member-doc" id="idrawable_property_name_string_read_getname">
+        <h3><span class="func-name">property Name</span>: string  read GetName</h3>
+        <div class="member-line"></div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Type</div>
+          <div class="property-doc-text">name datatype</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Read</div>
+          <div class="property-doc-text">returns the object name</div>
+        </div>
+      </article>
+    </section>
+<h3>IShape</h3>
+<p class="brief">Shape interface with base interface</p>
+<p class="inherits">Inherits: IDrawable</p>
+    <section>
+      <h2>Inheritance Diagram</h2>
+      <div class="inheritance-diagram">
+        <div class="inheritance-node base-node">
+          <a class="type-link" href="IDrawable.html">IDrawable</a>
+        </div>
+        <div class="inheritance-arrow">↓</div>
+        <div class="inheritance-node current-node">
+          IShape
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">function</td>
+          <td class="sig"><a class="member-link" href="#ishape_function_area_double"><span class="func-name">Area</span>: Double</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Shape interface with base interface</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Properties</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">property</td>
+          <td class="sig"><a class="member-link" href="#ishape_property_width_integer_read_getwidth_write_setwidth"><span class="func-name">Width</span>: Integer  read GetWidth  write SetWidth</a></td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="ishape_function_area_double">
+        <div class="member-doc-title">
+          <span class="func-name">function</span> <a class="type-link" href="IShape.html">IShape</a>.Area: Double
+        </div>
+        <div class="member-doc-content">
+          <p>Shape interface with base interface</p>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
+      <article class="member-doc" id="ishape_property_width_integer_read_getwidth_write_setwidth">
+        <h3><span class="func-name">property Width</span>: Integer  read GetWidth  write SetWidth</h3>
+        <div class="member-line"></div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Type</div>
+          <div class="property-doc-text">width datatype</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Read</div>
+          <div class="property-doc-text">returns width</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Write</div>
+          <div class="property-doc-text">sets width</div>
+        </div>
+      </article>
+    </section>
+<h3>IList&lt;T&gt;</h3>
+<p class="brief">Generic list interface</p>
+    <section>
+      <h2>Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#ilist_t_procedure_add_item_t"><span class="func-name">Add </span>(Item: T)</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Generic list interface</td>
+        </tr>
+        <tr>
+          <td class="ret">function</td>
+          <td class="sig"><a class="member-link" href="#ilist_t_function_getitem_index_integer_t"><span class="func-name">GetItem </span>(Index: Integer): T</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Get item by index</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Properties</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">property</td>
+          <td class="sig"><a class="member-link" href="#ilist_t_property_count_integer_read_getcount"><span class="func-name">Count</span>: Integer  read GetCount</a></td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="ilist_t_procedure_add_item_t">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="IList_T_.html"><a class="type-link" href="IList_T_.html">IList</a>&lt;T&gt;</a>.Add(Item: T)
+        </div>
+        <div class="member-doc-content">
+          <p>Generic list interface</p>
+        </div>
+      </article>
+      <article class="member-doc-box" id="ilist_t_function_getitem_index_integer_t">
+        <div class="member-doc-title">
+          <span class="func-name">function</span> <a class="type-link" href="IList_T_.html"><a class="type-link" href="IList_T_.html">IList</a>&lt;T&gt;</a>.GetItem(Index: Integer): T
+        </div>
+        <div class="member-doc-content">
+          <p>Get item by index</p>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
+      <article class="member-doc" id="ilist_t_property_count_integer_read_getcount">
+        <h3><span class="func-name">property Count</span>: Integer  read GetCount</h3>
+        <div class="member-line"></div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Type</div>
+          <div class="property-doc-text">number datatype</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Read</div>
+          <div class="property-doc-text">returns item count</div>
+        </div>
+      </article>
+    </section>
 </section>
 <section>
 <h2>Records</h2>
@@ -325,6 +619,30 @@ main.page > h3 {
         <tr class="member-brief-row">
           <td class="ret"></td>
           <td class="sig member-brief">give the Y position</td>
+        </tr>
+      </table>
+    </section>
+<h3>TPair&lt;TKey, TValue&gt;</h3>
+<p class="brief">Generic key value pair record</p>
+<pre class="declaration">record Key: TKey ;  Value: TValue ;  end</pre>
+    <section>
+      <h2>Fields</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">TKey</td>
+          <td class="sig"><a class="member-link" href="#tpair_tkey_tvalue_key_tkey"><span class="func-name">Key</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">key value</td>
+        </tr>
+        <tr>
+          <td class="ret">TValue</td>
+          <td class="sig"><a class="member-link" href="#tpair_tkey_tvalue_value_tvalue"><span class="func-name">Value</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">stored value</td>
         </tr>
       </table>
     </section>

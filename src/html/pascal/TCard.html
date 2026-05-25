@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>TCard</title>
   <link rel="stylesheet" href="style.css">
+  <script src="search_index.js"></script>
 </head>
 <body>
   <div class="layout">
@@ -75,6 +76,57 @@
                 </li>
               </ul>
             </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TRepository_T_.html">TRepository&lt;T&gt;</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Interfaces</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IDrawable.html">IDrawable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IShape.html">IShape</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
           </ul>
         </li>
         <li class="tree-node">
@@ -82,6 +134,9 @@
           <ul class="collapsed">
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPoint.html">TPoint</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPair_TKey__TValue_.html">TPair&lt;TKey, TValue&gt;</a></div>
             </li>
           </ul>
         </li>
@@ -135,6 +190,12 @@
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_score_text">score_text</a></div>
             </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_width">main_width</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_height">main_height</a></div>
+            </li>
           </ul>
         </li>
       </ul>
@@ -150,6 +211,11 @@
         <span>TCard</span>
       </div>
     </div>
+    <section class="search-box">
+      <h2>Search</h2>
+      <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
+      <div id="docSearchResults" class="search-results"></div>
+    </section>
     <p class="brief">available cards</p>
     <section>
       <h2>Declaration</h2>

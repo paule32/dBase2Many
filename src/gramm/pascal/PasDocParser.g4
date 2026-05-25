@@ -28,6 +28,7 @@ declaration
     | varSection
     | typeSection
     | classDeclaration
+    | interfaceDeclaration
     | recordDeclaration
     | arrayDeclaration
     | setDeclaration
@@ -36,7 +37,12 @@ declaration
     ;
 
 varSection
-    : VAR fieldDeclaration*
+    : VAR varDeclaration*
+    ;
+
+varDeclaration
+    : docComment
+    | fieldDeclaration
     ;
 
 constSection
@@ -73,6 +79,7 @@ typeSection
 typeDeclaration
     : classDeclaration
     | recordDeclaration
+    | interfaceDeclaration
     | arrayDeclaration
     | setDeclaration
     | enumDeclaration
@@ -94,12 +101,14 @@ unknownTypeToken
     | COLON
     | COMMA
     | DOTDOT
+    | LT
+    | GT
     | DOT
     | CARET
     ;
 
 classDeclaration
-    : IDENT EQ classType SEMI?
+    : IDENT genericParams? EQ classType SEMI?
     ;
 
 classType
@@ -124,7 +133,7 @@ classMember
     ;
 
 recordDeclaration
-    : IDENT EQ recordType SEMI?
+    : IDENT genericParams? EQ recordType SEMI?
     ;
 
 recordType
@@ -246,8 +255,36 @@ fieldDeclaration
     : IDENT (COMMA IDENT)* COLON typeName SEMI docComment?
     ;
 
+interfaceDeclaration
+    : IDENT genericParams? EQ INTERFACE interfaceBaseList? docComment?
+      interfaceBody
+      END SEMI
+    ;
+
+interfaceBaseList
+    : LPAREN typeName (COMMA typeName)* RPAREN
+    ;
+
+interfaceBody
+    : interfaceMember*
+    ;
+
+interfaceMember
+    : methodDeclaration
+    | propertyDeclaration
+    | docComment
+    ;
+
+genericParams
+    : LT IDENT (COMMA IDENT)* GT
+    ;
+
 typeName
-    : CARET? IDENT (DOT IDENT)*
+    : CARET? IDENT genericTypeArgs? (DOT IDENT genericTypeArgs?)*
+    ;
+
+genericTypeArgs
+    : LT typeName (COMMA typeName)* GT
     ;
 
 otherToken

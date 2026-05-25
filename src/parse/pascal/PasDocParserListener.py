@@ -62,6 +62,15 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#varDeclaration.
+    def enterVarDeclaration(self, ctx:PasDocParser.VarDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#varDeclaration.
+    def exitVarDeclaration(self, ctx:PasDocParser.VarDeclarationContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#constSection.
     def enterConstSection(self, ctx:PasDocParser.ConstSectionContext):
         pass
@@ -440,12 +449,66 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#interfaceDeclaration.
+    def enterInterfaceDeclaration(self, ctx:PasDocParser.InterfaceDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#interfaceDeclaration.
+    def exitInterfaceDeclaration(self, ctx:PasDocParser.InterfaceDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#interfaceBaseList.
+    def enterInterfaceBaseList(self, ctx:PasDocParser.InterfaceBaseListContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#interfaceBaseList.
+    def exitInterfaceBaseList(self, ctx:PasDocParser.InterfaceBaseListContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#interfaceBody.
+    def enterInterfaceBody(self, ctx:PasDocParser.InterfaceBodyContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#interfaceBody.
+    def exitInterfaceBody(self, ctx:PasDocParser.InterfaceBodyContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#interfaceMember.
+    def enterInterfaceMember(self, ctx:PasDocParser.InterfaceMemberContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#interfaceMember.
+    def exitInterfaceMember(self, ctx:PasDocParser.InterfaceMemberContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#genericParams.
+    def enterGenericParams(self, ctx:PasDocParser.GenericParamsContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#genericParams.
+    def exitGenericParams(self, ctx:PasDocParser.GenericParamsContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#typeName.
     def enterTypeName(self, ctx:PasDocParser.TypeNameContext):
         pass
 
     # Exit a parse tree produced by PasDocParser#typeName.
     def exitTypeName(self, ctx:PasDocParser.TypeNameContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#genericTypeArgs.
+    def enterGenericTypeArgs(self, ctx:PasDocParser.GenericTypeArgsContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#genericTypeArgs.
+    def exitGenericTypeArgs(self, ctx:PasDocParser.GenericTypeArgsContext):
         pass
 
 

@@ -66,6 +66,10 @@ LPAREN          : '(';
 RPAREN          : ')';
 LBRACK          : '[';
 RBRACK          : ']';
+
+LT              : '<';
+GT              : '>';
+
 SEMI            : ';';
 COLON           : ':';
 COMMA           : ',';

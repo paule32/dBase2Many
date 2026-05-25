@@ -160,6 +160,9 @@ class LocalizeToolWindow(QWidget):
         self._load_state()
         self._apply_default_headers()
         
+        self.ed_po_path.setText("")
+        self.ed_mo_path.setText("")
+        
         try:
             if hasattr(self, "_sync_language_buttons"):
                 self._sync_language_buttons()
@@ -178,18 +181,18 @@ class LocalizeToolWindow(QWidget):
         self.tabs.addTab(self._build_entries_tab (), share.locales.tr("Entries"))
         self.tabs.addTab(self._build_settings_tab(), share.locales.tr("Settings"))
 
-        btn_row = QHBoxLayout()
-        self.btn_create = QPushButton(share.locales.tr("Create"), self)
-        self.btn_help   = QPushButton(share.locales.tr("Help")  , self)
-        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self)
-        for b in (self.btn_create, self.btn_help, self.btn_cancel):
-            b.setMinimumWidth(95)
-            btn_row.addWidget(b)
-        root.addLayout(btn_row)
+        #btn_row = QHBoxLayout()
+        #self.btn_create = QPushButton(share.locales.tr("Create"), self)
+        #self.btn_help   = QPushButton(share.locales.tr("Help")  , self)
+        #self.btn_cancel = QPushButton(share.locales.tr("Cancel"), self)
+        #for b in (self.btn_create, self.btn_help, self.btn_cancel):
+        #    b.setMinimumWidth(95)
+        #    btn_row.addWidget(b)
+        #root.addLayout(btn_row)
 
-        self.btn_create.clicked.connect(self._create_mo_file)
-        self.btn_help  .clicked.connect(self._show_help)
-        self.btn_cancel.clicked.connect(self._close_self)
+        #self.btn_create.clicked.connect(self._create_mo_file)
+        #self.btn_help  .clicked.connect(self._show_help)
+        #self.btn_cancel.clicked.connect(self._close_self)
 
     def _build_entries_tab(self):
         content = QWidget()
@@ -296,6 +299,12 @@ class LocalizeToolWindow(QWidget):
         self.btn_apply .clicked.connect(self._apply_entry)
         self.btn_delete.clicked.connect(self._delete_selected_entry)
         
+        self.btn_create = QPushButton(share.locales.tr("Create"), content)
+        self.btn_cancel = QPushButton(share.locales.tr("Cancel"), content)
+        
+        self.btn_create.clicked.connect(self._create_mo_file)
+        self.btn_cancel.clicked.connect(self._close_self)
+        
         editor_hor.addWidget(self.btn_insert)
         editor_hor.addWidget(self.btn_apply)
         editor_hor.addWidget(self.btn_delete)
@@ -345,6 +354,9 @@ class LocalizeToolWindow(QWidget):
             self.btn_paste,
             self.btn_cut,
             self.btn_delete_text,
+            #
+            self.btn_create,
+            self.btn_cancel,
         ):
             b.setMinimumWidth(110)
         
@@ -365,6 +377,9 @@ class LocalizeToolWindow(QWidget):
         btn_col.addSpacing(2)
 
         btn_col.addStretch(1)
+        
+        btn_col.addWidget(self.btn_create)
+        btn_col.addWidget(self.btn_cancel)
 
         center_right_splitter = QSplitter(Qt.Horizontal, content)
 
@@ -662,16 +677,27 @@ class LocalizeToolWindow(QWidget):
 
     def _choose_and_open_po(self):
         start = self.ed_po_path.text().strip() or os.getcwd()
-        path, _ = QFileDialog.getOpenFileName(self, 'PO-Datei öffnen', start, 'PO Dateien (*.po);;Alle Dateien (*.*)')
+        title = share.locales.tr("Load PO-File")
+        exten = share.locales.tr("PO-Files (*.po);;All Files (*.*)")
+        path, _ = QFileDialog.getOpenFileName(self, title, start, exten)
         path = (path or '').strip()
         if not path:
             return
-        self.ed_po_path.setText(path)
-        self._open_po(path)
+        
+        base, ext = os.path.splitext(path)
+        po_file   = base + ".po"
+        mo_file   = base + ".mo"
+        
+        self.ed_po_path.setText(po_file)
+        self.ed_mo_path.setText(mo_file)
+        
+        self._open_po(po_file)
 
     def _choose_mo_path(self):
         start = self.ed_mo_path.text().strip() or os.getcwd()
-        path, _ = QFileDialog.getSaveFileName(self, 'MO-Datei auswählen', start, 'MO Dateien (*.mo);;Alle Dateien (*.*)')
+        title = share.locales.tr("Select MO-File")
+        exten = share.locales.tr("MO-Files (*.mo);;All Files (*.*)")
+        path, _ = QFileDialog.getSaveFileName(self, title, start, exten)
         path = (path or '').strip()
         if not path:
             return
@@ -684,7 +710,9 @@ class LocalizeToolWindow(QWidget):
         try:
             import polib
         except Exception as e:
-            QMessageBox.warning(self, 'Localize', f'polib konnte nicht geladen werden:\n{e}')
+            title = share.locales.tr("Localize")
+            error = share.locales.tr("polib could not be open")
+            QMessageBox.warning(self, title, f'{error}:\n{e}')
             return
         try:
             po = polib.pofile(path)
