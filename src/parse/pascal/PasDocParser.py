@@ -262,7 +262,7 @@ class PasDocParser ( Parser ):
     RULE_unknownTypeToken = 16
     RULE_classDeclaration = 17
     RULE_classType = 18
-    RULE_classInheritance = 19
+    RULE_classBaseList = 19
     RULE_classBody = 20
     RULE_classMember = 21
     RULE_recordDeclaration = 22
@@ -306,7 +306,7 @@ class PasDocParser ( Parser ):
                    "constDeclaration", "constItem", "constValue", "sign", 
                    "docComment", "typeSection", "typeDeclaration", "unknownTypeDeclaration", 
                    "unknownTypeToken", "classDeclaration", "classType", 
-                   "classInheritance", "classBody", "classMember", "recordDeclaration", 
+                   "classBaseList", "classBody", "classMember", "recordDeclaration", 
                    "recordType", "recordBody", "recordMember", "arrayDeclaration", 
                    "arrayType", "arrayIndex", "setDeclaration", "setType", 
                    "enumDeclaration", "enumType", "enumItemTail", "enumItem", 
@@ -1790,8 +1790,8 @@ class PasDocParser ( Parser ):
             return self.getTypedRuleContext(PasDocParser.ClassBodyContext,0)
 
 
-        def classInheritance(self):
-            return self.getTypedRuleContext(PasDocParser.ClassInheritanceContext,0)
+        def classBaseList(self):
+            return self.getTypedRuleContext(PasDocParser.ClassBaseListContext,0)
 
 
         def getRuleIndex(self):
@@ -1827,7 +1827,7 @@ class PasDocParser ( Parser ):
             la_ = self._interp.adaptivePredict(self._input,18,self._ctx)
             if la_ == 1:
                 self.state = 242
-                self.classInheritance()
+                self.classBaseList()
 
 
             self.state = 245
@@ -1841,7 +1841,7 @@ class PasDocParser ( Parser ):
         return localctx
 
 
-    class ClassInheritanceContext(ParserRuleContext):
+    class ClassBaseListContext(ParserRuleContext):
         __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
@@ -1868,29 +1868,29 @@ class PasDocParser ( Parser ):
                 return self.getToken(PasDocParser.COMMA, i)
 
         def getRuleIndex(self):
-            return PasDocParser.RULE_classInheritance
+            return PasDocParser.RULE_classBaseList
 
         def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterClassInheritance" ):
-                listener.enterClassInheritance(self)
+            if hasattr( listener, "enterClassBaseList" ):
+                listener.enterClassBaseList(self)
 
         def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitClassInheritance" ):
-                listener.exitClassInheritance(self)
+            if hasattr( listener, "exitClassBaseList" ):
+                listener.exitClassBaseList(self)
 
         def accept(self, visitor:ParseTreeVisitor):
-            if hasattr( visitor, "visitClassInheritance" ):
-                return visitor.visitClassInheritance(self)
+            if hasattr( visitor, "visitClassBaseList" ):
+                return visitor.visitClassBaseList(self)
             else:
                 return visitor.visitChildren(self)
 
 
 
 
-    def classInheritance(self):
+    def classBaseList(self):
 
-        localctx = PasDocParser.ClassInheritanceContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 38, self.RULE_classInheritance)
+        localctx = PasDocParser.ClassBaseListContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 38, self.RULE_classBaseList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)

@@ -15,6 +15,82 @@
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TChildClass.html">TChildClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TSprite.html">TSprite</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TSprite.html#tsprite_procedure_draw">Draw</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWeapon.html">TWeapon</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TInventory.html">TInventory</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPlayer.html">TPlayer</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_render">Render</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPerson.html">TPerson</a></div>
               <ul>
                 <li class="tree-node">
@@ -123,6 +199,12 @@
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IShape.html">IShape</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IRenderable.html">IRenderable</a></div>
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
@@ -245,50 +327,105 @@
     </main>
   </div>
 <script>
-        document.querySelectorAll('.tree-toggle').forEach(function(row) {
-            row.addEventListener('click', function(event) {
-                if (event.target.tagName.toLowerCase() === 'a') {
-                    return;
-                }
-                const li = row.closest('.tree-node');
-                const ul = li.querySelector(':scope > ul');
-                const twisty = row.querySelector('.twisty');
-                if (!ul) {
-                    return;
-                }
-                ul.classList.toggle('collapsed');
-                if (ul.classList.contains('collapsed')) {
-                    twisty.textContent = '▸';
-                } else {
-                    twisty.textContent = '▾';
-                }
-            });
-        });
-        const splitter = document.getElementById('splitter');
-        const tocPane = document.getElementById('tocPane');
-        let dragging = false;
-        splitter.addEventListener('mousedown', function(e) {
-            dragging = true;
-            document.body.classList.add('resizing');
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) {
+    document.querySelectorAll('.tree-toggle').forEach(function(row) {
+        row.addEventListener('click', function(event) {
+            if (event.target.tagName.toLowerCase() === 'a') {
                 return;
             }
-            let newWidth = e.clientX;
-            if (newWidth < 120) {
-                newWidth = 120;
+            const li = row.closest('.tree-node');
+            const ul = li.querySelector(':scope > ul');
+            const twisty = row.querySelector('.twisty');
+            if (!ul) {
+                return;
             }
-            if (newWidth > 480) {
-                newWidth = 480;
+            ul.classList.toggle('collapsed');
+            if (ul.classList.contains('collapsed')) {
+                twisty.textContent = '▸';
+            } else {
+                twisty.textContent = '▾';
             }
-            tocPane.style.flexBasis = newWidth + 'px';
-            tocPane.style.width = newWidth + 'px';
         });
-        document.addEventListener('mouseup', function() {
-            dragging = false;
-            document.body.classList.remove('resizing');
+    });
+    const splitter = document.getElementById('splitter');
+    const tocPane = document.getElementById('tocPane');
+    let dragging = false;
+    splitter.addEventListener('mousedown', function(e) {
+        dragging = true;
+        document.body.classList.add('resizing');
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) {
+            return;
+        }
+        let newWidth = e.clientX;
+        if (newWidth < 120) {
+            newWidth = 120;
+        }
+        if (newWidth > 480) {
+            newWidth = 480;
+        }
+        tocPane.style.flexBasis = newWidth + 'px';
+        tocPane.style.width = newWidth + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+        dragging = false;
+        document.body.classList.remove('resizing');
+    });
+</script>
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
         });
-        </script>
-        </body>
+    });
+})();
+</script></body>
 </html>

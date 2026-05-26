@@ -118,56 +118,8 @@ ALPHA_CHARS     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def _write_css(output_dir):
     filename = os.path.join(output_dir, "style.css")
     doxy_css = share.locales.tr("doxy_html_css")
-    doxy_css = doxy_css + """
-.search-box {
-    margin: 8px 0 14px 0;
-    padding: 6px 10px 8px 10px;
-    border: 1px solid #444;
-    border-radius: 8px;
-    background: #1b1b1b;
-}
-.search-box h2 {
-    margin: 0 0 6px 0;
-    padding: 0;
-    line-height: 1.1;
-}
-#docSearchInput {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 6px 10px;
-    border: 1px solid #555;
-    border-radius: 6px;
-    background-color: #242424;
-    color: #ffffff;
-    font-family: Consolas, monospace;
-}
-#docSearchInput::placeholder {
-    color: #9a9a9a;
-}
-.search-result-item {
-    padding: 8px 0;
-    border-bottom: 1px solid #333;
-}
-.search-result-kind {
-    color: #d0a040;
-    font-size: 12px;
-}
-.search-result-title a {
-    color: #80bfff;
-    font-weight: bold;
-    text-decoration: none;
-}
-.search-result-title a:hover {
-    text-decoration: underline;
-}
-.search-result-text {
-    color: #cfcfcf;
-    font-size: 13px;
-}
-.search-empty {
-    color: #c08080;
-}
-"""
+    #doxy_css = doxy_css +
+    
     with open(filename, "w", encoding="utf-8") as f:
         f.write(doxy_css)
 
@@ -1054,6 +1006,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         class_name = ctx.IDENT().getText()
         generic_params = self.generic_params_from_ctx(ctx)
         
+        bases      = []
+        
         old_class  = self.current_class
         old_access = self.current_access
         
@@ -1065,9 +1019,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         class_type = ctx.classType()
         
-        if class_type and class_type.classInheritance():
-            for t in class_type.classInheritance().typeName():
-                info.bases.append(self.text_from_ctx(t))
+        if class_type.classBaseList():
+            for t in class_type.classBaseList().typeName():
+                bases.append(self.text_from_ctx(t))
+        
+        info.bases = bases
         
         self.current_class  = info
         self.current_access = "public"
@@ -1626,6 +1582,21 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 result.append("_")
         return "".join(result)
     
+    def format_property_signature(self, signature):
+        sig = signature.strip()
+        sig = sig.replace(";", "")
+        sig = sig.replace(" read ", "\n    read ")
+        sig = sig.replace(" write ", "\n    write ")
+        sig = self.html_escape(sig)
+        
+        if sig.startswith("property "):
+            sig = sig.replace(
+                "property ",
+                "<span class=\"kw-property\">property</span> ",
+                1
+            )
+        return sig
+    
     def write_alpha_index(self, f):
         items = self.index_items()
         groups = {}
@@ -1828,6 +1799,92 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("      </table>\n")
         f.write("    </section>\n")
     
+    def write_implemented_by_section(self, f, item):
+        implemented_by = self.find_implemented_by(item.name)
+
+        if not implemented_by:
+            return
+
+        f.write("    <section>\n")
+        f.write("      <h2>Implemented By</h2>\n")
+        f.write("      <ul class=\"implemented-by-list\">\n")
+
+        for cls in implemented_by:
+            link = self.safe_filename(cls.name) + ".html"
+            f.write("        <li>")
+            f.write(f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(cls.name)}</a>")
+            f.write("</li>\n")
+
+        f.write("      </ul>\n")
+        f.write("    </section>\n")
+    
+    def find_implemented_by(self, interface_name):
+        result = []
+        iface_key = self.normalize_type_name(interface_name)
+        for cls in self.classes:
+            for base in getattr(cls, "bases", []):
+                if self.normalize_type_name(base) == iface_key:
+                    result.append(cls)
+        return result
+    
+    def find_derived_classes(self, class_name):
+        result = []
+        
+        for cls in self.classes:
+            for base in getattr(cls, "bases", []):
+                if self.normalize_type_name(base) == self.normalize_type_name(class_name):
+                    result.append(cls)
+
+        return result
+    
+    def find_type_dependencies(self, item):
+        result = []
+        own_key = self.normalize_type_name(item.name)
+        known   = {}
+        for known_item in self.all_pascal_types():
+            key = self.normalize_type_name(known_item.name)
+            known[key] = known_item
+        texts = []
+        for base in getattr(item, "bases", []):
+            texts.append(base)
+        members = (
+            getattr(item, "fields", []) +
+            getattr(item, "properties", []) +
+            getattr(item, "methods", [])
+        )
+        for member in members:
+            texts.append(getattr(member, "signature", ""))
+        if getattr(item, "signature", ""):
+            texts.append(item.signature)
+        for text in texts:
+            text_key = text.lower()
+            for key, known_item in known.items():
+                if key == own_key:
+                    continue
+                if key in text_key:
+                    if known_item not in result:
+                        result.append(known_item)
+        return result
+    
+    def write_derived_classes_section(self, f, cls):
+        derived = self.find_derived_classes(cls.name)
+        
+        if not derived:
+            return
+        
+        f.write("    <section>\n")
+        f.write("      <h2>Derived Classes</h2>\n")
+        f.write("      <ul class=\"derived-list\">\n")
+        
+        for item in derived:
+            link = self.safe_filename(item.name) + ".html"
+            f.write("        <li>")
+            f.write(f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(item.name)}</a>")
+            f.write("</li>\n")
+        
+        f.write("      </ul>\n")
+        f.write("    </section>\n")
+    
     def write_inheritance_diagram(self, f, item):
         if not getattr(item, "bases", []):
             return
@@ -1849,6 +1906,31 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("      </div>\n")
         f.write("    </section>\n")
     
+    def write_dependency_diagram(self, f, item):
+        deps = self.find_type_dependencies(item)
+
+        if not deps:
+            return
+
+        f.write("    <section>\n")
+        f.write("      <h2>Dependency Diagram</h2>\n")
+        f.write("      <div class=\"dependency-diagram\">\n")
+
+        f.write("        <div class=\"dependency-node dependency-current\">\n")
+        f.write(f"          {self.html_escape(item.name)}\n")
+        f.write("        </div>\n")
+
+        for dep in deps:
+            link = self.safe_filename(dep.name) + ".html"
+
+            f.write("        <div class=\"dependency-arrow\">↓</div>\n")
+            f.write("        <div class=\"dependency-node dependency-target\">\n")
+            f.write(f"          <a class=\"type-link\" href=\"{link}\">{self.html_escape(dep.name)}</a>\n")
+            f.write("        </div>\n")
+
+        f.write("      </div>\n")
+        f.write("    </section>\n")
+    
     def write_classes(self):
         os.makedirs(os.path.join(self.output_dir, "pascal" ), exist_ok=True)
         for cls in self.classes:
@@ -1856,6 +1938,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             filename = os.path.join(
                 self.output_dir, "pascal",
                 self.safe_filename(cls.name) + ".html")
+            print("CLASS:", cls.name, "BASES:", getattr(cls, "bases", []))
             with open(filename, "w", encoding="utf-8") as f:
                 f.write("<!DOCTYPE html>\n")
                 f.write("<html>\n")
@@ -1899,28 +1982,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write(f"    <p class=\"brief\">{self.html_escape(cls.brief)}</p>\n")
                     
                 self.write_inheritance_diagram(f, cls)
+                self.write_derived_classes_section(f, cls)
+                self.write_dependency_diagram(f, cls)
                 self.write_cross_reference_section(f, cls)
-                
-                if self.constants:
-                    f.write("      <h2>Constants</h2>\n")
-                    f.write("      <table class=\"func-table\">\n")
-                    for c in self.constants:
-                        anchor = "const_" + self.safe_filename(c.name)
-                        
-                        f.write("        <tr>\n")
-                        f.write(f"          <td class=\"ret\">{self.html_escape(c.value)}</td>\n")
-                        f.write(
-                            f"          <td class=\"sig\" id=\"{anchor}\">"
-                            f"<span class=\"func-name\">{self.html_escape(c.name)}</span></td>\n"
-                        )
-                        f.write("        </tr>\n")
-                        
-                        if c.brief:
-                            f.write("        <tr class=\"member-brief-row\">\n")
-                            f.write("          <td class=\"ret\"></td>\n")
-                            f.write(f"          <td class=\"sig member-brief\">{self.html_escape(c.brief)}</td>\n")
-                            f.write("        </tr>\n")
-                    f.write("      </table>\n")
                 
                 self.current_output_class = cls
                 
@@ -1958,6 +2022,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write("  </div>\n")
                     self.write_treeview_script(f)
                 
+                self.write_search_script(f)
                 f.write("</body>\n")
                 f.write("</html>\n")
             
@@ -2093,113 +2158,10 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("        </li>\n")
     
     def write_search_script(self, f):
-        f.write(r"""
-<script>
-(function() {
-    const input = document.getElementById("docSearchInput");
-    const results = document.getElementById("docSearchResults");
-
-    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
-        return;
-    }
-
-    function escapeHtml(text) {
-        return String(text || "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-    }
-
-    input.addEventListener("input", function() {
-        const query = input.value.trim().toLowerCase();
-        results.innerHTML = "";
-
-        if (query.length < 2) {
-            return;
-        }
-
-        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
-            const haystack = (
-                item.kind + " " +
-                item.name + " " +
-                (item.text || "")
-            ).toLowerCase();
-
-            return haystack.indexOf(query) >= 0;
-        }).slice(0, 50);
-
-        if (!found.length) {
-            results.innerHTML = "<div class='search-empty'>No results found.</div>";
-            return;
-        }
-
-        found.forEach(function(item) {
-            const row = document.createElement("div");
-            row.className = "search-result-item";
-
-            row.innerHTML =
-                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
-                "<div class='search-result-title'><a href='" + item.link + "'>" +
-                escapeHtml(item.name) +
-                "</a></div>" +
-                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
-
-            results.appendChild(row);
-        });
-    });
-})();
-</script>
-""")
+        f.write(share.locales.tr("doxy_html_javascript"))
 
     def write_treeview_script(self, f):
-        f.write(r"""<script>
-        document.querySelectorAll('.tree-toggle').forEach(function(row) {
-            row.addEventListener('click', function(event) {
-                if (event.target.tagName.toLowerCase() === 'a') {
-                    return;
-                }
-                const li = row.closest('.tree-node');
-                const ul = li.querySelector(':scope > ul');
-                const twisty = row.querySelector('.twisty');
-                if (!ul) {
-                    return;
-                }
-                ul.classList.toggle('collapsed');
-                if (ul.classList.contains('collapsed')) {
-                    twisty.textContent = '▸';
-                } else {
-                    twisty.textContent = '▾';
-                }
-            });
-        });
-        const splitter = document.getElementById('splitter');
-        const tocPane = document.getElementById('tocPane');
-        let dragging = false;
-        splitter.addEventListener('mousedown', function(e) {
-            dragging = true;
-            document.body.classList.add('resizing');
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) {
-                return;
-            }
-            let newWidth = e.clientX;
-            if (newWidth < 120) {
-                newWidth = 120;
-            }
-            if (newWidth > 480) {
-                newWidth = 480;
-            }
-            tocPane.style.flexBasis = newWidth + 'px';
-            tocPane.style.width = newWidth + 'px';
-        });
-        document.addEventListener('mouseup', function() {
-            dragging = false;
-            document.body.classList.remove('resizing');
-        });
-        </script>
-        """)
+        f.write(share.locales.tr("doxy_html_treeview_js"))
     
     def write_pascal_enums(self):
         out_dir = os.path.join(self.output_dir, "pascal")
@@ -2273,6 +2235,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write("  </div>\n")
                     self.write_treeview_script(f)
                 
+                self.write_search_script(f)
                 f.write("</body>\n</html>\n")
             
             #pdf_out = os.path.splitext(filename)[0] + ".pdf"
@@ -2382,6 +2345,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write("  </div>\n")
                     self.write_treeview_script(f)
                 
+                self.write_search_script(f)
                 f.write("</body>\n</html>\n")
             
             #pdf_out = os.path.splitext(filename)[0] + ".pdf"
@@ -2624,8 +2588,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
 
                 self.current_output_class = item
-                self.write_inheritance_diagram(f, item)
-                self.write_cross_reference_section(f, item)
+                
+                self.write_inheritance_diagram      (f, item)
+                self.write_implemented_by_section   (f, item)
+                self.write_dependency_diagram       (f, item)
+                self.write_cross_reference_section  (f, item)
                 
                 self.write_member_table(f, "Methods", item.methods, "public")
                 self.write_member_table(f, "Properties", item.properties, "public")
@@ -2648,6 +2615,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     f.write("  </div>\n")
                     self.write_treeview_script(f)
 
+                self.write_search_script(f)
                 f.write("</body>\n")
                 f.write("</html>\n")
             
@@ -2676,7 +2644,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             anchor = self.make_member_anchor(cls, member)
             
             f.write(f"      <article class=\"member-doc\" id=\"{anchor}\">\n")
-            f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
+            f.write("        <h3>\n")
+            f.write("          <pre class=\"property-signature\">\n")
+            f.write(f"{self.format_property_signature(member.signature)}\n")
+            f.write("          </pre>\n")
+            f.write("        </h3>\n")
             f.write("        <div class=\"member-line\"></div>\n")
             
             brief = getattr(member, "brief", "")

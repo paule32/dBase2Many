@@ -1,6 +1,42 @@
 window.PASCAL_SEARCH_INDEX = [
   {
     "kind": "Class",
+    "name": "TBaseClass",
+    "text": "Basisklasse",
+    "link": "TBaseClass.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TChildClass",
+    "text": "Abgeleitete Klasse",
+    "link": "TChildClass.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TSprite",
+    "text": "Sprite class implementing IDrawable",
+    "link": "TSprite.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TWeapon",
+    "text": "",
+    "link": "TWeapon.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TInventory",
+    "text": "",
+    "link": "TInventory.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TPlayer",
+    "text": "",
+    "link": "TPlayer.html"
+  },
+  {
+    "kind": "Class",
     "name": "TPerson",
     "text": "This is the TPerson class",
     "link": "TPerson.html"
@@ -14,14 +50,26 @@ window.PASCAL_SEARCH_INDEX = [
   {
     "kind": "Interface",
     "name": "IDrawable",
-    "text": "Basic drawable object interface",
+    "text": "Basis-Interface für zeichnbare Objekte",
     "link": "IDrawable.html"
   },
   {
     "kind": "Interface",
     "name": "IShape",
-    "text": "Shape interface with base interface",
+    "text": "Interface für geometrische Formen",
     "link": "IShape.html"
+  },
+  {
+    "kind": "Interface",
+    "name": "IList<T>",
+    "text": "Generisches Listen-Interface",
+    "link": "IList_T_.html"
+  },
+  {
+    "kind": "Interface",
+    "name": "IRenderable",
+    "text": "",
+    "link": "IRenderable.html"
   },
   {
     "kind": "Interface",

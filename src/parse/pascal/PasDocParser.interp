@@ -134,7 +134,7 @@ unknownTypeDeclaration
 unknownTypeToken
 classDeclaration
 classType
-classInheritance
+classBaseList
 classBody
 classMember
 recordDeclaration

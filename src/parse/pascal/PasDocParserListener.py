@@ -179,12 +179,12 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by PasDocParser#classInheritance.
-    def enterClassInheritance(self, ctx:PasDocParser.ClassInheritanceContext):
+    # Enter a parse tree produced by PasDocParser#classBaseList.
+    def enterClassBaseList(self, ctx:PasDocParser.ClassBaseListContext):
         pass
 
-    # Exit a parse tree produced by PasDocParser#classInheritance.
-    def exitClassInheritance(self, ctx:PasDocParser.ClassInheritanceContext):
+    # Exit a parse tree produced by PasDocParser#classBaseList.
+    def exitClassBaseList(self, ctx:PasDocParser.ClassBaseListContext):
         pass
 
 

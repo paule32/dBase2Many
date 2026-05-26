@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>TRepository&lt;T&gt; Class</title>
+  <title>IRenderable Interface</title>
   <link rel="stylesheet" href="style.css">
   <script src="search_index.js"></script>
 </head>
@@ -286,11 +286,11 @@
     <main class="page content-pane">
     <div class="doc-header-sticky">
       <div class="version">Pascal Doc</div>
-      <h1>TRepository&lt;T&gt; Class</h1>
+      <h1>IRenderable Interface</h1>
       <div class="breadcrumb">
         <a href="index.html">Overview</a>
         <span>›</span>
-        <span>TRepository&lt;T&gt;</span>
+        <span>IRenderable</span>
       </div>
     </div>
     <section class="search-box">
@@ -298,109 +298,42 @@
       <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
       <div id="docSearchResults" class="search-results"></div>
     </section>
-    <p class="brief">Generic repository class</p>
     <section>
-      <h2>Dependency Diagram</h2>
-      <div class="dependency-diagram">
-        <div class="dependency-node dependency-current">
-          TRepository&lt;T&gt;
-        </div>
-        <div class="dependency-arrow">↓</div>
-        <div class="dependency-node dependency-target">
-          <a class="type-link" href="IList_T_.html">IList&lt;T&gt;</a>
-        </div>
-      </div>
+      <h2>Implemented By</h2>
+      <ul class="implemented-by-list">
+        <li><a class="type-link" href="TPlayer.html">TPlayer</a></li>
+      </ul>
     </section>
     <section>
-      <h2>Public Methods</h2>
+      <h2>Cross References</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Inherited by</td>
+          <td class="sig"><a href="TPlayer.html">TPlayer</a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Methods</h2>
       <table class="func-table">
         <tr>
           <td class="ret">procedure</td>
-          <td class="sig"><a class="member-link" href="#trepository_t_procedure_add_entity_t"><span class="func-name">Add </span>(Entity: T)</a></td>
-        </tr>
-        <tr class="member-brief-row">
-          <td class="ret"></td>
-          <td class="sig member-brief">Add entity</td>
-        </tr>
-        <tr>
-          <td class="ret">function</td>
-          <td class="sig"><a class="member-link" href="#trepository_t_function_findbyid_id_integer_t"><span class="func-name">FindById </span>(Id: Integer): T</a></td>
-        </tr>
-        <tr class="member-brief-row">
-          <td class="ret"></td>
-          <td class="sig member-brief">Find entity by id</td>
-        </tr>
-      </table>
-    </section>
-    <section>
-      <h2>Public Properties</h2>
-      <table class="func-table">
-        <tr>
-          <td class="ret">property</td>
-          <td class="sig"><a class="member-link" href="#trepository_t_property_items_ilist_t_read_fitems"><span class="func-name">Items</span>: IList &lt; T &gt;  read FItems</a></td>
-        </tr>
-      </table>
-    </section>
-    <section>
-      <h2>Private Fields</h2>
-      <table class="func-table">
-        <tr>
-          <td class="ret">IList &lt; T &gt;</td>
-          <td class="sig"><a class="member-link" href="#trepository_t_fitems_ilist_t"><span class="func-name">FItems</span></a></td>
+          <td class="sig"><a class="member-link" href="#irenderable_procedure_render"><span class="func-name">Render</span></a></td>
         </tr>
       </table>
     </section>
     <section>
       <h2>Detailed Description</h2>
-      <p>The <span class="linklike">TRepository&lt;T&gt;</span> class.</p>
+      <p>The <span class="linklike">IRenderable</span> interface.</p>
     </section>
     <section class="member-docs">
       <h2>Member Function Documentation</h2>
-      <article class="member-doc-box" id="trepository_t_procedure_add_entity_t">
+      <article class="member-doc-box" id="irenderable_procedure_render">
         <div class="member-doc-title">
-          <span class="func-name">procedure</span> <a class="type-link" href="TRepository_T_.html"><a class="type-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt;</a>.Add(Entity: T)
+          <span class="func-name">procedure</span> <a class="type-link" href="IRenderable.html">IRenderable</a>.Render
         </div>
         <div class="member-doc-content">
-          <p>Add entity</p>
         </div>
-      </article>
-      <article class="member-doc-box" id="trepository_t_function_findbyid_id_integer_t">
-        <div class="member-doc-title">
-          <span class="func-name">function</span> <a class="type-link" href="TRepository_T_.html"><a class="type-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt;</a>.FindById(Id: Integer): T
-        </div>
-        <div class="member-doc-content">
-          <p>Find entity by id</p>
-        </div>
-      </article>
-    </section>
-    <section class="member-docs">
-      <h2>Property Documentation</h2>
-      <article class="member-doc" id="trepository_t_property_items_ilist_t_read_fitems">
-        <h3>
-          <pre class="property-signature">
-<span class="kw-property">property</span> Items: IList &lt; T &gt; 
-    read FItems
-          </pre>
-        </h3>
-        <div class="member-line"></div>
-        <div class="property-doc-item">
-          <div class="property-doc-label">Type</div>
-          <div class="property-doc-text">list datatype</div>
-        </div>
-        <div class="property-doc-item">
-          <div class="property-doc-label">Read</div>
-          <div class="property-doc-text">returns internal list</div>
-        </div>
-      </article>
-    </section>
-    <section class="member-docs">
-      <h2>Field Documentation</h2>
-      <article class="member-doc" id="trepository_t_fitems_ilist_t">
-        <h3><span class="func-name">FItems</span>: IList &lt; T &gt;</h3>
-        <div class="member-line"></div>
-        <p>
-          No documentation for this Field.
-        </p>
       </article>
     </section>
     <footer>

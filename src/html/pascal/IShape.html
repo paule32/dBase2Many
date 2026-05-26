@@ -15,6 +15,82 @@
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TChildClass.html">TChildClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TSprite.html">TSprite</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TSprite.html#tsprite_procedure_draw">Draw</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWeapon.html">TWeapon</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TInventory.html">TInventory</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPlayer.html">TPlayer</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_render">Render</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPerson.html">TPerson</a></div>
               <ul>
                 <li class="tree-node">
@@ -127,6 +203,12 @@
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
             </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IRenderable.html">IRenderable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
           </ul>
         </li>
         <li class="tree-node">
@@ -217,7 +299,7 @@
       <div id="docSearchResults" class="search-results"></div>
     </section>
     <p class="inherits">Inherits: IDrawable</p>
-    <p class="brief">Shape interface with base interface</p>
+    <p class="brief">Interface für geometrische Formen</p>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">
@@ -231,6 +313,18 @@
       </div>
     </section>
     <section>
+      <h2>Dependency Diagram</h2>
+      <div class="dependency-diagram">
+        <div class="dependency-node dependency-current">
+          IShape
+        </div>
+        <div class="dependency-arrow">↓</div>
+        <div class="dependency-node dependency-target">
+          <a class="type-link" href="IDrawable.html">IDrawable</a>
+        </div>
+      </div>
+    </section>
+    <section>
       <h2>Methods</h2>
       <table class="func-table">
         <tr>
@@ -239,7 +333,7 @@
         </tr>
         <tr class="member-brief-row">
           <td class="ret"></td>
-          <td class="sig member-brief">Shape interface with base interface</td>
+          <td class="sig member-brief">Interface für geometrische Formen</td>
         </tr>
       </table>
     </section>
@@ -248,7 +342,11 @@
       <table class="func-table">
         <tr>
           <td class="ret">property</td>
-          <td class="sig"><a class="member-link" href="#ishape_property_width_integer_read_getwidth_write_setwidth"><span class="func-name">Width</span>: Integer  read GetWidth  write SetWidth</a></td>
+          <td class="sig"><a class="member-link" href="#ishape_property_name_string_read_fname_write_fname"><span class="func-name">Name</span>: string read FName  write FName</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Name der Form</td>
         </tr>
       </table>
     </section>
@@ -263,26 +361,31 @@
           <span class="func-name">function</span> <a class="type-link" href="IShape.html">IShape</a>.Area: Double
         </div>
         <div class="member-doc-content">
-          <p>Shape interface with base interface</p>
+          <p>Interface für geometrische Formen</p>
         </div>
       </article>
     </section>
     <section class="member-docs">
       <h2>Property Documentation</h2>
-      <article class="member-doc" id="ishape_property_width_integer_read_getwidth_write_setwidth">
-        <h3><span class="func-name">property Width</span>: Integer  read GetWidth  write SetWidth</h3>
+      <article class="member-doc" id="ishape_property_name_string_read_fname_write_fname">
+        <h3>
+          <pre class="property-signature">
+<span class="kw-property">property</span> Name: string
+    read FName 
+    write FName
+          </pre>
+        </h3>
         <div class="member-line"></div>
-        <div class="property-doc-item">
-          <div class="property-doc-label">Type</div>
-          <div class="property-doc-text">width datatype</div>
-        </div>
+        <p>
+          Name der Form
+        </p>
         <div class="property-doc-item">
           <div class="property-doc-label">Read</div>
-          <div class="property-doc-text">returns width</div>
+          <div class="property-doc-text">Liefert den Namen</div>
         </div>
         <div class="property-doc-item">
           <div class="property-doc-label">Write</div>
-          <div class="property-doc-text">sets width</div>
+          <div class="property-doc-text">Setzt den Namen</div>
         </div>
       </article>
     </section>
@@ -292,50 +395,105 @@
     </main>
   </div>
 <script>
-        document.querySelectorAll('.tree-toggle').forEach(function(row) {
-            row.addEventListener('click', function(event) {
-                if (event.target.tagName.toLowerCase() === 'a') {
-                    return;
-                }
-                const li = row.closest('.tree-node');
-                const ul = li.querySelector(':scope > ul');
-                const twisty = row.querySelector('.twisty');
-                if (!ul) {
-                    return;
-                }
-                ul.classList.toggle('collapsed');
-                if (ul.classList.contains('collapsed')) {
-                    twisty.textContent = '▸';
-                } else {
-                    twisty.textContent = '▾';
-                }
-            });
-        });
-        const splitter = document.getElementById('splitter');
-        const tocPane = document.getElementById('tocPane');
-        let dragging = false;
-        splitter.addEventListener('mousedown', function(e) {
-            dragging = true;
-            document.body.classList.add('resizing');
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) {
+    document.querySelectorAll('.tree-toggle').forEach(function(row) {
+        row.addEventListener('click', function(event) {
+            if (event.target.tagName.toLowerCase() === 'a') {
                 return;
             }
-            let newWidth = e.clientX;
-            if (newWidth < 120) {
-                newWidth = 120;
+            const li = row.closest('.tree-node');
+            const ul = li.querySelector(':scope > ul');
+            const twisty = row.querySelector('.twisty');
+            if (!ul) {
+                return;
             }
-            if (newWidth > 480) {
-                newWidth = 480;
+            ul.classList.toggle('collapsed');
+            if (ul.classList.contains('collapsed')) {
+                twisty.textContent = '▸';
+            } else {
+                twisty.textContent = '▾';
             }
-            tocPane.style.flexBasis = newWidth + 'px';
-            tocPane.style.width = newWidth + 'px';
         });
-        document.addEventListener('mouseup', function() {
-            dragging = false;
-            document.body.classList.remove('resizing');
+    });
+    const splitter = document.getElementById('splitter');
+    const tocPane = document.getElementById('tocPane');
+    let dragging = false;
+    splitter.addEventListener('mousedown', function(e) {
+        dragging = true;
+        document.body.classList.add('resizing');
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) {
+            return;
+        }
+        let newWidth = e.clientX;
+        if (newWidth < 120) {
+            newWidth = 120;
+        }
+        if (newWidth > 480) {
+            newWidth = 480;
+        }
+        tocPane.style.flexBasis = newWidth + 'px';
+        tocPane.style.width = newWidth + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+        dragging = false;
+        document.body.classList.remove('resizing');
+    });
+</script>
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
         });
-        </script>
-        </body>
+    });
+})();
+</script></body>
 </html>

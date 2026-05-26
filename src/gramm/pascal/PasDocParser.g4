@@ -112,10 +112,10 @@ classDeclaration
     ;
 
 classType
-    : CLASS classInheritance? classBody
+    : CLASS classBaseList? classBody
     ;
 
-classInheritance
+classBaseList
     : LPAREN typeName (COMMA typeName)* RPAREN
     ;
 

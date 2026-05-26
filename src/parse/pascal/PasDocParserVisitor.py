@@ -104,8 +104,8 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by PasDocParser#classInheritance.
-    def visitClassInheritance(self, ctx:PasDocParser.ClassInheritanceContext):
+    # Visit a parse tree produced by PasDocParser#classBaseList.
+    def visitClassBaseList(self, ctx:PasDocParser.ClassBaseListContext):
         return self.visitChildren(ctx)
 
 
