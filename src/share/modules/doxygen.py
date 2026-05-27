@@ -641,9 +641,18 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             "integer", "double", "boolean"
         }
 
-    def pascal_known_links(self, current_item=None):
+    def pascal_known_links(self, current_item=None, include_members=False):
         links = {}
         
+        def add_type(item):
+            full_name = item.name
+            base_name = full_name.split("<", 1)[0].strip()
+            link = self.safe_filename(full_name) + ".html"
+            
+            links[full_name.lower()] = link
+            links[base_name.lower()] = link
+        
+        # lokale Member zuerst
         if current_item is not None:
             members = (
                 getattr(current_item, "fields", []) +
@@ -654,24 +663,49 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             for member in members:
                 name = self.member_display_name(member)
                 anchor = self.make_member_anchor(current_item, member)
+                
                 links[name.lower()] = (
                     self.safe_filename(current_item.name) + ".html#" + anchor
                 )
         
-        for cls in self.classes:
-            links[cls.name.lower()] = self.safe_filename(cls.name) + ".html"
+        for item in self.classes:
+            add_type(item)
         
         for item in self.interfaces:
-            links[item.name.lower()] = self.safe_filename(item.name) + ".html"
+            add_type(item)
         
         for item in self.records + self.arrays + self.sets + self.enums:
-            links[item.name.lower()] = self.safe_filename(item.name) + ".html"
+            add_type(item)
         
         for c in self.constants:
             links[c.name.lower()] = "index.html#const_" + self.safe_filename(c.name)
         
         for v in self.global_vars:
             links[v.name.lower()] = "index.html#" + self.make_var_anchor(v.name)
+        
+        # nur für komplette Source-Ansicht:
+        if include_members and current_item is None:
+            for owner in self.classes + self.interfaces + self.records:
+                members = (
+                    getattr(owner, "fields", []) +
+                    getattr(owner, "properties", []) +
+                    getattr(owner, "methods", [])
+                )
+                
+                for member in members:
+                    name = self.member_display_name(member)
+                    anchor = self.make_member_anchor(owner, member)
+                    
+                    # einfacher Name: Name
+                    links.setdefault(
+                        name.lower(),
+                        self.safe_filename(owner.name) + ".html#" + anchor
+                    )
+                    
+                    # qualifizierter Name: TPerson.Name
+                    links[
+                        (owner.name + "." + name).lower()
+                    ] = self.safe_filename(owner.name) + ".html#" + anchor
         
         return links
     
@@ -721,16 +755,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     in_doc_comment = False
         return result
     
-    def highlight_pascal_source_line(self, line, current_item=None):
+    def highlight_pascal_source_line(self, line, current_item=None, include_members=False):
         known_links = {
-            name.lower(): (name, link)
-            for name, link in self.pascal_known_links(current_item).items()
+            name.lower(): link
+            for name, link in self.pascal_known_links(
+                current_item,
+                include_members
+            ).items()
         }
         
         keywords = self.pascal_code_keywords()
         result = []
         
-        parts = re.split(r"([A-Za-z_][A-Za-z0-9_]*)", line)
+        parts = re.split(r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)", line)
         
         for part in parts:
             if not part:
@@ -739,41 +776,40 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             key = part.lower()
             
             if key in known_links:
-                _, link = known_links[key]
                 result.append(
-                    f'<a class="code-link" href="{link}">'
+                    f'<a class="code-link" href="{known_links[key]}">'
                     f'{self.html_escape(part)}</a>'
                 )
-            
             elif key in keywords:
                 result.append(
-                    f'<span class="code-keyword">'
-                    f'{self.html_escape(part)}</span>'
+                    f'<span class="code-keyword">{self.html_escape(part)}</span>'
                 )
-            
             else:
                 result.append(self.html_escape(part))
-        
-        return "".join(result)
 
-    def write_source_editor(self, f, code, start_line=1, current_item=None):
+        return "".join(result)
+    
+    def write_source_editor(self, f, code, start_line=1, current_item=None, include_members=False):
         lines = (code or "").splitlines()
         if not lines:
             return
-
+        
         f.write("      <div class=\"source-editor\">\n")
+        
         for index, line in enumerate(lines):
             line_no = start_line + index
+            
             f.write(f"        <div class=\"source-row\" id=\"line_{line_no}\">")
             f.write(f"<span class=\"source-gutter\">{line_no}</span>")
             f.write(
                 f"<code class=\"source-code\">"
-                f"{self.highlight_pascal_source_line(line, current_item)}"
+                f"{self.highlight_pascal_source_line(line, current_item, include_members)}"
                 f"</code>"
             )
             f.write("</div>\n")
+        
         f.write("      </div>\n")
-
+    
     def write_declaration_section(self, f, item, title="Declaration"):
         code = getattr(item, "source_code", "") or getattr(item, "signature", "")
         line = getattr(item, "source_line", 1) or 1
@@ -818,7 +854,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("    <section>\n")
             f.write("      <h2>Source Code</h2>\n")
             
-            self.write_source_editor(f, "\n".join(self.source_lines), 1)
+            self.write_source_editor(f, "\n".join(self.source_lines), 1, None, True)
+            #self.write_source_editor(f, source_code, 1, None, True)
             
             f.write("    </section>\n")
             f.write("    </main>\n")
