@@ -364,7 +364,7 @@ class PasUnitInfo:
     uses    : list
     used_by : list
 
-class DoxyProgressDialog(QDialog):
+"""class DoxyProgressDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -419,6 +419,7 @@ class DoxyProgressDialog(QDialog):
     def open_html(self):
         if self.index_file and os.path.exists(self.index_file):
             QDesktopServices.openUrl(QUrl.fromLocalFile(self.index_file))
+"""
 
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
@@ -446,7 +447,7 @@ class HtmlToPdf(QObject):
         self.load_html()
     
     def load_html(self):
-        self.progress.log(share.locales.tr("Load HTML") + ": " + self.html_file)
+        self.progress.progress_log(share.locales.tr("Load HTML") + ": " + self.html_file)
 
         if not os.path.exists(self.html_file):
             QMessageBox.critical(
@@ -461,17 +462,17 @@ class HtmlToPdf(QObject):
         base_dir = os.path.dirname(self.html_file)
         base_url = QUrl.fromLocalFile(base_dir + os.sep + "test.pdf")
 
-        self.progress.log(share.locales.tr("BASE") + ": " + base_url.toString())
+        self.progress.progress_log(share.locales.tr("BASE") + ": " + base_url.toString())
         self.view.setHtml(html_code, base_url)
     
     def on_load_finished(self, ok):
-        self.progress.log(share.locales.tr("HTML load Finished") + ": ok")
+        self.progress.progress_log(share.locales.tr("HTML load Finished") + ": ok")
         if not ok:
             return
         QTimer.singleShot(250, self.print_pdf)
     
     def print_pdf(self):
-        self.progress.log(share.locales.tr("PDF") + ": " + self.pdf__file)
+        self.progress.progress_log(share.locales.tr("PDF") + ": " + self.pdf__file)
         layout = QPageLayout(
             QPageSize(QPageSize.A4),
             QPageLayout.Portrait,
@@ -483,7 +484,7 @@ class HtmlToPdf(QObject):
     def on_pdf_finished(self, file_path, success):
         if success: success = share.locales.tr("success")
         else:       success = share.locales.tr("failed")
-        self.progress.log(share.locales.tr("PDF created") + ": " + success)
+        self.progress.progress_log(share.locales.tr("PDF created") + ": " + success)
 
 # ---------------------------------------------------------------------------
 # \brief pascal documentation visitor to generate the pascal html help ...
@@ -569,15 +570,27 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 self.doxy_fields(page.area.findChildren(QWidget))
                 
             for item in DOXYGEN_CONFIG:
-                self.progress.log(f"{item}")
+                self.progress.progress_log(f"{item}")
     
     def progress_log(self, text):
-        if self.progress:
-            self.progress.log(text)
-
+        self.log_edit.appendPlainText(str(text))
+        self.log_edit.moveCursor(QTextCursor.End)
+        QApplication.processEvents()
+    
+    def progress_done_generation(self, index_file):
+        self.progress.progress_index_file = index_file
+        self.progress.progress_value(100)
+        self.progress.progress_log("DONE")
+        #self.progress_btn_open.setEnabled(True)
+    
+    def open_html(self):
+        if self.index_file and os.path.exists(self.index_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self.index_file))
+            
     def progress_value(self, value):
-        if self.progress:
-            self.progress.setValue(value)
+        if self.progress.progress:
+            self.progress.progress_value(value)
+            QApplication.processEvents()
 
     def load_source_lines(self, filename):
         if not filename:
@@ -1476,8 +1489,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         return self.visitChildren(ctx)
     
     def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
-        self.progress_log(share.locales.tr("Parse Pascal unit..."))
-        self.progress_value(5)
+        self.progress.progress_log(share.locales.tr("Parse Pascal unit..."))
+        self.progress.progress_value(5)
         
         self.current_unit_name = "UnknownUnit"
         self.current_unit_uses = []
@@ -1489,69 +1502,69 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
         
-        self.progress_log("BUILD CROSS REFERENCES")
-        self.progress_value(8)
+        self.progress.progress_log("BUILD CROSS REFERENCES")
+        self.progress.progress_value(8)
         self.build_cross_references()
         
-        self.progress_log(share.locales.tr("Delete old PDFs..."))
+        self.progress.progress_log(share.locales.tr("Delete old PDFs..."))
         self.delete_old_topic_pdfs()
         
-        self.progress_log(share.locales.tr("GLOBAL VARS COUNT")       + ": " + str(len(self.global_vars)))
-        self.progress_log(share.locales.tr("GLOBAL VAR GROUPS COUNT") + ": " + str(len(self.global_var_groups)))
+        self.progress.progress_log(share.locales.tr("GLOBAL VARS COUNT")       + ": " + str(len(self.global_vars)))
+        self.progress.progress_log(share.locales.tr("GLOBAL VAR GROUPS COUNT") + ": " + str(len(self.global_var_groups)))
         
-        self.progress_log(share.locales.tr("WRITE HOME"))
-        self.progress_value(9)
+        self.progress.progress_log(share.locales.tr("WRITE HOME"))
+        self.progress.progress_value(9)
         self.write_home_page()
 
-        self.progress_log(share.locales.tr("WRITE INDEX"))
-        self.progress_value(10)
+        self.progress.progress_log(share.locales.tr("WRITE INDEX"))
+        self.progress.progress_value(10)
         self.write_index()
         
-        self.progress_log("WRITE SEARCH INDEX")
-        self.progress_value(13)
+        self.progress.progress_log("WRITE SEARCH INDEX")
+        self.progress.progress_value(13)
         self.write_search_index()
 
-        self.progress_log("WRITE SOURCE FILE")
+        self.progress.progress_log("WRITE SOURCE FILE")
         self.write_source_file_page()
 
-        self.progress_log(share.locales.tr("WRITE CLASSES"))
-        self.progress_value(15)
+        self.progress.progress_log(share.locales.tr("WRITE CLASSES"))
+        self.progress.progress_value(15)
         self.write_classes()
         
-        self.progress_log(share.locales.tr("WRITE INTERFACES"))
-        self.progress_log(share.locales.tr("INTERFACES COUNT") + ": " + str(len(self.interfaces)))
-        self.progress_value(20)
+        self.progress.progress_log(share.locales.tr("WRITE INTERFACES"))
+        self.progress.progress_log(share.locales.tr("INTERFACES COUNT") + ": " + str(len(self.interfaces)))
+        self.progress.progress_value(20)
         self.write_interfaces()
         
-        self.progress_log(share.locales.tr("WRITE DEPENDENCIES"))
-        self.progress_value(21)
+        self.progress.progress_log(share.locales.tr("WRITE DEPENDENCIES"))
+        self.progress.progress_value(21)
         self.write_unit_dependency_pages()
 
-        self.progress_log(share.locales.tr("WRITE RECORDS"))
-        self.progress_value(25)
+        self.progress.progress_log(share.locales.tr("WRITE RECORDS"))
+        self.progress.progress_value(25)
         self.write_pascal_types(self.records)
         
-        self.progress_log(share.locales.tr("WRITE ARRAYS"))
-        self.progress_value(30)
+        self.progress.progress_log(share.locales.tr("WRITE ARRAYS"))
+        self.progress.progress_value(30)
         self.write_pascal_types(self.arrays)
         
-        self.progress_log(share.locales.tr("WRITE SETS"))
-        self.progress_value(35)
+        self.progress.progress_log(share.locales.tr("WRITE SETS"))
+        self.progress.progress_value(35)
         self.write_pascal_types(self.sets)
         
-        self.progress_log(share.locales.tr("WRITE ENUMS"))
-        self.progress_value(40)
+        self.progress.progress_log(share.locales.tr("WRITE ENUMS"))
+        self.progress.progress_value(40)
         self.write_pascal_enums()
         
-        self.progress_log(share.locales.tr("WRITE PDF DOCUMENT"))
-        self.progress_value(45)
+        self.progress.progress_log(share.locales.tr("WRITE PDF DOCUMENT"))
+        self.progress.progress_value(45)
         self.write_pascal_pdf_document()
         
         index_file = os.path.abspath(
             os.path.join(self.output_dir, "pascal", "index.html")
         )
         
-        self.progress_value(100)
+        self.progress.progress_value(100)
         self.progress.done_generation(index_file)
         
         return self.classes
@@ -5501,7 +5514,9 @@ class DoxyGenToolWindow(QWidget):
         
         self.project_dir = _default_project_dir()
         self.propath     = self.project_dir / "doxygen_project.json"
+        
         self.visitor     = None
+        self.progress    = None
         
         self.current_project_path = ""
 
@@ -5590,10 +5605,10 @@ class DoxyGenToolWindow(QWidget):
         ext       = ext[1:].lower()
         try:
             if ext in ["pas", "pp"]:
-                self.progress = DoxyProgressDialog(self)
-                self.progress.show()
-                self.progress.log(share.locales.tr("Start documentation generation..."))
-                self.progress.setValue(1)
+                #self.progress = DoxyProgressDialog(self)
+                #self.progress.show()
+                self.progress_log(share.locales.tr("Start documentation generation..."))
+                self.progress_value(1)
                 
                 self.input_stream = FileStream(source_file, encoding="utf-8")
                 self.lexer   = PasDocLexer      (self.input_stream)
@@ -5605,7 +5620,7 @@ class DoxyGenToolWindow(QWidget):
                 self.visitor = PasDocHtmlVisitor(
                     output_dir,
                     use_treeview = True,
-                    progress     = self.progress,
+                    progress     = self,
                     source_file  = source_file,
                     include_declarations_in_editor = self.get_doxy_bool("INLINE_SOURCES", False),
                     link_source_file = self.get_doxy_bool("SOURCE_BROWSER", False)
@@ -5629,7 +5644,7 @@ class DoxyGenToolWindow(QWidget):
             traceback.print_exc()
             return
         
-        self.progress.log(share.locales.tr("HTML created in") + ": " + output_dir)
+        #self.progress.log(share.locales.tr("HTML created in") + ": " + output_dir)
 
     def on_cwd_click(self):
         file_name = share.drives.open_share_file_dialog(self)
@@ -6464,12 +6479,42 @@ class DoxyGenToolWindow(QWidget):
     
     def _build_run_tab(self):
         page = QWidget()
-        lay = QVBoxLayout(page)
-        txt = QTextEdit()
-        txt.setReadOnly(False)
-        txt.setHtml("<b>DoxyGen Run</b><br><p>Hier können Lauf-Ausgaben und Hinweise stehen.</p>")
-        lay.addWidget(txt)
-        self.run_text = txt
+        page_lay = QVBoxLayout(page)
+        page_lay.setContentsMargins(0, 0, 0, 0)
+        
+        labl_txt = QLabel(share.locales.tr("Specify additional command line options for runnung"))
+        edit_opt = QLineEdit()
+        exec_btn = QPushButton( share.locales.tr("Create Documentation"))
+        stat_lbl = QLabel     ( share.locales.tr("Status: not running") )
+        show_btn = QPushButton( share.locales.tr("Show HTML Output")    )
+        show_cfg = QPushButton( share.locales.tr("Show Configuration")  )
+        
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setValue(0)
+        
+        edit_log = QTextEdit()
+        edit_log.setReadOnly(True)
+        edit_log.setFont(QFont("Consolas", 9))
+        
+        page_lay.addWidget(labl_txt)
+        page_lay.addWidget(edit_opt)
+        
+        lay1 = QHBoxLayout()
+        lay1.addWidget(exec_btn)
+        lay1.addWidget(stat_lbl)
+        
+        page_lay.addLayout(lay1)
+        
+        lay2 = QHBoxLayout()
+        lay2.addWidget(show_cfg)
+        lay2.addWidget(show_btn)
+        
+        page_lay.addLayout(lay2)
+        page_lay.addWidget(self.progress)
+        page_lay.addWidget(edit_log)
+        
+        #self.run_text = txt
         return page
                 
     def _locales_dir(self) -> Path:
