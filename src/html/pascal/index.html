@@ -11,6 +11,20 @@
     <aside id="tocPane" class="toc-pane">
       <div class="toc-title">Table of Contents</div>
       <ul class="treeview">
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="home.html">Home</a>
+          </div>
+        </li>
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="index.html#Index">Index</a>
+          </div>
+        </li>
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
@@ -35,6 +49,19 @@
                   <ul class="collapsed">
                     <li>
                       <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TExampleClass.html">TExampleClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TExampleClass.html#texampleclass_procedure_execute">Execute</a></div>
                     </li>
                   </ul>
                 </li>
@@ -195,6 +222,9 @@
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Interfaces</span></div>
           <ul class="collapsed">
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IExample.html">IExample</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IDrawable.html">IDrawable</a></div>
             </li>
             <li>
@@ -252,6 +282,9 @@
         <li class="tree-node">
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constants</span></div>
           <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_MAX_COUNT">MAX_COUNT</a></div>
+            </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_PI_VALUE">PI_VALUE</a></div>
             </li>
@@ -338,6 +371,10 @@
         </tr>
         <tr>
           <td class="ret">Class</td>
+          <td class="sig"><a href="TExampleClass.html">TExampleClass</a></td>
+        </tr>
+        <tr>
+          <td class="ret">Class</td>
           <td class="sig"><a href="TSprite.html">TSprite</a></td>
         </tr>
         <tr>
@@ -394,6 +431,10 @@
       </div>
       <h3 id="Interfaces_I">I</h3>
       <table class="func-table">
+        <tr>
+          <td class="ret">Interface</td>
+          <td class="sig"><a href="IExample.html">IExample</a></td>
+        </tr>
         <tr>
           <td class="ret">Interface</td>
           <td class="sig"><a href="IDrawable.html">IDrawable</a></td>
@@ -591,7 +632,7 @@
         <span>J</span>
         <span>K</span>
         <span>L</span>
-        <span>M</span>
+        <a href="#Constants_M">M</a>
         <span>N</span>
         <span>O</span>
         <a href="#Constants_P">P</a>
@@ -615,6 +656,13 @@
         <tr>
           <td class="ret">Constant</td>
           <td class="sig"><a href="#const_APP_VERSION">APP_VERSION</a></td>
+        </tr>
+      </table>
+      <h3 id="Constants_M">M</h3>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Constant</td>
+          <td class="sig"><a href="#const_MAX_COUNT">MAX_COUNT</a></td>
         </tr>
       </table>
       <h3 id="Constants_P">P</h3>
@@ -682,6 +730,18 @@
       <h2>Constants</h2>
       <table class="func-table">
         <tr>
+          <td class="ret">100</td>
+          <td class="sig" id="const_MAX_COUNT"><span class="func-name">MAX_COUNT</span></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Maximale Anzahl.</td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-detail"> Dieser Wert begrenzt die Verarbeitung.</td>
+        </tr>
+        <tr>
           <td class="ret">3.1415</td>
           <td class="sig" id="const_PI_VALUE"><span class="func-name">PI_VALUE</span></td>
         </tr>
@@ -745,6 +805,7 @@
       <ul class="class-list">
         <li><a href="TBaseClass.html">TBaseClass</a></li>
         <li><a href="TChildClass.html">TChildClass</a></li>
+        <li><a href="TExampleClass.html">TExampleClass</a></li>
         <li><a href="TSprite.html">TSprite</a></li>
         <li><a href="TWeapon.html">TWeapon</a></li>
         <li><a href="TInventory.html">TInventory</a></li>

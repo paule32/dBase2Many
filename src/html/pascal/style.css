@@ -251,3 +251,45 @@ margin: 6px 0;
     scrollbar-width: auto;
     scrollbar-color: #505050 #151515;
 }
+
+.unit-dependency-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 12px 0;
+}
+.unit-dependency-list li {
+    margin: 6px 0;
+    padding: 8px 12px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #181818;
+}
+.unit-dependency-list li:hover {
+    background: #222222;
+}
+.dep-node {
+    padding: 4px 0;
+    font-family: Consolas;
+}
+.dep-node::before {
+    content: "└─ ";
+    color: #888;
+}
+.dep-cycle {
+    color: #ff8080;
+    font-weight: bold;
+}
+.mainpage h1 {
+    color: #80ff80;
+}
+.mainpage h2 {
+    color: #66dd66;
+}
+.mainpage h3 {
+    color: #55bb55;
+}
+.member-detail {
+    color: #dddddd;
+    font-size: 0.95em;
+    line-height: 1.45;
+}

@@ -53,6 +53,42 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#implementationMethod.
+    def enterImplementationMethod(self, ctx:PasDocParser.ImplementationMethodContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#implementationMethod.
+    def exitImplementationMethod(self, ctx:PasDocParser.ImplementationMethodContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#qualifiedIdent.
+    def enterQualifiedIdent(self, ctx:PasDocParser.QualifiedIdentContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#qualifiedIdent.
+    def exitQualifiedIdent(self, ctx:PasDocParser.QualifiedIdentContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#methodBody.
+    def enterMethodBody(self, ctx:PasDocParser.MethodBodyContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#methodBody.
+    def exitMethodBody(self, ctx:PasDocParser.MethodBodyContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#methodBodyToken.
+    def enterMethodBodyToken(self, ctx:PasDocParser.MethodBodyTokenContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#methodBodyToken.
+    def exitMethodBodyToken(self, ctx:PasDocParser.MethodBodyTokenContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#varSection.
     def enterVarSection(self, ctx:PasDocParser.VarSectionContext):
         pass

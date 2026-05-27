@@ -34,6 +34,26 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#implementationMethod.
+    def visitImplementationMethod(self, ctx:PasDocParser.ImplementationMethodContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#qualifiedIdent.
+    def visitQualifiedIdent(self, ctx:PasDocParser.QualifiedIdentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#methodBody.
+    def visitMethodBody(self, ctx:PasDocParser.MethodBodyContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#methodBodyToken.
+    def visitMethodBodyToken(self, ctx:PasDocParser.MethodBodyTokenContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#varSection.
     def visitVarSection(self, ctx:PasDocParser.VarSectionContext):
         return self.visitChildren(ctx)

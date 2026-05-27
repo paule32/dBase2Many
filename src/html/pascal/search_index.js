@@ -2,7 +2,7 @@ window.PASCAL_SEARCH_INDEX = [
   {
     "kind": "Class",
     "name": "TBaseClass",
-    "text": "Basisklasse",
+    "text": "Basisklasse.",
     "link": "TBaseClass.html"
   },
   {
@@ -10,6 +10,12 @@ window.PASCAL_SEARCH_INDEX = [
     "name": "TChildClass",
     "text": "Abgeleitete Klasse",
     "link": "TChildClass.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TExampleClass",
+    "text": "Beispielklasse.",
+    "link": "TExampleClass.html"
   },
   {
     "kind": "Class",
@@ -49,6 +55,12 @@ window.PASCAL_SEARCH_INDEX = [
   },
   {
     "kind": "Interface",
+    "name": "IExample",
+    "text": "Beispiel-Interface.",
+    "link": "IExample.html"
+  },
+  {
+    "kind": "Interface",
     "name": "IDrawable",
     "text": "Basis-Interface für zeichnbare Objekte",
     "link": "IDrawable.html"
@@ -80,7 +92,7 @@ window.PASCAL_SEARCH_INDEX = [
   {
     "kind": "record",
     "name": "TPoint",
-    "text": "",
+    "text": "Beispiel-Record.",
     "link": "TPoint.html"
   },
   {
@@ -112,6 +124,12 @@ window.PASCAL_SEARCH_INDEX = [
     "name": "TColor",
     "text": "available colors",
     "link": "TColor.html"
+  },
+  {
+    "kind": "Constant",
+    "name": "MAX_COUNT",
+    "text": "Maximale Anzahl.",
+    "link": "index.html#const_MAX_COUNT"
   },
   {
     "kind": "Constant",

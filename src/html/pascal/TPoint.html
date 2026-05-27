@@ -11,6 +11,20 @@
     <aside id="tocPane" class="toc-pane">
       <div class="toc-title">Table of Contents</div>
       <ul class="treeview">
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="home.html">Home</a>
+          </div>
+        </li>
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="index.html#Index">Index</a>
+          </div>
+        </li>
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
@@ -35,6 +49,19 @@
                   <ul class="collapsed">
                     <li>
                       <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TExampleClass.html">TExampleClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TExampleClass.html#texampleclass_procedure_execute">Execute</a></div>
                     </li>
                   </ul>
                 </li>
@@ -195,6 +222,9 @@
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Interfaces</span></div>
           <ul class="collapsed">
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IExample.html">IExample</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IDrawable.html">IDrawable</a></div>
             </li>
             <li>
@@ -253,6 +283,9 @@
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constants</span></div>
           <ul class="collapsed">
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_MAX_COUNT">MAX_COUNT</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_PI_VALUE">PI_VALUE</a></div>
             </li>
             <li>
@@ -298,9 +331,14 @@
       <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
       <div id="docSearchResults" class="search-results"></div>
     </section>
+    <p class="brief">Beispiel-Record.</p>
     <section>
       <h2>Declaration</h2>
       <pre class="declaration">record X: Integer ;  Y: Integer ;  end</pre>
+    </section>
+    <section>
+      <h2>Detailed Description</h2>
+      <p>Dieser Record speichert X- und Y-Werte.</p>
     </section>
     <section>
       <h2>Cross References</h2>

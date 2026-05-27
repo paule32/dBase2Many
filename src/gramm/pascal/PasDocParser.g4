@@ -5,7 +5,7 @@ options {
 }
 
 unitFile
-    : programHeader? unitHeader? unitSection* EOF
+    : docComment* programHeader? unitHeader? unitSection* EOF
     ;
 
 programHeader
@@ -33,7 +33,40 @@ declaration
     | arrayDeclaration
     | setDeclaration
     | enumDeclaration
+    | implementationMethod
     | otherToken
+    ;
+
+implementationMethod
+    : methodKind qualifiedIdent parameterList? returnType? methodDirectiveList? SEMI methodBody? SEMI?
+    ;
+
+qualifiedIdent
+    : IDENT (DOT IDENT)*
+    ;
+
+methodBody
+    : BEGIN methodBodyToken* END
+    ;
+
+methodBodyToken
+    : IDENT
+    | STRING
+    | NUMBER
+    | LPAREN
+    | RPAREN
+    | LBRACK
+    | RBRACK
+    | SEMI
+    | COLON
+    | COMMA
+    | DOTDOT
+    | DOT
+    | EQ
+    | CARET
+    | BEGIN
+    | END
+    | OTHER
     ;
 
 varSection
@@ -50,7 +83,7 @@ constSection
     ;
 
 constDeclaration
-    : constItem SEMI docComment?
+    : docComment? constItem SEMI docComment?
     ;
 
 constItem

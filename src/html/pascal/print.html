@@ -82,6 +82,11 @@ main.page > h3 {
 <h2>Constants</h2>
 <table class="func-table">
 <tr>
+<td class="ret">100</td>
+<td class="sig"><span class="func-name">MAX_COUNT</span></td>
+</tr>
+<tr class="member-brief-row"><td></td><td class="sig member-brief">Maximale Anzahl.</td></tr>
+<tr>
 <td class="ret">3.1415</td>
 <td class="sig"><span class="func-name">PI_VALUE</span></td>
 </tr>
@@ -124,7 +129,7 @@ main.page > h3 {
 <section>
 <h2>Classes</h2>
 <h3>TBaseClass</h3>
-<p class="brief">Basisklasse</p>
+<p class="brief">Basisklasse.</p>
     <section>
       <h2>Public Methods</h2>
       <table class="func-table">
@@ -141,6 +146,7 @@ main.page > h3 {
           <span class="func-name">procedure</span> <a class="type-link" href="TBaseClass.html">TBaseClass</a>.BaseMethod
         </div>
         <div class="member-doc-content">
+          <p> Dies ist die ausführliche Beschreibung der Basisklasse.</p>
         </div>
       </article>
     </section>
@@ -163,6 +169,34 @@ main.page > h3 {
           <span class="func-name">procedure</span> <a class="type-link" href="TChildClass.html">TChildClass</a>.ChildMethod
         </div>
         <div class="member-doc-content">
+        </div>
+      </article>
+    </section>
+<h3>TExampleClass</h3>
+<p class="brief">Beispielklasse.</p>
+<p class="inherits">Inherits: TBaseClass, IExample</p>
+    <section>
+      <h2>Public Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#texampleclass_procedure_execute"><span class="func-name">Execute</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Führt die Aktion aus.</td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="texampleclass_procedure_execute">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="TExampleClass.html">TExampleClass</a>.Execute
+        </div>
+        <div class="member-doc-content">
+          <p>Führt die Aktion aus.</p>
+          <p> Diese Methode implementiert die Interface-Methode.</p>
         </div>
       </article>
     </section>
@@ -537,6 +571,33 @@ main.page > h3 {
 </section>
 <section>
 <h2>Interfaces</h2>
+<h3>IExample</h3>
+<p class="brief">Beispiel-Interface.</p>
+    <section>
+      <h2>Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#iexample_procedure_execute"><span class="func-name">Execute</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Beispiel-Interface.</td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="iexample_procedure_execute">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="IExample.html">IExample</a>.Execute
+        </div>
+        <div class="member-doc-content">
+          <p>Beispiel-Interface.</p>
+          <p>Dies ist eine längere Beschreibung für das Interface.</p>
+        </div>
+      </article>
+    </section>
 <h3>IDrawable</h3>
 <p class="brief">Basis-Interface für zeichnbare Objekte</p>
     <section>
@@ -845,6 +906,7 @@ main.page > h3 {
 <section>
 <h2>Records</h2>
 <h3>TPoint</h3>
+<p class="brief">Beispiel-Record.</p>
 <pre class="declaration">record X: Integer ;  Y: Integer ;  end</pre>
     <section>
       <h2>Fields</h2>
