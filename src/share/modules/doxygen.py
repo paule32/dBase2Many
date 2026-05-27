@@ -11,6 +11,7 @@ from   __future__   import annotations
 import os
 import html
 import hashlib
+import re
 
 from share.common import *
 from PyQt5.QtGui  import QPageLayout, QPageSize
@@ -160,6 +161,57 @@ def _write_css(output_dir):
     font-size: 0.95em;
     line-height: 1.45;
 }
+
+.definition-location {
+    margin: 8px 0 14px 0;
+    color: #bdbdbd;
+    font-size: 0.92em;
+}
+.definition-location span {
+    color: #ffd37a;
+}
+.source-editor {
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    background: #101010;
+    overflow-x: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10pt;
+    line-height: 1.45;
+    box-shadow: inset 0 0 0 1px #181818;
+}
+.source-row {
+    display: flex;
+    min-height: 21px;
+}
+.source-row:hover {
+    background: #1b1b1b;
+}
+.source-gutter {
+    flex: 0 0 58px;
+    user-select: none;
+    text-align: right;
+    padding: 0 10px 0 6px;
+    color: #8d8d8d;
+    background: #202020;
+    border-right: 1px solid #383838;
+}
+.source-code {
+    white-space: pre;
+    padding: 0 12px;
+    color: #dddddd;
+}
+.code-keyword {
+    color: #7fb7ff;
+    font-weight: bold;
+}
+.code-link {
+    color: #80ff80;
+    text-decoration: none;
+}
+.code-link:hover {
+    text-decoration: underline;
+}
 """
     
     with open(filename, "w", encoding="utf-8") as f:
@@ -214,6 +266,9 @@ class PasTypeInfo:
         self.brief     = brief
         self.details   = details
         self.fields    = []
+        self.source_file = ""
+        self.source_line = 0
+        self.source_code = ""
         
 class PasClassInfo:
     def __init__(self, name):
@@ -225,6 +280,9 @@ class PasClassInfo:
         self.methods    = []
         self.fields     = []
         self.properties = []
+        self.source_file = ""
+        self.source_line = 0
+        self.source_code = ""
 
 class PasMemberInfo:
     def __init__(
@@ -249,6 +307,9 @@ class PasMemberInfo:
         self.property_read_brief  = ""
         
         self.property_write_brief = ""
+        self.source_file = ""
+        self.source_line = 0
+        self.source_code = ""
 
 class PasConstInfo:
     def __init__(self, name, value, brief="", details=""):
@@ -256,6 +317,9 @@ class PasConstInfo:
         self.value   = value
         self.brief   = brief
         self.details = details
+        self.source_file = ""
+        self.source_line = 0
+        self.source_code = ""
 
 class PasVarInfo:
     def __init__(self, name, vtype, brief="", details=""):
@@ -263,6 +327,9 @@ class PasVarInfo:
         self.vtype   = vtype
         self.brief   = brief
         self.details = details
+        self.source_file = ""
+        self.source_line = 0
+        self.source_code = ""
 
 class PasEnumInfo(PasTypeInfo):
     def __init__(self,
@@ -287,6 +354,9 @@ class PasInterfaceInfo:
     details     : str
     methods     : list
     properties  : list
+    source_file : str = ""
+    source_line : int = 0
+    source_code : str = ""
 
 @dataclass
 class PasUnitInfo:
@@ -422,13 +492,25 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def __init__(self,
         output_dir   = "html",
         use_treeview = False ,
-        progress     = None):
+        progress     = None,
+        source_file  = "",
+        include_declarations_in_editor = False,
+        link_source_file = False):
         
         super().__init__()
         
         self.output_dir      = output_dir
         self.use_treeview    = use_treeview
         self.progress        = progress
+        self.source_file     = source_file
+        self.source_name     = os.path.basename(source_file) if source_file else ""
+        self.source_lines    = self.load_source_lines(source_file)
+        
+        self.include_declarations_in_editor = include_declarations_in_editor
+        self.link_source_file    = link_source_file
+        self.inline_sources      = True
+        self.source_browser      = True
+        self.strip_code_comments = True
         
         self.classes         = []
         
@@ -496,7 +578,258 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def progress_value(self, value):
         if self.progress:
             self.progress.setValue(value)
+
+    def load_source_lines(self, filename):
+        if not filename:
+            return []
+        try:
+            with open(filename, "r", encoding="utf-8", errors="replace") as f:
+                return f.read().splitlines()
+        except Exception:
+            return []
+
+    def source_text_from_ctx(self, ctx):
+        if not self.source_lines:
+            return self.clean_pascal_signature(self.text_from_ctx(ctx))
+        start = getattr(getattr(ctx, "start", None), "line", 1)
+        stop  = getattr(getattr(ctx, "stop",  None), "line", start)
+        start = max(1, int(start or 1))
+        stop  = max(start, int(stop or start))
+        return "\n".join(self.source_lines[start - 1:stop])
+
+    def set_source_location(self, item, ctx):
+        item.source_file = self.source_name
+        item.source_line = getattr(getattr(ctx, "start", None), "line", 0) or 0
+        item.source_code = self.source_text_from_ctx(ctx)
+        return item
+
+    def source_page_name(self):
+        if not self.source_name:
+            return ""
+        return "source_" + self.safe_filename(self.source_name) + ".html"
+
+    def write_definition_location(self, f, item):
+        source_file = getattr(item, "source_file", "") or self.source_name
+        source_line = getattr(item, "source_line", 0)
+
+        if not source_file or not source_line:
+            return
+
+        f.write("    <div class=\"definition-location\">")
+        f.write("Definition at Line: ")
+        f.write(f"<span>{source_line}</span>")
+        f.write(" of file: ")
+
+        if self.link_source_file:
+            source_page = self.source_page_name()
+            f.write(
+                f"<a href=\"{source_page}#line_{source_line}\">"
+                f"{self.html_escape(source_file)}</a>"
+            )
+        else:
+            f.write(f"<span>{self.html_escape(source_file)}</span>")
+
+        f.write("</div>\n")
+
+    def pascal_code_keywords(self):
+        return {
+            "unit", "interface", "implementation", "uses", "type", "class",
+            "record", "set", "array", "of", "const", "var", "begin", "end",
+            "procedure", "function", "constructor", "destructor", "property",
+            "read", "write", "public", "private", "protected", "published",
+            "virtual", "override", "abstract", "inherited", "string",
+            "integer", "double", "boolean"
+        }
+
+    def pascal_known_links(self, current_item=None):
+        links = {}
         
+        if current_item is not None:
+            members = (
+                getattr(current_item, "fields", []) +
+                getattr(current_item, "properties", []) +
+                getattr(current_item, "methods", [])
+            )
+            
+            for member in members:
+                name = self.member_display_name(member)
+                anchor = self.make_member_anchor(current_item, member)
+                links[name.lower()] = (
+                    self.safe_filename(current_item.name) + ".html#" + anchor
+                )
+        
+        for cls in self.classes:
+            links[cls.name.lower()] = self.safe_filename(cls.name) + ".html"
+        
+        for item in self.interfaces:
+            links[item.name.lower()] = self.safe_filename(item.name) + ".html"
+        
+        for item in self.records + self.arrays + self.sets + self.enums:
+            links[item.name.lower()] = self.safe_filename(item.name) + ".html"
+        
+        for c in self.constants:
+            links[c.name.lower()] = "index.html#const_" + self.safe_filename(c.name)
+        
+        for v in self.global_vars:
+            links[v.name.lower()] = "index.html#" + self.make_var_anchor(v.name)
+        
+        return links
+    
+    def strip_pascal_doc_comments_from_lines(self, lines):
+        result = []
+        in_doc_comment = False
+        
+        for line in lines:
+            text = line
+            
+            while True:
+                if not in_doc_comment:
+                    p1 = text.find("(**!")
+                    p2 = text.find("{**!")
+                    
+                    positions = [p for p in [p1, p2] if p >= 0]
+                    
+                    if not positions:
+                        result.append(text)
+                        break
+                    
+                    start = min(positions)
+                    marker = text[start:start + 4]
+                    
+                    end_marker = "*)" if marker == "(**!" else "*}"
+                    end = text.find(end_marker, start + 4)
+                    
+                    if end >= 0:
+                        text = text[:start] + text[end + 2:]
+                        continue
+                    
+                    result.append(text[:start])
+                    in_doc_comment = True
+                    break
+                
+                else:
+                    e1 = text.find("*)")
+                    e2 = text.find("*}")
+                    
+                    positions = [p for p in [e1, e2] if p >= 0]
+                    
+                    if not positions:
+                        break
+                    
+                    end  = min(positions)
+                    text = text[end + 2:]
+                    in_doc_comment = False
+        return result
+    
+    def highlight_pascal_source_line(self, line, current_item=None):
+        known_links = {
+            name.lower(): (name, link)
+            for name, link in self.pascal_known_links(current_item).items()
+        }
+        
+        keywords = self.pascal_code_keywords()
+        result = []
+        
+        parts = re.split(r"([A-Za-z_][A-Za-z0-9_]*)", line)
+        
+        for part in parts:
+            if not part:
+                continue
+            
+            key = part.lower()
+            
+            if key in known_links:
+                _, link = known_links[key]
+                result.append(
+                    f'<a class="code-link" href="{link}">'
+                    f'{self.html_escape(part)}</a>'
+                )
+            
+            elif key in keywords:
+                result.append(
+                    f'<span class="code-keyword">'
+                    f'{self.html_escape(part)}</span>'
+                )
+            
+            else:
+                result.append(self.html_escape(part))
+        
+        return "".join(result)
+
+    def write_source_editor(self, f, code, start_line=1, current_item=None):
+        lines = (code or "").splitlines()
+        if not lines:
+            return
+
+        f.write("      <div class=\"source-editor\">\n")
+        for index, line in enumerate(lines):
+            line_no = start_line + index
+            f.write(f"        <div class=\"source-row\" id=\"line_{line_no}\">")
+            f.write(f"<span class=\"source-gutter\">{line_no}</span>")
+            f.write(
+                f"<code class=\"source-code\">"
+                f"{self.highlight_pascal_source_line(line, current_item)}"
+                f"</code>"
+            )
+            f.write("</div>\n")
+        f.write("      </div>\n")
+
+    def write_declaration_section(self, f, item, title="Declaration"):
+        code = getattr(item, "source_code", "") or getattr(item, "signature", "")
+        line = getattr(item, "source_line", 1) or 1
+
+        f.write("    <section>\n")
+        f.write(f"      <h2>{self.html_escape(title)}</h2>\n")
+
+        if self.include_declarations_in_editor:
+            self.write_source_editor(f, code, line, item)
+        else:
+            f.write(f"      <pre class=\"declaration\">{self.html_escape(getattr(item, 'signature', code))}</pre>\n")
+
+        f.write("    </section>\n")
+        self.write_definition_location(f, item)
+
+    def write_source_file_page(self):
+        if not self.link_source_file or not self.source_lines or not self.source_name:
+            return
+
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
+
+        filename = os.path.join(out_dir, self.source_page_name())
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+            f.write("  <meta charset=\"utf-8\">\n")
+            f.write(f"  <title>{self.html_escape(self.source_name)}</title>\n")
+            f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+            f.write("  <script src=\"search_index.js\"></script>\n")
+            f.write("</head>\n<body>\n")
+
+            if self.use_treeview:
+                f.write("  <div class=\"layout\">\n")
+                self.write_sidebar(f, None)
+                f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                f.write("    <main class=\"page content-pane\">\n")
+            else:
+                f.write("  <main class=\"page\">\n")
+
+            self.write_doc_header(f, "Source: " + self.source_name, None)
+            f.write("    <section>\n")
+            f.write("      <h2>Source Code</h2>\n")
+            
+            self.write_source_editor(f, "\n".join(self.source_lines), 1)
+            
+            f.write("    </section>\n")
+            f.write("    </main>\n")
+
+            if self.use_treeview:
+                f.write("  </div>\n")
+                self.write_treeview_script(f)
+
+            self.write_search_script(f)
+            f.write("</body>\n</html>\n")
+
     def doxy_fields(self, page_widgets):
         for widget in page_widgets:
             if isinstance(widget, DoxyLineBtn3)\
@@ -873,6 +1206,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             methods     = [],
             properties  = []
         )
+        self.set_source_location(info, ctx)
         
         old_class  = self.current_class
         old_access = self.current_access
@@ -902,6 +1236,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             brief,
             self.pending_details
         )
+        self.set_source_location(info, ctx)
 
         enum_type = ctx.enumType()
         items     = []
@@ -956,14 +1291,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 brief   = self.pending_brief
                 details = self.pending_details
 
-        self.constants.append(
-            PasConstInfo(
-                name,
-                value,
-                brief,
-                details
-            )
+        const_info = PasConstInfo(
+            name,
+            value,
+            brief,
+            details
         )
+        self.set_source_location(const_info, ctx)
+        self.constants.append(const_info)
 
         self.clear_pending_doc()
         return None
@@ -972,14 +1307,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         name  = ctx.IDENT().getText()
         value = self.text_from_ctx(ctx.constValue())
         
-        self.constants.append(
-            PasConstInfo(
-                name,
-                value,
-                self.pending_brief,
-                self.pending_details
-            )
+        const_info = PasConstInfo(
+            name,
+            value,
+            self.pending_brief,
+            self.pending_details
         )
+        self.set_source_location(const_info, ctx)
+        self.constants.append(const_info)
         self.pending_brief = ""
         return None
     
@@ -990,15 +1325,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         if hasattr(ctx, "docComment") and ctx.docComment():
             brief = self.extract_brief(ctx.docComment().getText())
 
-        self.sets.append(
-            PasTypeInfo(
-                name,
-                "set",
-                self.clean_pascal_signature(self.text_from_ctx(ctx.setType())),
-                brief,
-                self.pending_details
-            )
+        info = PasTypeInfo(
+            name,
+            "set",
+            self.clean_pascal_signature(self.text_from_ctx(ctx.setType())),
+            brief,
+            self.pending_details
         )
+        self.set_source_location(info, ctx)
+        self.sets.append(info)
 
         self.clear_pending_doc()
         return None
@@ -1010,15 +1345,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         if hasattr(ctx, "docComment") and ctx.docComment():
             brief = self.extract_brief(ctx.docComment().getText())
 
-        self.arrays.append(
-            PasTypeInfo(
-                name,
-                "array",
-                self.clean_pascal_signature(self.text_from_ctx(ctx.arrayType())),
-                brief,
-                self.pending_details
-            )
+        info = PasTypeInfo(
+            name,
+            "array",
+            self.clean_pascal_signature(self.text_from_ctx(ctx.arrayType())),
+            brief,
+            self.pending_details
         )
+        self.set_source_location(info, ctx)
+        self.arrays.append(info)
 
         self.clear_pending_doc()
         return None
@@ -1061,6 +1396,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self.pending_brief,
             self.pending_details
         )
+        self.set_source_location(info, ctx)
 
         self.pending_brief = ""
 
@@ -1138,6 +1474,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.progress_value(13)
         self.write_search_index()
 
+        self.progress_log("WRITE SOURCE FILE")
+        self.write_source_file_page()
+
         self.progress_log(share.locales.tr("WRITE CLASSES"))
         self.progress_value(15)
         self.write_classes()
@@ -1190,6 +1529,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         old_access = self.current_access
         
         info = PasClassInfo(class_name + generic_params)
+        self.set_source_location(info, ctx)
         info.brief   = self.pending_brief
         info.details = self.pending_details
         info.kind    = "class"
@@ -1221,32 +1561,32 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     
     def visitMethodDeclaration(self, ctx: PasDocParser.MethodDeclarationContext):
         if self.current_class is None:
-            self.global_methods.append(
-                PasMemberInfo(
-                    "public",
-                    self.text_from_ctx(ctx),
-                    self.pending_brief,
-                    self.pending_params,
-                    self.pending_returns,
-                    self.pending_notes,
-                    self.pending_details
-                )
-            )
-            self.clear_pending_doc()
-            return None
-        
-        signature = self.text_from_ctx(ctx)
-        self.current_class.methods.append(
-            PasMemberInfo(
-                self.current_access,
-                signature,
+            member = PasMemberInfo(
+                "public",
+                self.text_from_ctx(ctx),
                 self.pending_brief,
                 self.pending_params,
                 self.pending_returns,
                 self.pending_notes,
                 self.pending_details
             )
+            self.set_source_location(member, ctx)
+            self.global_methods.append(member)
+            self.clear_pending_doc()
+            return None
+        
+        signature = self.text_from_ctx(ctx)
+        member = PasMemberInfo(
+            self.current_access,
+            signature,
+            self.pending_brief,
+            self.pending_params,
+            self.pending_returns,
+            self.pending_notes,
+            self.pending_details
         )
+        self.set_source_location(member, ctx)
+        self.current_class.methods.append(member)
         self.clear_pending_doc()
         return None
     
@@ -1265,6 +1605,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self.pending_notes,
             self.pending_details
         )
+        self.set_source_location(member, ctx)
 
         # Kommentar direkt nach dem Typ:
         # property Name: string (**! @brief Datentyp *)
@@ -1298,7 +1639,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.clear_pending_doc()
         return None
     
-    def add_global_var_from_signature(self, signature, brief="", details=""):
+    def add_global_var_from_signature(self, signature, brief="", details="", ctx=None):
         signature = self.clean_pascal_signature(signature)
         
         if ":" not in signature:
@@ -1320,6 +1661,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     brief,
                     details
                 )
+                if ctx is not None:
+                    self.set_source_location(item, ctx)
                 self.global_vars.append(item)
                 group.vars.append(item)
         
@@ -1342,21 +1685,22 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self.add_global_var_from_signature(
                 clean_signature,
                 brief,
-                self.pending_details
+                self.pending_details,
+                ctx
             )
             return None
             
-        self.current_class.fields.append(
-            PasMemberInfo(
-                self.current_access,
-                clean_signature,
-                brief,
-                self.pending_params,
-                self.pending_returns,
-                self.pending_notes,
-                self.pending_details
-            )
+        member = PasMemberInfo(
+            self.current_access,
+            clean_signature,
+            brief,
+            self.pending_params,
+            self.pending_returns,
+            self.pending_notes,
+            self.pending_details
         )
+        self.set_source_location(member, ctx)
+        self.current_class.fields.append(member)
         self.clear_pending_doc()
         return None
 
@@ -2441,7 +2785,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 
                 if cls.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(cls.brief)}</p>\n")
-                    
+                
+                self.write_declaration_section(f, cls)
                 self.write_inheritance_diagram(f, cls)
                 self.write_derived_classes_section(f, cls)
                 self.write_dependency_diagram(f, cls)
@@ -2680,10 +3025,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if item.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
                 
-                f.write("    <section>\n")
-                f.write("      <h2>Declaration</h2>\n")
-                f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
-                f.write("    </section>\n")
+                self.write_declaration_section(f, item)
                 
                 if getattr(item, "details", ""):
                     f.write("    <section>\n")
@@ -2817,10 +3159,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if item.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
                 
-                f.write("    <section>\n")
-                f.write("      <h2>Declaration</h2>\n")
-                f.write(f"      <pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
-                f.write("    </section>\n")
+                self.write_declaration_section(f, item)
                 
                 if getattr(item, "details", ""):
                     f.write("    <section>\n")
@@ -3085,6 +3424,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if item.brief:
                     f.write(f"    <p class=\"brief\">{self.html_escape(item.brief)}</p>\n")
                 
+                self.write_declaration_section(f, item)
                 self.current_output_class = item
                 
                 self.write_inheritance_diagram      (f, item)
@@ -5197,6 +5537,17 @@ class DoxyGenToolWindow(QWidget):
         self.tabs.addTab(self._build_expert_tab(), share.locales.tr("Expert"))
         self.tabs.addTab(self._build_run_tab   (), share.locales.tr("Run"))
 
+    def get_doxy_bool(self, key, default=False):
+        # hier todo !!!
+        return True
+        for page in DOXYGEN_PROJECT_PAGES.values():
+            if page is None:
+                continue
+            widget = page.area.findChild(DoxyCheckBox, key)
+            if widget is not None:
+                return widget.check.isChecked()
+        return default
+
     def generate_html(self, source_file, output_dir="html"):
         name, ext = os.path.splitext(source_file)
         ext       = ext[1:].lower()
@@ -5217,7 +5568,10 @@ class DoxyGenToolWindow(QWidget):
                 self.visitor = PasDocHtmlVisitor(
                     output_dir,
                     use_treeview = True,
-                    progress     = self.progress
+                    progress     = self.progress,
+                    source_file  = source_file,
+                    include_declarations_in_editor = self.get_doxy_bool("INLINE_SOURCES", False),
+                    link_source_file = self.get_doxy_bool("SOURCE_BROWSER", False)
                 )
                 self.visitor.visit(self.tree)
                 

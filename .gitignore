@@ -282,3 +282,5 @@ src/share/1
 src/data/po/locales/de/LC_MESSAGES/runner_formatted.po
 src/html/pascal/TPerson.pdf
 src/html/pascal/TPerson.pdf
+src/share/modules/4
+src/share/modules/doxygen_source_editor.py
