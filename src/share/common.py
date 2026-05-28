@@ -93,7 +93,7 @@ try:
         qUnregisterResourceData, qVersion, QSortFilterProxyModel, QByteArray,
         QTimer, qInstallMessageHandler, QMimeData, QDataStream, QIODevice,
         QBuffer, QSettings, QDateTime, QProcess, QAbstractTableModel,
-        QStringListModel,
+        QStringListModel, QThread,
     )
     from PyQt5.QtGui     import (
         QFont, QPainter, QFontMetrics, QSyntaxHighlighter, QIcon, QPixmap,

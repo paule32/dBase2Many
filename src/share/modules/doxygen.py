@@ -12,6 +12,7 @@ import os
 import html
 import hashlib
 import re
+import encodings.aliases
 
 from share.common import *
 from PyQt5.QtGui  import QPageLayout, QPageSize
@@ -364,63 +365,6 @@ class PasUnitInfo:
     uses    : list
     used_by : list
 
-"""class DoxyProgressDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.index_file = ""
-
-        self.setWindowTitle(share.locales.tr("Generate Documentation"))
-        self.resize(600, 400)
-
-        layout = QVBoxLayout(self)
-
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 100)
-        self.progress.setValue(0)
-
-        self.log_edit = QPlainTextEdit()
-        self.log_edit.setReadOnly(True)
-        self.log_edit.setFont(QFont("Consolas", 9))
-
-        btn_layout = QHBoxLayout()
-
-        self.btn_open = QPushButton(share.locales.tr("Open HTML Documentation"))
-        self.btn_open.setEnabled(False)
-
-        self.btn_close = QPushButton(share.locales.tr("Close"))
-
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_open)
-        btn_layout.addWidget(self.btn_close)
-
-        layout.addWidget(self.progress)
-        layout.addWidget(self.log_edit)
-        layout.addLayout(btn_layout)
-
-        self.btn_open.clicked.connect(self.open_html)
-        self.btn_close.clicked.connect(self.accept)
-
-    def log(self, text):
-        self.log_edit.appendPlainText(str(text))
-        self.log_edit.moveCursor(QTextCursor.End)
-        QApplication.processEvents()
-
-    def setValue(self, value):
-        self.progress.setValue(value)
-        QApplication.processEvents()
-
-    def done_generation(self, index_file):
-        self.index_file = index_file
-        self.setValue(100)
-        self.log("DONE")
-        self.btn_open.setEnabled(True)
-
-    def open_html(self):
-        if self.index_file and os.path.exists(self.index_file):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(self.index_file))
-"""
-
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
 # ---------------------------------------------------------------------------
@@ -496,7 +440,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         progress     = None,
         source_file  = "",
         include_declarations_in_editor = False,
-        link_source_file = False):
+        link_source_file    = False,
+        strip_code_comments = False,
+        input_encoding      = "utf-8"):
         
         super().__init__()
         
@@ -508,10 +454,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.source_lines    = self.load_source_lines(source_file)
         
         self.include_declarations_in_editor = include_declarations_in_editor
+        self.input_encoding      = input_encoding
         self.link_source_file    = link_source_file
         self.inline_sources      = True
         self.source_browser      = True
-        self.strip_code_comments = True
+        self.strip_code_comments = strip_code_comments
         
         self.classes         = []
         
@@ -548,50 +495,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.current_var_group = None
         
         self.current_access    = "public"
-        
-        DOXYGEN_CONFIG.append("# Doxyfile 1.17.3\n")
-        
-        com_line = ("# " + ('-' * 78))
-        com_text = share.locales.tr(" related configuration options")
-
-        self.already_seen = []
-        self.already_seen.clear()
-        
-        if  (DOXYGEN_EXPERT_ITEMS  is not None)\
-        and (DOXYGEN_PROJECT_PAGES is not None):
-            for res in DOXYGEN_EXPERT_ITEMS:
-                txt  = share.locales.tr(res)
-                page = DOXYGEN_PROJECT_PAGES.get(txt)
-                
-                if page is None:
-                    continue
-                
-                DOXYGEN_CONFIG.extend([com_line, f"# {txt}{com_text}", com_line])
-                self.doxy_fields(page.area.findChildren(QWidget))
-                
-            for item in DOXYGEN_CONFIG:
-                self.progress.progress_log(f"{item}")
     
-    def progress_log(self, text):
-        self.log_edit.appendPlainText(str(text))
-        self.log_edit.moveCursor(QTextCursor.End)
-        QApplication.processEvents()
-    
-    def progress_done_generation(self, index_file):
-        self.progress.progress_index_file = index_file
-        self.progress.progress_value(100)
-        self.progress.progress_log("DONE")
-        #self.progress_btn_open.setEnabled(True)
-    
-    def open_html(self):
-        if self.index_file and os.path.exists(self.index_file):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(self.index_file))
-            
-    def progress_value(self, value):
-        if self.progress.progress:
-            self.progress.progress_value(value)
-            QApplication.processEvents()
-
     def load_source_lines(self, filename):
         if not filename:
             return []
@@ -879,51 +783,6 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
             self.write_search_script(f)
             f.write("</body>\n</html>\n")
-
-    def doxy_fields(self, page_widgets):
-        for widget in page_widgets:
-            if isinstance(widget, DoxyLineBtn3)\
-            or isinstance(widget, DoxyLineBtn4): continue
-            
-            if isinstance(widget, DoxyTextEdit):
-                key = widget.help_str
-                if key in self.already_seen:
-                    continue
-                self.already_seen.append(key)
-                lines = widget.edit.toPlainText().splitlines()
-                p     = len(lines)
-                if p == 1:
-                    DOXYGEN_CONFIG.append(f"{key:<32}= \"{lines[0]}\"")
-                    continue
-                elif p > 1:
-                    if lines[0] == "":
-                        continue
-                    for line in lines:
-                        if p == len(lines): DOXYGEN_CONFIG.append(f"{key:<32}= \"{line}\" \\")
-                        elif p-1 > 0:       DOXYGEN_CONFIG.append(f"{' ':<32}= \"{line}\" \\")
-                        else:               DOXYGEN_CONFIG.append(f"{' ':<34}\"{line}\"")
-                        p = p-1
-                continue
-            if isinstance(widget, DoxySpinEdit):
-                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {str(widget.spin.value())}")
-                continue
-            if isinstance(widget, DoxyLineEdit):
-                if len(widget.input.text()) > 0:
-                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= \"{widget.input.text()}\"")
-                    continue
-                else:
-                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= ")
-                    continue
-            if isinstance(widget, DoxyCheckBox):
-                if widget.check.isChecked():
-                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= YES")
-                    continue
-                else:
-                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= NO" )
-                    continue
-            if isinstance(widget, DoxyComboBox):
-                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {widget.combo.currentText()}")
-                continue
     
     def all_pascal_types(self):
         return (
@@ -1560,12 +1419,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.progress.progress_value(45)
         self.write_pascal_pdf_document()
         
-        index_file = os.path.abspath(
+        progress_index_file = os.path.abspath(
             os.path.join(self.output_dir, "pascal", "index.html")
         )
         
         self.progress.progress_value(100)
-        self.progress.done_generation(index_file)
+        self.progress.done_generation(progress_index_file)
         
         return self.classes
     
@@ -5102,7 +4961,8 @@ class WizardSettings(QWidget):
         self.model     = QStringListModel(self.pages, self)
         self.list_view.setModel(self.model)
         
-        self.stack = QStackedWidget(self)
+        self.parent = parent
+        self.stack  = QStackedWidget(self)
         
         self.stack.addWidget(self.create_page_project ("Project Page"))
         self.stack.addWidget(self.create_page_mode    ("Mode Page"))
@@ -5124,6 +4984,24 @@ class WizardSettings(QWidget):
         self.list_view.setCurrentIndex(self.model.index(0, 0))
         self.stack.setCurrentIndex(0)
     
+    def on_projectname_textchanged(self, text) -> bool:
+        return self.parent.set_doxy_text("PROJECT_NAME", text)
+    
+    def on_projectsynopsis_textchanged(self, text) -> bool:
+        return self.parent.set_doxy_text("PROJECT_BRIEF", text)
+        
+    def on_projectversion_textchanged(self, text) -> bool:
+        return self.parent.set_doxy_text("PROJECT_NUMBER", text)
+    
+    # -----------------------------------------------------------
+    # übernimmt text in editor
+    # komma: , getrennte strings werden pro Zeile übernommen und
+    # in der Project-Tab View: INPUT eingetragen.
+    # -----------------------------------------------------------
+    def on_projectdirectory_textchanged(self, text) -> bool:
+        items = [x.strip() for x in text.split(",") if x.strip()]
+        return self.parent.set_doxy_edit("INPUT", items)
+        
     def create_page_project(self, title):
         page = QWidget(self)
         page_layout = QVBoxLayout(page)
@@ -5149,7 +5027,10 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
+        
         lined = QLineEdit()
+        lined.setFont(QFont("Consolas", 9))
+        lined.textChanged.connect(self.on_projectname_textchanged)
         
         hlay.addWidget(label)
         hlay.addWidget(lined)
@@ -5161,7 +5042,10 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
+        
         lined = QLineEdit()
+        lined.setFont(QFont("Consolas", 9))
+        lined.textChanged.connect(self.on_projectsynopsis_textchanged)
         
         hlay.addWidget(label)
         hlay.addWidget(lined)
@@ -5173,7 +5057,10 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
+        
         lined = QLineEdit()
+        lined.setFont(QFont("Consolas", 9))
+        lined.textChanged.connect(self.on_projectversion_textchanged)
         
         hlay.addWidget(label)
         hlay.addWidget(lined)
@@ -5185,6 +5072,7 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
+        
         lined = QLineEdit()
         lbbtn = QPushButton(share.locales.tr("Select..."))
         
@@ -5206,12 +5094,16 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
-        lined = QLineEdit()
+        
+        self.edit_src_dir = QLineEdit()
+        self.edit_src_dir.setFont(QFont("Consolas", 9))
+        self.edit_src_dir.textChanged.connect(self.on_projectdirectory_textchanged)
+        
         lbbtn = QPushButton(share.locales.tr("Select..."))
         self.on_button_clicked(lbbtn, lined, 1)
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.edit_src_dir)
         hlay.addWidget(lbbtn)
         content_layout.addLayout(hlay)
         
@@ -5261,8 +5153,22 @@ class WizardSettings(QWidget):
             btn.clicked.connect(self.on_button_clicked_dst)
     
     def on_button_clicked_src(self):
-        print("src")
-        
+        #print("src")
+        filename = QFileDialog.getExistingDirectory(self,
+            share.locales.tr("Select Directory"),
+            "",
+            QFileDialog.ShowDirsOnly)
+        if filename:
+            text  = self.edit_src_dir.text()
+            liste = [x.strip() for x in text.split(",")]
+            if filename not in liste:
+                liste.append(filename)
+            new_txt = ""
+            for item in liste:
+                new_txt = new_txt + item + ","
+                continue
+            self.edit_src_dir.setText(new_txt)
+    
     def on_button_clicked_dst(self):
         print("dst")
         
@@ -5498,6 +5404,77 @@ class WizardSettings(QWidget):
         for child in group.findChildren(QWidget):
             child.setEnabled(checked)
 
+
+class GenerateHtmlWorker(QObject):
+    progress_log   = pyqtSignal(str)
+    progress_value = pyqtSignal(int)
+    finished       = pyqtSignal(object)
+    failed         = pyqtSignal(str)
+    
+    def __init__(self,
+        source_file,
+        output_dir,
+        encoding,
+        inline_sources      = False,
+        source_browser      = False,
+        strip_code_comments = False):
+        
+        super().__init__()
+        
+        self.source_file = source_file
+        self.output_dir  = output_dir
+        self.encoding    = encoding
+        
+        self.inline_sources       = inline_sources
+        self.source_browser       = source_browser
+        self.strip_code_comments  = strip_code_comments
+    
+    def run(self):
+        try:
+            self.progress_log.emit(share.locales.tr("Start documentation generation..."))
+            self.progress_value.emit(1)
+            
+            name, ext = os.path.splitext(self.source_file)
+            ext = ext[1:].lower()
+            
+            if ext in ["pas", "pp"]:
+                input_stream = FileStream(
+                    self.source_file,
+                    encoding = self.encoding
+                )
+                
+                lexer  = PasDocLexer(input_stream)
+                tokens = CommonTokenStream(lexer)
+                parser = PasDocParser(tokens)
+                tree   = parser.unitFile()
+                
+                visitor = PasDocHtmlVisitor(
+                    self.output_dir,
+                    use_treeview                    = True,
+                    progress                        = self,
+                    source_file                     = self.source_file,
+                    include_declarations_in_editor  = self.inline_sources,
+                    link_source_file                = self.source_browser,
+                    strip_code_comments             = self.strip_code_comments
+                )
+                
+                visitor.visit(tree)
+                
+                self.finished.emit(visitor)
+                return
+            
+            self.failed.emit(share.locales.tr("Unsupported file type") + ": " + ext)
+        
+        except Exception:
+            self.failed.emit(traceback.format_exc())
+    
+    # Damit der Visitor weiterhin progress.progress_log(...) nutzen kann:
+    def log(self, text):
+        self.progress_log.emit(str(text))
+    
+    def setValue(self, value):
+        self.progress_value.emit(int(value))
+        
 # ---------------------------------------------------------------------------
 # \brief this is the doxygen tool window for help / documenting the source.
 # ---------------------------------------------------------------------------
@@ -5519,10 +5496,21 @@ class DoxyGenToolWindow(QWidget):
         self.progress    = None
         
         self.current_project_path = ""
+        self.progress_index_file  = ""
+        
+        self.wizard_page = None
 
+        self.com_line = ("# " + ('-' * 78))
+        self.com_text = share.locales.tr(" related configuration options")
+        
+        self.already_seen = []
+        self.already_seen.clear()
+        
+        DOXYGEN_CONFIG.append("# Doxyfile 1.17.3\n")
+        
         #self.lang = share.locales.get_default_lang().split("_")[0].lower()
         #self.trmo = share.locales.load_mo_from_resource(f":/locales/{self.lang}/doxygen.mo")
-            
+        
         self._build_ui()
         self._reload_project_list()
         
@@ -5570,7 +5558,7 @@ class DoxyGenToolWindow(QWidget):
         self.lineCWD.setFont(QFont("Consolas", 9))
         self.lineCWD.setText(str(_default_project_dir()))
         
-        self.btn_CWD.clicked.connect(self.on_cwd_click)
+        #self.btn_CWD.clicked.connect(self.on_cwd_click)
         
         hlay.addWidget(self.lineCWD)
         hlay.addWidget(self.btn_CWD)
@@ -5584,12 +5572,11 @@ class DoxyGenToolWindow(QWidget):
         self.main_splitter.addWidget(self.right_host)
         self.main_splitter.setSizes([260, 940])
         
-        
         self.tabs.addTab(self._build_wizard_tab(), share.locales.tr("Wizard"))
         self.tabs.addTab(self._build_expert_tab(), share.locales.tr("Expert"))
         self.tabs.addTab(self._build_run_tab   (), share.locales.tr("Run"))
 
-    def get_doxy_bool(self, key, default=False):
+    def get_doxy_bool(self, key, default=False) -> bool:
         # hier todo !!!
         return True
         for page in DOXYGEN_PROJECT_PAGES.values():
@@ -5599,8 +5586,82 @@ class DoxyGenToolWindow(QWidget):
             if widget is not None:
                 return widget.check.isChecked()
         return default
+    
+    def get_doxy_text(self, key, default="") -> str:
+        for page in DOXYGEN_PROJECT_PAGES.values():
+            if page is None:
+                continue
+            widget = page.area.findChild(DoxyLineEdit, key)
+            if widget is not None:
+                return widget.input.text()
+        return default
+    
+    def set_doxy_text(self, key, default="") -> bool:
+        for page in DOXYGEN_PROJECT_PAGES.values():
+            if page is None:
+                continue
+            widget = page.area.findChild(DoxyLineEdit, key)
+            if widget is not None:
+                widget.input.setText(default)
+                return True
+        return False
+    
+    def set_doxy_edit(self, key, items:list=[]) -> bool:
+        for page in DOXYGEN_PROJECT_PAGES.values():
+            if page is None:
+                continue
+            widget = page.area.findChild(DoxyTextEdit, key)
+            if widget is not None:
+                if len(items) > 0:
+                    widget.edit.clear()
+                    for item in items:
+                        widget.edit.appendPlainText(item)
+                        widget.edit.moveCursor(QTextCursor.End)
+                        QApplication.processEvents()
+                    return True
+        return False
+        
+    def generate_html_threaded(self, source_file, output_dir="html"):
+        encs = sorted(set(encodings.aliases.aliases.values()))
+        cfg  = "INPUT_ENCODING"
+        txt  = self.get_doxy_text(cfg)
+        enc  = txt.lower().strip()
+        
+        if not enc:
+            self.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
+            return
 
+        self.thread = QThread(self)
+
+        self.worker = GenerateHtmlWorker(
+            source_file,
+            output_dir,
+            enc,
+            inline_sources      = self.get_doxy_bool("INLINE_SOURCES"       , False),
+            source_browser      = self.get_doxy_bool("SOURCE_BROWSER"       , False),
+            strip_code_comments = self.get_doxy_bool("STRIP_CODE_COMMENTS"  , False)
+        )
+        
+        self.worker.moveToThread(self.thread)
+        
+        self.thread.started.connect(self.worker.run)
+        
+        self.worker.progress_log.connect(self.progress_log)
+        self.worker.progress_value.connect(self.progress_value)
+        
+        self.worker.finished.connect(self.on_generate_html_finished)
+        self.worker.failed.connect(self.on_generate_html_failed)
+        
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.failed.connect(self.thread.quit)
+        
+        self.thread.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        
+        self.thread.start()
+    
     def generate_html(self, source_file, output_dir="html"):
+        encs      = sorted(set(encodings.aliases.aliases.values()))
         name, ext = os.path.splitext(source_file)
         ext       = ext[1:].lower()
         try:
@@ -5610,8 +5671,26 @@ class DoxyGenToolWindow(QWidget):
                 self.progress_log(share.locales.tr("Start documentation generation..."))
                 self.progress_value(1)
                 
-                self.input_stream = FileStream(source_file, encoding="utf-8")
-                self.lexer   = PasDocLexer      (self.input_stream)
+                cfg = "INPUT_ENCODING"
+                txt = self.get_doxy_text(cfg)
+                enc = txt.lower().strip()
+                enc = enc.replace('-', '_')
+                print("enc:",enc)
+                
+                if not enc:
+                    self.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
+                    return
+                
+                if enc not in encs:
+                    self.progress_log(share.locales.tr("Encoding not supported") + ": " + enc + ": " + cfg)
+                    return
+                
+                enc = enc.replace('_', '-')
+                self.input_stream = FileStream(
+                    source_file,
+                    encoding = enc
+                )
+                self.lexer   = PasDocLexer(self.input_stream)
                 self.tokens  = CommonTokenStream(self.lexer)
             
                 self.parser  = PasDocParser(self.tokens)
@@ -5619,11 +5698,13 @@ class DoxyGenToolWindow(QWidget):
             
                 self.visitor = PasDocHtmlVisitor(
                     output_dir,
-                    use_treeview = True,
-                    progress     = self,
-                    source_file  = source_file,
-                    include_declarations_in_editor = self.get_doxy_bool("INLINE_SOURCES", False),
-                    link_source_file = self.get_doxy_bool("SOURCE_BROWSER", False)
+                    use_treeview                    = True,
+                    progress                        = self,
+                    source_file                     = source_file,
+                    include_declarations_in_editor  = self.get_doxy_bool("INLINE_SOURCES", False),
+                    link_source_file                = self.get_doxy_bool("SOURCE_BROWSER", False),
+                    strip_code_comments             = self.strip_code_comments,
+                    input_encoding                  = enc
                 )
                 self.visitor.visit(self.tree)
                 
@@ -5645,15 +5726,25 @@ class DoxyGenToolWindow(QWidget):
             return
         
         #self.progress.log(share.locales.tr("HTML created in") + ": " + output_dir)
-
-    def on_cwd_click(self):
+    
+    def on_generate_html_finished(self, visitor):
+        self.visitor = visitor
+        self.progress_log(share.locales.tr("HTML created."))
+    
+    def on_generate_html_failed(self, text):
+        self.progress_log(text)
+        
+    def on_generate_click(self):
+        self.edit_log.clear()
         file_name = share.drives.open_share_file_dialog(self)
         print(file_name)
         self.generate_html(file_name, "html")
+        # todo
+        #self.generate_html_threaded(file_name, "html")
         
     def _build_wizard_tab(self):
-        page = WizardSettings()
-        return page
+        self.wizard_page = WizardSettings(self)
+        return self.wizard_page
 
     def _create_scroll_page(self):
         scroll_area = QScrollArea()
@@ -5721,19 +5812,8 @@ class DoxyGenToolWindow(QWidget):
             
             DoxyLineEdit(self.par1, "PROJECT_NAME", share.locales.tr("MyProject")),
             DoxyLineEdit(self.par1, "PROJECT_NUMBER"),
-            DoxyLineEdit(self.par1, "PROJECT_BRIEF", [
-                "\"The $name class\"",
-                "\"The $name widget\"",
-                "\"The $name file\"",
-                "is",
-                "provides",
-                "specifies",
-                "contains",
-                "represents",
-                "a",
-                "an",
-                "the",
-            ]),
+            DoxyLineEdit(self.par1, "PROJECT_BRIEF"),
+            
             DoxyLineBtn1(self.par1, "PROJECT_LOGO", "", 0),
             DoxyImage   (self.par1, "PROJECT_LOGO", share.locales.tr("No Project Logo selected.")),
             DoxyLineBtn1(self.par1, "PROJECT_ICON", "", 0),
@@ -5750,7 +5830,19 @@ class DoxyGenToolWindow(QWidget):
             DoxyCheckBox(self.par1, "REPEAT_BRIEF"),
             
             DoxyLineBtn3(self.par1, "ABBREVIATE_BRIEF"),
-            DoxyTextEdit(self.par1, "ABBREVIATE_BRIEF", []),
+            DoxyTextEdit(self.par1, "ABBREVIATE_BRIEF", [
+                "\"The $name class\"",
+                "\"The $name widget\"",
+                "\"The $name file\"",
+                "is",
+                "provides",
+                "specifies",
+                "contains",
+                "represents",
+                "a",
+                "an",
+                "the",
+            ]),
             
             DoxyCheckBox(self.par1, "ALWAYS_DETAILED_SEC"),
             DoxyCheckBox(self.par1, "INLINE_INHERITED_MEMB"),
@@ -6469,7 +6561,53 @@ class DoxyGenToolWindow(QWidget):
         self.list_categories.setCurrentRow(1)
         self.list_categories.setCurrentRow(0)
         return page
+    
+    def doxy_fields(self, page_widgets):
         
+        for widget in page_widgets:
+            if isinstance(widget, DoxyLineBtn3)\
+            or isinstance(widget, DoxyLineBtn4): continue
+            
+            if isinstance(widget, DoxyTextEdit):
+                key = widget.help_str
+                if key in self.already_seen:
+                    continue
+                self.already_seen.append(key)
+                lines = widget.edit.toPlainText().splitlines()
+                p     = len(lines)
+                if p == 1:
+                    DOXYGEN_CONFIG.append(f"{key:<32}= \"{lines[0]}\"")
+                    continue
+                elif p > 1:
+                    if lines[0] == "":
+                        continue
+                    for line in lines:
+                        if p == len(lines): DOXYGEN_CONFIG.append(f"{key:<32}= \"{line}\" \\")
+                        elif p-1 > 0:       DOXYGEN_CONFIG.append(f"{' ':<32}= \"{line}\" \\")
+                        else:               DOXYGEN_CONFIG.append(f"{' ':<34}\"{line}\"")
+                        p = p-1
+                continue
+            if isinstance(widget, DoxySpinEdit):
+                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {str(widget.spin.value())}")
+                continue
+            if isinstance(widget, DoxyLineEdit):
+                if len(widget.input.text()) > 0:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= \"{widget.input.text()}\"")
+                    continue
+                else:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= ")
+                    continue
+            if isinstance(widget, DoxyCheckBox):
+                if widget.check.isChecked():
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= YES")
+                    continue
+                else:
+                    DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= NO" )
+                    continue
+            if isinstance(widget, DoxyComboBox):
+                DOXYGEN_CONFIG.append(f"{widget.help_str:<32}= {widget.combo.currentText()}")
+                continue
+    
     def _on_expert_item_changed(self, text):
         if not text:
             return
@@ -6477,6 +6615,65 @@ class DoxyGenToolWindow(QWidget):
         if page:
             self.expert_pages.setCurrentWidget(page.area)
     
+    def on_showconf_click(self):
+        DOXYGEN_CONFIG.clear()
+        self.edit_log.clear()
+        self.progress_value(20)
+        
+        if  (DOXYGEN_EXPERT_ITEMS  is not None)\
+        and (DOXYGEN_PROJECT_PAGES is not None):
+            for res in DOXYGEN_EXPERT_ITEMS:
+                txt  = share.locales.tr(res)
+                page = DOXYGEN_PROJECT_PAGES.get(txt)
+                
+                if page is None:
+                    continue
+                
+                DOXYGEN_CONFIG.extend([
+                    self.com_line,
+                    f"# {txt}"
+                    f"{self.com_text}",
+                    self.com_line
+                ])
+                self.doxy_fields(page.area.findChildren(QWidget))
+        count = 2
+        for item in DOXYGEN_CONFIG:
+            self.progress_log(f"{item}")
+            self.progress_value(count + 20)
+            count = count + 2
+        self.progress_value(0)
+    
+    def on_showhtml_click(self):
+        if not self.progress_index_file:
+            self.progress_log(share.locales.tr("no documentation available"))
+            return
+        if self.progress_index_file and os.path.exists (self.progress_index_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self.progress_index_file))
+    
+    def on_savelogs_click(self):
+        text1 = share.locales.tr("All Files")
+        text2 = share.locales.tr("Log Files")
+        text3 = share.locales.tr("Text Files")
+        try:
+            filename, _ = QFileDialog.getSaveFileName(self,
+                share.locales.tr("Save File..."),
+                "output.log",
+                f"{text2} (*.log);;"
+                f"{text3} (*.txt);;"
+                f"{text1} (*.*)")
+            if not filename:
+                QMessageBox.information(self,
+                share.locales.tr("Information: Log File"),
+                share.locales.tr("The Log File name is not known"))
+                return
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(self.edit_log.toPlainText())
+        except Exception as e:
+            QMessageBox.warning(self,
+            share.locales.tr("Save Log Error"),
+            share.locales.tr("The Log File could not be saved"))
+            return
+        
     def _build_run_tab(self):
         page = QWidget()
         page_lay = QVBoxLayout(page)
@@ -6488,14 +6685,20 @@ class DoxyGenToolWindow(QWidget):
         stat_lbl = QLabel     ( share.locales.tr("Status: not running") )
         show_btn = QPushButton( share.locales.tr("Show HTML Output")    )
         show_cfg = QPushButton( share.locales.tr("Show Configuration")  )
+        save_btn = QPushButton( share.locales.tr("Save Log...")         )
+        
+        exec_btn.clicked.connect(self.on_generate_click)
+        show_btn.clicked.connect(self.on_showhtml_click)
+        show_cfg.clicked.connect(self.on_showconf_click)
+        save_btn.clicked.connect(self.on_savelogs_click)
         
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         
-        edit_log = QTextEdit()
-        edit_log.setReadOnly(True)
-        edit_log.setFont(QFont("Consolas", 9))
+        self.edit_log = QPlainTextEdit()
+        self.edit_log.setReadOnly(True)
+        self.edit_log.setFont(QFont("Consolas", 9))
         
         page_lay.addWidget(labl_txt)
         page_lay.addWidget(edit_opt)
@@ -6509,14 +6712,31 @@ class DoxyGenToolWindow(QWidget):
         lay2 = QHBoxLayout()
         lay2.addWidget(show_cfg)
         lay2.addWidget(show_btn)
+        lay2.addWidget(save_btn)
         
         page_lay.addLayout(lay2)
         page_lay.addWidget(self.progress)
-        page_lay.addWidget(edit_log)
+        page_lay.addWidget(self.edit_log)
         
         #self.run_text = txt
         return page
-                
+    
+    def progress_log(self, text):
+            self.edit_log.appendPlainText(str(text))
+            self.edit_log.moveCursor(QTextCursor.End)
+            QApplication.processEvents()
+    
+    def progress_value(self, value):
+        if self.progress:
+            self.progress.setValue(value)
+            QApplication.processEvents()
+    
+    def done_generation(self, index_file):
+        self.progress_index_file = index_file
+        self.progress_value(100)
+        self.progress_log("DONE")
+        #self.btn_open.setEnabled(True)
+        
     def _locales_dir(self) -> Path:
         return Path(__file__).resolve().parents[2] / "data" / "po" / "locales"
     
@@ -6616,6 +6836,7 @@ class DoxyGenToolWindow(QWidget):
                 self.preproc_items,
                 self.external_items,
                 self.dot_items]:
+                
                 self.save_items(page)
             
             payload["state" ] = self.state
@@ -6680,6 +6901,7 @@ class DoxyGenToolWindow(QWidget):
                 self.preproc_items,
                 self.external_items,
                 self.dot_items]:
+                
                 self.load_items(page)
             
         except RuntimeError as e:
@@ -6741,7 +6963,10 @@ class DoxyGenToolWindow(QWidget):
             return default
     
     def load_items(self, items):
-        for item in items:
+        # -----------------------------
+        # pass: 1 - set data
+        # -----------------------------
+        for item in items:    
             if   isinstance(item, DoxyLineEdit): item.input.      setText(str(self.config.get(item.help_str, "")))
             
             elif isinstance(item, DoxyLineBtn1): item.input.input.setText(str(self.config.get(item.help_str, "")))
@@ -6765,6 +6990,16 @@ class DoxyGenToolWindow(QWidget):
                 index = item.combo.findText(str(self.config.get(item.help_str, "English")))
                 if index >= 0:
                     item.combo.setCurrentIndex(index)
+        # -----------------------------
+        # pass: 2 - get/set data
+        # -----------------------------
+        for item in items:
+            if item.help_str == "INPUT":
+                if isinstance(item, DoxyTextEdit):
+                    text = item.edit.toPlainText()
+                    text = text.splitlines()[0]
+                    self.wizard_page.edit_src_dir.setText(text)
+                    print(item.help_str,":", text)
     
     def _delete_selected_project(self):
         path = self._selected_project_path()
