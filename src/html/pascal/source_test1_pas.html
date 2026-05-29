@@ -38,6 +38,9 @@
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
             </li>
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
             </li>
             <li>
@@ -249,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
               <ul>
               </ul>
@@ -396,272 +404,273 @@
     <section>
       <h2>Source Code</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_1"><span class="source-gutter">1</span><code class="source-code">(**!</code></div>
-        <div class="source-row" id="line_2"><span class="source-gutter">2</span><code class="source-code"> * @mainpage Mein Projekt</code></div>
-        <div class="source-row" id="line_3"><span class="source-gutter">3</span><code class="source-code"> *</code></div>
-        <div class="source-row" id="line_4"><span class="source-gutter">4</span><code class="source-code"> * Willkommen in der Dokumentation.</code></div>
-        <div class="source-row" id="line_5"><span class="source-gutter">5</span><code class="source-code"> *</code></div>
-        <div class="source-row" id="line_6"><span class="source-gutter">6</span><code class="source-code"> * @section Übersicht</code></div>
-        <div class="source-row" id="line_7"><span class="source-gutter">7</span><code class="source-code"> * Diese Engine erzeugt Pascal-Dokumentation.</code></div>
-        <div class="source-row" id="line_8"><span class="source-gutter">8</span><code class="source-code"> *</code></div>
-        <div class="source-row" id="line_9"><span class="source-gutter">9</span><code class="source-code"> * @subsection Features</code></div>
-        <div class="source-row" id="line_10"><span class="source-gutter">10</span><code class="source-code"> * Klassen, Interfaces, Records und Typverlinkungen.</code></div>
-        <div class="source-row" id="line_11"><span class="source-gutter">11</span><code class="source-code"> *</code></div>
-        <div class="source-row" id="line_12"><span class="source-gutter">12</span><code class="source-code"> * @subsubsection Details</code></div>
-        <div class="source-row" id="line_13"><span class="source-gutter">13</span><code class="source-code"> * Später kommen Graphviz, Call-Graphs und <span class="code-keyword">Unit</span>-Dependencies dazu.</code></div>
-        <div class="source-row" id="line_14"><span class="source-gutter">14</span><code class="source-code"> *)</code></div>
+        <div class="source-row" id="line_1"><span class="source-gutter">1</span><code class="source-code"><span class="src-comment">(**!</span></code></div>
+        <div class="source-row" id="line_2"><span class="source-gutter">2</span><code class="source-code"><span class="src-comment"> * @mainpage Mein Projekt</span></code></div>
+        <div class="source-row" id="line_3"><span class="source-gutter">3</span><code class="source-code"><span class="src-comment"> *</span></code></div>
+        <div class="source-row" id="line_4"><span class="source-gutter">4</span><code class="source-code"><span class="src-comment"> * Willkommen in der Dokumentation.</span></code></div>
+        <div class="source-row" id="line_5"><span class="source-gutter">5</span><code class="source-code"><span class="src-comment"> *</span></code></div>
+        <div class="source-row" id="line_6"><span class="source-gutter">6</span><code class="source-code"><span class="src-comment"> * @section Übersicht</span></code></div>
+        <div class="source-row" id="line_7"><span class="source-gutter">7</span><code class="source-code"><span class="src-comment"> * Diese Engine erzeugt Pascal-Dokumentation.</span></code></div>
+        <div class="source-row" id="line_8"><span class="source-gutter">8</span><code class="source-code"><span class="src-comment"> *</span></code></div>
+        <div class="source-row" id="line_9"><span class="source-gutter">9</span><code class="source-code"><span class="src-comment"> * @subsection Features</span></code></div>
+        <div class="source-row" id="line_10"><span class="source-gutter">10</span><code class="source-code"><span class="src-comment"> * Klassen, Interfaces, Records und Typverlinkungen.</span></code></div>
+        <div class="source-row" id="line_11"><span class="source-gutter">11</span><code class="source-code"><span class="src-comment"> *</span></code></div>
+        <div class="source-row" id="line_12"><span class="source-gutter">12</span><code class="source-code"><span class="src-comment"> * @subsubsection Details</span></code></div>
+        <div class="source-row" id="line_13"><span class="source-gutter">13</span><code class="source-code"><span class="src-comment"> * Später kommen Graphviz, Call-Graphs und Unit-Dependencies dazu.</span></code></div>
+        <div class="source-row" id="line_14"><span class="source-gutter">14</span><code class="source-code"><span class="src-comment"> *)</span></code></div>
         <div class="source-row" id="line_15"><span class="source-gutter">15</span><code class="source-code"><span class="code-keyword">unit</span> TestUnit;</code></div>
         <div class="source-row" id="line_16"><span class="source-gutter">16</span><code class="source-code"></code></div>
         <div class="source-row" id="line_17"><span class="source-gutter">17</span><code class="source-code"><span class="code-keyword">interface</span></code></div>
         <div class="source-row" id="line_18"><span class="source-gutter">18</span><code class="source-code"></code></div>
         <div class="source-row" id="line_19"><span class="source-gutter">19</span><code class="source-code"><span class="code-keyword">uses</span></code></div>
-        <div class="source-row" id="line_20"><span class="source-gutter">20</span><code class="source-code">  SysUtils (**! @brief System Utils <span class="code-keyword">function</span>&#x27;s *);</code></div>
-        <div class="source-row" id="line_21"><span class="source-gutter">21</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_22"><span class="source-gutter">22</span><code class="source-code"><span class="code-keyword">uses</span></code></div>
-        <div class="source-row" id="line_23"><span class="source-gutter">23</span><code class="source-code">  Classes  (**! @brief Pascal <span class="code-keyword">Class</span>&#x27;es *),</code></div>
-        <div class="source-row" id="line_24"><span class="source-gutter">24</span><code class="source-code">  Dialogs;</code></div>
-        <div class="source-row" id="line_25"><span class="source-gutter">25</span><code class="source-code">  </code></div>
-        <div class="source-row" id="line_26"><span class="source-gutter">26</span><code class="source-code"><span class="code-keyword">const</span></code></div>
-        <div class="source-row" id="line_27"><span class="source-gutter">27</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_28"><span class="source-gutter">28</span><code class="source-code">   * @brief Maximale Anzahl.</code></div>
-        <div class="source-row" id="line_29"><span class="source-gutter">29</span><code class="source-code">   *</code></div>
-        <div class="source-row" id="line_30"><span class="source-gutter">30</span><code class="source-code">   * Dieser Wert begrenzt die Verarbeitung.</code></div>
-        <div class="source-row" id="line_31"><span class="source-gutter">31</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_32"><span class="source-gutter">32</span><code class="source-code">  <a class="code-link" href="index.html#const_MAX_COUNT">MAX_COUNT</a>   = 100;</code></div>
-        <div class="source-row" id="line_33"><span class="source-gutter">33</span><code class="source-code">  </code></div>
-        <div class="source-row" id="line_34"><span class="source-gutter">34</span><code class="source-code"><span class="code-keyword">const</span></code></div>
-        <div class="source-row" id="line_35"><span class="source-gutter">35</span><code class="source-code">  <a class="code-link" href="index.html#const_PI_VALUE">PI_VALUE</a>    = 3.1415 ;   (**! @brief This is the documentation for the PI <span class="code-keyword">const</span> *)</code></div>
-        <div class="source-row" id="line_36"><span class="source-gutter">36</span><code class="source-code">  <a class="code-link" href="index.html#const_APP_NAME">APP_NAME</a>    = &#x27;MyApp&#x27;;   (**! @brief This is the application <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">name</a> *)</code></div>
-        <div class="source-row" id="line_37"><span class="source-gutter">37</span><code class="source-code">  <a class="code-link" href="index.html#const_APP_VERSION">APP_VERSION</a> = $1001  ;   (**! @brief This is the Version *)</code></div>
-        <div class="source-row" id="line_38"><span class="source-gutter">38</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_39"><span class="source-gutter">39</span><code class="source-code"><span class="code-keyword">var</span></code></div>
-        <div class="source-row" id="line_40"><span class="source-gutter">40</span><code class="source-code">  (**! @brief Player values *)</code></div>
-        <div class="source-row" id="line_41"><span class="source-gutter">41</span><code class="source-code">  <a class="code-link" href="index.html#var_score_board">score_board</a> : <span class="code-keyword">Integer</span>;    (**! @brief <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">point</a> score board *)</code></div>
-        <div class="source-row" id="line_42"><span class="source-gutter">42</span><code class="source-code">  <a class="code-link" href="index.html#var_score_text">score_text</a>  : <span class="code-keyword">string</span>;     (**! @brief player <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">name</a> text *)</code></div>
-        <div class="source-row" id="line_43"><span class="source-gutter">43</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_44"><span class="source-gutter">44</span><code class="source-code">  (**! @brief Window values *)</code></div>
-        <div class="source-row" id="line_45"><span class="source-gutter">45</span><code class="source-code">  <a class="code-link" href="index.html#var_main_width">main_width</a>  : <span class="code-keyword">Integer</span>;</code></div>
-        <div class="source-row" id="line_46"><span class="source-gutter">46</span><code class="source-code">  <a class="code-link" href="index.html#var_main_height">main_height</a> : <span class="code-keyword">Integer</span>;</code></div>
-        <div class="source-row" id="line_47"><span class="source-gutter">47</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_48"><span class="source-gutter">48</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_49"><span class="source-gutter">49</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_50"><span class="source-gutter">50</span><code class="source-code">   * @brief Beispiel-<span class="code-keyword">Record</span>.</code></div>
-        <div class="source-row" id="line_51"><span class="source-gutter">51</span><code class="source-code">   * @details Dieser <span class="code-keyword">Record</span> speichert <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a>- und <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a>-Werte.</code></div>
-        <div class="source-row" id="line_52"><span class="source-gutter">52</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_53"><span class="source-gutter">53</span><code class="source-code">  <a class="code-link" href="TPoint.html">TPoint</a> = <span class="code-keyword">record</span></code></div>
-        <div class="source-row" id="line_54"><span class="source-gutter">54</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a>: <span class="code-keyword">Integer</span>; (**! @brief give the <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a> position *)</code></div>
-        <div class="source-row" id="line_55"><span class="source-gutter">55</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a>: <span class="code-keyword">Integer</span>; (**! @brief give the <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a> position *)</code></div>
-        <div class="source-row" id="line_56"><span class="source-gutter">56</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_57"><span class="source-gutter">57</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_58"><span class="source-gutter">58</span><code class="source-code">  <a class="code-link" href="TIntArray.html">TIntArray</a> = <span class="code-keyword">array</span>[0..10] <span class="code-keyword">of</span> <span class="code-keyword">Integer</span>;  (**! @brief this is a <span class="code-keyword">integer</span> <span class="code-keyword">array</span> 0 .. 10 *)</code></div>
-        <div class="source-row" id="line_59"><span class="source-gutter">59</span><code class="source-code">  <a class="code-link" href="TCharSet.html">TCharSet</a>  = <span class="code-keyword">set</span> <span class="code-keyword">of</span> Char;              (**! @brief a char <span class="code-keyword">set</span> *)</code></div>
-        <div class="source-row" id="line_60"><span class="source-gutter">60</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_61"><span class="source-gutter">61</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_62"><span class="source-gutter">62</span><code class="source-code">  <a class="code-link" href="TCard.html">TCard</a> = (One, Two, Three); (**! @brief available cards *)</code></div>
-        <div class="source-row" id="line_63"><span class="source-gutter">63</span><code class="source-code">  </code></div>
-        <div class="source-row" id="line_64"><span class="source-gutter">64</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_65"><span class="source-gutter">65</span><code class="source-code">  <a class="code-link" href="TColor.html">TColor</a> = (</code></div>
-        <div class="source-row" id="line_66"><span class="source-gutter">66</span><code class="source-code">    Red,   (**! @brief red color   *)</code></div>
-        <div class="source-row" id="line_67"><span class="source-gutter">67</span><code class="source-code">    Green, (**! @brief green color *)</code></div>
-        <div class="source-row" id="line_68"><span class="source-gutter">68</span><code class="source-code">    Blue   (**! @brief blue color  *)</code></div>
-        <div class="source-row" id="line_69"><span class="source-gutter">69</span><code class="source-code">  );       (**! @brief available colors *)</code></div>
-        <div class="source-row" id="line_70"><span class="source-gutter">70</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_71"><span class="source-gutter">71</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_72"><span class="source-gutter">72</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_73"><span class="source-gutter">73</span><code class="source-code">   * @brief Basisklasse.</code></div>
-        <div class="source-row" id="line_74"><span class="source-gutter">74</span><code class="source-code">   *</code></div>
-        <div class="source-row" id="line_75"><span class="source-gutter">75</span><code class="source-code">   * Dies ist die ausführliche Beschreibung der Basisklasse.</code></div>
-        <div class="source-row" id="line_76"><span class="source-gutter">76</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_77"><span class="source-gutter">77</span><code class="source-code">  <a class="code-link" href="TBaseClass.html">TBaseClass</a> = <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_78"><span class="source-gutter">78</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_79"><span class="source-gutter">79</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a>;</code></div>
-        <div class="source-row" id="line_80"><span class="source-gutter">80</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_81"><span class="source-gutter">81</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_82"><span class="source-gutter">82</span><code class="source-code">  (**! @brief Abgeleitete Klasse *)</code></div>
-        <div class="source-row" id="line_83"><span class="source-gutter">83</span><code class="source-code">  <a class="code-link" href="TChildClass.html">TChildClass</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TBaseClass.html">TBaseClass</a>)</code></div>
-        <div class="source-row" id="line_84"><span class="source-gutter">84</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_85"><span class="source-gutter">85</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a>;</code></div>
-        <div class="source-row" id="line_86"><span class="source-gutter">86</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_87"><span class="source-gutter">87</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_88"><span class="source-gutter">88</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_89"><span class="source-gutter">89</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_90"><span class="source-gutter">90</span><code class="source-code">   * @brief Beispiel-<span class="code-keyword">Interface</span>.</code></div>
-        <div class="source-row" id="line_91"><span class="source-gutter">91</span><code class="source-code">   * @details Dies ist eine längere Beschreibung</code></div>
-        <div class="source-row" id="line_92"><span class="source-gutter">92</span><code class="source-code">   * für das <span class="code-keyword">Interface</span>.</code></div>
-        <div class="source-row" id="line_93"><span class="source-gutter">93</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_94"><span class="source-gutter">94</span><code class="source-code">  <a class="code-link" href="IExample.html">IExample</a> = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_95"><span class="source-gutter">95</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">Execute</a>;</code></div>
-        <div class="source-row" id="line_96"><span class="source-gutter">96</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_97"><span class="source-gutter">97</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_98"><span class="source-gutter">98</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_99"><span class="source-gutter">99</span><code class="source-code">   * @brief Beispielklasse.</code></div>
-        <div class="source-row" id="line_100"><span class="source-gutter">100</span><code class="source-code">   *</code></div>
-        <div class="source-row" id="line_101"><span class="source-gutter">101</span><code class="source-code">   * Diese Klasse zeigt @brief und automatische Details.</code></div>
-        <div class="source-row" id="line_102"><span class="source-gutter">102</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_103"><span class="source-gutter">103</span><code class="source-code">  <a class="code-link" href="TExampleClass.html">TExampleClass</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TBaseClass.html">TBaseClass</a>, <a class="code-link" href="IExample.html">IExample</a>)</code></div>
-        <div class="source-row" id="line_104"><span class="source-gutter">104</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_105"><span class="source-gutter">105</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_106"><span class="source-gutter">106</span><code class="source-code">     * @brief Führt die Aktion aus.</code></div>
-        <div class="source-row" id="line_107"><span class="source-gutter">107</span><code class="source-code">     *</code></div>
-        <div class="source-row" id="line_108"><span class="source-gutter">108</span><code class="source-code">     * Diese Methode implementiert die <span class="code-keyword">Interface</span>-Methode.</code></div>
-        <div class="source-row" id="line_109"><span class="source-gutter">109</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_110"><span class="source-gutter">110</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">Execute</a>;</code></div>
-        <div class="source-row" id="line_111"><span class="source-gutter">111</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_112"><span class="source-gutter">112</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_113"><span class="source-gutter">113</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_114"><span class="source-gutter">114</span><code class="source-code">  (**! @brief Basis-<span class="code-keyword">Interface</span> für zeichnbare Objekte *)</code></div>
-        <div class="source-row" id="line_115"><span class="source-gutter">115</span><code class="source-code">  <a class="code-link" href="IDrawable.html">IDrawable</a> = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_116"><span class="source-gutter">116</span><code class="source-code">    (**! @brief Zeichnet das Objekt *)</code></div>
-        <div class="source-row" id="line_117"><span class="source-gutter">117</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TSprite.html#tsprite_procedure_draw">Draw</a>;</code></div>
-        <div class="source-row" id="line_118"><span class="source-gutter">118</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_119"><span class="source-gutter">119</span><code class="source-code">    (**! @brief Sichtbarkeit des Objekts *)</code></div>
-        <div class="source-row" id="line_120"><span class="source-gutter">120</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IDrawable.html#idrawable_property_visible_boolean_read_fvisible_write_fvisible">Visible</a>: <span class="code-keyword">Boolean</span></code></div>
-        <div class="source-row" id="line_121"><span class="source-gutter">121</span><code class="source-code">      <span class="code-keyword">read</span> FVisible (**! @brief Liefert den Sichtbarkeitsstatus *)</code></div>
-        <div class="source-row" id="line_122"><span class="source-gutter">122</span><code class="source-code">      <span class="code-keyword">write</span> FVisible (**! @brief Setzt den Sichtbarkeitsstatus *);</code></div>
-        <div class="source-row" id="line_123"><span class="source-gutter">123</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_124"><span class="source-gutter">124</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_125"><span class="source-gutter">125</span><code class="source-code">  (**! @brief <span class="code-keyword">Interface</span> für geometrische Formen *)</code></div>
-        <div class="source-row" id="line_126"><span class="source-gutter">126</span><code class="source-code">  <a class="code-link" href="IShape.html">IShape</a> = <span class="code-keyword">interface</span>(<a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
-        <div class="source-row" id="line_127"><span class="source-gutter">127</span><code class="source-code">    (**! @brief Berechnet die Fläche *)</code></div>
-        <div class="source-row" id="line_128"><span class="source-gutter">128</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IShape.html#ishape_function_area_double">Area</a>: <span class="code-keyword">Double</span>;</code></div>
-        <div class="source-row" id="line_129"><span class="source-gutter">129</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_130"><span class="source-gutter">130</span><code class="source-code">    (**! @brief <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a> der Form *)</code></div>
-        <div class="source-row" id="line_131"><span class="source-gutter">131</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span></code></div>
-        <div class="source-row" id="line_132"><span class="source-gutter">132</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief Liefert den Namen *)</code></div>
-        <div class="source-row" id="line_133"><span class="source-gutter">133</span><code class="source-code">      <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief Setzt den Namen *);</code></div>
-        <div class="source-row" id="line_134"><span class="source-gutter">134</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_135"><span class="source-gutter">135</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_136"><span class="source-gutter">136</span><code class="source-code">  (**! @brief Generisches Listen-<span class="code-keyword">Interface</span> *)</code></div>
-        <div class="source-row" id="line_137"><span class="source-gutter">137</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_138"><span class="source-gutter">138</span><code class="source-code">    (**! @brief Fügt ein Element hinzu *)</code></div>
-        <div class="source-row" id="line_139"><span class="source-gutter">139</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Item: T);</code></div>
-        <div class="source-row" id="line_140"><span class="source-gutter">140</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_141"><span class="source-gutter">141</span><code class="source-code">    (**! @brief Liefert ein Element anhand des Index *)</code></div>
-        <div class="source-row" id="line_142"><span class="source-gutter">142</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_143"><span class="source-gutter">143</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_144"><span class="source-gutter">144</span><code class="source-code">    (**! @brief Anzahl der Elemente *)</code></div>
-        <div class="source-row" id="line_145"><span class="source-gutter">145</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_fcount">Count</a>: <span class="code-keyword">Integer</span> <span class="code-keyword">read</span> FCount (**! @brief Liefert die Anzahl *);</code></div>
-        <div class="source-row" id="line_146"><span class="source-gutter">146</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_147"><span class="source-gutter">147</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_148"><span class="source-gutter">148</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_149"><span class="source-gutter">149</span><code class="source-code">  (**! @brief Sprite <span class="code-keyword">class</span> implementing <a class="code-link" href="IDrawable.html">IDrawable</a> *)</code></div>
-        <div class="source-row" id="line_150"><span class="source-gutter">150</span><code class="source-code">  <a class="code-link" href="TSprite.html">TSprite</a> = <span class="code-keyword">class</span>(TObject, <a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
-        <div class="source-row" id="line_151"><span class="source-gutter">151</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_152"><span class="source-gutter">152</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TSprite.html#tsprite_procedure_draw">Draw</a>;</code></div>
-        <div class="source-row" id="line_153"><span class="source-gutter">153</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_154"><span class="source-gutter">154</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_155"><span class="source-gutter">155</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_156"><span class="source-gutter">156</span><code class="source-code">  <a class="code-link" href="TWeapon.html">TWeapon</a> = <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_157"><span class="source-gutter">157</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_158"><span class="source-gutter">158</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_159"><span class="source-gutter">159</span><code class="source-code">  <a class="code-link" href="TInventory.html">TInventory</a> = <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_160"><span class="source-gutter">160</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_161"><span class="source-gutter">161</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_162"><span class="source-gutter">162</span><code class="source-code">  <a class="code-link" href="IRenderable.html">IRenderable</a> = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_163"><span class="source-gutter">163</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
-        <div class="source-row" id="line_164"><span class="source-gutter">164</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_165"><span class="source-gutter">165</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(TObject, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
-        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
-        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
-        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
-        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
-        <div class="source-row" id="line_173"><span class="source-gutter">173</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_174"><span class="source-gutter">174</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_175"><span class="source-gutter">175</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_176"><span class="source-gutter">176</span><code class="source-code">  (**!</code></div>
-        <div class="source-row" id="line_177"><span class="source-gutter">177</span><code class="source-code">   * @brief This is the <a class="code-link" href="TPerson.html">TPerson</a> <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_178"><span class="source-gutter">178</span><code class="source-code">   *)</code></div>
-        <div class="source-row" id="line_179"><span class="source-gutter">179</span><code class="source-code">  <a class="code-link" href="TPerson.html">TPerson</a> = <span class="code-keyword">class</span>(TObject)</code></div>
-        <div class="source-row" id="line_180"><span class="source-gutter">180</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_181"><span class="source-gutter">181</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a>: <span class="code-keyword">string</span>;</code></div>
-        <div class="source-row" id="line_182"><span class="source-gutter">182</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fage_integer">FAge</a>: <span class="code-keyword">Integer</span>;</code></div>
-        <div class="source-row" id="line_183"><span class="source-gutter">183</span><code class="source-code">  <span class="code-keyword">protected</span></code></div>
-        <div class="source-row" id="line_184"><span class="source-gutter">184</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_paint">Paint</a>;</code></div>
-        <div class="source-row" id="line_185"><span class="source-gutter">185</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_186"><span class="source-gutter">186</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_187"><span class="source-gutter">187</span><code class="source-code">     * @brief   Erzeugt ein neues Objekt</code></div>
-        <div class="source-row" id="line_188"><span class="source-gutter">188</span><code class="source-code">     * @details This is the default <span class="code-keyword">constructor</span>.</code></div>
-        <div class="source-row" id="line_189"><span class="source-gutter">189</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_190"><span class="source-gutter">190</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>; overload;</code></div>
-        <div class="source-row" id="line_191"><span class="source-gutter">191</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_192"><span class="source-gutter">192</span><code class="source-code">     * @brief   Erzeugt ein neues Objekt mit einen <span class="code-keyword">string</span>.</code></div>
-        <div class="source-row" id="line_193"><span class="source-gutter">193</span><code class="source-code">     * @details This is the <span class="code-keyword">constructor</span> with a <span class="code-keyword">string</span>.</code></div>
-        <div class="source-row" id="line_194"><span class="source-gutter">194</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_195"><span class="source-gutter">195</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>(S1: <span class="code-keyword">String</span>); overload;</code></div>
-        <div class="source-row" id="line_196"><span class="source-gutter">196</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>(P1: <a class="code-link" href="TPoint.html">TPoint</a>); overload;</code></div>
-        <div class="source-row" id="line_197"><span class="source-gutter">197</span><code class="source-code">    <span class="code-keyword">destructor</span> Destroy; <span class="code-keyword">override</span>;</code></div>
-        <div class="source-row" id="line_198"><span class="source-gutter">198</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_199"><span class="source-gutter">199</span><code class="source-code">     * @brief Speichert die aktuellen Daten</code></div>
-        <div class="source-row" id="line_200"><span class="source-gutter">200</span><code class="source-code">     *</code></div>
-        <div class="source-row" id="line_201"><span class="source-gutter">201</span><code class="source-code">     * @param S1 <span class="code-keyword">string</span> 1</code></div>
-        <div class="source-row" id="line_202"><span class="source-gutter">202</span><code class="source-code">     * @param S2 <span class="code-keyword">string</span> 2</code></div>
-        <div class="source-row" id="line_203"><span class="source-gutter">203</span><code class="source-code">     *</code></div>
-        <div class="source-row" id="line_204"><span class="source-gutter">204</span><code class="source-code">     * @note Wird intern gecached.</code></div>
-        <div class="source-row" id="line_205"><span class="source-gutter">205</span><code class="source-code">     * @info Diese Methode ist thread-safe.</code></div>
-        <div class="source-row" id="line_206"><span class="source-gutter">206</span><code class="source-code">     * @warn <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a> und <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a> dürfen nicht negativ sein.</code></div>
-        <div class="source-row" id="line_207"><span class="source-gutter">207</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_208"><span class="source-gutter">208</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a>(S1: <span class="code-keyword">string</span>; S2: <span class="code-keyword">string</span>); <span class="code-keyword">virtual</span>;</code></div>
-        <div class="source-row" id="line_209"><span class="source-gutter">209</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a>(A: <a class="code-link" href="TPoint.html">TPoint</a>; B: <a class="code-link" href="TPoint.html">TPoint</a>);</code></div>
-        <div class="source-row" id="line_210"><span class="source-gutter">210</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_211"><span class="source-gutter">211</span><code class="source-code">     * @brief Get the <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">name</a> <span class="code-keyword">of</span> the <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_212"><span class="source-gutter">212</span><code class="source-code">     * @return <span class="code-keyword">string</span> - Ein <span class="code-keyword">String</span> als Rückgabe</code></div>
-        <div class="source-row" id="line_213"><span class="source-gutter">213</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_214"><span class="source-gutter">214</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TPerson.html#tperson_function_getname_string">GetName</a>: <span class="code-keyword">string</span>;</code></div>
-        <div class="source-row" id="line_215"><span class="source-gutter">215</span><code class="source-code">    <span class="code-keyword">property</span>  <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span> (**! @brief Datentyp *)</code></div>
-        <div class="source-row" id="line_216"><span class="source-gutter">216</span><code class="source-code">        <span class="code-keyword">read</span>  <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief getter <span class="code-keyword">of</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a> *)</code></div>
-        <div class="source-row" id="line_217"><span class="source-gutter">217</span><code class="source-code">        <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief setter <span class="code-keyword">of</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a> *);</code></div>
-        <div class="source-row" id="line_218"><span class="source-gutter">218</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_219"><span class="source-gutter">219</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_220"><span class="source-gutter">220</span><code class="source-code"><span class="code-keyword">type</span></code></div>
-        <div class="source-row" id="line_221"><span class="source-gutter">221</span><code class="source-code">  (**! @brief Generic list <span class="code-keyword">interface</span> *)</code></div>
-        <div class="source-row" id="line_222"><span class="source-gutter">222</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code">    (**! @brief <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a> one item to the list *)</code></div>
-        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Item: T);</code></div>
-        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code">    (**! @brief Get item by index *)</code></div>
-        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_fcount">Count</a>: <span class="code-keyword">Integer</span> (**! @brief number datatype *)</code></div>
-        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">      <span class="code-keyword">read</span> GetCount (**! @brief returns item <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_fcount">count</a> *);</code></div>
-        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_232"><span class="source-gutter">232</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_233"><span class="source-gutter">233</span><code class="source-code">  (**! @brief Generic <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_key_tkey">key</a> <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_value_tvalue">value</a> pair <span class="code-keyword">record</span> *)</code></div>
-        <div class="source-row" id="line_234"><span class="source-gutter">234</span><code class="source-code">  <a class="code-link" href="TPair_TKey__TValue_.html">TPair</a>&lt;TKey, TValue&gt; = <span class="code-keyword">record</span></code></div>
-        <div class="source-row" id="line_235"><span class="source-gutter">235</span><code class="source-code">    <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_key_tkey">Key</a>   : TKey;   (**! @brief <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_key_tkey">key</a> <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_value_tvalue">value</a> *)</code></div>
-        <div class="source-row" id="line_236"><span class="source-gutter">236</span><code class="source-code">    <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_value_tvalue">Value</a> : TValue; (**! @brief stored <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_value_tvalue">value</a> *)</code></div>
-        <div class="source-row" id="line_237"><span class="source-gutter">237</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_238"><span class="source-gutter">238</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_239"><span class="source-gutter">239</span><code class="source-code">  (**! @brief Generic repository <span class="code-keyword">class</span> *)</code></div>
-        <div class="source-row" id="line_240"><span class="source-gutter">240</span><code class="source-code">  <a class="code-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt; = <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_241"><span class="source-gutter">241</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_242"><span class="source-gutter">242</span><code class="source-code">    <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt;;</code></div>
-        <div class="source-row" id="line_243"><span class="source-gutter">243</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_244"><span class="source-gutter">244</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_245"><span class="source-gutter">245</span><code class="source-code">    (**! @brief <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a> entity *)</code></div>
-        <div class="source-row" id="line_246"><span class="source-gutter">246</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Entity: T);</code></div>
-        <div class="source-row" id="line_247"><span class="source-gutter">247</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_248"><span class="source-gutter">248</span><code class="source-code">    (**! @brief Find entity by id *)</code></div>
-        <div class="source-row" id="line_249"><span class="source-gutter">249</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a>(Id: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_250"><span class="source-gutter">250</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_251"><span class="source-gutter">251</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; (**! @brief list datatype *)</code></div>
-        <div class="source-row" id="line_252"><span class="source-gutter">252</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a> (**! @brief returns internal list *);</code></div>
-        <div class="source-row" id="line_253"><span class="source-gutter">253</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_254"><span class="source-gutter">254</span><code class="source-code">  </code></div>
-        <div class="source-row" id="line_255"><span class="source-gutter">255</span><code class="source-code"><span class="code-keyword">implementation</span></code></div>
-        <div class="source-row" id="line_256"><span class="source-gutter">256</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_257"><span class="source-gutter">257</span><code class="source-code"><span class="code-keyword">uses</span></code></div>
-        <div class="source-row" id="line_258"><span class="source-gutter">258</span><code class="source-code">  Windows (**! @brief Windows XP System stuff *),</code></div>
-        <div class="source-row" id="line_259"><span class="source-gutter">259</span><code class="source-code">  VCL     (**! @brief Visual Control Library  *),</code></div>
-        <div class="source-row" id="line_260"><span class="source-gutter">260</span><code class="source-code">  Forms   (**! @brief Window Forms stuff      *);</code></div>
-        <div class="source-row" id="line_261"><span class="source-gutter">261</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_262"><span class="source-gutter">262</span><code class="source-code"><span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">TExampleClass.Execute</a>;</code></div>
-        <div class="source-row" id="line_263"><span class="source-gutter">263</span><code class="source-code"><span class="code-keyword">begin</span></code></div>
-        <div class="source-row" id="line_264"><span class="source-gutter">264</span><code class="source-code"><span class="code-keyword">end</span>;</code></div>
-        <div class="source-row" id="line_265"><span class="source-gutter">265</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_266"><span class="source-gutter">266</span><code class="source-code"><span class="code-keyword">end</span>.</code></div>
+        <div class="source-row" id="line_20"><span class="source-gutter">20</span><code class="source-code">  Objects  <span class="src-comment">(**! @brief Base classes of all others *)</span>,</code></div>
+        <div class="source-row" id="line_21"><span class="source-gutter">21</span><code class="source-code">  SysUtils <span class="src-comment">(**! @brief System Utils function&#x27;s *)</span>;</code></div>
+        <div class="source-row" id="line_22"><span class="source-gutter">22</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_23"><span class="source-gutter">23</span><code class="source-code"><span class="code-keyword">uses</span></code></div>
+        <div class="source-row" id="line_24"><span class="source-gutter">24</span><code class="source-code">  Classes  <span class="src-comment">(**! @brief Pascal Class&#x27;es *)</span>,</code></div>
+        <div class="source-row" id="line_25"><span class="source-gutter">25</span><code class="source-code">  Dialogs;</code></div>
+        <div class="source-row" id="line_26"><span class="source-gutter">26</span><code class="source-code">  </code></div>
+        <div class="source-row" id="line_27"><span class="source-gutter">27</span><code class="source-code"><span class="code-keyword">const</span></code></div>
+        <div class="source-row" id="line_28"><span class="source-gutter">28</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_29"><span class="source-gutter">29</span><code class="source-code"><span class="src-comment">   * @brief Maximale Anzahl.</span></code></div>
+        <div class="source-row" id="line_30"><span class="source-gutter">30</span><code class="source-code"><span class="src-comment">   *</span></code></div>
+        <div class="source-row" id="line_31"><span class="source-gutter">31</span><code class="source-code"><span class="src-comment">   * Dieser Wert begrenzt die Verarbeitung.</span></code></div>
+        <div class="source-row" id="line_32"><span class="source-gutter">32</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_33"><span class="source-gutter">33</span><code class="source-code">  <a class="code-link" href="index.html#const_MAX_COUNT">MAX_COUNT</a>   = 100;</code></div>
+        <div class="source-row" id="line_34"><span class="source-gutter">34</span><code class="source-code">  </code></div>
+        <div class="source-row" id="line_35"><span class="source-gutter">35</span><code class="source-code"><span class="code-keyword">const</span></code></div>
+        <div class="source-row" id="line_36"><span class="source-gutter">36</span><code class="source-code">  <a class="code-link" href="index.html#const_PI_VALUE">PI_VALUE</a>    = 3.1415 ;   <span class="src-comment">(**! @brief This is the documentation for the PI const *)</span></code></div>
+        <div class="source-row" id="line_37"><span class="source-gutter">37</span><code class="source-code">  <a class="code-link" href="index.html#const_APP_NAME">APP_NAME</a>    = &#x27;MyApp&#x27;;   <span class="src-comment">(**! @brief This is the application name *)</span></code></div>
+        <div class="source-row" id="line_38"><span class="source-gutter">38</span><code class="source-code">  <a class="code-link" href="index.html#const_APP_VERSION">APP_VERSION</a> = $1001  ;   <span class="src-comment">(**! @brief This is the Version *)</span></code></div>
+        <div class="source-row" id="line_39"><span class="source-gutter">39</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_40"><span class="source-gutter">40</span><code class="source-code"><span class="code-keyword">var</span></code></div>
+        <div class="source-row" id="line_41"><span class="source-gutter">41</span><code class="source-code"><span class="src-comment">  (**! @brief Player values *)</span></code></div>
+        <div class="source-row" id="line_42"><span class="source-gutter">42</span><code class="source-code">  <a class="code-link" href="index.html#var_score_board">score_board</a> : <span class="code-keyword">Integer</span>;    <span class="src-comment">(**! @brief point score board *)</span></code></div>
+        <div class="source-row" id="line_43"><span class="source-gutter">43</span><code class="source-code">  <a class="code-link" href="index.html#var_score_text">score_text</a>  : <span class="code-keyword">string</span>;     <span class="src-comment">(**! @brief player name text *)</span></code></div>
+        <div class="source-row" id="line_44"><span class="source-gutter">44</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_45"><span class="source-gutter">45</span><code class="source-code"><span class="src-comment">  (**! @brief Window values *)</span></code></div>
+        <div class="source-row" id="line_46"><span class="source-gutter">46</span><code class="source-code">  <a class="code-link" href="index.html#var_main_width">main_width</a>  : <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_47"><span class="source-gutter">47</span><code class="source-code">  <a class="code-link" href="index.html#var_main_height">main_height</a> : <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_48"><span class="source-gutter">48</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_49"><span class="source-gutter">49</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_50"><span class="source-gutter">50</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_51"><span class="source-gutter">51</span><code class="source-code"><span class="src-comment">   * @brief Beispiel-Record.</span></code></div>
+        <div class="source-row" id="line_52"><span class="source-gutter">52</span><code class="source-code"><span class="src-comment">   * @details Dieser Record speichert X- und Y-Werte.</span></code></div>
+        <div class="source-row" id="line_53"><span class="source-gutter">53</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_54"><span class="source-gutter">54</span><code class="source-code">  <a class="code-link" href="TPoint.html">TPoint</a> = <span class="code-keyword">record</span></code></div>
+        <div class="source-row" id="line_55"><span class="source-gutter">55</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a>: <span class="code-keyword">Integer</span>; <span class="src-comment">(**! @brief give the X position *)</span></code></div>
+        <div class="source-row" id="line_56"><span class="source-gutter">56</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a>: <span class="code-keyword">Integer</span>; <span class="src-comment">(**! @brief give the Y position *)</span></code></div>
+        <div class="source-row" id="line_57"><span class="source-gutter">57</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_58"><span class="source-gutter">58</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_59"><span class="source-gutter">59</span><code class="source-code">  <a class="code-link" href="TIntArray.html">TIntArray</a> = <span class="code-keyword">array</span>[0..10] <span class="code-keyword">of</span> <span class="code-keyword">Integer</span>;  <span class="src-comment">(**! @brief this is a integer array 0 .. 10 *)</span></code></div>
+        <div class="source-row" id="line_60"><span class="source-gutter">60</span><code class="source-code">  <a class="code-link" href="TCharSet.html">TCharSet</a>  = <span class="code-keyword">set</span> <span class="code-keyword">of</span> Char;              <span class="src-comment">(**! @brief a char set *)</span></code></div>
+        <div class="source-row" id="line_61"><span class="source-gutter">61</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_62"><span class="source-gutter">62</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_63"><span class="source-gutter">63</span><code class="source-code">  <a class="code-link" href="TCard.html">TCard</a> = (One, Two, Three); <span class="src-comment">(**! @brief available cards *)</span></code></div>
+        <div class="source-row" id="line_64"><span class="source-gutter">64</span><code class="source-code">  </code></div>
+        <div class="source-row" id="line_65"><span class="source-gutter">65</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_66"><span class="source-gutter">66</span><code class="source-code">  <a class="code-link" href="TColor.html">TColor</a> = (</code></div>
+        <div class="source-row" id="line_67"><span class="source-gutter">67</span><code class="source-code">    Red,   <span class="src-comment">(**! @brief red color   *)</span></code></div>
+        <div class="source-row" id="line_68"><span class="source-gutter">68</span><code class="source-code">    Green, <span class="src-comment">(**! @brief green color *)</span></code></div>
+        <div class="source-row" id="line_69"><span class="source-gutter">69</span><code class="source-code">    Blue   <span class="src-comment">(**! @brief blue color  *)</span></code></div>
+        <div class="source-row" id="line_70"><span class="source-gutter">70</span><code class="source-code">  );       <span class="src-comment">(**! @brief available colors *)</span></code></div>
+        <div class="source-row" id="line_71"><span class="source-gutter">71</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_72"><span class="source-gutter">72</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_73"><span class="source-gutter">73</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_74"><span class="source-gutter">74</span><code class="source-code"><span class="src-comment">   * @brief Basisklasse.</span></code></div>
+        <div class="source-row" id="line_75"><span class="source-gutter">75</span><code class="source-code"><span class="src-comment">   *</span></code></div>
+        <div class="source-row" id="line_76"><span class="source-gutter">76</span><code class="source-code"><span class="src-comment">   * Dies ist die ausführliche Beschreibung der Basisklasse.</span></code></div>
+        <div class="source-row" id="line_77"><span class="source-gutter">77</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_78"><span class="source-gutter">78</span><code class="source-code">  <a class="code-link" href="TBaseClass.html">TBaseClass</a> = <span class="code-keyword">class</span></code></div>
+        <div class="source-row" id="line_79"><span class="source-gutter">79</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_80"><span class="source-gutter">80</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a>;</code></div>
+        <div class="source-row" id="line_81"><span class="source-gutter">81</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_82"><span class="source-gutter">82</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_83"><span class="source-gutter">83</span><code class="source-code"><span class="src-comment">  (**! @brief Abgeleitete Klasse *)</span></code></div>
+        <div class="source-row" id="line_84"><span class="source-gutter">84</span><code class="source-code">  <a class="code-link" href="TChildClass.html">TChildClass</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TBaseClass.html">TBaseClass</a>)</code></div>
+        <div class="source-row" id="line_85"><span class="source-gutter">85</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_86"><span class="source-gutter">86</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a>;</code></div>
+        <div class="source-row" id="line_87"><span class="source-gutter">87</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_88"><span class="source-gutter">88</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_89"><span class="source-gutter">89</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_90"><span class="source-gutter">90</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_91"><span class="source-gutter">91</span><code class="source-code"><span class="src-comment">   * @brief Beispiel-Interface.</span></code></div>
+        <div class="source-row" id="line_92"><span class="source-gutter">92</span><code class="source-code"><span class="src-comment">   * @details Dies ist eine längere Beschreibung</span></code></div>
+        <div class="source-row" id="line_93"><span class="source-gutter">93</span><code class="source-code"><span class="src-comment">   * für das Interface.</span></code></div>
+        <div class="source-row" id="line_94"><span class="source-gutter">94</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_95"><span class="source-gutter">95</span><code class="source-code">  <a class="code-link" href="IExample.html">IExample</a> = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_96"><span class="source-gutter">96</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">Execute</a>;</code></div>
+        <div class="source-row" id="line_97"><span class="source-gutter">97</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_98"><span class="source-gutter">98</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_99"><span class="source-gutter">99</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_100"><span class="source-gutter">100</span><code class="source-code"><span class="src-comment">   * @brief Beispielklasse.</span></code></div>
+        <div class="source-row" id="line_101"><span class="source-gutter">101</span><code class="source-code"><span class="src-comment">   *</span></code></div>
+        <div class="source-row" id="line_102"><span class="source-gutter">102</span><code class="source-code"><span class="src-comment">   * Diese Klasse zeigt @brief und automatische Details.</span></code></div>
+        <div class="source-row" id="line_103"><span class="source-gutter">103</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_104"><span class="source-gutter">104</span><code class="source-code">  <a class="code-link" href="TExampleClass.html">TExampleClass</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TBaseClass.html">TBaseClass</a>, <a class="code-link" href="IExample.html">IExample</a>)</code></div>
+        <div class="source-row" id="line_105"><span class="source-gutter">105</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_106"><span class="source-gutter">106</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_107"><span class="source-gutter">107</span><code class="source-code"><span class="src-comment">     * @brief Führt die Aktion aus.</span></code></div>
+        <div class="source-row" id="line_108"><span class="source-gutter">108</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_109"><span class="source-gutter">109</span><code class="source-code"><span class="src-comment">     * Diese Methode implementiert die Interface-Methode.</span></code></div>
+        <div class="source-row" id="line_110"><span class="source-gutter">110</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_111"><span class="source-gutter">111</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">Execute</a>;</code></div>
+        <div class="source-row" id="line_112"><span class="source-gutter">112</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_113"><span class="source-gutter">113</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_114"><span class="source-gutter">114</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_115"><span class="source-gutter">115</span><code class="source-code"><span class="src-comment">  (**! @brief Basis-Interface für zeichnbare Objekte *)</span></code></div>
+        <div class="source-row" id="line_116"><span class="source-gutter">116</span><code class="source-code">  <a class="code-link" href="IDrawable.html">IDrawable</a> = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_117"><span class="source-gutter">117</span><code class="source-code"><span class="src-comment">    (**! @brief Zeichnet das Objekt *)</span></code></div>
+        <div class="source-row" id="line_118"><span class="source-gutter">118</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TSprite.html#tsprite_procedure_draw">Draw</a>;</code></div>
+        <div class="source-row" id="line_119"><span class="source-gutter">119</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_120"><span class="source-gutter">120</span><code class="source-code"><span class="src-comment">    (**! @brief Sichtbarkeit des Objekts *)</span></code></div>
+        <div class="source-row" id="line_121"><span class="source-gutter">121</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IDrawable.html#idrawable_property_visible_boolean_read_fvisible_write_fvisible">Visible</a>: <span class="code-keyword">Boolean</span></code></div>
+        <div class="source-row" id="line_122"><span class="source-gutter">122</span><code class="source-code">      <span class="code-keyword">read</span> FVisible <span class="src-comment">(**! @brief Liefert den Sichtbarkeitsstatus *)</span></code></div>
+        <div class="source-row" id="line_123"><span class="source-gutter">123</span><code class="source-code">      <span class="code-keyword">write</span> FVisible <span class="src-comment">(**! @brief Setzt den Sichtbarkeitsstatus *)</span>;</code></div>
+        <div class="source-row" id="line_124"><span class="source-gutter">124</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_125"><span class="source-gutter">125</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_126"><span class="source-gutter">126</span><code class="source-code"><span class="src-comment">  (**! @brief Interface für geometrische Formen *)</span></code></div>
+        <div class="source-row" id="line_127"><span class="source-gutter">127</span><code class="source-code">  <a class="code-link" href="IShape.html">IShape</a> = <span class="code-keyword">interface</span>(<a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
+        <div class="source-row" id="line_128"><span class="source-gutter">128</span><code class="source-code"><span class="src-comment">    (**! @brief Berechnet die Fläche *)</span></code></div>
+        <div class="source-row" id="line_129"><span class="source-gutter">129</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IShape.html#ishape_function_area_double">Area</a>: <span class="code-keyword">Double</span>;</code></div>
+        <div class="source-row" id="line_130"><span class="source-gutter">130</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_131"><span class="source-gutter">131</span><code class="source-code"><span class="src-comment">    (**! @brief Name der Form *)</span></code></div>
+        <div class="source-row" id="line_132"><span class="source-gutter">132</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span></code></div>
+        <div class="source-row" id="line_133"><span class="source-gutter">133</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief Liefert den Namen *)</span></code></div>
+        <div class="source-row" id="line_134"><span class="source-gutter">134</span><code class="source-code">      <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief Setzt den Namen *)</span>;</code></div>
+        <div class="source-row" id="line_135"><span class="source-gutter">135</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_136"><span class="source-gutter">136</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_137"><span class="source-gutter">137</span><code class="source-code"><span class="src-comment">  (**! @brief Generisches Listen-Interface *)</span></code></div>
+        <div class="source-row" id="line_138"><span class="source-gutter">138</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_139"><span class="source-gutter">139</span><code class="source-code"><span class="src-comment">    (**! @brief Fügt ein Element hinzu *)</span></code></div>
+        <div class="source-row" id="line_140"><span class="source-gutter">140</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Item: T);</code></div>
+        <div class="source-row" id="line_141"><span class="source-gutter">141</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_142"><span class="source-gutter">142</span><code class="source-code"><span class="src-comment">    (**! @brief Liefert ein Element anhand des Index *)</span></code></div>
+        <div class="source-row" id="line_143"><span class="source-gutter">143</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_144"><span class="source-gutter">144</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_145"><span class="source-gutter">145</span><code class="source-code"><span class="src-comment">    (**! @brief Anzahl der Elemente *)</span></code></div>
+        <div class="source-row" id="line_146"><span class="source-gutter">146</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_fcount">Count</a>: <span class="code-keyword">Integer</span> <span class="code-keyword">read</span> FCount <span class="src-comment">(**! @brief Liefert die Anzahl *)</span>;</code></div>
+        <div class="source-row" id="line_147"><span class="source-gutter">147</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_148"><span class="source-gutter">148</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_149"><span class="source-gutter">149</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_150"><span class="source-gutter">150</span><code class="source-code"><span class="src-comment">  (**! @brief Sprite class implementing IDrawable *)</span></code></div>
+        <div class="source-row" id="line_151"><span class="source-gutter">151</span><code class="source-code">  <a class="code-link" href="TSprite.html">TSprite</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>, <a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
+        <div class="source-row" id="line_152"><span class="source-gutter">152</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_153"><span class="source-gutter">153</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TSprite.html#tsprite_procedure_draw">Draw</a>;</code></div>
+        <div class="source-row" id="line_154"><span class="source-gutter">154</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_155"><span class="source-gutter">155</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_156"><span class="source-gutter">156</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_157"><span class="source-gutter">157</span><code class="source-code">  <a class="code-link" href="TWeapon.html">TWeapon</a> = <span class="code-keyword">class</span></code></div>
+        <div class="source-row" id="line_158"><span class="source-gutter">158</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_159"><span class="source-gutter">159</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_160"><span class="source-gutter">160</span><code class="source-code">  <a class="code-link" href="TInventory.html">TInventory</a> = <span class="code-keyword">class</span></code></div>
+        <div class="source-row" id="line_161"><span class="source-gutter">161</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_162"><span class="source-gutter">162</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_163"><span class="source-gutter">163</span><code class="source-code">  <a class="code-link" href="IRenderable.html">IRenderable</a> = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_164"><span class="source-gutter">164</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
+        <div class="source-row" id="line_165"><span class="source-gutter">165</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
+        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
+        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
+        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
+        <div class="source-row" id="line_173"><span class="source-gutter">173</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
+        <div class="source-row" id="line_174"><span class="source-gutter">174</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_175"><span class="source-gutter">175</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_176"><span class="source-gutter">176</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_177"><span class="source-gutter">177</span><code class="source-code"><span class="src-comment">  (**!</span></code></div>
+        <div class="source-row" id="line_178"><span class="source-gutter">178</span><code class="source-code"><span class="src-comment">   * @brief This is the TPerson class</span></code></div>
+        <div class="source-row" id="line_179"><span class="source-gutter">179</span><code class="source-code"><span class="src-comment">   *)</span></code></div>
+        <div class="source-row" id="line_180"><span class="source-gutter">180</span><code class="source-code">  <a class="code-link" href="TPerson.html">TPerson</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>)</code></div>
+        <div class="source-row" id="line_181"><span class="source-gutter">181</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_182"><span class="source-gutter">182</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_183"><span class="source-gutter">183</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fage_integer">FAge</a>: <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_184"><span class="source-gutter">184</span><code class="source-code">  <span class="code-keyword">protected</span></code></div>
+        <div class="source-row" id="line_185"><span class="source-gutter">185</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_paint">Paint</a>;</code></div>
+        <div class="source-row" id="line_186"><span class="source-gutter">186</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_187"><span class="source-gutter">187</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_188"><span class="source-gutter">188</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt</span></code></div>
+        <div class="source-row" id="line_189"><span class="source-gutter">189</span><code class="source-code"><span class="src-comment">     * @details This is the default constructor.</span></code></div>
+        <div class="source-row" id="line_190"><span class="source-gutter">190</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_191"><span class="source-gutter">191</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>; overload;</code></div>
+        <div class="source-row" id="line_192"><span class="source-gutter">192</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_193"><span class="source-gutter">193</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt mit einen string.</span></code></div>
+        <div class="source-row" id="line_194"><span class="source-gutter">194</span><code class="source-code"><span class="src-comment">     * @details This is the constructor with a string.</span></code></div>
+        <div class="source-row" id="line_195"><span class="source-gutter">195</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_196"><span class="source-gutter">196</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>(S1: <span class="code-keyword">String</span>); overload;</code></div>
+        <div class="source-row" id="line_197"><span class="source-gutter">197</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a>(P1: <a class="code-link" href="TPoint.html">TPoint</a>); overload;</code></div>
+        <div class="source-row" id="line_198"><span class="source-gutter">198</span><code class="source-code">    <span class="code-keyword">destructor</span> Destroy; <span class="code-keyword">override</span>;</code></div>
+        <div class="source-row" id="line_199"><span class="source-gutter">199</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_200"><span class="source-gutter">200</span><code class="source-code"><span class="src-comment">     * @brief Speichert die aktuellen Daten</span></code></div>
+        <div class="source-row" id="line_201"><span class="source-gutter">201</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_202"><span class="source-gutter">202</span><code class="source-code"><span class="src-comment">     * @param S1 string 1</span></code></div>
+        <div class="source-row" id="line_203"><span class="source-gutter">203</span><code class="source-code"><span class="src-comment">     * @param S2 string 2</span></code></div>
+        <div class="source-row" id="line_204"><span class="source-gutter">204</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_205"><span class="source-gutter">205</span><code class="source-code"><span class="src-comment">     * @note Wird intern gecached.</span></code></div>
+        <div class="source-row" id="line_206"><span class="source-gutter">206</span><code class="source-code"><span class="src-comment">     * @info Diese Methode ist thread-safe.</span></code></div>
+        <div class="source-row" id="line_207"><span class="source-gutter">207</span><code class="source-code"><span class="src-comment">     * @warn X und Y dürfen nicht negativ sein.</span></code></div>
+        <div class="source-row" id="line_208"><span class="source-gutter">208</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_209"><span class="source-gutter">209</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a>(S1: <span class="code-keyword">string</span>; S2: <span class="code-keyword">string</span>); <span class="code-keyword">virtual</span>;</code></div>
+        <div class="source-row" id="line_210"><span class="source-gutter">210</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a>(A: <a class="code-link" href="TPoint.html">TPoint</a>; B: <a class="code-link" href="TPoint.html">TPoint</a>);</code></div>
+        <div class="source-row" id="line_211"><span class="source-gutter">211</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_212"><span class="source-gutter">212</span><code class="source-code"><span class="src-comment">     * @brief Get the name of the class</span></code></div>
+        <div class="source-row" id="line_213"><span class="source-gutter">213</span><code class="source-code"><span class="src-comment">     * @return string - Ein String als Rückgabe</span></code></div>
+        <div class="source-row" id="line_214"><span class="source-gutter">214</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_215"><span class="source-gutter">215</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TPerson.html#tperson_function_getname_string">GetName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_216"><span class="source-gutter">216</span><code class="source-code">    <span class="code-keyword">property</span>  <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span> <span class="src-comment">(**! @brief Datentyp *)</span></code></div>
+        <div class="source-row" id="line_217"><span class="source-gutter">217</span><code class="source-code">        <span class="code-keyword">read</span>  <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief getter of Name *)</span></code></div>
+        <div class="source-row" id="line_218"><span class="source-gutter">218</span><code class="source-code">        <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief setter of Name *)</span>;</code></div>
+        <div class="source-row" id="line_219"><span class="source-gutter">219</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_220"><span class="source-gutter">220</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_221"><span class="source-gutter">221</span><code class="source-code"><span class="code-keyword">type</span></code></div>
+        <div class="source-row" id="line_222"><span class="source-gutter">222</span><code class="source-code"><span class="src-comment">  (**! @brief Generic list interface *)</span></code></div>
+        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code"><span class="src-comment">    (**! @brief Add one item to the list *)</span></code></div>
+        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Item: T);</code></div>
+        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code"><span class="src-comment">    (**! @brief Get item by index *)</span></code></div>
+        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_fcount">Count</a>: <span class="code-keyword">Integer</span> <span class="src-comment">(**! @brief number datatype *)</span></code></div>
+        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">      <span class="code-keyword">read</span> GetCount <span class="src-comment">(**! @brief returns item count *)</span>;</code></div>
+        <div class="source-row" id="line_232"><span class="source-gutter">232</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_233"><span class="source-gutter">233</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_234"><span class="source-gutter">234</span><code class="source-code"><span class="src-comment">  (**! @brief Generic key value pair record *)</span></code></div>
+        <div class="source-row" id="line_235"><span class="source-gutter">235</span><code class="source-code">  <a class="code-link" href="TPair_TKey__TValue_.html">TPair</a>&lt;TKey, TValue&gt; = <span class="code-keyword">record</span></code></div>
+        <div class="source-row" id="line_236"><span class="source-gutter">236</span><code class="source-code">    <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_key_tkey">Key</a>   : TKey;   <span class="src-comment">(**! @brief key value *)</span></code></div>
+        <div class="source-row" id="line_237"><span class="source-gutter">237</span><code class="source-code">    <a class="code-link" href="TPair_TKey__TValue_.html#tpair_tkey_tvalue_value_tvalue">Value</a> : TValue; <span class="src-comment">(**! @brief stored value *)</span></code></div>
+        <div class="source-row" id="line_238"><span class="source-gutter">238</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_239"><span class="source-gutter">239</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_240"><span class="source-gutter">240</span><code class="source-code"><span class="src-comment">  (**! @brief Generic repository class *)</span></code></div>
+        <div class="source-row" id="line_241"><span class="source-gutter">241</span><code class="source-code">  <a class="code-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt; = <span class="code-keyword">class</span></code></div>
+        <div class="source-row" id="line_242"><span class="source-gutter">242</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_243"><span class="source-gutter">243</span><code class="source-code">    <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt;;</code></div>
+        <div class="source-row" id="line_244"><span class="source-gutter">244</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_245"><span class="source-gutter">245</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_246"><span class="source-gutter">246</span><code class="source-code"><span class="src-comment">    (**! @brief Add entity *)</span></code></div>
+        <div class="source-row" id="line_247"><span class="source-gutter">247</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Entity: T);</code></div>
+        <div class="source-row" id="line_248"><span class="source-gutter">248</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_249"><span class="source-gutter">249</span><code class="source-code"><span class="src-comment">    (**! @brief Find entity by id *)</span></code></div>
+        <div class="source-row" id="line_250"><span class="source-gutter">250</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a>(Id: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_251"><span class="source-gutter">251</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_252"><span class="source-gutter">252</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; <span class="src-comment">(**! @brief list datatype *)</span></code></div>
+        <div class="source-row" id="line_253"><span class="source-gutter">253</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a> <span class="src-comment">(**! @brief returns internal list *)</span>;</code></div>
+        <div class="source-row" id="line_254"><span class="source-gutter">254</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_255"><span class="source-gutter">255</span><code class="source-code">  </code></div>
+        <div class="source-row" id="line_256"><span class="source-gutter">256</span><code class="source-code"><span class="code-keyword">implementation</span></code></div>
+        <div class="source-row" id="line_257"><span class="source-gutter">257</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_258"><span class="source-gutter">258</span><code class="source-code"><span class="code-keyword">uses</span></code></div>
+        <div class="source-row" id="line_259"><span class="source-gutter">259</span><code class="source-code">  Windows <span class="src-comment">(**! @brief Windows XP System stuff *)</span>,</code></div>
+        <div class="source-row" id="line_260"><span class="source-gutter">260</span><code class="source-code">  VCL     <span class="src-comment">(**! @brief Visual Control Library  *)</span>,</code></div>
+        <div class="source-row" id="line_261"><span class="source-gutter">261</span><code class="source-code">  Forms   <span class="src-comment">(**! @brief Window Forms stuff      *)</span>;</code></div>
+        <div class="source-row" id="line_262"><span class="source-gutter">262</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_263"><span class="source-gutter">263</span><code class="source-code"><span class="code-keyword">procedure</span> <a class="code-link" href="TExampleClass.html#texampleclass_procedure_execute">TExampleClass.Execute</a>;</code></div>
+        <div class="source-row" id="line_264"><span class="source-gutter">264</span><code class="source-code"><span class="code-keyword">begin</span></code></div>
+        <div class="source-row" id="line_265"><span class="source-gutter">265</span><code class="source-code"><span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_266"><span class="source-gutter">266</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_267"><span class="source-gutter">267</span><code class="source-code"><span class="code-keyword">end</span>.</code></div>
       </div>
     </section>
     </main>

@@ -38,6 +38,9 @@
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
             </li>
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
             </li>
             <li>
@@ -249,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
               <ul>
               </ul>
@@ -392,19 +400,19 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_222"><span class="source-gutter">222</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code">    (**! @brief <a class="code-link" href="IList_T_.html#ilist_t_procedure_add_item_t">Add</a> one item to the list *)</code></div>
-        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IList_T_.html#ilist_t_procedure_add_item_t">Add</a>(Item: T);</code></div>
-        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code">    (**! @brief Get item by index *)</code></div>
-        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_getcount">Count</a>: <span class="code-keyword">Integer</span> (**! @brief number datatype *)</code></div>
-        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">      <span class="code-keyword">read</span> GetCount (**! @brief returns item <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_getcount">count</a> *);</code></div>
-        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code"><span class="src-comment">    (**! @brief Add one item to the list *)</span></code></div>
+        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IList_T_.html#ilist_t_procedure_add_item_t">Add</a>(Item: T);</code></div>
+        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code"><span class="src-comment">    (**! @brief Get item by index *)</span></code></div>
+        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_getcount">Count</a>: <span class="code-keyword">Integer</span> <span class="src-comment">(**! @brief number datatype *)</span></code></div>
+        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">      <span class="code-keyword">read</span> GetCount <span class="src-comment">(**! @brief returns item count *)</span>;</code></div>
+        <div class="source-row" id="line_232"><span class="source-gutter">232</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>222</span> of file: <a href="source_test1_pas.html#line_222">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>223</span> of file: <a href="source_test1_pas.html#line_223">test1.pas</a></div>
     <section>
       <h2>Cross References</h2>
       <table class="func-table">

@@ -55,6 +55,12 @@ window.PASCAL_SEARCH_INDEX = [
   },
   {
     "kind": "Class",
+    "name": "TObject",
+    "text": "",
+    "link": "TObject.html"
+  },
+  {
+    "kind": "Class",
     "name": "TFile",
     "text": "",
     "link": "TFile.html"

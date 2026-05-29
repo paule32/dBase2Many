@@ -38,6 +38,9 @@
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
             </li>
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
             </li>
             <li>
@@ -249,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
               <ul>
               </ul>
@@ -392,17 +400,17 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(TObject, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
-        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
-        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
-        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
-        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
-        <div class="source-row" id="line_173"><span class="source-gutter">173</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
+        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
+        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
+        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
+        <div class="source-row" id="line_173"><span class="source-gutter">173</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
+        <div class="source-row" id="line_174"><span class="source-gutter">174</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>166</span> of file: <a href="source_test1_pas.html#line_166">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>167</span> of file: <a href="source_test1_pas.html#line_167">test1.pas</a></div>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">
@@ -424,6 +432,10 @@
       <div class="dependency-diagram">
         <div class="dependency-node dependency-current">
           TPlayer
+        </div>
+        <div class="dependency-arrow">↓</div>
+        <div class="dependency-node dependency-target">
+          <a class="type-link" href="TObject.html">TObject</a>
         </div>
         <div class="dependency-arrow">↓</div>
         <div class="dependency-node dependency-target">

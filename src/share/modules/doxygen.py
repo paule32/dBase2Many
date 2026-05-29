@@ -213,6 +213,12 @@ def _write_css(output_dir):
 .code-link:hover {
     text-decoration: underline;
 }
+.src-comment,
+.comment,
+.token-comment {
+    color: #8b4e5f;
+    font-style: italic;
+}
 """
     
     with open(filename, "w", encoding="utf-8") as f:
@@ -689,28 +695,51 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         }
         
         keywords = self.pascal_code_keywords()
-        result = []
         
-        parts = re.split(r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)", line)
+        def highlight_code_part(text):
+            result = []
+            
+            parts = re.split(
+                r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)",
+                text
+            )
+            
+            for part in parts:
+                if not part:
+                    continue
+                
+                key = part.lower()
+                
+                if key in known_links:
+                    result.append(
+                        f'<a class="code-link" href="{known_links[key]}">'
+                        f'{self.html_escape(part)}</a>'
+                    )
+                elif key in keywords:
+                    result.append(
+                        f'<span class="code-keyword">{self.html_escape(part)}</span>'
+                    )
+                else:
+                    result.append(self.html_escape(part))
+            
+            return "".join(result)
+        
+        pattern = r"(\(\*\*!.*?\*\)|\{\*\!.*?\*\}|\(\*.*?\*\)|\{.*?\}|//.*$)"
+        parts   = re.split(pattern, line, flags=re.DOTALL)
+        
+        result  = []
         
         for part in parts:
             if not part:
                 continue
             
-            key = part.lower()
-            
-            if key in known_links:
+            if re.fullmatch(pattern, part, flags=re.DOTALL):
                 result.append(
-                    f'<a class="code-link" href="{known_links[key]}">'
-                    f'{self.html_escape(part)}</a>'
-                )
-            elif key in keywords:
-                result.append(
-                    f'<span class="code-keyword">{self.html_escape(part)}</span>'
+                    f'<span class="src-comment">{self.html_escape(part)}</span>'
                 )
             else:
-                result.append(self.html_escape(part))
-
+                result.append(highlight_code_part(part))
+        
         return "".join(result)
     
     def use_entry_name(self, dep):
@@ -771,6 +800,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     
     def write_source_editor(self, f, code, start_line=1, current_item=None, include_members=False):
         lines = (code or "").splitlines()
+        in_comment = False
         if not lines:
             return
         
@@ -779,11 +809,24 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         for index, line in enumerate(lines):
             line_no = start_line + index
             
+            stripped = line.strip()
+
+            if in_comment:
+                highlighted = f'<span class="src-comment">{self.html_escape(line)}</span>'
+                if "*)" in line or "*}" in line:
+                    in_comment = False
+            elif stripped.startswith("(**!") or stripped.startswith("{**!") or stripped.startswith("(*") or stripped.startswith("{"):
+                highlighted = f'<span class="src-comment">{self.html_escape(line)}</span>'
+                if not ("*)" in line or "*}" in line or "}" in line):
+                    in_comment = True
+            else:
+                highlighted = self.highlight_pascal_source_line(line, current_item, include_members)
+            
             f.write(f"        <div class=\"source-row\" id=\"line_{line_no}\">")
             f.write(f"<span class=\"source-gutter\">{line_no}</span>")
             f.write(
                 f"<code class=\"source-code\">"
-                f"{self.highlight_pascal_source_line(line, current_item, include_members)}"
+                f"{highlighted}"
                 f"</code>"
             )
             f.write("</div>\n")
@@ -4431,7 +4474,7 @@ class DoxyButton(QPushButton):
         try:
             text = share.locales.tr("All Files")
             self.filename, _ = QFileDialog.getOpenFileName(
-                self, share.locales.tr(share.locales.tr("Open File...")),
+                self, share.locales.tr("Open File..."),
                 "", f"{text} (*.*)")
             if self.filename:
                 return self.filename
@@ -6017,11 +6060,20 @@ class DoxyGenToolWindow(QWidget):
                 share.locales.tr("Documentation Error"),
                 share.locales.tr("No output optimization selected"))
             return
-            
-        file_name = share.drives.open_share_file_dialog(self)
-        print(file_name)
-        self.generate_html(file_name, "html")
-        # todo
+        
+        ## TODO: server share drives !!!
+        #file_name = share.drives.open_share_file_dialog(self)
+        
+        text = share.locales.tr("All Files")
+        filename, _ = QFileDialog.getOpenFileName(self,
+            share.locales.tr("Open File..."), "",
+            f"{text} (*.*)")
+        if not filename:
+            return
+        print(filename)
+        self.generate_html(filename, "html")
+        
+        # todo: later: threading
         #self.generate_html_threaded(file_name, "html")
         
     def _build_wizard_tab(self):

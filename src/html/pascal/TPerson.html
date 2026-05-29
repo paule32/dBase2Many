@@ -38,6 +38,9 @@
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
             </li>
             <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
             </li>
             <li>
@@ -249,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
               <ul>
               </ul>
@@ -393,49 +401,49 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_179"><span class="source-gutter">179</span><code class="source-code">  <a class="code-link" href="TPerson.html">TPerson</a> = <span class="code-keyword">class</span>(TObject)</code></div>
-        <div class="source-row" id="line_180"><span class="source-gutter">180</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_181"><span class="source-gutter">181</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a>: <span class="code-keyword">string</span>;</code></div>
-        <div class="source-row" id="line_182"><span class="source-gutter">182</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fage_integer">FAge</a>: <span class="code-keyword">Integer</span>;</code></div>
-        <div class="source-row" id="line_183"><span class="source-gutter">183</span><code class="source-code">  <span class="code-keyword">protected</span></code></div>
-        <div class="source-row" id="line_184"><span class="source-gutter">184</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_paint">Paint</a>;</code></div>
-        <div class="source-row" id="line_185"><span class="source-gutter">185</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_186"><span class="source-gutter">186</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_187"><span class="source-gutter">187</span><code class="source-code">     * @brief   Erzeugt ein neues Objekt</code></div>
-        <div class="source-row" id="line_188"><span class="source-gutter">188</span><code class="source-code">     * @details This is the default <span class="code-keyword">constructor</span>.</code></div>
-        <div class="source-row" id="line_189"><span class="source-gutter">189</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_190"><span class="source-gutter">190</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>; overload;</code></div>
-        <div class="source-row" id="line_191"><span class="source-gutter">191</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_192"><span class="source-gutter">192</span><code class="source-code">     * @brief   Erzeugt ein neues Objekt mit einen <span class="code-keyword">string</span>.</code></div>
-        <div class="source-row" id="line_193"><span class="source-gutter">193</span><code class="source-code">     * @details This is the <span class="code-keyword">constructor</span> with a <span class="code-keyword">string</span>.</code></div>
-        <div class="source-row" id="line_194"><span class="source-gutter">194</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_195"><span class="source-gutter">195</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(S1: <span class="code-keyword">String</span>); overload;</code></div>
-        <div class="source-row" id="line_196"><span class="source-gutter">196</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(P1: <a class="code-link" href="TPoint.html">TPoint</a>); overload;</code></div>
-        <div class="source-row" id="line_197"><span class="source-gutter">197</span><code class="source-code">    <span class="code-keyword">destructor</span> Destroy; <span class="code-keyword">override</span>;</code></div>
-        <div class="source-row" id="line_198"><span class="source-gutter">198</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_199"><span class="source-gutter">199</span><code class="source-code">     * @brief Speichert die aktuellen Daten</code></div>
-        <div class="source-row" id="line_200"><span class="source-gutter">200</span><code class="source-code">     *</code></div>
-        <div class="source-row" id="line_201"><span class="source-gutter">201</span><code class="source-code">     * @param S1 <span class="code-keyword">string</span> 1</code></div>
-        <div class="source-row" id="line_202"><span class="source-gutter">202</span><code class="source-code">     * @param S2 <span class="code-keyword">string</span> 2</code></div>
-        <div class="source-row" id="line_203"><span class="source-gutter">203</span><code class="source-code">     *</code></div>
-        <div class="source-row" id="line_204"><span class="source-gutter">204</span><code class="source-code">     * @note Wird intern gecached.</code></div>
-        <div class="source-row" id="line_205"><span class="source-gutter">205</span><code class="source-code">     * @info Diese Methode ist thread-safe.</code></div>
-        <div class="source-row" id="line_206"><span class="source-gutter">206</span><code class="source-code">     * @warn X und Y dürfen nicht negativ sein.</code></div>
-        <div class="source-row" id="line_207"><span class="source-gutter">207</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_208"><span class="source-gutter">208</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a>(S1: <span class="code-keyword">string</span>; S2: <span class="code-keyword">string</span>); <span class="code-keyword">virtual</span>;</code></div>
-        <div class="source-row" id="line_209"><span class="source-gutter">209</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a>(A: <a class="code-link" href="TPoint.html">TPoint</a>; B: <a class="code-link" href="TPoint.html">TPoint</a>);</code></div>
-        <div class="source-row" id="line_210"><span class="source-gutter">210</span><code class="source-code">    (**!</code></div>
-        <div class="source-row" id="line_211"><span class="source-gutter">211</span><code class="source-code">     * @brief Get the <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">name</a> <span class="code-keyword">of</span> the <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_212"><span class="source-gutter">212</span><code class="source-code">     * @return <span class="code-keyword">string</span> - Ein <span class="code-keyword">String</span> als Rückgabe</code></div>
-        <div class="source-row" id="line_213"><span class="source-gutter">213</span><code class="source-code">     *)</code></div>
-        <div class="source-row" id="line_214"><span class="source-gutter">214</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TPerson.html#tperson_function_getname_string">GetName</a>: <span class="code-keyword">string</span>;</code></div>
-        <div class="source-row" id="line_215"><span class="source-gutter">215</span><code class="source-code">    <span class="code-keyword">property</span>  <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span> (**! @brief Datentyp *)</code></div>
-        <div class="source-row" id="line_216"><span class="source-gutter">216</span><code class="source-code">        <span class="code-keyword">read</span>  <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief getter <span class="code-keyword">of</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a> *)</code></div>
-        <div class="source-row" id="line_217"><span class="source-gutter">217</span><code class="source-code">        <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> (**! @brief setter <span class="code-keyword">of</span> <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a> *);</code></div>
-        <div class="source-row" id="line_218"><span class="source-gutter">218</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_180"><span class="source-gutter">180</span><code class="source-code">  <a class="code-link" href="TPerson.html">TPerson</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>)</code></div>
+        <div class="source-row" id="line_181"><span class="source-gutter">181</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_182"><span class="source-gutter">182</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_183"><span class="source-gutter">183</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fage_integer">FAge</a>: <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_184"><span class="source-gutter">184</span><code class="source-code">  <span class="code-keyword">protected</span></code></div>
+        <div class="source-row" id="line_185"><span class="source-gutter">185</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_paint">Paint</a>;</code></div>
+        <div class="source-row" id="line_186"><span class="source-gutter">186</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_187"><span class="source-gutter">187</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_188"><span class="source-gutter">188</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt</span></code></div>
+        <div class="source-row" id="line_189"><span class="source-gutter">189</span><code class="source-code"><span class="src-comment">     * @details This is the default constructor.</span></code></div>
+        <div class="source-row" id="line_190"><span class="source-gutter">190</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_191"><span class="source-gutter">191</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>; overload;</code></div>
+        <div class="source-row" id="line_192"><span class="source-gutter">192</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_193"><span class="source-gutter">193</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt mit einen string.</span></code></div>
+        <div class="source-row" id="line_194"><span class="source-gutter">194</span><code class="source-code"><span class="src-comment">     * @details This is the constructor with a string.</span></code></div>
+        <div class="source-row" id="line_195"><span class="source-gutter">195</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_196"><span class="source-gutter">196</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(S1: <span class="code-keyword">String</span>); overload;</code></div>
+        <div class="source-row" id="line_197"><span class="source-gutter">197</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(P1: <a class="code-link" href="TPoint.html">TPoint</a>); overload;</code></div>
+        <div class="source-row" id="line_198"><span class="source-gutter">198</span><code class="source-code">    <span class="code-keyword">destructor</span> Destroy; <span class="code-keyword">override</span>;</code></div>
+        <div class="source-row" id="line_199"><span class="source-gutter">199</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_200"><span class="source-gutter">200</span><code class="source-code"><span class="src-comment">     * @brief Speichert die aktuellen Daten</span></code></div>
+        <div class="source-row" id="line_201"><span class="source-gutter">201</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_202"><span class="source-gutter">202</span><code class="source-code"><span class="src-comment">     * @param S1 string 1</span></code></div>
+        <div class="source-row" id="line_203"><span class="source-gutter">203</span><code class="source-code"><span class="src-comment">     * @param S2 string 2</span></code></div>
+        <div class="source-row" id="line_204"><span class="source-gutter">204</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_205"><span class="source-gutter">205</span><code class="source-code"><span class="src-comment">     * @note Wird intern gecached.</span></code></div>
+        <div class="source-row" id="line_206"><span class="source-gutter">206</span><code class="source-code"><span class="src-comment">     * @info Diese Methode ist thread-safe.</span></code></div>
+        <div class="source-row" id="line_207"><span class="source-gutter">207</span><code class="source-code"><span class="src-comment">     * @warn X und Y dürfen nicht negativ sein.</span></code></div>
+        <div class="source-row" id="line_208"><span class="source-gutter">208</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_209"><span class="source-gutter">209</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a>(S1: <span class="code-keyword">string</span>; S2: <span class="code-keyword">string</span>); <span class="code-keyword">virtual</span>;</code></div>
+        <div class="source-row" id="line_210"><span class="source-gutter">210</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a>(A: <a class="code-link" href="TPoint.html">TPoint</a>; B: <a class="code-link" href="TPoint.html">TPoint</a>);</code></div>
+        <div class="source-row" id="line_211"><span class="source-gutter">211</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_212"><span class="source-gutter">212</span><code class="source-code"><span class="src-comment">     * @brief Get the name of the class</span></code></div>
+        <div class="source-row" id="line_213"><span class="source-gutter">213</span><code class="source-code"><span class="src-comment">     * @return string - Ein String als Rückgabe</span></code></div>
+        <div class="source-row" id="line_214"><span class="source-gutter">214</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_215"><span class="source-gutter">215</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TPerson.html#tperson_function_getname_string">GetName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_216"><span class="source-gutter">216</span><code class="source-code">    <span class="code-keyword">property</span>  <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span> <span class="src-comment">(**! @brief Datentyp *)</span></code></div>
+        <div class="source-row" id="line_217"><span class="source-gutter">217</span><code class="source-code">        <span class="code-keyword">read</span>  <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief getter of Name *)</span></code></div>
+        <div class="source-row" id="line_218"><span class="source-gutter">218</span><code class="source-code">        <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief setter of Name *)</span>;</code></div>
+        <div class="source-row" id="line_219"><span class="source-gutter">219</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>179</span> of file: <a href="source_test1_pas.html#line_179">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>180</span> of file: <a href="source_test1_pas.html#line_180">test1.pas</a></div>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">
@@ -453,6 +461,10 @@
       <div class="dependency-diagram">
         <div class="dependency-node dependency-current">
           TPerson
+        </div>
+        <div class="dependency-arrow">↓</div>
+        <div class="dependency-node dependency-target">
+          <a class="type-link" href="TObject.html">TObject</a>
         </div>
         <div class="dependency-arrow">↓</div>
         <div class="dependency-node dependency-target">

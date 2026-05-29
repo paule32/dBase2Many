@@ -344,3 +344,9 @@ margin: 6px 0;
 .code-link:hover {
     text-decoration: underline;
 }
+.src-comment,
+.comment,
+.token-comment {
+    color: #8b4e5f;
+    font-style: italic;
+}

@@ -17,6 +17,7 @@ unit TestUnit;
 interface
 
 uses
+  Objects  (**! @brief Base classes of all others *),
   SysUtils (**! @brief System Utils function's *);
 
 uses
