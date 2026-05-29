@@ -29,6 +29,26 @@ class PasDocParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PasDocParser#interfaceSection.
+    def visitInterfaceSection(self, ctx:PasDocParser.InterfaceSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#implementationSection.
+    def visitImplementationSection(self, ctx:PasDocParser.ImplementationSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#usesSection.
+    def visitUsesSection(self, ctx:PasDocParser.UsesSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PasDocParser#usesItem.
+    def visitUsesItem(self, ctx:PasDocParser.UsesItemContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PasDocParser#declaration.
     def visitDeclaration(self, ctx:PasDocParser.DeclarationContext):
         return self.visitChildren(ctx)

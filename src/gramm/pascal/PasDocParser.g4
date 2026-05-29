@@ -17,13 +17,30 @@ unitHeader
     ;
 
 unitSection
-    : INTERFACE declaration*
-    | IMPLEMENTATION declaration*
+    : interfaceSection
+    | implementationSection
     | declaration
+    ;
+
+interfaceSection
+    : INTERFACE declaration*
+    ;
+
+implementationSection
+    : IMPLEMENTATION declaration*
+    ;
+
+usesSection
+    : USES docComment* usesItem (COMMA docComment* usesItem)* SEMI
+    ;
+
+usesItem
+    : IDENT docComment*
     ;
 
 declaration
     : docComment
+    | usesSection
     | constSection
     | varSection
     | typeSection

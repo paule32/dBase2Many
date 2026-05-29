@@ -54,6 +54,36 @@ window.PASCAL_SEARCH_INDEX = [
     "link": "TRepository_T_.html"
   },
   {
+    "kind": "Class",
+    "name": "TFile",
+    "text": "",
+    "link": "TFile.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TDialog",
+    "text": "",
+    "link": "TDialog.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TWindows",
+    "text": "",
+    "link": "TWindows.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TControl",
+    "text": "",
+    "link": "TControl.html"
+  },
+  {
+    "kind": "Class",
+    "name": "TCustomForm",
+    "text": "",
+    "link": "TCustomForm.html"
+  },
+  {
     "kind": "Interface",
     "name": "IExample",
     "text": "Beispiel-Interface.",

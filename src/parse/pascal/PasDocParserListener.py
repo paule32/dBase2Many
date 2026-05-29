@@ -44,6 +44,42 @@ class PasDocParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PasDocParser#interfaceSection.
+    def enterInterfaceSection(self, ctx:PasDocParser.InterfaceSectionContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#interfaceSection.
+    def exitInterfaceSection(self, ctx:PasDocParser.InterfaceSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#implementationSection.
+    def enterImplementationSection(self, ctx:PasDocParser.ImplementationSectionContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#implementationSection.
+    def exitImplementationSection(self, ctx:PasDocParser.ImplementationSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#usesSection.
+    def enterUsesSection(self, ctx:PasDocParser.UsesSectionContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#usesSection.
+    def exitUsesSection(self, ctx:PasDocParser.UsesSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by PasDocParser#usesItem.
+    def enterUsesItem(self, ctx:PasDocParser.UsesItemContext):
+        pass
+
+    # Exit a parse tree produced by PasDocParser#usesItem.
+    def exitUsesItem(self, ctx:PasDocParser.UsesItemContext):
+        pass
+
+
     # Enter a parse tree produced by PasDocParser#declaration.
     def enterDeclaration(self, ctx:PasDocParser.DeclarationContext):
         pass

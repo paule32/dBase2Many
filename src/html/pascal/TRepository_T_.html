@@ -25,6 +25,32 @@
             <a href="index.html#Index">Index</a>
           </div>
         </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="units.html">All Units</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Dialogs.html">Dialogs</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_TestUnit.html">TestUnit</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_VCL.html">VCL</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Windows.html">Windows</a></div>
+            </li>
+          </ul>
+        </li>
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
@@ -143,7 +169,13 @@
                   <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constructors</span></div>
                   <ul class="collapsed">
                     <li>
-                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create">Create</a></div>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_overload">Create ; overload</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a></div>
                     </li>
                   </ul>
                 </li>
@@ -214,6 +246,31 @@
                     </li>
                   </ul>
                 </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TDialog.html">TDialog</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWindows.html">TWindows</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TControl.html">TControl</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TCustomForm.html">TCustomForm</a></div>
+              <ul>
               </ul>
             </li>
           </ul>
@@ -335,23 +392,23 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code">  <a class="code-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt; = <span class="code-keyword">class</span></code></div>
-        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code">    <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt;;</code></div>
-        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">    (**! @brief <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a> entity *)</code></div>
-        <div class="source-row" id="line_232"><span class="source-gutter">232</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Entity: T);</code></div>
-        <div class="source-row" id="line_233"><span class="source-gutter">233</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_234"><span class="source-gutter">234</span><code class="source-code">    (**! @brief Find entity by id *)</code></div>
-        <div class="source-row" id="line_235"><span class="source-gutter">235</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a>(Id: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_236"><span class="source-gutter">236</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_237"><span class="source-gutter">237</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; (**! @brief list datatype *)</code></div>
-        <div class="source-row" id="line_238"><span class="source-gutter">238</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a> (**! @brief returns internal list *);</code></div>
-        <div class="source-row" id="line_239"><span class="source-gutter">239</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_240"><span class="source-gutter">240</span><code class="source-code">  <a class="code-link" href="TRepository_T_.html">TRepository</a>&lt;T&gt; = <span class="code-keyword">class</span></code></div>
+        <div class="source-row" id="line_241"><span class="source-gutter">241</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_242"><span class="source-gutter">242</span><code class="source-code">    <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt;;</code></div>
+        <div class="source-row" id="line_243"><span class="source-gutter">243</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_244"><span class="source-gutter">244</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_245"><span class="source-gutter">245</span><code class="source-code">    (**! @brief <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a> entity *)</code></div>
+        <div class="source-row" id="line_246"><span class="source-gutter">246</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a>(Entity: T);</code></div>
+        <div class="source-row" id="line_247"><span class="source-gutter">247</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_248"><span class="source-gutter">248</span><code class="source-code">    (**! @brief Find entity by id *)</code></div>
+        <div class="source-row" id="line_249"><span class="source-gutter">249</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a>(Id: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_250"><span class="source-gutter">250</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_251"><span class="source-gutter">251</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a>: <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; (**! @brief list datatype *)</code></div>
+        <div class="source-row" id="line_252"><span class="source-gutter">252</span><code class="source-code">      <span class="code-keyword">read</span> <a class="code-link" href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a> (**! @brief returns internal list *);</code></div>
+        <div class="source-row" id="line_253"><span class="source-gutter">253</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>226</span> of file: <a href="source_test1_pas.html#line_226">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>240</span> of file: <a href="source_test1_pas.html#line_240">test1.pas</a></div>
     <section>
       <h2>Dependency Diagram</h2>
       <div class="dependency-diagram">

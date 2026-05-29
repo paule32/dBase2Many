@@ -6,6 +6,7 @@ BEGIN           : [bB][eE][gG][iI][nN];
 UNIT            : [uU][nN][iI][tT];
 INTERFACE       : [iI][nN][tT][eE][rR][fF][aA][cC][eE];
 IMPLEMENTATION  : [iI][mM][pP][lL][eE][mM][eE][nN][tT][aA][tT][iI][oO][nN];
+USES            : [uU][sS][eE][sS];
 
 CONST           : [cC][oO][nN][sS][tT];
 TYPE            : [tT][yY][pP][eE];

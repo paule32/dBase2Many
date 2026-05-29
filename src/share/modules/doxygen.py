@@ -361,10 +361,11 @@ class PasInterfaceInfo:
 
 @dataclass
 class PasUnitInfo:
-    name    : str
-    uses    : list
-    used_by : list
-
+    name                : str
+    interface_uses      : list
+    implementation_uses : list
+    used_by             : list
+    
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
 # ---------------------------------------------------------------------------
@@ -460,6 +461,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.source_browser      = True
         self.strip_code_comments = strip_code_comments
         
+        self.parsed_files    = set()
+        
         self.classes         = []
         
         self.pending_brief   = ""
@@ -485,8 +488,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.mainpage_lines  = []
         
         self.units = []
-        self.current_unit_name = ""
-        self.current_unit_uses = []
+        
+        self.current_unit_name      = ""
+        self.current_unit_section   = ""
+        self.current_interface_uses = []
+        
+        self.current_implementation_uses = []
         
         self.current_class        = None
         self.current_output_class = None
@@ -706,6 +713,62 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
         return "".join(result)
     
+    def use_entry_name(self, dep):
+        if isinstance(dep, dict):
+            return dep.get("name", "")
+        return dep
+    
+    def find_unit_file(self, unit_name, base_dir):
+        candidates = [
+            unit_name + ".pas",
+            unit_name + ".pp",
+            unit_name.lower() + ".pas",
+            unit_name.lower() + ".pp",
+        ]
+        
+        for name in candidates:
+            filename = os.path.join(base_dir, name)
+            if os.path.exists(filename):
+                return filename
+        
+        return ""
+    
+    def parse_additional_unit_file(self, filename):
+        filename = os.path.abspath(filename)
+        
+        if filename in self.parsed_files:
+            return
+        
+        self.parsed_files.add(filename)
+        
+        old_source_file  = self.source_file
+        old_source_name  = self.source_name
+        old_source_lines = self.source_lines
+        
+        self.source_file  = filename
+        self.source_name  = os.path.basename(filename)
+        self.source_lines = self.load_source_lines(filename)
+        
+        input_stream = FileStream(filename, encoding=self.input_encoding)
+        lexer  = PasDocLexer(input_stream)
+        tokens = CommonTokenStream(lexer)
+        parser = PasDocParser(tokens)
+        tree   = parser.unitFile()
+        
+        self.visit(tree)
+        
+        self.source_file  = old_source_file
+        self.source_name  = old_source_name
+        self.source_lines = old_source_lines
+    
+    def scan_used_unit_files(self):
+        base_dir = os.path.dirname(os.path.abspath(self.source_file))
+        for unit in list(self.units):
+            for dep in self.unit_all_uses(unit):
+                filename = self.find_unit_file(dep, base_dir)
+                if filename:
+                    self.parse_additional_unit_file(filename)
+    
     def write_source_editor(self, f, code, start_line=1, current_item=None, include_members=False):
         lines = (code or "").splitlines()
         if not lines:
@@ -768,6 +831,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("  <main class=\"page\">\n")
 
             self.write_doc_header(f, "Source: " + self.source_name, None)
+            self.write_source_uses_section(f)
+            
             f.write("    <section>\n")
             f.write("      <h2>Source Code</h2>\n")
             
@@ -1095,7 +1160,31 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def visitUnitHeader(self, ctx):
         self.current_unit_name = ctx.IDENT().getText()
         return None
+    
+    def visitInterfaceSection(self, ctx):
+        self.current_unit_section = "interface"
+        return self.visitChildren(ctx)
+    
+    def visitImplementationSection(self, ctx):
+        self.current_unit_section = "implementation"
+        return self.visitChildren(ctx)
         
+    def visitUsesSection(self, ctx):
+        for item in ctx.usesItem():
+            name  = item.IDENT().getText()
+            brief = self.uses_item_brief(item)
+            entry = {
+                "name": name,
+                "brief": brief
+            }
+            if self.current_unit_section == "implementation":
+                target = self.current_implementation_uses
+            else:
+                target = self.current_interface_uses
+            if not any(x["name"].lower() == name.lower() for x in target):
+                target.append(entry)
+        return None
+    
     def visitInterfaceDeclaration(self, ctx):
         name  = ctx.IDENT().getText()
         generic_params = self.generic_params_from_ctx(ctx)
@@ -1351,12 +1440,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.progress.progress_log(share.locales.tr("Parse Pascal unit..."))
         self.progress.progress_value(5)
         
-        self.current_unit_name = "UnknownUnit"
-        self.current_unit_uses = []
+        current_file = os.path.abspath(self.source_file)
+        self.parsed_files.add(current_file)
+
+        self.current_unit_name           = "UnknownUnit"
+        self.current_unit_section        = ""
+        
+        self.current_interface_uses      = []
+        self.current_implementation_uses = []
         
         self.visitChildren(ctx)
         
         self.register_current_unit()
+        self.scan_used_unit_files()
         self.build_unit_dependencies()
         
         os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
@@ -1397,8 +1493,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         self.progress.progress_log(share.locales.tr("WRITE DEPENDENCIES"))
         self.progress.progress_value(21)
+        self.write_units_index_page()
         self.write_unit_dependency_pages()
-
+        
         self.progress.progress_log(share.locales.tr("WRITE RECORDS"))
         self.progress.progress_value(25)
         self.write_pascal_types(self.records)
@@ -1657,25 +1754,53 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def make_var_anchor(self, name):
         return "var_" + self.safe_filename(name).lower()
     
+    def uses_item_brief(self, item):
+        if hasattr(item, "docComment") and item.docComment():
+            comments = item.docComment()
+            if not isinstance(comments, list):
+                comments = [comments]
+            if comments:
+                return self.extract_brief(comments[0].getText())
+        return ""
+    
     def register_current_unit(self):
         if not self.current_unit_name:
             return
         
         existing = None
+        
         for unit in self.units:
             if unit.name.lower() == self.current_unit_name.lower():
                 existing = unit
                 break
+        
         if existing:
-            existing.uses = self.current_unit_uses
+            existing.interface_uses = list(self.current_interface_uses)
+            existing.implementation_uses = list(self.current_implementation_uses)
             return
+        
         self.units.append(
             PasUnitInfo(
-                name=self.current_unit_name,
-                uses=list(self.current_unit_uses),
-                used_by=[]
+                name                = self.current_unit_name,
+                interface_uses      = list(self.current_interface_uses),
+                implementation_uses = list(self.current_implementation_uses),
+                used_by             = []
             )
         )
+    
+    def unit_all_uses(self, unit):
+        result = []
+        
+        for dep in getattr(unit, "interface_uses", []):
+            name = dep.get("name", dep) if isinstance(dep, dict) else dep
+            if name not in result:
+                result.append(name)
+        for dep in getattr(unit, "implementation_uses", []):
+            name = dep.get("name", dep) if isinstance(dep, dict) else dep
+            if name not in result:
+                result.append(name)
+        return result
+    
     def write_home_page(self):
         out_dir = os.path.join(self.output_dir, "pascal")
         os.makedirs(out_dir, exist_ok=True)
@@ -1732,7 +1857,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self.write_search_script(f)
             f.write("</body>\n")
             f.write("</html>\n")
-        
+    
     def build_unit_dependencies(self):
         for unit in self.units:
             unit.used_by = []
@@ -1741,12 +1866,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             for unit in self.units
         }
         for unit in self.units:
-            for dep in unit.uses:
+            for dep in self.unit_all_uses(unit):
                 target = lookup.get(dep.lower())
                 if target:
                     if unit.name not in target.used_by:
                         target.used_by.append(unit.name)
-                    
+    
     def write_units_index_page(self):
         out_dir = os.path.join(self.output_dir, "pascal")
         os.makedirs(out_dir, exist_ok=True)
@@ -1840,31 +1965,55 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             u.name.lower(): u
             for u in self.units
         }
-        for dep in unit.uses:
-            target = lookup.get(dep.lower())
-            if target:
-                self.write_unit_tree(
-                    f,
-                    target,
-                    visited.copy(),
-                    level + 1
-                )
+        self.unit_all_uses(unit)
     
     def write_unit_dependency_section(self, f, unit):
-        f.write("<section>\n")
-        f.write("<h2>Uses</h2>\n")
-        if not unit.uses:
+        interface_uses = getattr(unit, "interface_uses", [])
+        implementation_uses = getattr(unit, "implementation_uses", [])
+        
+        if not interface_uses and not implementation_uses:
+            f.write("<section>\n")
+            f.write("<h2>Uses</h2>\n")
             f.write("<p class=\"muted\">No unit dependencies.</p>\n")
-        else:
-            f.write("<ul class=\"unit-dependency-list\">\n")
-            for dep in unit.uses:
-                link = self.safe_filename("unit_" + dep) + ".html"
-                f.write("<li>")
-                f.write(f"<a class=\"type-link\" href=\"{link}\">{self.html_escape(dep)}</a>")
-                f.write("</li>\n")
-            
-            f.write("</ul>\n")
-        f.write("</section>\n")
+            f.write("</section>\n")
+            return
+        
+        if interface_uses:
+            f.write("<section>\n")
+            f.write("<h2>Interface Uses</h2>\n")
+            self.write_unit_uses_list(f, interface_uses)
+            f.write("</section>\n")
+        
+        if implementation_uses:
+            f.write("<section>\n")
+            f.write("<h2>Implementation Uses</h2>\n")
+            self.write_unit_uses_list(f, implementation_uses)
+            f.write("</section>\n")
+    
+    def write_unit_uses_list(self, f, uses):
+        f.write("<ul class=\"unit-dependency-list\">\n")
+        for dep in uses:
+            if isinstance(dep, dict):
+                name  = dep.get("name", "")
+                brief = dep.get("brief", "")
+            else:
+                name  = dep
+                brief = ""
+
+            link = self.safe_filename("unit_" + name) + ".html"
+
+            f.write("<li>")
+            f.write(
+                f"<a class=\"type-link\" href=\"{link}\">"
+                f"{self.html_escape(name)}</a>"
+            )
+            if brief:
+                f.write(
+                    f"<div class=\"member-brief\">"
+                    f"{self.html_escape(brief)}</div>"
+                )
+            f.write("</li>\n")
+        f.write("</ul>\n")
     
     def write_unit_used_by_section(self, f, unit):
         f.write("<section>\n")
@@ -1904,15 +2053,33 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("</head>\n")
                 f.write("<body>\n")
                 
-                f.write("<main class=\"page\">\n")
-                self.write_search_box(f)
-                
-                f.write(f"<h1>Unit {self.html_escape(unit.name)}</h1>\n")
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, unit)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+
+                self.write_doc_header(
+                    f,
+                    f"Unit {unit.name}",
+                    unit.name
+                )
                 
                 self.write_unit_dependency_section(f, unit)
                 self.write_unit_used_by_section(f, unit)
                 
-                f.write("</main>\n")
+                f.write("    <footer>\n")
+                f.write("      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator\n")
+                f.write("    </footer>\n")
+                
+                f.write("    </main>\n")
+                
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+                
                 self.write_search_script(f)
                 
                 f.write("</body>\n")
@@ -2510,6 +2677,24 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("      </table>\n")
         f.write("    </section>\n")
     
+    def write_source_uses_section(self, f):
+        interface_uses = self.current_interface_uses
+        implementation_uses = self.current_implementation_uses
+        
+        if not interface_uses and not implementation_uses:
+            return
+        
+        f.write("    <section>\n")
+        f.write("      <h2>Unit Dependencies</h2>\n")
+        
+        if interface_uses:
+            f.write("      <h3>Interface Uses</h3>\n")
+            self.write_unit_uses_list(f, interface_uses)
+        if implementation_uses:
+            f.write("      <h3>Implementation Uses</h3>\n")
+            self.write_unit_uses_list(f, implementation_uses)
+        f.write("    </section>\n")
+        
     def write_implemented_by_section(self, f, item):
         implemented_by = self.find_implemented_by(item.name)
 
@@ -2754,7 +2939,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("    <aside id=\"tocPane\" class=\"toc-pane\">\n")
         f.write("      <div class=\"toc-title\">Table of Contents</div>\n")
         f.write("      <ul class=\"treeview\">\n")
-
+        
         f.write("        <li>\n")
         f.write("          <div class=\"tree-row\">\n")
         f.write("            <span class=\"twisty empty\"></span>\n")
@@ -2762,7 +2947,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("            <a href=\"home.html\">Home</a>\n")
         f.write("          </div>\n")
         f.write("        </li>\n")
-
+        
         f.write("        <li>\n")
         f.write("          <div class=\"tree-row\">\n")
         f.write("            <span class=\"twisty empty\"></span>\n")
@@ -2770,7 +2955,40 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("            <a href=\"index.html#Index\">Index</a>\n")
         f.write("          </div>\n")
         f.write("        </li>\n")
-
+        
+        if self.units:
+            f.write("        <li class=\"tree-node\">\n")
+            f.write(
+                "          <div class=\"tree-row tree-toggle\">"
+                "<span class=\"twisty\">▸</span>"
+                "<span class=\"icon book-icon\"></span>"
+                "<span>Units</span></div>\n"
+            )
+            f.write("          <ul class=\"collapsed\">\n")
+            
+            f.write("            <li>\n")
+            f.write(
+                "              <div class=\"tree-row\">"
+                "<span class=\"twisty empty\"></span>"
+                "<span class=\"icon page-icon\"></span>"
+                "<a href=\"units.html\">All Units</a></div>\n"
+            )
+            f.write("            </li>\n")
+            
+            for unit in sorted(self.units, key=lambda x: x.name.lower()):
+                link = self.safe_filename("unit_" + unit.name) + ".html"
+                f.write("            <li>\n")
+                f.write(
+                    f"              <div class=\"tree-row\">"
+                    f"<span class=\"twisty empty\"></span>"
+                    f"<span class=\"icon page-icon\"></span>"
+                    f"<a href=\"{link}\">{self.html_escape(unit.name)}</a></div>\n"
+                )
+                f.write("            </li>\n")
+            
+            f.write("          </ul>\n")
+            f.write("        </li>\n")
+            
         self.write_tree_group(f, "Classes", self.classes, "book")
         
         self.write_tree_type_group(f, share.locales.tr("Interfaces"), self.interfaces)
@@ -4723,7 +4941,7 @@ class DoxyLineBtn1(QWidget):
         
         self.parent = parent
         self.owner  = parent.owner
-        self.flag   = 0
+        self.flag   = flag
         
         self.layout = DoxyHBoxLayout(self)
         self.input  = DoxyLineEdit(self, self.help_str, self.text_str)
@@ -4989,16 +5207,22 @@ class WizardSettings(QWidget):
     
     def on_projectsynopsis_textchanged(self, text) -> bool:
         return self.parent.set_doxy_text("PROJECT_BRIEF", text)
-        
+    
     def on_projectversion_textchanged(self, text) -> bool:
         return self.parent.set_doxy_text("PROJECT_NUMBER", text)
+        
+    def on_project_logo_textchanged(self, text) -> bool:
+        return self.parent.set_doxy_text("PROJECT_LOGO", text, 1)
+    
+    def on_project_dstdir_textchanged(self, text) -> bool:
+        return self.parent.set_doxy_text("OUTPUT_DIRECTORY", text, 1)
     
     # -----------------------------------------------------------
     # übernimmt text in editor
     # komma: , getrennte strings werden pro Zeile übernommen und
     # in der Project-Tab View: INPUT eingetragen.
     # -----------------------------------------------------------
-    def on_projectdirectory_textchanged(self, text) -> bool:
+    def on_project_srcdir_textchanged(self, text) -> bool:
         items = [x.strip() for x in text.split(",") if x.strip()]
         return self.parent.set_doxy_edit("INPUT", items)
         
@@ -5028,12 +5252,12 @@ class WizardSettings(QWidget):
         label.font().setBold(False)
         label.setMinimumWidth(130)
         
-        lined = QLineEdit()
-        lined.setFont(QFont("Consolas", 9))
-        lined.textChanged.connect(self.on_projectname_textchanged)
+        self.edit_project_name = QLineEdit()
+        self.edit_project_name.setFont(QFont("Consolas", 9))
+        self.edit_project_name.textChanged.connect(self.on_projectname_textchanged)
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.edit_project_name)
         content_layout.addLayout(hlay)
         
         hlay  = QHBoxLayout()
@@ -5043,12 +5267,12 @@ class WizardSettings(QWidget):
         label.font().setBold(False)
         label.setMinimumWidth(130)
         
-        lined = QLineEdit()
-        lined.setFont(QFont("Consolas", 9))
-        lined.textChanged.connect(self.on_projectsynopsis_textchanged)
+        self.edit_project_brief = QLineEdit()
+        self.edit_project_brief.setFont(QFont("Consolas", 9))
+        self.edit_project_brief.textChanged.connect(self.on_projectsynopsis_textchanged)
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.edit_project_brief)
         content_layout.addLayout(hlay)
         
         hlay  = QHBoxLayout()
@@ -5058,12 +5282,12 @@ class WizardSettings(QWidget):
         label.font().setBold(False)
         label.setMinimumWidth(130)
         
-        lined = QLineEdit()
-        lined.setFont(QFont("Consolas", 9))
-        lined.textChanged.connect(self.on_projectversion_textchanged)
+        self.edit_project_number = QLineEdit()
+        self.edit_project_number.setFont(QFont("Consolas", 9))
+        self.edit_project_number.textChanged.connect(self.on_projectversion_textchanged)
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.edit_project_number)
         content_layout.addLayout(hlay)
         
         hlay  = QHBoxLayout()
@@ -5073,11 +5297,14 @@ class WizardSettings(QWidget):
         label.font().setBold(False)
         label.setMinimumWidth(130)
         
-        lined = QLineEdit()
+        self.logo_file = QLineEdit()
+        self.logo_file.setFont(QFont("Consolas", 9))
+        self.logo_file.textChanged.connect(self.on_project_logo_textchanged)
+        
         lbbtn = QPushButton(share.locales.tr("Select..."))
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.logo_file)
         hlay.addWidget(lbbtn)
         content_layout.addLayout(hlay)
         
@@ -5097,10 +5324,10 @@ class WizardSettings(QWidget):
         
         self.edit_src_dir = QLineEdit()
         self.edit_src_dir.setFont(QFont("Consolas", 9))
-        self.edit_src_dir.textChanged.connect(self.on_projectdirectory_textchanged)
+        self.edit_src_dir.textChanged.connect(self.on_project_srcdir_textchanged)
         
         lbbtn = QPushButton(share.locales.tr("Select..."))
-        self.on_button_clicked(lbbtn, lined, 1)
+        self.on_button_clicked(lbbtn, self.edit_src_dir, 1)
         
         hlay.addWidget(label)
         hlay.addWidget(self.edit_src_dir)
@@ -5117,12 +5344,16 @@ class WizardSettings(QWidget):
         label.setFont(QFont("Arial", 9))
         label.font().setBold(False)
         label.setMinimumWidth(130)
-        lined = QLineEdit()
+        
+        self.edit_dst_dir = QLineEdit()
+        self.edit_dst_dir.setFont(QFont("Consolas", 9))
+        self.edit_dst_dir.textChanged.connect(self.on_project_dstdir_textchanged)
+        
         lbbtn = QPushButton(share.locales.tr("Select..."))
-        self.on_button_clicked(lbbtn, lined, 2)
+        self.on_button_clicked(lbbtn, self.edit_dst_dir, 2)
         
         hlay.addWidget(label)
-        hlay.addWidget(lined)
+        hlay.addWidget(self.edit_dst_dir)
         hlay.addWidget(lbbtn)
         content_layout.addLayout(hlay)
         
@@ -5170,7 +5401,21 @@ class WizardSettings(QWidget):
             self.edit_src_dir.setText(new_txt)
     
     def on_button_clicked_dst(self):
-        print("dst")
+        #print("dst")
+        filename = QFileDialog.getExistingDirectory(self,
+            share.locales.tr("Select Directory"),
+            "",
+            QFileDialog.ShowDirsOnly)
+        if filename:
+            text  = self.edit_dst_dir.text()
+            liste = [x.strip() for x in text.split(",")]
+            if filename not in liste:
+                liste.append(filename)
+            new_txt = ""
+            for item in liste:
+                new_txt = new_txt + item + ","
+                continue
+            self.edit_dst_dir.setText(new_txt)
         
     def create_page_mode(self, title):
         page = QWidget(self)
@@ -5215,15 +5460,19 @@ class WizardSettings(QWidget):
             font-size: 10pt;
         }
         """)
-        g2rbt1 = QRadioButton(f"{txt1} C++        {txt2}")
-        g2rbt2 = QRadioButton(f"{txt1} C++ CLI    {txt2}")
-        g2rbt3 = QRadioButton(f"{txt1} Java or C# {txt2}")
-        g2rbt4 = QRadioButton(f"{txt1} C or PHP   {txt2}")
-        g2rbt5 = QRadioButton(f"{txt1} Fortan     {txt2}")
-        g2rbt6 = QRadioButton(f"{txt1} VHDL       {txt2}")
-        g2rbt7 = QRadioButton(f"{txt1} SLICE      {txt2}")
+        self.g2rbt1 = QRadioButton(f"{txt1} C++        {txt2}")
+        self.g2rbt2 = QRadioButton(f"{txt1} C++ CLI    {txt2}")
+        self.g2rbt3 = QRadioButton(f"{txt1} Java or C# {txt2}")
+        self.g2rbt4 = QRadioButton(f"{txt1} C or PHP   {txt2}")
+        self.g2rbt5 = QRadioButton(f"{txt1} Fortan     {txt2}")
+        self.g2rbt6 = QRadioButton(f"{txt1} VHDL       {txt2}")
+        self.g2rbt7 = QRadioButton(f"{txt1} SLICE      {txt2}")
         
-        for item in [g2rbt1, g2rbt2, g2rbt3, g2rbt4, g2rbt5, g2rbt6, g2rbt7]:
+        for item in [
+            self.g2rbt1, self.g2rbt2,
+            self.g2rbt3, self.g2rbt4,
+            self.g2rbt5, self.g2rbt6,
+            self.g2rbt7]:
             item.setFont(QFont("Consolas", 1))
             group2_layout.addWidget(item)
         
@@ -5498,6 +5747,8 @@ class DoxyGenToolWindow(QWidget):
         self.current_project_path = ""
         self.progress_index_file  = ""
         
+        self.strip_code_comments  = False
+        
         self.wizard_page = None
 
         self.com_line = ("# " + ('-' * 78))
@@ -5596,11 +5847,31 @@ class DoxyGenToolWindow(QWidget):
                 return widget.input.text()
         return default
     
-    def set_doxy_text(self, key, default="") -> bool:
+    def set_doxy_text(self, key, default="", flag=0) -> bool:
+        widget = None
         for page in DOXYGEN_PROJECT_PAGES.values():
             if page is None:
                 continue
-            widget = page.area.findChild(DoxyLineEdit, key)
+                
+            if flag == 0:
+                widget = page.area.findChild(DoxyLineEdit, key)
+            elif flag == 1:
+                print(key)
+                widget = page.area.findChild(DoxyLineBtn1, key)
+                if widget is None:
+                    widget = page.area.findChild(DoxyLineBtnA, key)
+                    if widget is None:
+                        QMessageBox.warning(self,
+                        share.locales.tr("Internal Error"),
+                        share.locales.tr("component could not be found"))
+                        return False
+                widget.input.input.setText(default)
+                return
+            elif flag == 3:
+                widget = page.area.findChild(DoxyLineBtn3, key)
+            elif flag == 4:
+                widget = page.area.findChild(DoxyLineBtn4, key)
+                
             if widget is not None:
                 widget.input.setText(default)
                 return True
@@ -5736,6 +6007,17 @@ class DoxyGenToolWindow(QWidget):
         
     def on_generate_click(self):
         self.edit_log.clear()
+        buttons = [
+            self.wizard_page.g2rbt1, self.wizard_page.g2rbt2, self.wizard_page.g2rbt3,
+            self.wizard_page.g2rbt4, self.wizard_page.g2rbt5, self.wizard_page.g2rbt6,
+            self.wizard_page.g2rbt7
+        ]
+        if not any(btn.isChecked() for btn in buttons):
+            QMessageBox.critical(self,
+                share.locales.tr("Documentation Error"),
+                share.locales.tr("No output optimization selected"))
+            return
+            
         file_name = share.drives.open_share_file_dialog(self)
         print(file_name)
         self.generate_html(file_name, "html")
@@ -5819,7 +6101,7 @@ class DoxyGenToolWindow(QWidget):
             DoxyLineBtn1(self.par1, "PROJECT_ICON", "", 0),
             DoxyImage   (self.par1, "PROJECT_ICON", share.locales.tr("No Project Icon selected.")),
             
-            DoxyLineBtnA(self.par1, "OUTPUT_DIRECTORY", "", 1),
+            DoxyLineBtn1(self.par1, "OUTPUT_DIRECTORY", "", 1),
             DoxyCheckBox(self.par1, "CREATE_SUBDIRS"),
             DoxySpinEdit(self.par1, "CREATE_SUBDIRS_LEVEL", 0, 64, 4),
             
@@ -6916,19 +7198,10 @@ class DoxyGenToolWindow(QWidget):
                     text = item.input.text()
                     self.config[item.help_str] = text
                     
-            elif isinstance(item, DoxyLineBtn1):
-                text = item.input.input.text()
-                self.config[item.help_str] = text
-                
-            elif isinstance(item, DoxyLineBtnA):
-                text = item.input.input.text()
-                self.config[item.help_str] = text
-                
-            elif isinstance(item, DoxyLineBtn3):
-                text = item.input.input.text()
-                self.config[item.help_str] = text
-                
-            elif isinstance(item, DoxyLineBtn4):
+            elif isinstance(item, DoxyLineBtn1)\
+            or   isinstance(item, DoxyLineBtnA)\
+            or   isinstance(item, DoxyLineBtn3)\
+            or   isinstance(item, DoxyLineBtn4):
                 text = item.input.input.text()
                 self.config[item.help_str] = text
                 
@@ -6994,12 +7267,23 @@ class DoxyGenToolWindow(QWidget):
         # pass: 2 - get/set data
         # -----------------------------
         for item in items:
-            if item.help_str == "INPUT":
-                if isinstance(item, DoxyTextEdit):
-                    text = item.edit.toPlainText()
+            if  isinstance(item, DoxyTextEdit):
+                text = item.edit.toPlainText()
+                if item.help_str == "INPUT":
                     text = text.splitlines()[0]
                     self.wizard_page.edit_src_dir.setText(text)
-                    print(item.help_str,":", text)
+                    
+            if  isinstance(item, DoxyLineBtn1)\
+            or  isinstance(item, DoxyLineBtnA):
+                text = item.input.input.text()
+                if   item.help_str == "OUTPUT_DIRECTORY": self.wizard_page.edit_dst_dir .setText(text)
+                elif item.help_str == "PROJECT_LOGO"    : self.wizard_page.logo_file    .setText(text)
+                
+            if  isinstance(item, DoxyLineEdit):
+                text = item.input.text()
+                if   item.help_str == "PROJECT_NAME"    : self.wizard_page.edit_project_name  .setText(text)
+                elif item.help_str == "PROJECT_BRIEF"   : self.wizard_page.edit_project_brief .setText(text)
+                elif item.help_str == "PROJECT_NUMBER"  : self.wizard_page.edit_project_number.setText(text)
     
     def _delete_selected_project(self):
         path = self._selected_project_path()

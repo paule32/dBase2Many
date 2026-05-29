@@ -25,6 +25,32 @@
             <a href="index.html#Index">Index</a>
           </div>
         </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="units.html">All Units</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Dialogs.html">Dialogs</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_TestUnit.html">TestUnit</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_VCL.html">VCL</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Windows.html">Windows</a></div>
+            </li>
+          </ul>
+        </li>
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
@@ -143,7 +169,13 @@
                   <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constructors</span></div>
                   <ul class="collapsed">
                     <li>
-                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create">Create</a></div>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_overload">Create ; overload</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a></div>
                     </li>
                   </ul>
                 </li>
@@ -214,6 +246,31 @@
                     </li>
                   </ul>
                 </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TDialog.html">TDialog</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWindows.html">TWindows</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TControl.html">TControl</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TCustomForm.html">TCustomForm</a></div>
+              <ul>
               </ul>
             </li>
           </ul>
@@ -335,17 +392,17 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_159"><span class="source-gutter">159</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(TObject, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
-        <div class="source-row" id="line_160"><span class="source-gutter">160</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_161"><span class="source-gutter">161</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
-        <div class="source-row" id="line_162"><span class="source-gutter">162</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
-        <div class="source-row" id="line_163"><span class="source-gutter">163</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_164"><span class="source-gutter">164</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
-        <div class="source-row" id="line_165"><span class="source-gutter">165</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
-        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(TObject, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
+        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
+        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
+        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
+        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
+        <div class="source-row" id="line_173"><span class="source-gutter">173</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>159</span> of file: <a href="source_test1_pas.html#line_159">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>166</span> of file: <a href="source_test1_pas.html#line_166">test1.pas</a></div>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">
