@@ -252,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TVirtualClass.html">TVirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
               <ul>
               </ul>
@@ -304,6 +309,9 @@
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
             </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IVirtualInterface.html">IVirtualInterface</a></div>
+            </li>
           </ul>
         </li>
         <li class="tree-node">
@@ -314,6 +322,9 @@
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPair_TKey__TValue_.html">TPair&lt;TKey, TValue&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualRecord.html">TVirtualRecord</a></div>
             </li>
           </ul>
         </li>
@@ -341,6 +352,9 @@
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TColor.html">TColor</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualEnum.html">TVirtualEnum</a></div>
             </li>
           </ul>
         </li>
@@ -400,18 +414,18 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_116"><span class="source-gutter">116</span><code class="source-code">  <a class="code-link" href="IDrawable.html">IDrawable</a> = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_117"><span class="source-gutter">117</span><code class="source-code"><span class="src-comment">    (**! @brief Zeichnet das Objekt *)</span></code></div>
-        <div class="source-row" id="line_118"><span class="source-gutter">118</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IDrawable.html#idrawable_procedure_draw">Draw</a>;</code></div>
-        <div class="source-row" id="line_119"><span class="source-gutter">119</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_120"><span class="source-gutter">120</span><code class="source-code"><span class="src-comment">    (**! @brief Sichtbarkeit des Objekts *)</span></code></div>
-        <div class="source-row" id="line_121"><span class="source-gutter">121</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IDrawable.html#idrawable_property_visible_boolean_read_fvisible_write_fvisible">Visible</a>: <span class="code-keyword">Boolean</span></code></div>
-        <div class="source-row" id="line_122"><span class="source-gutter">122</span><code class="source-code">      <span class="code-keyword">read</span> FVisible <span class="src-comment">(**! @brief Liefert den Sichtbarkeitsstatus *)</span></code></div>
-        <div class="source-row" id="line_123"><span class="source-gutter">123</span><code class="source-code">      <span class="code-keyword">write</span> FVisible <span class="src-comment">(**! @brief Setzt den Sichtbarkeitsstatus *)</span>;</code></div>
-        <div class="source-row" id="line_124"><span class="source-gutter">124</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_114"><span class="source-gutter">114</span><code class="source-code">  <a class="code-link" href="IDrawable.html">IDrawable</a> = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_115"><span class="source-gutter">115</span><code class="source-code"><span class="src-comment">    (**! @brief Zeichnet das Objekt *)</span></code></div>
+        <div class="source-row" id="line_116"><span class="source-gutter">116</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IDrawable.html#idrawable_procedure_draw">Draw</a>;</code></div>
+        <div class="source-row" id="line_117"><span class="source-gutter">117</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_118"><span class="source-gutter">118</span><code class="source-code"><span class="src-comment">    (**! @brief Sichtbarkeit des Objekts *)</span></code></div>
+        <div class="source-row" id="line_119"><span class="source-gutter">119</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IDrawable.html#idrawable_property_visible_boolean_read_fvisible_write_fvisible">Visible</a>: <span class="code-keyword">Boolean</span></code></div>
+        <div class="source-row" id="line_120"><span class="source-gutter">120</span><code class="source-code">      <span class="code-keyword">read</span> FVisible <span class="src-comment">(**! @brief Liefert den Sichtbarkeitsstatus *)</span></code></div>
+        <div class="source-row" id="line_121"><span class="source-gutter">121</span><code class="source-code">      <span class="code-keyword">write</span> FVisible <span class="src-comment">(**! @brief Setzt den Sichtbarkeitsstatus *)</span>;</code></div>
+        <div class="source-row" id="line_122"><span class="source-gutter">122</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>116</span> of file: <a href="source_test1_pas.html#line_116">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>114</span> of file: <a href="source_test1_pas.html#line_114">test1.pas</a></div>
     <section>
       <h2>Implemented By</h2>
       <ul class="implemented-by-list">

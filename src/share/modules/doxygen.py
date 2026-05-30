@@ -14,6 +14,11 @@ import hashlib
 import re
 import encodings.aliases
 
+# -----------------------------------------------------------------------
+# resources for documenting source codes ...
+# -----------------------------------------------------------------------
+from share.resrces.icons_rc import *
+
 from share.common import *
 from PyQt5.QtGui  import QPageLayout, QPageSize
 from PyQt5.QtCore import QMarginsF
@@ -115,112 +120,149 @@ HEADER_VERSION  = 1
 ALPHA_CHARS     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 # ---------------------------------------------------------------------------
+# \brief octions from github.com
+# ---------------------------------------------------------------------------
+DOC_ICONS = {
+    "note"       : "info-24.svg",
+    "info"       : "info-24.svg",
+    "warn"       : "alert-24.svg",
+    "warning"    : "alert-24.svg",
+    "todo"       : "clock-24.svg",
+    "bug"        : "bug-24.svg",
+    "deprecated" : "stop-24.svg",
+    "tip"        : "light-bulb-24.svg",
+    "check"      : "check-24.svg",
+}
+DOC_ICON_COLORS = {
+    "info-24.svg" : "#58a6ff",
+    "alert-24.svg": "#f0b429",
+    "check-24.svg": "#3fb950",
+    "bug-24.svg"  : "#f85149",
+    "clock-24.svg": "#d2a8ff",
+}
+
+# ---------------------------------------------------------------------------
 # \brief global definition to write the css styles for dark mode html
 # ---------------------------------------------------------------------------
 def _write_css(output_dir):
     filename = os.path.join(output_dir, "style.css")
     doxy_css = share.locales.tr("doxy_html_css")
     doxy_css = doxy_css + """
-.unit-dependency-list {
-    list-style: none;
-    padding-left: 0;
-    margin: 12px 0;
-}
-.unit-dependency-list li {
-    margin: 6px 0;
-    padding: 8px 12px;
-    border: 1px solid #333;
-    border-radius: 6px;
-    background: #181818;
-}
-.unit-dependency-list li:hover {
-    background: #222222;
-}
-.dep-node {
-    padding: 4px 0;
-    font-family: Consolas;
-}
-.dep-node::before {
-    content: "└─ ";
-    color: #888;
-}
-.dep-cycle {
-    color: #ff8080;
-    font-weight: bold;
-}
-.mainpage h1 {
-    color: #80ff80;
-}
-.mainpage h2 {
-    color: #66dd66;
-}
-.mainpage h3 {
-    color: #55bb55;
-}
-.member-detail {
-    color: #dddddd;
-    font-size: 0.95em;
-    line-height: 1.45;
+.doc-list-root {
+    margin: 4px 0 4px 12px;
+    padding-left: 18px;
 }
 
-.definition-location {
-    margin: 8px 0 14px 0;
-    color: #bdbdbd;
-    font-size: 0.92em;
+.doc-list-sub {
+    margin: 4px 0 4px 10px;
+    padding-left: 24px;
 }
-.definition-location span {
-    color: #ffd37a;
+
+.doc-list li {
+    margin: 4px 0;
 }
-.source-editor {
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
+
+.doc-soft-line {
+    margin: 3px 0 3px 0;
+    padding-left: 0;
+}
+
+.checkbox-list {
+    list-style: none;
+    padding-left: 24px;
+}
+
+.doc-code {
+    margin: 10px 0;
+    padding: 12px;
     background: #101010;
-    overflow-x: auto;
-    font-family: Consolas, "Courier New", monospace;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #d8d8d8;
+    font-family: Consolas, monospace;
     font-size: 10pt;
-    line-height: 1.45;
-    box-shadow: inset 0 0 0 1px #181818;
+    white-space: pre-wrap;
 }
-.source-row {
-    display: flex;
-    min-height: 21px;
+
+.doc-table {
+    margin: 10px 0;
+    border-collapse: collapse;
+    min-width: 420px;
 }
-.source-row:hover {
-    background: #1b1b1b;
+
+.doc-table th,
+.doc-table td {
+    border: 1px solid #555;
+    padding: 6px 10px;
 }
-.source-gutter {
-    flex: 0 0 58px;
-    user-select: none;
+
+.doc-table th {
+    background: #252525;
+    color: #55ff99;
+}
+
+.doc-table td {
+    background: #181818;
+}
+.doc-code-editor {
+    margin: 10px 0;
+    border: 1px solid #444;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.doc-table {
+    margin: 10px 0;
+    border-collapse: collapse;
+    min-width: 420px;
+}
+
+.doc-table th,
+.doc-table td {
+    border: 1px solid #555;
+    padding: 6px 10px;
+}
+
+.doc-table th {
+    background: #252525;
+    color: #55ff99;
+}
+
+.doc-table td {
+    background: #181818;
+}
+.doc-table .align-left {
+    text-align: left;
+}
+
+.doc-table .align-center {
+    text-align: center;
+}
+
+.doc-table .align-right {
     text-align: right;
-    padding: 0 10px 0 6px;
-    color: #8d8d8d;
-    background: #202020;
-    border-right: 1px solid #383838;
 }
-.source-code {
-    white-space: pre;
-    padding: 0 12px;
-    color: #dddddd;
+.doc-icon {
+    width: 24px;
+    height: 24px;
+    vertical-align: -3px;
+    margin-right: 6px;
+    filter: invert(73%) sepia(84%) saturate(409%) hue-rotate(82deg);
 }
-.code-keyword {
-    color: #7fb7ff;
-    font-weight: bold;
+
+.doc-icon-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
 }
-.code-link {
-    color: #80ff80;
-    text-decoration: none;
-}
-.code-link:hover {
-    text-decoration: underline;
-}
-.src-comment,
-.comment,
-.token-comment {
-    color: #8b4e5f;
-    font-style: italic;
+
+.doc-box-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 """
-    
     with open(filename, "w", encoding="utf-8") as f:
         f.write(doxy_css)
 
@@ -533,11 +575,58 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         item.source_code = self.source_text_from_ctx(ctx)
         return item
 
-    def source_page_name(self):
-        if not self.source_name:
+    def source_page_name(self, source_name=None):
+        if source_name is None:
+            source_name = self.source_name
+        if not source_name:
             return ""
-        return "source_" + self.safe_filename(self.source_name) + ".html"
+        return "source_" + self.safe_filename(source_name) + ".html"
+    
+    def doc_icon_html(self, name, alt=""):
+        icon = DOC_ICONS.get(name.lower(), "")
 
+        if not icon:
+            return ""
+
+        return (
+            f'<img class="doc-icon" '
+            f'src="./icons/{self.html_escape(icon)}" '
+            f'alt="{self.html_escape(alt or name)}">'
+        )
+    
+    def export_doc_icons(self):
+        out_dir = os.path.join(self.output_dir, "pascal", "icons")
+        os.makedirs(out_dir, exist_ok=True)
+
+        icons = set(DOC_ICONS.values())
+
+        for icon in icons:
+            src = f":/docicons/{icon}"
+            dst = os.path.join(out_dir, icon)
+
+            qf = QFile(src)
+
+            if not qf.exists():
+                continue
+
+            if not qf.open(QFile.ReadOnly):
+                continue
+
+            data = bytes(qf.readAll())
+            qf.close()
+            
+            color = DOC_ICON_COLORS.get(icon, "#d8d8d8")
+
+            svg = data.decode("utf-8", errors="replace")
+            svg = svg.replace('fill="currentColor"', f'fill="{color}"')
+            svg = svg.replace('stroke="currentColor"', f'stroke="{color}"')
+            svg = svg.replace('fill="black"', f'fill="{color}"')
+
+            data = svg.encode("utf-8")
+            
+            with open(dst, "wb") as f:
+                f.write(data)
+                
     def write_definition_location(self, f, item):
         source_file = getattr(item, "source_file", "") or self.source_name
         source_line = getattr(item, "source_line", 0)
@@ -551,7 +640,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write(" of file: ")
 
         if self.link_source_file:
-            source_page = self.source_page_name()
+            source_page = self.source_page_name(source_file)
             f.write(
                 f"<a href=\"{source_page}#line_{source_line}\">"
                 f"{self.html_escape(source_file)}</a>"
@@ -797,6 +886,93 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 filename = self.find_unit_file(dep, base_dir)
                 if filename:
                     self.parse_additional_unit_file(filename)
+    
+    def parse_virtual_doc_item(self, text):
+        kind = ""
+        name = ""
+
+        lines = text.splitlines()
+
+        for raw_line in lines:
+            line = raw_line.strip()
+
+            if line.startswith("*"):
+                line = line[1:].strip()
+            if line.startswith("@class"):
+                kind = "class"
+                name = line[len("@class"):].strip()
+                break
+            if line.startswith("@interface"):
+                kind = "interface"
+                name = line[len("@interface"):].strip()
+                break
+            if line.startswith("@record"):
+                kind = "record"
+                name = line[len("@record"):].strip()
+                break
+            if line.startswith("@enum"):
+                kind = "enum"
+                name = line[len("@enum"):].strip()
+                break
+
+        if not kind or not name:
+            return False
+
+        if kind == "class":
+            info = PasClassInfo(name)
+            info.brief   = self.pending_brief
+            info.details = self.pending_details
+            self.classes.append(info)
+        elif kind == "interface":
+            info = PasInterfaceInfo(
+                name       = name,
+                bases      = [],
+                brief      = self.pending_brief,
+                details    = self.pending_details,
+                methods    = [],
+                properties = []
+            )
+            self.interfaces.append(info)
+        elif kind == "record":
+            info = PasTypeInfo(
+                name      = name,
+                kind      = "record",
+                signature = name + " = record end",
+                brief     = self.pending_brief,
+                details   = self.pending_details
+            )
+            self.records.append(info)
+        elif kind == "enum":
+            info = PasEnumInfo(
+                name,
+                name + " = (...)",
+                self.pending_brief,
+                self.pending_details
+            )
+            self.enums.append(info)
+
+        self.clear_pending_doc()
+        return True
+ 
+    def render_doc_code_editor(self, code_lines, start_line=1):
+        out = []
+        out.append('<div class="source-editor doc-code-editor">')
+
+        for index, line in enumerate(code_lines):
+            line_no = start_line + index
+            highlighted = self.highlight_pascal_source_line(
+                line,
+                None,
+                True
+            )
+
+            out.append(f'<div class="source-row" id="doc_code_{line_no}">')
+            out.append(f'<span class="source-gutter">{line_no}</span>')
+            out.append(f'<code class="source-code">{highlighted}</code>')
+            out.append('</div>')
+
+        out.append('</div>')
+        return "\n".join(out)
     
     def write_source_editor(self, f, code, start_line=1, current_item=None, include_members=False):
         lines = (code or "").splitlines()
@@ -1081,14 +1257,22 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         blank_after_brief = False
         
         for raw_line in lines:
-            line = raw_line.strip()
+            line = raw_line.rstrip()
             
-            if line.startswith("*"):
-                line = line[1:].strip()
-            if not line:
-                if brief_seen:
+            pos = line.find("*")
+            if pos >= 0:
+                line = line[pos + 1:]
+            
+            if line.startswith(" "):
+                line = line[1:]
+            
+            if not line.strip():
+                if current_tag == "details":
+                    self.pending_details += "\n"
+                elif brief_seen:
                     blank_after_brief = True
                 continue
+
             if line.startswith("@brief"):
                 self.pending_brief = line[len("@brief"):].strip()
                 current_tag = "brief"
@@ -1129,9 +1313,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 continue
             
             if current_tag == "details":
-                self.pending_details += " " + line
+                self.pending_details += "\n" + line
             elif current_tag == "brief" and blank_after_brief:
-                self.pending_details += " " + line
+                self.pending_details += "\n" + line
                 current_tag = "details"
             elif current_tag == "brief":
                 self.pending_brief += " " + line
@@ -1139,7 +1323,57 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 self.pending_params[current_param_index][1] += " " + line
             elif current_tag == "return":
                 self.pending_returns += " " + line
-                    
+    
+    def is_markdown_table_separator(self, line):
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not cells:
+            return False
+        for cell in cells:
+            if not re.match(r"^:?-{3,}:?$", cell):
+                return False
+        return True
+
+    def split_markdown_table_row(self, line):
+        return [c.strip() for c in line.strip().strip("|").split("|")]
+
+    def write_markdown_table_html(self, rows):
+        if len(rows) < 2:
+            return ""
+
+        header = self.split_markdown_table_row(rows[0])
+        aligns = self.markdown_table_alignments(rows[1])
+        body   = rows[2:]
+
+        out = []
+        out.append('<table class="doc-table">')
+        out.append("<thead><tr>")
+
+        for index, cell in enumerate(header):
+            align = aligns[index] if index < len(aligns) else "left"
+            out.append(
+                f'<th class="align-{align}">{self.html_escape(cell)}</th>'
+            )
+
+        out.append("</tr></thead>")
+        out.append("<tbody>")
+
+        for row in body:
+            cells = self.split_markdown_table_row(row)
+            out.append("<tr>")
+
+            for index, cell in enumerate(cells):
+                align = aligns[index] if index < len(aligns) else "left"
+                out.append(
+                    f'<td class="align-{align}">{self.html_escape(cell)}</td>'
+                )
+
+            out.append("</tr>")
+
+        out.append("</tbody>")
+        out.append("</table>")
+
+        return "\n".join(out)
+    
     def ensure_global_var_group(self):
         if self.current_var_group is None:
             self.current_var_group = PasVarGroupInfo("Global Variables")
@@ -1468,6 +1702,10 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.pending_returns = ""
         
         self.parse_doc_comment(text)
+        
+        if self.parse_virtual_doc_item(text):
+            return None
+            
         return None
     
     def visitVarDeclaration(self, ctx):
@@ -1482,6 +1720,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def visitUnitFile(self, ctx: PasDocParser.UnitFileContext):
         self.progress.progress_log(share.locales.tr("Parse Pascal unit..."))
         self.progress.progress_value(5)
+        
+        self.export_doc_icons()
         
         current_file = os.path.abspath(self.source_file)
         self.parsed_files.add(current_file)
@@ -2484,6 +2724,234 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def html_escape(self, text):
         return html.escape(text, quote=True)
     
+    def format_doc_text(self, text):
+        lines = (text or "").splitlines()
+        html_out = []
+
+        open_root_ul   = False
+        open_parent_li = False
+        open_sub_list  = False
+        sub_list_tag   = ""
+        open_sub_li    = False
+
+        in_code_block = False
+        code_lines    = []
+        table_rows    = []
+
+        def flush_table():
+            nonlocal table_rows
+
+            if not table_rows:
+                return
+
+            if len(table_rows) >= 2 and self.is_markdown_table_separator(table_rows[1]):
+                close_root_ul()
+                html_out.append(self.write_markdown_table_html(table_rows))
+            else:
+                for row in table_rows:
+                    html_out.append(f"<p>{self.html_escape(row)}</p>")
+
+            table_rows = []
+
+        def close_sub_li():
+            nonlocal open_sub_li
+            if open_sub_li:
+                html_out.append("</li>")
+                open_sub_li = False
+
+        def close_sub_list():
+            nonlocal open_sub_list, sub_list_tag
+            close_sub_li()
+            if open_sub_list:
+                html_out.append(f"</{sub_list_tag}>")
+                open_sub_list = False
+                sub_list_tag = ""
+
+        def close_parent_li():
+            nonlocal open_parent_li
+            close_sub_list()
+            if open_parent_li:
+                html_out.append("</li>")
+                open_parent_li = False
+
+        def close_root_ul():
+            nonlocal open_root_ul
+            close_parent_li()
+            if open_root_ul:
+                html_out.append("</ul>")
+                open_root_ul = False
+
+        def ensure_root_ul():
+            nonlocal open_root_ul
+            if not open_root_ul:
+                html_out.append('<ul class="doc-list doc-list-root">')
+                open_root_ul = True
+
+        def ensure_sub_list(tag, css_class="doc-list-sub"):
+            nonlocal open_sub_list, sub_list_tag
+
+            if open_sub_list and sub_list_tag != tag:
+                close_sub_list()
+
+            if not open_sub_list:
+                html_out.append(f'<{tag} class="doc-list {css_class}">')
+                open_sub_list = True
+                sub_list_tag = tag
+
+        for raw in lines:
+            line = raw.rstrip()
+            stripped = line.strip()
+
+            if in_code_block:
+                if stripped.startswith("@endcode"):
+                    close_root_ul()
+                    html_out.append(self.render_doc_code_editor(code_lines, 1))
+                    code_lines = []
+                    in_code_block = False
+                    continue
+
+                code_lines.append(line)
+                continue
+
+            if not stripped:
+                flush_table()
+                close_root_ul()
+                continue
+
+            has_soft_break = "\\n" in stripped
+            stripped = stripped.replace("\\n", "")
+            
+            if stripped.startswith(":icon-"):
+                pos = stripped.find(":")
+
+                if pos >= 0:
+                    rest = stripped[pos + 1:]
+                    parts = rest.split(None, 1)
+
+                    icon_key = parts[0].replace("icon-", "").replace(":", "").strip()
+                    icon_txt = parts[1] if len(parts) > 1 else ""
+
+                    close_root_ul()
+                    html_out.append(
+                        '<p class="doc-icon-line">'
+                        f'{self.doc_icon_html(icon_key)}'
+                        f'<span>{self.html_escape(icon_txt)}</span>'
+                        '</p>'
+                    )
+                    continue
+            if stripped.startswith("@icon"):
+                parts = stripped.split(None, 2)
+
+                if len(parts) >= 3:
+                    close_root_ul()
+
+                    icon_key = parts[1]
+                    icon_txt = parts[2]
+
+                    html_out.append(
+                        '<p class="doc-icon-line">'
+                        f'{self.doc_icon_html(icon_key)}'
+                        f'<span>{self.html_escape(icon_txt)}</span>'
+                        '</p>'
+                    )
+                    continue
+        
+            if stripped.startswith("@code"):
+                flush_table()
+                close_root_ul()
+                in_code_block = True
+                code_lines = []
+                continue
+
+            if "|" in stripped and stripped.startswith("|") and stripped.endswith("|"):
+                close_root_ul()
+                table_rows.append(stripped)
+                continue
+            else:
+                flush_table()
+
+            if stripped.startswith("- ") and not stripped.startswith("- ["):
+                close_parent_li()
+                ensure_root_ul()
+
+                html_out.append(f"<li>{self.html_escape(stripped[2:].strip())}")
+                open_parent_li = True
+                continue
+
+            if stripped.startswith("-#"):
+                ensure_root_ul()
+                ensure_sub_list("ol")
+                close_sub_li()
+
+                item_text = stripped[2:].strip()
+                html_out.append(f"<li>{self.html_escape(item_text)}")
+
+                if has_soft_break:
+                    open_sub_li = True
+                else:
+                    html_out.append("</li>")
+                    open_sub_li = False
+                continue
+
+            if re.match(r"^\d+\.\s+", stripped):
+                ensure_root_ul()
+                ensure_sub_list("ol")
+                close_sub_li()
+
+                item_text = re.sub(r"^\d+\.\s+", "", stripped)
+                html_out.append(f"<li>{self.html_escape(item_text)}")
+
+                if has_soft_break:
+                    open_sub_li = True
+                else:
+                    html_out.append("</li>")
+                    open_sub_li = False
+                continue
+
+            if stripped.startswith("- [ ]"):
+                ensure_root_ul()
+                ensure_sub_list("ul", "doc-list-sub checkbox-list")
+                close_sub_li()
+
+                item_text = stripped[5:].strip()
+                html_out.append(
+                    '<li class="check-item">'
+                    '<span class="check-box"></span>'
+                    f'{self.html_escape(item_text)}</li>'
+                )
+                continue
+
+            if stripped.startswith("- [x]") or stripped.startswith("- [X]"):
+                ensure_root_ul()
+                ensure_sub_list("ul", "doc-list-sub checkbox-list")
+                close_sub_li()
+
+                item_text = stripped[5:].strip()
+                html_out.append(
+                    '<li class="check-item">'
+                    '<span class="check-box checked">✓</span>'
+                    f'{self.html_escape(item_text)}</li>'
+                )
+                continue
+
+            if open_sub_li:
+                html_out.append(
+                    f'<div class="doc-soft-line">{self.html_escape(stripped)}</div>'
+                )
+                close_sub_li()
+                continue
+
+            close_root_ul()
+            html_out.append(f"<p>{self.html_escape(stripped)}</p>")
+
+        if in_code_block and code_lines:
+            html_out.append(self.render_doc_code_editor(code_lines, 1))
+
+        flush_table()
+        close_root_ul()
+
+        return "\n".join(html_out)
+    
     def safe_filename(self, name):
         result = []
         for ch in name:
@@ -2507,6 +2975,24 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 1
             )
         return sig
+    
+    def markdown_table_alignments(self, separator_line):
+        cells = self.split_markdown_table_row(separator_line)
+        aligns = []
+        
+        for cell in cells:
+            cell = cell.strip()
+            
+            if cell.startswith(":") and cell.endswith(":"):
+                aligns.append("center")
+            elif cell.endswith(":"):
+                aligns.append("right")
+            elif cell.startswith(":"):
+                aligns.append("left")
+            else:
+                aligns.append("left")
+        
+        return aligns
     
     def write_alpha_index(self, f):
         items = self.index_items()
@@ -2950,7 +3436,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("      <h2>Detailed Description</h2>\n")
                 
                 if getattr(cls, "details", ""):
-                    f.write(f"      <p>{self.html_escape(cls.details)}</p>\n")
+                    f.write(self.format_doc_text(cls.details))
+                    #f.write(f"      <p>{self.html_escape(cls.details)}</p>\n")
                 else:
                     f.write(f"      <p>The <span class=\"linklike\">{self.html_escape(cls.name)}</span> class.</p>\n")
                 
@@ -3200,7 +3687,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if getattr(item, "details", ""):
                     f.write("    <section>\n")
                     f.write("      <h2>Detailed Description</h2>\n")
-                    f.write(f"      <p>{self.html_escape(item.details)}</p>\n")
+                    f.write(self.format_doc_text(item.details))
                     f.write("    </section>\n")
                 
                 if item.items:
@@ -3447,7 +3934,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             if member.brief:
                 f.write(f"          <p>{self.html_escape(member.brief)}</p>\n")
             if member.details:
-                f.write(f"          <p>{self.html_escape(member.details)}</p>\n")
+                f.write(self.format_doc_text(member.details))
+                #f.write(f"          <p>{self.html_escape(member.details)}</p>\n")
                 
             if member.params:
                 f.write("          <h4>Parameters</h4>\n")
@@ -3609,7 +4097,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("      <h2>Detailed Description</h2>\n")
                 
                 if getattr(item, "details", ""):
-                    f.write(f"      <p>{self.html_escape(item.details)}</p>\n")
+                    f.write(self.format_doc_text(item.details))
                 else:
                     f.write(
                         f"      <p>The <span class=\"linklike\">"
@@ -3644,7 +4132,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             }.get(kind, "Note")
 
             f.write(f"          <div class=\"doc-box doc-box-{kind}\">\n")
-            f.write(f"            <div class=\"doc-box-title\">{title}</div>\n")
+            f.write(
+                f"            <div class=\"doc-box-title\">"
+                f"{self.doc_icon_html(kind, title)}"
+                f"<span>{title}</span></div>\n"
+            )
             f.write(f"            <div class=\"doc-box-text\">{self.html_escape(text)}</div>\n")
             f.write("          </div>\n")
             

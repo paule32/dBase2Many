@@ -55,6 +55,12 @@ window.PASCAL_SEARCH_INDEX = [
   },
   {
     "kind": "Class",
+    "name": "TVirtualClass",
+    "text": "Virtuelle Klasse",
+    "link": "TVirtualClass.html"
+  },
+  {
+    "kind": "Class",
     "name": "TObject",
     "text": "",
     "link": "TObject.html"
@@ -126,6 +132,12 @@ window.PASCAL_SEARCH_INDEX = [
     "link": "IList_T_.html"
   },
   {
+    "kind": "Interface",
+    "name": "IVirtualInterface",
+    "text": "Virtuelles Interface",
+    "link": "IVirtualInterface.html"
+  },
+  {
     "kind": "record",
     "name": "TPoint",
     "text": "Beispiel-Record.",
@@ -136,6 +148,12 @@ window.PASCAL_SEARCH_INDEX = [
     "name": "TPair<TKey, TValue>",
     "text": "Generic key value pair record",
     "link": "TPair_TKey__TValue_.html"
+  },
+  {
+    "kind": "record",
+    "name": "TVirtualRecord",
+    "text": "Virtueller Record",
+    "link": "TVirtualRecord.html"
   },
   {
     "kind": "array",
@@ -160,6 +178,12 @@ window.PASCAL_SEARCH_INDEX = [
     "name": "TColor",
     "text": "available colors",
     "link": "TColor.html"
+  },
+  {
+    "kind": "enum",
+    "name": "TVirtualEnum",
+    "text": "Virtuelles Enum",
+    "link": "TVirtualEnum.html"
   },
   {
     "kind": "Constant",

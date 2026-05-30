@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/docicons">
+    <file alias="info-24.svg">icons/info-24.svg</file>
+    <file alias="alert-24.svg">icons/alert-24.svg</file>
+    <file alias="check-24.svg">icons/check-24.svg</file>
+    <file alias="bug-24.svg">icons/bug-24.svg</file>
+    <file alias="clock-24.svg">icons/clock-24.svg</file>
+    <file alias="stop-24.svg">icons/stop-24.svg</file>
+    <file alias="light-bulb-24.svg">icons/light-bulb-24.svg</file>
+  </qresource>
+</RCC>

@@ -18,9 +18,7 @@ interface
 
 uses
   Objects  (**! @brief Base classes of all others *),
-  SysUtils (**! @brief System Utils function's *);
-
-uses
+  SysUtils (**! @brief System Utils function's *),
   Classes  (**! @brief Pascal Class'es *),
   Dialogs;
   
@@ -252,7 +250,63 @@ type
     property Items: IList<T> (**! @brief list datatype *)
       read FItems (**! @brief returns internal list *);
   end;
-  
+
+(**!
+ * @class   TVirtualClass
+ * @brief   Virtuelle Klasse
+ * @details Diese Klasse existiert nur in der Dokumentation.
+ *
+ * A list of events:
+ *    - mouse events
+ *         -# mouse move event
+ *         -# mouse click event\n
+ *            More info about the click event.
+ *         -# mouse double click event
+ *    - keyboard events
+ *         1. key down event
+ *         2. key up event
+ *    - checkbox list
+ *         - [ ] unchecked
+ *         - [x] checked
+ *
+ *  More text here.
+ *
+ *
+ * | Name | Type | Description |
+ * |------|------|-------------|
+ * | X    | Integer | Position X |
+ * | Y    | Integer | Position Y |
+ *
+ * @code
+ * procedure Test;
+ * begin
+ *   WriteLn('Hallo');
+ * end;
+ * @endcode
+ *)
+
+(**!
+ * @interface IVirtualInterface
+ * @brief Virtuelles Interface
+ *)
+
+(**!
+ * @record TVirtualRecord
+ * @brief Virtueller Record
+ *)
+
+(**!
+ * @enum TVirtualEnum
+ * @brief Virtuelles Enum
+ * @details
+ *
+ * :icon-info: Das ist eine Information.
+ * :icon-alert: Das ist eine Warnung.
+ *
+ * @icon check Erfolgreich abgeschlossen.
+ * @icon bug Bekannter Fehler.
+ *)
+
 implementation
 
 uses

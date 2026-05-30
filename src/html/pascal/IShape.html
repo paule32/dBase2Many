@@ -252,6 +252,11 @@
               </ul>
             </li>
             <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TVirtualClass.html">TVirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
               <ul>
               </ul>
@@ -304,6 +309,9 @@
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
             </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IVirtualInterface.html">IVirtualInterface</a></div>
+            </li>
           </ul>
         </li>
         <li class="tree-node">
@@ -314,6 +322,9 @@
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPair_TKey__TValue_.html">TPair&lt;TKey, TValue&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualRecord.html">TVirtualRecord</a></div>
             </li>
           </ul>
         </li>
@@ -341,6 +352,9 @@
             </li>
             <li>
               <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TColor.html">TColor</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualEnum.html">TVirtualEnum</a></div>
             </li>
           </ul>
         </li>
@@ -401,18 +415,18 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_127"><span class="source-gutter">127</span><code class="source-code">  <a class="code-link" href="IShape.html">IShape</a> = <span class="code-keyword">interface</span>(<a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
-        <div class="source-row" id="line_128"><span class="source-gutter">128</span><code class="source-code"><span class="src-comment">    (**! @brief Berechnet die Fläche *)</span></code></div>
-        <div class="source-row" id="line_129"><span class="source-gutter">129</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IShape.html#ishape_function_area_double">Area</a>: <span class="code-keyword">Double</span>;</code></div>
-        <div class="source-row" id="line_130"><span class="source-gutter">130</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_131"><span class="source-gutter">131</span><code class="source-code"><span class="src-comment">    (**! @brief Name der Form *)</span></code></div>
-        <div class="source-row" id="line_132"><span class="source-gutter">132</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IShape.html#ishape_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span></code></div>
-        <div class="source-row" id="line_133"><span class="source-gutter">133</span><code class="source-code">      <span class="code-keyword">read</span> FName <span class="src-comment">(**! @brief Liefert den Namen *)</span></code></div>
-        <div class="source-row" id="line_134"><span class="source-gutter">134</span><code class="source-code">      <span class="code-keyword">write</span> FName <span class="src-comment">(**! @brief Setzt den Namen *)</span>;</code></div>
-        <div class="source-row" id="line_135"><span class="source-gutter">135</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_125"><span class="source-gutter">125</span><code class="source-code">  <a class="code-link" href="IShape.html">IShape</a> = <span class="code-keyword">interface</span>(<a class="code-link" href="IDrawable.html">IDrawable</a>)</code></div>
+        <div class="source-row" id="line_126"><span class="source-gutter">126</span><code class="source-code"><span class="src-comment">    (**! @brief Berechnet die Fläche *)</span></code></div>
+        <div class="source-row" id="line_127"><span class="source-gutter">127</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IShape.html#ishape_function_area_double">Area</a>: <span class="code-keyword">Double</span>;</code></div>
+        <div class="source-row" id="line_128"><span class="source-gutter">128</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_129"><span class="source-gutter">129</span><code class="source-code"><span class="src-comment">    (**! @brief Name der Form *)</span></code></div>
+        <div class="source-row" id="line_130"><span class="source-gutter">130</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IShape.html#ishape_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span></code></div>
+        <div class="source-row" id="line_131"><span class="source-gutter">131</span><code class="source-code">      <span class="code-keyword">read</span> FName <span class="src-comment">(**! @brief Liefert den Namen *)</span></code></div>
+        <div class="source-row" id="line_132"><span class="source-gutter">132</span><code class="source-code">      <span class="code-keyword">write</span> FName <span class="src-comment">(**! @brief Setzt den Namen *)</span>;</code></div>
+        <div class="source-row" id="line_133"><span class="source-gutter">133</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>127</span> of file: <a href="source_test1_pas.html#line_127">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>125</span> of file: <a href="source_test1_pas.html#line_125">test1.pas</a></div>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">
