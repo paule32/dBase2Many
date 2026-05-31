@@ -284,3 +284,7 @@ src/html/pascal/TPerson.pdf
 src/html/pascal/TPerson.pdf
 src/share/modules/4
 src/share/modules/doxygen_source_editor.py
+src/asmjit/libasmjit.a
+src/asmjit/libasmjit.dll
+src/asmjit/libasmjit.dll.a
+src/asmjit/libasmjit.a

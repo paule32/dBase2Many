@@ -1,0 +1,147 @@
+# Generated from grammar/MiniPascalParser.g4 by ANTLR 4.13.2
+from antlr4 import *
+if "." in __name__:
+    from .MiniPascalParser import MiniPascalParser
+else:
+    from MiniPascalParser import MiniPascalParser
+
+# This class defines a complete listener for a parse tree produced by MiniPascalParser.
+class MiniPascalParserListener(ParseTreeListener):
+
+    # Enter a parse tree produced by MiniPascalParser#programFile.
+    def enterProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#programFile.
+    def exitProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#varSection.
+    def enterVarSection(self, ctx:MiniPascalParser.VarSectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#varSection.
+    def exitVarSection(self, ctx:MiniPascalParser.VarSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#varDeclaration.
+    def enterVarDeclaration(self, ctx:MiniPascalParser.VarDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#varDeclaration.
+    def exitVarDeclaration(self, ctx:MiniPascalParser.VarDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#identList.
+    def enterIdentList(self, ctx:MiniPascalParser.IdentListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#identList.
+    def exitIdentList(self, ctx:MiniPascalParser.IdentListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#typeName.
+    def enterTypeName(self, ctx:MiniPascalParser.TypeNameContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#typeName.
+    def exitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#block.
+    def enterBlock(self, ctx:MiniPascalParser.BlockContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#block.
+    def exitBlock(self, ctx:MiniPascalParser.BlockContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#statementList.
+    def enterStatementList(self, ctx:MiniPascalParser.StatementListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#statementList.
+    def exitStatementList(self, ctx:MiniPascalParser.StatementListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#statement.
+    def enterStatement(self, ctx:MiniPascalParser.StatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#statement.
+    def exitStatement(self, ctx:MiniPascalParser.StatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#assignment.
+    def enterAssignment(self, ctx:MiniPascalParser.AssignmentContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#assignment.
+    def exitAssignment(self, ctx:MiniPascalParser.AssignmentContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#expr.
+    def enterExpr(self, ctx:MiniPascalParser.ExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#expr.
+    def exitExpr(self, ctx:MiniPascalParser.ExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#term.
+    def enterTerm(self, ctx:MiniPascalParser.TermContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#term.
+    def exitTerm(self, ctx:MiniPascalParser.TermContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#factor.
+    def enterFactor(self, ctx:MiniPascalParser.FactorContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#factor.
+    def exitFactor(self, ctx:MiniPascalParser.FactorContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#writeLnStatement.
+    def enterWriteLnStatement(self, ctx:MiniPascalParser.WriteLnStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#writeLnStatement.
+    def exitWriteLnStatement(self, ctx:MiniPascalParser.WriteLnStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#writeArgList.
+    def enterWriteArgList(self, ctx:MiniPascalParser.WriteArgListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#writeArgList.
+    def exitWriteArgList(self, ctx:MiniPascalParser.WriteArgListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#writeArg.
+    def enterWriteArg(self, ctx:MiniPascalParser.WriteArgContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#writeArg.
+    def exitWriteArg(self, ctx:MiniPascalParser.WriteArgContext):
+        pass
+
+
+
+del MiniPascalParser
