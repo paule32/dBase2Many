@@ -80,6 +80,33 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#ifStatement.
+    def enterIfStatement(self, ctx:MiniPascalParser.IfStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#ifStatement.
+    def exitIfStatement(self, ctx:MiniPascalParser.IfStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#condition.
+    def enterCondition(self, ctx:MiniPascalParser.ConditionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#condition.
+    def exitCondition(self, ctx:MiniPascalParser.ConditionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#compareOp.
+    def enterCompareOp(self, ctx:MiniPascalParser.CompareOpContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#compareOp.
+    def exitCompareOp(self, ctx:MiniPascalParser.CompareOpContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#assignment.
     def enterAssignment(self, ctx:MiniPascalParser.AssignmentContext):
         pass

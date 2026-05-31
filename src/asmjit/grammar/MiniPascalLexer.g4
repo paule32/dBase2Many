@@ -8,6 +8,10 @@ VAR     : [Vv][Aa][Rr] ;
 DOUBLE  : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;
 
+IF      : [iI][fF];
+THEN    : [tT][hH][eE][nN];
+ELSE    : [eE][lL][sS][eE];
+
 WRITELN : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 
 ASSIGN  : ':=' ;
@@ -21,6 +25,13 @@ STAR    : '*' ;
 SLASH   : '/' ;
 LPAREN  : '(' ;
 RPAREN  : ')' ;
+
+EQ_OP   : '='   ;
+LE_OP   : '<='  ;
+NE_OP   : '<>'  ;
+LT_OP   : '<'   ;
+GE_OP   : '>='  ;
+GT_OP   : '>'   ;
 
 STRING  : '\'' ( ~['\\] | '\\' . )* '\'' ;
     

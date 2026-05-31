@@ -33,8 +33,11 @@ extern "C" void jit_print_int(int v)          { std::cout << v; }
 extern "C" void jit_print_double(double v)    { std::cout << v; }
 extern "C" void jit_print_newline()           { std::cout << std::endl; }
 
-static const char str_0[] = "text";
-static const char str_1[] = "x = ";
+static const char str_0[] = "start";
+static const char str_1[] = "x ist groesser als 10";
+static const char str_2[] = "x ist kleiner oder gleich 10";
+static const char str_3[] = "d ist kleiner als 20";
+static const char str_4[] = "ende";
 
 int main() {
     JitRuntime rt;
@@ -52,6 +55,13 @@ int main() {
 
     a.push(x86::r12);
     a.mov (x86::r12, x86::rcx); // ctx
+    a.mov(x86::eax, 20);
+    a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::dword_ptr(x86::rax, 0), x86::eax); // x
+    a.mov(x86::rax, imm(double_to_bits(10.5))); // dbl_10_5_0
+    a.movq(x86::xmm0, x86::rax);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
+    a.movsd(x86::qword_ptr(x86::rax, 0), x86::xmm0); // d
     a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -61,24 +71,60 @@ int main() {
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
+    Label else_1 = a.new_label();
+    Label endif_2 = a.new_label();
+    a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
+    a.push(x86::rax);
     a.mov(x86::eax, 10);
-    a.sub(x86::rsp, 8);
-    a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);
-    a.mov(x86::rax, imm(double_to_bits(20.214))); // dbl_20_214_0
-    a.movq(x86::xmm0, x86::rax);
-    a.movsd(x86::xmm1, x86::qword_ptr(x86::rsp));
-    a.add(x86::rsp, 8);
-    a.addsd(x86::xmm0, x86::xmm1);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
-    a.movsd(x86::qword_ptr(x86::rax, 0), x86::xmm0); // x
+    a.mov(x86::ebx, x86::eax);
+    a.pop(x86::rax);
+    a.cmp(x86::eax, x86::ebx);
+    a.jle(else_1);
     a.mov(x86::rcx, imm((uint64_t)str_1));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.jmp(endif_2);
+    a.bind(else_1);
+    a.mov(x86::rcx, imm((uint64_t)str_2));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.bind(endif_2);
+    Label else_3 = a.new_label();
+    Label endif_4 = a.new_label();
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
-    a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, 0)); // x
-    a.mov(x86::rax, imm((uint64_t)&jit_print_double));
+    a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, 0)); // d
+    a.push(x86::rax);
+    a.mov(x86::rax, imm(double_to_bits(20.0))); // dbl_20_0_1
+    a.movq(x86::xmm0, x86::rax);
+    a.mov(x86::ebx, x86::eax);
+    a.pop(x86::rax);
+    a.cmp(x86::eax, x86::ebx);
+    a.jge(else_3);
+    a.mov(x86::rcx, imm((uint64_t)str_3));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.bind(else_3);
+    a.mov(x86::rcx, imm((uint64_t)str_4));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
@@ -96,7 +142,7 @@ int main() {
         return 1;
     }
     
-    std::ofstream asm_out("test2.asm");
+    std::ofstream asm_out("test3.asm");
     std::string asm_text = logger.data();
     
     auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {
@@ -118,12 +164,14 @@ int main() {
     replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
     replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
 
-    replace_all(asm_text, std::to_string(double_to_bits(20.214)), "dbl_20_214_0");
+    replace_all(asm_text, std::to_string(double_to_bits(10.5)), "dbl_10_5_0");
+    replace_all(asm_text, std::to_string(double_to_bits(20.0)), "dbl_20_0_1");
 
     std::istringstream iss(asm_text);
     std::string line;
 
-    asm_out << "dbl_20_214_0 equ " << std::to_string(double_to_bits(20.214)) << " ; 20.214\n";
+    asm_out << "dbl_10_5_0 equ " << std::to_string(double_to_bits(10.5)) << " ; 10.5\n";
+    asm_out << "dbl_20_0_1 equ " << std::to_string(double_to_bits(20.0)) << " ; 20.0\n";
     
     asm_out << "public " << main << "\n";
     asm_out << "main" << ":\n";

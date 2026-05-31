@@ -62,6 +62,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.next_int_slot      = 0
         self.next_double_slot   = 0
         
+        self.label_id           = 0
+        
+        self.string_literals    = []
+        self.double_literals    = []
+        
         self.asm_file           = asm_file
     
     def format_error(self, filename, err):
@@ -100,16 +105,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.var_types[key] = typ
     
+    def emit_call_rax(self):
+        self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
+        self.emit("a.call(x86::rax);")
+        self.emit("a.add(x86::rsp, 32);")
+    
     def emit_load_var(self, name, info):
         typ  = info["type"]
         slot = info["slot"]
 
         if typ == "integer":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r10, offsetof(JitContext, int_vars)));")
+            self.emit("a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
             self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {slot * 4})); // {name}")
 
         elif typ == "double":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r10, offsetof(JitContext, double_vars)));")
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
             self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {slot * 8})); // {name}")
     
     def emit_store_var(self, name, info):
@@ -117,11 +127,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = info["slot"]
 
         if typ == "integer":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r10, offsetof(JitContext, int_vars)));")
+            self.emit("a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
             self.emit(f"a.mov(x86::dword_ptr(x86::rax, {slot * 4}), x86::eax); // {name}")
 
         elif typ == "double":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r10, offsetof(JitContext, double_vars)));")
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
             self.emit(f"a.movsd(x86::qword_ptr(x86::rax, {slot * 8}), x86::xmm0); // {name}")
     
     def emit_int_to_double(self):
@@ -143,16 +153,38 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0001", name=name)
 
         return self.vars[key]
-
+    
+    def render_asm_double_replacements(self):
+        out = []
+        for name, value in self.double_literals:
+            out.append(
+                f'replace_all(asm_text, std::to_string(double_to_bits({value})), "{name}");'
+            )
+        return "\n    ".join(out)
+    
     def var_type_of(self, ctx, name):
         return self.var_info(ctx, name)["type"]
 
     def slot_for(self, ctx, name):
         return self.var_info(ctx, name)["slot"]
     
-    
     def emit(self, line):
         self.lines.append("    " + line)
+    
+    def new_label_name(self, prefix):
+        self.label_id += 1
+        return f"{prefix}_{self.label_id}"
+    
+    def add_string_literal(self, text):
+        name = f"str_{len(self.string_literals)}"
+        self.string_literals.append((name, text))
+        return name
+    
+    def add_double_literal(self, value):
+        safe = value.replace(".", "_").replace("-", "minus_")
+        name = f"dbl_{safe}_{len(self.double_literals)}"
+        self.double_literals.append((name, value))
+        return name
     
     def visitProgramFile(self, ctx):
         self.program_name = ctx.IDENT().getText()
@@ -160,7 +192,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.varSection():
             self.visit(ctx.varSection())
             
-        self.emit("a.mov(x86::r10, x86::rcx); // ctx")
+        self.emit("a.push(x86::r12);")
+        self.emit("a.mov (x86::r12, x86::rcx); // ctx")
         
         self.visit(ctx.block())
         return self.render_cpp()
@@ -179,8 +212,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.writeLnStatement():
             return self.visit(ctx.writeLnStatement())
 
-        return None
+        if ctx.ifStatement():
+            return self.visit(ctx.ifStatement())
 
+        return None
+    
     def visitVarSection(self, ctx):
         for decl in ctx.varDeclaration():
             self.visit(decl)
@@ -282,8 +318,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         elif ctx.FLOATNUMBER():
             value = ctx.FLOATNUMBER().getText()
-            
-            self.emit(f"a.mov(x86::rax, imm(double_to_bits({value})));")
+            label = self.add_double_literal(value)
+
+            self.emit(f"a.mov(x86::rax, imm(double_to_bits({value}))); // {label}")
             self.emit("a.movq(x86::xmm0, x86::rax);")
             return "double"
             
@@ -297,38 +334,85 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         else:
             return self.visit(ctx.expr())
     
+    def visitIfStatement(self, ctx):
+        self.emit_if_statement(ctx)
+        return None
+    
+    def emit_if_statement(self, ctx):
+        else_label = self.new_label_name("else")
+        end_label  = self.new_label_name("endif")
+
+        self.emit(f"Label {else_label} = a.new_label();")
+        self.emit(f"Label {end_label} = a.new_label();")
+
+        self.emit_condition_jump_false(ctx.condition(), else_label)
+
+        self.visit(ctx.statement(0))
+
+        if ctx.ELSE():
+            self.emit(f"a.jmp({end_label});")
+            self.emit(f"a.bind({else_label});")
+            self.visit(ctx.statement(1))
+            self.emit(f"a.bind({end_label});")
+        else:
+            self.emit(f"a.bind({else_label});")
+    
+    def emit_condition_jump_false(self, ctx, false_label):
+        left_ctx  = ctx.expr(0)
+        right_ctx = ctx.expr(1)
+        op        = ctx.compareOp().getText()
+
+        left_type = self.visit(left_ctx)
+
+        self.emit("a.push(x86::rax);")
+
+        right_type = self.visit(right_ctx)
+
+        self.emit("a.mov(x86::ebx, x86::eax);")
+        self.emit("a.pop(x86::rax);")
+        self.emit("a.cmp(x86::eax, x86::ebx);")
+
+        jump_map = {
+            "=":  "jne",
+            "<>": "je",
+            "<":  "jge",
+            "<=": "jg",
+            ">":  "jle",
+            ">=": "jl",
+        }
+
+        jmp = jump_map[op]
+        self.emit(f"a.{jmp}({false_label});")
+        
     def visitWriteLnStatement(self, ctx):
         args = ctx.writeArgList()
-
+        
         if args:
             for arg in args.writeArg():
-                text = arg.getText()
-
                 if arg.STRING():
-                    value = text[1:-1]
-                    self.cpp_print_lines.append(
-                        f'    std::cout << "{self.cpp_escape(value)}";'
-                    )
+                    value = arg.STRING().getText()[1:-1]
+                    label = self.add_string_literal(value)
+
+                    self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
+                    self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                    self.emit_call_rax()
+                    
                 else:
                     expr_type = self.visit(arg.expr())
+                    
                     if expr_type == "integer":
-                        self.emit(
-                            "a.mov(x86::dword_ptr(x86::r10, "
-                            "offsetof(JitContext, print_int_tmp)), x86::eax);"
-                        )
-                        self.cpp_print_lines.append(
-                            "    std::cout << ctx.print_int_tmp;"
-                        )
+                        self.emit("a.mov(x86::ecx, x86::eax);")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_int));")
+                        self.emit_call_rax()
+                    
                     elif expr_type == "double":
-                        self.emit(
-                            "a.movsd(x86::qword_ptr(x86::r10, "
-                            "offsetof(JitContext, print_double_tmp)), x86::xmm0);"
-                        )
-                        self.cpp_print_lines.append(
-                            "    std::cout << ctx.print_double_tmp;"
-                        )
-
-        self.cpp_print_lines.append("    std::cout << std::endl;")
+                        # Windows x64: double-Argument liegt in xmm0
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_double));")
+                        self.emit_call_rax()
+        
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_newline));")
+        self.emit_call_rax()
+        
         return None
     
     def cpp_escape(self, text):
@@ -346,7 +430,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             f.write("set PATH=T:\\msys64\\mingw64\\bin;%CD%;%PATH%\n")
             f.write("test2.exe")
             f.close()
-        
+    
+    def render_string_literals(self):
+        out = []
+
+        for name, text in self.string_literals:
+            out.append(
+                f'static const char {name}[] = "{self.cpp_escape(text)}";'
+            )
+
+        return "\n".join(out)
+    
+    def render_asm_double_symbols(self):
+        out = []
+        for name, value in self.double_literals:
+            out.append(f'asm_out << "{name} equ " << std::to_string(double_to_bits({value})) << " ; {value}\\n";')
+        return "\n    ".join(out)
+    
     def render_cpp(self):
         body         = "\n".join(self.lines)
         
@@ -388,6 +488,13 @@ static uint64_t double_to_bits(double value) {{
     return bits;
 }}
 
+extern \"C\" void jit_print_text(const char* s) {{ std::cout << s; }}
+extern \"C\" void jit_print_int(int v)          {{ std::cout << v; }}
+extern \"C\" void jit_print_double(double v)    {{ std::cout << v; }}
+extern \"C\" void jit_print_newline()           {{ std::cout << std::endl; }}
+
+{self.render_string_literals()}
+
 int main() {{
     JitRuntime rt;
 
@@ -403,6 +510,7 @@ int main() {{
     x86::Assembler a(&code);
 
 {body}
+    a.pop(x86::r12);
     a.ret();
 
     JitFunc fn = nullptr;
@@ -413,11 +521,34 @@ int main() {{
     }}
     
     std::ofstream asm_out(\"{self.asm_file}\");
-
     std::string asm_text = logger.data();
+    
+    auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {{
+        size_t pos = 0;
+        while ((pos = s.find(from, pos)) != std::string::npos) {{
+            s.replace(pos, from.length(), to);
+            pos += to.length();
+        }}
+    }};
+
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_int),     "_jit_print_int");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_double),  "_jit_print_double");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    
+    replace_all(asm_text, std::to_string((uint64_t)&str_0), "_str_0");
+    replace_all(asm_text, std::to_string((uint64_t)&str_1), "_str_1");
+    replace_all(asm_text, std::to_string((uint64_t)&str_2), "_str_2");
+    replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
+    replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
+
+    {self.render_asm_double_replacements()}
+
     std::istringstream iss(asm_text);
     std::string line;
 
+    {self.render_asm_double_symbols()}
+    
     asm_out << \"public \" << {self.func_name} << \"\\n\";
     asm_out << \"{self.func_name}\" << \":\\n\";
     
@@ -454,7 +585,7 @@ int main() {{
 
     asm_out.close();
    
-    std::array<int, {int_count}> int_vars{{}};
+    std::array<int,    {int_count}> int_vars{{}};
     std::array<double, {double_count}> double_vars{{}};
     
     JitContext ctx{{}};
@@ -462,8 +593,6 @@ int main() {{
     ctx.double_vars = double_vars.data();
     
     fn(&ctx);
-
-{self.render_print_output()}
 
     rt.release(fn);
     return 0;

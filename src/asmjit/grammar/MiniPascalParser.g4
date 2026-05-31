@@ -35,12 +35,30 @@ statementList
     ;
 
 statement
-    : assignment SEMI
-    | writeLnStatement SEMI
+    : assignment
+    | writeLnStatement
+    | ifStatement
+    ;
+
+ifStatement
+    : IF condition THEN statement (ELSE statement)?
+    ;
+
+condition
+    : expr compareOp expr
+    ;
+
+compareOp
+    : EQ_OP
+    | NE_OP
+    | LT_OP
+    | LE_OP
+    | GT_OP
+    | GE_OP
     ;
 
 assignment
-    : IDENT ASSIGN expr
+    : IDENT ASSIGN expr SEMI?
     ;
 
 expr
@@ -60,7 +78,7 @@ factor
     ;
 
 writeLnStatement
-    : WRITELN LPAREN writeArgList? RPAREN
+    : WRITELN LPAREN writeArgList? RPAREN SEMI?
     ;
 
 writeArgList

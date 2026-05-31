@@ -13,17 +13,20 @@ set PATH=%CD%;%PATH%
 antlr4 -Dlanguage=Python3                              -o parsers/pascal grammar/MiniPascalLexer.g4
 antlr4 -Dlanguage=Python3 -visitor -lib parsers/pascal -o parsers/pascal grammar/MiniPascalParser.g4
 
-rm -rf testout
+:: rm -rf testout
 rm debug.log
 
 mkdir testout
 python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
 python pas2asmjit.py testsrc/test2.pas 1> testout/test2.cc 2>> debug.log
+python pas2asmjit.py testsrc/test3.pas 1> testout/test3.cc 2>> debug.log
 
 g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test1.exe testout/test1.cc -lasmjit
 g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test2.exe testout/test2.cc -lasmjit
+g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test3.exe testout/test3.cc -lasmjit
 
-::strip testout/test2.exe
+:: strip testout/test2.exe
+:: strip testout/test3.exe
 goto ok
 
 :error
