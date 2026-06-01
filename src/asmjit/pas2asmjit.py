@@ -446,6 +446,49 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for name, value in self.double_literals:
             out.append(f'asm_out << "{name} equ " << std::to_string(double_to_bits({value})) << " ; {value}\\n";')
         return "\n    ".join(out)
+
+    def render_asm_nasm_structs(self):
+        return r"""
+    asm_out << "struc JitContext\n";
+    asm_out << "    .int_vars:         resq 1\n";
+    asm_out << "    .double_vars:      resq 1\n";
+    asm_out << "    .print_int_tmp:    resd 1\n";
+    asm_out << "    .print_double_tmp: resq 1\n";
+    asm_out << "endstruc\n\n";
+    """
+
+    def render_asm_context_replacements(self):
+        return r"""
+    replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
+    replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
+    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
+    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
+    """
+
+    def render_asm_extern_symbols(self):
+        return ("""
+    asm_out << "extern _str_0\\n";
+    asm_out << "extern _str_1\\n";
+    asm_out << "extern _str_2\\n";
+    asm_out << "extern _str_3\\n";
+    asm_out << "extern _str_4\\n";
+    asm_out << "\\n";
+    asm_out << "extern _jit_print_text\\n";
+    asm_out << "extern _jit_print_newline\\n";
+    """)
+    
+    def render_asm_string_data(self):
+        out = []
+
+        out.append('asm_out << "\\nsection .data\\n";')
+
+        for name, text in self.string_literals:
+            escaped = self.cpp_escape(text)
+            out.append(
+                f'asm_out << "_{name} db \\"{escaped}\\", 0\\n";'
+            )
+
+        return "\n    ".join(out)
     
     def render_cpp(self):
         body         = "\n".join(self.lines)
@@ -542,15 +585,28 @@ int main() {{
     replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
     replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
 
+    replace_all(asm_text, "byte ptr ",    "byte ");
+    replace_all(asm_text, "word ptr ",    "word ");
+    replace_all(asm_text, "dword ptr ",   "dword ");
+    replace_all(asm_text, "qword ptr ",   "qword ");
+    replace_all(asm_text, "xmmword ptr ", "xmmword ");
+    
+    {self.render_asm_context_replacements()}
+    {self.render_asm_nasm_structs()}
+    
     {self.render_asm_double_replacements()}
+    asm_out << "\\n";
 
     std::istringstream iss(asm_text);
     std::string line;
 
     {self.render_asm_double_symbols()}
+    {self.render_asm_extern_symbols()}
     
-    asm_out << \"public \" << {self.func_name} << \"\\n\";
-    asm_out << \"{self.func_name}\" << \":\\n\";
+    asm_out << "\\n";
+    asm_out << "section .text\\n";
+    asm_out << \"public \" << \"_{self.func_name}\" << \"\\n\";
+    asm_out << \"_{self.func_name}\" << \":\\n\";
     
     while (std::getline(iss, line)) {{
         std::string s = line;
@@ -563,6 +619,12 @@ int main() {{
         }}
 
         s = s.substr(start);
+        
+        // Labels linksbündig ausgeben: L0:
+        if (!s.empty() && s.back() == \':\') {{
+            asm_out << s << \"\\n\";
+            continue;
+        }}
 
         // erstes Leerzeichen nach Mnemonic suchen
         size_t pos = s.find_first_of(\" \\t\");
@@ -582,7 +644,9 @@ int main() {{
             asm_out << \"\\t\" << s << \"\\n\";
         }}
     }}
-
+    
+    {self.render_asm_string_data()}
+    
     asm_out.close();
    
     std::array<int,    {int_count}> int_vars{{}};

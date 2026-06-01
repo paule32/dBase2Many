@@ -164,8 +164,30 @@ int main() {
     replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
     replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
 
+    replace_all(asm_text, "byte ptr ",    "byte ");
+    replace_all(asm_text, "word ptr ",    "word ");
+    replace_all(asm_text, "dword ptr ",   "dword ");
+    replace_all(asm_text, "qword ptr ",   "qword ");
+    replace_all(asm_text, "xmmword ptr ", "xmmword ");
+    
+    
+    replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
+    replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
+    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
+    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
+    
+    
+    asm_out << "struc JitContext\n";
+    asm_out << "    .int_vars:         resq 1\n";
+    asm_out << "    .double_vars:      resq 1\n";
+    asm_out << "    .print_int_tmp:    resd 1\n";
+    asm_out << "    .print_double_tmp: resq 1\n";
+    asm_out << "endstruc\n\n";
+    
+    
     replace_all(asm_text, std::to_string(double_to_bits(10.5)), "dbl_10_5_0");
     replace_all(asm_text, std::to_string(double_to_bits(20.0)), "dbl_20_0_1");
+    asm_out << "\n";
 
     std::istringstream iss(asm_text);
     std::string line;
@@ -173,8 +195,20 @@ int main() {
     asm_out << "dbl_10_5_0 equ " << std::to_string(double_to_bits(10.5)) << " ; 10.5\n";
     asm_out << "dbl_20_0_1 equ " << std::to_string(double_to_bits(20.0)) << " ; 20.0\n";
     
-    asm_out << "public " << main << "\n";
-    asm_out << "main" << ":\n";
+    asm_out << "extern _str_0\n";
+    asm_out << "extern _str_1\n";
+    asm_out << "extern _str_2\n";
+    asm_out << "extern _str_3\n";
+    asm_out << "extern _str_4\n";
+    asm_out << "\n";
+    asm_out << "extern _jit_print_text\n";
+    asm_out << "extern _jit_print_newline\n";
+    
+    
+    asm_out << "\n";
+    asm_out << "section .text\n";
+    asm_out << "public " << "_main" << "\n";
+    asm_out << "_main" << ":\n";
     
     while (std::getline(iss, line)) {
         std::string s = line;
@@ -187,6 +221,12 @@ int main() {
         }
 
         s = s.substr(start);
+        
+        // Labels linksbündig ausgeben: L0:
+        if (!s.empty() && s.back() == ':') {
+            asm_out << s << "\n";
+            continue;
+        }
 
         // erstes Leerzeichen nach Mnemonic suchen
         size_t pos = s.find_first_of(" \t");
@@ -206,7 +246,14 @@ int main() {
             asm_out << "\t" << s << "\n";
         }
     }
-
+    
+    asm_out << "\nsection .data\n";
+    asm_out << "_str_0 db \"start\", 0\n";
+    asm_out << "_str_1 db \"x ist groesser als 10\", 0\n";
+    asm_out << "_str_2 db \"x ist kleiner oder gleich 10\", 0\n";
+    asm_out << "_str_3 db \"d ist kleiner als 20\", 0\n";
+    asm_out << "_str_4 db \"ende\", 0\n";
+    
     asm_out.close();
    
     std::array<int,    1> int_vars{};
