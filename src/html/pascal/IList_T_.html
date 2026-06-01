@@ -26,6 +26,22 @@
           </div>
         </li>
         <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Groups</span></div>
+          <ul class="collapsed">
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><a href="group_IntVariables.html">Das sind die Integer Variablen</a></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon book-icon"></span><a href="group_IntS.html">Das sind die Integer Variable S</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+            </li>
+          </ul>
+        </li>
+          </ul>
+        </li>
+        <li class="tree-node">
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
           <ul class="collapsed">
             <li>
@@ -57,6 +73,11 @@
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
             <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
               <ul>
@@ -414,19 +435,19 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_221"><span class="source-gutter">221</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
-        <div class="source-row" id="line_222"><span class="source-gutter">222</span><code class="source-code"><span class="src-comment">    (**! @brief Add one item to the list *)</span></code></div>
-        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IList_T_.html#ilist_t_procedure_add_item_t">Add</a>(Item: T);</code></div>
-        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code"><span class="src-comment">    (**! @brief Get item by index *)</span></code></div>
-        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
-        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code"></code></div>
-        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_getcount">Count</a>: <span class="code-keyword">Integer</span> <span class="src-comment">(**! @brief number datatype *)</span></code></div>
-        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code">      <span class="code-keyword">read</span> GetCount <span class="src-comment">(**! @brief returns item count *)</span>;</code></div>
-        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_256"><span class="source-gutter">256</span><code class="source-code">  <a class="code-link" href="IList_T_.html">IList</a>&lt;T&gt; = <span class="code-keyword">interface</span></code></div>
+        <div class="source-row" id="line_257"><span class="source-gutter">257</span><code class="source-code"><span class="src-comment">    (**! @brief Add one item to the list *)</span></code></div>
+        <div class="source-row" id="line_258"><span class="source-gutter">258</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="IList_T_.html#ilist_t_procedure_add_item_t">Add</a>(Item: T);</code></div>
+        <div class="source-row" id="line_259"><span class="source-gutter">259</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_260"><span class="source-gutter">260</span><code class="source-code"><span class="src-comment">    (**! @brief Get item by index *)</span></code></div>
+        <div class="source-row" id="line_261"><span class="source-gutter">261</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="IList_T_.html#ilist_t_function_getitem_index_integer_t">GetItem</a>(Index: <span class="code-keyword">Integer</span>): T;</code></div>
+        <div class="source-row" id="line_262"><span class="source-gutter">262</span><code class="source-code"></code></div>
+        <div class="source-row" id="line_263"><span class="source-gutter">263</span><code class="source-code">    <span class="code-keyword">property</span> <a class="code-link" href="IList_T_.html#ilist_t_property_count_integer_read_getcount">Count</a>: <span class="code-keyword">Integer</span> <span class="src-comment">(**! @brief number datatype *)</span></code></div>
+        <div class="source-row" id="line_264"><span class="source-gutter">264</span><code class="source-code">      <span class="code-keyword">read</span> GetCount <span class="src-comment">(**! @brief returns item count *)</span>;</code></div>
+        <div class="source-row" id="line_265"><span class="source-gutter">265</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>221</span> of file: <a href="source_test1_pas.html#line_221">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>256</span> of file: <a href="source_test1_pas.html#line_256">test1.pas</a></div>
     <section>
       <h2>Cross References</h2>
       <table class="func-table">

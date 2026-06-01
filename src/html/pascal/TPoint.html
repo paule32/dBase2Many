@@ -26,6 +26,22 @@
           </div>
         </li>
         <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Groups</span></div>
+          <ul class="collapsed">
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><a href="group_IntVariables.html">Das sind die Integer Variablen</a></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon book-icon"></span><a href="group_IntS.html">Das sind die Integer Variable S</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+            </li>
+          </ul>
+        </li>
+          </ul>
+        </li>
+        <li class="tree-node">
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
           <ul class="collapsed">
             <li>
@@ -57,6 +73,11 @@
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
             <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
               <ul>
@@ -414,18 +435,20 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_52"><span class="source-gutter">52</span><code class="source-code">  <a class="code-link" href="TPoint.html">TPoint</a> = <span class="code-keyword">record</span></code></div>
-        <div class="source-row" id="line_53"><span class="source-gutter">53</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a>: <span class="code-keyword">Integer</span>; <span class="src-comment">(**! @brief give the X position *)</span></code></div>
-        <div class="source-row" id="line_54"><span class="source-gutter">54</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a>: <span class="code-keyword">Integer</span>; <span class="src-comment">(**! @brief give the Y position *)</span></code></div>
-        <div class="source-row" id="line_55"><span class="source-gutter">55</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_83"><span class="source-gutter">83</span><code class="source-code">  <a class="code-link" href="TPoint.html">TPoint</a> = <span class="code-keyword">record</span></code></div>
+        <div class="source-row" id="line_84"><span class="source-gutter">84</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_x_integer">X</a>: <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_85"><span class="source-gutter">85</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_86"><span class="source-gutter">86</span><code class="source-code"><span class="src-comment">     * @brief give the X position</span></code></div>
+        <div class="source-row" id="line_87"><span class="source-gutter">87</span><code class="source-code"><span class="src-comment">     * @details blah blah about X pos field</span></code></div>
+        <div class="source-row" id="line_88"><span class="source-gutter">88</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_89"><span class="source-gutter">89</span><code class="source-code">    <a class="code-link" href="TPoint.html#tpoint_y_integer">Y</a>: <span class="code-keyword">Integer</span>; <span class="src-comment">(**! @brief give the Y position *)</span></code></div>
+        <div class="source-row" id="line_90"><span class="source-gutter">90</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>52</span> of file: <a href="source_test1_pas.html#line_52">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>83</span> of file: <a href="source_test1_pas.html#line_83">test1.pas</a></div>
     <section>
       <h2>Detailed Description</h2>
-      <p>Dieser Record speichert X- und Y-Werte.
-</p>
-    </section>
+<p>Dieser Record speichert X- und Y-Werte.</p>    </section>
     <section>
       <h2>Cross References</h2>
       <table class="func-table">
@@ -459,6 +482,17 @@
           <td class="sig member-brief">give the Y position</td>
         </tr>
       </table>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc" id="tpoint_x_integer">
+        <h3><span class="func-name">X</span>: Integer</h3>
+        <div class="member-line"></div>
+<p>blah blah about X pos field</p>      </article>
+      <article class="member-doc" id="tpoint_y_integer">
+        <h3><span class="func-name">Y</span>: Integer</h3>
+        <div class="member-line"></div>
+      </article>
     </section>
     </main>
   </div>

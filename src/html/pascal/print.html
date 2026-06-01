@@ -127,7 +127,102 @@ main.page > h3 {
 </table>
 </section>
 <section>
+<h2>Groups</h2>
+<h3>Das sind die Integer Variablen</h3>
+<h4>Subgroups</h4>
+<ul>
+<li>Das sind die Integer Variable S</li>
+</ul>
+<h4>Group Members</h4>
+<table class="func-table">
+<tr>
+<td class="ret">Class</td>
+<td class="sig">VirtualClass</td>
+</tr>
+</table>
+<h3>Das sind die Integer Variable S</h3>
+</section>
+<section>
+<h2>Units</h2>
+<h3>Dialogs</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+</ul>
+<h3>Forms</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+</ul>
+<h3>Objects</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+</ul>
+<h3>SysUtils</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+<li>Objects</li>
+<li>SysUtils</li>
+<li>Dialogs</li>
+<li>Windows</li>
+<li>VCL</li>
+<li>Forms</li>
+</ul>
+<h3>TestUnit</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_Objects.html">Objects</a><div class="member-brief">Base classes of all others</div></li>
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a><div class="member-brief">System Utils function&#x27;s</div></li>
+<li><a class="type-link" href="unit_Classes.html">Classes</a><div class="member-brief">Pascal Class&#x27;es</div></li>
+<li><a class="type-link" href="unit_Dialogs.html">Dialogs</a></li>
+</ul>
+<h4>Implementation Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_Windows.html">Windows</a><div class="member-brief">Windows XP System stuff</div></li>
+<li><a class="type-link" href="unit_VCL.html">VCL</a><div class="member-brief">Visual Control Library</div></li>
+<li><a class="type-link" href="unit_Forms.html">Forms</a><div class="member-brief">Window Forms stuff</div></li>
+</ul>
+<h3>VCL</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+</ul>
+<h3>Windows</h3>
+<h4>Interface Uses</h4>
+<ul class="unit-dependency-list">
+<li><a class="type-link" href="unit_SysUtils.html">SysUtils</a></li>
+</ul>
+<h4>Used By</h4>
+<ul class="unit-dependency-list">
+<li>TestUnit</li>
+</ul>
+</section>
+<section>
 <h2>Classes</h2>
+<h3>VirtualClass</h3>
+<p class="brief">eine virtuelle Klasse</p>
 <h3>TBaseClass</h3>
 <p class="brief">Basisklasse.</p>
     <section>
@@ -948,6 +1043,39 @@ main.page > h3 {
 <h3>TPoint</h3>
 <p class="brief">Beispiel-Record.</p>
 <pre class="declaration">record X: Integer ;  Y: Integer ;  end</pre>
+<h4>Detailed Description</h4>
+<p>Dieser Record speichert X- und Y-Werte.</p>    <section>
+      <h2>Fields</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">Integer</td>
+          <td class="sig"><a class="member-link" href="#ivirtualinterface_x_integer"><span class="func-name">X</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">give the X position</td>
+        </tr>
+        <tr>
+          <td class="ret">Integer</td>
+          <td class="sig"><a class="member-link" href="#ivirtualinterface_y_integer"><span class="func-name">Y</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">give the Y position</td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc" id="tpoint_x_integer">
+        <h3><span class="func-name">X</span>: Integer</h3>
+        <div class="member-line"></div>
+<p>blah blah about X pos field</p>      </article>
+      <article class="member-doc" id="tpoint_y_integer">
+        <h3><span class="func-name">Y</span>: Integer</h3>
+        <div class="member-line"></div>
+      </article>
+    </section>
     <section>
       <h2>Fields</h2>
       <table class="func-table">
@@ -972,6 +1100,38 @@ main.page > h3 {
 <h3>TPair&lt;TKey, TValue&gt;</h3>
 <p class="brief">Generic key value pair record</p>
 <pre class="declaration">record Key: TKey ;  Value: TValue ;  end</pre>
+    <section>
+      <h2>Fields</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">TKey</td>
+          <td class="sig"><a class="member-link" href="#tpoint_key_tkey"><span class="func-name">Key</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">key value</td>
+        </tr>
+        <tr>
+          <td class="ret">TValue</td>
+          <td class="sig"><a class="member-link" href="#tpoint_value_tvalue"><span class="func-name">Value</span></a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">stored value</td>
+        </tr>
+      </table>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc" id="tpair_tkey_tvalue_key_tkey">
+        <h3><span class="func-name">Key</span>: TKey</h3>
+        <div class="member-line"></div>
+      </article>
+      <article class="member-doc" id="tpair_tkey_tvalue_value_tvalue">
+        <h3><span class="func-name">Value</span>: TValue</h3>
+        <div class="member-line"></div>
+      </article>
+    </section>
     <section>
       <h2>Fields</h2>
       <table class="func-table">

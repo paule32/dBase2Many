@@ -12,6 +12,37 @@
  * @subsubsection Details
  * Später kommen Graphviz, Call-Graphs und Unit-Dependencies dazu.
  *)
+
+(**!
+ * @defgroup IntVariables Das sind die Integer Variablen
+ * @{
+ *)
+
+(**!
+ * Text innerhalb der Gruppe.
+ *)
+
+(**!
+ * @class VirtualClass
+ * @brief eine virtuelle Klasse
+ *)
+
+(**!
+ * @defgroup IntS Das sind die Integer Variable S
+ * @{
+ *)
+
+(**!
+ * Text der Untergruppe.
+ *)
+
+(**!
+ * @}
+ *)
+
+(**!
+ * @}
+ *)
 unit TestUnit;
 
 interface
@@ -50,7 +81,11 @@ type
    * @details Dieser Record speichert X- und Y-Werte.
    *)
   TPoint = record
-    X: Integer; (**! @brief give the X position *)
+    X: Integer;
+    (**!
+     * @brief give the X position
+     * @details blah blah about X pos field
+     *)
     Y: Integer; (**! @brief give the Y position *)
   end;
 

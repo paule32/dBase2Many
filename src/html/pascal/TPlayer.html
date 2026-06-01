@@ -26,6 +26,22 @@
           </div>
         </li>
         <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Groups</span></div>
+          <ul class="collapsed">
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><a href="group_IntVariables.html">Das sind die Integer Variablen</a></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon book-icon"></span><a href="group_IntS.html">Das sind die Integer Variable S</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+            </li>
+          </ul>
+        </li>
+          </ul>
+        </li>
+        <li class="tree-node">
           <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
           <ul class="collapsed">
             <li>
@@ -57,6 +73,11 @@
         <li class="tree-node open">
           <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
           <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
             <li class="tree-node open">
               <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
               <ul>
@@ -414,17 +435,17 @@
     <section>
       <h2>Declaration</h2>
       <div class="source-editor">
-        <div class="source-row" id="line_165"><span class="source-gutter">165</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
-        <div class="source-row" id="line_166"><span class="source-gutter">166</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
-        <div class="source-row" id="line_167"><span class="source-gutter">167</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
-        <div class="source-row" id="line_168"><span class="source-gutter">168</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
-        <div class="source-row" id="line_169"><span class="source-gutter">169</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
-        <div class="source-row" id="line_170"><span class="source-gutter">170</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
-        <div class="source-row" id="line_171"><span class="source-gutter">171</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
-        <div class="source-row" id="line_172"><span class="source-gutter">172</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+        <div class="source-row" id="line_200"><span class="source-gutter">200</span><code class="source-code">  <a class="code-link" href="TPlayer.html">TPlayer</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>, <a class="code-link" href="IRenderable.html">IRenderable</a>)</code></div>
+        <div class="source-row" id="line_201"><span class="source-gutter">201</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_202"><span class="source-gutter">202</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a>: <a class="code-link" href="TWeapon.html">TWeapon</a>;</code></div>
+        <div class="source-row" id="line_203"><span class="source-gutter">203</span><code class="source-code">    <a class="code-link" href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a>: <a class="code-link" href="TInventory.html">TInventory</a>;</code></div>
+        <div class="source-row" id="line_204"><span class="source-gutter">204</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_205"><span class="source-gutter">205</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a>(AWeapon: <a class="code-link" href="TWeapon.html">TWeapon</a>);</code></div>
+        <div class="source-row" id="line_206"><span class="source-gutter">206</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPlayer.html#tplayer_procedure_render">Render</a>;</code></div>
+        <div class="source-row" id="line_207"><span class="source-gutter">207</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
       </div>
     </section>
-    <div class="definition-location">Definition at Line: <span>165</span> of file: <a href="source_test1_pas.html#line_165">test1.pas</a></div>
+    <div class="definition-location">Definition at Line: <span>200</span> of file: <a href="source_test1_pas.html#line_200">test1.pas</a></div>
     <section>
       <h2>Inheritance Diagram</h2>
       <div class="inheritance-diagram">

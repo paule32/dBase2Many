@@ -262,6 +262,24 @@ def _write_css(output_dir):
     align-items: center;
     gap: 6px;
 }
+.group-list {
+    margin: 6px 0 6px 20px;
+    padding-left: 18px;
+}
+.group-list li {
+    margin: 4px 0;
+}
+.member-detail {
+    color: #d0d0d0;
+    padding-top: 4px;
+    padding-bottom: 8px;
+}
+
+.member-detail-title {
+    color: #55ff99;
+    font-weight: bold;
+    margin: 4px 0;
+}
 """
     with open(filename, "w", encoding="utf-8") as f:
         f.write(doxy_css)
@@ -413,7 +431,16 @@ class PasUnitInfo:
     interface_uses      : list
     implementation_uses : list
     used_by             : list
-    
+
+class PasGroupInfo:
+    def __init__(self, group_id, title):
+        self.group_id = group_id
+        self.title    = title
+        self.details  = ""
+        self.parent   = ""
+        self.children = []
+        self.items    = []
+
 # ---------------------------------------------------------------------------
 # \brief definition to generate the html code (depend on file extension)
 # ---------------------------------------------------------------------------
@@ -428,7 +455,10 @@ class HtmlToPdf(QObject):
         self.view  = QWebEngineView()
         self.view.hide()
         
-        self.progress = self.owner.visitor.progress
+        if self.owner is not None and hasattr(self.owner, "visitor"):
+            self.progress = self.owner.visitor.progress
+        else:
+            self.progress = None
         
         settings = self.view.settings()
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
@@ -438,7 +468,7 @@ class HtmlToPdf(QObject):
         self.view.page().pdfPrintingFinished.connect(self.on_pdf_finished)
         
         self.load_html()
-    
+        
     def load_html(self):
         self.progress.progress_log(share.locales.tr("Load HTML") + ": " + self.html_file)
 
@@ -510,6 +540,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.strip_code_comments = strip_code_comments
         
         self.parsed_files    = set()
+        self.pdf_mode        = "both"  # möglich: "single", "per_file", "both"
+        
+        self.is_scanning_additional_unit = False
         
         self.classes         = []
         
@@ -548,6 +581,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         self.global_var_groups = []
         self.current_var_group = None
+        
+        self.groups                     = {}
+        self.root_groups                = []
+        self.group_stack                = []
+        self.last_defined_group         = ""
+        self.pending_group_close_count  = 0
         
         self.current_access    = "public"
     
@@ -594,6 +633,65 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f'alt="{self.html_escape(alt or name)}">'
         )
     
+    def current_group_id(self):
+        if self.group_stack:
+            return self.group_stack[-1]
+        return ""
+
+    def create_group(self, group_id, title):
+        if not group_id:
+            return None
+
+        if group_id in self.groups:
+            group = self.groups[group_id]
+            if title:
+                group.title = title
+            return group
+
+        group = PasGroupInfo(group_id, title or group_id)
+        self.groups[group_id] = group
+
+        parent_id = self.current_group_id()
+
+        if parent_id:
+            group.parent = parent_id
+            parent = self.groups.get(parent_id)
+            if parent and group_id not in parent.children:
+                parent.children.append(group_id)
+        else:
+            if group_id not in self.root_groups:
+                self.root_groups.append(group_id)
+
+        return group
+
+    def open_group(self, group_id):
+        if group_id and group_id in self.groups:
+            self.group_stack.append(group_id)
+
+    def close_group(self):
+        if self.group_stack:
+            self.group_stack.pop()
+
+    def register_group_item(self, item, kind):
+        group_id = self.current_group_id()
+
+        if not group_id:
+            return
+
+        group = self.groups.get(group_id)
+
+        if not group:
+            return
+
+        entry = {
+            "kind": kind,
+            "name": getattr(item, "name", ""),
+            "link": self.safe_filename(getattr(item, "name", "")) + ".html"
+        }
+
+        if entry not in group.items:
+            group.items.append(entry)
+        
     def export_doc_icons(self):
         out_dir = os.path.join(self.output_dir, "pascal", "icons")
         os.makedirs(out_dir, exist_ok=True)
@@ -873,8 +971,13 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         parser = PasDocParser(tokens)
         tree   = parser.unitFile()
         
+        old_scan_state = self.is_scanning_additional_unit
+        self.is_scanning_additional_unit = True
+
         self.visit(tree)
-        
+
+        self.is_scanning_additional_unit = old_scan_state
+
         self.source_file  = old_source_file
         self.source_name  = old_source_name
         self.source_lines = old_source_lines
@@ -917,12 +1020,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
         if not kind or not name:
             return False
-
+        
         if kind == "class":
             info = PasClassInfo(name)
             info.brief   = self.pending_brief
             info.details = self.pending_details
             self.classes.append(info)
+            self.register_group_item(info, "Class")
+            
         elif kind == "interface":
             info = PasInterfaceInfo(
                 name       = name,
@@ -933,6 +1038,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 properties = []
             )
             self.interfaces.append(info)
+            self.register_group_item(info, "Interface")
+            
         elif kind == "record":
             info = PasTypeInfo(
                 name      = name,
@@ -942,6 +1049,8 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 details   = self.pending_details
             )
             self.records.append(info)
+            self.register_group_item(info, "Record")
+            
         elif kind == "enum":
             info = PasEnumInfo(
                 name,
@@ -950,10 +1059,101 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 self.pending_details
             )
             self.enums.append(info)
+            self.register_group_item(info, "Enum")
 
         self.clear_pending_doc()
         return True
- 
+
+    def process_group_doc_comment(self, text):
+        self.pending_group_close_count = 0
+
+        text  = text.replace("(**!", "")
+        text  = text.replace("{**!", "")
+        text  = text.replace("*)", "")
+        text  = text.replace("*}", "")
+
+        lines = text.splitlines()
+        
+        has_virtual_item = False
+
+        for raw in lines:
+            line = raw.strip()
+            if line.startswith("*"):
+                line = line[1:].strip()
+
+            if (
+                line.startswith("@class") or
+                line.startswith("@interface") or
+                line.startswith("@record") or
+                line.startswith("@enum")
+            ):
+                has_virtual_item = True
+                break
+
+        collecting_group_text = False
+        group_text = []
+
+        for raw in lines:
+            line = raw.strip()
+
+            if line.startswith("*"):
+                line = line[1:].strip()
+
+            if not line:
+                if collecting_group_text:
+                    group_text.append("")
+                continue
+
+            if line.startswith("@defgroup"):
+                parts = line.split(None, 2)
+
+                if len(parts) >= 2:
+                    group_id = parts[1]
+                    title    = parts[2] if len(parts) >= 3 else group_id
+
+                    self.create_group(group_id, title)
+                    self.last_defined_group = group_id
+                    collecting_group_text = True
+
+                continue
+
+            if line.startswith("@{"):
+                group_id = self.last_defined_group
+
+                if group_id:
+                    self.open_group(group_id)
+                    collecting_group_text = True
+
+                continue
+
+            if line.startswith("@}"):
+                self.pending_group_close_count += 1
+                collecting_group_text = False
+                continue
+
+            if (
+                line.startswith("@class") or
+                line.startswith("@interface") or
+                line.startswith("@record") or
+                line.startswith("@enum") or
+                line.startswith("@brief") or
+                line.startswith("@details")
+            ):
+                collecting_group_text = False
+                continue
+
+            if collecting_group_text and self.current_group_id():
+                group_text.append(line)
+
+        if group_text and self.current_group_id():
+            group = self.groups.get(self.current_group_id())
+            if group:
+                if group.details:
+                    group.details += "\n"
+                group.details += "\n".join(group_text).strip()
+
+        return has_virtual_item
+    
     def render_doc_code_editor(self, code_lines, start_line=1):
         out = []
         out.append('<div class="source-editor doc-code-editor">')
@@ -1273,6 +1473,20 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                     blank_after_brief = True
                 continue
 
+            # Gruppen- und Struktur-Tags dürfen niemals in Objekt-Details landen
+            if (
+                line.startswith("@defgroup")    or
+                line.startswith("@{")           or
+                line.startswith("@}")           or
+                line.startswith("@class")       or
+                line.startswith("@interface")   or
+                line.startswith("@record")      or
+                line.startswith("@enum")        ):
+                
+                current_tag = None
+                blank_after_brief = False
+                continue
+    
             if line.startswith("@brief"):
                 self.pending_brief = line[len("@brief"):].strip()
                 current_tag = "brief"
@@ -1490,6 +1704,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.current_access = "public"
         
         self.interfaces.append(info)
+        self.register_group_item(info, "Interface")
         self.visit( ctx.interfaceBody())
         
         self.current_class  = old_class
@@ -1545,6 +1760,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             })
 
         self.enums.append(info)
+        self.register_group_item(info, "Enum")
         self.clear_pending_doc()
         return None
         
@@ -1658,7 +1874,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         result = result.strip()
         result = result.rstrip(";").strip()
         return result
-        
+    
+    def pdf_file_name_for_source(self):
+        base = os.path.splitext(self.source_name or "PascalDocumentation")[0]
+        return self.safe_filename(base) + ".pdf"
+    
     def visitRecordDeclaration(self, ctx):
         name = ctx.IDENT().getText()
         generic_params = self.generic_params_from_ctx(ctx)
@@ -1680,8 +1900,11 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
         self.current_class  = info
         self.current_access = "public"
+        
         self.visit(ctx.recordType().recordBody())
+        
         self.records.append(info)
+        self.register_group_item(info, "Record")
 
         self.current_class = old_class
         self.current_access = old_access
@@ -1690,6 +1913,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     
     def visitDocComment(self, ctx: PasDocParser.DocCommentContext):
         text = ctx.getText()
+        has_virtual_item = self.process_group_doc_comment(text)
         
         if "@mainpage" in text:
             self.parse_mainpage_comment(text)
@@ -1704,7 +1928,14 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.parse_doc_comment(text)
         
         if self.parse_virtual_doc_item(text):
+            while self.pending_group_close_count > 0:
+                self.close_group()
+                self.pending_group_close_count -= 1
             return None
+
+        while self.pending_group_close_count > 0:
+            self.close_group()
+            self.pending_group_close_count -= 1
             
         return None
     
@@ -1738,6 +1969,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.scan_used_unit_files()
         self.build_unit_dependencies()
         
+        if self.is_scanning_additional_unit:
+            return self.classes
+        
         os.makedirs(os.path.join(self.output_dir, "pascal"), exist_ok=True)
         
         self.progress.progress_log("BUILD CROSS REFERENCES")
@@ -1761,6 +1995,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         self.progress.progress_log("WRITE SEARCH INDEX")
         self.progress.progress_value(13)
         self.write_search_index()
+        self.write_group_pages()
 
         self.progress.progress_log("WRITE SOURCE FILE")
         self.write_source_file_page()
@@ -1797,15 +2032,17 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         
         self.progress.progress_log(share.locales.tr("WRITE PDF DOCUMENT"))
         self.progress.progress_value(45)
-        self.write_pascal_pdf_document()
         
         progress_index_file = os.path.abspath(
             os.path.join(self.output_dir, "pascal", "index.html")
         )
         
+        self.write_pascal_print_html()
+        self.convert_print_html_to_pdf()
+
         self.progress.progress_value(100)
         self.progress.done_generation(progress_index_file)
-        
+
         return self.classes
     
     def visitClassDeclaration(self, ctx: PasDocParser.ClassDeclarationContext):
@@ -1838,6 +2075,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
 
         self.visit(class_type.classBody())
         self.classes.append(info)
+        self.register_group_item(info, "Class")
         
         self.current_class  = old_class
         self.current_access = old_access
@@ -1960,9 +2198,12 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
     def visitFieldDeclaration(self, ctx: PasDocParser.FieldDeclarationContext):
         signature = self.text_from_ctx(ctx)
         brief     = self.pending_brief
+        details   = self.pending_details
         
         if hasattr(ctx, "docComment") and ctx.docComment():
-            brief = self.extract_brief(ctx.docComment().getText())
+            self.parse_doc_comment(ctx.docComment().getText())
+            brief   = self.pending_brief
+            details = self.pending_details
         
         clean_signature = self.clean_pascal_signature(signature)
         
@@ -1986,7 +2227,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self.pending_params,
             self.pending_returns,
             self.pending_notes,
-            self.pending_details
+            details
         )
         self.set_source_location(member, ctx)
         self.current_class.fields.append(member)
@@ -2367,7 +2608,137 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 
                 f.write("</body>\n")
                 f.write("</html>\n")
-                
+    
+    def write_group_pages(self):
+        if not self.groups:
+            return
+
+        out_dir = os.path.join(self.output_dir, "pascal")
+        os.makedirs(out_dir, exist_ok=True)
+
+        for group_id, group in self.groups.items():
+            filename = os.path.join(
+                out_dir,
+                "group_" + self.safe_filename(group_id) + ".html"
+            )
+
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("<!DOCTYPE html>\n<html>\n<head>\n")
+                f.write("  <meta charset=\"utf-8\">\n")
+                f.write(f"  <title>{self.html_escape(group.title)}</title>\n")
+                f.write("  <link rel=\"stylesheet\" href=\"style.css\">\n")
+                f.write("  <script src=\"search_index.js\"></script>\n")
+                f.write("</head>\n<body>\n")
+
+                if self.use_treeview:
+                    f.write("  <div class=\"layout\">\n")
+                    self.write_sidebar(f, None)
+                    f.write("    <div id=\"splitter\" class=\"splitter\"></div>\n")
+                    f.write("    <main class=\"page content-pane\">\n")
+                else:
+                    f.write("  <main class=\"page\">\n")
+
+                self.write_doc_header(f, group.title, group.title)
+
+                f.write("    <section>\n")
+                f.write("      <h2>Group Description</h2>\n")
+
+                if group.details:
+                    f.write(self.format_doc_text(group.details))
+                else:
+                    f.write("      <p class=\"muted\">No group description.</p>\n")
+
+                f.write("    </section>\n")
+
+                if group.children:
+                    f.write("    <section>\n")
+                    f.write("      <h2>Subgroups</h2>\n")
+                    f.write("      <ul class=\"group-list\">\n")
+
+                    for child_id in group.children:
+                        child = self.groups.get(child_id)
+                        if not child:
+                            continue
+
+                        link = "group_" + self.safe_filename(child.group_id) + ".html"
+                        f.write(
+                            f"        <li><a class=\"type-link\" href=\"{link}\">"
+                            f"{self.html_escape(child.title)}</a></li>\n"
+                        )
+
+                    f.write("      </ul>\n")
+                    f.write("    </section>\n")
+
+                if group.items:
+                    f.write("    <section>\n")
+                    f.write("      <h2>Group Members</h2>\n")
+                    f.write("      <table class=\"func-table\">\n")
+
+                    for item in group.items:
+                        f.write("        <tr>\n")
+                        f.write(f"          <td class=\"ret\">{self.html_escape(item['kind'])}</td>\n")
+                        f.write(
+                            f"          <td class=\"sig\">"
+                            f"<a href=\"{item['link']}\">{self.html_escape(item['name'])}</a>"
+                            f"</td>\n"
+                        )
+                        f.write("        </tr>\n")
+
+                    f.write("      </table>\n")
+                    f.write("    </section>\n")
+
+                f.write("    </main>\n")
+
+                if self.use_treeview:
+                    f.write("  </div>\n")
+                    self.write_treeview_script(f)
+
+                self.write_search_script(f)
+                f.write("</body>\n</html>\n")
+    
+    def write_group_tree_nodes(self, f, group_ids):
+        for group_id in group_ids:
+            group = self.groups.get(group_id)
+            if not group:
+                continue
+            link = "group_" + self.safe_filename(group.group_id) + ".html"
+            f.write("        <li class=\"tree-node\">\n")
+            f.write(
+                "          <div class=\"tree-row tree-toggle\">"
+                "<span class=\"twisty\">▸</span>"
+                "<span class=\"icon book-icon\"></span>"
+                f"<a href=\"{link}\">{self.html_escape(group.title)}</a>"
+                "</div>\n"
+            )
+            if group.children or group.items:
+                f.write("          <ul class=\"collapsed\">\n")
+                for child_id in group.children:
+                    child = self.groups.get(child_id)
+                    if not child:
+                        continue
+                    child_link = "group_" + self.safe_filename(child.group_id) + ".html"
+                    f.write("            <li>\n")
+                    f.write(
+                        "              <div class=\"tree-row\">"
+                        "<span class=\"twisty empty\"></span>"
+                        "<span class=\"icon book-icon\"></span>"
+                        f"<a href=\"{child_link}\">{self.html_escape(child.title)}</a>"
+                        "</div>\n"
+                    )
+                    f.write("            </li>\n")
+                for item in group.items:
+                    f.write("            <li>\n")
+                    f.write(
+                        "              <div class=\"tree-row\">"
+                        "<span class=\"twisty empty\"></span>"
+                        "<span class=\"icon page-icon\"></span>"
+                        f"<a href=\"{item['link']}\">{self.html_escape(item['name'])}</a>"
+                        "</div>\n"
+                    )
+                    f.write("            </li>\n")
+                f.write("          </ul>\n")
+            f.write("        </li>\n")
+    
     def write_cross_reference_section(self, f, item):
         key  = self.normalize_type_name(item.name)
         refs = self.cross_refs.get(key, [])
@@ -2432,7 +2803,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("      </table>\n")
         f.write("    </section>\n")
     
-    def write_pascal_pdf_document(self):
+    def write_pascal_print_html(self):
         out_dir = os.path.join(self.output_dir, "pascal")
         os.makedirs(out_dir, exist_ok=True)
 
@@ -2454,6 +2825,9 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             self._write_pdf_global_variables(f)
             self._write_pdf_global_methods(f)
 
+            self._write_pdf_groups(f)
+            self._write_pdf_units(f)
+            
             self._write_pdf_classes(f)
             self._write_pdf_interfaces(f)
             
@@ -2466,9 +2840,103 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             f.write("</main>\n")
             f.write("</body>\n</html>\n")
 
-        pdf_out = os.path.join(out_dir, share.locales.tr("PascalDocumentation.pdf"))
-        self.pdf_exports.append(HtmlToPdf(filename, pdf_out, DOXYGEN_WINDOW))
+        #if self.pdf_mode in ("single", "both"):
+        #    pdf_out = os.path.join(out_dir, "PascalDocumentation.pdf")
+        #    self.pdf_exports.append(HtmlToPdf(filename, pdf_out, DOXYGEN_WINDOW))
 
+        #if self.pdf_mode in ("per_file", "both"):
+        #    pdf_out = os.path.join(out_dir, self.pdf_file_name_for_source())
+        #    self.pdf_exports.append(HtmlToPdf(filename, pdf_out, DOXYGEN_WINDOW))
+        
+        pdf_out = os.path.join(out_dir, "PascalDocumentation.pdf")
+        print("PDF SOURCE HTML:", filename)
+        print("PDF OUT:", pdf_out)
+    
+    def convert_print_html_to_pdf(self):
+        out_dir   = os.path.join(self.output_dir, "pascal")
+        html_file = os.path.join(out_dir, "print.html")
+        pdf_file  = os.path.join(out_dir, "PascalDocumentation.pdf")
+
+        if not os.path.exists(html_file):
+            return
+
+        self.pdf_exports.append(
+            HtmlToPdf(html_file, pdf_file, DOXYGEN_WINDOW)
+        )
+    
+    def _write_pdf_groups(self, f):
+        if not self.groups:
+            return
+
+        f.write("<section>\n")
+        f.write("<h2>Groups</h2>\n")
+
+        for group_id, group in self.groups.items():
+            f.write(f"<h3>{self.html_escape(group.title)}</h3>\n")
+
+            if group.details:
+                f.write(self.format_doc_text(group.details))
+
+            if group.children:
+                f.write("<h4>Subgroups</h4>\n")
+                f.write("<ul>\n")
+
+                for child_id in group.children:
+                    child = self.groups.get(child_id)
+                    if child:
+                        f.write(
+                            f"<li>{self.html_escape(child.title)}</li>\n"
+                        )
+
+                f.write("</ul>\n")
+
+            if group.items:
+                f.write("<h4>Group Members</h4>\n")
+                f.write("<table class=\"func-table\">\n")
+
+                for item in group.items:
+                    f.write("<tr>\n")
+                    f.write(
+                        f"<td class=\"ret\">"
+                        f"{self.html_escape(item.get('kind', ''))}"
+                        f"</td>\n"
+                    )
+                    f.write(
+                        f"<td class=\"sig\">"
+                        f"{self.html_escape(item.get('name', ''))}"
+                        f"</td>\n"
+                    )
+                    f.write("</tr>\n")
+                f.write("</table>\n")
+        f.write("</section>\n")
+    
+    def _write_pdf_units(self, f):
+        if not self.units:
+            return
+
+        f.write("<section>\n")
+        f.write("<h2>Units</h2>\n")
+
+        for unit in sorted(self.units, key=lambda x: x.name.lower()):
+            f.write(f"<h3>{self.html_escape(unit.name)}</h3>\n")
+
+            if getattr(unit, "interface_uses", []):
+                f.write("<h4>Interface Uses</h4>\n")
+                self.write_unit_uses_list(f, unit.interface_uses)
+
+            if getattr(unit, "implementation_uses", []):
+                f.write("<h4>Implementation Uses</h4>\n")
+                self.write_unit_uses_list(f, unit.implementation_uses)
+
+            if getattr(unit, "used_by", []):
+                f.write("<h4>Used By</h4>\n")
+                f.write("<ul class=\"unit-dependency-list\">\n")
+                for dep in unit.used_by:
+                    f.write(f"<li>{self.html_escape(dep)}</li>\n")
+                f.write("</ul>\n")
+
+        f.write("</section>\n")
+    
     def _write_pdf_constants(self, f):
         if not self.constants:
             return
@@ -2592,6 +3060,13 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             if item.signature:
                 f.write(f"<pre class=\"declaration\">{self.html_escape(item.signature)}</pre>\n")
 
+            if item.details:
+                f.write("<h4>Detailed Description</h4>\n")
+                f.write(self.format_doc_text(item.details))
+
+            if item.fields:
+                self.write_member_table(f, "Fields", item.fields, "public")
+                self.write_field_docs(f, item)
             self.current_output_class = item
 
             if item.fields:
@@ -3486,6 +3961,19 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
         f.write("          </div>\n")
         f.write("        </li>\n")
         
+        if self.root_groups:
+            f.write("        <li class=\"tree-node\">\n")
+            f.write(
+                "          <div class=\"tree-row tree-toggle\">"
+                "<span class=\"twisty\">▸</span>"
+                "<span class=\"icon book-icon\"></span>"
+                "<span>Groups</span></div>\n"
+            )
+            f.write("          <ul class=\"collapsed\">\n")
+            self.write_group_tree_nodes(f, self.root_groups)
+            f.write("          </ul>\n")
+            f.write("        </li>\n")
+    
         if self.units:
             f.write("        <li class=\"tree-node\">\n")
             f.write(
@@ -3821,13 +4309,15 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 if getattr(item, "details", ""):
                     f.write("    <section>\n")
                     f.write("      <h2>Detailed Description</h2>\n")
-                    f.write(f"      <p>{self.html_escape(item.details)}</p>\n")
+                    f.write(self.format_doc_text(item.details))
                     f.write("    </section>\n")
                 
                 self.write_cross_reference_section(f, item)
                 self.current_output_class = item
+                
                 if item.fields:
                     self.write_member_table(f, "Fields", item.fields, "public")
+                    self.write_field_docs(f, item)
                 
                 f.write("    </main>\n")
                 
@@ -3895,7 +4385,7 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
                 f.write("          <td class=\"ret\"></td>\n")
                 f.write(f"          <td class=\"sig member-brief\">{self.html_escape(member.brief)}</td>\n")
                 f.write("        </tr>\n")
-                
+            
         f.write("      </table>\n")
         f.write("    </section>\n")
 
@@ -4205,18 +4695,25 @@ class PasDocHtmlVisitor(PasDocParserVisitor):
             return
         f.write("    <section class=\"member-docs\">\n")
         f.write("      <h2>Field Documentation</h2>\n")
+        
         msg = share.locales.tr("No documentation for this Field")
+        
         for member in cls.fields:
             anchor = self.make_member_anchor(cls, member)
             f.write(f"      <article class=\"member-doc\" id=\"{anchor}\">\n")
             f.write(f"        <h3>{self.highlight_signature(member.signature)}</h3>\n")
             f.write("        <div class=\"member-line\"></div>\n")
             brief = getattr(member, "brief", "")
-            if brief:
-                f.write("        <p>\n")
-                f.write(f"       {self.html_escape(brief)}\n")
-                f.write("        </p>\n")
-            else:
+            #if brief:
+            #    f.write("        <p>\n")
+            #    f.write(f"          {self.html_escape(brief)}\n")
+            #    f.write("        </p>\n")
+
+            if getattr(member, "details", ""):
+                #f.write("        <h4>Detailed Description</h4>\n")
+                f.write(self.format_doc_text(member.details))
+
+            if not brief and not getattr(member, "details", ""):
                 f.write("        <p>\n")
                 f.write(f"          {msg}.\n")
                 f.write("        </p>\n")
@@ -6434,8 +6931,9 @@ class DoxyGenToolWindow(QWidget):
         enc  = txt.lower().strip()
         
         if not enc:
-            self.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
-            return
+            if self.progress:
+                self.progress.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
+                return
 
         self.thread = QThread(self)
 
@@ -6474,8 +6972,9 @@ class DoxyGenToolWindow(QWidget):
             if ext in ["pas", "pp"]:
                 #self.progress = DoxyProgressDialog(self)
                 #self.progress.show()
-                self.progress_log(share.locales.tr("Start documentation generation..."))
-                self.progress_value(1)
+                if self.progress:
+                    self.progress_log(share.locales.tr("Start documentation generation..."))
+                    self.progress_value(1)
                 
                 cfg = "INPUT_ENCODING"
                 txt = self.get_doxy_text(cfg)
@@ -6484,12 +6983,14 @@ class DoxyGenToolWindow(QWidget):
                 print("enc:",enc)
                 
                 if not enc:
-                    self.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
-                    return
+                    if self.progress:
+                        self.progress.progress_log(share.locales.tr("Missing Encoding") + ": " + cfg)
+                        return
                 
                 if enc not in encs:
-                    self.progress_log(share.locales.tr("Encoding not supported") + ": " + enc + ": " + cfg)
-                    return
+                    if self.progress:
+                        self.progress.progress_log(share.locales.tr("Encoding not supported") + ": " + enc + ": " + cfg)
+                        return
                 
                 enc = enc.replace('_', '-')
                 self.input_stream = FileStream(
@@ -6535,10 +7036,12 @@ class DoxyGenToolWindow(QWidget):
     
     def on_generate_html_finished(self, visitor):
         self.visitor = visitor
-        self.progress_log(share.locales.tr("HTML created."))
+        if self.progress:
+            self.progress.progress_log(share.locales.tr("HTML created."))
     
     def on_generate_html_failed(self, text):
-        self.progress_log(text)
+        if self.progress:
+            self.progress.progress_log(text)
         
     def on_generate_click(self):
         self.edit_log.clear()
@@ -7464,15 +7967,17 @@ class DoxyGenToolWindow(QWidget):
                 self.doxy_fields(page.area.findChildren(QWidget))
         count = 2
         for item in DOXYGEN_CONFIG:
-            self.progress_log(f"{item}")
-            self.progress_value(count + 20)
-            count = count + 2
-        self.progress_value(0)
+            if self.progress:
+                self.progress.progress_log(f"{item}")
+                self.progress_value(count + 20)
+                count = count + 2
+                self.progress_value(0)
     
     def on_showhtml_click(self):
         if not self.progress_index_file:
-            self.progress_log(share.locales.tr("no documentation available"))
-            return
+            if self.progress:
+                self.progress.progress_log(share.locales.tr("no documentation available"))
+                return
         if self.progress_index_file and os.path.exists (self.progress_index_file):
             QDesktopServices.openUrl(QUrl.fromLocalFile(self.progress_index_file))
     
@@ -7560,7 +8065,8 @@ class DoxyGenToolWindow(QWidget):
     def done_generation(self, index_file):
         self.progress_index_file = index_file
         self.progress_value(100)
-        self.progress_log("DONE")
+        if self.progress:
+            self.progress_log("DONE")
         #self.btn_open.setEnabled(True)
         
     def _locales_dir(self) -> Path:

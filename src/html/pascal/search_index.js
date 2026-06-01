@@ -1,6 +1,12 @@
 window.PASCAL_SEARCH_INDEX = [
   {
     "kind": "Class",
+    "name": "VirtualClass",
+    "text": "eine virtuelle Klasse",
+    "link": "VirtualClass.html"
+  },
+  {
+    "kind": "Class",
     "name": "TBaseClass",
     "text": "Basisklasse.",
     "link": "TBaseClass.html"
