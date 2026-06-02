@@ -49,6 +49,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#whileStatement.
+    def visitWhileStatement(self, ctx:MiniPascalParser.WhileStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#ifStatement.
     def visitIfStatement(self, ctx:MiniPascalParser.IfStatementContext):
         return self.visitChildren(ctx)
@@ -61,6 +66,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#compareOp.
     def visitCompareOp(self, ctx:MiniPascalParser.CompareOpContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#compoundStatement.
+    def visitCompoundStatement(self, ctx:MiniPascalParser.CompoundStatementContext):
         return self.visitChildren(ctx)
 
 

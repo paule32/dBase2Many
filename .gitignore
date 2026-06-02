@@ -289,3 +289,4 @@ src/asmjit/libasmjit.dll
 src/asmjit/libasmjit.dll.a
 src/asmjit/libasmjit.a
 src/asmjit/testout/test3.o
+*.o

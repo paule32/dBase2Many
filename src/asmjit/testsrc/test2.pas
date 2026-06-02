@@ -1,4 +1,4 @@
-program Test;
+program Test2;
 var
   x: Double;
 begin

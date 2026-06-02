@@ -1,7 +1,7 @@
 (**!
  * @file test1.pas
  *)
-program Test;
+program Test1;
 var
   i: Integer;
   d: Double;

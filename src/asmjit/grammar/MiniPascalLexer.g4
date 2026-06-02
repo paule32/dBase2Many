@@ -12,6 +12,9 @@ IF      : [iI][fF];
 THEN    : [tT][hH][eE][nN];
 ELSE    : [eE][lL][sS][eE];
 
+WHILE   : [wW][hH][iI][lL][eE];
+DO      : [dD][oO];
+
 WRITELN : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 
 ASSIGN  : ':=' ;

@@ -10,23 +10,30 @@
 :: ----------------------------------------------------------------------------
 set PATH=%CD%;%PATH%
 
-antlr4 -Dlanguage=Python3                              -o parsers/pascal grammar/MiniPascalLexer.g4
-antlr4 -Dlanguage=Python3 -visitor -lib parsers/pascal -o parsers/pascal grammar/MiniPascalParser.g4
+echo create Lexer + Parser
+
+@antlr4 -Dlanguage=Python3 -o parsers/pascal grammar/MiniPascalLexer.g4
+@antlr4 -Dlanguage=Python3 -o parsers/pascal -visitor -lib parsers/pascal grammar/MiniPascalParser.g4
 
 :: rm -rf testout
 rm debug.log
 
-mkdir testout
+if not exist testout ( mkdir testout )
 python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
-python pas2asmjit.py testsrc/test2.pas 1> testout/test2.cc 2>> debug.log
-python pas2asmjit.py testsrc/test3.pas 1> testout/test3.cc 2>> debug.log
+::g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test1.exe testout/test1.cc -lasmjit
 
-g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test1.exe testout/test1.cc -lasmjit
-g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test2.exe testout/test2.cc -lasmjit
-g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test3.exe testout/test3.cc -lasmjit
-
-:: strip testout/test2.exe
-:: strip testout/test3.exe
+echo create Python + Exe files ...
+for %%N in (2 3 4 5 6) do (
+    echo create: test%%N
+    python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
+    g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. ^
+        -o  testout/test%%N.exe testout/test%%N.cc -lasmjit
+    strip   testout/test%%N.exe
+    echo @echo off > testout/run_test%%N.bat
+    echo set PATH=T:\msys64\mingw64\bin;%CD%;%PATH% >> testout/run_test%%N.bat
+    echo test%%N.exe >> testout/run_test%%N.bat
+    echo nasm -fwin64 -o test%%N.o test%%N.asm >> testout/run_test%%N.bat
+)
 goto ok
 
 :error

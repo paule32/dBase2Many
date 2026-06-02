@@ -56,12 +56,13 @@ int main() {
     a.push(x86::r12);
     a.mov (x86::r12, x86::rcx); // ctx
     a.mov(x86::eax, 20);
-    a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::dword_ptr(x86::rax, 0), x86::eax); // x
+    a.mov(x86::ebx, x86::eax);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
     a.mov(x86::rax, imm(double_to_bits(10.5))); // dbl_10_5_0
     a.movq(x86::xmm0, x86::rax);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
-    a.movsd(x86::qword_ptr(x86::rax, 0), x86::xmm0); // d
+    a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
+    a.movsd(x86::qword_ptr(x86::r11, 0), x86::xmm0); // d
     a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -73,7 +74,7 @@ int main() {
     a.add(x86::rsp, 32);
     Label else_1 = a.new_label();
     Label endif_2 = a.new_label();
-    a.mov(x86::rax, x86::dword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
     a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
     a.push(x86::rax);
     a.mov(x86::eax, 10);
@@ -106,13 +107,15 @@ int main() {
     Label endif_4 = a.new_label();
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
     a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, 0)); // d
-    a.push(x86::rax);
+    a.sub(x86::rsp, 8);
+    a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);
     a.mov(x86::rax, imm(double_to_bits(20.0))); // dbl_20_0_1
     a.movq(x86::xmm0, x86::rax);
-    a.mov(x86::ebx, x86::eax);
-    a.pop(x86::rax);
-    a.cmp(x86::eax, x86::ebx);
-    a.jge(else_3);
+    a.movapd(x86::xmm1, x86::xmm0);
+    a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));
+    a.add(x86::rsp, 8);
+    a.ucomisd(x86::xmm0, x86::xmm1);
+    a.jae(else_3);
     a.mov(x86::rcx, imm((uint64_t)str_3));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -163,12 +166,24 @@ int main() {
     replace_all(asm_text, std::to_string((uint64_t)&str_2), "_str_2");
     replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
     replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
+    
+    replace_all(asm_text, "L0:", "else_1:");
+    replace_all(asm_text, "L0", "else_1");
+    replace_all(asm_text, "L1:", "endif_2:");
+    replace_all(asm_text, "L1", "endif_2");
+    replace_all(asm_text, "L2:", "else_3:");
+    replace_all(asm_text, "L2", "else_3");
+    replace_all(asm_text, "L3:", "endif_4:");
+    replace_all(asm_text, "L3", "endif_4");
 
     replace_all(asm_text, "byte ptr ",    "byte ");
     replace_all(asm_text, "word ptr ",    "word ");
     replace_all(asm_text, "dword ptr ",   "dword ");
     replace_all(asm_text, "qword ptr ",   "qword ");
     replace_all(asm_text, "xmmword ptr ", "xmmword ");
+    
+    
+    replace_all(asm_text, "short\tjmp", "jmp");
     
     
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
@@ -194,20 +209,14 @@ int main() {
 
     asm_out << "dbl_10_5_0 equ " << std::to_string(double_to_bits(10.5)) << " ; 10.5\n";
     asm_out << "dbl_20_0_1 equ " << std::to_string(double_to_bits(20.0)) << " ; 20.0\n";
-    
-    asm_out << "extern _str_0\n";
-    asm_out << "extern _str_1\n";
-    asm_out << "extern _str_2\n";
-    asm_out << "extern _str_3\n";
-    asm_out << "extern _str_4\n";
-    asm_out << "\n";
     asm_out << "extern _jit_print_text\n";
+    asm_out << "extern _jit_print_int\n";
+    asm_out << "extern _jit_print_double\n";
     asm_out << "extern _jit_print_newline\n";
-    
     
     asm_out << "\n";
     asm_out << "section .text\n";
-    asm_out << "public " << "_main" << "\n";
+    asm_out << "global " << "_main" << "\n";
     asm_out << "_main" << ":\n";
     
     while (std::getline(iss, line)) {

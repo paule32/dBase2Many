@@ -80,6 +80,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#whileStatement.
+    def enterWhileStatement(self, ctx:MiniPascalParser.WhileStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#whileStatement.
+    def exitWhileStatement(self, ctx:MiniPascalParser.WhileStatementContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#ifStatement.
     def enterIfStatement(self, ctx:MiniPascalParser.IfStatementContext):
         pass
@@ -104,6 +113,15 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#compareOp.
     def exitCompareOp(self, ctx:MiniPascalParser.CompareOpContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#compoundStatement.
+    def enterCompoundStatement(self, ctx:MiniPascalParser.CompoundStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#compoundStatement.
+    def exitCompoundStatement(self, ctx:MiniPascalParser.CompoundStatementContext):
         pass
 
 

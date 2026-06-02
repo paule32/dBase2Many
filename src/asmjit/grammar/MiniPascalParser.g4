@@ -31,13 +31,19 @@ block
     ;
 
 statementList
-    : statement*
+    : (statement SEMI?)* 
     ;
 
 statement
     : assignment
     | writeLnStatement
     | ifStatement
+    | whileStatement
+    | compoundStatement
+    ;
+
+whileStatement
+    : WHILE condition DO statement
     ;
 
 ifStatement
@@ -55,6 +61,10 @@ compareOp
     | LE_OP
     | GT_OP
     | GE_OP
+    ;
+
+compoundStatement
+    : BEGIN_ statementList END
     ;
 
 assignment

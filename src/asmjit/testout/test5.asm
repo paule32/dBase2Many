@@ -19,12 +19,21 @@ _main:
 	push	r12
 	mov	r12, rcx
 	mov	eax, 20
+	mov	ebx, eax
 	mov	rax, qword [r12 + JitContext.int_vars]
-	mov	dword [rax], eax
+	mov	dword [rax], ebx
 	mov	rax, dbl_10_5_0
 	movq	xmm0, rax
-	mov	rax, qword [r12 + JitContext.double_vars]
-	movsd	qword [rax], xmm0
+	mov	r11, qword [r12 + JitContext.double_vars]
+	movsd	qword [r11], xmm0
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	eax, dword [rax]
+	push	rax
+	mov	eax, 10
+	mov	ebx, eax
+	pop	rax
+	cmp	eax, ebx
+	jle	else_1
 	mov	rcx, _str_0
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -34,35 +43,6 @@ _main:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
-	mov	rax, qword [r12 + JitContext.int_vars]
-	mov	eax, dword [rax]
-	push	rax
-	mov	eax, 10
-	mov	ebx, eax
-	pop	rax
-	cmp	eax, ebx
-	jle	L0
-	mov	rcx, _str_1
-	mov	rax, _jit_print_text
-	sub	rsp, 32
-	call	rax
-	add	rsp, 32
-	mov	rax, _jit_print_newline
-	sub	rsp, 32
-	call	rax
-	add	rsp, 32
-	jmp	L1
-L0:
-	mov	rcx, _str_2
-	mov	rax, _jit_print_text
-	sub	rsp, 32
-	call	rax
-	add	rsp, 32
-	mov	rax, _jit_print_newline
-	sub	rsp, 32
-	call	rax
-	add	rsp, 32
-L1:
 	mov	rax, qword [r12 + JitContext.double_vars]
 	movsd	xmm0, qword [rax]
 	sub	rsp, 8
@@ -73,7 +53,30 @@ L1:
 	movsd	xmm0, qword [rsp]
 	add	rsp, 8
 	ucomisd	xmm0, xmm1
-	jnb	L2
+	jnb	else_3
+	mov	rcx, _str_1
+	mov	rax, _jit_print_text
+	sub	rsp, 32
+	call	rax
+	add	rsp, 32
+	mov	rax, _jit_print_newline
+	sub	rsp, 32
+	call	rax
+	add	rsp, 32
+	jmp	endif_4
+else_3:
+	mov	rcx, _str_2
+	mov	rax, _jit_print_text
+	sub	rsp, 32
+	call	rax
+	add	rsp, 32
+	mov	rax, _jit_print_newline
+	sub	rsp, 32
+	call	rax
+	add	rsp, 32
+endif_4:
+	jmp	endif_2
+else_1:
 	mov	rcx, _str_3
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -83,7 +86,7 @@ L1:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
-L2:
+endif_2:
 	mov	rcx, _str_4
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -97,8 +100,8 @@ L2:
 	ret
 
 section .data
-_str_0 db "start", 0
-_str_1 db "x ist groesser als 10", 0
-_str_2 db "x ist kleiner oder gleich 10", 0
-_str_3 db "d ist kleiner als 20", 0
+_str_0 db "x > 10", 0
+_str_1 db "d < 20", 0
+_str_2 db "d >= 20", 0
+_str_3 db "x <= 10", 0
 _str_4 db "ende", 0
