@@ -5,7 +5,9 @@
 # ---------------------------------------------------------------------------
 import sys
 import os
-from antlr4 import *
+
+from datetime import datetime
+from antlr4   import *
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
@@ -26,6 +28,8 @@ ERROR_MAP = {
     "E0009": "Duplicate variable declaration",
     "E0010": "Constant cannot be assigned",
 }
+
+COMMENT_REPL = ('-' * 77)
 
 # ---------------------------------------------------------------------------
 # Compiler Exception to mark errors in compilation unit ...
@@ -67,6 +71,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.string_literals    = []
         self.double_literals    = []
         
+        self.procedures          = {}
+        self.current_proc_params = {}
+        
         self.asm_file               = asm_file
         self.asm_label_replacements = []
         self.emit_local_string_data = True
@@ -106,6 +113,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         }
 
         self.var_types[key] = typ
+    
+    def collect_formal_params(self, ctx):
+        params = []
+        if not ctx.formalParamList():
+            return params
+        for p in ctx.formalParamList().formalParam():
+            typ = p.typeName().getText().lower()
+            for ident in p.identList().IDENT():
+                params.append({
+                    "name": ident.getText(),
+                    "type": typ
+                })
+        return params
     
     def emit_call_rax(self):
         self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
@@ -244,6 +264,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit(f"a.jmp({start_name});")
         self.emit(f"a.bind({end_name});")
     
+    def emit_repeat_statement(self, ctx):
+        start_label = self.new_label_name("repeat")
+        end_label   = self.new_label_name("endrepeat")
+
+        self.emit_label(start_label)
+
+        # Body
+        for stmt in ctx.statement():
+            self.visit(stmt)
+
+        # Bedingung am Ende auswerten
+        # Wichtig: Springe zurück, wenn Bedingung FALSE ist
+        self.emit_condition_jump_false(ctx.condition(), start_label)
+        self.emit_label(end_label)
+    
     def require_var(self, ctx, name):
         key = name.lower()
         
@@ -251,6 +286,74 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0003", name=key)  # Variable not declared
         
         return self.vars[key]
+    
+    def emit_repeat_statement(self, ctx):
+        start_name = self.new_named_label("repeat")
+        end_name   = self.new_named_label("endrepeat")
+
+        self.emit(f"a.bind({start_name});")
+
+        for stmt in ctx.statementList().statement():
+            self.visit(stmt)
+
+        self.emit_condition_jump_false(ctx.condition(), start_name)
+
+        self.emit(f"a.bind({end_name});")
+    
+    def emit_for_statement(self, ctx):
+        var_name = ctx.IDENT().getText()
+        info = self.var_info(ctx, var_name)
+
+        if info["type"] != "integer":
+            raise CompileError(ctx, "E0005", got=info["type"], expected="integer")
+
+        start_name = self.new_named_label("for")
+        end_name   = self.new_named_label("endfor")
+
+        # Startwert auswerten
+        start_type = self.visit(ctx.expr(0))
+
+        if start_type != "integer":
+            raise CompileError(ctx, "E0005", got=start_type, expected="integer")
+
+        self.emit_store_var(var_name, info)
+
+        # Endwert auswerten und in r10d sichern
+        end_type = self.visit(ctx.expr(1))
+
+        if end_type != "integer":
+            raise CompileError(ctx, "E0005", got=end_type, expected="integer")
+
+        self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax); // for end value")
+
+        self.emit(f"a.bind({start_name});")
+
+        # Laufvariable laden
+        self.emit_load_var(var_name, info)
+
+        direction = ctx.getChild(4).getText().lower()
+
+        if direction == "to":
+            self.emit("a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
+            self.emit(f"a.jg({end_name});")
+        else:
+            self.emit("a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
+            self.emit(f"a.jl({end_name});")
+
+        self.visit(ctx.statement())
+
+        # Laufvariable erneut laden, ändern, speichern
+        self.emit_load_var(var_name, info)
+
+        if direction == "to":
+            self.emit("a.add(x86::eax, 1);")
+        else:
+            self.emit("a.sub(x86::eax, 1);")
+
+        self.emit_store_var(var_name, info)
+
+        self.emit(f"a.jmp({start_name});")
+        self.emit(f"a.bind({end_name});")
     
     # typen überprüfung ...
     def var_info(self, ctx, name):
@@ -260,15 +363,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0001", name=name)
 
         return self.vars[key]
-    
-    def render_asm_double_replacements(self):
-        out = []
-        for name, value in self.double_literals:
-            out.append(
-                f'replace_all(asm_text, std::to_string(double_to_bits({value})), "{name}");'
-            )
-        return "\n    ".join(out)
-    
+        
     def var_type_of(self, ctx, name):
         return self.var_info(ctx, name)["type"]
 
@@ -302,6 +397,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.push(x86::r12);")
         self.emit("a.mov (x86::r12, x86::rcx); // ctx")
         
+        for proc in ctx.procedureDeclaration():
+            self.visit(proc)
+    
         self.visit(ctx.block())
         return self.render_cpp()
     
@@ -313,21 +411,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.visit(st)
     
     def visitStatement(self, ctx):
+        if ctx.procedureCallStatement():
+            return self.visit(ctx.procedureCallStatement())
+    
         if ctx.assignment():
             return self.visit(ctx.assignment())
-
+        
         if ctx.writeLnStatement():
             return self.visit(ctx.writeLnStatement())
-
+        
         if ctx.ifStatement():
             return self.visit(ctx.ifStatement())
-
+        
         if ctx.whileStatement():
             return self.visit(ctx.whileStatement())
         
+        if ctx.repeatStatement():
+            return self.visit(ctx.repeatStatement())
+        
+        if ctx.forStatement():
+            return self.visit(ctx.forStatement())
+        
         if ctx.compoundStatement():
             return self.visit(ctx.compoundStatement())
-
+        
         return None
     
     def visitVarSection(self, ctx):
@@ -469,6 +576,112 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         else:
             return self.visit(ctx.expr())
     
+    def visitProcedureDeclaration(self, ctx):
+        name = ctx.IDENT().getText()
+        key  = name.lower()
+
+        label     = self.new_named_label("proc_" + name)
+        end_label = self.new_named_label("endproc_" + name)
+
+        params = self.collect_formal_params(ctx)
+
+        self.procedures[key] = {
+            "name": name,
+            "label": label,
+            "params": params
+        }
+
+        param_regs = ["rcx", "rdx", "r8", "r9"]
+
+        if len(params) > len(param_regs):
+            raise CompileError(ctx,
+                "E0005",
+                got="too many params",
+                expected="max 4 params")
+
+        self.emit(f"a.jmp({end_label});")
+        self.emit(f"a.bind({label});")
+        
+        self.emit("a.push(x86::rbp);")
+        self.emit("a.mov(x86::rbp, x86::rsp);")
+
+        old_params = self.current_proc_params
+        self.current_proc_params = {}
+
+        for index, p in enumerate(params):
+            reg = param_regs[index]
+            pname = p["name"]
+            self.emit(f"a.push(x86::{reg}); // save param {pname}")
+            
+            self.current_proc_params[p["name"].lower()] = {
+                "type": p["type"],
+                "reg": param_regs[index],
+                "stack_offset": -8 * (index + 1)
+            }
+            
+        self.visit(ctx.block())
+        
+        self.current_proc_params = old_params
+        
+        self.emit("a.mov(x86::rsp, x86::rbp);")
+        self.emit("a.pop(x86::rbp);")
+        self.emit("a.ret();")
+        
+        self.emit(f"a.bind({end_label});")
+        return None
+    
+    def visitProcedureCallStatement(self, ctx):
+        name = ctx.IDENT().getText()
+        key  = name.lower()
+        param_regs = ["rcx", "rdx", "r8", "r9"]
+        
+        if key not in self.procedures:
+            raise CompileError(ctx, "E0001", name=name)
+
+        proc = self.procedures[key]
+        params = proc["params"]
+
+        actuals = []
+        if ctx.actualParamList():
+            actuals = list(ctx.actualParamList().actualParam())
+
+        if len(actuals) != len(params):
+            raise CompileError(ctx,
+                "E0005",
+                got=str(len(actuals)),
+                expected=str(len(params)))
+
+        for index, arg in enumerate(actuals):
+            formal = params[index]
+
+            if formal["type"] == "integer":
+                expr_type = self.visit(arg.expr())
+
+                if expr_type != "integer":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
+
+                int_regs = ["ecx", "edx", "r8d", "r9d"]
+                reg = int_regs[index]
+                self.emit(f"a.mov(x86::{reg}, x86::eax);")
+
+            elif formal["type"] == "string":
+                if not arg.STRING():
+                    raise CompileError(ctx, "E0005", got="expr", expected="string")
+
+                value = arg.STRING().getText()[1:-1]
+                label = self.add_string_literal(value)
+
+                reg = param_regs[index]
+                self.emit(f"a.mov(x86::{reg}, imm((uint64_t){label}));")
+
+            else:
+                raise CompileError(ctx, "E0005", got=formal["type"], expected="string/integer")
+
+        self.emit("a.sub(x86::rsp, 32); // shadow space for procedure call")
+        self.emit(f"a.call({proc['label']});")
+        self.emit("a.add(x86::rsp, 32);")
+        return None
+    
     def visitIfStatement(self, ctx):
         self.emit_if_statement(ctx)
         return None
@@ -479,6 +692,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitWhileStatement(self, ctx):
         self.emit_while_statement(ctx)
         return None
+    
+    def visitRepeatStatement(self, ctx):
+        return self.emit_repeat_statement(ctx)
+    
+    def visitForStatement(self, ctx):
+        return self.emit_for_statement(ctx)
     
     def visitWriteLnStatement(self, ctx):
         args = ctx.writeArgList()
@@ -494,6 +713,26 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_call_rax()
                     
                 else:
+                    if arg.expr() and arg.expr().getText().lower() in self.current_proc_params:
+                        pname = arg.expr().getText().lower()
+                        pinfo = self.current_proc_params[pname]
+                        
+                        if pinfo["type"] == "integer":
+                            offset = pinfo["stack_offset"]
+                            offset = pinfo["stack_offset"]
+                            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // load integer parameter")
+                            self.emit("a.mov(x86::ecx, x86::eax);")
+                            self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_int));")
+                            self.emit_call_rax()
+                            continue
+                            
+                        if pinfo["type"] == "string":
+                            offset = pinfo["stack_offset"]
+                            self.emit(f"a.mov(x86::rcx, x86::qword_ptr(x86::rbp, {offset})); // load string parameter")
+                            self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                            self.emit_call_rax()
+                            continue
+                    
                     expr_type = self.visit(arg.expr())
                     
                     if expr_type == "integer":
@@ -529,13 +768,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.asm_label_replacements.append((asmjit_l, name))
 
         return name
-        
-    def render_batch(self):
-        with open("testout/run_test2.bat", "w", encoding="utf-8") as f:
-            f.write("set PATH=T:\\msys64\\mingw64\\bin;%CD%;%PATH%\n")
-            f.write("test2.exe")
-            f.close()
     
+    def render_asm_double_replacements(self):
+        out = []
+        for name, value in self.double_literals:
+            out.append(
+                f'replace_all(asm_text, std::to_string(double_to_bits({value})), "{name}");'
+            )
+        return "\n    ".join(out)
+        
     def render_asm_string_replacements(self):
         out = []
         for name, text in self.string_literals:
@@ -559,7 +800,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for name, value in self.double_literals:
             out.append(f'asm_out << "{name} equ " << std::to_string(double_to_bits({value})) << " ; {value}\\n";')
         return "\n    ".join(out)
-
+    
+    def render_asm_nasm_header(self):
+        return f"""
+    asm_out << "; {COMMENT_REPL}\\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: {datetime.now().strftime("%Y-%m-%d")}\\n";
+    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\\n";
+    asm_out << "; all rights reserved.\\n";
+    asm_out << "; {COMMENT_REPL}\\n\\n";
+    """
+    
     def render_asm_nasm_structs(self):
         return r"""
     asm_out << "struc JitContext\n";
@@ -577,12 +827,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
     replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
     """
-
-    def render_asm_short_jump_replacements(self):
-        return r"""
-    replace_all(asm_text, "short\tjmp", "jmp");
-    """
-        
+    
     def render_asm_extern_symbols(self):
         out = []
 
@@ -631,19 +876,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         # todo !!!
         self.func_name = "main"
+        self.date_str  = datetime.now().strftime("%Y-%m-%d")
         
-        self.render_batch()
-        return f'''#include <asmjit/x86.h>
-#include <cstdio>
-#include <cstdint>
-#include <cstring>
+        return f'''// automaically created per Python 3.14 script on: {self.date_str}
+//
+// DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
+// Copyright (c) 2026 by Jens Kallup - paule32
+// all rights reserved.
+//
+# include <asmjit/x86.h>
+# include <cstdio>
+# include <cstdint>
+# include <cstring>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
+# include <iostream>
+# include <fstream>
+# include <sstream>
 
-#include <string>
-#include <array>
+# include <string>
+# include <array>
 
 using namespace std;
 using namespace asmjit;
@@ -699,10 +950,14 @@ int main() {{
     std::string asm_text = logger.data();
     
     auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {{
+        if (from.empty())
+            return;
+
         size_t pos = 0;
+
         while ((pos = s.find(from, pos)) != std::string::npos) {{
             s.replace(pos, from.length(), to);
-            pos += to.length();
+            pos += std::max<size_t>(to.length(), 1);
         }}
     }};
 
@@ -721,8 +976,9 @@ int main() {{
     replace_all(asm_text, "qword ptr ",   "qword ");
     replace_all(asm_text, "xmmword ptr ", "xmmword ");
     
-    {self.render_asm_short_jump_replacements()}
     {self.render_asm_context_replacements()}
+    
+    {self.render_asm_nasm_header()}
     {self.render_asm_nasm_structs()}
     
     {self.render_asm_double_replacements()}
@@ -769,7 +1025,26 @@ int main() {{
                 rest = rest.substr(rest_start);
             else
                 rest.clear();
+            
+            // short jmp <label>
+            if (mnemonic == "short") {{
+                size_t rest_start = rest.find_first_not_of(" \\t");
 
+                if (rest_start != std::string::npos)
+                    s = rest.substr(rest_start);
+                else
+                    s.clear();
+
+                pos = s.find_first_of(" \\t");
+
+                if (pos != std::string::npos) {{
+                    mnemonic = s.substr(0, pos);
+                    rest = s.substr(pos);
+                }} else {{
+                    mnemonic = s;
+                    rest.clear();
+                }}
+            }}
             asm_out << \"\\t\" << mnemonic << \"\\t\" << rest << \"\\n\";
         }} else {{
             asm_out << \"\\t\" << s << \"\\n\";

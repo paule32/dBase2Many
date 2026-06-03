@@ -23,7 +23,10 @@ python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
 ::g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. -o testout/test1.exe testout/test1.cc -lasmjit
 
 echo create Python + Exe files ...
-for %%N in (2 3 4 5 6) do (
+python -m compileall pas2asmjit.py
+
+::for %%N in (2 3 4 5 6 7 8 9) do (
+for %%N in (9) do (
     echo create: test%%N
     python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
     g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. ^

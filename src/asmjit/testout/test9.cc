@@ -39,8 +39,16 @@ extern "C" void jit_print_int(int v)          { std::cout << v; }
 extern "C" void jit_print_double(double v)    { std::cout << v; }
 extern "C" void jit_print_newline()           { std::cout << std::endl; }
 
-static const char str_0[] = "x = ";
-static const char str_1[] = "ende";
+static const char str_0[] = "integer: ";
+static const char str_1[] = "string: ";
+static const char str_2[] = "t3: ";
+static const char str_3[] = "t4: ";
+static const char str_4[] = "sub caller: ";
+static const char str_5[] = "more text: ";
+static const char str_6[] = "Hallo";
+static const char str_7[] = "Hallo aus Procedure";
+static const char str_8[] = "text";
+static const char str_9[] = "more text";
 
 int main() {
     JitRuntime rt;
@@ -58,28 +66,22 @@ int main() {
 
     a.push(x86::r12);
     a.mov (x86::r12, x86::rcx); // ctx
-    a.mov(x86::eax, 0);
-    a.mov(x86::ebx, x86::eax);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
-    Label while_1 = a.new_label();
-    Label endwhile_2 = a.new_label();
-    a.bind(while_1);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
-    a.push(x86::rax);
-    a.mov(x86::eax, 5);
-    a.mov(x86::ebx, x86::eax);
-    a.pop(x86::rax);
-    a.cmp(x86::eax, x86::ebx);
-    a.jge(endwhile_2);
+    Label proc_TestInteger_1 = a.new_label();
+    Label endproc_TestInteger_2 = a.new_label();
+    a.jmp(endproc_TestInteger_2);
+    a.bind(proc_TestInteger_1);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.push(x86::rcx); // save param t1
+    a.push(x86::rdx); // save param t2
+    a.push(x86::r8); // save param t3
+    a.push(x86::r9); // save param t4
     a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -8)); // load integer parameter
     a.mov(x86::ecx, x86::eax);
     a.mov(x86::rax, imm((uint64_t)&jit_print_int));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -89,19 +91,12 @@ int main() {
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
-    a.push(x86::rax);
-    a.mov(x86::eax, 1);
-    a.mov(x86::ebx, x86::eax);
-    a.pop(x86::rax);
-    a.add(x86::eax, x86::ebx);
-    a.mov(x86::ebx, x86::eax);
-    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
-    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
-    a.jmp(while_1);
-    a.bind(endwhile_2);
     a.mov(x86::rcx, imm((uint64_t)str_1));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -16)); // load string parameter
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
@@ -109,6 +104,117 @@ int main() {
     a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_2));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -24)); // load integer parameter
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_3));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -32)); // load integer parameter
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endproc_TestInteger_2);
+    Label proc_TestProc_3 = a.new_label();
+    Label endproc_TestProc_4 = a.new_label();
+    a.jmp(endproc_TestProc_4);
+    a.bind(proc_TestProc_3);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.push(x86::rcx); // save param t1
+    a.push(x86::rdx); // save param t2
+    a.mov(x86::rcx, imm((uint64_t)str_4));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // load string parameter
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_5));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -16)); // load string parameter
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, 1234);
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rdx, imm((uint64_t)str_6));
+    a.mov(x86::eax, 42);
+    a.mov(x86::r8d, x86::eax);
+    a.mov(x86::eax, 74);
+    a.mov(x86::r9d, x86::eax);
+    a.sub(x86::rsp, 32); // shadow space for procedure call
+    a.call(proc_TestInteger_1);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endproc_TestProc_4);
+    Label proc_Hallo_5 = a.new_label();
+    Label endproc_Hallo_6 = a.new_label();
+    a.jmp(endproc_Hallo_6);
+    a.bind(proc_Hallo_5);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.mov(x86::rcx, imm((uint64_t)str_7));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_8));
+    a.mov(x86::rdx, imm((uint64_t)str_9));
+    a.sub(x86::rsp, 32); // shadow space for procedure call
+    a.call(proc_TestProc_3);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endproc_Hallo_6);
+    a.sub(x86::rsp, 32); // shadow space for procedure call
+    a.call(proc_Hallo_5);
     a.add(x86::rsp, 32);
     a.pop(x86::r12);
     a.ret();
@@ -120,7 +226,7 @@ int main() {
         return 1;
     }
     
-    std::ofstream asm_out("test6.asm");
+    std::ofstream asm_out("test9.asm");
     std::string asm_text = logger.data();
     
     auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {
@@ -142,11 +248,27 @@ int main() {
     
     replace_all(asm_text, std::to_string((uint64_t)&str_0), "_str_0");
     replace_all(asm_text, std::to_string((uint64_t)&str_1), "_str_1");
+    replace_all(asm_text, std::to_string((uint64_t)&str_2), "_str_2");
+    replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
+    replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
+    replace_all(asm_text, std::to_string((uint64_t)&str_5), "_str_5");
+    replace_all(asm_text, std::to_string((uint64_t)&str_6), "_str_6");
+    replace_all(asm_text, std::to_string((uint64_t)&str_7), "_str_7");
+    replace_all(asm_text, std::to_string((uint64_t)&str_8), "_str_8");
+    replace_all(asm_text, std::to_string((uint64_t)&str_9), "_str_9");
     
-    replace_all(asm_text, "L0:", "while_1:");
-    replace_all(asm_text, "L0", "while_1");
-    replace_all(asm_text, "L1:", "endwhile_2:");
-    replace_all(asm_text, "L1", "endwhile_2");
+    replace_all(asm_text, "L0:", "proc_TestInteger_1:");
+    replace_all(asm_text, "L0", "proc_TestInteger_1");
+    replace_all(asm_text, "L1:", "endproc_TestInteger_2:");
+    replace_all(asm_text, "L1", "endproc_TestInteger_2");
+    replace_all(asm_text, "L2:", "proc_TestProc_3:");
+    replace_all(asm_text, "L2", "proc_TestProc_3");
+    replace_all(asm_text, "L3:", "endproc_TestProc_4:");
+    replace_all(asm_text, "L3", "endproc_TestProc_4");
+    replace_all(asm_text, "L4:", "proc_Hallo_5:");
+    replace_all(asm_text, "L4", "proc_Hallo_5");
+    replace_all(asm_text, "L5:", "endproc_Hallo_6:");
+    replace_all(asm_text, "L5", "endproc_Hallo_6");
 
     replace_all(asm_text, "byte ptr ",    "byte ");
     replace_all(asm_text, "word ptr ",    "word ");
@@ -251,8 +373,16 @@ int main() {
     }
     
     asm_out << "\nsection .data\n";
-    asm_out << "_str_0 db \"x = \", 0\n";
-    asm_out << "_str_1 db \"ende\", 0\n";
+    asm_out << "_str_0 db \"integer: \", 0\n";
+    asm_out << "_str_1 db \"string: \", 0\n";
+    asm_out << "_str_2 db \"t3: \", 0\n";
+    asm_out << "_str_3 db \"t4: \", 0\n";
+    asm_out << "_str_4 db \"sub caller: \", 0\n";
+    asm_out << "_str_5 db \"more text: \", 0\n";
+    asm_out << "_str_6 db \"Hallo\", 0\n";
+    asm_out << "_str_7 db \"Hallo aus Procedure\", 0\n";
+    asm_out << "_str_8 db \"text\", 0\n";
+    asm_out << "_str_9 db \"more text\", 0\n";
     
     asm_out.close();
    

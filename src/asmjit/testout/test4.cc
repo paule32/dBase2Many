@@ -1,14 +1,20 @@
-#include <asmjit/x86.h>
-#include <cstdio>
-#include <cstdint>
-#include <cstring>
+// automaically created per Python 3.14 script on: 2026-06-03
+//
+// DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
+// Copyright (c) 2026 by Jens Kallup - paule32
+// all rights reserved.
+//
+# include <asmjit/x86.h>
+# include <cstdio>
+# include <cstdint>
+# include <cstring>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
+# include <iostream>
+# include <fstream>
+# include <sstream>
 
-#include <string>
-#include <array>
+# include <string>
+# include <array>
 
 using namespace std;
 using namespace asmjit;
@@ -181,10 +187,14 @@ int main() {
     std::string asm_text = logger.data();
     
     auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {
+        if (from.empty())
+            return;
+
         size_t pos = 0;
+
         while ((pos = s.find(from, pos)) != std::string::npos) {
             s.replace(pos, from.length(), to);
-            pos += to.length();
+            pos += std::max<size_t>(to.length(), 1);
         }
     };
 
@@ -219,13 +229,18 @@ int main() {
     replace_all(asm_text, "xmmword ptr ", "xmmword ");
     
     
-    replace_all(asm_text, "short\tjmp", "jmp");
-    
-    
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
     replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
     replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
     replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
+    
+    
+    
+    asm_out << "; -----------------------------------------------------------------------------\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-03\n";
+    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
+    asm_out << "; all rights reserved.\n";
+    asm_out << "; -----------------------------------------------------------------------------\n\n";
     
     
     asm_out << "struc JitContext\n";
@@ -289,7 +304,26 @@ int main() {
                 rest = rest.substr(rest_start);
             else
                 rest.clear();
+            
+            // short jmp <label>
+            if (mnemonic == "short") {
+                size_t rest_start = rest.find_first_not_of(" \t");
 
+                if (rest_start != std::string::npos)
+                    s = rest.substr(rest_start);
+                else
+                    s.clear();
+
+                pos = s.find_first_of(" \t");
+
+                if (pos != std::string::npos) {
+                    mnemonic = s.substr(0, pos);
+                    rest = s.substr(pos);
+                } else {
+                    mnemonic = s;
+                    rest.clear();
+                }
+            }
             asm_out << "\t" << mnemonic << "\t" << rest << "\n";
         } else {
             asm_out << "\t" << s << "\n";

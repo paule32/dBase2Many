@@ -14,6 +14,36 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#procedureDeclaration.
+    def visitProcedureDeclaration(self, ctx:MiniPascalParser.ProcedureDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#formalParamList.
+    def visitFormalParamList(self, ctx:MiniPascalParser.FormalParamListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#formalParam.
+    def visitFormalParam(self, ctx:MiniPascalParser.FormalParamContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#procedureCallStatement.
+    def visitProcedureCallStatement(self, ctx:MiniPascalParser.ProcedureCallStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#actualParamList.
+    def visitActualParamList(self, ctx:MiniPascalParser.ActualParamListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#actualParam.
+    def visitActualParam(self, ctx:MiniPascalParser.ActualParamContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#varSection.
     def visitVarSection(self, ctx:MiniPascalParser.VarSectionContext):
         return self.visitChildren(ctx)
@@ -46,6 +76,21 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#statement.
     def visitStatement(self, ctx:MiniPascalParser.StatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#forStatement.
+    def visitForStatement(self, ctx:MiniPascalParser.ForStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#repeatStatement.
+    def visitRepeatStatement(self, ctx:MiniPascalParser.RepeatStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#argumentList.
+    def visitArgumentList(self, ctx:MiniPascalParser.ArgumentListContext):
         return self.visitChildren(ctx)
 
 

@@ -40,7 +40,7 @@ extern "C" void jit_print_double(double v)    { std::cout << v; }
 extern "C" void jit_print_newline()           { std::cout << std::endl; }
 
 static const char str_0[] = "x = ";
-static const char str_1[] = "ende";
+static const char str_1[] = "x = ";
 
 int main() {
     JitRuntime rt;
@@ -58,21 +58,19 @@ int main() {
 
     a.push(x86::r12);
     a.mov (x86::r12, x86::rcx); // ctx
+    Label for_1 = a.new_label();
+    Label endfor_2 = a.new_label();
     a.mov(x86::eax, 0);
     a.mov(x86::ebx, x86::eax);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
     a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
-    Label while_1 = a.new_label();
-    Label endwhile_2 = a.new_label();
-    a.bind(while_1);
+    a.mov(x86::eax, 5);
+    a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax); // for end value
+    a.bind(for_1);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
     a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
-    a.push(x86::rax);
-    a.mov(x86::eax, 5);
-    a.mov(x86::ebx, x86::eax);
-    a.pop(x86::rax);
-    a.cmp(x86::eax, x86::ebx);
-    a.jge(endwhile_2);
+    a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));
+    a.jg(endfor_2);
     a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -91,18 +89,34 @@ int main() {
     a.add(x86::rsp, 32);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
     a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
-    a.push(x86::rax);
-    a.mov(x86::eax, 1);
-    a.mov(x86::ebx, x86::eax);
-    a.pop(x86::rax);
-    a.add(x86::eax, x86::ebx);
+    a.add(x86::eax, 1);
     a.mov(x86::ebx, x86::eax);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
     a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
-    a.jmp(while_1);
-    a.bind(endwhile_2);
+    a.jmp(for_1);
+    a.bind(endfor_2);
+    Label for_3 = a.new_label();
+    Label endfor_4 = a.new_label();
+    a.mov(x86::eax, 5);
+    a.mov(x86::ebx, x86::eax);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
+    a.mov(x86::eax, 0);
+    a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax); // for end value
+    a.bind(for_3);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
+    a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));
+    a.jl(endfor_4);
     a.mov(x86::rcx, imm((uint64_t)str_1));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_int));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
@@ -110,6 +124,14 @@ int main() {
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // x
+    a.sub(x86::eax, 1);
+    a.mov(x86::ebx, x86::eax);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // x
+    a.jmp(for_3);
+    a.bind(endfor_4);
     a.pop(x86::r12);
     a.ret();
 
@@ -120,7 +142,7 @@ int main() {
         return 1;
     }
     
-    std::ofstream asm_out("test6.asm");
+    std::ofstream asm_out("test8.asm");
     std::string asm_text = logger.data();
     
     auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {
@@ -143,10 +165,14 @@ int main() {
     replace_all(asm_text, std::to_string((uint64_t)&str_0), "_str_0");
     replace_all(asm_text, std::to_string((uint64_t)&str_1), "_str_1");
     
-    replace_all(asm_text, "L0:", "while_1:");
-    replace_all(asm_text, "L0", "while_1");
-    replace_all(asm_text, "L1:", "endwhile_2:");
-    replace_all(asm_text, "L1", "endwhile_2");
+    replace_all(asm_text, "L0:", "for_1:");
+    replace_all(asm_text, "L0", "for_1");
+    replace_all(asm_text, "L1:", "endfor_2:");
+    replace_all(asm_text, "L1", "endfor_2");
+    replace_all(asm_text, "L2:", "for_3:");
+    replace_all(asm_text, "L2", "for_3");
+    replace_all(asm_text, "L3:", "endfor_4:");
+    replace_all(asm_text, "L3", "endfor_4");
 
     replace_all(asm_text, "byte ptr ",    "byte ");
     replace_all(asm_text, "word ptr ",    "word ");
@@ -252,7 +278,7 @@ int main() {
     
     asm_out << "\nsection .data\n";
     asm_out << "_str_0 db \"x = \", 0\n";
-    asm_out << "_str_1 db \"ende\", 0\n";
+    asm_out << "_str_1 db \"x = \", 0\n";
     
     asm_out.close();
    

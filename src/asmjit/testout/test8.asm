@@ -1,3 +1,9 @@
+; -----------------------------------------------------------------------------
+; GENERATED WITH PYTHON 3.14 ON: 2026-06-03
+; Copyright (c) 2026 by Jens Kallup - paule32
+; all rights reserved.
+; -----------------------------------------------------------------------------
+
 struc JitContext
     .int_vars:         resq 1
     .double_vars:      resq 1
@@ -20,15 +26,13 @@ _main:
 	mov	ebx, eax
 	mov	rax, qword [r12 + JitContext.int_vars]
 	mov	dword [rax], ebx
-while_1:
+	mov	eax, 5
+	mov	dword [r12 + JitContext.print_int_tmp], eax
+for_1:
 	mov	rax, qword [r12 + JitContext.int_vars]
 	mov	eax, dword [rax]
-	push	rax
-	mov	eax, 5
-	mov	ebx, eax
-	pop	rax
-	cmp	eax, ebx
-	jnl	endwhile_2
+	cmp	eax, dword [r12 + JitContext.print_int_tmp]
+	jnle	endfor_2
 	mov	rcx, _str_0
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -47,18 +51,32 @@ while_1:
 	add	rsp, 32
 	mov	rax, qword [r12 + JitContext.int_vars]
 	mov	eax, dword [rax]
-	push	rax
-	mov	eax, 1
-	mov	ebx, eax
-	pop	rax
-	add	eax, ebx
+	add	eax, 1
 	mov	ebx, eax
 	mov	rax, qword [r12 + JitContext.int_vars]
 	mov	dword [rax], ebx
-	jmp	 while_1
-endwhile_2:
+	jmp	 for_1
+endfor_2:
+	mov	eax, 5
+	mov	ebx, eax
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	dword [rax], ebx
+	mov	eax, 0
+	mov	dword [r12 + JitContext.print_int_tmp], eax
+for_3:
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	eax, dword [rax]
+	cmp	eax, dword [r12 + JitContext.print_double_tmp]
+	jl	endfor_4
 	mov	rcx, _str_1
 	mov	rax, _jit_print_text
+	sub	rsp, 32
+	call	rax
+	add	rsp, 32
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	eax, dword [rax]
+	mov	ecx, eax
+	mov	rax, _jit_print_int
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -66,9 +84,17 @@ endwhile_2:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	eax, dword [rax]
+	sub	eax, 1
+	mov	ebx, eax
+	mov	rax, qword [r12 + JitContext.int_vars]
+	mov	dword [rax], ebx
+	jmp	 for_3
+endfor_4:
 	pop	r12
 	ret
 
 section .data
 _str_0 db "x = ", 0
-_str_1 db "ende", 0
+_str_1 db "x = ", 0

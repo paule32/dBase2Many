@@ -5,7 +5,32 @@ options {
 }
 
 programFile
-    : PROGRAM IDENT SEMI varSection? block DOT EOF
+    : PROGRAM IDENT SEMI varSection? procedureDeclaration* block DOT
+    ;
+
+procedureDeclaration
+    : PROCEDURE IDENT formalParamList? SEMI block SEMI?
+    ;
+
+formalParamList
+    : LPAREN formalParam (SEMI formalParam)* RPAREN
+    ;
+
+formalParam
+    : identList COLON typeName
+    ;
+
+procedureCallStatement
+    : IDENT actualParamList? SEMI?
+    ;
+
+actualParamList
+    : LPAREN actualParam (COMMA actualParam)* RPAREN
+    ;
+
+actualParam
+    : STRING
+    | expr
     ;
 
 varSection
@@ -39,7 +64,22 @@ statement
     | writeLnStatement
     | ifStatement
     | whileStatement
+    | repeatStatement
+    | forStatement
+    | procedureCallStatement
     | compoundStatement
+    ;
+
+forStatement
+    : FOR IDENT ASSIGN expr (TO | DOWNTO) expr DO statement
+    ;
+
+repeatStatement
+    : REPEAT statementList UNTIL condition SEMI?
+    ;
+
+argumentList
+    : expr (COMMA expr)*
     ;
 
 whileStatement

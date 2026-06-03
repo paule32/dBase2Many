@@ -17,6 +17,60 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#procedureDeclaration.
+    def enterProcedureDeclaration(self, ctx:MiniPascalParser.ProcedureDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#procedureDeclaration.
+    def exitProcedureDeclaration(self, ctx:MiniPascalParser.ProcedureDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#formalParamList.
+    def enterFormalParamList(self, ctx:MiniPascalParser.FormalParamListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#formalParamList.
+    def exitFormalParamList(self, ctx:MiniPascalParser.FormalParamListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#formalParam.
+    def enterFormalParam(self, ctx:MiniPascalParser.FormalParamContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#formalParam.
+    def exitFormalParam(self, ctx:MiniPascalParser.FormalParamContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#procedureCallStatement.
+    def enterProcedureCallStatement(self, ctx:MiniPascalParser.ProcedureCallStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#procedureCallStatement.
+    def exitProcedureCallStatement(self, ctx:MiniPascalParser.ProcedureCallStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#actualParamList.
+    def enterActualParamList(self, ctx:MiniPascalParser.ActualParamListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#actualParamList.
+    def exitActualParamList(self, ctx:MiniPascalParser.ActualParamListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#actualParam.
+    def enterActualParam(self, ctx:MiniPascalParser.ActualParamContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#actualParam.
+    def exitActualParam(self, ctx:MiniPascalParser.ActualParamContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#varSection.
     def enterVarSection(self, ctx:MiniPascalParser.VarSectionContext):
         pass
@@ -77,6 +131,33 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#statement.
     def exitStatement(self, ctx:MiniPascalParser.StatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#forStatement.
+    def enterForStatement(self, ctx:MiniPascalParser.ForStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#forStatement.
+    def exitForStatement(self, ctx:MiniPascalParser.ForStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#repeatStatement.
+    def enterRepeatStatement(self, ctx:MiniPascalParser.RepeatStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#repeatStatement.
+    def exitRepeatStatement(self, ctx:MiniPascalParser.RepeatStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#argumentList.
+    def enterArgumentList(self, ctx:MiniPascalParser.ArgumentListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#argumentList.
+    def exitArgumentList(self, ctx:MiniPascalParser.ArgumentListContext):
         pass
 
 
