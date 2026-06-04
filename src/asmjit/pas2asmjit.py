@@ -71,8 +71,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.string_literals    = []
         self.double_literals    = []
         
-        self.procedures          = {}
-        self.current_proc_params = {}
+        self.procedures         = {}
+        self.functions          = {}
+        
+        self.scope_stack        = []
+        self.local_var_stack    = []
+        
+        self.current_function   = None
+        self.current_proc_params= {}
         
         self.asm_file               = asm_file
         self.asm_label_replacements = []
@@ -89,7 +95,46 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
     def is_integer(self, typ):
         return typ.lower() == "integer"
-        
+    
+    def push_local_scope(self):
+        self.local_var_stack.append({
+            "vars": {},
+            "next_offset": 0
+        })
+
+    def pop_local_scope(self):
+        self.local_var_stack.pop()
+
+    def current_local_scope(self):
+        if not self.local_var_stack:
+            return None
+        return self.local_var_stack[-1]
+    
+    def declare_local_var(self, ctx, name, vtype):
+        scope = self.current_local_scope()
+
+        if scope is None:
+            self.declare_var(ctx, name, vtype)
+            return
+
+        key = name.lower()
+        typ = vtype.lower()
+
+        if key in scope["vars"]:
+            raise CompileError(ctx, "E0002", name=name)
+
+        if typ != "integer":
+            raise CompileError(ctx, "E0005", got=typ, expected="integer")
+
+        scope["next_offset"] += 8
+        offset = -scope["next_offset"]
+
+        scope["vars"][key] = {
+            "name": name,
+            "type": typ,
+            "offset": offset
+        }
+    
     def declare_var(self, ctx, name, vtype):
         key = name.lower()
         typ = vtype.lower()
@@ -113,6 +158,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         }
 
         self.var_types[key] = typ
+
+    def find_function(self, name):
+        for i in range(len(self.scope_stack), -1, -1):
+            scoped = "_".join(self.scope_stack[:i] + [name])
+            key = scoped.lower()
+
+            if key in self.functions:
+                return self.functions[key]
+
+        return None
+    
+    def find_local_var(self, name):
+        key = name.lower()
+
+        for scope in reversed(self.local_var_stack):
+            if key in scope["vars"]:
+                return scope["vars"][key]
+
+        return None
     
     def collect_formal_params(self, ctx):
         params = []
@@ -127,6 +191,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 })
         return params
     
+    def scoped_name(self, name):
+        if self.scope_stack:
+            return "_".join(self.scope_stack + [name])
+        return name
+    
+    def emit_load_local_var(self, name, info):
+        self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {info['offset']})); // local {name}")
+
+    def emit_store_local_var(self, name, info):
+        self.emit(f"a.mov(x86::dword_ptr(x86::rbp, {info['offset']}), x86::eax); // local {name}")
+        
     def emit_call_rax(self):
         self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
         self.emit("a.call(x86::rax);")
@@ -156,6 +231,79 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif typ == "double":
             self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
             self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {slot * 8}), x86::xmm0); // {name}")
+    
+    def emit_function_declaration(self, ctx, name, return_type):
+        key = name.lower()
+
+        scoped = self.scoped_name(name)
+
+        label     = self.new_named_label("func_" + scoped)
+        end_label = self.new_named_label("endfunc_" + scoped)
+
+        self.functions[scoped.lower()]["label"] = label
+
+        params = self.collect_formal_params(ctx)
+        self.functions[scoped.lower()]["params"] = params
+
+        param_regs = ["rcx", "rdx", "r8", "r9"]
+
+        if len(params) > len(param_regs):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got="too many params",
+                expected="max 4 params"
+            )
+
+        self.emit(f"a.jmp({end_label});")
+        self.emit(f"a.bind({label});")
+
+        self.emit("a.push(x86::rbp);")
+        self.emit("a.mov(x86::rbp, x86::rsp);")
+
+        old_params   = self.current_proc_params
+        old_function = self.current_function
+
+        self.current_proc_params = {}
+        self.current_function = {
+            "name": name,
+            "return_type": return_type.lower(),
+            "scoped_name": scoped
+        }
+
+        for index, p in enumerate(params):
+            reg = param_regs[index]
+            pname = p["name"]
+
+            self.emit(f"a.push(x86::{reg}); // save function param {pname}")
+
+            self.current_proc_params[pname.lower()] = {
+                "type": p["type"],
+                "reg": reg,
+                "stack_offset": -8 * (index + 1)
+            }
+
+        self.scope_stack.append(name)
+        self.emit("a.sub(x86::rsp, 256); // local variables")
+        self.push_local_scope()
+        self.visit(ctx.block())
+        
+        local_size = self.current_local_scope()["next_offset"]
+        
+        self.pop_local_scope()
+        self.scope_stack.pop()
+
+        self.current_function = old_function
+        self.current_proc_params = old_params
+
+        if return_type.lower() not in ["integer", "string", "double"]:
+            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
+
+        self.emit("a.mov(x86::rsp, x86::rbp);")
+        self.emit("a.pop(x86::rbp);")
+        self.emit("a.ret();")
+
+        self.emit(f"a.bind({end_label});")
     
     def emit_if_statement(self, ctx):
         else_name = self.new_named_label("else")
@@ -399,11 +547,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         for proc in ctx.procedureDeclaration():
             self.visit(proc)
-    
+        
+        for func in ctx.functionDeclaration():
+            self.visit(func)
+        
         self.visit(ctx.block())
         return self.render_cpp()
     
     def visitBlock(self, ctx):
+        if ctx.localDeclaration():
+            for decl in ctx.localDeclaration():
+                self.visit(decl)
+
         return self.visit(ctx.statementList())
     
     def visitStatementList(self, ctx):
@@ -441,6 +596,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for decl in ctx.varDeclaration():
             self.visit(decl)
         return None
+    
+    def visitVarDeclaration(self, ctx):
+        vtype = ctx.typeName().getText()
+
+        for ident in ctx.identList().IDENT():
+            if self.current_function is not None or self.current_proc_params:
+                self.declare_local_var(ident.symbol, ident.getText(), vtype)
+            else:
+                self.declare_var(ident.symbol, ident.getText(), vtype)
+
+        return None
 
     def visitVarDeclaration(self, ctx):
         vtype = ctx.typeName().getText()
@@ -450,11 +616,81 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
         return None
     
-    def visitAssignment(self, ctx):
+    def visitFunctionDeclaration(self, ctx):
         name = ctx.IDENT().getText()
-        info = self.var_info(ctx, name)
+        return_type = ctx.typeName().getText()
 
+        scoped = self.scoped_name(name)
+        key = scoped.lower()
+
+        self.functions[key] = {
+            "name": name,
+            "scoped_name": scoped,
+            "return_type": return_type,
+            "label": f"func_{scoped}",
+            "params": self.collect_formal_params(ctx)
+        }
+
+        old_function = self.current_function
+        self.current_function = name
+
+        self.emit_function_declaration(ctx, name, return_type)
+        self.current_function = old_function
+    
+    def visitAssignment(self, ctx):
+        name = ctx.getChild(0).getText()
+        
+        if name.lower() == "result" and self.current_function is not None:
+            ret_type = self.current_function["return_type"]
+            
+            if ret_type == "integer":
+                expr_type = self.visit(ctx.expr())
+                
+                if expr_type != "integer":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
+                
+                return None
+            
+            if ret_type == "string":
+                if ctx.expr().getText().startswith("'"):
+                    text = ctx.expr().getText()[1:-1]
+                    label = self.add_string_literal(text)
+                    self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+                    return None
+                
+                expr_type = self.visit(ctx.expr())
+                
+                if expr_type != "string":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="string")
+                
+                return None
+            
+            if ret_type == "double":
+                expr_type = self.visit(ctx.expr())
+
+                if expr_type == "integer":
+                    self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                    return None
+                
+                if expr_type != "double":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="double")
+                
+                return None
+        
+        local = self.find_local_var(name)
+        
+        if local is not None:
+            expr_type = self.visit(ctx.expr())
+
+            if local["type"] != expr_type:
+                raise CompileError(ctx, "E0005", got=expr_type, expected=local["type"])
+
+            self.emit_store_local_var(name, local)
+            return None
+
+        info = self.var_info(ctx, name)
         target_type = info["type"]
+
         expr_type = self.visit(ctx.expr())
 
         if target_type == "integer" and expr_type == "double":
@@ -550,7 +786,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             self.emit(f"a.mov(x86::eax, {value});")
             return "integer"
-
+            
+        if ctx.functionCallExpr():
+            return self.visit(ctx.functionCallExpr())
+            
         elif ctx.HEXNUMBER():
             text  = ctx.HEXNUMBER().getText()
             value = int(text[1:], 16)
@@ -567,14 +806,65 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return "double"
             
         elif ctx.IDENT():
-            name = ctx.IDENT().getText()
-            info = self.var_info(ctx, name)
-
-            self.emit_load_var(name, info)
-            return info["type"]
+            name  = ctx.IDENT().getText()
+            key   = name.lower()
+            local = self.find_local_var(name)
             
+            if local is not None:
+                self.emit_load_local_var(name, local)
+                return local["type"]
+
+            if key in self.current_proc_params:
+                pinfo = self.current_proc_params[key]
+
+                if pinfo["type"] == "integer":
+                    offset = pinfo["stack_offset"]
+                    self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // load integer parameter {name}")
+                    return "integer"
+
+            info = self.var_info(ctx, name)
+            self.emit_load_var(name, info)
+            
+            return info["type"]
         else:
             return self.visit(ctx.expr())
+    
+    def visitFunctionCallExpr(self, ctx):
+        name = ctx.IDENT().getText()
+        func = self.find_function(name)
+
+        if func is None:
+            raise CompileError(ctx, "E0001", name=name)
+        
+        params = func.get("params", [])
+
+        actuals = []
+        if ctx.argumentList():
+            actuals = list(ctx.argumentList().expr())
+
+        if len(actuals) != len(params):
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected=str(len(params)))
+
+        int_regs = ["ecx", "edx", "r8d", "r9d"]
+
+        for index, arg_expr in enumerate(actuals):
+            formal = params[index]
+
+            if formal["type"] == "integer":
+                expr_type = self.visit(arg_expr)
+
+                if expr_type != "integer":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
+
+                self.emit(f"a.mov(x86::{int_regs[index]}, x86::eax);")
+            else:
+                raise CompileError(ctx, "E0005", got=formal["type"], expected="integer")
+
+        self.emit("a.sub(x86::rsp, 32); // shadow space for function call")
+        self.emit(f"a.call({func['label']});")
+        self.emit("a.add(x86::rsp, 32);")
+
+        return func["return_type"].lower()
     
     def visitProcedureDeclaration(self, ctx):
         name = ctx.IDENT().getText()
@@ -734,6 +1024,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             continue
                     
                     expr_type = self.visit(arg.expr())
+                    
+                    if expr_type == "string":
+                        self.emit("a.mov(x86::rcx, x86::rax);")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                        self.emit_call_rax()
                     
                     if expr_type == "integer":
                         self.emit("a.mov(x86::ecx, x86::eax);")

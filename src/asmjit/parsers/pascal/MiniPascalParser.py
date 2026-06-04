@@ -10,98 +10,116 @@ else:
 
 def serializedATN():
     return [
-        4,1,45,265,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        4,1,46,311,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
         6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,
         2,14,7,14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,
         7,20,2,21,7,21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,
-        2,27,7,27,2,28,7,28,1,0,1,0,1,0,1,0,3,0,63,8,0,1,0,5,0,66,8,0,10,
-        0,12,0,69,9,0,1,0,1,0,1,0,1,1,1,1,1,1,3,1,77,8,1,1,1,1,1,1,1,3,1,
-        82,8,1,1,2,1,2,1,2,1,2,5,2,88,8,2,10,2,12,2,91,9,2,1,2,1,2,1,3,1,
-        3,1,3,1,3,1,4,1,4,3,4,101,8,4,1,4,3,4,104,8,4,1,5,1,5,1,5,1,5,5,
-        5,110,8,5,10,5,12,5,113,9,5,1,5,1,5,1,6,1,6,3,6,119,8,6,1,7,1,7,
-        4,7,123,8,7,11,7,12,7,124,1,8,1,8,1,8,1,8,1,8,1,9,1,9,1,9,5,9,135,
-        8,9,10,9,12,9,138,9,9,1,10,1,10,1,11,1,11,1,11,1,11,1,12,1,12,3,
-        12,148,8,12,5,12,150,8,12,10,12,12,12,153,9,12,1,13,1,13,1,13,1,
-        13,1,13,1,13,1,13,1,13,3,13,163,8,13,1,14,1,14,1,14,1,14,1,14,1,
-        14,1,14,1,14,1,14,1,15,1,15,1,15,1,15,1,15,3,15,179,8,15,1,16,1,
-        16,1,16,5,16,184,8,16,10,16,12,16,187,9,16,1,17,1,17,1,17,1,17,1,
-        17,1,18,1,18,1,18,1,18,1,18,1,18,3,18,200,8,18,1,19,1,19,1,19,1,
-        19,1,20,1,20,1,21,1,21,1,21,1,21,1,22,1,22,1,22,1,22,3,22,216,8,
-        22,1,23,1,23,1,23,5,23,221,8,23,10,23,12,23,224,9,23,1,24,1,24,1,
-        24,5,24,229,8,24,10,24,12,24,232,9,24,1,25,1,25,1,25,1,25,1,25,1,
-        25,1,25,1,25,3,25,242,8,25,1,26,1,26,1,26,3,26,247,8,26,1,26,1,26,
-        3,26,251,8,26,1,27,1,27,1,27,5,27,256,8,27,10,27,12,27,259,9,27,
-        1,28,1,28,3,28,263,8,28,1,28,0,0,29,0,2,4,6,8,10,12,14,16,18,20,
-        22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,0,5,2,0,5,
-        6,38,38,1,0,15,16,1,0,31,36,1,0,25,26,1,0,27,28,269,0,58,1,0,0,0,
-        2,73,1,0,0,0,4,83,1,0,0,0,6,94,1,0,0,0,8,98,1,0,0,0,10,105,1,0,0,
-        0,12,118,1,0,0,0,14,120,1,0,0,0,16,126,1,0,0,0,18,131,1,0,0,0,20,
-        139,1,0,0,0,22,141,1,0,0,0,24,151,1,0,0,0,26,162,1,0,0,0,28,164,
-        1,0,0,0,30,173,1,0,0,0,32,180,1,0,0,0,34,188,1,0,0,0,36,193,1,0,
-        0,0,38,201,1,0,0,0,40,205,1,0,0,0,42,207,1,0,0,0,44,211,1,0,0,0,
-        46,217,1,0,0,0,48,225,1,0,0,0,50,241,1,0,0,0,52,243,1,0,0,0,54,252,
-        1,0,0,0,56,262,1,0,0,0,58,59,5,1,0,0,59,60,5,38,0,0,60,62,5,22,0,
-        0,61,63,3,14,7,0,62,61,1,0,0,0,62,63,1,0,0,0,63,67,1,0,0,0,64,66,
-        3,2,1,0,65,64,1,0,0,0,66,69,1,0,0,0,67,65,1,0,0,0,67,68,1,0,0,0,
-        68,70,1,0,0,0,69,67,1,0,0,0,70,71,3,22,11,0,71,72,5,23,0,0,72,1,
-        1,0,0,0,73,74,5,17,0,0,74,76,5,38,0,0,75,77,3,4,2,0,76,75,1,0,0,
-        0,76,77,1,0,0,0,77,78,1,0,0,0,78,79,5,22,0,0,79,81,3,22,11,0,80,
-        82,5,22,0,0,81,80,1,0,0,0,81,82,1,0,0,0,82,3,1,0,0,0,83,84,5,29,
-        0,0,84,89,3,6,3,0,85,86,5,22,0,0,86,88,3,6,3,0,87,85,1,0,0,0,88,
-        91,1,0,0,0,89,87,1,0,0,0,89,90,1,0,0,0,90,92,1,0,0,0,91,89,1,0,0,
-        0,92,93,5,30,0,0,93,5,1,0,0,0,94,95,3,18,9,0,95,96,5,21,0,0,96,97,
-        3,20,10,0,97,7,1,0,0,0,98,100,5,38,0,0,99,101,3,10,5,0,100,99,1,
-        0,0,0,100,101,1,0,0,0,101,103,1,0,0,0,102,104,5,22,0,0,103,102,1,
-        0,0,0,103,104,1,0,0,0,104,9,1,0,0,0,105,106,5,29,0,0,106,111,3,12,
-        6,0,107,108,5,24,0,0,108,110,3,12,6,0,109,107,1,0,0,0,110,113,1,
-        0,0,0,111,109,1,0,0,0,111,112,1,0,0,0,112,114,1,0,0,0,113,111,1,
-        0,0,0,114,115,5,30,0,0,115,11,1,0,0,0,116,119,5,37,0,0,117,119,3,
-        46,23,0,118,116,1,0,0,0,118,117,1,0,0,0,119,13,1,0,0,0,120,122,5,
-        4,0,0,121,123,3,16,8,0,122,121,1,0,0,0,123,124,1,0,0,0,124,122,1,
-        0,0,0,124,125,1,0,0,0,125,15,1,0,0,0,126,127,3,18,9,0,127,128,5,
-        21,0,0,128,129,3,20,10,0,129,130,5,22,0,0,130,17,1,0,0,0,131,136,
-        5,38,0,0,132,133,5,24,0,0,133,135,5,38,0,0,134,132,1,0,0,0,135,138,
-        1,0,0,0,136,134,1,0,0,0,136,137,1,0,0,0,137,19,1,0,0,0,138,136,1,
-        0,0,0,139,140,7,0,0,0,140,21,1,0,0,0,141,142,5,2,0,0,142,143,3,24,
-        12,0,143,144,5,3,0,0,144,23,1,0,0,0,145,147,3,26,13,0,146,148,5,
-        22,0,0,147,146,1,0,0,0,147,148,1,0,0,0,148,150,1,0,0,0,149,145,1,
-        0,0,0,150,153,1,0,0,0,151,149,1,0,0,0,151,152,1,0,0,0,152,25,1,0,
-        0,0,153,151,1,0,0,0,154,163,3,44,22,0,155,163,3,52,26,0,156,163,
-        3,36,18,0,157,163,3,34,17,0,158,163,3,30,15,0,159,163,3,28,14,0,
-        160,163,3,8,4,0,161,163,3,42,21,0,162,154,1,0,0,0,162,155,1,0,0,
-        0,162,156,1,0,0,0,162,157,1,0,0,0,162,158,1,0,0,0,162,159,1,0,0,
-        0,162,160,1,0,0,0,162,161,1,0,0,0,163,27,1,0,0,0,164,165,5,14,0,
-        0,165,166,5,38,0,0,166,167,5,20,0,0,167,168,3,46,23,0,168,169,7,
-        1,0,0,169,170,3,46,23,0,170,171,5,11,0,0,171,172,3,26,13,0,172,29,
-        1,0,0,0,173,174,5,12,0,0,174,175,3,24,12,0,175,176,5,13,0,0,176,
-        178,3,38,19,0,177,179,5,22,0,0,178,177,1,0,0,0,178,179,1,0,0,0,179,
-        31,1,0,0,0,180,185,3,46,23,0,181,182,5,24,0,0,182,184,3,46,23,0,
-        183,181,1,0,0,0,184,187,1,0,0,0,185,183,1,0,0,0,185,186,1,0,0,0,
-        186,33,1,0,0,0,187,185,1,0,0,0,188,189,5,10,0,0,189,190,3,38,19,
-        0,190,191,5,11,0,0,191,192,3,26,13,0,192,35,1,0,0,0,193,194,5,7,
-        0,0,194,195,3,38,19,0,195,196,5,8,0,0,196,199,3,26,13,0,197,198,
-        5,9,0,0,198,200,3,26,13,0,199,197,1,0,0,0,199,200,1,0,0,0,200,37,
-        1,0,0,0,201,202,3,46,23,0,202,203,3,40,20,0,203,204,3,46,23,0,204,
-        39,1,0,0,0,205,206,7,2,0,0,206,41,1,0,0,0,207,208,5,2,0,0,208,209,
-        3,24,12,0,209,210,5,3,0,0,210,43,1,0,0,0,211,212,5,38,0,0,212,213,
-        5,20,0,0,213,215,3,46,23,0,214,216,5,22,0,0,215,214,1,0,0,0,215,
-        216,1,0,0,0,216,45,1,0,0,0,217,222,3,48,24,0,218,219,7,3,0,0,219,
-        221,3,48,24,0,220,218,1,0,0,0,221,224,1,0,0,0,222,220,1,0,0,0,222,
-        223,1,0,0,0,223,47,1,0,0,0,224,222,1,0,0,0,225,230,3,50,25,0,226,
-        227,7,4,0,0,227,229,3,50,25,0,228,226,1,0,0,0,229,232,1,0,0,0,230,
-        228,1,0,0,0,230,231,1,0,0,0,231,49,1,0,0,0,232,230,1,0,0,0,233,242,
-        5,41,0,0,234,242,5,40,0,0,235,242,5,39,0,0,236,242,5,38,0,0,237,
-        238,5,29,0,0,238,239,3,46,23,0,239,240,5,30,0,0,240,242,1,0,0,0,
-        241,233,1,0,0,0,241,234,1,0,0,0,241,235,1,0,0,0,241,236,1,0,0,0,
-        241,237,1,0,0,0,242,51,1,0,0,0,243,244,5,19,0,0,244,246,5,29,0,0,
-        245,247,3,54,27,0,246,245,1,0,0,0,246,247,1,0,0,0,247,248,1,0,0,
-        0,248,250,5,30,0,0,249,251,5,22,0,0,250,249,1,0,0,0,250,251,1,0,
-        0,0,251,53,1,0,0,0,252,257,3,56,28,0,253,254,5,24,0,0,254,256,3,
-        56,28,0,255,253,1,0,0,0,256,259,1,0,0,0,257,255,1,0,0,0,257,258,
-        1,0,0,0,258,55,1,0,0,0,259,257,1,0,0,0,260,263,5,37,0,0,261,263,
-        3,46,23,0,262,260,1,0,0,0,262,261,1,0,0,0,263,57,1,0,0,0,25,62,67,
-        76,81,89,100,103,111,118,124,136,147,151,162,178,185,199,215,222,
-        230,241,246,250,257,262
+        2,27,7,27,2,28,7,28,2,29,7,29,2,30,7,30,2,31,7,31,2,32,7,32,1,0,
+        1,0,1,0,1,0,3,0,71,8,0,1,0,1,0,5,0,75,8,0,10,0,12,0,78,9,0,1,0,1,
+        0,1,0,1,1,1,1,1,1,3,1,86,8,1,1,1,1,1,1,1,1,1,1,1,3,1,93,8,1,1,2,
+        1,2,1,2,3,2,98,8,2,1,2,1,2,1,2,3,2,103,8,2,1,3,1,3,1,3,1,3,5,3,109,
+        8,3,10,3,12,3,112,9,3,1,3,1,3,1,4,1,4,1,4,1,4,1,5,1,5,1,5,3,5,123,
+        8,5,1,6,1,6,1,6,3,6,128,8,6,1,6,1,6,1,7,1,7,3,7,134,8,7,1,7,3,7,
+        137,8,7,1,8,1,8,1,8,1,8,5,8,143,8,8,10,8,12,8,146,9,8,1,8,1,8,1,
+        9,1,9,3,9,152,8,9,1,10,1,10,4,10,156,8,10,11,10,12,10,157,1,11,1,
+        11,1,11,1,11,1,11,1,12,1,12,1,12,5,12,168,8,12,10,12,12,12,171,9,
+        12,1,13,1,13,1,14,5,14,176,8,14,10,14,12,14,179,9,14,1,14,1,14,1,
+        14,1,14,1,15,1,15,1,15,3,15,188,8,15,1,16,1,16,3,16,192,8,16,5,16,
+        194,8,16,10,16,12,16,197,9,16,1,17,1,17,1,17,1,17,1,17,1,17,1,17,
+        1,17,3,17,207,8,17,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,1,18,
+        1,19,1,19,1,19,1,19,1,19,3,19,223,8,19,1,20,1,20,1,20,5,20,228,8,
+        20,10,20,12,20,231,9,20,1,21,1,21,1,21,1,21,1,21,1,22,1,22,1,22,
+        1,22,1,22,1,22,3,22,244,8,22,1,23,1,23,1,23,1,23,1,24,1,24,1,25,
+        1,25,1,25,1,25,1,26,1,26,1,26,1,26,3,26,260,8,26,1,27,1,27,1,27,
+        5,27,265,8,27,10,27,12,27,268,9,27,1,28,1,28,1,28,5,28,273,8,28,
+        10,28,12,28,276,9,28,1,29,1,29,1,29,1,29,1,29,1,29,1,29,1,29,1,29,
+        1,29,3,29,288,8,29,1,30,1,30,1,30,3,30,293,8,30,1,30,1,30,3,30,297,
+        8,30,1,31,1,31,1,31,5,31,302,8,31,10,31,12,31,305,9,31,1,32,1,32,
+        3,32,309,8,32,1,32,0,0,33,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,
+        30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,0,6,2,0,5,
+        6,39,39,1,0,15,16,1,0,32,37,2,0,19,19,39,39,1,0,26,27,1,0,28,29,
+        322,0,66,1,0,0,0,2,82,1,0,0,0,4,94,1,0,0,0,6,104,1,0,0,0,8,115,1,
+        0,0,0,10,122,1,0,0,0,12,124,1,0,0,0,14,131,1,0,0,0,16,138,1,0,0,
+        0,18,151,1,0,0,0,20,153,1,0,0,0,22,159,1,0,0,0,24,164,1,0,0,0,26,
+        172,1,0,0,0,28,177,1,0,0,0,30,187,1,0,0,0,32,195,1,0,0,0,34,206,
+        1,0,0,0,36,208,1,0,0,0,38,217,1,0,0,0,40,224,1,0,0,0,42,232,1,0,
+        0,0,44,237,1,0,0,0,46,245,1,0,0,0,48,249,1,0,0,0,50,251,1,0,0,0,
+        52,255,1,0,0,0,54,261,1,0,0,0,56,269,1,0,0,0,58,287,1,0,0,0,60,289,
+        1,0,0,0,62,298,1,0,0,0,64,308,1,0,0,0,66,67,5,1,0,0,67,68,5,39,0,
+        0,68,70,5,23,0,0,69,71,3,20,10,0,70,69,1,0,0,0,70,71,1,0,0,0,71,
+        76,1,0,0,0,72,75,3,4,2,0,73,75,3,2,1,0,74,72,1,0,0,0,74,73,1,0,0,
+        0,75,78,1,0,0,0,76,74,1,0,0,0,76,77,1,0,0,0,77,79,1,0,0,0,78,76,
+        1,0,0,0,79,80,3,28,14,0,80,81,5,24,0,0,81,1,1,0,0,0,82,83,5,18,0,
+        0,83,85,5,39,0,0,84,86,3,6,3,0,85,84,1,0,0,0,85,86,1,0,0,0,86,87,
+        1,0,0,0,87,88,5,22,0,0,88,89,3,26,13,0,89,90,5,23,0,0,90,92,3,28,
+        14,0,91,93,5,23,0,0,92,91,1,0,0,0,92,93,1,0,0,0,93,3,1,0,0,0,94,
+        95,5,17,0,0,95,97,5,39,0,0,96,98,3,6,3,0,97,96,1,0,0,0,97,98,1,0,
+        0,0,98,99,1,0,0,0,99,100,5,23,0,0,100,102,3,28,14,0,101,103,5,23,
+        0,0,102,101,1,0,0,0,102,103,1,0,0,0,103,5,1,0,0,0,104,105,5,30,0,
+        0,105,110,3,8,4,0,106,107,5,23,0,0,107,109,3,8,4,0,108,106,1,0,0,
+        0,109,112,1,0,0,0,110,108,1,0,0,0,110,111,1,0,0,0,111,113,1,0,0,
+        0,112,110,1,0,0,0,113,114,5,31,0,0,114,7,1,0,0,0,115,116,3,24,12,
+        0,116,117,5,22,0,0,117,118,3,26,13,0,118,9,1,0,0,0,119,123,3,20,
+        10,0,120,123,3,4,2,0,121,123,3,2,1,0,122,119,1,0,0,0,122,120,1,0,
+        0,0,122,121,1,0,0,0,123,11,1,0,0,0,124,125,5,39,0,0,125,127,5,30,
+        0,0,126,128,3,40,20,0,127,126,1,0,0,0,127,128,1,0,0,0,128,129,1,
+        0,0,0,129,130,5,31,0,0,130,13,1,0,0,0,131,133,5,39,0,0,132,134,3,
+        16,8,0,133,132,1,0,0,0,133,134,1,0,0,0,134,136,1,0,0,0,135,137,5,
+        23,0,0,136,135,1,0,0,0,136,137,1,0,0,0,137,15,1,0,0,0,138,139,5,
+        30,0,0,139,144,3,18,9,0,140,141,5,25,0,0,141,143,3,18,9,0,142,140,
+        1,0,0,0,143,146,1,0,0,0,144,142,1,0,0,0,144,145,1,0,0,0,145,147,
+        1,0,0,0,146,144,1,0,0,0,147,148,5,31,0,0,148,17,1,0,0,0,149,152,
+        5,38,0,0,150,152,3,54,27,0,151,149,1,0,0,0,151,150,1,0,0,0,152,19,
+        1,0,0,0,153,155,5,4,0,0,154,156,3,22,11,0,155,154,1,0,0,0,156,157,
+        1,0,0,0,157,155,1,0,0,0,157,158,1,0,0,0,158,21,1,0,0,0,159,160,3,
+        24,12,0,160,161,5,22,0,0,161,162,3,26,13,0,162,163,5,23,0,0,163,
+        23,1,0,0,0,164,169,5,39,0,0,165,166,5,25,0,0,166,168,5,39,0,0,167,
+        165,1,0,0,0,168,171,1,0,0,0,169,167,1,0,0,0,169,170,1,0,0,0,170,
+        25,1,0,0,0,171,169,1,0,0,0,172,173,7,0,0,0,173,27,1,0,0,0,174,176,
+        3,30,15,0,175,174,1,0,0,0,176,179,1,0,0,0,177,175,1,0,0,0,177,178,
+        1,0,0,0,178,180,1,0,0,0,179,177,1,0,0,0,180,181,5,2,0,0,181,182,
+        3,32,16,0,182,183,5,3,0,0,183,29,1,0,0,0,184,188,3,4,2,0,185,188,
+        3,2,1,0,186,188,3,20,10,0,187,184,1,0,0,0,187,185,1,0,0,0,187,186,
+        1,0,0,0,188,31,1,0,0,0,189,191,3,34,17,0,190,192,5,23,0,0,191,190,
+        1,0,0,0,191,192,1,0,0,0,192,194,1,0,0,0,193,189,1,0,0,0,194,197,
+        1,0,0,0,195,193,1,0,0,0,195,196,1,0,0,0,196,33,1,0,0,0,197,195,1,
+        0,0,0,198,207,3,52,26,0,199,207,3,60,30,0,200,207,3,44,22,0,201,
+        207,3,42,21,0,202,207,3,38,19,0,203,207,3,36,18,0,204,207,3,14,7,
+        0,205,207,3,50,25,0,206,198,1,0,0,0,206,199,1,0,0,0,206,200,1,0,
+        0,0,206,201,1,0,0,0,206,202,1,0,0,0,206,203,1,0,0,0,206,204,1,0,
+        0,0,206,205,1,0,0,0,207,35,1,0,0,0,208,209,5,14,0,0,209,210,5,39,
+        0,0,210,211,5,21,0,0,211,212,3,54,27,0,212,213,7,1,0,0,213,214,3,
+        54,27,0,214,215,5,11,0,0,215,216,3,34,17,0,216,37,1,0,0,0,217,218,
+        5,12,0,0,218,219,3,32,16,0,219,220,5,13,0,0,220,222,3,46,23,0,221,
+        223,5,23,0,0,222,221,1,0,0,0,222,223,1,0,0,0,223,39,1,0,0,0,224,
+        229,3,54,27,0,225,226,5,25,0,0,226,228,3,54,27,0,227,225,1,0,0,0,
+        228,231,1,0,0,0,229,227,1,0,0,0,229,230,1,0,0,0,230,41,1,0,0,0,231,
+        229,1,0,0,0,232,233,5,10,0,0,233,234,3,46,23,0,234,235,5,11,0,0,
+        235,236,3,34,17,0,236,43,1,0,0,0,237,238,5,7,0,0,238,239,3,46,23,
+        0,239,240,5,8,0,0,240,243,3,34,17,0,241,242,5,9,0,0,242,244,3,34,
+        17,0,243,241,1,0,0,0,243,244,1,0,0,0,244,45,1,0,0,0,245,246,3,54,
+        27,0,246,247,3,48,24,0,247,248,3,54,27,0,248,47,1,0,0,0,249,250,
+        7,2,0,0,250,49,1,0,0,0,251,252,5,2,0,0,252,253,3,32,16,0,253,254,
+        5,3,0,0,254,51,1,0,0,0,255,256,7,3,0,0,256,257,5,21,0,0,257,259,
+        3,54,27,0,258,260,5,23,0,0,259,258,1,0,0,0,259,260,1,0,0,0,260,53,
+        1,0,0,0,261,266,3,56,28,0,262,263,7,4,0,0,263,265,3,56,28,0,264,
+        262,1,0,0,0,265,268,1,0,0,0,266,264,1,0,0,0,266,267,1,0,0,0,267,
+        55,1,0,0,0,268,266,1,0,0,0,269,274,3,58,29,0,270,271,7,5,0,0,271,
+        273,3,58,29,0,272,270,1,0,0,0,273,276,1,0,0,0,274,272,1,0,0,0,274,
+        275,1,0,0,0,275,57,1,0,0,0,276,274,1,0,0,0,277,288,5,42,0,0,278,
+        288,5,41,0,0,279,288,5,40,0,0,280,288,5,38,0,0,281,288,5,39,0,0,
+        282,288,3,12,6,0,283,284,5,30,0,0,284,285,3,54,27,0,285,286,5,31,
+        0,0,286,288,1,0,0,0,287,277,1,0,0,0,287,278,1,0,0,0,287,279,1,0,
+        0,0,287,280,1,0,0,0,287,281,1,0,0,0,287,282,1,0,0,0,287,283,1,0,
+        0,0,288,59,1,0,0,0,289,290,5,20,0,0,290,292,5,30,0,0,291,293,3,62,
+        31,0,292,291,1,0,0,0,292,293,1,0,0,0,293,294,1,0,0,0,294,296,5,31,
+        0,0,295,297,5,23,0,0,296,295,1,0,0,0,296,297,1,0,0,0,297,61,1,0,
+        0,0,298,303,3,64,32,0,299,300,5,25,0,0,300,302,3,64,32,0,301,299,
+        1,0,0,0,302,305,1,0,0,0,303,301,1,0,0,0,303,304,1,0,0,0,304,63,1,
+        0,0,0,305,303,1,0,0,0,306,309,5,38,0,0,307,309,3,54,27,0,308,306,
+        1,0,0,0,308,307,1,0,0,0,309,65,1,0,0,0,32,70,74,76,85,92,97,102,
+        110,122,127,133,136,144,151,157,169,177,187,191,195,206,222,229,
+        243,259,266,274,287,292,296,303,308
     ]
 
 class MiniPascalParser ( Parser ):
@@ -119,54 +137,59 @@ class MiniPascalParser ( Parser ):
                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
                      "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                     "':='", "':'", "';'", "'.'", "','", "'+'", "'-'", "'*'", 
-                     "'/'", "'('", "')'", "'='", "'<='", "'<>'", "'<'", 
-                     "'>='", "'>'" ]
+                     "<INVALID>", "':='", "':'", "';'", "'.'", "','", "'+'", 
+                     "'-'", "'*'", "'/'", "'('", "')'", "'='", "'<='", "'<>'", 
+                     "'<'", "'>='", "'>'" ]
 
     symbolicNames = [ "<INVALID>", "PROGRAM", "BEGIN_", "END", "VAR", "DOUBLE", 
                       "INTEGER", "IF", "THEN", "ELSE", "WHILE", "DO", "REPEAT", 
                       "UNTIL", "FOR", "TO", "DOWNTO", "PROCEDURE", "FUNCTION", 
-                      "WRITELN", "ASSIGN", "COLON", "SEMI", "DOT", "COMMA", 
-                      "PLUS", "MINUS", "STAR", "SLASH", "LPAREN", "RPAREN", 
-                      "EQ_OP", "LE_OP", "NE_OP", "LT_OP", "GE_OP", "GT_OP", 
-                      "STRING", "IDENT", "HEXNUMBER", "FLOATNUMBER", "NUMBER", 
-                      "WS", "COMMENT1", "COMMENT2", "COMMENT3" ]
+                      "RESULT", "WRITELN", "ASSIGN", "COLON", "SEMI", "DOT", 
+                      "COMMA", "PLUS", "MINUS", "STAR", "SLASH", "LPAREN", 
+                      "RPAREN", "EQ_OP", "LE_OP", "NE_OP", "LT_OP", "GE_OP", 
+                      "GT_OP", "STRING", "IDENT", "HEXNUMBER", "FLOATNUMBER", 
+                      "NUMBER", "WS", "COMMENT1", "COMMENT2", "COMMENT3" ]
 
     RULE_programFile = 0
-    RULE_procedureDeclaration = 1
-    RULE_formalParamList = 2
-    RULE_formalParam = 3
-    RULE_procedureCallStatement = 4
-    RULE_actualParamList = 5
-    RULE_actualParam = 6
-    RULE_varSection = 7
-    RULE_varDeclaration = 8
-    RULE_identList = 9
-    RULE_typeName = 10
-    RULE_block = 11
-    RULE_statementList = 12
-    RULE_statement = 13
-    RULE_forStatement = 14
-    RULE_repeatStatement = 15
-    RULE_argumentList = 16
-    RULE_whileStatement = 17
-    RULE_ifStatement = 18
-    RULE_condition = 19
-    RULE_compareOp = 20
-    RULE_compoundStatement = 21
-    RULE_assignment = 22
-    RULE_expr = 23
-    RULE_term = 24
-    RULE_factor = 25
-    RULE_writeLnStatement = 26
-    RULE_writeArgList = 27
-    RULE_writeArg = 28
+    RULE_functionDeclaration = 1
+    RULE_procedureDeclaration = 2
+    RULE_formalParamList = 3
+    RULE_formalParam = 4
+    RULE_declaration = 5
+    RULE_functionCallExpr = 6
+    RULE_procedureCallStatement = 7
+    RULE_actualParamList = 8
+    RULE_actualParam = 9
+    RULE_varSection = 10
+    RULE_varDeclaration = 11
+    RULE_identList = 12
+    RULE_typeName = 13
+    RULE_block = 14
+    RULE_localDeclaration = 15
+    RULE_statementList = 16
+    RULE_statement = 17
+    RULE_forStatement = 18
+    RULE_repeatStatement = 19
+    RULE_argumentList = 20
+    RULE_whileStatement = 21
+    RULE_ifStatement = 22
+    RULE_condition = 23
+    RULE_compareOp = 24
+    RULE_compoundStatement = 25
+    RULE_assignment = 26
+    RULE_expr = 27
+    RULE_term = 28
+    RULE_factor = 29
+    RULE_writeLnStatement = 30
+    RULE_writeArgList = 31
+    RULE_writeArg = 32
 
-    ruleNames =  [ "programFile", "procedureDeclaration", "formalParamList", 
-                   "formalParam", "procedureCallStatement", "actualParamList", 
-                   "actualParam", "varSection", "varDeclaration", "identList", 
-                   "typeName", "block", "statementList", "statement", "forStatement", 
-                   "repeatStatement", "argumentList", "whileStatement", 
+    ruleNames =  [ "programFile", "functionDeclaration", "procedureDeclaration", 
+                   "formalParamList", "formalParam", "declaration", "functionCallExpr", 
+                   "procedureCallStatement", "actualParamList", "actualParam", 
+                   "varSection", "varDeclaration", "identList", "typeName", 
+                   "block", "localDeclaration", "statementList", "statement", 
+                   "forStatement", "repeatStatement", "argumentList", "whileStatement", 
                    "ifStatement", "condition", "compareOp", "compoundStatement", 
                    "assignment", "expr", "term", "factor", "writeLnStatement", 
                    "writeArgList", "writeArg" ]
@@ -190,33 +213,34 @@ class MiniPascalParser ( Parser ):
     DOWNTO=16
     PROCEDURE=17
     FUNCTION=18
-    WRITELN=19
-    ASSIGN=20
-    COLON=21
-    SEMI=22
-    DOT=23
-    COMMA=24
-    PLUS=25
-    MINUS=26
-    STAR=27
-    SLASH=28
-    LPAREN=29
-    RPAREN=30
-    EQ_OP=31
-    LE_OP=32
-    NE_OP=33
-    LT_OP=34
-    GE_OP=35
-    GT_OP=36
-    STRING=37
-    IDENT=38
-    HEXNUMBER=39
-    FLOATNUMBER=40
-    NUMBER=41
-    WS=42
-    COMMENT1=43
-    COMMENT2=44
-    COMMENT3=45
+    RESULT=19
+    WRITELN=20
+    ASSIGN=21
+    COLON=22
+    SEMI=23
+    DOT=24
+    COMMA=25
+    PLUS=26
+    MINUS=27
+    STAR=28
+    SLASH=29
+    LPAREN=30
+    RPAREN=31
+    EQ_OP=32
+    LE_OP=33
+    NE_OP=34
+    LT_OP=35
+    GE_OP=36
+    GT_OP=37
+    STRING=38
+    IDENT=39
+    HEXNUMBER=40
+    FLOATNUMBER=41
+    NUMBER=42
+    WS=43
+    COMMENT1=44
+    COMMENT2=45
+    COMMENT3=46
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
@@ -261,6 +285,13 @@ class MiniPascalParser ( Parser ):
                 return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,i)
 
 
+        def functionDeclaration(self, i:int=None):
+            if i is None:
+                return self.getTypedRuleContexts(MiniPascalParser.FunctionDeclarationContext)
+            else:
+                return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,i)
+
+
         def getRuleIndex(self):
             return MiniPascalParser.RULE_programFile
 
@@ -285,37 +316,147 @@ class MiniPascalParser ( Parser ):
 
         localctx = MiniPascalParser.ProgramFileContext(self, self._ctx, self.state)
         self.enterRule(localctx, 0, self.RULE_programFile)
-        self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 58
+            self.state = 66
             self.match(MiniPascalParser.PROGRAM)
-            self.state = 59
+            self.state = 67
             self.match(MiniPascalParser.IDENT)
-            self.state = 60
+            self.state = 68
             self.match(MiniPascalParser.SEMI)
-            self.state = 62
+            self.state = 70
             self._errHandler.sync(self)
-            _la = self._input.LA(1)
-            if _la==4:
-                self.state = 61
+            la_ = self._interp.adaptivePredict(self._input,0,self._ctx)
+            if la_ == 1:
+                self.state = 69
                 self.varSection()
 
 
-            self.state = 67
+            self.state = 76
+            self._errHandler.sync(self)
+            _alt = self._interp.adaptivePredict(self._input,2,self._ctx)
+            while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
+                if _alt==1:
+                    self.state = 74
+                    self._errHandler.sync(self)
+                    token = self._input.LA(1)
+                    if token in [17]:
+                        self.state = 72
+                        self.procedureDeclaration()
+                        pass
+                    elif token in [18]:
+                        self.state = 73
+                        self.functionDeclaration()
+                        pass
+                    else:
+                        raise NoViableAltException(self)
+             
+                self.state = 78
+                self._errHandler.sync(self)
+                _alt = self._interp.adaptivePredict(self._input,2,self._ctx)
+
+            self.state = 79
+            self.block()
+            self.state = 80
+            self.match(MiniPascalParser.DOT)
+        except RecognitionException as re:
+            localctx.exception = re
+            self._errHandler.reportError(self, re)
+            self._errHandler.recover(self, re)
+        finally:
+            self.exitRule()
+        return localctx
+
+
+    class FunctionDeclarationContext(ParserRuleContext):
+        __slots__ = 'parser'
+
+        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+            super().__init__(parent, invokingState)
+            self.parser = parser
+
+        def FUNCTION(self):
+            return self.getToken(MiniPascalParser.FUNCTION, 0)
+
+        def IDENT(self):
+            return self.getToken(MiniPascalParser.IDENT, 0)
+
+        def COLON(self):
+            return self.getToken(MiniPascalParser.COLON, 0)
+
+        def typeName(self):
+            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+
+
+        def SEMI(self, i:int=None):
+            if i is None:
+                return self.getTokens(MiniPascalParser.SEMI)
+            else:
+                return self.getToken(MiniPascalParser.SEMI, i)
+
+        def block(self):
+            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+
+
+        def formalParamList(self):
+            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+
+
+        def getRuleIndex(self):
+            return MiniPascalParser.RULE_functionDeclaration
+
+        def enterRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "enterFunctionDeclaration" ):
+                listener.enterFunctionDeclaration(self)
+
+        def exitRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "exitFunctionDeclaration" ):
+                listener.exitFunctionDeclaration(self)
+
+        def accept(self, visitor:ParseTreeVisitor):
+            if hasattr( visitor, "visitFunctionDeclaration" ):
+                return visitor.visitFunctionDeclaration(self)
+            else:
+                return visitor.visitChildren(self)
+
+
+
+
+    def functionDeclaration(self):
+
+        localctx = MiniPascalParser.FunctionDeclarationContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 2, self.RULE_functionDeclaration)
+        self._la = 0 # Token type
+        try:
+            self.enterOuterAlt(localctx, 1)
+            self.state = 82
+            self.match(MiniPascalParser.FUNCTION)
+            self.state = 83
+            self.match(MiniPascalParser.IDENT)
+            self.state = 85
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==17:
-                self.state = 64
-                self.procedureDeclaration()
-                self.state = 69
-                self._errHandler.sync(self)
-                _la = self._input.LA(1)
+            if _la==30:
+                self.state = 84
+                self.formalParamList()
 
-            self.state = 70
+
+            self.state = 87
+            self.match(MiniPascalParser.COLON)
+            self.state = 88
+            self.typeName()
+            self.state = 89
+            self.match(MiniPascalParser.SEMI)
+            self.state = 90
             self.block()
-            self.state = 71
-            self.match(MiniPascalParser.DOT)
+            self.state = 92
+            self._errHandler.sync(self)
+            _la = self._input.LA(1)
+            if _la==23:
+                self.state = 91
+                self.match(MiniPascalParser.SEMI)
+
+
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -375,31 +516,31 @@ class MiniPascalParser ( Parser ):
     def procedureDeclaration(self):
 
         localctx = MiniPascalParser.ProcedureDeclarationContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 2, self.RULE_procedureDeclaration)
+        self.enterRule(localctx, 4, self.RULE_procedureDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 73
+            self.state = 94
             self.match(MiniPascalParser.PROCEDURE)
-            self.state = 74
+            self.state = 95
             self.match(MiniPascalParser.IDENT)
-            self.state = 76
+            self.state = 97
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==29:
-                self.state = 75
+            if _la==30:
+                self.state = 96
                 self.formalParamList()
 
 
-            self.state = 78
+            self.state = 99
             self.match(MiniPascalParser.SEMI)
-            self.state = 79
+            self.state = 100
             self.block()
-            self.state = 81
+            self.state = 102
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==22:
-                self.state = 80
+            if _la==23:
+                self.state = 101
                 self.match(MiniPascalParser.SEMI)
 
 
@@ -461,27 +602,27 @@ class MiniPascalParser ( Parser ):
     def formalParamList(self):
 
         localctx = MiniPascalParser.FormalParamListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 4, self.RULE_formalParamList)
+        self.enterRule(localctx, 6, self.RULE_formalParamList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 83
+            self.state = 104
             self.match(MiniPascalParser.LPAREN)
-            self.state = 84
+            self.state = 105
             self.formalParam()
-            self.state = 89
+            self.state = 110
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==22:
-                self.state = 85
+            while _la==23:
+                self.state = 106
                 self.match(MiniPascalParser.SEMI)
-                self.state = 86
+                self.state = 107
                 self.formalParam()
-                self.state = 91
+                self.state = 112
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
-            self.state = 92
+            self.state = 113
             self.match(MiniPascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
@@ -533,15 +674,159 @@ class MiniPascalParser ( Parser ):
     def formalParam(self):
 
         localctx = MiniPascalParser.FormalParamContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 6, self.RULE_formalParam)
+        self.enterRule(localctx, 8, self.RULE_formalParam)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 94
+            self.state = 115
             self.identList()
-            self.state = 95
+            self.state = 116
             self.match(MiniPascalParser.COLON)
-            self.state = 96
+            self.state = 117
             self.typeName()
+        except RecognitionException as re:
+            localctx.exception = re
+            self._errHandler.reportError(self, re)
+            self._errHandler.recover(self, re)
+        finally:
+            self.exitRule()
+        return localctx
+
+
+    class DeclarationContext(ParserRuleContext):
+        __slots__ = 'parser'
+
+        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+            super().__init__(parent, invokingState)
+            self.parser = parser
+
+        def varSection(self):
+            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+
+
+        def procedureDeclaration(self):
+            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+
+
+        def functionDeclaration(self):
+            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+
+
+        def getRuleIndex(self):
+            return MiniPascalParser.RULE_declaration
+
+        def enterRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "enterDeclaration" ):
+                listener.enterDeclaration(self)
+
+        def exitRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "exitDeclaration" ):
+                listener.exitDeclaration(self)
+
+        def accept(self, visitor:ParseTreeVisitor):
+            if hasattr( visitor, "visitDeclaration" ):
+                return visitor.visitDeclaration(self)
+            else:
+                return visitor.visitChildren(self)
+
+
+
+
+    def declaration(self):
+
+        localctx = MiniPascalParser.DeclarationContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 10, self.RULE_declaration)
+        try:
+            self.state = 122
+            self._errHandler.sync(self)
+            token = self._input.LA(1)
+            if token in [4]:
+                self.enterOuterAlt(localctx, 1)
+                self.state = 119
+                self.varSection()
+                pass
+            elif token in [17]:
+                self.enterOuterAlt(localctx, 2)
+                self.state = 120
+                self.procedureDeclaration()
+                pass
+            elif token in [18]:
+                self.enterOuterAlt(localctx, 3)
+                self.state = 121
+                self.functionDeclaration()
+                pass
+            else:
+                raise NoViableAltException(self)
+
+        except RecognitionException as re:
+            localctx.exception = re
+            self._errHandler.reportError(self, re)
+            self._errHandler.recover(self, re)
+        finally:
+            self.exitRule()
+        return localctx
+
+
+    class FunctionCallExprContext(ParserRuleContext):
+        __slots__ = 'parser'
+
+        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+            super().__init__(parent, invokingState)
+            self.parser = parser
+
+        def IDENT(self):
+            return self.getToken(MiniPascalParser.IDENT, 0)
+
+        def LPAREN(self):
+            return self.getToken(MiniPascalParser.LPAREN, 0)
+
+        def RPAREN(self):
+            return self.getToken(MiniPascalParser.RPAREN, 0)
+
+        def argumentList(self):
+            return self.getTypedRuleContext(MiniPascalParser.ArgumentListContext,0)
+
+
+        def getRuleIndex(self):
+            return MiniPascalParser.RULE_functionCallExpr
+
+        def enterRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "enterFunctionCallExpr" ):
+                listener.enterFunctionCallExpr(self)
+
+        def exitRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "exitFunctionCallExpr" ):
+                listener.exitFunctionCallExpr(self)
+
+        def accept(self, visitor:ParseTreeVisitor):
+            if hasattr( visitor, "visitFunctionCallExpr" ):
+                return visitor.visitFunctionCallExpr(self)
+            else:
+                return visitor.visitChildren(self)
+
+
+
+
+    def functionCallExpr(self):
+
+        localctx = MiniPascalParser.FunctionCallExprContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 12, self.RULE_functionCallExpr)
+        self._la = 0 # Token type
+        try:
+            self.enterOuterAlt(localctx, 1)
+            self.state = 124
+            self.match(MiniPascalParser.IDENT)
+            self.state = 125
+            self.match(MiniPascalParser.LPAREN)
+            self.state = 127
+            self._errHandler.sync(self)
+            _la = self._input.LA(1)
+            if (((_la) & ~0x3f) == 0 and ((1 << _la) & 8522288857088) != 0):
+                self.state = 126
+                self.argumentList()
+
+
+            self.state = 129
+            self.match(MiniPascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -591,25 +876,25 @@ class MiniPascalParser ( Parser ):
     def procedureCallStatement(self):
 
         localctx = MiniPascalParser.ProcedureCallStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 8, self.RULE_procedureCallStatement)
+        self.enterRule(localctx, 14, self.RULE_procedureCallStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 98
+            self.state = 131
             self.match(MiniPascalParser.IDENT)
-            self.state = 100
+            self.state = 133
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if _la==29:
-                self.state = 99
+            if _la==30:
+                self.state = 132
                 self.actualParamList()
 
 
-            self.state = 103
+            self.state = 136
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,6,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,11,self._ctx)
             if la_ == 1:
-                self.state = 102
+                self.state = 135
                 self.match(MiniPascalParser.SEMI)
 
 
@@ -671,27 +956,27 @@ class MiniPascalParser ( Parser ):
     def actualParamList(self):
 
         localctx = MiniPascalParser.ActualParamListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 10, self.RULE_actualParamList)
+        self.enterRule(localctx, 16, self.RULE_actualParamList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 105
+            self.state = 138
             self.match(MiniPascalParser.LPAREN)
-            self.state = 106
+            self.state = 139
             self.actualParam()
-            self.state = 111
+            self.state = 144
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==24:
-                self.state = 107
+            while _la==25:
+                self.state = 140
                 self.match(MiniPascalParser.COMMA)
-                self.state = 108
+                self.state = 141
                 self.actualParam()
-                self.state = 113
+                self.state = 146
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
-            self.state = 114
+            self.state = 147
             self.match(MiniPascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
@@ -739,23 +1024,23 @@ class MiniPascalParser ( Parser ):
     def actualParam(self):
 
         localctx = MiniPascalParser.ActualParamContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 12, self.RULE_actualParam)
+        self.enterRule(localctx, 18, self.RULE_actualParam)
         try:
-            self.state = 118
+            self.state = 151
             self._errHandler.sync(self)
-            token = self._input.LA(1)
-            if token in [37]:
+            la_ = self._interp.adaptivePredict(self._input,13,self._ctx)
+            if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 116
+                self.state = 149
                 self.match(MiniPascalParser.STRING)
                 pass
-            elif token in [29, 38, 39, 40, 41]:
+
+            elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 117
+                self.state = 150
                 self.expr()
                 pass
-            else:
-                raise NoViableAltException(self)
+
 
         except RecognitionException as re:
             localctx.exception = re
@@ -806,22 +1091,22 @@ class MiniPascalParser ( Parser ):
     def varSection(self):
 
         localctx = MiniPascalParser.VarSectionContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 14, self.RULE_varSection)
+        self.enterRule(localctx, 20, self.RULE_varSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 120
+            self.state = 153
             self.match(MiniPascalParser.VAR)
-            self.state = 122 
+            self.state = 155 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while True:
-                self.state = 121
+                self.state = 154
                 self.varDeclaration()
-                self.state = 124 
+                self.state = 157 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not (_la==38):
+                if not (_la==39):
                     break
 
         except RecognitionException as re:
@@ -877,16 +1162,16 @@ class MiniPascalParser ( Parser ):
     def varDeclaration(self):
 
         localctx = MiniPascalParser.VarDeclarationContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 16, self.RULE_varDeclaration)
+        self.enterRule(localctx, 22, self.RULE_varDeclaration)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 126
+            self.state = 159
             self.identList()
-            self.state = 127
+            self.state = 160
             self.match(MiniPascalParser.COLON)
-            self.state = 128
+            self.state = 161
             self.typeName()
-            self.state = 129
+            self.state = 162
             self.match(MiniPascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
@@ -939,21 +1224,21 @@ class MiniPascalParser ( Parser ):
     def identList(self):
 
         localctx = MiniPascalParser.IdentListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 18, self.RULE_identList)
+        self.enterRule(localctx, 24, self.RULE_identList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 131
+            self.state = 164
             self.match(MiniPascalParser.IDENT)
-            self.state = 136
+            self.state = 169
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==24:
-                self.state = 132
+            while _la==25:
+                self.state = 165
                 self.match(MiniPascalParser.COMMA)
-                self.state = 133
+                self.state = 166
                 self.match(MiniPascalParser.IDENT)
-                self.state = 138
+                self.state = 171
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -1005,13 +1290,13 @@ class MiniPascalParser ( Parser ):
     def typeName(self):
 
         localctx = MiniPascalParser.TypeNameContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 20, self.RULE_typeName)
+        self.enterRule(localctx, 26, self.RULE_typeName)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 139
+            self.state = 172
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 274877907040) != 0)):
+            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 549755813984) != 0)):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1042,6 +1327,13 @@ class MiniPascalParser ( Parser ):
         def END(self):
             return self.getToken(MiniPascalParser.END, 0)
 
+        def localDeclaration(self, i:int=None):
+            if i is None:
+                return self.getTypedRuleContexts(MiniPascalParser.LocalDeclarationContext)
+            else:
+                return self.getTypedRuleContext(MiniPascalParser.LocalDeclarationContext,i)
+
+
         def getRuleIndex(self):
             return MiniPascalParser.RULE_block
 
@@ -1065,15 +1357,100 @@ class MiniPascalParser ( Parser ):
     def block(self):
 
         localctx = MiniPascalParser.BlockContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 22, self.RULE_block)
+        self.enterRule(localctx, 28, self.RULE_block)
+        self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 141
+            self.state = 177
+            self._errHandler.sync(self)
+            _la = self._input.LA(1)
+            while (((_la) & ~0x3f) == 0 and ((1 << _la) & 393232) != 0):
+                self.state = 174
+                self.localDeclaration()
+                self.state = 179
+                self._errHandler.sync(self)
+                _la = self._input.LA(1)
+
+            self.state = 180
             self.match(MiniPascalParser.BEGIN_)
-            self.state = 142
+            self.state = 181
             self.statementList()
-            self.state = 143
+            self.state = 182
             self.match(MiniPascalParser.END)
+        except RecognitionException as re:
+            localctx.exception = re
+            self._errHandler.reportError(self, re)
+            self._errHandler.recover(self, re)
+        finally:
+            self.exitRule()
+        return localctx
+
+
+    class LocalDeclarationContext(ParserRuleContext):
+        __slots__ = 'parser'
+
+        def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
+            super().__init__(parent, invokingState)
+            self.parser = parser
+
+        def procedureDeclaration(self):
+            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+
+
+        def functionDeclaration(self):
+            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+
+
+        def varSection(self):
+            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+
+
+        def getRuleIndex(self):
+            return MiniPascalParser.RULE_localDeclaration
+
+        def enterRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "enterLocalDeclaration" ):
+                listener.enterLocalDeclaration(self)
+
+        def exitRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "exitLocalDeclaration" ):
+                listener.exitLocalDeclaration(self)
+
+        def accept(self, visitor:ParseTreeVisitor):
+            if hasattr( visitor, "visitLocalDeclaration" ):
+                return visitor.visitLocalDeclaration(self)
+            else:
+                return visitor.visitChildren(self)
+
+
+
+
+    def localDeclaration(self):
+
+        localctx = MiniPascalParser.LocalDeclarationContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 30, self.RULE_localDeclaration)
+        try:
+            self.state = 187
+            self._errHandler.sync(self)
+            token = self._input.LA(1)
+            if token in [17]:
+                self.enterOuterAlt(localctx, 1)
+                self.state = 184
+                self.procedureDeclaration()
+                pass
+            elif token in [18]:
+                self.enterOuterAlt(localctx, 2)
+                self.state = 185
+                self.functionDeclaration()
+                pass
+            elif token in [4]:
+                self.enterOuterAlt(localctx, 3)
+                self.state = 186
+                self.varSection()
+                pass
+            else:
+                raise NoViableAltException(self)
+
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1126,25 +1503,25 @@ class MiniPascalParser ( Parser ):
     def statementList(self):
 
         localctx = MiniPascalParser.StatementListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 24, self.RULE_statementList)
+        self.enterRule(localctx, 32, self.RULE_statementList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 151
+            self.state = 195
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while (((_la) & ~0x3f) == 0 and ((1 << _la) & 274878452868) != 0):
-                self.state = 145
+            while (((_la) & ~0x3f) == 0 and ((1 << _la) & 549757408388) != 0):
+                self.state = 189
                 self.statement()
-                self.state = 147
+                self.state = 191
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if _la==22:
-                    self.state = 146
+                if _la==23:
+                    self.state = 190
                     self.match(MiniPascalParser.SEMI)
 
 
-                self.state = 153
+                self.state = 197
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -1219,56 +1596,56 @@ class MiniPascalParser ( Parser ):
     def statement(self):
 
         localctx = MiniPascalParser.StatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 26, self.RULE_statement)
+        self.enterRule(localctx, 34, self.RULE_statement)
         try:
-            self.state = 162
+            self.state = 206
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,13,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,20,self._ctx)
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 154
+                self.state = 198
                 self.assignment()
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 155
+                self.state = 199
                 self.writeLnStatement()
                 pass
 
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
-                self.state = 156
+                self.state = 200
                 self.ifStatement()
                 pass
 
             elif la_ == 4:
                 self.enterOuterAlt(localctx, 4)
-                self.state = 157
+                self.state = 201
                 self.whileStatement()
                 pass
 
             elif la_ == 5:
                 self.enterOuterAlt(localctx, 5)
-                self.state = 158
+                self.state = 202
                 self.repeatStatement()
                 pass
 
             elif la_ == 6:
                 self.enterOuterAlt(localctx, 6)
-                self.state = 159
+                self.state = 203
                 self.forStatement()
                 pass
 
             elif la_ == 7:
                 self.enterOuterAlt(localctx, 7)
-                self.state = 160
+                self.state = 204
                 self.procedureCallStatement()
                 pass
 
             elif la_ == 8:
                 self.enterOuterAlt(localctx, 8)
-                self.state = 161
+                self.state = 205
                 self.compoundStatement()
                 pass
 
@@ -1341,30 +1718,30 @@ class MiniPascalParser ( Parser ):
     def forStatement(self):
 
         localctx = MiniPascalParser.ForStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 28, self.RULE_forStatement)
+        self.enterRule(localctx, 36, self.RULE_forStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 164
+            self.state = 208
             self.match(MiniPascalParser.FOR)
-            self.state = 165
+            self.state = 209
             self.match(MiniPascalParser.IDENT)
-            self.state = 166
+            self.state = 210
             self.match(MiniPascalParser.ASSIGN)
-            self.state = 167
+            self.state = 211
             self.expr()
-            self.state = 168
+            self.state = 212
             _la = self._input.LA(1)
             if not(_la==15 or _la==16):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
                 self.consume()
-            self.state = 169
+            self.state = 213
             self.expr()
-            self.state = 170
+            self.state = 214
             self.match(MiniPascalParser.DO)
-            self.state = 171
+            self.state = 215
             self.statement()
         except RecognitionException as re:
             localctx.exception = re
@@ -1422,22 +1799,22 @@ class MiniPascalParser ( Parser ):
     def repeatStatement(self):
 
         localctx = MiniPascalParser.RepeatStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 30, self.RULE_repeatStatement)
+        self.enterRule(localctx, 38, self.RULE_repeatStatement)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 173
+            self.state = 217
             self.match(MiniPascalParser.REPEAT)
-            self.state = 174
+            self.state = 218
             self.statementList()
-            self.state = 175
+            self.state = 219
             self.match(MiniPascalParser.UNTIL)
-            self.state = 176
+            self.state = 220
             self.condition()
-            self.state = 178
+            self.state = 222
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,14,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,21,self._ctx)
             if la_ == 1:
-                self.state = 177
+                self.state = 221
                 self.match(MiniPascalParser.SEMI)
 
 
@@ -1493,21 +1870,21 @@ class MiniPascalParser ( Parser ):
     def argumentList(self):
 
         localctx = MiniPascalParser.ArgumentListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 32, self.RULE_argumentList)
+        self.enterRule(localctx, 40, self.RULE_argumentList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 180
+            self.state = 224
             self.expr()
-            self.state = 185
+            self.state = 229
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==24:
-                self.state = 181
+            while _la==25:
+                self.state = 225
                 self.match(MiniPascalParser.COMMA)
-                self.state = 182
+                self.state = 226
                 self.expr()
-                self.state = 187
+                self.state = 231
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -1564,16 +1941,16 @@ class MiniPascalParser ( Parser ):
     def whileStatement(self):
 
         localctx = MiniPascalParser.WhileStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 34, self.RULE_whileStatement)
+        self.enterRule(localctx, 42, self.RULE_whileStatement)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 188
+            self.state = 232
             self.match(MiniPascalParser.WHILE)
-            self.state = 189
+            self.state = 233
             self.condition()
-            self.state = 190
+            self.state = 234
             self.match(MiniPascalParser.DO)
-            self.state = 191
+            self.state = 235
             self.statement()
         except RecognitionException as re:
             localctx.exception = re
@@ -1634,24 +2011,24 @@ class MiniPascalParser ( Parser ):
     def ifStatement(self):
 
         localctx = MiniPascalParser.IfStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 36, self.RULE_ifStatement)
+        self.enterRule(localctx, 44, self.RULE_ifStatement)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 193
+            self.state = 237
             self.match(MiniPascalParser.IF)
-            self.state = 194
+            self.state = 238
             self.condition()
-            self.state = 195
+            self.state = 239
             self.match(MiniPascalParser.THEN)
-            self.state = 196
+            self.state = 240
             self.statement()
-            self.state = 199
+            self.state = 243
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,16,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,23,self._ctx)
             if la_ == 1:
-                self.state = 197
+                self.state = 241
                 self.match(MiniPascalParser.ELSE)
-                self.state = 198
+                self.state = 242
                 self.statement()
 
 
@@ -1705,14 +2082,14 @@ class MiniPascalParser ( Parser ):
     def condition(self):
 
         localctx = MiniPascalParser.ConditionContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 38, self.RULE_condition)
+        self.enterRule(localctx, 46, self.RULE_condition)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 201
+            self.state = 245
             self.expr()
-            self.state = 202
+            self.state = 246
             self.compareOp()
-            self.state = 203
+            self.state = 247
             self.expr()
         except RecognitionException as re:
             localctx.exception = re
@@ -1771,13 +2148,13 @@ class MiniPascalParser ( Parser ):
     def compareOp(self):
 
         localctx = MiniPascalParser.CompareOpContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 40, self.RULE_compareOp)
+        self.enterRule(localctx, 48, self.RULE_compareOp)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 205
+            self.state = 249
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 135291469824) != 0)):
+            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 270582939648) != 0)):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1831,14 +2208,14 @@ class MiniPascalParser ( Parser ):
     def compoundStatement(self):
 
         localctx = MiniPascalParser.CompoundStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 42, self.RULE_compoundStatement)
+        self.enterRule(localctx, 50, self.RULE_compoundStatement)
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 207
+            self.state = 251
             self.match(MiniPascalParser.BEGIN_)
-            self.state = 208
+            self.state = 252
             self.statementList()
-            self.state = 209
+            self.state = 253
             self.match(MiniPascalParser.END)
         except RecognitionException as re:
             localctx.exception = re
@@ -1856,15 +2233,18 @@ class MiniPascalParser ( Parser ):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-        def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
-
         def ASSIGN(self):
             return self.getToken(MiniPascalParser.ASSIGN, 0)
 
         def expr(self):
             return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
 
+
+        def IDENT(self):
+            return self.getToken(MiniPascalParser.IDENT, 0)
+
+        def RESULT(self):
+            return self.getToken(MiniPascalParser.RESULT, 0)
 
         def SEMI(self):
             return self.getToken(MiniPascalParser.SEMI, 0)
@@ -1892,20 +2272,26 @@ class MiniPascalParser ( Parser ):
     def assignment(self):
 
         localctx = MiniPascalParser.AssignmentContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 44, self.RULE_assignment)
+        self.enterRule(localctx, 52, self.RULE_assignment)
+        self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 211
-            self.match(MiniPascalParser.IDENT)
-            self.state = 212
+            self.state = 255
+            _la = self._input.LA(1)
+            if not(_la==19 or _la==39):
+                self._errHandler.recoverInline(self)
+            else:
+                self._errHandler.reportMatch(self)
+                self.consume()
+            self.state = 256
             self.match(MiniPascalParser.ASSIGN)
-            self.state = 213
+            self.state = 257
             self.expr()
-            self.state = 215
+            self.state = 259
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,17,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,24,self._ctx)
             if la_ == 1:
-                self.state = 214
+                self.state = 258
                 self.match(MiniPascalParser.SEMI)
 
 
@@ -1967,26 +2353,26 @@ class MiniPascalParser ( Parser ):
     def expr(self):
 
         localctx = MiniPascalParser.ExprContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 46, self.RULE_expr)
+        self.enterRule(localctx, 54, self.RULE_expr)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 217
+            self.state = 261
             self.term()
-            self.state = 222
+            self.state = 266
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==25 or _la==26:
-                self.state = 218
+            while _la==26 or _la==27:
+                self.state = 262
                 _la = self._input.LA(1)
-                if not(_la==25 or _la==26):
+                if not(_la==26 or _la==27):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
                     self.consume()
-                self.state = 219
+                self.state = 263
                 self.term()
-                self.state = 224
+                self.state = 268
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -2048,26 +2434,26 @@ class MiniPascalParser ( Parser ):
     def term(self):
 
         localctx = MiniPascalParser.TermContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 48, self.RULE_term)
+        self.enterRule(localctx, 56, self.RULE_term)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 225
+            self.state = 269
             self.factor()
-            self.state = 230
+            self.state = 274
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==27 or _la==28:
-                self.state = 226
+            while _la==28 or _la==29:
+                self.state = 270
                 _la = self._input.LA(1)
-                if not(_la==27 or _la==28):
+                if not(_la==28 or _la==29):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
                     self.consume()
-                self.state = 227
+                self.state = 271
                 self.factor()
-                self.state = 232
+                self.state = 276
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -2096,8 +2482,15 @@ class MiniPascalParser ( Parser ):
         def HEXNUMBER(self):
             return self.getToken(MiniPascalParser.HEXNUMBER, 0)
 
+        def STRING(self):
+            return self.getToken(MiniPascalParser.STRING, 0)
+
         def IDENT(self):
             return self.getToken(MiniPascalParser.IDENT, 0)
+
+        def functionCallExpr(self):
+            return self.getTypedRuleContext(MiniPascalParser.FunctionCallExprContext,0)
+
 
         def LPAREN(self):
             return self.getToken(MiniPascalParser.LPAREN, 0)
@@ -2132,42 +2525,57 @@ class MiniPascalParser ( Parser ):
     def factor(self):
 
         localctx = MiniPascalParser.FactorContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 50, self.RULE_factor)
+        self.enterRule(localctx, 58, self.RULE_factor)
         try:
-            self.state = 241
+            self.state = 287
             self._errHandler.sync(self)
-            token = self._input.LA(1)
-            if token in [41]:
+            la_ = self._interp.adaptivePredict(self._input,27,self._ctx)
+            if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 233
+                self.state = 277
                 self.match(MiniPascalParser.NUMBER)
                 pass
-            elif token in [40]:
+
+            elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 234
+                self.state = 278
                 self.match(MiniPascalParser.FLOATNUMBER)
                 pass
-            elif token in [39]:
+
+            elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
-                self.state = 235
+                self.state = 279
                 self.match(MiniPascalParser.HEXNUMBER)
                 pass
-            elif token in [38]:
+
+            elif la_ == 4:
                 self.enterOuterAlt(localctx, 4)
-                self.state = 236
+                self.state = 280
+                self.match(MiniPascalParser.STRING)
+                pass
+
+            elif la_ == 5:
+                self.enterOuterAlt(localctx, 5)
+                self.state = 281
                 self.match(MiniPascalParser.IDENT)
                 pass
-            elif token in [29]:
-                self.enterOuterAlt(localctx, 5)
-                self.state = 237
+
+            elif la_ == 6:
+                self.enterOuterAlt(localctx, 6)
+                self.state = 282
+                self.functionCallExpr()
+                pass
+
+            elif la_ == 7:
+                self.enterOuterAlt(localctx, 7)
+                self.state = 283
                 self.match(MiniPascalParser.LPAREN)
-                self.state = 238
+                self.state = 284
                 self.expr()
-                self.state = 239
+                self.state = 285
                 self.match(MiniPascalParser.RPAREN)
                 pass
-            else:
-                raise NoViableAltException(self)
+
 
         except RecognitionException as re:
             localctx.exception = re
@@ -2224,29 +2632,29 @@ class MiniPascalParser ( Parser ):
     def writeLnStatement(self):
 
         localctx = MiniPascalParser.WriteLnStatementContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 52, self.RULE_writeLnStatement)
+        self.enterRule(localctx, 60, self.RULE_writeLnStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 243
+            self.state = 289
             self.match(MiniPascalParser.WRITELN)
-            self.state = 244
+            self.state = 290
             self.match(MiniPascalParser.LPAREN)
-            self.state = 246
+            self.state = 292
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & 4261144428544) != 0):
-                self.state = 245
+            if (((_la) & ~0x3f) == 0 and ((1 << _la) & 8522288857088) != 0):
+                self.state = 291
                 self.writeArgList()
 
 
-            self.state = 248
+            self.state = 294
             self.match(MiniPascalParser.RPAREN)
-            self.state = 250
+            self.state = 296
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,22,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,29,self._ctx)
             if la_ == 1:
-                self.state = 249
+                self.state = 295
                 self.match(MiniPascalParser.SEMI)
 
 
@@ -2302,21 +2710,21 @@ class MiniPascalParser ( Parser ):
     def writeArgList(self):
 
         localctx = MiniPascalParser.WriteArgListContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 54, self.RULE_writeArgList)
+        self.enterRule(localctx, 62, self.RULE_writeArgList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
-            self.state = 252
+            self.state = 298
             self.writeArg()
-            self.state = 257
+            self.state = 303
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==24:
-                self.state = 253
+            while _la==25:
+                self.state = 299
                 self.match(MiniPascalParser.COMMA)
-                self.state = 254
+                self.state = 300
                 self.writeArg()
-                self.state = 259
+                self.state = 305
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
 
@@ -2366,23 +2774,23 @@ class MiniPascalParser ( Parser ):
     def writeArg(self):
 
         localctx = MiniPascalParser.WriteArgContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 56, self.RULE_writeArg)
+        self.enterRule(localctx, 64, self.RULE_writeArg)
         try:
-            self.state = 262
+            self.state = 308
             self._errHandler.sync(self)
-            token = self._input.LA(1)
-            if token in [37]:
+            la_ = self._interp.adaptivePredict(self._input,31,self._ctx)
+            if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
-                self.state = 260
+                self.state = 306
                 self.match(MiniPascalParser.STRING)
                 pass
-            elif token in [29, 38, 39, 40, 41]:
+
+            elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
-                self.state = 261
+                self.state = 307
                 self.expr()
                 pass
-            else:
-                raise NoViableAltException(self)
+
 
         except RecognitionException as re:
             localctx.exception = re

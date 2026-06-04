@@ -5,7 +5,11 @@ options {
 }
 
 programFile
-    : PROGRAM IDENT SEMI varSection? procedureDeclaration* block DOT
+    : PROGRAM IDENT SEMI varSection? (procedureDeclaration | functionDeclaration)* block DOT
+    ;
+
+functionDeclaration
+    : FUNCTION IDENT formalParamList? COLON typeName SEMI block SEMI?
     ;
 
 procedureDeclaration
@@ -18,6 +22,16 @@ formalParamList
 
 formalParam
     : identList COLON typeName
+    ;
+
+declaration
+    : varSection
+    | procedureDeclaration
+    | functionDeclaration
+    ;
+
+functionCallExpr
+    : IDENT LPAREN argumentList? RPAREN
     ;
 
 procedureCallStatement
@@ -52,9 +66,15 @@ typeName
     ;
 
 block
-    : BEGIN_ statementList END
+    : localDeclaration* BEGIN_ statementList END
     ;
 
+localDeclaration
+    : procedureDeclaration
+    | functionDeclaration
+    | varSection
+    ;
+    
 statementList
     : (statement SEMI?)* 
     ;
@@ -108,7 +128,7 @@ compoundStatement
     ;
 
 assignment
-    : IDENT ASSIGN expr SEMI?
+    : (IDENT | RESULT) ASSIGN expr SEMI?
     ;
 
 expr
@@ -123,7 +143,9 @@ factor
     : NUMBER
     | FLOATNUMBER
     | HEXNUMBER
+    | STRING
     | IDENT
+    | functionCallExpr
     | LPAREN expr RPAREN
     ;
 

@@ -14,6 +14,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#functionDeclaration.
+    def visitFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#procedureDeclaration.
     def visitProcedureDeclaration(self, ctx:MiniPascalParser.ProcedureDeclarationContext):
         return self.visitChildren(ctx)
@@ -26,6 +31,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#formalParam.
     def visitFormalParam(self, ctx:MiniPascalParser.FormalParamContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#declaration.
+    def visitDeclaration(self, ctx:MiniPascalParser.DeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#functionCallExpr.
+    def visitFunctionCallExpr(self, ctx:MiniPascalParser.FunctionCallExprContext):
         return self.visitChildren(ctx)
 
 
@@ -66,6 +81,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#block.
     def visitBlock(self, ctx:MiniPascalParser.BlockContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#localDeclaration.
+    def visitLocalDeclaration(self, ctx:MiniPascalParser.LocalDeclarationContext):
         return self.visitChildren(ctx)
 
 

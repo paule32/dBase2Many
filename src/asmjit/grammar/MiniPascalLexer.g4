@@ -24,6 +24,7 @@ DOWNTO      : [Dd][Oo][Ww][Nn][Tt][Oo] ;
 
 PROCEDURE   : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 FUNCTION    : [Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn] ;
+RESULT      : [Rr][Ee][Ss][Uu][Ll][Tt] ;
 
 WRITELN     : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 

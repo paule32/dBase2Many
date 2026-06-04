@@ -17,6 +17,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#functionDeclaration.
+    def enterFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#functionDeclaration.
+    def exitFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#procedureDeclaration.
     def enterProcedureDeclaration(self, ctx:MiniPascalParser.ProcedureDeclarationContext):
         pass
@@ -41,6 +50,24 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#formalParam.
     def exitFormalParam(self, ctx:MiniPascalParser.FormalParamContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#declaration.
+    def enterDeclaration(self, ctx:MiniPascalParser.DeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#declaration.
+    def exitDeclaration(self, ctx:MiniPascalParser.DeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#functionCallExpr.
+    def enterFunctionCallExpr(self, ctx:MiniPascalParser.FunctionCallExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#functionCallExpr.
+    def exitFunctionCallExpr(self, ctx:MiniPascalParser.FunctionCallExprContext):
         pass
 
 
@@ -113,6 +140,15 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#block.
     def exitBlock(self, ctx:MiniPascalParser.BlockContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#localDeclaration.
+    def enterLocalDeclaration(self, ctx:MiniPascalParser.LocalDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#localDeclaration.
+    def exitLocalDeclaration(self, ctx:MiniPascalParser.LocalDeclarationContext):
         pass
 
 
