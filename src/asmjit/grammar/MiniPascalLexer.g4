@@ -4,6 +4,7 @@ PROGRAM     : [Pp][Rr][Oo][Gg][Rr][Aa][Mm] ;
 BEGIN_      : [Bb][Ee][Gg][Ii][Nn] ;
 END         : [Ee][Nn][Dd] ;
 
+CONST       : [Cc][Oo][Nn][Ss][Tt] ;
 VAR         : [Vv][Aa][Rr] ;
 DOUBLE      : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER     : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;

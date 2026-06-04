@@ -20,11 +20,12 @@ using namespace std;
 using namespace asmjit;
 
 struct JitContext {
-    int*    int_vars;
-    double* double_vars;
+    int*            int_vars;
+    double*         double_vars;
+    const char**    string_vars;
 
-    int     print_int_tmp;
-    double  print_double_tmp;
+    int             print_int_tmp;
+    double          print_double_tmp;
 };
 typedef void (*JitFunc)(JitContext* ctx);
 
@@ -39,7 +40,11 @@ extern "C" void jit_print_int(int v)          { std::cout << v; }
 extern "C" void jit_print_double(double v)    { std::cout << v; }
 extern "C" void jit_print_newline()           { std::cout << std::endl; }
 
-static const char str_0[] = "Pi: ";
+static const char str_0[] = "Foo Fuu";
+static const char str_1[] = "i : ";
+static const char str_2[] = "d : ";
+static const char str_3[] = "s : ";
+static const char str_4[] = "Pi: ";
 
 int main() {
     JitRuntime rt;
@@ -55,8 +60,6 @@ int main() {
     code.set_logger(&logger);
     x86::Assembler a(&code);
 
-    a.push(x86::r12);
-    a.mov (x86::r12, x86::rcx); // ctx
     Label func_PiValue_1 = a.new_label();
     Label endfunc_PiValue_2 = a.new_label();
     a.jmp(endfunc_PiValue_2);
@@ -64,18 +67,124 @@ int main() {
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
     a.sub(x86::rsp, 256); // local variables
-    a.mov(x86::rax, imm(double_to_bits(3.1415926))); // dbl_3_1415926_0
+    a.mov(x86::rax, imm(double_to_bits(3.1415926)));
     a.movq(x86::xmm0, x86::rax);
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
     a.bind(endfunc_PiValue_2);
-    a.mov(x86::rcx, imm((uint64_t)str_0));
+    Label func_GetInteger_3 = a.new_label();
+    Label endfunc_GetInteger_4 = a.new_label();
+    a.jmp(endfunc_GetInteger_4);
+    a.bind(func_GetInteger_3);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.sub(x86::rsp, 256); // local variables
+    a.mov(x86::eax, 42);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endfunc_GetInteger_4);
+    Label func_GetDouble_5 = a.new_label();
+    Label endfunc_GetDouble_6 = a.new_label();
+    a.jmp(endfunc_GetDouble_6);
+    a.bind(func_GetDouble_5);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.sub(x86::rsp, 256); // local variables
+    a.mov(x86::rax, imm(double_to_bits(12.34)));
+    a.movq(x86::xmm0, x86::rax);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endfunc_GetDouble_6);
+    Label func_GetString_7 = a.new_label();
+    Label endfunc_GetString_8 = a.new_label();
+    a.jmp(endfunc_GetString_8);
+    a.bind(func_GetString_7);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.sub(x86::rsp, 256); // local variables
+    a.mov(x86::rax, imm((uint64_t)str_0));
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endfunc_GetString_8);
+    a.push(x86::r12);
+    a.mov (x86::r12, x86::rcx); // ctx
+    a.sub(x86::rsp, 32); // shadow space for parameterless function call
+    a.call(func_GetInteger_3);
+    a.add(x86::rsp, 32);
+    a.mov(x86::ebx, x86::eax);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // i
+    a.sub(x86::rsp, 32); // shadow space for parameterless function call
+    a.call(func_GetDouble_5);
+    a.add(x86::rsp, 32);
+    a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
+    a.movsd(x86::qword_ptr(x86::r11, 0), x86::xmm0); // d
+    a.sub(x86::rsp, 32); // shadow space for parameterless function call
+    a.call(func_GetString_7);
+    a.add(x86::rsp, 32);
+    a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));
+    a.mov(x86::qword_ptr(x86::r11, 0), x86::rax); // s
+    a.mov(x86::rcx, imm((uint64_t)str_1));
     a.mov(x86::rax, imm((uint64_t)&jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.sub(x86::rsp, 32); // shadow space for function call
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // i
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_2));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));
+    a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, 0)); // d
+    a.mov(x86::rax, imm((uint64_t)&jit_print_double));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_3));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));
+    a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // s
+    a.mov(x86::rcx, x86::rax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_4));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.sub(x86::rsp, 32); // shadow space for parameterless function call
     a.call(func_PiValue_1);
     a.add(x86::rsp, 32);
     a.mov(x86::rax, imm((uint64_t)&jit_print_double));
@@ -117,11 +226,27 @@ int main() {
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
     
     replace_all(asm_text, std::to_string((uint64_t)&str_0), "_str_0");
+    replace_all(asm_text, std::to_string((uint64_t)&str_1), "_str_1");
+    replace_all(asm_text, std::to_string((uint64_t)&str_2), "_str_2");
+    replace_all(asm_text, std::to_string((uint64_t)&str_3), "_str_3");
+    replace_all(asm_text, std::to_string((uint64_t)&str_4), "_str_4");
     
     replace_all(asm_text, "L0:", "func_PiValue_1:");
     replace_all(asm_text, "L0", "func_PiValue_1");
     replace_all(asm_text, "L1:", "endfunc_PiValue_2:");
     replace_all(asm_text, "L1", "endfunc_PiValue_2");
+    replace_all(asm_text, "L2:", "func_GetInteger_3:");
+    replace_all(asm_text, "L2", "func_GetInteger_3");
+    replace_all(asm_text, "L3:", "endfunc_GetInteger_4:");
+    replace_all(asm_text, "L3", "endfunc_GetInteger_4");
+    replace_all(asm_text, "L4:", "func_GetDouble_5:");
+    replace_all(asm_text, "L4", "func_GetDouble_5");
+    replace_all(asm_text, "L5:", "endfunc_GetDouble_6:");
+    replace_all(asm_text, "L5", "endfunc_GetDouble_6");
+    replace_all(asm_text, "L6:", "func_GetString_7:");
+    replace_all(asm_text, "L6", "func_GetString_7");
+    replace_all(asm_text, "L7:", "endfunc_GetString_8:");
+    replace_all(asm_text, "L7", "endfunc_GetString_8");
 
     replace_all(asm_text, "byte ptr ",    "byte ");
     replace_all(asm_text, "word ptr ",    "word ");
@@ -153,12 +278,14 @@ int main() {
     
     
     replace_all(asm_text, std::to_string(double_to_bits(3.1415926)), "dbl_3_1415926_0");
+    replace_all(asm_text, std::to_string(double_to_bits(12.34)), "dbl_12_34_1");
     asm_out << "\n";
 
     std::istringstream iss(asm_text);
     std::string line;
 
     asm_out << "dbl_3_1415926_0 equ " << std::to_string(double_to_bits(3.1415926)) << " ; 3.1415926\n";
+    asm_out << "dbl_12_34_1 equ " << std::to_string(double_to_bits(12.34)) << " ; 12.34\n";
     asm_out << "extern _jit_print_text\n";
     asm_out << "extern _jit_print_int\n";
     asm_out << "extern _jit_print_double\n";
@@ -226,16 +353,22 @@ int main() {
     }
     
     asm_out << "\nsection .data\n";
-    asm_out << "_str_0 db \"Pi: \", 0\n";
+    asm_out << "_str_0 db \"Foo Fuu\", 0\n";
+    asm_out << "_str_1 db \"i : \", 0\n";
+    asm_out << "_str_2 db \"d : \", 0\n";
+    asm_out << "_str_3 db \"s : \", 0\n";
+    asm_out << "_str_4 db \"Pi: \", 0\n";
     
     asm_out.close();
    
-    std::array<int,    1> int_vars{};
-    std::array<double, 1> double_vars{};
+    std::array<int,         1> int_vars{};
+    std::array<double,      1> double_vars{};
+    std::array<const char*, 1> string_vars{};
     
     JitContext ctx{};
-    ctx.int_vars = int_vars.data();
+    ctx.int_vars    = int_vars.data();
     ctx.double_vars = double_vars.data();
+    ctx.string_vars = string_vars.data();
     
     fn(&ctx);
 

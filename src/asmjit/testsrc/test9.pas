@@ -1,3 +1,9 @@
+// ---------------------------------------------------------------------------
+// File:   test9.pas
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+
 program test9;
 
 procedure TestInteger(t1: Integer; t2: String; t3, t4: Integer);

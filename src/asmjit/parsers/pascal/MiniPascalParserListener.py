@@ -17,6 +17,42 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#declarationPart.
+    def enterDeclarationPart(self, ctx:MiniPascalParser.DeclarationPartContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#declarationPart.
+    def exitDeclarationPart(self, ctx:MiniPascalParser.DeclarationPartContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#constSection.
+    def enterConstSection(self, ctx:MiniPascalParser.ConstSectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#constSection.
+    def exitConstSection(self, ctx:MiniPascalParser.ConstSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#constDeclaration.
+    def enterConstDeclaration(self, ctx:MiniPascalParser.ConstDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#constDeclaration.
+    def exitConstDeclaration(self, ctx:MiniPascalParser.ConstDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#constValue.
+    def enterConstValue(self, ctx:MiniPascalParser.ConstValueContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#constValue.
+    def exitConstValue(self, ctx:MiniPascalParser.ConstValueContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#functionDeclaration.
     def enterFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
         pass

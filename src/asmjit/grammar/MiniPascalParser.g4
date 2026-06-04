@@ -5,9 +5,30 @@ options {
 }
 
 programFile
-    : PROGRAM IDENT SEMI varSection? (procedureDeclaration | functionDeclaration)* block DOT
+    : PROGRAM IDENT SEMI declarationPart* block DOT
     ;
 
+declarationPart
+    : constSection
+    | varSection
+    | procedureDeclaration
+    | functionDeclaration
+    ;
+
+constSection
+    : CONST constDeclaration+
+    ;
+
+constDeclaration
+    : IDENT EQ_OP constValue SEMI
+    ;
+
+constValue
+    : STRING
+    | FLOATNUMBER
+    | NUMBER
+    ;
+    
 functionDeclaration
     : FUNCTION IDENT formalParamList? COLON typeName SEMI block SEMI?
     ;
@@ -73,6 +94,7 @@ localDeclaration
     : procedureDeclaration
     | functionDeclaration
     | varSection
+    | constSection
     ;
     
 statementList
@@ -150,7 +172,8 @@ factor
     ;
 
 writeLnStatement
-    : WRITELN LPAREN writeArgList? RPAREN SEMI?
+    : WRITELN
+    | WRITELN LPAREN writeArgList? RPAREN
     ;
 
 writeArgList
