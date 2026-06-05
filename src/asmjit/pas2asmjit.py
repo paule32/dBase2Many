@@ -82,16 +82,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.constants          = {}
         self.variables          = []
         
+        self.type_aliases       = {}
+        
         self.scope_stack        = []
         
         self.local_var_stack    = []
         self.local_const_stack  = []
+
+        self.asm_label_mappings = []
         
         self.current_function   = None
         self.current_proc_params= {}
-        
+
         self.asm_file               = asm_file
-        self.asm_label_replacements = []
         self.emit_local_string_data = True
     
     def format_error(self, filename, err):
@@ -116,6 +119,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if not self.local_const_stack:
             return None
         return self.local_const_stack[-1]
+
+    def push_local_scope(self):
+        self.local_var_stack.append({
+            "vars": {},
+            "next_offset": 0
+        })
+
+    def pop_local_scope(self):
+        self.local_var_stack.pop()
+
+    def current_local_scope(self):
+        if not self.local_var_stack:
+            return None
+        return self.local_var_stack[-1]
 
     def declare_const(self, ctx, name, value, typ):
         key = name.lower()
@@ -142,39 +159,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "value": value
         }
     
-    def push_local_scope(self):
-        self.local_var_stack.append({
-            "vars": {},
-            "next_offset": 0
-        })
+    def declare_type_alias(self, ctx, name, target_type):
+        key = name.lower()
 
-    def pop_local_scope(self):
-        self.local_var_stack.pop()
+        if key in self.type_aliases:
+            raise CompileError(ctx, "E0002", name=name)
 
-    def current_local_scope(self):
-        if not self.local_var_stack:
-            return None
-        return self.local_var_stack[-1]
+        self.type_aliases[key] = target_type.lower()
     
     def declare_local_var(self, ctx, name, vtype):
         scope = self.current_local_scope()
-
+        
         if scope is None:
             self.declare_var(ctx, name, vtype)
             return
-
+        
         key = name.lower()
-        typ = vtype.lower()
-
+        typ = self.resolve_type(vtype)
+        
         if key in scope["vars"]:
             raise CompileError(ctx, "E0002", name=name)
-
+        
         if typ != "integer":
             raise CompileError(ctx, "E0005", got=typ, expected="integer")
-
+        
         scope["next_offset"] += 8
         offset = -scope["next_offset"]
-
+        
         scope["vars"][key] = {
             "name": name,
             "type": typ,
@@ -183,8 +194,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def declare_var(self, ctx, name, vtype):
         key = name.lower()
-        typ = vtype.lower()
-
+        typ = self.resolve_type(vtype)
+        
         if key in self.vars:
             raise CompileError(ctx, "E0002", name=name)
 
@@ -211,6 +222,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.var_types[key] = typ
 
+    def resolve_type(self, typ):
+        key = typ.lower()
+
+        seen = set()
+
+        while key in self.type_aliases:
+            if key in seen:
+                break
+
+            seen.add(key)
+            key = self.type_aliases[key].lower()
+
+        return key
+    
     def find_const(self, name):
         key = name.lower()
 
@@ -268,6 +293,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return "_".join(self.scope_stack + [name])
         return name
 
+    def add_asm_label_mapping(self, asmjit_label, target_label):
+        self.asm_label_mappings.append({
+            "asmjit": asmjit_label,
+            "target": target_label
+        })
+    
     def add_double_literal(self, value):
         value_text = str(value)
 
@@ -799,9 +830,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return self.visit(ctx.statementList())
     
     def visitConstDeclaration(self, ctx):
-        name = ctx.IDENT().getText()
+        for item in ctx.constItem():
+            self.visit(item)
 
-        value_text = ctx.getChild(2).getText()
+        return None
+    
+    def visitConstItem(self, ctx):
+        name = ctx.IDENT().getText()
+        value_text = ctx.constValue().getText()
 
         if value_text.startswith("'") and value_text.endswith("'"):
             value = value_text[1:-1]
@@ -849,6 +885,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         return None
     
+    def visitTypeSection(self, ctx):
+        for decl in ctx.typeDeclaration():
+            self.visit(decl)
+
+        return None
+        
     def visitVarSection(self, ctx):
         for decl in ctx.varDeclaration():
             self.visit(decl)
@@ -866,7 +908,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.declare_var(ctx, name, vtype)
 
         return None
+    
+    def visitTypeDeclaration(self, ctx):
+        name = ctx.IDENT().getText()
+        target_type = ctx.typeName().getText()
 
+        self.declare_type_alias(ctx, name, target_type)
+        return None
+    
     def visitFunctionDeclaration(self, ctx):
         name = ctx.IDENT().getText()
         return_type = ctx.typeName().getText()
@@ -1330,10 +1379,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def new_named_label(self, prefix):
         name = self.new_label_name(prefix)
-        asmjit_l = f"L{len(self.asm_label_replacements)}"
+        asmjit_label = f"L{len(self.asm_label_mappings)}"
 
         self.emit(f"Label {name} = a.new_label();")
-        self.asm_label_replacements.append((asmjit_l, name))
+
+        self.add_asm_label_mapping(
+            asmjit_label,
+            name
+        )
 
         return name
     
@@ -1413,6 +1466,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return "\n    ".join(out)
     
+    def render_asm_string_mappings(self):
+        out = []
+        for name, text in self.string_literals:
+            out.append(
+                f'symbols.add(std::to_string((uint64_t)&{name}), "_{name}");'
+            )
+        return "\n    ".join(out)
+        
     def render_asm_string_data(self):
         if not self.emit_local_string_data:
             return ""
@@ -1426,15 +1487,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return "\n    ".join(out)
     
-    def render_asm_label_replacements(self):
+    def render_asm_label_mappings(self):
         out = []
-
-        for old_name, new_name in self.asm_label_replacements:
-            out.append(f'replace_all(asm_text, "{old_name}:", "{new_name}:");')
-            out.append(f'replace_all(asm_text, "{old_name}", "{new_name}");')
-
+        for item in self.asm_label_mappings:
+            out.append(f'labels.add("{item["asmjit"]}", "{item["target"]}");')
         return "\n    ".join(out)
-    
+        
     def render_cpp(self):
         body         = "\n".join(self.lines)
         
@@ -1464,6 +1522,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
 # include <string>
 # include <array>
+# include <vector>
+# include <algorithm>
 
 using namespace std;
 using namespace asmjit;
@@ -1490,6 +1550,128 @@ extern \"C\" void jit_print_double(double v)    {{ std::cout << v; }}
 extern \"C\" void jit_print_newline()           {{ std::cout << std::endl; }}
 
 {self.render_string_literals()}
+
+static void
+replace_all(
+    std::string& s,
+    const std::string& from,
+    const std::string& to) {{
+    
+    if (from.empty())
+        return;
+
+    size_t pos = 0;
+
+    while ((pos = s.find(from, pos)) != std::string::npos) {{
+        s.replace(pos, from.length(), to);
+        pos += std::max<size_t>(to.length(), 1);
+    }}
+}}
+    
+struct LabelMapping
+{{
+    std::string asmjitLabel;
+    std::string targetLabel;
+
+    LabelMapping(
+        const std::string& asmjit,
+        const std::string& target)
+        :
+        asmjitLabel(asmjit),
+        targetLabel(target)
+    {{
+    }}
+}};
+
+struct SymbolMapping
+{{
+    std::string addressText;
+    std::string symbolName;
+
+    SymbolMapping(
+        const std::string& address,
+        const std::string& symbol)
+        :
+        addressText(address),
+        symbolName(symbol)
+    {{
+    }}
+}};
+
+class LabelMappings
+{{
+public:
+    void add(
+        const std::string& asmjitLabel,
+        const std::string& targetLabel)
+    {{
+        mappings.emplace_back(
+            asmjitLabel,
+            targetLabel);
+    }}
+
+    void clear()
+    {{
+        mappings.clear();
+    }}
+
+    void remove(const std::string& asmjitLabel)
+    {{
+        mappings.erase(
+            std::remove_if(
+                mappings.begin(),
+                mappings.end(),
+                [&](const LabelMapping& item)
+                {{
+                    return item.asmjitLabel == asmjitLabel;
+                }}),
+            mappings.end());
+    }}
+
+    void apply(std::string& asm_text)
+    {{
+        for (const auto& item : mappings)
+        {{
+            replace_all(
+                asm_text,
+                item.asmjitLabel + ":",
+                item.targetLabel + ":");
+
+            replace_all(
+                asm_text,
+                item.asmjitLabel,
+                item.targetLabel);
+        }}
+    }}
+
+private:
+    std::vector<LabelMapping> mappings;
+}};
+
+class SymbolMappings
+{{
+private:
+    std::vector<SymbolMapping> mappings;
+
+public:
+    void add(
+        const std::string& addressText,
+        const std::string& symbolName)
+    {{
+        mappings.emplace_back(addressText, symbolName);
+    }}
+
+    void apply(std::string& asm_text)
+    {{
+        for (const auto& item : mappings)
+        {{
+            replace_all(
+                asm_text,
+                item.addressText,
+                item.symbolName);
+        }}
+    }}
+}};
 
 int main() {{
     JitRuntime rt;
@@ -1518,27 +1700,19 @@ int main() {{
     
     std::ofstream asm_out(\"{self.asm_file}\");
     std::string asm_text = logger.data();
-    
-    auto replace_all = [](std::string& s, const std::string& from, const std::string& to) {{
-        if (from.empty())
-            return;
-
-        size_t pos = 0;
-
-        while ((pos = s.find(from, pos)) != std::string::npos) {{
-            s.replace(pos, from.length(), to);
-            pos += std::max<size_t>(to.length(), 1);
-        }}
-    }};
 
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_int),     "_jit_print_int");
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_double),  "_jit_print_double");
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
     
-    {self.render_asm_string_replacements()}
+    SymbolMappings symbols;
+    {self.render_asm_string_mappings()}
+    symbols.apply(asm_text);
     
-    {self.render_asm_label_replacements ()}
+    LabelMappings labels;
+    {self.render_asm_label_mappings()}
+    labels.apply(asm_text);
 
     replace_all(asm_text, "byte ptr ",    "byte ");
     replace_all(asm_text, "word ptr ",    "word ");

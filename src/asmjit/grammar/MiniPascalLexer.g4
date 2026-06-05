@@ -6,6 +6,8 @@ END         : [Ee][Nn][Dd] ;
 
 CONST       : [Cc][Oo][Nn][Ss][Tt] ;
 VAR         : [Vv][Aa][Rr] ;
+TYPE        : [Tt][Yy][Pp][Ee] ;
+
 DOUBLE      : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER     : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;
 

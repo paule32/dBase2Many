@@ -44,12 +44,39 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#constItem.
+    def enterConstItem(self, ctx:MiniPascalParser.ConstItemContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#constItem.
+    def exitConstItem(self, ctx:MiniPascalParser.ConstItemContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#constValue.
     def enterConstValue(self, ctx:MiniPascalParser.ConstValueContext):
         pass
 
     # Exit a parse tree produced by MiniPascalParser#constValue.
     def exitConstValue(self, ctx:MiniPascalParser.ConstValueContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#typeSection.
+    def enterTypeSection(self, ctx:MiniPascalParser.TypeSectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#typeSection.
+    def exitTypeSection(self, ctx:MiniPascalParser.TypeSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#typeDeclaration.
+    def enterTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#typeDeclaration.
+    def exitTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
         pass
 
 

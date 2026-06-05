@@ -12,7 +12,7 @@ var
     s: String;
 
 const st = 'Ein String';
-const i2 = 102;
+const i2 = 102, i3 = 103, s3 = 'Texter', d4 = 2.134;
 
 function PiValue: Double;
 begin

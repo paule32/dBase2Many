@@ -29,8 +29,23 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#constItem.
+    def visitConstItem(self, ctx:MiniPascalParser.ConstItemContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#constValue.
     def visitConstValue(self, ctx:MiniPascalParser.ConstValueContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#typeSection.
+    def visitTypeSection(self, ctx:MiniPascalParser.TypeSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#typeDeclaration.
+    def visitTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
         return self.visitChildren(ctx)
 
 

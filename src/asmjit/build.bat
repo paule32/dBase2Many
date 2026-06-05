@@ -25,7 +25,7 @@ python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
 echo create Python + Exe files ...
 python -m compileall pas2asmjit.py
 
-::for %%N in (2 3 4 5 6 7 8 9 10 11 12 13 14 15) do (
+::for %%N in (2 3 4 5 6 7 8 9 10 11 12 13 14 15 16) do (
 for %%N in (15) do (
     echo create: test%%N
     python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log

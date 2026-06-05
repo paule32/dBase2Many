@@ -10,6 +10,7 @@ programFile
 
 declarationPart
     : constSection
+    | typeSection
     | varSection
     | procedureDeclaration
     | functionDeclaration
@@ -20,7 +21,11 @@ constSection
     ;
 
 constDeclaration
-    : IDENT EQ_OP constValue SEMI
+    : constItem (COMMA constItem)* SEMI
+    ;
+
+constItem
+    : IDENT EQ_OP constValue
     ;
 
 constValue
@@ -28,7 +33,15 @@ constValue
     | FLOATNUMBER
     | NUMBER
     ;
-    
+
+typeSection
+    : TYPE typeDeclaration+
+    ;
+
+typeDeclaration
+    : IDENT EQ_OP typeName SEMI
+    ;
+
 functionDeclaration
     : FUNCTION IDENT formalParamList? COLON typeName SEMI block SEMI?
     ;
