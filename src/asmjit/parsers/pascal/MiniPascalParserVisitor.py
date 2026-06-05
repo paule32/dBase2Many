@@ -49,6 +49,51 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#arrayDeclaration.
+    def visitArrayDeclaration(self, ctx:MiniPascalParser.ArrayDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#arrayInitializer.
+    def visitArrayInitializer(self, ctx:MiniPascalParser.ArrayInitializerContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#arrayValueList.
+    def visitArrayValueList(self, ctx:MiniPascalParser.ArrayValueListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#typeName.
+    def visitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#enumDeclaration.
+    def visitEnumDeclaration(self, ctx:MiniPascalParser.EnumDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#enumValueList.
+    def visitEnumValueList(self, ctx:MiniPascalParser.EnumValueListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#enumValue.
+    def visitEnumValue(self, ctx:MiniPascalParser.EnumValueContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#recordDeclaration.
+    def visitRecordDeclaration(self, ctx:MiniPascalParser.RecordDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#recordFieldDeclaration.
+    def visitRecordFieldDeclaration(self, ctx:MiniPascalParser.RecordFieldDeclarationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#functionDeclaration.
     def visitFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
         return self.visitChildren(ctx)
@@ -106,11 +151,6 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#identList.
     def visitIdentList(self, ctx:MiniPascalParser.IdentListContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by MiniPascalParser#typeName.
-    def visitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         return self.visitChildren(ctx)
 
 
@@ -176,6 +216,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#assignment.
     def visitAssignment(self, ctx:MiniPascalParser.AssignmentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#variableRef.
+    def visitVariableRef(self, ctx:MiniPascalParser.VariableRefContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#variableSuffix.
+    def visitVariableSuffix(self, ctx:MiniPascalParser.VariableSuffixContext):
         return self.visitChildren(ctx)
 
 

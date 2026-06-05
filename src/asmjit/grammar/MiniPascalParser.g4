@@ -40,6 +40,47 @@ typeSection
 
 typeDeclaration
     : IDENT EQ_OP typeName SEMI
+    | enumDeclaration
+    | recordDeclaration
+    | arrayDeclaration
+    ;
+
+arrayDeclaration
+    : IDENT EQ_OP ARRAY LBRACK NUMBER DOTDOT NUMBER RBRACK OF typeName arrayInitializer? SEMI
+    ;
+
+arrayInitializer
+    : EQ_OP LPAREN arrayValueList? RPAREN
+    ;
+
+arrayValueList
+    : constValue (COMMA constValue)* COMMA?
+    ;
+
+typeName
+    : DOUBLE
+    | INTEGER
+    | IDENT
+    ;
+
+enumDeclaration
+    : IDENT EQ_OP LPAREN enumValueList RPAREN SEMI
+    ;
+
+enumValueList
+    : enumValue (COMMA enumValue)*
+    ;
+
+enumValue
+    : IDENT (EQ_OP NUMBER)?
+    ;
+
+recordDeclaration
+    : IDENT EQ_OP RECORD recordFieldDeclaration* END SEMI
+    ;
+
+recordFieldDeclaration
+    : identList COLON typeName SEMI
     ;
 
 functionDeclaration
@@ -91,12 +132,6 @@ varDeclaration
 
 identList
     : IDENT (COMMA IDENT)*
-    ;
-
-typeName
-    : DOUBLE
-    | INTEGER
-    | IDENT
     ;
 
 block
@@ -163,7 +198,17 @@ compoundStatement
     ;
 
 assignment
-    : (IDENT | RESULT) ASSIGN expr SEMI?
+    : variableRef ASSIGN expr SEMI?
+    ;
+
+variableRef
+    : RESULT
+    | IDENT variableSuffix*
+    ;
+
+variableSuffix
+    : DOT IDENT
+    | LBRACK expr RBRACK
     ;
 
 expr
@@ -175,12 +220,11 @@ term
     ;
 
 factor
-    : NUMBER
-    | FLOATNUMBER
-    | HEXNUMBER
-    | STRING
-    | IDENT
+    : variableRef
     | functionCallExpr
+    | NUMBER
+    | FLOATNUMBER
+    | STRING
     | LPAREN expr RPAREN
     ;
 

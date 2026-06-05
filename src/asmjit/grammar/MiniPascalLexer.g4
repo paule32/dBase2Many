@@ -7,6 +7,9 @@ END         : [Ee][Nn][Dd] ;
 CONST       : [Cc][Oo][Nn][Ss][Tt] ;
 VAR         : [Vv][Aa][Rr] ;
 TYPE        : [Tt][Yy][Pp][Ee] ;
+RECORD      : [Rr][Ee][Cc][Oo][Rr][Dd] ;
+ARRAY       : [Aa][Rr][Rr][Aa][Yy] ;
+OF          : [Oo][Ff] ;
 
 DOUBLE      : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER     : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;
@@ -31,17 +34,21 @@ RESULT      : [Rr][Ee][Ss][Uu][Ll][Tt] ;
 
 WRITELN     : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 
-ASSIGN      : ':=' ;
-COLON       : ':' ;
-SEMI        : ';' ;
-DOT         : '.' ;
-COMMA       : ',' ;
-PLUS        : '+' ;
-MINUS       : '-' ;
-STAR        : '*' ;
-SLASH       : '/' ;
-LPAREN      : '(' ;
-RPAREN      : ')' ;
+DOTDOT      : '..'  ;
+DOT         : '.'   ;
+
+ASSIGN      : ':='  ;
+COLON       : ':'   ;
+SEMI        : ';'   ;
+COMMA       : ','   ;
+PLUS        : '+'   ;
+MINUS       : '-'   ;
+STAR        : '*'   ;
+SLASH       : '/'   ;
+LBRACK      : '['   ;
+LPAREN      : '('   ;
+RPAREN      : ')'   ;
+RBRACK      : ']'   ;
 
 EQ_OP       : '='   ;
 LE_OP       : '<='  ;

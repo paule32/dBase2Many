@@ -80,6 +80,87 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#arrayDeclaration.
+    def enterArrayDeclaration(self, ctx:MiniPascalParser.ArrayDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayDeclaration.
+    def exitArrayDeclaration(self, ctx:MiniPascalParser.ArrayDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayInitializer.
+    def enterArrayInitializer(self, ctx:MiniPascalParser.ArrayInitializerContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayInitializer.
+    def exitArrayInitializer(self, ctx:MiniPascalParser.ArrayInitializerContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayValueList.
+    def enterArrayValueList(self, ctx:MiniPascalParser.ArrayValueListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayValueList.
+    def exitArrayValueList(self, ctx:MiniPascalParser.ArrayValueListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#typeName.
+    def enterTypeName(self, ctx:MiniPascalParser.TypeNameContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#typeName.
+    def exitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#enumDeclaration.
+    def enterEnumDeclaration(self, ctx:MiniPascalParser.EnumDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#enumDeclaration.
+    def exitEnumDeclaration(self, ctx:MiniPascalParser.EnumDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#enumValueList.
+    def enterEnumValueList(self, ctx:MiniPascalParser.EnumValueListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#enumValueList.
+    def exitEnumValueList(self, ctx:MiniPascalParser.EnumValueListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#enumValue.
+    def enterEnumValue(self, ctx:MiniPascalParser.EnumValueContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#enumValue.
+    def exitEnumValue(self, ctx:MiniPascalParser.EnumValueContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#recordDeclaration.
+    def enterRecordDeclaration(self, ctx:MiniPascalParser.RecordDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#recordDeclaration.
+    def exitRecordDeclaration(self, ctx:MiniPascalParser.RecordDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#recordFieldDeclaration.
+    def enterRecordFieldDeclaration(self, ctx:MiniPascalParser.RecordFieldDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#recordFieldDeclaration.
+    def exitRecordFieldDeclaration(self, ctx:MiniPascalParser.RecordFieldDeclarationContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#functionDeclaration.
     def enterFunctionDeclaration(self, ctx:MiniPascalParser.FunctionDeclarationContext):
         pass
@@ -185,15 +266,6 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#identList.
     def exitIdentList(self, ctx:MiniPascalParser.IdentListContext):
-        pass
-
-
-    # Enter a parse tree produced by MiniPascalParser#typeName.
-    def enterTypeName(self, ctx:MiniPascalParser.TypeNameContext):
-        pass
-
-    # Exit a parse tree produced by MiniPascalParser#typeName.
-    def exitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         pass
 
 
@@ -311,6 +383,24 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#assignment.
     def exitAssignment(self, ctx:MiniPascalParser.AssignmentContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#variableRef.
+    def enterVariableRef(self, ctx:MiniPascalParser.VariableRefContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#variableRef.
+    def exitVariableRef(self, ctx:MiniPascalParser.VariableRefContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#variableSuffix.
+    def enterVariableSuffix(self, ctx:MiniPascalParser.VariableSuffixContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#variableSuffix.
+    def exitVariableSuffix(self, ctx:MiniPascalParser.VariableSuffixContext):
         pass
 
 
