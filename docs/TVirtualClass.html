@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TVirtualClass Class</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="search_index.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside id="tocPane" class="toc-pane">
+      <div class="toc-title">Table of Contents</div>
+      <ul class="treeview">
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="home.html">Home</a>
+          </div>
+        </li>
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="index.html#Index">Index</a>
+          </div>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Groups</span></div>
+          <ul class="collapsed">
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><a href="group_IntVariables.html">Das sind die Integer Variablen</a></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon book-icon"></span><a href="group_IntS.html">Das sind die Integer Variable S</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+            </li>
+          </ul>
+        </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="units.html">All Units</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Dialogs.html">Dialogs</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_TestUnit.html">TestUnit</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_VCL.html">VCL</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Windows.html">Windows</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node open">
+          <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
+          <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TChildClass.html">TChildClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TExampleClass.html">TExampleClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TExampleClass.html#texampleclass_procedure_execute">Execute</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TSprite.html">TSprite</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TSprite.html#tsprite_procedure_draw">Draw</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWeapon.html">TWeapon</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TInventory.html">TInventory</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPlayer.html">TPlayer</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_render">Render</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPerson.html">TPerson</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fname_string">FName</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fage_integer">FAge</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_overload">Create ; overload</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Destructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_destructor_destroy_override">Destroy ; override</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_function_getname_string">GetName</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_paint">Paint</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TRepository_T_.html">TRepository&lt;T&gt;</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TVirtualClass.html">TVirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TDialog.html">TDialog</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWindows.html">TWindows</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TControl.html">TControl</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TCustomForm.html">TCustomForm</a></div>
+              <ul>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Interfaces</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IExample.html">IExample</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IDrawable.html">IDrawable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IShape.html">IShape</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IRenderable.html">IRenderable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IVirtualInterface.html">IVirtualInterface</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Records</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPoint.html">TPoint</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPair_TKey__TValue_.html">TPair&lt;TKey, TValue&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualRecord.html">TVirtualRecord</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Arrays</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TIntArray.html">TIntArray</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Sets</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TCharSet.html">TCharSet</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Enums</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TCard.html">TCard</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TColor.html">TColor</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualEnum.html">TVirtualEnum</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constants</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_MAX_COUNT">MAX_COUNT</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_PI_VALUE">PI_VALUE</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_NAME">APP_NAME</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_VERSION">APP_VERSION</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Global Variables</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_score_board">score_board</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_score_text">score_text</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_width">main_width</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_height">main_height</a></div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+    <div id="splitter" class="splitter"></div>
+    <main class="page content-pane">
+    <div class="doc-header-sticky">
+      <div class="version">Pascal Doc</div>
+      <h1>TVirtualClass Class</h1>
+      <div class="breadcrumb">
+        <a href="index.html">Overview</a>
+        <span>›</span>
+        <span>TVirtualClass</span>
+      </div>
+    </div>
+    <section class="search-box">
+      <h2>Search</h2>
+      <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
+      <div id="docSearchResults" class="search-results"></div>
+    </section>
+    <p class="brief">Virtuelle Klasse</p>
+    <section>
+      <h2>Declaration</h2>
+    </section>
+    <section>
+      <h2>Detailed Description</h2>
+<p>Diese Klasse existiert nur in der Dokumentation.</p>
+<p>A list of events:</p>
+<ul class="doc-list doc-list-root">
+<li>mouse events
+<ol class="doc-list doc-list-sub">
+<li>mouse move event
+</li>
+<li>mouse click event
+<div class="doc-soft-line">More info about the click event.</div>
+</li>
+<li>mouse double click event
+</li>
+</ol>
+</li>
+<li>keyboard events
+<ol class="doc-list doc-list-sub">
+<li>key down event
+</li>
+<li>key up event
+</li>
+</ol>
+</li>
+<li>checkbox list
+<ul class="doc-list doc-list-sub checkbox-list">
+<li class="check-item"><span class="check-box"></span>unchecked</li>
+<li class="check-item"><span class="check-box checked">✓</span>checked</li>
+</ul>
+</li>
+</ul>
+<p>More text here.</p>
+<table class="doc-table">
+<thead><tr>
+<th class="align-left">Name</th>
+<th class="align-left">Type</th>
+<th class="align-left">Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td class="align-left">X</td>
+<td class="align-left">Integer</td>
+<td class="align-left">Position X</td>
+</tr>
+<tr>
+<td class="align-left">Y</td>
+<td class="align-left">Integer</td>
+<td class="align-left">Position Y</td>
+</tr>
+</tbody>
+</table>
+<div class="source-editor doc-code-editor">
+<div class="source-row" id="doc_code_1">
+<span class="source-gutter">1</span>
+<code class="source-code"><span class="code-keyword">procedure</span> Test;</code>
+</div>
+<div class="source-row" id="doc_code_2">
+<span class="source-gutter">2</span>
+<code class="source-code"><span class="code-keyword">begin</span></code>
+</div>
+<div class="source-row" id="doc_code_3">
+<span class="source-gutter">3</span>
+<code class="source-code">  WriteLn(&#x27;Hallo&#x27;);</code>
+</div>
+<div class="source-row" id="doc_code_4">
+<span class="source-gutter">4</span>
+<code class="source-code"><span class="code-keyword">end</span>;</code>
+</div>
+</div>    </section>
+    <footer>
+      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator
+    </footer>
+    </main>
+  </div>
+<script>
+    document.querySelectorAll('.tree-toggle').forEach(function(row) {
+        row.addEventListener('click', function(event) {
+            if (event.target.tagName.toLowerCase() === 'a') {
+                return;
+            }
+            const li = row.closest('.tree-node');
+            const ul = li.querySelector(':scope > ul');
+            const twisty = row.querySelector('.twisty');
+            if (!ul) {
+                return;
+            }
+            ul.classList.toggle('collapsed');
+            if (ul.classList.contains('collapsed')) {
+                twisty.textContent = '▸';
+            } else {
+                twisty.textContent = '▾';
+            }
+        });
+    });
+    const splitter = document.getElementById('splitter');
+    const tocPane = document.getElementById('tocPane');
+    let dragging = false;
+    splitter.addEventListener('mousedown', function(e) {
+        dragging = true;
+        document.body.classList.add('resizing');
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) {
+            return;
+        }
+        let newWidth = e.clientX;
+        if (newWidth < 120) {
+            newWidth = 120;
+        }
+        if (newWidth > 480) {
+            newWidth = 480;
+        }
+        tocPane.style.flexBasis = newWidth + 'px';
+        tocPane.style.width = newWidth + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+        dragging = false;
+        document.body.classList.remove('resizing');
+    });
+</script>
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
+        });
+    });
+})();
+</script></body>
+</html>

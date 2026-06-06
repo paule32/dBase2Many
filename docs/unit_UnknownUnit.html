@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Unit UnknownUnit</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="search_index.js"></script>
+</head>
+<body>
+<main class="page">
+    <section class="search-box">
+      <h2>Search</h2>
+      <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
+      <div id="docSearchResults" class="search-results"></div>
+    </section>
+<h1>Unit UnknownUnit</h1>
+<section>
+<h2>Uses</h2>
+<p class="muted">No unit dependencies.</p>
+</section>
+<section>
+<h2>Used By</h2>
+<p class="muted">No other unit uses this unit.</p>
+</section>
+</main>
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
+        });
+    });
+})();
+</script></body>
+</html>

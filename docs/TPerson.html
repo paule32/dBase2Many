@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TPerson Class</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="search_index.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside id="tocPane" class="toc-pane">
+      <div class="toc-title">Table of Contents</div>
+      <ul class="treeview">
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="home.html">Home</a>
+          </div>
+        </li>
+        <li>
+          <div class="tree-row">
+            <span class="twisty empty"></span>
+            <span class="icon page-icon"></span>
+            <a href="index.html#Index">Index</a>
+          </div>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Groups</span></div>
+          <ul class="collapsed">
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><a href="group_IntVariables.html">Das sind die Integer Variablen</a></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon book-icon"></span><a href="group_IntS.html">Das sind die Integer Variable S</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+            </li>
+          </ul>
+        </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Units</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="units.html">All Units</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Dialogs.html">Dialogs</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Forms.html">Forms</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Objects.html">Objects</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_SysUtils.html">SysUtils</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_TestUnit.html">TestUnit</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_VCL.html">VCL</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="unit_Windows.html">Windows</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node open">
+          <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><span>Classes</span></div>
+          <ul>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="VirtualClass.html">VirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TBaseClass.html">TBaseClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TBaseClass.html#tbaseclass_procedure_basemethod">BaseMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TChildClass.html">TChildClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TChildClass.html#tchildclass_procedure_childmethod">ChildMethod</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TExampleClass.html">TExampleClass</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TExampleClass.html#texampleclass_procedure_execute">Execute</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TSprite.html">TSprite</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TSprite.html#tsprite_procedure_draw">Draw</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWeapon.html">TWeapon</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TInventory.html">TInventory</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPlayer.html">TPlayer</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_fweapon_tweapon">FWeapon</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_finventory_tinventory">FInventory</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_equip_aweapon_tweapon">Equip</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPlayer.html#tplayer_procedure_render">Render</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TPerson.html">TPerson</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fname_string">FName</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_fage_integer">FAge</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_overload">Create ; overload</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_s1_string_overload">Create</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Destructors</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_destructor_destroy_override">Destroy ; override</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_function_getname_string">GetName</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_paint">Paint</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a></div>
+                    </li>
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TRepository_T_.html">TRepository&lt;T&gt;</a></div>
+              <ul>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Fields</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_fitems_ilist_t">FItems</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Properties</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_property_items_ilist_t_read_fitems">Items</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Functions</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_function_findbyid_id_integer_t">FindById</a></div>
+                    </li>
+                  </ul>
+                </li>
+                <li class="tree-node">
+                  <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Procedures</span></div>
+                  <ul class="collapsed">
+                    <li>
+                      <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TRepository_T_.html#trepository_t_procedure_add_entity_t">Add</a></div>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TVirtualClass.html">TVirtualClass</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TObject.html">TObject</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TFile.html">TFile</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TDialog.html">TDialog</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TWindows.html">TWindows</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TControl.html">TControl</a></div>
+              <ul>
+              </ul>
+            </li>
+            <li class="tree-node open">
+              <div class="tree-row tree-toggle"><span class="twisty">▾</span><span class="icon book-icon"></span><a href="TCustomForm.html">TCustomForm</a></div>
+              <ul>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Interfaces</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IExample.html">IExample</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IDrawable.html">IDrawable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IShape.html">IShape</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IRenderable.html">IRenderable</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IList_T_.html">IList&lt;T&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="IVirtualInterface.html">IVirtualInterface</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Records</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPoint.html">TPoint</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TPair_TKey__TValue_.html">TPair&lt;TKey, TValue&gt;</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualRecord.html">TVirtualRecord</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Arrays</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TIntArray.html">TIntArray</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Sets</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TCharSet.html">TCharSet</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Enums</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TCard.html">TCard</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TColor.html">TColor</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="TVirtualEnum.html">TVirtualEnum</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Constants</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_MAX_COUNT">MAX_COUNT</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_PI_VALUE">PI_VALUE</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_NAME">APP_NAME</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#const_APP_VERSION">APP_VERSION</a></div>
+            </li>
+          </ul>
+        </li>
+        <li class="tree-node">
+          <div class="tree-row tree-toggle"><span class="twisty">▸</span><span class="icon book-icon"></span><span>Global Variables</span></div>
+          <ul class="collapsed">
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_score_board">score_board</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_score_text">score_text</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_width">main_width</a></div>
+            </li>
+            <li>
+              <div class="tree-row"><span class="twisty empty"></span><span class="icon page-icon"></span><a href="index.html#var_main_height">main_height</a></div>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+    <div id="splitter" class="splitter"></div>
+    <main class="page content-pane">
+    <div class="doc-header-sticky">
+      <div class="version">Pascal Doc</div>
+      <h1>TPerson Class</h1>
+      <div class="breadcrumb">
+        <a href="index.html">Overview</a>
+        <span>›</span>
+        <span>TPerson</span>
+      </div>
+    </div>
+    <section class="search-box">
+      <h2>Search</h2>
+      <input id="docSearchInput" type="text" placeholder="Search documentation..." autocomplete="off">
+      <div id="docSearchResults" class="search-results"></div>
+    </section>
+    <p class="inherits">Inherits: TObject</p>
+    <p class="brief">This is the TPerson class</p>
+    <section>
+      <h2>Declaration</h2>
+      <div class="source-editor">
+        <div class="source-row" id="line_213"><span class="source-gutter">213</span><code class="source-code">  <a class="code-link" href="TPerson.html">TPerson</a> = <span class="code-keyword">class</span>(<a class="code-link" href="TObject.html">TObject</a>)</code></div>
+        <div class="source-row" id="line_214"><span class="source-gutter">214</span><code class="source-code">  <span class="code-keyword">private</span></code></div>
+        <div class="source-row" id="line_215"><span class="source-gutter">215</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_216"><span class="source-gutter">216</span><code class="source-code">    <a class="code-link" href="TPerson.html#tperson_fage_integer">FAge</a>: <span class="code-keyword">Integer</span>;</code></div>
+        <div class="source-row" id="line_217"><span class="source-gutter">217</span><code class="source-code">  <span class="code-keyword">protected</span></code></div>
+        <div class="source-row" id="line_218"><span class="source-gutter">218</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_paint">Paint</a>;</code></div>
+        <div class="source-row" id="line_219"><span class="source-gutter">219</span><code class="source-code">  <span class="code-keyword">public</span></code></div>
+        <div class="source-row" id="line_220"><span class="source-gutter">220</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_221"><span class="source-gutter">221</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt</span></code></div>
+        <div class="source-row" id="line_222"><span class="source-gutter">222</span><code class="source-code"><span class="src-comment">     * @details This is the default constructor.</span></code></div>
+        <div class="source-row" id="line_223"><span class="source-gutter">223</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_224"><span class="source-gutter">224</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>; overload;</code></div>
+        <div class="source-row" id="line_225"><span class="source-gutter">225</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_226"><span class="source-gutter">226</span><code class="source-code"><span class="src-comment">     * @brief   Erzeugt ein neues Objekt mit einen string.</span></code></div>
+        <div class="source-row" id="line_227"><span class="source-gutter">227</span><code class="source-code"><span class="src-comment">     * @details This is the constructor with a string.</span></code></div>
+        <div class="source-row" id="line_228"><span class="source-gutter">228</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_229"><span class="source-gutter">229</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(S1: <span class="code-keyword">String</span>); overload;</code></div>
+        <div class="source-row" id="line_230"><span class="source-gutter">230</span><code class="source-code">    <span class="code-keyword">constructor</span> <a class="code-link" href="TPerson.html#tperson_constructor_create_p1_tpoint_overload">Create</a>(P1: <a class="code-link" href="TPoint.html">TPoint</a>); overload;</code></div>
+        <div class="source-row" id="line_231"><span class="source-gutter">231</span><code class="source-code">    <span class="code-keyword">destructor</span> Destroy; <span class="code-keyword">override</span>;</code></div>
+        <div class="source-row" id="line_232"><span class="source-gutter">232</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_233"><span class="source-gutter">233</span><code class="source-code"><span class="src-comment">     * @brief Speichert die aktuellen Daten</span></code></div>
+        <div class="source-row" id="line_234"><span class="source-gutter">234</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_235"><span class="source-gutter">235</span><code class="source-code"><span class="src-comment">     * @param S1 string 1</span></code></div>
+        <div class="source-row" id="line_236"><span class="source-gutter">236</span><code class="source-code"><span class="src-comment">     * @param S2 string 2</span></code></div>
+        <div class="source-row" id="line_237"><span class="source-gutter">237</span><code class="source-code"><span class="src-comment">     *</span></code></div>
+        <div class="source-row" id="line_238"><span class="source-gutter">238</span><code class="source-code"><span class="src-comment">     * @note Wird intern gecached.</span></code></div>
+        <div class="source-row" id="line_239"><span class="source-gutter">239</span><code class="source-code"><span class="src-comment">     * @info Diese Methode ist thread-safe.</span></code></div>
+        <div class="source-row" id="line_240"><span class="source-gutter">240</span><code class="source-code"><span class="src-comment">     * @warn X und Y dürfen nicht negativ sein.</span></code></div>
+        <div class="source-row" id="line_241"><span class="source-gutter">241</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_242"><span class="source-gutter">242</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_save_s1_string_s2_string_virtual">Save</a>(S1: <span class="code-keyword">string</span>; S2: <span class="code-keyword">string</span>); <span class="code-keyword">virtual</span>;</code></div>
+        <div class="source-row" id="line_243"><span class="source-gutter">243</span><code class="source-code">    <span class="code-keyword">procedure</span> <a class="code-link" href="TPerson.html#tperson_procedure_point_a_tpoint_b_tpoint">Point</a>(A: <a class="code-link" href="TPoint.html">TPoint</a>; B: <a class="code-link" href="TPoint.html">TPoint</a>);</code></div>
+        <div class="source-row" id="line_244"><span class="source-gutter">244</span><code class="source-code"><span class="src-comment">    (**!</span></code></div>
+        <div class="source-row" id="line_245"><span class="source-gutter">245</span><code class="source-code"><span class="src-comment">     * @brief Get the name of the class</span></code></div>
+        <div class="source-row" id="line_246"><span class="source-gutter">246</span><code class="source-code"><span class="src-comment">     * @return string - Ein String als Rückgabe</span></code></div>
+        <div class="source-row" id="line_247"><span class="source-gutter">247</span><code class="source-code"><span class="src-comment">     *)</span></code></div>
+        <div class="source-row" id="line_248"><span class="source-gutter">248</span><code class="source-code">    <span class="code-keyword">function</span> <a class="code-link" href="TPerson.html#tperson_function_getname_string">GetName</a>: <span class="code-keyword">string</span>;</code></div>
+        <div class="source-row" id="line_249"><span class="source-gutter">249</span><code class="source-code">    <span class="code-keyword">property</span>  <a class="code-link" href="TPerson.html#tperson_property_name_string_read_fname_write_fname">Name</a>: <span class="code-keyword">string</span> <span class="src-comment">(**! @brief Datentyp *)</span></code></div>
+        <div class="source-row" id="line_250"><span class="source-gutter">250</span><code class="source-code">        <span class="code-keyword">read</span>  <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief getter of Name *)</span></code></div>
+        <div class="source-row" id="line_251"><span class="source-gutter">251</span><code class="source-code">        <span class="code-keyword">write</span> <a class="code-link" href="TPerson.html#tperson_fname_string">FName</a> <span class="src-comment">(**! @brief setter of Name *)</span>;</code></div>
+        <div class="source-row" id="line_252"><span class="source-gutter">252</span><code class="source-code">  <span class="code-keyword">end</span>;</code></div>
+      </div>
+    </section>
+    <div class="definition-location">Definition at Line: <span>213</span> of file: <a href="source_test1_pas.html#line_213">test1.pas</a></div>
+    <section>
+      <h2>Inheritance Diagram</h2>
+      <div class="inheritance-diagram">
+        <div class="inheritance-node base-node">
+          <a class="type-link" href="TObject.html">TObject</a>
+        </div>
+        <div class="inheritance-arrow">↓</div>
+        <div class="inheritance-node current-node">
+          TPerson
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Dependency Diagram</h2>
+      <div class="dependency-diagram">
+        <div class="dependency-node dependency-current">
+          TPerson
+        </div>
+        <div class="dependency-arrow">↓</div>
+        <div class="dependency-node dependency-target">
+          <a class="type-link" href="TObject.html">TObject</a>
+        </div>
+        <div class="dependency-arrow">↓</div>
+        <div class="dependency-node dependency-target">
+          <a class="type-link" href="TPoint.html">TPoint</a>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Public Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">constructor</td>
+          <td class="sig"><a class="member-link" href="#tperson_constructor_create_overload"><span class="func-name">Create</span> ; overload</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Erzeugt ein neues Objekt</td>
+        </tr>
+        <tr>
+          <td class="ret">constructor</td>
+          <td class="sig"><a class="member-link" href="#tperson_constructor_create_s1_string_overload"><span class="func-name">Create </span>(S1: String) ; overload</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Erzeugt ein neues Objekt mit einen string.</td>
+        </tr>
+        <tr>
+          <td class="ret">constructor</td>
+          <td class="sig"><a class="member-link" href="#tperson_constructor_create_p1_tpoint_overload"><span class="func-name">Create </span>(P1: <a class="type-link" href="TPoint.html">TPoint</a>) ; overload</a></td>
+        </tr>
+        <tr>
+          <td class="ret">destructor</td>
+          <td class="sig"><a class="member-link" href="#tperson_destructor_destroy_override"><span class="func-name">Destroy</span> ; override</a></td>
+        </tr>
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#tperson_procedure_save_s1_string_s2_string_virtual"><span class="func-name">Save </span>(S1: string ; S2: string) ; virtual</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Speichert die aktuellen Daten</td>
+        </tr>
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#tperson_procedure_point_a_tpoint_b_tpoint"><span class="func-name">Point </span>(A: <a class="type-link" href="TPoint.html">TPoint</a> ; B: <a class="type-link" href="TPoint.html">TPoint</a>)</a></td>
+        </tr>
+        <tr>
+          <td class="ret">function</td>
+          <td class="sig"><a class="member-link" href="#tperson_function_getname_string"><span class="func-name">GetName</span>: string</a></td>
+        </tr>
+        <tr class="member-brief-row">
+          <td class="ret"></td>
+          <td class="sig member-brief">Get the name of the class</td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Protected Methods</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">procedure</td>
+          <td class="sig"><a class="member-link" href="#tperson_procedure_paint"><span class="func-name">Paint</span></a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Public Properties</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">property</td>
+          <td class="sig"><a class="member-link" href="#tperson_property_name_string_read_fname_write_fname"><span class="func-name">Name</span>: string  read FName  write FName</a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Private Fields</h2>
+      <table class="func-table">
+        <tr>
+          <td class="ret">string</td>
+          <td class="sig"><a class="member-link" href="#tperson_fname_string"><span class="func-name">FName</span></a></td>
+        </tr>
+        <tr>
+          <td class="ret">Integer</td>
+          <td class="sig"><a class="member-link" href="#tperson_fage_integer"><span class="func-name">FAge</span></a></td>
+        </tr>
+      </table>
+    </section>
+    <section>
+      <h2>Detailed Description</h2>
+      <p>The <span class="linklike">TPerson</span> class.</p>
+    </section>
+    <section class="member-docs">
+      <h2>Constructors and Destructor</h2>
+      <article class="member-doc-box" id="tperson_constructor_create_overload">
+        <div class="member-doc-title">
+          <span class="func-name">constructor</span> <a class="type-link" href="TPerson.html">TPerson</a>.Create ; overload
+        </div>
+        <div class="member-doc-content">
+          <p>Erzeugt ein neues Objekt</p>
+<p>This is the default constructor.</p>        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_constructor_create_s1_string_overload">
+        <div class="member-doc-title">
+          <span class="func-name">constructor</span> <a class="type-link" href="TPerson.html">TPerson</a>.Create(S1: String) ; overload
+        </div>
+        <div class="member-doc-content">
+          <p>Erzeugt ein neues Objekt mit einen string.</p>
+<p>This is the constructor with a string.</p>        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_constructor_create_p1_tpoint_overload">
+        <div class="member-doc-title">
+          <span class="func-name">constructor</span> <a class="type-link" href="TPerson.html">TPerson</a>.Create(P1: <a class="type-link" href="TPoint.html">TPoint</a>) ; overload
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_destructor_destroy_override">
+        <div class="member-doc-title">
+          <span class="func-name">destructor</span> <a class="type-link" href="TPerson.html">TPerson</a>.Destroy ; override
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <h2>Member Function Documentation</h2>
+      <article class="member-doc-box" id="tperson_procedure_paint">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="TPerson.html">TPerson</a>.Paint
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_procedure_save_s1_string_s2_string_virtual">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="TPerson.html">TPerson</a>.Save(<br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;S1: string;</span><br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;S2: string</span><br><span class="member-args">) ; virtual</span>
+        </div>
+        <div class="member-doc-content">
+          <p>Speichert die aktuellen Daten</p>
+          <h4>Parameters</h4>
+          <table class="param-table">
+            <tr>
+              <td class="param-name">S1</td>
+              <td>string 1</td>
+            </tr>
+            <tr>
+              <td class="param-name">S2</td>
+              <td>string 2</td>
+            </tr>
+          </table>
+          <div class="doc-box doc-box-note">
+            <div class="doc-box-title"><img class="doc-icon" src="./icons/info-24.svg" alt="Note"><span>Note</span></div>
+            <div class="doc-box-text">Wird intern gecached.</div>
+          </div>
+          <div class="doc-box doc-box-info">
+            <div class="doc-box-title"><img class="doc-icon" src="./icons/info-24.svg" alt="Info"><span>Info</span></div>
+            <div class="doc-box-text">Diese Methode ist thread-safe.</div>
+          </div>
+          <div class="doc-box doc-box-warn">
+            <div class="doc-box-title"><img class="doc-icon" src="./icons/alert-24.svg" alt="Warning"><span>Warning</span></div>
+            <div class="doc-box-text">X und Y dürfen nicht negativ sein.</div>
+          </div>
+        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_procedure_point_a_tpoint_b_tpoint">
+        <div class="member-doc-title">
+          <span class="func-name">procedure</span> <a class="type-link" href="TPerson.html">TPerson</a>.Point(<br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;A: <a class="type-link" href="TPoint.html">TPoint</a>;</span><br><span class="member-args">&nbsp;&nbsp;&nbsp;&nbsp;B: <a class="type-link" href="TPoint.html">TPoint</a></span><br><span class="member-args">)</span>
+        </div>
+        <div class="member-doc-content">
+        </div>
+      </article>
+      <article class="member-doc-box" id="tperson_function_getname_string">
+        <div class="member-doc-title">
+          <span class="func-name">function</span> <a class="type-link" href="TPerson.html">TPerson</a>.GetName: string
+        </div>
+        <div class="member-doc-content">
+          <p>Get the name of the class</p>
+          <h4>Returns</h4>
+          <table class="return-table">
+            <tr>
+              <td class="return-indent"></td>
+              <td class="return-text">string - Ein String als Rückgabe</td>
+            </tr>
+          </table>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Property Documentation</h2>
+      <article class="member-doc" id="tperson_property_name_string_read_fname_write_fname">
+        <h3>
+          <pre class="property-signature">
+<span class="kw-property">property</span> Name: string 
+    read FName 
+    write FName
+          </pre>
+        </h3>
+        <div class="member-line"></div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Type</div>
+          <div class="property-doc-text">Datentyp</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Read</div>
+          <div class="property-doc-text">getter of Name</div>
+        </div>
+        <div class="property-doc-item">
+          <div class="property-doc-label">Write</div>
+          <div class="property-doc-text">setter of Name</div>
+        </div>
+      </article>
+    </section>
+    <section class="member-docs">
+      <h2>Field Documentation</h2>
+      <article class="member-doc" id="tperson_fname_string">
+        <h3><span class="func-name">FName</span>: string</h3>
+        <div class="member-line"></div>
+        <p>
+          No documentation for this Field.
+        </p>
+      </article>
+      <article class="member-doc" id="tperson_fage_integer">
+        <h3><span class="func-name">FAge</span>: Integer</h3>
+        <div class="member-line"></div>
+        <p>
+          No documentation for this Field.
+        </p>
+      </article>
+    </section>
+    <footer>
+      Generated by <span>dBase Lexer + Parser</span> | Pascal Documentation Generator
+    </footer>
+    </main>
+  </div>
+<script>
+    document.querySelectorAll('.tree-toggle').forEach(function(row) {
+        row.addEventListener('click', function(event) {
+            if (event.target.tagName.toLowerCase() === 'a') {
+                return;
+            }
+            const li = row.closest('.tree-node');
+            const ul = li.querySelector(':scope > ul');
+            const twisty = row.querySelector('.twisty');
+            if (!ul) {
+                return;
+            }
+            ul.classList.toggle('collapsed');
+            if (ul.classList.contains('collapsed')) {
+                twisty.textContent = '▸';
+            } else {
+                twisty.textContent = '▾';
+            }
+        });
+    });
+    const splitter = document.getElementById('splitter');
+    const tocPane = document.getElementById('tocPane');
+    let dragging = false;
+    splitter.addEventListener('mousedown', function(e) {
+        dragging = true;
+        document.body.classList.add('resizing');
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging) {
+            return;
+        }
+        let newWidth = e.clientX;
+        if (newWidth < 120) {
+            newWidth = 120;
+        }
+        if (newWidth > 480) {
+            newWidth = 480;
+        }
+        tocPane.style.flexBasis = newWidth + 'px';
+        tocPane.style.width = newWidth + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+        dragging = false;
+        document.body.classList.remove('resizing');
+    });
+</script>
+<script>
+(function() {
+    const input = document.getElementById("docSearchInput");
+    const results = document.getElementById("docSearchResults");
+
+    if (!input || !results || !window.PASCAL_SEARCH_INDEX) {
+        return;
+    }
+
+    function escapeHtml(text) {
+        return String(text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    input.addEventListener("input", function() {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const found = window.PASCAL_SEARCH_INDEX.filter(function(item) {
+            const haystack = (
+                item.kind + " " +
+                item.name + " " +
+                (item.text || "")
+            ).toLowerCase();
+
+            return haystack.indexOf(query) >= 0;
+        }).slice(0, 50);
+
+        if (!found.length) {
+            results.innerHTML = "<div class='search-empty'>No results found.</div>";
+            return;
+        }
+
+        found.forEach(function(item) {
+            const row = document.createElement("div");
+            row.className = "search-result-item";
+
+            row.innerHTML =
+                "<div class='search-result-kind'>" + escapeHtml(item.kind) + "</div>" +
+                "<div class='search-result-title'><a href='" + item.link + "'>" +
+                escapeHtml(item.name) +
+                "</a></div>" +
+                "<div class='search-result-text'>" + escapeHtml(item.text || "") + "</div>";
+
+            results.appendChild(row);
+        });
+    });
+})();
+</script></body>
+</html>
