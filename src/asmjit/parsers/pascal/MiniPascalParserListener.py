@@ -107,6 +107,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#arrayType.
+    def enterArrayType(self, ctx:MiniPascalParser.ArrayTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayType.
+    def exitArrayType(self, ctx:MiniPascalParser.ArrayTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayRange.
+    def enterArrayRange(self, ctx:MiniPascalParser.ArrayRangeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayRange.
+    def exitArrayRange(self, ctx:MiniPascalParser.ArrayRangeContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#typeName.
     def enterTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         pass

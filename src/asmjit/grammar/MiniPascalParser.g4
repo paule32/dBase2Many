@@ -46,15 +46,23 @@ typeDeclaration
     ;
 
 arrayDeclaration
-    : IDENT EQ_OP ARRAY LBRACK NUMBER DOTDOT NUMBER RBRACK OF typeName arrayInitializer? SEMI
+    : IDENT EQ_OP arrayType arrayInitializer? SEMI
     ;
-
+    
 arrayInitializer
     : EQ_OP LPAREN arrayValueList? RPAREN
     ;
 
 arrayValueList
     : constValue (COMMA constValue)* COMMA?
+    ;
+
+arrayType
+    : ARRAY LBRACK arrayRange (COMMA arrayRange)* RBRACK OF typeName
+    ;
+
+arrayRange
+    : expr DOTDOT expr
     ;
 
 typeName
@@ -214,7 +222,7 @@ variableRef
 
 variableSuffix
     : DOT IDENT
-    | LBRACK expr RBRACK
+    | LBRACK expr (COMMA expr)* RBRACK
     | CARET
     ;
 

@@ -64,6 +64,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#arrayType.
+    def visitArrayType(self, ctx:MiniPascalParser.ArrayTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#arrayRange.
+    def visitArrayRange(self, ctx:MiniPascalParser.ArrayRangeContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#typeName.
     def visitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         return self.visitChildren(ctx)

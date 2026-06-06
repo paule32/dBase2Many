@@ -70,6 +70,7 @@ class ArrayInfo:
     element_size: int
     size        : int
     init_values : list
+    dimensions  : list
 
 # ---------------------------------------------------------------------------
 # Compiler Exception to mark errors in compilation unit ...
@@ -229,7 +230,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             size    = offset
         )
     
-    def declare_array(self, ctx, name, index_min, index_max, element_type, init_values=None):
+    def declare_array(self, ctx, name, index_min, index_max, element_type, init_values=None, dimensions=None):
         key = name.lower()
 
         if key in self.arrays:
@@ -248,15 +249,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if len(init_values) > count:
             raise CompileError(ctx, "E0005", got=str(len(init_values)), expected=f"max {count}")
+        
+        if dimensions is None:
+            dimensions = [
+                {
+                    "min": index_min,
+                    "max": index_max
+                }
+            ]
 
+        count = 1
+        for dim in dimensions:
+            count *= dim["max"] - dim["min"] + 1
+    
         self.arrays[key] = ArrayInfo(
-            name=name,
-            index_min=index_min,
-            index_max=index_max,
-            element_type=resolved_type,
-            element_size=element_size,
-            size=count * element_size,
-            init_values=init_values
+            name            = name,
+            index_min       = index_min,
+            index_max       = index_max,
+            element_type    = resolved_type,
+            element_size    = element_size,
+            size            = count * element_size,
+            init_values     = init_values,
+            dimensions      = dimensions
         )
     
     def declare_const(self, ctx, name, value, typ):
@@ -433,6 +447,102 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return offset, field
     
+    def resolve_pointer_record_path(self, ctx, parts):
+        ptr_name = parts[0]
+        ptr_key  = ptr_name.lower()
+
+        if ptr_key not in self.vars:
+            raise CompileError(ctx, "E0001", name=ptr_name)
+
+        ptr_info = self.vars[ptr_key]
+        ptr_type = ptr_info["type"]
+
+        if not ptr_type.startswith("^"):
+            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+        record_type = ptr_type[1:]
+
+        if record_type not in self.records:
+            raise CompileError(ctx, "E0005", got=record_type, expected="record")
+
+        offset = 0
+        field = None
+        current_type = record_type
+
+        for field_name in parts[1:]:
+            record = self.records[current_type]
+            field_key = field_name.lower()
+
+            if field_key not in record.fields:
+                raise CompileError(ctx, "E0001", name=".".join(parts))
+
+            field = record.fields[field_key]
+            offset += field.offset
+            current_type = field.type
+
+            if field_name != parts[-1]:
+                if current_type not in self.records:
+                    raise CompileError(ctx, "E0005", got=current_type, expected="record")
+
+        return ptr_info, offset, field
+    
+    def resolve_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+            
+        var_info, array_info = self.get_array_info(ctx, var_name)
+
+        element_type = array_info.element_type
+
+        if element_type not in self.records:
+            raise CompileError(ctx, "E0005", got=element_type, expected="record array")
+
+        # Index berechnen
+        #index_type = self.visit(index_expr_ctx)
+        index_type = self.visit(index_exprs[0])
+
+        if index_type != "integer":
+            raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+        self.emit_array_bounds_check(ctx, var_name, array_info)
+
+        if array_info.index_min != 0:
+            self.emit(f"a.sub(x86::eax, {array_info.index_min});")
+
+        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
+        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+
+        # Array-Basis holen
+        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
+        self.emit("a.movsxd(x86::rax, x86::eax);")
+        self.emit("a.add(x86::r11, x86::rax);")
+
+        # Jetzt zeigt R11 auf points[index]
+        current_type = element_type
+        field = None
+        field_offset = 0
+
+        for field_name in field_parts:
+            record = self.records[current_type]
+            field_key = field_name.lower()
+
+            if field_key not in record.fields:
+                raise CompileError(ctx, "E0001", name=field_name)
+
+            field = record.fields[field_key]
+            field_offset += field.offset
+            current_type = field.type
+
+            if field_name != field_parts[-1]:
+                if current_type not in self.records:
+                    raise CompileError(ctx, "E0005", got=current_type, expected="record")
+
+        if field_offset != 0:
+            self.emit(f"a.add(x86::r11, {field_offset});")
+
+        return field
+    
     def resolve_type(self, type_name):
         typ = type_name.lower()
 
@@ -544,6 +654,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return "_".join(self.scope_stack + [name])
         return name
 
+    def variable_ref_has_caret(self, ref):
+        return any(s.CARET() for s in ref.variableSuffix())
+    
     def add_asm_label_mapping(self, asmjit_label, target_label):
         self.asm_label_mappings.append({
             "asmjit": asmjit_label,
@@ -563,22 +676,127 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.double_literals.append((name, value_text))
         return name
     
-    def emit_array_bounds_check(self, ctx, var_name, array_info):
-        ok_label = self.new_named_label("array_bounds_ok")
+    def emit_multi_array_index_offset(self, ctx, var_name, array_info, index_exprs):
+        dims = array_info.dimensions
+
+        if len(index_exprs) != len(dims):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(index_exprs)),
+                expected=str(len(dims))
+            )
+
+        self.emit("a.xor_(x86::ebx, x86::ebx); // linear array index")
+
+        for i, expr in enumerate(index_exprs):
+            index_type = self.visit(expr)
+
+            if index_type != "integer":
+                raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+            dim = dims[i]
+
+            self.emit_array_bounds_check_dimension(
+                ctx,
+                var_name,
+                dim["min"],
+                dim["max"]
+            )
+
+            if dim["min"] != 0:
+                self.emit(f"a.sub(x86::eax, {dim['min']});")
+
+            factor = 1
+            for next_dim in dims[i + 1:]:
+                factor *= next_dim["max"] - next_dim["min"] + 1
+
+            if factor != 1:
+                self.emit(f"a.imul(x86::eax, x86::eax, {factor});")
+
+            self.emit("a.add(x86::ebx, x86::eax);")
+
+        self.emit("a.mov(x86::eax, x86::ebx); // final linear index")
+
+    def emit_array_bounds_check_dimension(self, ctx, var_name, min_value, max_value):
+        ok_label    = self.new_named_label("array_bounds_ok")
+        fail_label  = self.new_named_label("array_bounds_fail")
         array_label = self.add_string_literal(var_name)
 
-        # Index liegt in EAX
-        self.emit("a.mov(x86::ebx, x86::eax); // save original array index")
+        self.emit("a.mov(x86::r10d, x86::eax); // save dimension index")
 
-        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
-        self.emit(f"a.jl({ok_label}_fail);")
+        self.emit(f"a.cmp(x86::eax, {min_value});")
+        self.emit(f"a.jl({fail_label});")
 
-        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
-        self.emit(f"a.jg({ok_label}_fail);")
+        self.emit(f"a.cmp(x86::eax, {max_value});")
+        self.emit(f"a.jg({fail_label});")
 
         self.emit(f"a.jmp({ok_label});")
 
-        fail_label = self.new_named_label("array_bounds_fail")
+        self.emit(f"a.bind({fail_label});")
+        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
+        self.emit("a.mov(x86::edx, x86::r10d);")
+        self.emit(f"a.mov(x86::r8d, {min_value});")
+        self.emit(f"a.mov(x86::r9d, {max_value});")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));")
+        self.emit_call_rax()
+
+        self.emit(f"a.bind({ok_label});")
+        self.emit("a.mov(x86::eax, x86::r10d); // restore dimension index")
+    
+    def emit_array_bounds_check_for_dimension(self, dim):
+        min_value = dim["min"]
+        max_value = dim["max"]
+
+        self.asm.emit("push rax")
+
+        self.asm.emit(f"cmp eax, {min_value}")
+        self.asm.emit("jl array_bounds_error")
+
+        self.asm.emit(f"cmp eax, {max_value}")
+        self.asm.emit("jg array_bounds_error")
+
+        self.asm.emit("pop rax")
+    
+    def emit_address_of_array_element(self, ctx, var_name, index_exprs):
+        var_info, array_info = self.get_array_info(ctx, var_name)
+
+        self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
+
+        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
+        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+
+        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
+        self.emit("a.movsxd(x86::rax, x86::eax);")
+        self.emit("a.add(x86::rax, x86::r11); // @array[index]")
+
+        return "^" + array_info.element_type
+        
+        """def emit_array_bounds_check(self, ctx, var_name, array_info):
+        ok_label    = self.new_named_label("array_bounds_ok")
+        fail_label  = self.new_named_label("array_bounds_fail")
+        array_label = self.add_string_literal(var_name)
+
+        self.emit("a.mov(x86::r10d, x86::eax); // save array index")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
+        self.emit(f"a.jl({fail_label});")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
+        self.emit(f"a.jg({fail_label});")
+
+        self.emit(f"a.jmp({ok_label});")
+
+        self.emit(f"a.bind({fail_label});")
+        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
+        self.emit("a.mov(x86::edx, x86::r10d);")
+        self.emit(f"a.mov(x86::r8d, {array_info.index_min});")
+        self.emit(f"a.mov(x86::r9d, {array_info.index_max});")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));")
+        self.emit_call_rax()
+
+        self.emit(f"a.bind({ok_label});")
+        self.emit("a.mov(x86::eax, x86::r10d); // restore array index")"""
         
     def emit_array_bounds_check(self, ctx, var_name, array_info):
         ok_label    = self.new_named_label("array_bounds_ok")
@@ -711,6 +929,31 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return field.type
     
+    def emit_load_pointer_record_field(self, ctx, parts):
+        ptr_info, field_offset, field = self.resolve_pointer_record_path(ctx, parts)
+        ptr_name = parts[0]
+        path = "^.".join([ptr_name, ".".join(parts[1:])])
+
+        # Pointer-Wert nach RAX laden
+        self.emit_load_var(ptr_name, ptr_info)
+
+        if field_offset != 0:
+            self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+
+        if field.type == "integer":
+            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax)); // {path}")
+            return "integer"
+
+        if field.type == "double":
+            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax)); // {path}")
+            return "double"
+
+        if field.type == "string":
+            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax)); // {path}")
+            return "string"
+
+        return field.type
+    
     def emit_load_local_var(self, ctx, name, info):
         var = self.find_local_var(name)
 
@@ -798,7 +1041,54 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0013", var_type=field.type)
     
+    def emit_store_pointer_record_field(self, ctx, parts, expr_type):
+        ptr_info, field_offset, field = self.resolve_pointer_record_path(ctx, parts)
+        ptr_name = parts[0]
+        path = "^.".join([ptr_name, ".".join(parts[1:])])
+
+        if field.type == "double" and expr_type == "integer":
+            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            expr_type = "double"
+
+        if field.type != expr_type:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+
+        if expr_type == "integer":
+            self.emit("a.mov(x86::ebx, x86::eax);")
+        elif expr_type == "double":
+            self.emit("a.sub(x86::rsp, 8);")
+            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+        elif expr_type == "string":
+            self.emit("a.push(x86::rax);")
+
+        # Pointer-Wert nach RAX laden
+        self.emit_load_var(ptr_name, ptr_info)
+
+        if field_offset != 0:
+            self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+
+        if field.type == "integer":
+            self.emit(f"a.mov(x86::dword_ptr(x86::rax), x86::ebx); // {path} :=")
+            return
+
+        if field.type == "double":
+            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
+            self.emit("a.add(x86::rsp, 8);")
+            self.emit(f"a.movsd(x86::qword_ptr(x86::rax), x86::xmm0); // {path} :=")
+            return
+
+        if field.type == "string":
+            self.emit("a.pop(x86::r11);")
+            self.emit(f"a.mov(x86::qword_ptr(x86::rax), x86::r11); // {path} :=")
+            return
+
+        raise CompileError(ctx, "E0013", var_type=field.type)
+    
     def emit_store_array_element(self, ctx, var_name, index_expr_ctx, expr_type):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+            
         var_info, array_info = self.get_array_info(ctx, var_name)
 
         if array_info.element_type == "double" and expr_type == "integer":
@@ -809,7 +1099,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax);")
+            self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
 
         elif expr_type == "double":
             self.emit("a.sub(x86::rsp, 8);")
@@ -818,17 +1108,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif expr_type == "string":
             self.emit("a.push(x86::rax);")
 
-        index_type = self.visit(index_expr_ctx)
-
-        self.emit_array_bounds_check(ctx, var_name, array_info)
-
-        if index_type != "integer":
-            raise CompileError(ctx, "E0005", got=index_type, expected="integer")
-
-        self.emit_array_bounds_check(ctx, var_name, array_info)
-
-        if array_info.index_min != 0:
-            self.emit(f"a.sub(x86::eax, {array_info.index_min});")
+        self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
         self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
         self.emit(f"a.add(x86::eax, {var_info['slot']});")
@@ -838,7 +1118,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.add(x86::r11, x86::rax);")
 
         if array_info.element_type == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::r11), x86::ebx);")
+            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
+            self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
             return
 
         if array_info.element_type == "double":
@@ -855,15 +1136,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0013", var_type=array_info.element_type)
 
     def emit_load_array_element(self, ctx, var_name, index_expr_ctx):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+            
         var_info, array_info = self.get_array_info(ctx, var_name)
 
-        index_type = self.visit(index_expr_ctx)
-
-        if index_type != "integer":
-            raise CompileError(ctx, "E0005", got=index_type, expected="integer")
-
-        if array_info.index_min != 0:
-            self.emit(f"a.sub(x86::eax, {array_info.index_min});")
+        self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
         self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
         self.emit(f"a.add(x86::eax, {var_info['slot']});")
@@ -912,6 +1191,77 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return None
 
         raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
+
+    def emit_load_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+            
+        field = self.resolve_array_record_field(
+            ctx,
+            var_name,
+            index_expr_ctx,
+            field_parts
+        )
+
+        path = var_name + "[...]." + ".".join(field_parts)
+
+        if field.type == "integer":
+            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::r11)); // {path}")
+            return "integer"
+
+        if field.type == "double":
+            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::r11)); // {path}")
+            return "double"
+
+        if field.type == "string":
+            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::r11)); // {path}")
+            return "string"
+
+        return field.type
+
+    def emit_store_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts, expr_type):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+            
+        # Wert sichern, bevor Index/Adresse berechnet wird
+        if expr_type == "integer":
+            self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+
+        elif expr_type == "double":
+            self.emit("a.movsd(x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)), x86::xmm0);")
+
+        else:
+            raise CompileError(ctx, "E0005", got=expr_type, expected="integer/double")
+
+        field = self.resolve_array_record_field(
+            ctx,
+            var_name,
+            index_expr_ctx,
+            field_parts
+        )
+
+        if field.type == "double" and expr_type == "integer":
+            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
+            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit(f"a.movsd(x86::qword_ptr(x86::r11), x86::xmm0); // {var_name}[...].{'.'.join(field_parts)} :=")
+            return
+
+        if field.type != expr_type:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+
+        if field.type == "integer":
+            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
+            self.emit(f"a.mov(x86::dword_ptr(x86::r11), x86::eax); // {var_name}[...].{'.'.join(field_parts)} :=")
+            return
+
+        if field.type == "double":
+            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
+            self.emit(f"a.movsd(x86::qword_ptr(x86::r11), x86::xmm0); // {var_name}[...].{'.'.join(field_parts)} :=")
+            return
+
+        raise CompileError(ctx, "E0013", var_type=field.type)
 
     def emit_store_local_var(self, ctx, name, info):
         var = self.find_local_var(name)
@@ -1030,7 +1380,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0001", name=name)
 
         info = self.vars[key]
-        typ = info["type"]
+        typ  = info["type"]
         slot = info["slot"]
 
         if typ == "integer":
@@ -1047,6 +1397,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
             self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
             return "^string"
+
+        if typ in self.records:
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
+            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
+            return "^" + typ
 
         raise CompileError(ctx, "E0005", got=typ, expected="addressable variable")
     
@@ -1435,13 +1790,44 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.declare_record(ctx, record_name, fields)
         return None
     
+    def visitArrayType(self, ctx):
+        dimensions = []
+
+        for r in ctx.arrayRange():
+            min_value = int(r.expr(0).getText())
+            max_value = int(r.expr(1).getText())
+
+            dimensions.append({
+                "min": min_value,
+                "max": max_value
+            })
+
+        element_type = ctx.typeName().getText()
+
+        return {
+            "kind": "array",
+            "dimensions": dimensions,
+            "element_type": element_type
+        }
+        
+    def array_total_count(self, array_info):
+        total = 1
+        for dim in array_info["dimensions"]:
+            total *= (dim["max"] - dim["min"] + 1)
+        return total
+    
     def visitArrayDeclaration(self, ctx):
         array_name = ctx.IDENT().getText()
 
-        index_min = int(ctx.NUMBER(0).getText())
-        index_max = int(ctx.NUMBER(1).getText())
+        array_type = self.visit(ctx.arrayType())
 
-        element_type = ctx.typeName().getText()
+        dimensions   = array_type["dimensions"]
+        element_type = array_type["element_type"]
+
+        # vorerst Kompatibilität für alte eindimensionale Funktionen
+        index_min = dimensions[0]["min"]
+        index_max = dimensions[0]["max"]
+
         resolved_type = self.resolve_type(element_type)
 
         init_values = []
@@ -1454,20 +1840,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     text = value_ctx.getText()
 
                     if resolved_type == "integer":
-                        if text.startswith("'"):
-                            raise CompileError(value_ctx, "E0005", got="string", expected="integer")
                         init_values.append(int(text, 0))
-
                     elif resolved_type == "double":
-                        if text.startswith("'"):
-                            raise CompileError(value_ctx, "E0005", got="string", expected="double")
                         init_values.append(float(text))
-
                     elif resolved_type == "string":
-                        if not (text.startswith("'") and text.endswith("'")):
-                            raise CompileError(value_ctx, "E0005", got="number", expected="string")
                         init_values.append(text[1:-1])
-
                     else:
                         raise CompileError(ctx, "E0014", var_type=resolved_type)
 
@@ -1477,7 +1854,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             index_min,
             index_max,
             element_type,
-            init_values
+            init_values,
+            dimensions
         )
 
         return None
@@ -1629,18 +2007,59 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         suffixes = target_ctx.variableSuffix()
         if suffixes:
-            first = suffixes[0]
-
+            first     = suffixes[0]
+            has_caret = any(s.CARET() for s in suffixes)
+            has_dot   = any(s.DOT()   for s in suffixes)
+            
+            if has_caret and has_dot:
+                parts = [target_ctx.IDENT().getText()]
+                
+                after_caret = False
+                for s in suffixes:
+                    if s.CARET():
+                        after_caret = True
+                        continue
+                    
+                    if after_caret and s.DOT():
+                        parts.append(s.IDENT().getText())
+                
+                self.emit_store_pointer_record_field(ctx, parts, expr_type)
+                return None
+                
             if first.CARET():
                 var_name = target_ctx.IDENT().getText()
                 self.emit_store_pointer_deref(ctx, var_name, expr_type)
                 return None
-        
+            
             if first.LBRACK():
                 var_name = target_ctx.IDENT().getText()
-                self.emit_store_array_element(ctx, var_name, first.expr(), expr_type)
+                
+                # points[0].X
+                if len(suffixes) > 1 and suffixes[1].DOT():
+                    field_parts = []
+                    
+                    for s in suffixes[1:]:
+                        if s.DOT():
+                            field_parts.append(s.IDENT().getText())
+                    
+                    self.emit_store_array_record_field(
+                        ctx,
+                        var_name,
+                        list(first.expr()),
+                        field_parts,
+                        expr_type
+                    )
+                    return None
+                
+                # normales a[0]
+                self.emit_store_array_element(
+                    ctx,
+                    var_name,
+                    list(first.expr()),
+                    expr_type
+                )
                 return None
-
+            
             if first.DOT():
                 parts = [target_ctx.IDENT().getText()]
                 
@@ -1810,15 +2229,52 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             suffixes = ref.variableSuffix()
 
             if suffixes:
-                first = suffixes[0]
+                first     = suffixes[0]
+                has_caret = any(s.CARET() for s in suffixes)
+                has_dot   = any(s.DOT()   for s in suffixes)
+
+                if has_caret and has_dot:
+                    parts = [ref.IDENT().getText()]
+
+                    after_caret = False
+                    for s in suffixes:
+                        if s.CARET():
+                            after_caret = True
+                            continue
+
+                        if after_caret and s.DOT():
+                            parts.append(s.IDENT().getText())
+
+                    return self.emit_load_pointer_record_field(ctx, parts)
 
                 if first.CARET():
                     var_name = ref.IDENT().getText()
                     return self.emit_load_pointer_deref(ctx, var_name)
-                    
+                
                 if first.LBRACK():
                     var_name = ref.IDENT().getText()
-                    return self.emit_load_array_element(ctx, var_name, first.expr())
+                    
+                    # points[0].X
+                    if len(suffixes) > 1 and suffixes[1].DOT():
+                        field_parts = []
+
+                        for s in suffixes[1:]:
+                            if s.DOT():
+                                field_parts.append(s.IDENT().getText())
+
+                        return self.emit_load_array_record_field(
+                            ctx,
+                            var_name,
+                            list(first.expr()),
+                            field_parts
+                        )
+                    
+                    # normales a[0]
+                    return self.emit_load_array_element(
+                        ctx,
+                        var_name,
+                        list(first.expr())
+                    )
                 
                 if first.DOT():
                     parts = [ref.IDENT().getText()]
