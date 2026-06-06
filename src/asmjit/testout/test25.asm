@@ -39,7 +39,7 @@ array_bounds_fail_2:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -59,7 +59,7 @@ array_bounds_fail_4:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -89,7 +89,7 @@ array_bounds_fail_6:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -109,7 +109,7 @@ array_bounds_fail_8:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -139,7 +139,7 @@ array_bounds_fail_10:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -159,7 +159,7 @@ array_bounds_fail_21:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -189,7 +189,7 @@ array_bounds_fail_23:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -209,7 +209,7 @@ array_bounds_fail_25:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -237,7 +237,7 @@ array_bounds_fail_27:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -257,7 +257,7 @@ array_bounds_fail_29:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -293,7 +293,7 @@ array_bounds_ok_31:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -313,7 +313,7 @@ array_bounds_ok_33:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -349,7 +349,7 @@ array_bounds_ok_35:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -369,7 +369,7 @@ array_bounds_ok_37:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -405,7 +405,7 @@ array_bounds_ok_39:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
@@ -425,7 +425,7 @@ array_bounds_fail_41:
 	mov	edx, r10d
 	mov	r8d, 0
 	mov	r9d, 9
-	mov	rax, 140697468934112
+	mov	rax, 140699264358368
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32

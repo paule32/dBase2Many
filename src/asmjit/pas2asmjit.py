@@ -663,6 +663,45 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "target": target_label
         })
     
+    def emit_builtin_new(self, ctx):
+        actuals = []
+
+        if ctx.actualParamList():
+            actuals = list(ctx.actualParamList().actualParam())
+
+        if len(actuals) != 1:
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
+
+        expr = actuals[0].expr()
+
+        if not expr or not expr.term() or not expr.term(0).factor():
+            raise CompileError(ctx, "E0005", got="expr", expected="pointer variable")
+
+        factor = expr.term(0).factor(0)
+
+        if not factor.variableRef():
+            raise CompileError(ctx, "E0005", got="expr", expected="pointer variable")
+
+        ref  = factor.variableRef()
+
+        name = ref.IDENT().getText()
+        info = self.var_info(ctx, name)
+
+        ptr_type = info["type"]
+
+        if not ptr_type.startswith("^"):
+            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+        base_type = ptr_type[1:]
+        size = self.type_size(ctx, base_type)
+
+        self.emit(f"a.mov(x86::rcx, {size});")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_new_memory));")
+        self.emit_call_rax()
+
+        self.emit_store_var(ctx, name, info)
+        return None
+    
     def add_double_literal(self, value):
         value_text = str(value)
 
@@ -675,6 +714,46 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = f"dbl_{safe}_{len(self.double_literals)}"
         self.double_literals.append((name, value_text))
         return name
+    
+    def emit_builtin_dispose(self, ctx):
+        actuals = []
+
+        if ctx.actualParamList():
+            actuals = list(ctx.actualParamList().actualParam())
+
+        if len(actuals) != 1:
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
+
+        expr = actuals[0].expr()
+
+        if not expr or not expr.term() or not expr.term(0).factor():
+            raise CompileError(ctx, "E0005", got="expr", expected="pointer variable")
+
+        factor = expr.term(0).factor(0)
+
+        if not factor.variableRef():
+            raise CompileError(ctx, "E0005", got="expr", expected="pointer variable")
+
+        ref  = factor.variableRef()
+
+        name = ref.IDENT().getText()
+        info = self.var_info(ctx, name)
+
+        ptr_type = info["type"]
+
+        if not ptr_type.startswith("^"):
+            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+        self.emit_load_var(name, info)
+
+        self.emit("a.mov(x86::rcx, x86::rax);")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_dispose_memory));")
+        self.emit_call_rax()
+
+        self.emit("a.xor_(x86::rax, x86::rax);")
+        self.emit_store_var(ctx, name, info)
+
+        return None
     
     def emit_multi_array_index_offset(self, ctx, var_name, array_info, index_exprs):
         dims = array_info.dimensions
@@ -771,32 +850,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.add(x86::rax, x86::r11); // @array[index]")
 
         return "^" + array_info.element_type
-        
-        """def emit_array_bounds_check(self, ctx, var_name, array_info):
-        ok_label    = self.new_named_label("array_bounds_ok")
-        fail_label  = self.new_named_label("array_bounds_fail")
-        array_label = self.add_string_literal(var_name)
-
-        self.emit("a.mov(x86::r10d, x86::eax); // save array index")
-
-        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
-        self.emit(f"a.jl({fail_label});")
-
-        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
-        self.emit(f"a.jg({fail_label});")
-
-        self.emit(f"a.jmp({ok_label});")
-
-        self.emit(f"a.bind({fail_label});")
-        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
-        self.emit("a.mov(x86::edx, x86::r10d);")
-        self.emit(f"a.mov(x86::r8d, {array_info.index_min});")
-        self.emit(f"a.mov(x86::r9d, {array_info.index_max});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));")
-        self.emit_call_rax()
-
-        self.emit(f"a.bind({ok_label});")
-        self.emit("a.mov(x86::eax, x86::r10d); // restore array index")"""
         
     def emit_array_bounds_check(self, ctx, var_name, array_info):
         ok_label    = self.new_named_label("array_bounds_ok")
@@ -1373,37 +1426,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit(f"{end_label}:")
     
-    def emit_address_of_var(self, ctx, name):
-        key = name.lower()
+    def emit_address_of_array_element(self, ctx, var_name, index_exprs):
+        var_info, array_info = self.get_array_info(ctx, var_name)
 
-        if key not in self.vars:
-            raise CompileError(ctx, "E0001", name=name)
+        self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
-        info = self.vars[key]
-        typ  = info["type"]
-        slot = info["slot"]
+        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
+        self.emit(f"a.add(x86::eax, {var_info['slot']});")
 
-        if typ == "integer":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 4}); // @{name}")
-            return "^integer"
+        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
+        self.emit("a.movsxd(x86::rax, x86::eax);")
+        self.emit("a.add(x86::rax, x86::r11); // @array[index]")
 
-        if typ == "double":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
-            return "^double"
-
-        if typ == "string":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
-            return "^string"
-
-        if typ in self.records:
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
-            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
-            return "^" + typ
-
-        raise CompileError(ctx, "E0005", got=typ, expected="addressable variable")
+        return "^" + array_info.element_type
     
     def emit_function_declaration(self, ctx, name, return_type):
         key = name.lower()
@@ -2222,6 +2257,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.AT():
             ref = ctx.variableRef()
             name = ref.IDENT().getText()
+            suffixes = ref.variableSuffix()
+
+            if suffixes:
+                first = suffixes[0]
+
+                if first.LBRACK():
+                    return self.emit_address_of_array_element(
+                        ctx,
+                        name,
+                        list(first.expr())
+                    )
+
             return self.emit_address_of_var(ctx, name)
     
         if ctx.variableRef():
@@ -2498,52 +2545,58 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return None
     
     def visitProcedureCallStatement(self, ctx):
-        name = ctx.IDENT().getText()
-        key  = name.lower()
+        name       = ctx.IDENT().getText()
+        key        = name.lower()
         param_regs = ["rcx", "rdx", "r8", "r9"]
+        
+        if key == "new":
+            return self.emit_builtin_new(ctx)
+        
+        if key == "dispose":
+            return self.emit_builtin_dispose(ctx)
         
         if key not in self.procedures:
             raise CompileError(ctx, "E0001", name=name)
-
-        proc = self.procedures[key]
-        params = proc["params"]
-
+        
+        proc    = self.procedures[key]
+        params  = proc["params"]
         actuals = []
+        
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
-
+        
         if len(actuals) != len(params):
             raise CompileError(ctx,
                 "E0005",
                 got=str(len(actuals)),
                 expected=str(len(params)))
-
+        
         for index, arg in enumerate(actuals):
             formal = params[index]
-
+            
             if formal["type"] == "integer":
                 expr_type = self.visit(arg.expr())
-
+                
                 if expr_type != "integer":
                     raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
-
+                
                 int_regs = ["ecx", "edx", "r8d", "r9d"]
                 reg = int_regs[index]
                 self.emit(f"a.mov(x86::{reg}, x86::eax);")
-
+            
             elif formal["type"] == "string":
                 if not arg.STRING():
                     raise CompileError(ctx, "E0005", got="expr", expected="string")
-
+                
                 value = arg.STRING().getText()[1:-1]
                 label = self.add_string_literal(value)
-
+                
                 reg = param_regs[index]
                 self.emit(f"a.mov(x86::{reg}, imm((uint64_t){label}));")
-
+            
             else:
                 raise CompileError(ctx, "E0005", got=formal["type"], expected="string/integer")
-
+        
         self.emit("a.sub(x86::rsp, 32); // shadow space for procedure call")
         self.emit(f"a.call({proc['label']});")
         self.emit("a.add(x86::rsp, 32);")
@@ -2718,15 +2771,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out.append('asm_out << "extern _jit_print_int\\n";')
         out.append('asm_out << "extern _jit_print_double\\n";')
         out.append('asm_out << "extern _jit_print_newline\\n";')
+        
+        out.append('asm_out << "extern _jit_new_memory\\n";');
+        out.append('asm_out << "extern _jit_dispose_memory\\n";')
 
         return "\n    ".join(out)
     
-    def render_asm_string_mappings(self):
+    def render_asm_symbol_mappings(self):
         out = []
+
         for name, text in self.string_literals:
             out.append(
                 f'symbols.add(std::to_string((uint64_t)&{name}), "_{name}");'
             )
+
+        out.append('symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");')
+        
+        out.append('symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");')
+
         return "\n    ".join(out)
         
     def render_asm_string_data(self):
@@ -2810,7 +2876,7 @@ int main() {{
     replace_all_fun(asm_text);
     
     SymbolMappings symbols;
-    {self.render_asm_string_mappings()}
+    {self.render_asm_symbol_mappings()}
     symbols.apply(asm_text);
     
     LabelMappings labels;
@@ -2826,7 +2892,12 @@ int main() {{
     {self.render_asm_nasm_structs()}
     
     {self.render_asm_double_replacements()}
-    asm_out << "\\n";
+    asm_out << std::endl;
+    asm_out << std::endl;
+    
+    asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << std::endl;
+    
 
     std::istringstream iss(asm_text);
     std::string line;
@@ -2834,10 +2905,10 @@ int main() {{
     {self.render_asm_double_symbols()}
     {self.render_asm_extern_symbols()}
     
-    asm_out << "\\n";
+    asm_out << std::endl;
     asm_out << "section .text\\n";
-    asm_out << \"global \" << \"_{self.func_name}\" << \"\\n\";
-    asm_out << \"_{self.func_name}\" << \":\\n\";
+    asm_out << \"global \" << \"_{self.func_name}\" << std::endl;
+    asm_out << \"_{self.func_name}\" << \":" << std::endl;
     
     replace_all_str(asm_text, asm_out);
     

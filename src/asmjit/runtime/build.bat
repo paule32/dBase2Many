@@ -10,6 +10,7 @@ g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPI
 g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/print.o   print.cc
 g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/mapping.o mapping.cc
 g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/misc.o    misc.cc
+g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/memory.o  memory.cc
 
 ar rcs libdBase2Many.a obj/*.o
 
