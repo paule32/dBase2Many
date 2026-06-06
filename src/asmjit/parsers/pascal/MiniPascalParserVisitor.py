@@ -69,6 +69,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#simpleType.
+    def visitSimpleType(self, ctx:MiniPascalParser.SimpleTypeContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#enumDeclaration.
     def visitEnumDeclaration(self, ctx:MiniPascalParser.EnumDeclarationContext):
         return self.visitChildren(ctx)

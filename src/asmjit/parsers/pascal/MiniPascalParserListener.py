@@ -116,6 +116,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#simpleType.
+    def enterSimpleType(self, ctx:MiniPascalParser.SimpleTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#simpleType.
+    def exitSimpleType(self, ctx:MiniPascalParser.SimpleTypeContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#enumDeclaration.
     def enterEnumDeclaration(self, ctx:MiniPascalParser.EnumDeclarationContext):
         pass

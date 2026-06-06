@@ -290,3 +290,5 @@ src/asmjit/libasmjit.dll.a
 src/asmjit/libasmjit.a
 src/asmjit/testout/test3.o
 *.o
+src/asmjit/runtime/libdBase2Many.a
+src/asmjit/runtime/dbase2many.hpp.gch

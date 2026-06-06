@@ -1,0 +1,411 @@
+// automaically created per Python 3.14 script on: 2026-06-05
+//
+// DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
+// Copyright (c) 2026 by Jens Kallup - paule32
+// all rights reserved.
+//
+# include <asmjit/x86.h>
+# include <cstdio>
+# include <cstdint>
+# include <cstring>
+
+# include <iostream>
+# include <fstream>
+# include <sstream>
+
+# include <string>
+# include <array>
+# include <vector>
+# include <algorithm>
+
+using namespace std;
+using namespace asmjit;
+
+struct JitContext {
+    int*            int_vars;
+    
+    double *        double_vars;
+    const char **   string_vars;
+    uint8_t *       record_vars;
+    uint8_t *       arrays_vars;
+    uint64_t *      pointr_vars;
+
+    int             print_int_tmp;
+    double          print_double_tmp;
+};
+typedef void (*JitFunc)(JitContext* ctx);
+
+static uint64_t double_to_bits(double value) {
+    uint64_t bits;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+extern "C" void jit_print_text(const char* s) { std::cout << s; }
+extern "C" void jit_print_int(int v)          { std::cout << v; }
+extern "C" void jit_print_double(double v)    { std::cout << v; }
+extern "C" void jit_print_newline()           { std::cout << std::endl; }
+
+static const char str_0[] = "Fak 5: ";
+
+static void
+replace_all(
+    std::string& s,
+    const std::string& from,
+    const std::string& to) {
+    
+    if (from.empty())
+        return;
+
+    size_t pos = 0;
+
+    while ((pos = s.find(from, pos)) != std::string::npos) {
+        s.replace(pos, from.length(), to);
+        pos += std::max<size_t>(to.length(), 1);
+    }
+}
+    
+struct LabelMapping
+{
+    std::string asmjitLabel;
+    std::string targetLabel;
+
+    LabelMapping(
+        const std::string& asmjit,
+        const std::string& target)
+        :
+        asmjitLabel(asmjit),
+        targetLabel(target)
+    {
+    }
+};
+
+struct SymbolMapping
+{
+    std::string addressText;
+    std::string symbolName;
+
+    SymbolMapping(
+        const std::string& address,
+        const std::string& symbol)
+        :
+        addressText(address),
+        symbolName(symbol)
+    {
+    }
+};
+
+class LabelMappings
+{
+public:
+    void add(
+        const std::string& asmjitLabel,
+        const std::string& targetLabel)
+    {
+        mappings.emplace_back(
+            asmjitLabel,
+            targetLabel);
+    }
+
+    void clear()
+    {
+        mappings.clear();
+    }
+
+    void remove(const std::string& asmjitLabel)
+    {
+        mappings.erase(
+            std::remove_if(
+                mappings.begin(),
+                mappings.end(),
+                [&](const LabelMapping& item)
+                {
+                    return item.asmjitLabel == asmjitLabel;
+                }),
+            mappings.end());
+    }
+
+    void apply(std::string& asm_text)
+    {
+        for (const auto& item : mappings)
+        {
+            replace_all(
+                asm_text,
+                item.asmjitLabel + ":",
+                item.targetLabel + ":");
+
+            replace_all(
+                asm_text,
+                item.asmjitLabel,
+                item.targetLabel);
+        }
+    }
+
+private:
+    std::vector<LabelMapping> mappings;
+};
+
+class SymbolMappings
+{
+private:
+    std::vector<SymbolMapping> mappings;
+
+public:
+    void add(
+        const std::string& addressText,
+        const std::string& symbolName)
+    {
+        mappings.emplace_back(addressText, symbolName);
+    }
+
+    void apply(std::string& asm_text)
+    {
+        for (const auto& item : mappings)
+        {
+            replace_all(
+                asm_text,
+                item.addressText,
+                item.symbolName);
+        }
+    }
+};
+
+int main() {
+    JitRuntime rt;
+
+    CodeHolder code;
+    code.init(rt.environment());
+    
+    StringLogger logger;
+    
+    logger.options().set_indentation(FormatIndentationGroup::kCode, 1);
+    logger.options().set_padding(FormatPaddingGroup::kMachineCode, 0);
+    
+    code.set_logger(&logger);
+    x86::Assembler a(&code);
+
+    Label func_Fak_1 = a.new_label();
+    Label endfunc_Fak_2 = a.new_label();
+    a.jmp(endfunc_Fak_2);
+    a.bind(func_Fak_1);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.push(x86::rbx); // preserve non-volatile RBX
+    a.push(x86::rcx); // save function param n
+    a.sub(x86::rsp, 256); // local variables
+    Label else_3 = a.new_label();
+    Label endif_4 = a.new_label();
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -16));
+    a.push(x86::rax);
+    a.mov(x86::eax, 1);
+    a.mov(x86::ebx, x86::eax);
+    a.pop(x86::rax);
+    a.cmp(x86::eax, x86::ebx);
+    a.jg(else_3);
+    a.mov(x86::eax, 1);
+    a.jmp(endif_4);
+    a.bind(else_3);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -16));
+    a.push(x86::rax);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -16));
+    a.push(x86::rax);
+    a.mov(x86::eax, 1);
+    a.mov(x86::ebx, x86::eax);
+    a.pop(x86::rax);
+    a.sub(x86::eax, x86::ebx);
+    a.mov(x86::ecx, x86::eax);
+    a.sub(x86::rsp, 32); // shadow space for function call
+    a.call(func_Fak_1);
+    a.add(x86::rsp, 32);
+    a.mov(x86::ebx, x86::eax);
+    a.pop(x86::rax);
+    a.imul(x86::eax, x86::ebx);
+    a.bind(endif_4);
+    a.mov(x86::rbx, x86::qword_ptr(x86::rbp, -8));
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(endfunc_Fak_2);
+    a.push(x86::r12);
+    a.push(x86::rbx);
+    a.sub(x86::rsp, 8); // align stack
+    a.mov (x86::r12, x86::rcx); // ctx
+    a.mov(x86::rcx, imm((uint64_t)str_0));
+    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, 5);
+    a.mov(x86::ecx, x86::eax);
+    a.sub(x86::rsp, 32); // shadow space for function call
+    a.call(func_Fak_1);
+    a.add(x86::rsp, 32);
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.add(x86::rsp, 8); // undo alignment
+    a.pop(x86::rbx);
+    a.pop(x86::r12);
+    a.ret();
+
+    JitFunc fn = nullptr;
+    Error err = rt.add(&fn, &code);
+    if (err != Error::kOk) {
+        std::cerr << "AsmJit error: " << DebugUtils::error_as_string(err) << std::endl;
+        return 1;
+    }
+    
+    std::ofstream asm_out("test20.asm");
+    std::string asm_text = logger.data();
+
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_int),     "_jit_print_int");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_double),  "_jit_print_double");
+    replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    
+    SymbolMappings symbols;
+    symbols.add(std::to_string((uint64_t)&str_0), "_str_0");
+    symbols.apply(asm_text);
+    
+    LabelMappings labels;
+    labels.add("L0", "func_Fak_1");
+    labels.add("L1", "endfunc_Fak_2");
+    labels.add("L2", "else_3");
+    labels.add("L3", "endif_4");
+    labels.apply(asm_text);
+
+    replace_all(asm_text, "byte ptr ",    "byte ");
+    replace_all(asm_text, "word ptr ",    "word ");
+    replace_all(asm_text, "dword ptr ",   "dword ");
+    replace_all(asm_text, "qword ptr ",   "qword ");
+    replace_all(asm_text, "xmmword ptr ", "xmmword ");
+    
+    
+    replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
+    replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
+    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
+    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
+    
+    
+    
+    asm_out << "; -----------------------------------------------------------------------------\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-05\n";
+    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
+    asm_out << "; all rights reserved.\n";
+    asm_out << "; -----------------------------------------------------------------------------\n\n";
+    
+    
+    asm_out << "struc JitContext\n";
+    asm_out << "    .int_vars:         resq 1\n";
+    asm_out << "    .double_vars:      resq 1\n";
+    asm_out << "    .print_int_tmp:    resd 1\n";
+    asm_out << "    .print_double_tmp: resq 1\n";
+    asm_out << "endstruc\n\n";
+    
+    
+    
+    asm_out << "\n";
+
+    std::istringstream iss(asm_text);
+    std::string line;
+
+    
+    asm_out << "extern _jit_print_text\n";
+    asm_out << "extern _jit_print_int\n";
+    asm_out << "extern _jit_print_double\n";
+    asm_out << "extern _jit_print_newline\n";
+    
+    asm_out << "\n";
+    asm_out << "section .text\n";
+    asm_out << "global " << "_main" << "\n";
+    asm_out << "_main" << ":\n";
+    
+    while (std::getline(iss, line)) {
+        std::string s = line;
+
+        // führende Leerzeichen entfernen
+        size_t start = s.find_first_not_of(" \t");
+        if (start == std::string::npos) {
+            asm_out << "\n";
+            continue;
+        }
+
+        s = s.substr(start);
+        
+        // Labels linksbündig ausgeben: L0:
+        if (!s.empty() && s.back() == ':') {
+            asm_out << s << "\n";
+            continue;
+        }
+
+        // erstes Leerzeichen nach Mnemonic suchen
+        size_t pos = s.find_first_of(" \t");
+
+        if (pos != std::string::npos) {
+            std::string mnemonic = s.substr(0, pos);
+            std::string rest = s.substr(pos);
+            size_t rest_start = rest.find_first_not_of(" \t");
+
+            if (rest_start != std::string::npos)
+                rest = rest.substr(rest_start);
+            else
+                rest.clear();
+            
+            // short jmp <label>
+            if (mnemonic == "short") {
+                size_t rest_start = rest.find_first_not_of(" \t");
+
+                if (rest_start != std::string::npos)
+                    s = rest.substr(rest_start);
+                else
+                    s.clear();
+
+                pos = s.find_first_of(" \t");
+
+                if (pos != std::string::npos) {
+                    mnemonic = s.substr(0, pos);
+                    rest = s.substr(pos);
+                } else {
+                    mnemonic = s;
+                    rest.clear();
+                }
+            }
+            asm_out << "\t" << mnemonic << "\t" << rest << "\n";
+        } else {
+            asm_out << "\t" << s << "\n";
+        }
+    }
+    
+    asm_out << "\nsection .data\n";
+    asm_out << "_str_0 db \"Fak 5: \", 0\n";
+    
+    asm_out.close();
+   
+    std::array<int,         1> int_vars{};
+    std::array<double,      1> double_vars{};
+    std::array<const char*, 1> string_vars{};
+    std::array<uint8_t,     1> record_vars{};
+    std::array<uint8_t,     1> arrays_vars{};
+    std::array<uint64_t,    1> pointr_vars{};
+    
+    JitContext ctx{};
+    ctx.int_vars    = int_vars.data();
+    
+    ctx.double_vars = double_vars.data();
+    ctx.string_vars = string_vars.data();
+    ctx.record_vars = record_vars.data();
+    ctx.arrays_vars = arrays_vars.data();
+    ctx.pointr_vars = pointr_vars.data();
+    
+    fn(&ctx);
+
+    rt.release(fn);
+    return 0;
+}
+

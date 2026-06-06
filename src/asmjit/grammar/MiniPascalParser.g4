@@ -58,9 +58,15 @@ arrayValueList
     ;
 
 typeName
-    : DOUBLE
+    : simpleType
+    | CARET simpleType
+    ;
+
+simpleType
+    : IDENT
     | INTEGER
-    | IDENT
+    | DOUBLE
+    | STRING
     ;
 
 enumDeclaration
@@ -209,6 +215,7 @@ variableRef
 variableSuffix
     : DOT IDENT
     | LBRACK expr RBRACK
+    | CARET
     ;
 
 expr
@@ -220,7 +227,8 @@ term
     ;
 
 factor
-    : variableRef
+    : AT variableRef
+    | variableRef
     | functionCallExpr
     | NUMBER
     | FLOATNUMBER

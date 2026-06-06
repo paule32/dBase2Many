@@ -50,6 +50,9 @@ LPAREN      : '('   ;
 RPAREN      : ')'   ;
 RBRACK      : ']'   ;
 
+CARET       : '^'   ;
+AT          : '@'   ;
+
 EQ_OP       : '='   ;
 LE_OP       : '<='  ;
 NE_OP       : '<>'  ;
