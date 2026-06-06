@@ -2264,171 +2264,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
 //
-# include <asmjit/x86.h>
-# include <cstdio>
-# include <cstdint>
-# include <cstring>
-
-# include <iostream>
-# include <fstream>
-# include <sstream>
-
-# include <string>
-# include <array>
-# include <vector>
-# include <algorithm>
+# include "runtime/dbase2many.hpp"
 
 using namespace std;
 using namespace asmjit;
 
-struct JitContext {{
-    int*            int_vars;
-    
-    double *        double_vars;
-    const char **   string_vars;
-    uint8_t *       record_vars;
-    uint8_t *       arrays_vars;
-    uint64_t *      pointr_vars;
-
-    int             print_int_tmp;
-    double          print_double_tmp;
-}};
-typedef void (*JitFunc)(JitContext* ctx);
-
-static uint64_t double_to_bits(double value) {{
-    uint64_t bits;
-    std::memcpy(&bits, &value, sizeof(bits));
-    return bits;
-}}
-
-extern \"C\" void jit_print_text(const char* s) {{ std::cout << s; }}
-extern \"C\" void jit_print_int(int v)          {{ std::cout << v; }}
-extern \"C\" void jit_print_double(double v)    {{ std::cout << v; }}
-extern \"C\" void jit_print_newline()           {{ std::cout << std::endl; }}
-
 {self.render_string_literals()}
-
-static void
-replace_all(
-    std::string& s,
-    const std::string& from,
-    const std::string& to) {{
-    
-    if (from.empty())
-        return;
-
-    size_t pos = 0;
-
-    while ((pos = s.find(from, pos)) != std::string::npos) {{
-        s.replace(pos, from.length(), to);
-        pos += std::max<size_t>(to.length(), 1);
-    }}
-}}
-    
-struct LabelMapping
-{{
-    std::string asmjitLabel;
-    std::string targetLabel;
-
-    LabelMapping(
-        const std::string& asmjit,
-        const std::string& target)
-        :
-        asmjitLabel(asmjit),
-        targetLabel(target)
-    {{
-    }}
-}};
-
-struct SymbolMapping
-{{
-    std::string addressText;
-    std::string symbolName;
-
-    SymbolMapping(
-        const std::string& address,
-        const std::string& symbol)
-        :
-        addressText(address),
-        symbolName(symbol)
-    {{
-    }}
-}};
-
-class LabelMappings
-{{
-public:
-    void add(
-        const std::string& asmjitLabel,
-        const std::string& targetLabel)
-    {{
-        mappings.emplace_back(
-            asmjitLabel,
-            targetLabel);
-    }}
-
-    void clear()
-    {{
-        mappings.clear();
-    }}
-
-    void remove(const std::string& asmjitLabel)
-    {{
-        mappings.erase(
-            std::remove_if(
-                mappings.begin(),
-                mappings.end(),
-                [&](const LabelMapping& item)
-                {{
-                    return item.asmjitLabel == asmjitLabel;
-                }}),
-            mappings.end());
-    }}
-
-    void apply(std::string& asm_text)
-    {{
-        for (const auto& item : mappings)
-        {{
-            replace_all(
-                asm_text,
-                item.asmjitLabel + ":",
-                item.targetLabel + ":");
-
-            replace_all(
-                asm_text,
-                item.asmjitLabel,
-                item.targetLabel);
-        }}
-    }}
-
-private:
-    std::vector<LabelMapping> mappings;
-}};
-
-class SymbolMappings
-{{
-private:
-    std::vector<SymbolMapping> mappings;
-
-public:
-    void add(
-        const std::string& addressText,
-        const std::string& symbolName)
-    {{
-        mappings.emplace_back(addressText, symbolName);
-    }}
-
-    void apply(std::string& asm_text)
-    {{
-        for (const auto& item : mappings)
-        {{
-            replace_all(
-                asm_text,
-                item.addressText,
-                item.symbolName);
-        }}
-    }}
-}};
 
 int main() {{
     JitRuntime rt;
@@ -2460,10 +2301,7 @@ int main() {{
     std::ofstream asm_out(\"{self.asm_file}\");
     std::string asm_text = logger.data();
 
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_int),     "_jit_print_int");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_double),  "_jit_print_double");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    replace_all_fun(asm_text);
     
     SymbolMappings symbols;
     {self.render_asm_string_mappings()}
@@ -2473,11 +2311,8 @@ int main() {{
     {self.render_asm_label_mappings()}
     labels.apply(asm_text);
 
-    replace_all(asm_text, "byte ptr ",    "byte ");
-    replace_all(asm_text, "word ptr ",    "word ");
-    replace_all(asm_text, "dword ptr ",   "dword ");
-    replace_all(asm_text, "qword ptr ",   "qword ");
-    replace_all(asm_text, "xmmword ptr ", "xmmword ");
+    replace_all_ptr(asm_text);
+    
     
     {self.render_asm_context_replacements()}
     
@@ -2498,61 +2333,7 @@ int main() {{
     asm_out << \"global \" << \"_{self.func_name}\" << \"\\n\";
     asm_out << \"_{self.func_name}\" << \":\\n\";
     
-    while (std::getline(iss, line)) {{
-        std::string s = line;
-
-        // führende Leerzeichen entfernen
-        size_t start = s.find_first_not_of(\" \\t\");
-        if (start == std::string::npos) {{
-            asm_out << \"\\n\";
-            continue;
-        }}
-
-        s = s.substr(start);
-        
-        // Labels linksbündig ausgeben: L0:
-        if (!s.empty() && s.back() == \':\') {{
-            asm_out << s << \"\\n\";
-            continue;
-        }}
-
-        // erstes Leerzeichen nach Mnemonic suchen
-        size_t pos = s.find_first_of(\" \\t\");
-
-        if (pos != std::string::npos) {{
-            std::string mnemonic = s.substr(0, pos);
-            std::string rest = s.substr(pos);
-            size_t rest_start = rest.find_first_not_of(\" \\t\");
-
-            if (rest_start != std::string::npos)
-                rest = rest.substr(rest_start);
-            else
-                rest.clear();
-            
-            // short jmp <label>
-            if (mnemonic == "short") {{
-                size_t rest_start = rest.find_first_not_of(" \\t");
-
-                if (rest_start != std::string::npos)
-                    s = rest.substr(rest_start);
-                else
-                    s.clear();
-
-                pos = s.find_first_of(" \\t");
-
-                if (pos != std::string::npos) {{
-                    mnemonic = s.substr(0, pos);
-                    rest = s.substr(pos);
-                }} else {{
-                    mnemonic = s;
-                    rest.clear();
-                }}
-            }}
-            asm_out << \"\\t\" << mnemonic << \"\\t\" << rest << \"\\n\";
-        }} else {{
-            asm_out << \"\\t\" << s << \"\\n\";
-        }}
-    }}
+    replace_all_str(asm_text, asm_out);
     
     {self.render_asm_string_data()}
     

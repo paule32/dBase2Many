@@ -29,8 +29,8 @@ python -m compileall pas2asmjit.py
 for %%N in (21) do (
     echo create: test%%N
     python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
-    g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -m64 -mconsole -O2 -L. ^
-        -o  testout/test%%N.exe testout/test%%N.cc -lasmjit
+    g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 -L. -Lruntime ^
+        -o  testout/test%%N.exe testout/test%%N.cc runtime/obj/*.o -lasmjit
     strip   testout/test%%N.exe
     echo @echo off > testout/run_test%%N.bat
     echo set PATH=T:\msys64\mingw64\bin;%CD%;%PATH% >> testout/run_test%%N.bat
