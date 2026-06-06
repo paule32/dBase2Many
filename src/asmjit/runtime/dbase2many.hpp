@@ -54,6 +54,12 @@ void jit_print_int(int v);
 void jit_print_double(double v);
 void jit_print_newline();
 
+void jit_array_bounds_error(
+    const char* array_name,
+    int index,
+    int min_index,
+    int max_index);
+
 // ---------------------------------------------------------------------------
 // end of C section
 // ---------------------------------------------------------------------------

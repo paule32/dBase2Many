@@ -563,6 +563,52 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.double_literals.append((name, value_text))
         return name
     
+    def emit_array_bounds_check(self, ctx, var_name, array_info):
+        ok_label = self.new_named_label("array_bounds_ok")
+        array_label = self.add_string_literal(var_name)
+
+        # Index liegt in EAX
+        self.emit("a.mov(x86::ebx, x86::eax); // save original array index")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
+        self.emit(f"a.jl({ok_label}_fail);")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
+        self.emit(f"a.jg({ok_label}_fail);")
+
+        self.emit(f"a.jmp({ok_label});")
+
+        fail_label = self.new_named_label("array_bounds_fail")
+        
+    def emit_array_bounds_check(self, ctx, var_name, array_info):
+        ok_label    = self.new_named_label("array_bounds_ok")
+        fail_label  = self.new_named_label("array_bounds_fail")
+        array_label = self.add_string_literal(var_name)
+
+        # Originalindex in EBX sichern
+        self.emit("a.mov(x86::ebx, x86::eax); // save array index")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
+        self.emit(f"a.jl({fail_label});")
+
+        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
+        self.emit(f"a.jg({fail_label});")
+
+        self.emit(f"a.jmp({ok_label});")
+
+        self.emit(f"a.bind({fail_label});")
+        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
+        self.emit("a.mov(x86::edx, x86::ebx);")
+        self.emit(f"a.mov(x86::r8d, {array_info.index_min});")
+        self.emit(f"a.mov(x86::r9d, {array_info.index_max});")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));")
+        self.emit_call_rax()
+
+        self.emit(f"a.bind({ok_label});")
+
+        # Index wiederherstellen
+        self.emit("a.mov(x86::eax, x86::ebx); // restore array index")
+    
     def emit_load_const(self, ctx, name):
         c = self.find_const(name)
 
@@ -774,8 +820,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         index_type = self.visit(index_expr_ctx)
 
+        self.emit_array_bounds_check(ctx, var_name, array_info)
+
         if index_type != "integer":
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+        self.emit_array_bounds_check(ctx, var_name, array_info)
 
         if array_info.index_min != 0:
             self.emit(f"a.sub(x86::eax, {array_info.index_min});")
