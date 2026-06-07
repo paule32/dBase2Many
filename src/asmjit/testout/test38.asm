@@ -14,6 +14,7 @@ endstruc
 
 
 extern _jit_array_bounds_error
+extern _jit_dynarray_setlength
 
 extern _jit_print_text
 extern _jit_print_int
@@ -31,14 +32,11 @@ _main:
 	mov	r12, rcx
 	mov	eax, 10
 	movsxd	rdx, eax
+	mov	r8, 4
 	mov	rax, qword [r12+40]
 	mov	rax, qword [rax]
 	mov	rcx, rax
-	mov	r8, 4
-	mov	rax, 140697279207560
-	sub	rsp, 32
-	call	rax
-	add	rsp, 32
+	call	_jit_dynarray_setlength
 	mov	r11, qword [r12+40]
 	mov	qword [r11], rax
 	mov	eax, 123

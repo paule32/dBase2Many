@@ -1,3 +1,9 @@
+; -----------------------------------------------------------------------------
+; GENERATED WITH PYTHON 3.14 ON: 2026-06-07
+; Copyright (c) 2026 by Jens Kallup - paule32
+; all rights reserved.
+; -----------------------------------------------------------------------------
+
 struc JitContext
     .int_vars:         resq 1
     .double_vars:      resq 1
@@ -6,25 +12,33 @@ struc JitContext
 endstruc
 
 
+
+extern _jit_array_bounds_error
+
 dbl_10_5_0 equ 4622100592565682176 ; 10.5
 dbl_20_0_1 equ 4626322717216342016 ; 20.0
 extern _jit_print_text
 extern _jit_print_int
 extern _jit_print_double
 extern _jit_print_newline
+extern _jit_new_memory
+extern _jit_dispose_memory
 
 section .text
 global _main
 _main:
 	push	r12
+	push	rbx
+	sub	rsp, 8
 	mov	r12, rcx
 	mov	eax, 20
+	mov	ebx, eax
 	mov	rax, qword [r12 + JitContext.int_vars]
-	mov	dword [rax], eax
+	mov	dword [rax], ebx
 	mov	rax, dbl_10_5_0
 	movq	xmm0, rax
-	mov	rax, qword [r12 + JitContext.double_vars]
-	movsd	qword [rax], xmm0
+	mov	r11, qword [r12 + JitContext.double_vars]
+	movsd	qword [r11], xmm0
 	mov	rcx, _str_0
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -41,7 +55,7 @@ _main:
 	mov	ebx, eax
 	pop	rax
 	cmp	eax, ebx
-	jle	L0
+	jle	else_1
 	mov	rcx, _str_1
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -51,8 +65,8 @@ _main:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
-	jmp	L1
-L0:
+	jmp	endif_2
+else_1:
 	mov	rcx, _str_2
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -62,7 +76,7 @@ L0:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
-L1:
+endif_2:
 	mov	rax, qword [r12 + JitContext.double_vars]
 	movsd	xmm0, qword [rax]
 	sub	rsp, 8
@@ -73,7 +87,7 @@ L1:
 	movsd	xmm0, qword [rsp]
 	add	rsp, 8
 	ucomisd	xmm0, xmm1
-	jnb	L2
+	jnb	else_3
 	mov	rcx, _str_3
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -83,7 +97,7 @@ L1:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
-L2:
+else_3:
 	mov	rcx, _str_4
 	mov	rax, _jit_print_text
 	sub	rsp, 32
@@ -93,6 +107,8 @@ L2:
 	sub	rsp, 32
 	call	rax
 	add	rsp, 32
+	add	rsp, 8
+	pop	rbx
 	pop	r12
 	ret
 

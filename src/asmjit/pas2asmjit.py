@@ -816,42 +816,42 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_builtin_setlength(self, ctx):
         actuals = []
-        
+
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
-        
+
         if len(actuals) != 2:
             raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="2")
-        
-        ref = actuals[0].expr().term(0).factor(0).variableRef()
-        name = ref.IDENT().getText()
-        
-        info = self.var_info(ctx, name)
-        typ  = self.resolve_type(info["type"])
-        
-        if typ not in self.arrays:
-            raise CompileError(ctx, "E0005", got=typ, expected="dynamic array")
-        
-        array_info = self.arrays[typ]
-        
-        if not getattr(array_info, "is_dynamic", False):
-            raise CompileError(ctx, "E0005", got=typ, expected="dynamic array")
-        
-        length_type = self.visit(actuals[1].expr())
-        
-        if length_type != "integer":
-            raise CompileError(ctx, "E0005", got=length_type, expected="integer")
-        
-        self.emit("a.movsxd(x86::rdx, x86::eax); // new length")
-        
-        self.emit_load_var(name, info)
-        self.emit("a.mov(x86::rcx, x86::rax); // old data pointer")
-        self.emit(f"a.mov(x86::r8, {array_info.element_size}); // element size")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_dynarray_setlength));")
-        self.emit_call_rax()
-        
-        self.emit_store_var(ctx, name, info)
-        return None
+
+        target_ctx = actuals[0].expr()
+        length_ctx = actuals[1].expr()
+
+        name = target_ctx.getText()
+
+        local_var = self.find_local_var(name)
+
+        if local_var:
+            var_type = local_var["type"]
+        else:
+            var_info = self.var_info(ctx, name)
+            var_type = var_info["type"]
+
+        if var_type == "string":
+            self.emit_builtin_string_setlength(ctx, name, length_ctx)
+            return None
+
+        if isinstance(var_type, str) and var_type in self.arrays:
+            array_info = self.arrays[var_type]
+
+            if getattr(array_info, "is_dynamic", False):
+                self.emit_builtin_array_setlength(ctx, name, length_ctx)
+                return None
+
+        raise CompileError(
+            ctx,
+            "E0014",
+            var_type="SetLength only supports dynamic arrays and strings"
+        )
     
     def add_double_literal(self, value):
         value_text = str(value)
@@ -904,6 +904,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.xor_(x86::rax, x86::rax);")
         self.emit_store_var(ctx, name, info)
 
+        return None
+
+    def emit_builtin_array_setlength(self, ctx, name, length_ctx):
+        var_info = self.var_info(ctx, name)
+        array_info = self.arrays[var_info["type"]]
+
+        self.visit(length_ctx)                       # eax = length
+
+        self.emit("a.movsxd(x86::rdx, x86::eax);")   # rdx = length
+        self.emit(f"a.mov(x86::r8, {array_info.element_size});")  # r8 = element_size
+
+        self.emit_load_var(name, var_info)           # rax = old data pointer
+        self.emit("a.mov(x86::rcx, x86::rax);")      # rcx = old data pointer
+
+        self.emit("a.call(imm((uint64_t)&jit_dynarray_setlength));")
+
+        self.emit_store_var(ctx, name, var_info)     # rax = new data pointer
         return None
     
     def emit_multi_array_index_offset(self, ctx, var_name, array_info, index_exprs):
@@ -1138,6 +1155,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return "double"
     
+    def emit_load_pointer_var_to_rax(self, ctx, name):
+        var_info = self.var_info(ctx, name)
+        slot = var_info["slot"]
+
+        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
+        self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8}));")
+    
     def emit_load_pointer_deref(self, ctx, name):
         key = name.lower()
 
@@ -1317,6 +1341,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0011", typ=typ)
 
+    def emit_builtin_string_setlength(self, ctx, name, length_ctx):
+        self.visit(length_ctx)                       # eax = length
+        self.emit("a.movsxd(x86::rdx, x86::eax);")   # rdx = length
+        self.emit_load_pointer_var_to_rax(ctx, name)
+        self.emit("a.mov(x86::rcx, x86::rax);")      # rcx = old char*
+        self.emit("a.call(imm((uint64_t)&jit_string_setlength));")
+        self.emit_store_pointer_var_from_rax(ctx, name)
+    
+    def emit_store_pointer_var_from_rax(self, ctx, name):
+        var_info = self.var_info(ctx, name)
+        slot = var_info["slot"]
+
+        self.emit("a.mov(x86::rdx, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
+        self.emit(f"a.mov(x86::qword_ptr(x86::rdx, {slot * 8}), x86::rax);")
+    
     def emit_store_pointer_deref(self, ctx, name, expr_type):
         key = name.lower()
 
@@ -1756,6 +1795,31 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0013", var_type=field.type)
 
+    def emit_store_dynamic_array_element(self, ctx, name, index_ctx, value_ctx):
+        arr = self.lookup_var(name)
+
+        self.visit(index_ctx)                  # eax = index
+        self.emit("a.mov(x86::r10d, x86::eax);")
+
+        self.emit_load_var_value(name)         # rax = data pointer
+        self.emit("a.test(x86::rax, x86::rax);")
+        self.emit("a.jz(label_array_nil_error);")
+
+        # Bounds Check
+        self.emit("a.mov(x86::r11, x86::rax);")
+        self.emit("a.sub(x86::r11, 16);")      # Header
+        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r11));")  # length
+        self.emit("a.cmp(x86::r10, x86::r11);")
+        self.emit("a.jae(label_array_bounds_error);")
+
+        self.visit(value_ctx)                  # eax = value
+
+        self.emit_load_var_value(name)         # rax = data pointer
+        self.emit("a.movsxd(x86::r11, x86::r10d);")
+        self.emit("a.imul(x86::r11, x86::r11, 4);")
+        self.emit("a.add(x86::r11, x86::rax);")
+        self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+    
     def emit_store_local_var(self, ctx, name, expr_type):
         var = self.find_local_var(name)
 
@@ -1819,6 +1883,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return
 
         raise CompileError(None, "E0014", var_type=typ)
+    
+    def emit_load_dynamic_array_element(self, ctx, name, index_ctx):
+        arr = self.lookup_var(name)
+
+        self.visit(index_ctx)
+        self.emit("a.mov(x86::r10d, x86::eax);")
+
+        self.emit_load_var_value(name)         # rax = data pointer
+
+        self.emit("a.movsxd(x86::r11, x86::r10d);")
+        self.emit("a.imul(x86::r11, x86::r11, 4);")
+        self.emit("a.add(x86::r11, x86::rax);")
+        self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+
+        return "integer"
     
     def emit_store_var(self, ctx, name, info):
         typ  = info["type"]
@@ -2645,7 +2724,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     )
                     return None
                 
-                # normales a[0]
+                # dynamisches Array: a[0] := ...
+                arr_info = self.var_info(ctx, var_name)
+                arr_type = arr_info["type"]
+                
+                if getattr(arr_type, "is_dynamic", False):
+                    self.emit_store_dynamic_array_element(
+                        ctx,
+                        var_name,
+                        list(first.expr()),
+                        expr_type
+                    )
+                    return None
+                
+                # statisches Array: a[0] := ...
                 self.emit_store_array_element(
                     ctx,
                     var_name,
@@ -3466,6 +3558,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out.append('symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");')
         
+        out.append('symbols.add(std::to_string((uint64_t)&jit_dynarray_setlength), "_jit_dynarray_setlength");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_dynstring_setlength), "_jit_dynstring_setlength");')
+        
         out.append('symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");')
         
         out.append('symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");')
@@ -3575,6 +3670,7 @@ int main() {{
     asm_out << std::endl;
     
     asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << "extern _jit_dynarray_setlength" << std::endl;
     asm_out << std::endl;
     
     std::istringstream iss(asm_text);

@@ -91,19 +91,30 @@ struct JitContext {
 typedef void (*JitFunc)(JitContext* ctx);
 
 // ---------------------------------------------------------------------------
-// dynamic array - SetLength
+// dynamic array - SetLength ...
 // ---------------------------------------------------------------------------
 struct DynArrayHeader {
     uint64_t length;
     uint64_t element_size;
 };
 
-extern "C" void *
-jit_dynarray_setlength(
+extern "C" void * jit_dynarray_setlength(
     void *   data,
     uint64_t length,
     uint64_t element_size);
 
+// ---------------------------------------------------------------------------
+// dynamic string - SetLength ...
+// ---------------------------------------------------------------------------
+struct DynStringHeader {
+    uint64_t length;
+    uint64_t capacity;
+};
+
+extern "C" void * jit_dynstring_setlength(
+    void *   data,
+    uint64_t length);
+    
 // ---------------------------------------------------------------------------
 // misc. C++ helper members ..
 // ---------------------------------------------------------------------------

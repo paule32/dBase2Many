@@ -31,15 +31,12 @@ int main() {
     a.sub(x86::rsp, 8); // align stack
     a.mov (x86::r12, x86::rcx); // ctx
     a.mov(x86::eax, 10);
-    a.movsxd(x86::rdx, x86::eax); // new length
+    a.movsxd(x86::rdx, x86::eax);
+    a.mov(x86::r8, 4);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // dynamic array a
-    a.mov(x86::rcx, x86::rax); // old data pointer
-    a.mov(x86::r8, 4); // element size
-    a.mov(x86::rax, imm((uint64_t)&jit_dynarray_setlength));
-    a.sub(x86::rsp, 32); // Windows x64 shadow space
-    a.call(x86::rax);
-    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::rax);
+    a.call(imm((uint64_t)&jit_dynarray_setlength));
     a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::qword_ptr(x86::r11, 0), x86::rax); // dynamic array a
     a.mov(x86::eax, 123);
@@ -120,6 +117,8 @@ int main() {
     symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
     symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
     symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_dynarray_setlength), "_jit_dynarray_setlength");
+    symbols.add(std::to_string((uint64_t)&jit_dynstring_setlength), "_jit_dynstring_setlength");
     symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
     symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
     symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
@@ -159,6 +158,7 @@ int main() {
     asm_out << std::endl;
     
     asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << "extern _jit_dynarray_setlength" << std::endl;
     asm_out << std::endl;
     
     std::istringstream iss(asm_text);

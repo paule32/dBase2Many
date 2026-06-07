@@ -63,3 +63,28 @@ jit_dynarray_setlength(
 
     return (void*)(new_header + 1);
 }
+
+extern "C" void *
+jit_dynstring_setlength(
+    void *   data,
+    uint64_t length) {
+
+    size_t total = sizeof(DynStringHeader) + length + 1;
+
+    DynStringHeader* header = nullptr;
+
+    if (data) {
+        header = ((DynStringHeader*)data) - 1;
+    }
+
+    DynStringHeader* h = (DynStringHeader*)realloc(header, total);
+    if (!h) return nullptr;
+
+    h->length     = length;
+    h->capacity   = length;
+
+    char*  _data  = (char*)(h + 1);
+    _data[length] = 0;
+
+    return _data;
+}
