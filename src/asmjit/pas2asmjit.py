@@ -547,7 +547,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ = type_name.lower()
 
         if typ.startswith("^"):
-            return typ
+            base = typ[1:]
+            while base in self.type_aliases:
+                base = self.type_aliases[base].lower()
+                if base.startswith("^"):
+                    return base
+            return "^" + base
 
         while typ in self.type_aliases:
             typ = self.type_aliases[typ].lower()
@@ -983,29 +988,70 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return field.type
     
     def emit_load_pointer_record_field(self, ctx, parts):
-        ptr_info, field_offset, field = self.resolve_pointer_record_path(ctx, parts)
         ptr_name = parts[0]
-        path = "^.".join([ptr_name, ".".join(parts[1:])])
+        ptr_key  = ptr_name.lower()
 
-        # Pointer-Wert nach RAX laden
+        if ptr_key not in self.vars:
+            raise CompileError(ctx, "E0001", name=ptr_name)
+
+        ptr_info = self.vars[ptr_key]
+        ptr_type = ptr_info["type"]
+
+        if not ptr_type.startswith("^"):
+            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+        current_type = ptr_type[1:]
+
+        # Startpointer laden: n1
         self.emit_load_var(ptr_name, ptr_info)
 
-        if field_offset != 0:
-            self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+        for index, field_name in enumerate(parts[1:]):
+            if current_type not in self.records:
+                raise CompileError(ctx, "E0005", got=current_type, expected="record")
 
-        if field.type == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax)); // {path}")
-            return "integer"
+            record = self.records[current_type]
+            field_key = field_name.lower()
 
-        if field.type == "double":
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax)); // {path}")
-            return "double"
+            if field_key not in record.fields:
+                raise CompileError(ctx, "E0001", name=field_name)
 
-        if field.type == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax)); // {path}")
-            return "string"
+            field = record.fields[field_key]
+            is_last = index == len(parts[1:]) - 1
 
-        return field.type
+            if is_last:
+                if field.type == "integer":
+                    self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    return "integer"
+
+                if field.type == "double":
+                    self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    return "double"
+
+                if field.type == "string":
+                    self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    return "string"
+
+                if field.type.startswith("^"):
+                    self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    return field.type
+
+                return field.type
+
+            # Weiter in der Kette:
+            # Next ist Pointer -> Pointerwert laden
+            if field.type.startswith("^"):
+                self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // follow pointer {field_name}")
+                current_type = field.type[1:]
+                continue
+
+            # eingebetteter Record
+            if field.type in self.records:
+                if field.offset != 0:
+                    self.emit(f"a.add(x86::rax, {field.offset}); // nested record {field_name}")
+                current_type = field.type
+                continue
+
+            raise CompileError(ctx, "E0005", got=field.type, expected="record/pointer")
     
     def emit_load_local_var(self, ctx, name, info):
         var = self.find_local_var(name)
@@ -1099,22 +1145,44 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ptr_name = parts[0]
         path = "^.".join([ptr_name, ".".join(parts[1:])])
 
+        is_nil_pointer = (
+            field.type.startswith("^")
+            and expr_type == "integer"
+        )
+
+        if field.type != expr_type and not is_nil_pointer:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+
+        # Pointer-Feld zuerst behandeln!
+        if field.type.startswith("^"):
+            if is_nil_pointer:
+                self.emit("a.xor_(x86::rax, x86::rax); // nil pointer")
+
+            self.emit("a.push(x86::rax); // save right pointer value")
+
+            self.emit_load_var(ptr_name, ptr_info)
+
+            if field_offset != 0:
+                self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+
+            self.emit("a.pop(x86::r11);")
+            self.emit(f"a.mov(x86::qword_ptr(x86::rax), x86::r11); // {path} :=")
+            return
+
         if field.type == "double" and expr_type == "integer":
             self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
             expr_type = "double"
 
-        if field.type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
-
         if expr_type == "integer":
             self.emit("a.mov(x86::ebx, x86::eax);")
+
         elif expr_type == "double":
             self.emit("a.sub(x86::rsp, 8);")
             self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+
         elif expr_type == "string":
             self.emit("a.push(x86::rax);")
 
-        # Pointer-Wert nach RAX laden
         self.emit_load_var(ptr_name, ptr_info)
 
         if field_offset != 0:
