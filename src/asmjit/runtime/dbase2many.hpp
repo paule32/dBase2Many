@@ -54,6 +54,8 @@ void jit_print_int(int v);
 void jit_print_double(double v);
 void jit_print_newline();
 
+extern "C" void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
+
 extern "C" void* jit_new_memory(uint64_t size);
 extern "C" void  jit_dispose_memory(void* p);
 extern "C" void
@@ -87,6 +89,20 @@ struct JitContext {
 };
 
 typedef void (*JitFunc)(JitContext* ctx);
+
+// ---------------------------------------------------------------------------
+// dynamic array - SetLength
+// ---------------------------------------------------------------------------
+struct DynArrayHeader {
+    uint64_t length;
+    uint64_t element_size;
+};
+
+extern "C" void *
+jit_dynarray_setlength(
+    void *   data,
+    uint64_t length,
+    uint64_t element_size);
 
 // ---------------------------------------------------------------------------
 // misc. C++ helper members ..

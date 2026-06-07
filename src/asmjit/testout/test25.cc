@@ -1,30 +1,16 @@
-// automaically created per Python 3.14 script on: 2026-06-06
+// -----------------------------------------------------------------------------
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-07
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// -----------------------------------------------------------------------------
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
 using namespace asmjit;
 
 static const char str_0[] = "m";
-static const char str_1[] = "m";
-static const char str_2[] = "m";
-static const char str_3[] = "m";
-static const char str_4[] = "m";
-static const char str_5[] = "m";
-static const char str_6[] = "m";
-static const char str_7[] = "m";
-static const char str_8[] = "m";
-static const char str_9[] = "m";
-static const char str_10[] = "m";
-static const char str_11[] = "m";
-static const char str_12[] = "m";
-static const char str_13[] = "m";
-static const char str_14[] = "m";
-static const char str_15[] = "m";
 
 int main() {
     JitRuntime rt;
@@ -79,7 +65,7 @@ int main() {
     a.jg(array_bounds_fail_4);
     a.jmp(array_bounds_ok_3);
     a.bind(array_bounds_fail_4);
-    a.mov(x86::rcx, imm((uint64_t)str_1));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -111,7 +97,7 @@ int main() {
     a.jg(array_bounds_fail_6);
     a.jmp(array_bounds_ok_5);
     a.bind(array_bounds_fail_6);
-    a.mov(x86::rcx, imm((uint64_t)str_2));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -133,7 +119,7 @@ int main() {
     a.jg(array_bounds_fail_8);
     a.jmp(array_bounds_ok_7);
     a.bind(array_bounds_fail_8);
-    a.mov(x86::rcx, imm((uint64_t)str_3));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -165,7 +151,7 @@ int main() {
     a.jg(array_bounds_fail_10);
     a.jmp(array_bounds_ok_9);
     a.bind(array_bounds_fail_10);
-    a.mov(x86::rcx, imm((uint64_t)str_4));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -187,7 +173,7 @@ int main() {
     a.jg(array_bounds_fail_12);
     a.jmp(array_bounds_ok_11);
     a.bind(array_bounds_fail_12);
-    a.mov(x86::rcx, imm((uint64_t)str_5));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -219,7 +205,7 @@ int main() {
     a.jg(array_bounds_fail_14);
     a.jmp(array_bounds_ok_13);
     a.bind(array_bounds_fail_14);
-    a.mov(x86::rcx, imm((uint64_t)str_6));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -241,7 +227,7 @@ int main() {
     a.jg(array_bounds_fail_16);
     a.jmp(array_bounds_ok_15);
     a.bind(array_bounds_fail_16);
-    a.mov(x86::rcx, imm((uint64_t)str_7));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -271,7 +257,7 @@ int main() {
     a.jg(array_bounds_fail_18);
     a.jmp(array_bounds_ok_17);
     a.bind(array_bounds_fail_18);
-    a.mov(x86::rcx, imm((uint64_t)str_8));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -293,7 +279,7 @@ int main() {
     a.jg(array_bounds_fail_20);
     a.jmp(array_bounds_ok_19);
     a.bind(array_bounds_fail_20);
-    a.mov(x86::rcx, imm((uint64_t)str_9));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -331,7 +317,7 @@ int main() {
     a.jg(array_bounds_fail_22);
     a.jmp(array_bounds_ok_21);
     a.bind(array_bounds_fail_22);
-    a.mov(x86::rcx, imm((uint64_t)str_10));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -353,7 +339,7 @@ int main() {
     a.jg(array_bounds_fail_24);
     a.jmp(array_bounds_ok_23);
     a.bind(array_bounds_fail_24);
-    a.mov(x86::rcx, imm((uint64_t)str_11));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -391,7 +377,7 @@ int main() {
     a.jg(array_bounds_fail_26);
     a.jmp(array_bounds_ok_25);
     a.bind(array_bounds_fail_26);
-    a.mov(x86::rcx, imm((uint64_t)str_12));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -413,7 +399,7 @@ int main() {
     a.jg(array_bounds_fail_28);
     a.jmp(array_bounds_ok_27);
     a.bind(array_bounds_fail_28);
-    a.mov(x86::rcx, imm((uint64_t)str_13));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -451,7 +437,7 @@ int main() {
     a.jg(array_bounds_fail_30);
     a.jmp(array_bounds_ok_29);
     a.bind(array_bounds_fail_30);
-    a.mov(x86::rcx, imm((uint64_t)str_14));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -473,7 +459,7 @@ int main() {
     a.jg(array_bounds_fail_32);
     a.jmp(array_bounds_ok_31);
     a.bind(array_bounds_fail_32);
-    a.mov(x86::rcx, imm((uint64_t)str_15));
+    a.mov(x86::rcx, imm((uint64_t)str_0));
     a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
@@ -519,21 +505,13 @@ int main() {
     
     SymbolMappings symbols;
     symbols.add(std::to_string((uint64_t)&str_0), "_str_0");
-    symbols.add(std::to_string((uint64_t)&str_1), "_str_1");
-    symbols.add(std::to_string((uint64_t)&str_2), "_str_2");
-    symbols.add(std::to_string((uint64_t)&str_3), "_str_3");
-    symbols.add(std::to_string((uint64_t)&str_4), "_str_4");
-    symbols.add(std::to_string((uint64_t)&str_5), "_str_5");
-    symbols.add(std::to_string((uint64_t)&str_6), "_str_6");
-    symbols.add(std::to_string((uint64_t)&str_7), "_str_7");
-    symbols.add(std::to_string((uint64_t)&str_8), "_str_8");
-    symbols.add(std::to_string((uint64_t)&str_9), "_str_9");
-    symbols.add(std::to_string((uint64_t)&str_10), "_str_10");
-    symbols.add(std::to_string((uint64_t)&str_11), "_str_11");
-    symbols.add(std::to_string((uint64_t)&str_12), "_str_12");
-    symbols.add(std::to_string((uint64_t)&str_13), "_str_13");
-    symbols.add(std::to_string((uint64_t)&str_14), "_str_14");
-    symbols.add(std::to_string((uint64_t)&str_15), "_str_15");
+    symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");
+    symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
+    symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
+    symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
+    symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
+    symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
     symbols.apply(asm_text);
     
     LabelMappings labels;
@@ -574,7 +552,6 @@ int main() {
     replace_all_ptr(asm_text);
     
     
-    
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
     replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
     replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
@@ -583,7 +560,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-06\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-07\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -598,8 +575,12 @@ int main() {
     
     
     
-    asm_out << "\n";
-
+    asm_out << std::endl;
+    asm_out << std::endl;
+    
+    asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << std::endl;
+    
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -608,34 +589,21 @@ int main() {
     asm_out << "extern _jit_print_int\n";
     asm_out << "extern _jit_print_double\n";
     asm_out << "extern _jit_print_newline\n";
+    asm_out << "extern _jit_new_memory\n";
+    asm_out << "extern _jit_dispose_memory\n";
     
-    asm_out << "\n";
+    asm_out << std::endl;
     asm_out << "section .text\n";
-    asm_out << "global " << "_main" << "\n";
-    asm_out << "_main" << ":\n";
+    asm_out << "global " << "_main" << std::endl;
+    asm_out << "_main" << ":" << std::endl;
     
     replace_all_str(asm_text, asm_out);
     
     asm_out << "\nsection .data\n";
     asm_out << "_str_0 db \"m\", 0\n";
-    asm_out << "_str_1 db \"m\", 0\n";
-    asm_out << "_str_2 db \"m\", 0\n";
-    asm_out << "_str_3 db \"m\", 0\n";
-    asm_out << "_str_4 db \"m\", 0\n";
-    asm_out << "_str_5 db \"m\", 0\n";
-    asm_out << "_str_6 db \"m\", 0\n";
-    asm_out << "_str_7 db \"m\", 0\n";
-    asm_out << "_str_8 db \"m\", 0\n";
-    asm_out << "_str_9 db \"m\", 0\n";
-    asm_out << "_str_10 db \"m\", 0\n";
-    asm_out << "_str_11 db \"m\", 0\n";
-    asm_out << "_str_12 db \"m\", 0\n";
-    asm_out << "_str_13 db \"m\", 0\n";
-    asm_out << "_str_14 db \"m\", 0\n";
-    asm_out << "_str_15 db \"m\", 0\n";
     
     asm_out.close();
-   
+    
     std::array<int,         1> int_vars{};
     std::array<double,      1> double_vars{};
     std::array<const char*, 1> string_vars{};

@@ -1,9 +1,10 @@
-// automaically created per Python 3.14 script on: 2026-06-06
+// -----------------------------------------------------------------------------
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-07
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// -----------------------------------------------------------------------------
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
@@ -46,7 +47,7 @@ int main() {
     a.mov(x86::dword_ptr(x86::rax), x86::ebx); // pp^.Y :=
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // pp
-    a.mov(x86::eax, x86::dword_ptr(x86::rax)); // pp^.X
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // pp.X
     a.mov(x86::ecx, x86::eax);
     a.mov(x86::rax, imm((uint64_t)&jit_print_int));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -58,8 +59,7 @@ int main() {
     a.add(x86::rsp, 32);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // pp
-    a.add(x86::rax, 4); // field offset
-    a.mov(x86::eax, x86::dword_ptr(x86::rax)); // pp^.Y
+    a.mov(x86::eax, x86::dword_ptr(x86::rax, 4)); // pp.Y
     a.mov(x86::ecx, x86::eax);
     a.mov(x86::rax, imm((uint64_t)&jit_print_int));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -87,7 +87,13 @@ int main() {
     replace_all_fun(asm_text);
     
     SymbolMappings symbols;
-    
+    symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");
+    symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
+    symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
+    symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
+    symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
+    symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
     symbols.apply(asm_text);
     
     LabelMappings labels;
@@ -95,7 +101,6 @@ int main() {
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
-    
     
     
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
@@ -106,7 +111,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-06\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-07\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -121,8 +126,12 @@ int main() {
     
     
     
-    asm_out << "\n";
-
+    asm_out << std::endl;
+    asm_out << std::endl;
+    
+    asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << std::endl;
+    
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -131,18 +140,20 @@ int main() {
     asm_out << "extern _jit_print_int\n";
     asm_out << "extern _jit_print_double\n";
     asm_out << "extern _jit_print_newline\n";
+    asm_out << "extern _jit_new_memory\n";
+    asm_out << "extern _jit_dispose_memory\n";
     
-    asm_out << "\n";
+    asm_out << std::endl;
     asm_out << "section .text\n";
-    asm_out << "global " << "_main" << "\n";
-    asm_out << "_main" << ":\n";
+    asm_out << "global " << "_main" << std::endl;
+    asm_out << "_main" << ":" << std::endl;
     
     replace_all_str(asm_text, asm_out);
     
     asm_out << "\nsection .data\n";
     
     asm_out.close();
-   
+    
     std::array<int,         1> int_vars{};
     std::array<double,      1> double_vars{};
     std::array<const char*, 1> string_vars{};

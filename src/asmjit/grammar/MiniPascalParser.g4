@@ -59,6 +59,7 @@ arrayValueList
 
 arrayType
     : ARRAY LBRACK arrayRange (COMMA arrayRange)* RBRACK OF typeName
+    | ARRAY OF typeName
     ;
 
 arrayRange
@@ -110,7 +111,7 @@ formalParamList
     ;
 
 formalParam
-    : identList COLON typeName
+    : VAR? identList COLON typeName
     ;
 
 declaration
@@ -141,7 +142,12 @@ varSection
     ;
 
 varDeclaration
-    : identList COLON typeName SEMI
+    : identList COLON varType SEMI
+    ;
+
+varType
+    : typeName
+    | arrayType
     ;
 
 identList
@@ -171,7 +177,12 @@ statement
     | repeatStatement
     | forStatement
     | procedureCallStatement
+    | exitStatement
     | compoundStatement
+    ;
+    
+exitStatement
+    : EXIT SEMI?
     ;
 
 forStatement
@@ -238,6 +249,7 @@ factor
     : AT variableRef
     | variableRef
     | functionCallExpr
+    | NIL
     | NUMBER
     | FLOATNUMBER
     | STRING

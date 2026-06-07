@@ -287,6 +287,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#varType.
+    def enterVarType(self, ctx:MiniPascalParser.VarTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#varType.
+    def exitVarType(self, ctx:MiniPascalParser.VarTypeContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#identList.
     def enterIdentList(self, ctx:MiniPascalParser.IdentListContext):
         pass
@@ -329,6 +338,15 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#statement.
     def exitStatement(self, ctx:MiniPascalParser.StatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#exitStatement.
+    def enterExitStatement(self, ctx:MiniPascalParser.ExitStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#exitStatement.
+    def exitExitStatement(self, ctx:MiniPascalParser.ExitStatementContext):
         pass
 
 

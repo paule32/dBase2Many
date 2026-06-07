@@ -164,6 +164,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#varType.
+    def visitVarType(self, ctx:MiniPascalParser.VarTypeContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#identList.
     def visitIdentList(self, ctx:MiniPascalParser.IdentListContext):
         return self.visitChildren(ctx)
@@ -186,6 +191,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#statement.
     def visitStatement(self, ctx:MiniPascalParser.StatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#exitStatement.
+    def visitExitStatement(self, ctx:MiniPascalParser.ExitStatementContext):
         return self.visitChildren(ctx)
 
 

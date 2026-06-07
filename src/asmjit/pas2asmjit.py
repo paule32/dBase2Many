@@ -45,21 +45,21 @@ COMMENT_REPL = ('-' * 77)
 # ---------------------------------------------------------------------------
 @dataclass
 class EnumInfo:
-    name: str
+    name  : str
     values: dict[str, int]
 
 @dataclass
 class RecordFieldInfo:
-    name: str
-    type: str
+    name  : str
+    type  : str
     offset: int
-    size: int
+    size  : int
 
 @dataclass
 class RecordInfo:
-    name: str
+    name  : str
     fields: dict[str, RecordFieldInfo]
-    size: int
+    size  : int
 
 @dataclass
 class ArrayInfo:
@@ -71,6 +71,7 @@ class ArrayInfo:
     size        : int
     init_values : list
     dimensions  : list
+    is_dynamic  : bool = False
 
 # ---------------------------------------------------------------------------
 # Compiler Exception to mark errors in compilation unit ...
@@ -132,6 +133,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.local_var_stack    = []
         self.local_const_stack  = []
+        self.exit_label_stack   = []
 
         self.asm_label_mappings = []
         
@@ -180,8 +182,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
     def type_size(self, ctx, typ):
         typ = self.resolve_type(typ)
-
-        if typ.startswith("^"):
+        
+        if isinstance(typ, dict):
+            if typ.get("kind") == "array":
+                return typ["size"]
+        
+        if isinstance(typ, str) and typ.startswith("^"):
             return 8
             
         if typ == "integer":
@@ -193,10 +199,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if typ == "string":
             return 8
 
-        if typ in self.records:
+        if isinstance(typ, str) and typ in self.records:
             return self.records[typ].size
         
-        if typ in self.arrays:
+        if isinstance(typ, str) and typ in self.arrays:
             return self.arrays[typ].size
 
         raise CompileError(ctx, "E0004", name=typ)
@@ -237,7 +243,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0002", name=name)
 
         resolved_type = self.resolve_type(element_type)
-        element_size = self.type_size(ctx, resolved_type)
+        
+        if isinstance(resolved_type, str) and resolved_type in self.arrays:
+            nested_array = self.arrays[resolved_type]
+
+            if dimensions is None:
+                dimensions = [
+                    {
+                        "min": index_min,
+                        "max": index_max
+                    }
+                ]
+
+            dimensions    = dimensions + nested_array.dimensions
+            resolved_type = nested_array.element_type
+        
+        element_size  = self.type_size(ctx, resolved_type)
 
         count = index_max - index_min + 1
 
@@ -272,6 +293,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             init_values     = init_values,
             dimensions      = dimensions
         )
+    
+    def declare_array_type(self, name, dimensions, element_type):
+        element_type = self.resolve_type(element_type)
+
+        # Array von Array erkennen
+        if isinstance(element_type, dict) and element_type.get("kind") == "array":
+            full_dimensions = dimensions + element_type["dimensions"]
+            base_type = element_type["base_type"]
+        else:
+            full_dimensions = dimensions
+            base_type = element_type
+
+        self.types[name.lower()] = {
+            "kind": "array",
+            "name": name,
+            "dimensions": full_dimensions,
+            "base_type": base_type
+        }
     
     def declare_const(self, ctx, name, value, typ):
         key = name.lower()
@@ -319,16 +358,51 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key in scope["vars"]:
             raise CompileError(ctx, "E0002", name=name)
         
-        if typ != "integer":
-            raise CompileError(ctx, "E0005", got=typ, expected="integer")
+        if typ == "integer":
+            size = 8
         
-        scope["next_offset"] += 8
+        elif typ == "double":
+            size = 8
+        
+        elif typ == "string":
+            size = 8
+        
+        elif isinstance(typ, str) and typ.startswith("^"):
+            size = 8
+        
+        elif isinstance(typ, str) and typ in self.records:
+            size = self.records[typ].size
+        
+        elif isinstance(typ, str) and typ in self.arrays:
+            array_info = self.arrays[typ]
+
+            if getattr(array_info, "is_dynamic", False):
+                slot = self.next_pointr_slot
+                self.next_pointr_slot += 1
+            else:
+                slot = self.next_arrays_slot
+                self.next_arrays_slot += array_info.size
+        
+        elif isinstance(typ, str) and typ in self.enums:
+            typ = "integer"
+            size = 8
+        
+        else:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=typ,
+                expected="integer/double/string/pointer/record/array/enum"
+            )
+        
+        scope["next_offset"] += size
         offset = -scope["next_offset"]
         
         scope["vars"][key] = {
             "name": name,
             "type": typ,
-            "offset": offset
+            "offset": offset,
+            "size": size
         }
     
     def declare_var(self, ctx, name, vtype):
@@ -350,15 +424,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             slot = self.next_string_slot
             self.next_string_slot += 1
         
-        elif typ in self.records:
+        elif isinstance(typ, str) and typ in self.records:
             slot = self.next_record_slot
             self.next_record_slot += self.records[typ].size
         
-        elif typ in self.arrays:
+        elif isinstance(typ, str) and typ in self.arrays:
             slot = self.next_arrays_slot
             self.next_arrays_slot += self.arrays[typ].size
         
-        elif typ.startswith("^"):
+        elif isinstance(typ, str) and typ.startswith("^"):
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
             
@@ -451,13 +525,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ptr_name = parts[0]
         ptr_key  = ptr_name.lower()
 
-        if ptr_key not in self.vars:
-            raise CompileError(ctx, "E0001", name=ptr_name)
+        ptr_info = self.find_local_var(ptr_name)
+        is_local = ptr_info is not None
 
-        ptr_info = self.vars[ptr_key]
-        ptr_type = ptr_info["type"]
+        if ptr_info is None:
+            if ptr_key not in self.vars:
+                raise CompileError(ctx, "E0001", name=ptr_name)
 
-        if not ptr_type.startswith("^"):
+            ptr_info = self.vars[ptr_key]
+
+        ptr_type = self.resolve_type(ptr_info["type"])
+
+        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
             raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
 
         record_type = ptr_type[1:]
@@ -478,11 +557,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             field = record.fields[field_key]
             offset += field.offset
-            current_type = field.type
+            current_type = self.resolve_type(field.type)
 
             if field_name != parts[-1]:
+                if isinstance(current_type, str) and current_type.startswith("^"):
+                    current_type = current_type[1:]
+
                 if current_type not in self.records:
                     raise CompileError(ctx, "E0005", got=current_type, expected="record")
+
+        ptr_info = dict(ptr_info)
+        ptr_info["is_local"] = is_local
+        ptr_info["type"] = ptr_type
 
         return ptr_info, offset, field
     
@@ -544,14 +630,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return field
     
     def resolve_type(self, type_name):
+        if not isinstance(type_name, str):
+            return type_name
+
         typ = type_name.lower()
 
         if typ.startswith("^"):
             base = typ[1:]
+            
             while base in self.type_aliases:
                 base = self.type_aliases[base].lower()
+                
                 if base.startswith("^"):
                     return base
+                    
             return "^" + base
 
         while typ in self.type_aliases:
@@ -560,10 +652,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if typ in self.enums:
             return "integer"
 
-        if typ in self.records:
+        if isinstance(typ, str) and typ in self.records:
             return typ
 
-        if typ in self.arrays:
+        if isinstance(typ, str) and typ in self.arrays:
             return typ
 
         return typ
@@ -643,15 +735,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
     def collect_formal_params(self, ctx):
         params = []
+
         if not ctx.formalParamList():
             return params
+
         for p in ctx.formalParamList().formalParam():
-            typ = p.typeName().getText().lower()
+            typ = self.resolve_type(p.typeName().getText())
+            is_var = p.VAR() is not None
+
             for ident in p.identList().IDENT():
                 params.append({
                     "name": ident.getText(),
-                    "type": typ
+                    "type": typ,
+                    "is_var": is_var
                 })
+
         return params
     
     def scoped_name(self, name):
@@ -690,11 +788,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ref  = factor.variableRef()
 
         name = ref.IDENT().getText()
-        info = self.var_info(ctx, name)
+        info = self.find_local_var(name)
+        
+        is_local = info is not None
 
-        ptr_type = info["type"]
+        if info is None:
+            info = self.var_info(ctx, name)
 
-        if not ptr_type.startswith("^"):
+        ptr_type = self.resolve_type(info["type"])
+
+        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
             raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
 
         base_type = ptr_type[1:]
@@ -704,6 +807,49 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.mov(x86::rax, imm((uint64_t)&jit_new_memory));")
         self.emit_call_rax()
 
+        if is_local:
+            self.emit_store_local_var(ctx, name, ptr_type)
+        else:
+            self.emit_store_var(ctx, name, info)
+        
+        return None
+    
+    def emit_builtin_setlength(self, ctx):
+        actuals = []
+        
+        if ctx.actualParamList():
+            actuals = list(ctx.actualParamList().actualParam())
+        
+        if len(actuals) != 2:
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="2")
+        
+        ref = actuals[0].expr().term(0).factor(0).variableRef()
+        name = ref.IDENT().getText()
+        
+        info = self.var_info(ctx, name)
+        typ  = self.resolve_type(info["type"])
+        
+        if typ not in self.arrays:
+            raise CompileError(ctx, "E0005", got=typ, expected="dynamic array")
+        
+        array_info = self.arrays[typ]
+        
+        if not getattr(array_info, "is_dynamic", False):
+            raise CompileError(ctx, "E0005", got=typ, expected="dynamic array")
+        
+        length_type = self.visit(actuals[1].expr())
+        
+        if length_type != "integer":
+            raise CompileError(ctx, "E0005", got=length_type, expected="integer")
+        
+        self.emit("a.movsxd(x86::rdx, x86::eax); // new length")
+        
+        self.emit_load_var(name, info)
+        self.emit("a.mov(x86::rcx, x86::rax); // old data pointer")
+        self.emit(f"a.mov(x86::r8, {array_info.element_size}); // element size")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_dynarray_setlength));")
+        self.emit_call_rax()
+        
         self.emit_store_var(ctx, name, info)
         return None
     
@@ -746,7 +892,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         ptr_type = info["type"]
 
-        if not ptr_type.startswith("^"):
+        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
             raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
 
         self.emit_load_var(name, info)
@@ -842,6 +988,80 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.asm.emit("pop rax")
     
+    def emit_address_of_var(self, ctx, name):
+        local_var = self.find_local_var(name)
+
+        if local_var:
+            typ    = local_var["type"]
+            offset = local_var["offset"]
+
+            if typ == "integer":
+                self.emit(f"a.lea(x86::rax, x86::dword_ptr(x86::rbp, {offset})); // @{name}")
+                return "^integer"
+
+            if typ == "double":
+                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                return "^double"
+
+            if typ == "string":
+                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                return "^string"
+
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                return "^" + typ
+
+            if isinstance(typ, str) and typ in self.records:
+                self.emit(f"a.lea(x86::rax, x86::byte_ptr(x86::rbp, {offset})); // @{name}")
+                return "^" + typ
+
+            if isinstance(typ, str) and typ in self.arrays:
+                self.emit(f"a.lea(x86::rax, x86::byte_ptr(x86::rbp, {offset})); // @{name}")
+                return "^" + typ
+
+            raise CompileError(ctx, "E0014", var_type=typ)
+
+        key = name.lower()
+
+        if key not in self.vars:
+            raise CompileError(ctx, "E0001", name=name)
+
+        info = self.vars[key]
+        typ  = info["type"]
+        slot = info["slot"]
+
+        if typ == "integer":
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
+            self.emit(f"a.add(x86::rax, {slot * 4}); // @{name}")
+            return "^integer"
+
+        if typ == "double":
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
+            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            return "^double"
+
+        if typ == "string":
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
+            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            return "^string"
+
+        if isinstance(typ, str) and typ.startswith("^"):
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
+            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            return "^" + typ
+
+        if isinstance(typ, str) and typ in self.records:
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
+            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
+            return "^" + typ
+
+        if isinstance(typ, str) and typ in self.arrays:
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
+            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
+            return "^" + typ
+
+        raise CompileError(ctx, "E0014", var_type=typ)
+    
     def emit_address_of_array_element(self, ctx, var_name, index_exprs):
         var_info, array_info = self.get_array_info(ctx, var_name)
 
@@ -927,7 +1147,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         info = self.vars[key]
         typ = info["type"]
 
-        if not typ.startswith("^"):
+        if not isinstance(typ, str) or not typ.startswith("^"):
             raise CompileError(ctx, "E0005", got=typ, expected="pointer")
 
         base_type = typ[1:]
@@ -953,18 +1173,35 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if not param:
             raise CompileError(ctx, "E0001", name=name)
-
-        typ = param["type"]
+            
+        typ    = self.resolve_type(param["type"])
         offset = param["stack_offset"]
-
+        
+        if param.get("is_var", False):
+            self.emit(f"a.mov(x86::r11, x86::qword_ptr(x86::rbp, {offset})); // var param address {name}")
+            
+            if typ == "integer":
+                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+                return "integer"
+            
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r11));")
+                return typ
+            
+            raise CompileError(ctx, "E0014", var_type=typ)
+        
         if typ == "integer":
             self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset}));")
             return "integer"
-
+        
         if typ == "string":
             self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset}));")
             return "string"
-
+        
+        if isinstance(typ, str) and typ.startswith("^"):
+            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset}));")
+            return typ
+            
         raise CompileError(ctx, "E0014", var_type=typ)
     
     def emit_load_record_field(self, ctx, parts):
@@ -991,19 +1228,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ptr_name = parts[0]
         ptr_key  = ptr_name.lower()
 
-        if ptr_key not in self.vars:
-            raise CompileError(ctx, "E0001", name=ptr_name)
+        ptr_info = self.find_local_var(ptr_name)
+        is_local = ptr_info is not None
 
-        ptr_info = self.vars[ptr_key]
-        ptr_type = ptr_info["type"]
+        if ptr_info is None:
+            if ptr_key not in self.vars:
+                raise CompileError(ctx, "E0001", name=ptr_name)
 
-        if not ptr_type.startswith("^"):
+            ptr_info = self.vars[ptr_key]
+
+        ptr_type = self.resolve_type(ptr_info["type"])
+
+        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
             raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
 
         current_type = ptr_type[1:]
 
         # Startpointer laden: n1
-        self.emit_load_var(ptr_name, ptr_info)
+        if is_local:
+            self.emit_load_local_var(ctx, ptr_name, ptr_info)
+        else:
+            self.emit_load_var(ptr_name, ptr_info)
 
         for index, field_name in enumerate(parts[1:]):
             if current_type not in self.records:
@@ -1063,10 +1308,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         offset = var["offset"]
 
         if typ == "integer":
-            self.emit(f"mov eax, [rbp-{offset}]")
+            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // local {name}")
             return "integer"
 
-        raise CompileError(ctx, "E0011", name=typ)
+        if isinstance(typ, str) and typ.startswith("^"):
+            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // local pointer {name}")
+            return typ
+
+        raise CompileError(ctx, "E0011", typ=typ)
 
     def emit_store_pointer_deref(self, ctx, name, expr_type):
         key = name.lower()
@@ -1077,7 +1326,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         info = self.vars[key]
         typ = info["type"]
 
-        if not typ.startswith("^"):
+        if not isinstance(typ, str) or not typ.startswith("^"):
             raise CompileError(ctx, "E0005", got=typ, expected="pointer")
 
         base_type = typ[1:]
@@ -1140,27 +1389,62 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0013", var_type=field.type)
     
+    def emit_store_param(self, ctx, name, expr_type):
+        param = self.find_param(name)
+
+        if not param:
+            raise CompileError(ctx, "E0001", name=name)
+
+        if not param.get("is_var", False):
+            raise CompileError(ctx, "E0006")
+
+        typ    = self.resolve_type(param["type"])
+        offset = param["stack_offset"]
+
+        if typ != expr_type and expr_type != "^nil":
+            raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
+
+        self.emit(f"a.mov(x86::r11, x86::qword_ptr(x86::rbp, {offset})); // var param address {name}")
+
+        if typ == "integer":
+            self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+            return
+
+        if isinstance(typ, str) and typ.startswith("^"):
+            self.emit("a.mov(x86::qword_ptr(x86::r11), x86::rax);")
+            return
+
+        raise CompileError(ctx, "E0013", var_type=typ)
+    
     def emit_store_pointer_record_field(self, ctx, parts, expr_type):
         ptr_info, field_offset, field = self.resolve_pointer_record_path(ctx, parts)
         ptr_name = parts[0]
         path = "^.".join([ptr_name, ".".join(parts[1:])])
 
         is_nil_pointer = (
-            field.type.startswith("^")
-            and expr_type == "integer"
+            isinstance(field.type, str)
+            and field.type.startswith("^")
+            and expr_type in ("integer", "^nil")
         )
+        
+        if isinstance(field.type, str) and field.type.startswith("^"):
+            if is_nil_pointer:
+                self.emit("a.xor_(x86::rax, x86::rax); // nil pointer")
 
         if field.type != expr_type and not is_nil_pointer:
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
         # Pointer-Feld zuerst behandeln!
-        if field.type.startswith("^"):
+        if isinstance(field.type, str) and field.type.startswith("^"):
             if is_nil_pointer:
                 self.emit("a.xor_(x86::rax, x86::rax); // nil pointer")
 
             self.emit("a.push(x86::rax); // save right pointer value")
 
-            self.emit_load_var(ptr_name, ptr_info)
+            if ptr_info.get("is_local", False):
+                self.emit_load_local_var(ctx, ptr_name, ptr_info)
+            else:
+                self.emit_load_var(ptr_name, ptr_info)
 
             if field_offset != 0:
                 self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
@@ -1183,7 +1467,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif expr_type == "string":
             self.emit("a.push(x86::rax);")
 
-        self.emit_load_var(ptr_name, ptr_info)
+        if ptr_info.get("is_local", False):
+            self.emit_load_local_var(ctx, ptr_name, ptr_info)
+        else:
+            self.emit_load_var(ptr_name, ptr_info)
 
         if field_offset != 0:
             self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
@@ -1211,6 +1498,57 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             index_exprs = [index_exprs]
             
         var_info, array_info = self.get_array_info(ctx, var_name)
+        
+        if getattr(array_info, "is_dynamic", False):
+            if array_info.element_type == "double" and expr_type == "integer":
+                self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                expr_type = "double"
+
+            if array_info.element_type != expr_type:
+                raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
+
+            if expr_type == "integer":
+                self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+            elif expr_type == "double":
+                self.emit("a.movsd(x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)), x86::xmm0);")
+            elif expr_type == "string":
+                self.emit("a.push(x86::rax);")
+
+            index_exprs = index_expr_ctx
+            if not isinstance(index_exprs, list):
+                index_exprs = [index_exprs]
+
+            if len(index_exprs) != 1:
+                raise CompileError(ctx, "E0005", got=str(len(index_exprs)), expected="1")
+
+            index_type = self.visit(index_exprs[0])
+
+            if index_type != "integer":
+                raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+            self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
+            self.emit("a.mov(x86::r10d, x86::eax); // save dynamic array byte offset")
+
+            self.emit_load_var(var_name, var_info)   # RAX = data pointer
+            self.emit("a.movsxd(x86::r11, x86::r10d);")
+            self.emit("a.add(x86::r11, x86::rax); // dynamic array element address")
+
+            if array_info.element_type == "integer":
+                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
+                self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+                return
+
+            if array_info.element_type == "double":
+                self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
+                self.emit("a.movsd(x86::qword_ptr(x86::r11), x86::xmm0);")
+                return
+
+            if array_info.element_type == "string":
+                self.emit("a.pop(x86::rax);")
+                self.emit("a.mov(x86::qword_ptr(x86::r11), x86::rax);")
+                return
+
+            raise CompileError(ctx, "E0013", var_type=array_info.element_type)
 
         if array_info.element_type == "double" and expr_type == "integer":
             self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
@@ -1262,6 +1600,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             index_exprs = [index_exprs]
             
         var_info, array_info = self.get_array_info(ctx, var_name)
+        
+        if getattr(array_info, "is_dynamic", False):
+            index_exprs = index_expr_ctx
+            if not isinstance(index_exprs, list):
+                index_exprs = [index_exprs]
+
+            if len(index_exprs) != 1:
+                raise CompileError(ctx, "E0005", got=str(len(index_exprs)), expected="1")
+
+            index_type = self.visit(index_exprs[0])
+
+            if index_type != "integer":
+                raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+            self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
+            self.emit("a.mov(x86::r10d, x86::eax); // save dynamic array byte offset")
+
+            self.emit_load_var(var_name, var_info)   # RAX = data pointer
+            self.emit("a.movsxd(x86::r11, x86::r10d);")
+            self.emit("a.add(x86::r11, x86::rax); // dynamic array element address")
+
+            if array_info.element_type == "integer":
+                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+                return "integer"
+
+            if array_info.element_type == "double":
+                self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r11));")
+                return "double"
+
+            if array_info.element_type == "string":
+                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r11));")
+                return "string"
+
+            raise CompileError(ctx, "E0014", var_type=array_info.element_type)
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
@@ -1384,23 +1756,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0013", var_type=field.type)
 
-    def emit_store_local_var(self, ctx, name, info):
+    def emit_store_local_var(self, ctx, name, expr_type):
         var = self.find_local_var(name)
 
         if not var:
-            raise CompileError(ctx, "E0012", name)
+            raise CompileError(ctx, "E0012", name=name)
 
-        typ = var["type"]
+        typ    = var["type"]
         offset = var["offset"]
 
-        if typ != expr_type:
-            raise CompileError(ctx, "E0005", name=typ, name2=expr_type)
-
         if typ == "integer":
-            self.emit(f"mov [rbp-{offset}], eax")
+            if expr_type != "integer":
+                raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
+
+            self.emit(f"a.mov(x86::dword_ptr(x86::rbp, {offset}), x86::eax); // local {name} :=")
             return
-        
-        raise CompileError(ctx, "E0011", name=typ)
+
+        if isinstance(typ, str) and typ.startswith("^"):
+            if expr_type != typ and expr_type != "^nil":
+                raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
+
+            self.emit(f"a.mov(x86::qword_ptr(x86::rbp, {offset}), x86::rax); // local pointer {name} :=")
+            return
+
+        raise CompileError(ctx, "E0011", typ=typ)
         
     def emit_call_rax(self):
         self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
@@ -1411,10 +1790,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ  = info["type"]
         slot = info["slot"]
 
-        if typ.startswith("^"):
+        if isinstance(typ, str) and typ.startswith("^"):
             self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
             self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // {name}")
             return
+        
+        if isinstance(typ, str) and typ in self.arrays:
+            array_info = self.arrays[typ]
+
+            if getattr(array_info, "is_dynamic", False):
+                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
+                self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // dynamic array {name}")
+                return
         
         if typ == "integer":
             self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
@@ -1441,7 +1828,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
             self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // {name}")
             return
-    
+        
+        if isinstance(typ, str) and typ in self.arrays:
+            array_info = self.arrays[typ]
+            
+            if getattr(array_info, "is_dynamic", False):
+                self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
+                self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // dynamic array {name}")
+                return
+                
         if typ == "integer":
             self.emit("a.mov(x86::ebx, x86::eax);")
             self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
@@ -1568,8 +1963,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.push_local_scope()
         self.push_const_scope()
-
+        
+        self.exit_label_stack.append(end_label)
         self.visit(ctx.block())
+        self.exit_label_stack.pop()
 
         self.pop_const_scope()
         self.pop_local_scope()
@@ -1645,6 +2042,36 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         op        = ctx.compareOp().getText()
 
         left_type  = self.visit(left_ctx)
+        
+        if isinstance(left_type, str) and left_type.startswith("^"):
+            self.emit("a.push(x86::rax); // save left pointer")
+
+            right_type = self.visit(right_ctx)
+
+            is_pointer_compare = (
+                right_type == left_type
+                or right_type == "^nil"
+                or left_type  == "^nil"
+                or (isinstance(right_type, str) and right_type.startswith("^"))
+            )
+
+            if not is_pointer_compare:
+                raise CompileError(ctx, "E0005", got=right_type, expected="pointer/nil")
+
+            self.emit("a.mov(x86::r11, x86::rax); // right pointer")
+            self.emit("a.pop(x86::rax); // left pointer")
+            self.emit("a.cmp(x86::rax, x86::r11);")
+
+            jump_map = {
+                "=":  "jne",
+                "<>": "je",
+            }
+
+            if op not in jump_map:
+                raise CompileError(ctx, "E0005", got=op, expected="= or <>")
+
+            self.emit(f"a.{jump_map[op]}({false_label});")
+            return
 
         # Linken Wert sichern
         if left_type == "double":
@@ -1846,7 +2273,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.label_id += 1
         return f"{prefix}_{self.label_id}"
     
+    # de-dupplizierer - doppelte Zeichen ignorieren
     def add_string_literal(self, text):
+        for name, existing_text in self.string_literals:
+            if existing_text == text:
+                return name
+
         name = f"str_{len(self.string_literals)}"
         self.string_literals.append((name, text))
         return name
@@ -1868,6 +2300,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.visit(ctx.block())
         return self.render_cpp()
+    
+    def visitExitStatement(self, ctx):
+        if not self.exit_label_stack:
+            raise CompileError(ctx, "E0006")
+
+        self.emit(f"a.jmp({self.exit_label_stack[-1]}); // Exit")
+        return None
     
     def visitDeclarationPart(self, ctx):
         return self.visit(ctx.getChild(0))
@@ -1896,21 +2335,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitArrayType(self, ctx):
         dimensions = []
 
-        for r in ctx.arrayRange():
-            min_value = int(r.expr(0).getText())
-            max_value = int(r.expr(1).getText())
+        if ctx.arrayRange():
+            for r in ctx.arrayRange():
+                min_value = int(r.expr(0).getText())
+                max_value = int(r.expr(1).getText())
 
-            dimensions.append({
-                "min": min_value,
-                "max": max_value
-            })
+                dimensions.append({
+                    "min": min_value,
+                    "max": max_value
+                })
+
+            is_dynamic = False
+        else:
+            is_dynamic = True
 
         element_type = ctx.typeName().getText()
 
         return {
             "kind": "array",
             "dimensions": dimensions,
-            "element_type": element_type
+            "element_type": element_type,
+            "is_dynamic": is_dynamic
         }
         
     def array_total_count(self, array_info):
@@ -2033,6 +2478,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.forStatement():
             return self.visit(ctx.forStatement())
         
+        if ctx.exitStatement():
+            return self.visit(ctx.exitStatement())
+        
         if ctx.compoundStatement():
             return self.visit(ctx.compoundStatement())
         
@@ -2050,7 +2498,45 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return None
     
     def visitVarDeclaration(self, ctx):
-        vtype = ctx.typeName().getText()
+        vtype_ctx = ctx.varType()
+
+        if vtype_ctx.arrayType():
+            array_type = self.visit(vtype_ctx.arrayType())
+
+            dimensions   = array_type["dimensions"]
+            element_type = array_type["element_type"]
+            is_dynamic   = array_type.get("is_dynamic", False)
+
+            for ident in ctx.identList().IDENT():
+                name = ident.getText()
+
+                if is_dynamic:
+                    # anonymen dynamischen Array-Typ anlegen
+                    array_type_name = "$dynarray_" + name.lower()
+
+                    self.arrays[array_type_name] = ArrayInfo(
+                        name=array_type_name,
+                        index_min=0,
+                        index_max=-1,
+                        element_type=self.resolve_type(element_type),
+                        element_size=self.type_size(ctx, element_type),
+                        size=8,
+                        init_values=[],
+                        dimensions=[],
+                        is_dynamic=True
+                    )
+
+                    if self.local_var_stack:
+                        self.declare_local_var(ctx, name, array_type_name)
+                    else:
+                        self.declare_var(ctx, name, array_type_name)
+
+                else:
+                    raise CompileError(ctx, "E0005", got="static inline array", expected="named array type")
+
+            return None
+
+        vtype = vtype_ctx.typeName().getText()
 
         for ident in ctx.identList().IDENT():
             name = ident.getText()
@@ -2107,7 +2593,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if target.lower() == "result":
             self.emit_store_result(ctx, expr_type)
             return None
-
+        
+        param = self.find_param(target)
+        if param and param.get("is_var", False):
+            self.emit_store_param(ctx, target, expr_type)
+            return None
+        
         suffixes = target_ctx.variableSuffix()
         if suffixes:
             first     = suffixes[0]
@@ -2184,9 +2675,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         var_info = self.var_info(ctx, target)
         var_type = var_info["type"]
 
-        if var_type.startswith("^") and expr_type == var_type:
-            self.emit_store_var(ctx, target, var_info)
-            return None
+        if isinstance(var_type, str) and var_type.startswith("^"):
+            if expr_type == var_type or expr_type == "^nil":
+                self.emit_store_var(ctx, target, var_info)
+                return None
             
         if var_type == "double" and expr_type == "integer":
             self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
@@ -2447,6 +2939,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             else:
                 return self.visit(expr_list)
 
+        if ctx.NIL():
+            self.emit("a.xor_(x86::rax, x86::rax); // nil")
+            return "^nil"
+    
         # Integer
         if ctx.NUMBER():
             value = ctx.NUMBER().getText()
@@ -2562,112 +3058,224 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = ctx.IDENT().getText()
         key  = name.lower()
 
-        label     = self.new_named_label("proc_" + name)
-        end_label = self.new_named_label("endproc_" + name)
+        label      = self.new_named_label("proc_"     + name)
+        skip_label = self.new_named_label("skipproc_" + name)
+        exit_label = self.new_named_label("exitproc_" + name)
 
         params = self.collect_formal_params(ctx)
 
         self.procedures[key] = {
-            "name": name,
-            "label": label,
+            "name"  : name,
+            "label" : label,
             "params": params
         }
 
         param_regs = ["rcx", "rdx", "r8", "r9"]
-
-        if len(params) > len(param_regs):
-            raise CompileError(ctx,
-                "E0005",
-                got="too many params",
-                expected="max 4 params")
-
-        self.emit(f"a.jmp({end_label});")
+        
+        if len(params) > 64:
+            raise CompileError(ctx, "E0005", got=str(len(params)), expected="max 64 params")
+            
+        #if len(params) > len(param_regs):
+        #    raise CompileError(ctx,
+        #        "E0005",
+        #        got="too many params",
+        #        expected="max 4 params")
+        
+        self.emit(f"a.jmp({skip_label});")
         self.emit(f"a.bind({label});")
         
         self.emit("a.push(x86::rbp);")
         self.emit("a.mov(x86::rbp, x86::rsp);")
-
+        
         old_params = self.current_proc_params
         self.current_proc_params = {}
-
+        
+        #for index, p in enumerate(params):
+        #    reg = param_regs[index]
+        #    pname = p["name"]
+        #    self.emit(f"a.push(x86::{reg}); // save param {pname}")
+        #    
+        #    self.current_proc_params[p["name"].lower()] = {
+        #        "type": p["type"],
+        #        "reg": param_regs[index],
+        #        "stack_offset": -8 * (index + 1),
+        #        "is_var": p.get("is_var", False)
+        #    }
+        
         for index, p in enumerate(params):
-            reg = param_regs[index]
             pname = p["name"]
-            self.emit(f"a.push(x86::{reg}); // save param {pname}")
+            ptype = self.resolve_type(p["type"])
             
-            self.current_proc_params[p["name"].lower()] = {
-                "type": p["type"],
-                "reg": param_regs[index],
-                "stack_offset": -8 * (index + 1)
+            
+            if index < 4:
+                reg = param_regs[index]
+                self.emit(f"a.push(x86::{reg}); // save param {pname}")
+                stack_offset = -8 * (index + 1)
+            else:
+                reg = None
+                stack_offset = 48 + ((index - 4) * 8)
+
+            self.current_proc_params[pname.lower()] = {
+                "type": ptype,
+                "reg": reg,
+                "stack_offset": stack_offset,
+                "is_var": p.get("is_var", False)
             }
-            
+        
+        self.emit("a.sub(x86::rsp, 512); // local variables")
+        
+        self.exit_label_stack.append(exit_label)
+        self.push_local_scope()
+        
+        saved_param_count = min(len(params), 4)
+        self.current_local_scope()["next_offset"] = saved_param_count * 8
+        
         self.visit(ctx.block())
         
+        self.pop_local_scope()
+        self.exit_label_stack.pop()
+        
+        self.emit(f"a.bind({exit_label});")
         self.current_proc_params = old_params
         
         self.emit("a.mov(x86::rsp, x86::rbp);")
         self.emit("a.pop(x86::rbp);")
         self.emit("a.ret();")
         
-        self.emit(f"a.bind({end_label});")
+        self.emit(f"a.bind({skip_label});")
         return None
     
     def visitProcedureCallStatement(self, ctx):
         name       = ctx.IDENT().getText()
         key        = name.lower()
         param_regs = ["rcx", "rdx", "r8", "r9"]
-        
+        int_regs   = ["ecx", "edx", "r8d", "r9d"]
+
         if key == "new":
             return self.emit_builtin_new(ctx)
-        
+
         if key == "dispose":
             return self.emit_builtin_dispose(ctx)
         
+        if key == "setlength":
+            return self.emit_builtin_setlength(ctx)
+
         if key not in self.procedures:
             raise CompileError(ctx, "E0001", name=name)
-        
+
         proc    = self.procedures[key]
         params  = proc["params"]
         actuals = []
-        
+
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
-        
+
         if len(actuals) != len(params):
-            raise CompileError(ctx,
+            raise CompileError(
+                ctx,
                 "E0005",
                 got=str(len(actuals)),
-                expected=str(len(params)))
-        
-        for index, arg in enumerate(actuals):
+                expected=str(len(params))
+            )
+
+        # Parameter 5..N rückwärts auf Stack legen
+        stack_count = 0
+
+        for index in range(len(actuals) - 1, 3, -1):
+            arg = actuals[index]
             formal = params[index]
-            
-            if formal["type"] == "integer":
+            formal_type = self.resolve_type(formal["type"])
+
+            if formal.get("is_var", False):
+                ref = arg.expr().term(0).factor(0).variableRef()
+                var_name = ref.IDENT().getText()
+
+                info = self.var_info(ctx, var_name)
+                actual_type = self.resolve_type(info["type"])
+
+                if actual_type != formal_type:
+                    raise CompileError(ctx, "E0005", got=actual_type, expected=formal_type)
+
+                self.emit_address_of_var(ctx, var_name)
+                self.emit("a.push(x86::rax); // stack var parameter")
+
+            else:
                 expr_type = self.visit(arg.expr())
-                
+
+                if formal_type == "integer":
+                    if expr_type != "integer":
+                        raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
+
+                    self.emit("a.movsxd(x86::rax, x86::eax);")
+                    self.emit("a.push(x86::rax); // stack integer parameter")
+
+                elif formal_type == "string":
+                    if expr_type != "string":
+                        raise CompileError(ctx, "E0005", got=expr_type, expected="string")
+
+                    self.emit("a.push(x86::rax); // stack string parameter")
+
+                elif isinstance(formal_type, str) and formal_type.startswith("^"):
+                    if expr_type != formal_type and expr_type != "^nil":
+                        raise CompileError(ctx, "E0005", got=expr_type, expected=formal_type)
+
+                    self.emit("a.push(x86::rax); // stack pointer parameter")
+
+                else:
+                    raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
+
+            stack_count += 1
+
+        # Parameter 1..4 in Register legen
+        for index in range(min(4, len(actuals))):
+            arg = actuals[index]
+            formal = params[index]
+            formal_type = self.resolve_type(formal["type"])
+
+            if formal.get("is_var", False):
+                ref = arg.expr().term(0).factor(0).variableRef()
+                var_name = ref.IDENT().getText()
+
+                info = self.var_info(ctx, var_name)
+                actual_type = self.resolve_type(info["type"])
+
+                if actual_type != formal_type:
+                    raise CompileError(ctx, "E0005", got=actual_type, expected=formal_type)
+
+                self.emit_address_of_var(ctx, var_name)
+                self.emit(f"a.mov(x86::{param_regs[index]}, x86::rax); // var parameter")
+                continue
+
+            expr_type = self.visit(arg.expr())
+
+            if formal_type == "integer":
                 if expr_type != "integer":
                     raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
-                
-                int_regs = ["ecx", "edx", "r8d", "r9d"]
-                reg = int_regs[index]
-                self.emit(f"a.mov(x86::{reg}, x86::eax);")
-            
-            elif formal["type"] == "string":
-                if not arg.STRING():
-                    raise CompileError(ctx, "E0005", got="expr", expected="string")
-                
-                value = arg.STRING().getText()[1:-1]
-                label = self.add_string_literal(value)
-                
-                reg = param_regs[index]
-                self.emit(f"a.mov(x86::{reg}, imm((uint64_t){label}));")
-            
+
+                self.emit(f"a.mov(x86::{int_regs[index]}, x86::eax);")
+
+            elif formal_type == "string":
+                if expr_type != "string":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected="string")
+
+                self.emit(f"a.mov(x86::{param_regs[index]}, x86::rax);")
+
+            elif isinstance(formal_type, str) and formal_type.startswith("^"):
+                if expr_type != formal_type and expr_type != "^nil":
+                    raise CompileError(ctx, "E0005", got=expr_type, expected=formal_type)
+
+                self.emit(f"a.mov(x86::{param_regs[index]}, x86::rax);")
+
             else:
-                raise CompileError(ctx, "E0005", got=formal["type"], expected="string/integer")
-        
-        self.emit("a.sub(x86::rsp, 32); // shadow space for procedure call")
+                raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
+
+        self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
         self.emit(f"a.call({proc['label']});")
         self.emit("a.add(x86::rsp, 32);")
+
+        if stack_count > 0:
+            self.emit(f"a.add(x86::rsp, {stack_count * 8}); // remove stack parameters")
+
         return None
     
     def visitIfStatement(self, ctx):
@@ -2858,6 +3466,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out.append('symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");')
         
+        out.append('symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");')
+        
         out.append('symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");')
 
@@ -2898,12 +3508,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.func_name = "main"
         self.date_str  = datetime.now().strftime("%Y-%m-%d")
         
-        return f'''// automaically created per Python 3.14 script on: {self.date_str}
+        src_comment    = ('-' * 77)
+        return f"""// {src_comment}
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: {self.date_str}
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// {src_comment}
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
@@ -2953,7 +3565,6 @@ int main() {{
 
     replace_all_ptr(asm_text);
     
-    
     {self.render_asm_context_replacements()}
     
     {self.render_asm_nasm_header()}
@@ -2966,7 +3577,6 @@ int main() {{
     asm_out << "extern _jit_array_bounds_error" << std::endl;
     asm_out << std::endl;
     
-
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -2983,7 +3593,7 @@ int main() {{
     {self.render_asm_string_data()}
     
     asm_out.close();
-   
+    
     std::array<int,         {int_count}> int_vars{{}};
     std::array<double,      {double_count}> double_vars{{}};
     std::array<const char*, {string_count}> string_vars{{}};
@@ -3005,7 +3615,7 @@ int main() {{
     rt.release(fn);
     return 0;
 }}
-'''
+"""
 
     def render_variable_output(self):
         out = []

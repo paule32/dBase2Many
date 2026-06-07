@@ -10,6 +10,7 @@ TYPE        : [Tt][Yy][Pp][Ee] ;
 RECORD      : [Rr][Ee][Cc][Oo][Rr][Dd] ;
 ARRAY       : [Aa][Rr][Rr][Aa][Yy] ;
 OF          : [Oo][Ff] ;
+NIL         : [nN][iI][lL] ;
 
 DOUBLE      : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER     : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;
@@ -31,6 +32,7 @@ DOWNTO      : [Dd][Oo][Ww][Nn][Tt][Oo] ;
 PROCEDURE   : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 FUNCTION    : [Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn] ;
 RESULT      : [Rr][Ee][Ss][Uu][Ll][Tt] ;
+EXIT        : [eE][xX][iI][tT] ;
 
 WRITELN     : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 

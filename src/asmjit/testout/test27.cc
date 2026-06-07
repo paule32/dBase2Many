@@ -1,9 +1,10 @@
-// automaically created per Python 3.14 script on: 2026-06-06
+// -----------------------------------------------------------------------------
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-07
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// -----------------------------------------------------------------------------
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
@@ -85,6 +86,7 @@ int main() {
     symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
     symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
     symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
     symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
     symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
     symbols.apply(asm_text);
@@ -96,7 +98,6 @@ int main() {
     replace_all_ptr(asm_text);
     
     
-    
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
     replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
     replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
@@ -105,7 +106,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-06\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-07\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -126,7 +127,6 @@ int main() {
     asm_out << "extern _jit_array_bounds_error" << std::endl;
     asm_out << std::endl;
     
-
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -148,7 +148,7 @@ int main() {
     asm_out << "\nsection .data\n";
     
     asm_out.close();
-   
+    
     std::array<int,         1> int_vars{};
     std::array<double,      1> double_vars{};
     std::array<const char*, 1> string_vars{};

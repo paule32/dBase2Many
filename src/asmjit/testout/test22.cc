@@ -1,16 +1,16 @@
-// automaically created per Python 3.14 script on: 2026-06-06
+// -----------------------------------------------------------------------------
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-07
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// -----------------------------------------------------------------------------
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
 using namespace asmjit;
 
 static const char str_0[] = "a";
-static const char str_1[] = "a";
 
 int main() {
     JitRuntime rt;
@@ -31,11 +31,12 @@ int main() {
     a.sub(x86::rsp, 8); // align stack
     a.mov (x86::r12, x86::rcx); // ctx
     a.mov(x86::eax, 123);
-    a.mov(x86::ebx, x86::eax);
+    a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);
+    a.xor_(x86::ebx, x86::ebx); // linear array index
     a.mov(x86::eax, 10);
     Label array_bounds_ok_1 = a.new_label();
     Label array_bounds_fail_2 = a.new_label();
-    a.mov(x86::ebx, x86::eax); // save array index
+    a.mov(x86::r10d, x86::eax); // save dimension index
     a.cmp(x86::eax, 0);
     a.jl(array_bounds_fail_2);
     a.cmp(x86::eax, 9);
@@ -43,7 +44,7 @@ int main() {
     a.jmp(array_bounds_ok_1);
     a.bind(array_bounds_fail_2);
     a.mov(x86::rcx, imm((uint64_t)str_0));
-    a.mov(x86::edx, x86::ebx);
+    a.mov(x86::edx, x86::r10d);
     a.mov(x86::r8d, 0);
     a.mov(x86::r9d, 9);
     a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));
@@ -51,32 +52,16 @@ int main() {
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.bind(array_bounds_ok_1);
-    a.mov(x86::eax, x86::ebx); // restore array index
-    Label array_bounds_ok_3 = a.new_label();
-    Label array_bounds_fail_4 = a.new_label();
-    a.mov(x86::ebx, x86::eax); // save array index
-    a.cmp(x86::eax, 0);
-    a.jl(array_bounds_fail_4);
-    a.cmp(x86::eax, 9);
-    a.jg(array_bounds_fail_4);
-    a.jmp(array_bounds_ok_3);
-    a.bind(array_bounds_fail_4);
-    a.mov(x86::rcx, imm((uint64_t)str_1));
-    a.mov(x86::edx, x86::ebx);
-    a.mov(x86::r8d, 0);
-    a.mov(x86::r9d, 9);
-    a.mov(x86::rax, imm((uint64_t)&jit_array_bounds_error));
-    a.sub(x86::rsp, 32); // Windows x64 shadow space
-    a.call(x86::rax);
-    a.add(x86::rsp, 32);
-    a.bind(array_bounds_ok_3);
-    a.mov(x86::eax, x86::ebx); // restore array index
+    a.mov(x86::eax, x86::r10d); // restore dimension index
+    a.add(x86::ebx, x86::eax);
+    a.mov(x86::eax, x86::ebx); // final linear index
     a.imul(x86::eax, x86::eax, 4);
     a.add(x86::eax, 0);
     a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));
     a.movsxd(x86::rax, x86::eax);
     a.add(x86::r11, x86::rax);
-    a.mov(x86::dword_ptr(x86::r11), x86::ebx);
+    a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));
+    a.mov(x86::dword_ptr(x86::r11), x86::eax);
     a.add(x86::rsp, 8); // undo alignment
     a.pop(x86::rbx);
     a.pop(x86::r12);
@@ -96,18 +81,21 @@ int main() {
     
     SymbolMappings symbols;
     symbols.add(std::to_string((uint64_t)&str_0), "_str_0");
-    symbols.add(std::to_string((uint64_t)&str_1), "_str_1");
+    symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");
+    symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
+    symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
+    symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
+    symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
+    symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
     symbols.apply(asm_text);
     
     LabelMappings labels;
     labels.add("L0", "array_bounds_ok_1");
     labels.add("L1", "array_bounds_fail_2");
-    labels.add("L2", "array_bounds_ok_3");
-    labels.add("L3", "array_bounds_fail_4");
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
-    
     
     
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
@@ -118,7 +106,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-06\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-07\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -133,8 +121,12 @@ int main() {
     
     
     
-    asm_out << "\n";
-
+    asm_out << std::endl;
+    asm_out << std::endl;
+    
+    asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << std::endl;
+    
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -143,20 +135,21 @@ int main() {
     asm_out << "extern _jit_print_int\n";
     asm_out << "extern _jit_print_double\n";
     asm_out << "extern _jit_print_newline\n";
+    asm_out << "extern _jit_new_memory\n";
+    asm_out << "extern _jit_dispose_memory\n";
     
-    asm_out << "\n";
+    asm_out << std::endl;
     asm_out << "section .text\n";
-    asm_out << "global " << "_main" << "\n";
-    asm_out << "_main" << ":\n";
+    asm_out << "global " << "_main" << std::endl;
+    asm_out << "_main" << ":" << std::endl;
     
     replace_all_str(asm_text, asm_out);
     
     asm_out << "\nsection .data\n";
     asm_out << "_str_0 db \"a\", 0\n";
-    asm_out << "_str_1 db \"a\", 0\n";
     
     asm_out.close();
-   
+    
     std::array<int,         1> int_vars{};
     std::array<double,      1> double_vars{};
     std::array<const char*, 1> string_vars{};

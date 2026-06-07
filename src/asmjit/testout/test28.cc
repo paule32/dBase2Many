@@ -1,9 +1,10 @@
-// automaically created per Python 3.14 script on: 2026-06-07
+// -----------------------------------------------------------------------------
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-07
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
 // all rights reserved.
-//
+// -----------------------------------------------------------------------------
 # include "runtime/dbase2many.hpp"
 
 using namespace std;
@@ -62,6 +63,7 @@ int main() {
     a.pop(x86::r11);
     a.mov(x86::qword_ptr(x86::rax), x86::r11); // n1^.Next :=
     a.mov(x86::eax, 0);
+    a.xor_(x86::rax, x86::rax); // nil pointer
     a.xor_(x86::rax, x86::rax); // nil pointer
     a.push(x86::rax); // save right pointer value
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
@@ -136,6 +138,7 @@ int main() {
     symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
     symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
     symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
     symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
     symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
     symbols.apply(asm_text);
@@ -145,7 +148,6 @@ int main() {
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
-    
     
     
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
@@ -177,7 +179,6 @@ int main() {
     asm_out << "extern _jit_array_bounds_error" << std::endl;
     asm_out << std::endl;
     
-
     std::istringstream iss(asm_text);
     std::string line;
 
@@ -199,7 +200,7 @@ int main() {
     asm_out << "\nsection .data\n";
     
     asm_out.close();
-   
+    
     std::array<int,         1> int_vars{};
     std::array<double,      1> double_vars{};
     std::array<const char*, 1> string_vars{};
