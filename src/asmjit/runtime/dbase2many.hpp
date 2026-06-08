@@ -19,6 +19,7 @@
 # include <fstream>
 # include <sstream>
 
+# include <stdexcept>
 # include <string>
 # include <array>
 # include <vector>
@@ -58,13 +59,15 @@ extern "C" void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
 extern "C" void* jit_new_memory(uint64_t size);
 extern "C" void  jit_dispose_memory(void* p);
+extern "C" void  jit_print_char(int c);
+
+extern "C" void  jit_string_range_error();
 extern "C" void
 jit_array_bounds_error(
     const char* array_name,
     int index,
-    int min_index,
-    int max_index);
-
+    int min_value,
+    int max_value);
 // ---------------------------------------------------------------------------
 // end of C section
 // ---------------------------------------------------------------------------
@@ -73,13 +76,21 @@ jit_array_bounds_error(
 # endif
 
 // ---------------------------------------------------------------------------
+// exception handling for our jit framework
+// ---------------------------------------------------------------------------
+class JitRuntimeError: public std::runtime_error {
+public:
+    explicit JitRuntimeError(const std::string& msg);
+};
+
+// ---------------------------------------------------------------------------
 // asmjit context for various structures ...
 // ---------------------------------------------------------------------------
 struct JitContext {
     int        *    int_vars;
 
     double     *    double_vars;
-    const char **   string_vars;
+    char       **   string_vars;
     uint8_t    *    record_vars;
     uint8_t    *    arrays_vars;
     uint64_t   *    pointr_vars;

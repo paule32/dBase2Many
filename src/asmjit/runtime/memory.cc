@@ -66,25 +66,37 @@ jit_dynarray_setlength(
 
 extern "C" void *
 jit_dynstring_setlength(
-    void *   data,
-    uint64_t length) {
+    void *   old_data,
+    uint64_t new_length) {
 
-    size_t total = sizeof(DynStringHeader) + length + 1;
-
-    DynStringHeader* header = nullptr;
-
-    if (data) {
-        header = ((DynStringHeader*)data) - 1;
+    uint64_t old_length = 0;
+    
+    DynStringHeader* old_header = nullptr;
+    
+    if (old_data) {
+        old_header = ((DynStringHeader*)old_data) - 1;
+        old_length = old_header->length;
+    }
+    
+    size_t total = sizeof(DynStringHeader) + new_length + 1;
+    
+    DynStringHeader* h = (DynStringHeader*)realloc(old_header, total);
+    if (!h) {
+        throw JitRuntimeError("Out of memory in SetLength(string)");
+    }
+    
+    h->length   = new_length;
+    h->capacity = new_length;
+    
+    char*  data = (char*)(h + 1);
+    
+    // neuen Bereich sauber mit 0 füllen
+    if (new_length > old_length) {
+        std::memset(data + old_length, 0, new_length - old_length);
     }
 
-    DynStringHeader* h = (DynStringHeader*)realloc(header, total);
-    if (!h) return nullptr;
+    // C-String-Terminator
+    data[new_length] = 0;
 
-    h->length     = length;
-    h->capacity   = length;
-
-    char*  _data  = (char*)(h + 1);
-    _data[length] = 0;
-
-    return _data;
+    return data;
 }
