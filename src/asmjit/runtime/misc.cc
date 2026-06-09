@@ -7,39 +7,91 @@
 
 std::string
 format_asm_line(
-    const std::string& line) {
-    
+    const std::string& line)
+{
     std::string s = line;
-    
-    if (s.empty())
-        return s;
 
-    // Labels/Leerzeilen/Kommentare unverändert lassen
-    size_t pos = s.find_first_not_of(" \t");
+    if (s.empty())
+        return "";
+
+    size_t pos = s.find_first_not_of(" \t\r\n");
     if (pos == std::string::npos)
         return "";
 
-    if (s[pos] == ';' || s.find(':') != std::string::npos)
-        return s.substr(pos);
-
     s = s.substr(pos);
-    
-    // erstes Wort = Mnemonic
+
+    if (!s.empty() && s[0] == ';')
+        return s;
+
+    size_t colon = s.find(':');
+    size_t space = s.find_first_of(" \t");
+
+    if (colon != std::string::npos &&
+        (space == std::string::npos || colon < space))
+        return s;
+
     size_t mnemonic_end = s.find_first_of(" \t");
     if (mnemonic_end == std::string::npos)
         return "    " + s;
 
     std::string mnemonic = s.substr(0, mnemonic_end);
 
-    // Operandenteil suchen
     size_t operand_start = s.find_first_not_of(" \t", mnemonic_end);
     if (operand_start == std::string::npos)
         return "    " + mnemonic;
 
     std::string operands = s.substr(operand_start);
 
-    // Zielspalte für Operanden, z.B. Spalte 8
-    const size_t operand_column = 12;
+    const size_t operand_column = 16;
+    std::string out = "    " + mnemonic;
+
+    if (out.length() < operand_column)
+        out += std::string(operand_column - out.length(), ' ');
+    else
+        out += "    ";
+
+    out += operands;
+    return out;
+}
+
+static std::string
+format_asm_line_cpp(
+    const std::string& line)
+{
+    std::string s = line;
+
+    if (s.empty())
+        return "";
+
+    size_t pos = s.find_first_not_of(" \t\r\n");
+    if (pos == std::string::npos)
+        return "";
+
+    s = s.substr(pos);
+
+    if (!s.empty() && s[0] == ';')
+        return s;
+
+    size_t colon = s.find(':');
+    size_t space = s.find_first_of(" \t");
+
+    if (colon != std::string::npos &&
+        (space == std::string::npos || colon < space))
+        return s;
+
+    size_t mnemonic_end = s.find_first_of(" \t");
+    if (mnemonic_end == std::string::npos)
+        return "    " + s;
+
+    std::string mnemonic = s.substr(0, mnemonic_end);
+
+    size_t operand_start = s.find_first_not_of(" \t", mnemonic_end);
+    if (operand_start == std::string::npos)
+        return "    " + mnemonic;
+
+    std::string operands = s.substr(operand_start);
+
+    const size_t operand_column = 16;
 
     std::string out = "    " + mnemonic;
 
@@ -52,7 +104,61 @@ format_asm_line(
     return out;
 }
 
-void
+DLL_API bool
+write_formatted_asm_file(
+    const char* asm_text,
+    const char* file_name)
+{
+    try {
+        if (!asm_text || !file_name)
+            return false;
+
+        std::ofstream asm_out(file_name);
+        if (!asm_out.is_open())
+            return false;
+
+        std::istringstream iss(asm_text);
+        std::string line;
+
+        while (std::getline(iss, line)) {
+            asm_out << format_asm_line_cpp(line) << '\n';
+        }
+
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+DLL_API bool
+replace_all_str_c(
+    const char* asm_text,
+    const char* file_name)
+{
+    try {
+        if (!asm_text || !file_name)
+            return false;
+
+        std::ofstream asm_out(file_name);
+        if (!asm_out.is_open())
+            return false;
+
+        std::istringstream iss(asm_text);
+        std::string line;
+
+        while (std::getline(iss, line)) {
+            asm_out << format_asm_line(line) << '\n';
+        }
+
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+DLL_API void
 replace_all_str(
     std::string&   asm_text,
     std::ofstream& asm_out) {
@@ -72,7 +178,7 @@ double_to_bits(double value) {
     return bits;
 }
 
-void
+DLL_API void
 replace_all(
     std::string& s,
     const std::string& from,
@@ -89,7 +195,7 @@ replace_all(
     }
 }
 
-std::string&
+DLL_API std::string&
 replace_all_ptr(std::string& asm_text)
 {
     replace_all(asm_text, "byte ptr ",    "byte ");
@@ -101,7 +207,7 @@ replace_all_ptr(std::string& asm_text)
     return asm_text;
 }
 
-std::string&
+DLL_API std::string&
 replace_all_fun(std::string& asm_text)
 {
     replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");

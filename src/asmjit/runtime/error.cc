@@ -12,7 +12,8 @@ JitRuntimeError::JitRuntimeError(
     std::runtime_error(msg)
     {}
 
-extern "C" void jit_array_bounds_error(
+DLL_API void
+jit_array_bounds_error(
     const char* array_name,
     int index,
     int min_value,
@@ -27,7 +28,7 @@ extern "C" void jit_array_bounds_error(
     );
 }
 
-extern "C" void
+DLL_API void
 jit_string_range_error() {
     throw JitRuntimeError("String range check error");
 }

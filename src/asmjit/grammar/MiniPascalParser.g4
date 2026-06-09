@@ -206,7 +206,7 @@ ifStatement
     ;
 
 condition
-    : expr compareOp expr
+    : expr (compareOp expr)?
     ;
 
 compareOp
@@ -238,6 +238,22 @@ variableSuffix
     ;
 
 expr
+    : boolOrExpr
+    ;
+
+boolOrExpr
+    : boolXorExpr ((OR) boolXorExpr)*
+    ;
+
+boolXorExpr
+    : boolAndExpr ((XOR) boolAndExpr)*
+    ;
+
+boolAndExpr
+    : addExpr ((AND) addExpr)*
+    ;
+
+addExpr
     : term ((PLUS | MINUS) term)*
     ;
 
@@ -246,7 +262,8 @@ term
     ;
 
 factor
-    : AT variableRef
+    : NOT factor
+    | AT variableRef
     | variableRef
     | functionCallExpr
     | NIL

@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 # include "dbase2many.hpp"
 
-extern "C" void*
+DLL_API void*
 jit_new_memory(uint64_t size)
 {
     void* p = std::malloc(size);
@@ -15,14 +15,14 @@ jit_new_memory(uint64_t size)
     return p;
 }
 
-extern "C" void
+DLL_API void
 jit_dispose_memory(void* p) {
     if (p) {
         std::free(p);
     }
 }
 
-extern "C" void *
+DLL_API void *
 jit_setlength_memory(
     void *   old_ptr,
     uint64_t new_size)
@@ -36,7 +36,7 @@ jit_setlength_memory(
     return p;
 }
 
-extern "C" void *
+DLL_API void *
 jit_dynarray_setlength(
     void *   data,
     uint64_t length,
@@ -64,7 +64,7 @@ jit_dynarray_setlength(
     return (void*)(new_header + 1);
 }
 
-extern "C" void *
+DLL_API void *
 jit_dynstring_setlength(
     void *   old_data,
     uint64_t new_length) {

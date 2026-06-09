@@ -19,7 +19,7 @@ SymbolMapping::SymbolMapping(
     addressText(address),
     symbolName(symbol) {}
 
-void
+DLL_API void
 LabelMappings::add(
     const std::string& asmjitLabel,
     const std::string& targetLabel)
@@ -29,10 +29,10 @@ LabelMappings::add(
         targetLabel);
 }
 
-void
+DLL_API void
 LabelMappings::clear() { mappings.clear(); }
 
-void
+DLL_API void
 LabelMappings::remove(const std::string& asmjitLabel)
 {
     mappings.erase(
@@ -46,7 +46,7 @@ LabelMappings::remove(const std::string& asmjitLabel)
     mappings.end());
 }
 
-void
+DLL_API void
 LabelMappings::apply(std::string& asm_text)
 {
     for (const auto& item : mappings)
@@ -63,7 +63,7 @@ LabelMappings::apply(std::string& asm_text)
     }
 }
 
-void
+DLL_API void
 SymbolMappings::add(
     const std::string& addressText,
     const std::string& symbolName) {
@@ -71,7 +71,7 @@ SymbolMappings::add(
     mappings.emplace_back(addressText, symbolName);
 }
 
-void
+DLL_API void
 SymbolMappings::apply(
     std::string& asm_text)
 {

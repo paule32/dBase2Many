@@ -259,6 +259,26 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#boolOrExpr.
+    def visitBoolOrExpr(self, ctx:MiniPascalParser.BoolOrExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#boolXorExpr.
+    def visitBoolXorExpr(self, ctx:MiniPascalParser.BoolXorExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#boolAndExpr.
+    def visitBoolAndExpr(self, ctx:MiniPascalParser.BoolAndExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#addExpr.
+    def visitAddExpr(self, ctx:MiniPascalParser.AddExprContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#term.
     def visitTerm(self, ctx:MiniPascalParser.TermContext):
         return self.visitChildren(ctx)

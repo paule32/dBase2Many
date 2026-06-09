@@ -1,0 +1,25 @@
+// ---------------------------------------------------------------------------
+// File:   test43.pas
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+
+program test43;
+
+type
+    TFlags = array[0..3] of Boolean;
+
+var
+    flags: TFlags;
+
+begin
+    flags[0] := True;
+    flags[1] := False;
+    flags[2] := not flags[1];
+    flags[3] := flags[0] xor flags[2];
+
+    WriteLn(flags[0]);
+    WriteLn(flags[1]);
+    WriteLn(flags[2]);
+    WriteLn(flags[3]);
+end.

@@ -19,6 +19,11 @@ IF          : [iI][fF];
 THEN        : [tT][hH][eE][nN];
 ELSE        : [eE][lL][sS][eE];
 
+NOT         : [nN][oO][tT] ;
+AND         : [aA][nN][dD] ;
+OR          : [oO][rR] ;
+XOR         : [xX][oO][rR] ;
+
 WHILE       : [wW][hH][iI][lL][eE];
 DO          : [dD][oO];
 

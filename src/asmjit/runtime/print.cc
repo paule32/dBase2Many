@@ -5,8 +5,8 @@
 // ---------------------------------------------------------------------------
 # include "dbase2many.hpp"
 
-void jit_print_text(const char* s)  { std::cout << s; }
-void jit_print_int(int v)           { std::cout << v; }
-void jit_print_double(double v)     { std::cout << v; }
-void jit_print_newline()            { std::cout << std::endl; }
-void jit_print_char(int c)          { std::cout << static_cast<char>(c); }
+DLL_API void jit_print_text(const char* s)  { std::cout << s; }
+DLL_API void jit_print_int(int v)           { std::cout << v; }
+DLL_API void jit_print_double(double v)     { std::cout << v; }
+DLL_API void jit_print_newline()            { std::cout << std::endl; }
+DLL_API void jit_print_char(int c)          { std::cout << static_cast<char>(c); }

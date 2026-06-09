@@ -458,6 +458,42 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#boolOrExpr.
+    def enterBoolOrExpr(self, ctx:MiniPascalParser.BoolOrExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#boolOrExpr.
+    def exitBoolOrExpr(self, ctx:MiniPascalParser.BoolOrExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#boolXorExpr.
+    def enterBoolXorExpr(self, ctx:MiniPascalParser.BoolXorExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#boolXorExpr.
+    def exitBoolXorExpr(self, ctx:MiniPascalParser.BoolXorExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#boolAndExpr.
+    def enterBoolAndExpr(self, ctx:MiniPascalParser.BoolAndExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#boolAndExpr.
+    def exitBoolAndExpr(self, ctx:MiniPascalParser.BoolAndExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#addExpr.
+    def enterAddExpr(self, ctx:MiniPascalParser.AddExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#addExpr.
+    def exitAddExpr(self, ctx:MiniPascalParser.AddExprContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#term.
     def enterTerm(self, ctx:MiniPascalParser.TermContext):
         pass

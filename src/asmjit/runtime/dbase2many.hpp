@@ -50,24 +50,33 @@ extern "C"
 {
 # endif
 
-void jit_print_text(const char* s);
-void jit_print_int(int v);
-void jit_print_double(double v);
-void jit_print_newline();
+DLL_API void  jit_print_text(const char* s);
+DLL_API void  jit_print_int(int v);
+DLL_API void  jit_print_double(double v);
+DLL_API void  jit_print_newline();
 
-extern "C" void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
+DLL_API void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
-extern "C" void* jit_new_memory(uint64_t size);
-extern "C" void  jit_dispose_memory(void* p);
-extern "C" void  jit_print_char(int c);
+DLL_API void* jit_new_memory(uint64_t size);
+DLL_API void  jit_dispose_memory(void* p);
+DLL_API void  jit_print_char(int c);
 
-extern "C" void  jit_string_range_error();
-extern "C" void
+DLL_API void  jit_string_range_error();
+DLL_API void
 jit_array_bounds_error(
     const char* array_name,
     int index,
     int min_value,
     int max_value);
+
+DLL_API bool
+write_formatted_asm_file(
+    const char* asm_text,
+    const char* file_name);
+DLL_API bool
+replace_all_str_c(
+    const char* asm_text,
+    const char* file_name);
 // ---------------------------------------------------------------------------
 // end of C section
 // ---------------------------------------------------------------------------
@@ -109,7 +118,8 @@ struct DynArrayHeader {
     uint64_t element_size;
 };
 
-extern "C" void * jit_dynarray_setlength(
+DLL_API void *
+jit_dynarray_setlength(
     void *   data,
     uint64_t length,
     uint64_t element_size);
@@ -122,7 +132,8 @@ struct DynStringHeader {
     uint64_t capacity;
 };
 
-extern "C" void * jit_dynstring_setlength(
+DLL_API void *
+jit_dynstring_setlength(
     void *   data,
     uint64_t length);
     
@@ -131,14 +142,14 @@ extern "C" void * jit_dynstring_setlength(
 // ---------------------------------------------------------------------------
 uint64_t double_to_bits(double value);
 
-void
+DLL_API void
 replace_all(
           std::string& s,
     const std::string& from,
     const std::string& to);
 
-std::string& replace_all_ptr(std::string& asm_text);
-std::string& replace_all_fun(std::string& asm_text);
-void         replace_all_str(std::string& asm_text , std::ofstream& asm_out);
+DLL_API std::string& replace_all_ptr(std::string& asm_text);
+DLL_API std::string& replace_all_fun(std::string& asm_text);
+DLL_API void         replace_all_str(std::string& asm_text , std::ofstream& asm_out);
 
 #endif  // __DBASE2MANY_HPP__
