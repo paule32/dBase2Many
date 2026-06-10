@@ -5,6 +5,28 @@
 // ---------------------------------------------------------------------------
 # include "dbase2many.hpp"
 
+static bool
+starts_with(
+    const std::string& s,
+    const std::string& prefix) {
+    
+    return s.rfind(prefix, 0) == 0;
+}
+
+static std::string
+trim(
+    const std::string& s) {
+    const char* ws = " \t\r\n";
+
+    size_t first = s.find_first_not_of(ws);
+    if (first == std::string::npos)
+        return "";
+
+    size_t last = s.find_last_not_of(ws);
+
+    return s.substr(first, last - first + 1);
+}
+
 std::string
 format_asm_line(
     const std::string& line)
@@ -58,6 +80,29 @@ static std::string
 format_asm_line_cpp(
     const std::string& line)
 {
+    std::string t = trim(line);
+    if (t.empty())
+        return "";
+
+    // Labels links lassen
+    if (t.back() == ':')
+        return t;
+
+    // NASM-Direktiven nicht einrücken
+    if (
+        starts_with(t, "struc ")   ||
+        starts_with(t, "endstruc") ||
+        starts_with(t, "extern ")  ||
+        starts_with(t, "global ")  ||
+        starts_with(t, "section ") ||
+        starts_with(t, "equ ")     ||
+        t.find(" equ ") != std::string::npos  ||
+        t.find(" db ")  != std::string::npos  ||
+        t.find(" resq ") != std::string::npos ||
+        t.find(" resd ") != std::string::npos) {
+        return t;
+    }
+
     std::string s = line;
 
     if (s.empty())
@@ -210,10 +255,10 @@ replace_all_ptr(std::string& asm_text)
 DLL_API std::string&
 replace_all_fun(std::string& asm_text)
 {
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_text),    "_jit_print_text");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_int),     "_jit_print_int");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_double),  "_jit_print_double");
-    replace_all(asm_text, std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
+    replace_all(asm_text, std::to_string((uint64_t)&_jit_print_text),    "_jit_print_text");
+    replace_all(asm_text, std::to_string((uint64_t)&_jit_print_int),     "_jit_print_int");
+    replace_all(asm_text, std::to_string((uint64_t)&_jit_print_double),  "_jit_print_double");
+    replace_all(asm_text, std::to_string((uint64_t)&_jit_print_newline), "_jit_print_newline");
     
     return asm_text;
 }

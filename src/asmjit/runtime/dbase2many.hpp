@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 # include <cstdio>
 # include <cstdint>
+# include <cstddef>
 # include <cstring>
 
 # include <iostream>
@@ -50,16 +51,19 @@ extern "C"
 {
 # endif
 
-DLL_API void  jit_print_text(const char* s);
-DLL_API void  jit_print_int(int v);
-DLL_API void  jit_print_double(double v);
-DLL_API void  jit_print_newline();
+DLL_API void  _jit_print_text(const char* s);
+DLL_API void  _jit_print_int(int v);
+DLL_API void  _jit_print_double(double v);
+DLL_API void  _jit_print_newline();
 
 DLL_API void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
 DLL_API void* jit_new_memory(uint64_t size);
 DLL_API void  jit_dispose_memory(void* p);
 DLL_API void  jit_print_char(int c);
+
+DLL_API void  jit_nil_pointer_error(const char* name);
+DLL_API void  jit_out_of_memory_error(const char* what);
 
 DLL_API void  jit_string_range_error();
 DLL_API void
@@ -77,13 +81,7 @@ DLL_API bool
 replace_all_str_c(
     const char* asm_text,
     const char* file_name);
-// ---------------------------------------------------------------------------
-// end of C section
-// ---------------------------------------------------------------------------
-# ifdef __cplusplus
-};
-# endif
-
+    
 // ---------------------------------------------------------------------------
 // exception handling for our jit framework
 // ---------------------------------------------------------------------------
@@ -96,19 +94,36 @@ public:
 // asmjit context for various structures ...
 // ---------------------------------------------------------------------------
 struct JitContext {
-    int        *    int_vars;
+    int         *  int_vars;
 
-    double     *    double_vars;
-    char       **   string_vars;
-    uint8_t    *    record_vars;
-    uint8_t    *    arrays_vars;
-    uint64_t   *    pointr_vars;
+    double      *  double_vars;
+    char        ** string_vars;
+    uint8_t     *  record_vars;
+    uint8_t     *  arrays_vars;
+    uint64_t    *  pointr_vars;
 
-    int             print_int_tmp;
-    double          print_double_tmp;
+    int            print_int_tmp;
+    double         print_double_tmp;
+
+    int            exception_active;
+    const char  *  exception_message;
 };
 
 typedef void (*JitFunc)(JitContext* ctx);
+
+// ---------------------------------------------------------------------------
+// SEH ...
+// ---------------------------------------------------------------------------
+DLL_API void
+_jit_set_exception(
+    JitContext* ctx,
+    const char* message
+);
+
+DLL_API void
+jit_runtime_error(
+    const char* message
+);
 
 // ---------------------------------------------------------------------------
 // dynamic array - SetLength ...
@@ -136,6 +151,13 @@ DLL_API void *
 jit_dynstring_setlength(
     void *   data,
     uint64_t length);
+
+// ---------------------------------------------------------------------------
+// end of C section
+// ---------------------------------------------------------------------------
+# ifdef __cplusplus
+};
+# endif
     
 // ---------------------------------------------------------------------------
 // misc. C++ helper members ..

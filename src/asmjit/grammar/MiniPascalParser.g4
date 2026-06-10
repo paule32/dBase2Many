@@ -172,6 +172,7 @@ statementList
 statement
     : assignment
     | writeLnStatement
+    | tryStatement
     | ifStatement
     | whileStatement
     | repeatStatement
@@ -180,7 +181,12 @@ statement
     | exitStatement
     | compoundStatement
     ;
-    
+
+tryStatement
+    : TRY statementList FINALLY statementList END
+    | TRY statementList EXCEPT  statementList END
+    ;
+
 exitStatement
     : EXIT SEMI?
     ;

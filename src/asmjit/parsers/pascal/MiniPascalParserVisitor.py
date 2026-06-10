@@ -194,6 +194,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#tryStatement.
+    def visitTryStatement(self, ctx:MiniPascalParser.TryStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#exitStatement.
     def visitExitStatement(self, ctx:MiniPascalParser.ExitStatementContext):
         return self.visitChildren(ctx)

@@ -39,6 +39,10 @@ FUNCTION    : [Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn] ;
 RESULT      : [Rr][Ee][Ss][Uu][Ll][Tt] ;
 EXIT        : [eE][xX][iI][tT] ;
 
+TRY         : [Tt][Rr][Yy];
+FINALLY     : [Ff][Ii][Nn][Aa][Ll][Ll][Yy];
+EXCEPT      : [Ee][Xx][Cc][Ee][Pp][Tt];
+
 WRITELN     : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 
 DOTDOT      : '..'  ;

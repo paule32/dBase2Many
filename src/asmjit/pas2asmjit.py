@@ -134,6 +134,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.local_var_stack    = []
         self.local_const_stack  = []
         self.exit_label_stack   = []
+        self.try_except_stack   = []
 
         self.asm_label_mappings = []
         
@@ -160,6 +161,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         message  = template.format(**err.params)
         
         return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
+    
+    def current_except_label(self):
+        if not self.try_except_stack:
+            return None
+        return self.try_except_stack[-1]["except_label"]
     
     def is_double(self, typ):
         return typ.lower() == "double"
@@ -792,6 +798,37 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "target": target_label
         })
     
+    def emit_soft_runtime_error(self, message):
+        except_label = self.current_except_label()
+
+        if except_label is None:
+            label = self.add_string_literal(message)
+            self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
+            self.emit("a.mov(x86::rax, imm((uint64_t)&jit_runtime_error));")
+            self.emit_call_rax()
+            return
+
+        label = self.add_string_literal(message)
+
+        self.emit("a.mov(x86::rcx, x86::r12); // ctx")
+        self.emit(f"a.mov(x86::rdx, imm((uint64_t){label}));")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_set_exception));")
+        self.emit_call_rax()
+        self.emit(f"a.jmp({except_label});")
+    
+    def emit_nil_pointer_check(self, ptr_name):
+        ok_label = self.new_named_label("ptr_not_nil")
+        name_label = self.add_string_literal(ptr_name)
+
+        self.emit("a.test(x86::rax, x86::rax);")
+        self.emit(f"a.jnz({ok_label});")
+
+        self.emit_soft_runtime_error(
+            f"Nil pointer error: {ptr_name}"
+        )
+
+        self.emit(f"a.bind({ok_label});")
+    
     def emit_builtin_new(self, ctx):
         actuals = []
 
@@ -1330,7 +1367,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_load_local_var(ctx, ptr_name, ptr_info)
         else:
             self.emit_load_var(ptr_name, ptr_info)
-
+            
+        self.emit_nil_pointer_check(ptr_name)
+        
         for index, field_name in enumerate(parts[1:]):
             if current_type not in self.records:
                 raise CompileError(ctx, "E0005", got=current_type, expected="record")
@@ -1637,6 +1676,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_load_local_var(ctx, ptr_name, ptr_info)
         else:
             self.emit_load_var(ptr_name, ptr_info)
+            
+        self.emit_nil_pointer_check(ptr_name)
 
         if field_offset != 0:
             self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
@@ -2871,6 +2912,38 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.declare_enum(ctx, enum_name, values)
         return None
     
+    def visitTryStatement(self, ctx):
+        if ctx.FINALLY():
+            self.visit(ctx.statementList(0))
+            self.visit(ctx.statementList(1))
+            return None
+
+        if ctx.EXCEPT():
+            except_label = self.new_named_label("except")
+            end_label    = self.new_named_label("endtry")
+
+            self.try_except_stack.append({
+                "except_label": except_label,
+                "end_label": end_label
+            })
+
+            # try-block
+            self.visit(ctx.statementList(0))
+
+            self.try_except_stack.pop()
+
+            # kein Fehler -> except überspringen
+            self.emit(f"a.jmp({end_label});")
+
+            # except-block
+            self.emit(f"a.bind({except_label});")
+            self.visit(ctx.statementList(1))
+
+            self.emit(f"a.bind({end_label});")
+            return None
+
+        return None
+    
     def visitStatementList(self, ctx):
         for st in ctx.statement():
             self.visit(st)
@@ -2878,7 +2951,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitStatement(self, ctx):
         if ctx.procedureCallStatement():
             return self.visit(ctx.procedureCallStatement())
-    
+        
+        if ctx.tryStatement():
+            return self.visit(ctx.tryStatement())
+        
         if ctx.assignment():
             return self.visit(ctx.assignment())
         
@@ -3824,7 +3900,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     label = self.add_string_literal(value)
 
                     self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
-                    self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                    self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
                     self.emit_call_rax()
                     
                 else:
@@ -3837,14 +3913,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             offset = pinfo["stack_offset"]
                             self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // load integer parameter")
                             self.emit("a.mov(x86::ecx, x86::eax);")
-                            self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_int));")
+                            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_int));")
                             self.emit_call_rax()
                             continue
                             
                         if pinfo["type"] == "string":
                             offset = pinfo["stack_offset"]
                             self.emit(f"a.mov(x86::rcx, x86::qword_ptr(x86::rbp, {offset})); // load string parameter")
-                            self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
                             self.emit_call_rax()
                             continue
                     
@@ -3852,25 +3928,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     
                     if expr_type == "char":
                         self.emit("a.mov(x86::ecx, x86::eax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_char));")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_char));")
                         self.emit_call_rax()
                     
                     if expr_type == "string":
                         self.emit("a.mov(x86::rcx, x86::rax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_text));")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
                         self.emit_call_rax()
                     
                     if expr_type == "integer":
                         self.emit("a.mov(x86::ecx, x86::eax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_int));")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_int));")
                         self.emit_call_rax()
                     
                     elif expr_type == "double":
                         # Windows x64: double-Argument liegt in xmm0
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_double));")
+                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_double));")
                         self.emit_call_rax()
         
-        self.emit("a.mov(x86::rax, imm((uint64_t)&jit_print_newline));")
+        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));")
         self.emit_call_rax()
         
         return None
@@ -3941,12 +4017,45 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def render_asm_nasm_structs(self):
         return r"""
-    asm_out << "struc JitContext\n";
-    asm_out << "    .int_vars:         resq 1\n";
-    asm_out << "    .double_vars:      resq 1\n";
-    asm_out << "    .print_int_tmp:    resd 1\n";
-    asm_out << "    .print_double_tmp: resq 1\n";
-    asm_out << "endstruc\n\n";
+        asm_out << "struc JitContext\n";
+        asm_out << "    .int_vars:         resq 1" << std::endl;
+        asm_out << "    .double_vars:      resq 1" << std::endl;
+        asm_out << "    .string_vars:      resq 1" << std::endl;
+        asm_out << "    .record_vars:      resq 1" << std::endl;
+        asm_out << "    .arrays_vars:      resq 1" << std::endl;
+        asm_out << "    .pointr_vars:      resq 1" << std::endl;
+        asm_out << "    .print_int_tmp:    resd 1" << std::endl;
+        asm_out << "    .print_double_tmp: resq 1" << std::endl;
+        asm_out << "endstruc" << std::endl << std::endl;
+        """
+
+    def render_asm_context_data(self,
+        int_count,
+        double_count,
+        string_count,
+        record_count,
+        arrays_count,
+        pointr_count):
+        return f"""
+    asm_out << "\\nsection .data\\n";
+    asm_out << "ctx:\\n";
+    asm_out << "    istruc JitContext\\n";
+    asm_out << "        at JitContext.int_vars,         dq int_vars\\n";
+    asm_out << "        at JitContext.double_vars,      dq double_vars\\n";
+    asm_out << "        at JitContext.string_vars,      dq string_vars\\n";
+    asm_out << "        at JitContext.record_vars,      dq record_vars\\n";
+    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars\\n";
+    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars\\n";
+    asm_out << "        at JitContext.print_int_tmp,    dd 0\\n";
+    asm_out << "        at JitContext.print_double_tmp, dq 0\\n";
+    asm_out << "    iend\\n\\n";
+
+    asm_out << "int_vars:    times {int_count} dd 0\\n";
+    asm_out << "double_vars: times {double_count} dq 0\\n";
+    asm_out << "string_vars: times {string_count} dq 0\\n";
+    asm_out << "record_vars: times {record_count} db 0\\n";
+    asm_out << "arrays_vars: times {arrays_count} db 0\\n";
+    asm_out << "pointr_vars: times {pointr_count} dq 0\\n";
     """
 
     def render_asm_context_replacements(self):
@@ -3971,9 +4080,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out.append('asm_out << "extern _jit_print_int\\n";')
         out.append('asm_out << "extern _jit_print_double\\n";')
         out.append('asm_out << "extern _jit_print_newline\\n";')
-        
+        out.append('')
         out.append('asm_out << "extern _jit_new_memory\\n";');
         out.append('asm_out << "extern _jit_dispose_memory\\n";')
+        out.append('')
+        out.append('asm_out << "extern _jit_set_exception\\n";')
+        out.append('asm_out << "extern _jit_nil_pointer_error\\n";')
+        out.append('asm_out << "extern _jit_out_of_memory_error\\n";')
 
         return "\n    ".join(out)
     
@@ -3985,17 +4098,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 f'symbols.add(std::to_string((uint64_t)&{name}), "_{name}");'
             )
 
-        out.append('symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");')
-        out.append('symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");')
-        out.append('symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");')
-        out.append('symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");')
-        
+        out.append('symbols.add(std::to_string((uint64_t)&_jit_print_text), "_jit_print_text");')
+        out.append('symbols.add(std::to_string((uint64_t)&_jit_print_int), "_jit_print_int");')
+        out.append('symbols.add(std::to_string((uint64_t)&_jit_print_double), "_jit_print_double");')
+        out.append('symbols.add(std::to_string((uint64_t)&_jit_print_newline), "_jit_print_newline");')
+        out.append('')
         out.append('symbols.add(std::to_string((uint64_t)&jit_dynarray_setlength), "_jit_dynarray_setlength");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_dynstring_setlength), "_jit_dynstring_setlength");')
-        
+        out.append('')
+        out.append('symbols.add(std::to_string((uint64_t)&_jit_set_exception), "_jit_set_exception");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_runtime_error), "_jit_runtime_error");')
+        out.append('')
         out.append('symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_string_range_error), "_jit_string_range_error");')
-        
+        out.append('')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_nil_pointer_error), "_jit_nil_pointer_error");')
+        out.append('symbols.add(std::to_string((uint64_t)&jit_out_of_memory_error), "_jit_out_of_memory_error");')
+        out.append('')
         out.append('symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");')
         out.append('symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");')
 
@@ -4080,10 +4199,8 @@ int main() {{
     
     std::ostringstream asm_out;
     std::string asm_text = logger.data();
-    asm_out << asm_text;
 
-    std::string final_asm_text = asm_out.str();
-    replace_all_fun(final_asm_text);
+    replace_all_fun(asm_text);
     
     SymbolMappings symbols;
     {self.render_asm_symbol_mappings()}
@@ -4094,6 +4211,7 @@ int main() {{
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
+    replace_all(asm_text, "mov r12, rcx", "lea r12, [rel ctx]");
     
     {self.render_asm_context_replacements()}
     
@@ -4113,12 +4231,31 @@ int main() {{
     {self.render_asm_double_symbols()}
     {self.render_asm_extern_symbols()}
     
+    {self.render_asm_context_data(
+        int_count,
+        double_count,
+        string_count,
+        record_count,
+        arrays_count,
+        pointr_count)}
+    
     asm_out << std::endl;
     asm_out << "section .text\\n";
     asm_out << \"global \" << \"_{self.func_name}\" << std::endl;
     asm_out << \"_{self.func_name}\" << \":" << std::endl;
     
+    asm_out << asm_text;
+    
     {self.render_asm_string_data()}
+    
+    std::string final_asm_text = asm_out.str();
+
+    if (!write_formatted_asm_file(
+        final_asm_text.c_str(),
+        \"{self.asm_file}\"
+    )) {{
+        std::cerr << "Could not write ASM file: {self.asm_file}" << std::endl;
+    }}
     
     std::array<int,      {int_count}> int_vars{{}};
     std::array<double,   {double_count}> double_vars{{}};

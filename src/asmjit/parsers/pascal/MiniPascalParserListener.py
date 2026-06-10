@@ -341,6 +341,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#tryStatement.
+    def enterTryStatement(self, ctx:MiniPascalParser.TryStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#tryStatement.
+    def exitTryStatement(self, ctx:MiniPascalParser.TryStatementContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#exitStatement.
     def enterExitStatement(self, ctx:MiniPascalParser.ExitStatementContext):
         pass

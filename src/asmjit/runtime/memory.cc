@@ -9,9 +9,12 @@ DLL_API void*
 jit_new_memory(uint64_t size)
 {
     void* p = std::malloc(size);
-    if (p) {
-        std::memset(p, 0, size);
+
+    if (!p) {
+        throw JitRuntimeError("Out of memory in New()");
     }
+
+    std::memset(p, 0, size);
     return p;
 }
 
@@ -55,7 +58,7 @@ jit_dynarray_setlength(
         (DynArrayHeader*)realloc(old_header, total_size);
 
     if (!new_header) {
-        return nullptr;
+        throw JitRuntimeError("Out of memory in SetLength(array)");
     }
 
     new_header->length = length;
