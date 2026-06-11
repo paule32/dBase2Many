@@ -13,7 +13,7 @@ JitRuntimeError::JitRuntimeError(
     {}
 
 DLL_API void
-jit_array_bounds_error(
+_jit_array_bounds_error(
     const char* array_name,
     int index,
     int min_value,
@@ -29,12 +29,12 @@ jit_array_bounds_error(
 }
 
 DLL_API void
-jit_string_range_error() {
+_jit_string_range_error() {
     throw JitRuntimeError("String range check error");
 }
 
 DLL_API void
-jit_nil_pointer_error(const char* name)
+_jit_nil_pointer_error(const char* name)
 {
     throw JitRuntimeError(
         std::string("Nil pointer error: ") +
@@ -43,7 +43,7 @@ jit_nil_pointer_error(const char* name)
 }
 
 DLL_API void
-jit_out_of_memory_error(const char* what)
+_jit_out_of_memory_error(const char* what)
 {
     throw JitRuntimeError(
         std::string("Out of memory: ") +
@@ -65,7 +65,7 @@ _jit_set_exception(
 }
 
 DLL_API void
-jit_runtime_error(const char* message)
+_jit_runtime_error(const char* message)
 {
     throw JitRuntimeError(
         message ? message : "Runtime error"

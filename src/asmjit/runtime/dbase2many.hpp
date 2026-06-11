@@ -9,6 +9,11 @@
 #pragma once
 
 // ---------------------------------------------------------------------------
+// Windows proto types ...
+// ---------------------------------------------------------------------------
+# include <windows.h>
+
+// ---------------------------------------------------------------------------
 // standard C++ header stuff ...
 // ---------------------------------------------------------------------------
 # include <cstdio>
@@ -56,29 +61,27 @@ DLL_API void  _jit_print_int(int v);
 DLL_API void  _jit_print_double(double v);
 DLL_API void  _jit_print_newline();
 
-DLL_API void* jit_setlength_memory(void* old_ptr,uint64_t new_size);
+DLL_API void* _jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
-DLL_API void* jit_new_memory(uint64_t size);
-DLL_API void  jit_dispose_memory(void* p);
-DLL_API void  jit_print_char(int c);
+DLL_API void* _jit_new_memory(uint64_t size);
+DLL_API void  _jit_dispose_memory(void* p);
+DLL_API void  _jit_print_char(int c);
 
-DLL_API void  jit_nil_pointer_error(const char* name);
-DLL_API void  jit_out_of_memory_error(const char* what);
+DLL_API void  _jit_nil_pointer_error(const char* name);
+DLL_API void  _jit_out_of_memory_error(const char* what);
 
-DLL_API void  jit_string_range_error();
-DLL_API void
-jit_array_bounds_error(
+DLL_API void  _jit_string_range_error();
+DLL_API void  _jit_array_bounds_error(
     const char* array_name,
     int index,
     int min_value,
     int max_value);
 
-DLL_API bool
-write_formatted_asm_file(
+DLL_API bool  write_formatted_asm_file(
     const char* asm_text,
     const char* file_name);
-DLL_API bool
-replace_all_str_c(
+
+DLL_API bool  replace_all_str_c(
     const char* asm_text,
     const char* file_name);
     
@@ -121,7 +124,7 @@ _jit_set_exception(
 );
 
 DLL_API void
-jit_runtime_error(
+_jit_runtime_error(
     const char* message
 );
 
@@ -134,7 +137,7 @@ struct DynArrayHeader {
 };
 
 DLL_API void *
-jit_dynarray_setlength(
+_jit_dynarray_setlength(
     void *   data,
     uint64_t length,
     uint64_t element_size);
@@ -142,15 +145,35 @@ jit_dynarray_setlength(
 // ---------------------------------------------------------------------------
 // dynamic string - SetLength ...
 // ---------------------------------------------------------------------------
+# define DYNSTRING_MAGIC 0x44535452u  // 'DSTR'
+
 struct DynStringHeader {
+    uint32_t magic;
+    uint32_t reserved;
     uint64_t length;
-    uint64_t capacity;
 };
 
-DLL_API void *
-jit_dynstring_setlength(
-    void *   data,
-    uint64_t length);
+DLL_API void *   _jit_dynstring_setlength(void * data, uint64_t length);
+DLL_API int      _jit_dynstring_length(const char * data);
+DLL_API char *   _jit_dynstring_concat(const char* left, const char* right);
+DLL_API char *   _jit_dynstring_from_cstr(const char* text);
+
+DLL_API uint64_t _double_to_bits(double value);    
+
+// ---------------------------------------------------------------------------
+// Windows API typedef's ...
+// ---------------------------------------------------------------------------
+#ifndef WIN32
+typedef int32_t    INT;  // 32-bit signed integer: -2147483648 .. 2147483647
+typedef uint32_t  UINT;  // unsigned INT: 0 .. 4294967295
+typedef void      VOID;  // any type
+typedef uint16_t  WORD;  // A 16-bit unsigned integer: 0 .. 65535
+#endif  // WIN32
+
+// ---------------------------------------------------------------------------
+// Windows API kernel32.dll
+// ---------------------------------------------------------------------------
+DLL_API VOID _jit_ExitProcess(UINT uExitCode);
 
 // ---------------------------------------------------------------------------
 // end of C section
@@ -162,8 +185,6 @@ jit_dynstring_setlength(
 // ---------------------------------------------------------------------------
 // misc. C++ helper members ..
 // ---------------------------------------------------------------------------
-uint64_t double_to_bits(double value);
-
 DLL_API void
 replace_all(
           std::string& s,

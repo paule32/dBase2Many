@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-10
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-11
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
@@ -34,45 +34,50 @@ int main() {
     a.sub(x86::rsp, 8); // align stack
     a.mov (x86::r12, x86::rcx); // ctx
     a.mov(x86::rcx, imm((uint64_t)str_0));
-    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.mov(x86::rcx, imm((uint64_t)str_1));
-    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.mov(x86::rcx, imm((uint64_t)str_2));
-    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.mov(x86::rcx, imm((uint64_t)str_3));
-    a.mov(x86::rax, imm((uint64_t)&jit_print_text));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.mov(x86::rax, imm((uint64_t)&jit_print_newline));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.add(x86::rsp, 8); // undo alignment
     a.pop(x86::rbx);
     a.pop(x86::r12);
-    a.ret();
+    
+    a.xor_(x86::ecx, x86::ecx);
+    a.sub(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_ExitProcess));
+    a.call(x86::rax);
+    a.ret();        // never reach
 
     JitFunc fn = nullptr;
     Error err = rt.add(&fn, &code);
@@ -91,18 +96,30 @@ int main() {
     symbols.add(std::to_string((uint64_t)&str_1), "_str_1");
     symbols.add(std::to_string((uint64_t)&str_2), "_str_2");
     symbols.add(std::to_string((uint64_t)&str_3), "_str_3");
-    symbols.add(std::to_string((uint64_t)&jit_print_text), "_jit_print_text");
-    symbols.add(std::to_string((uint64_t)&jit_print_int), "_jit_print_int");
-    symbols.add(std::to_string((uint64_t)&jit_print_double), "_jit_print_double");
-    symbols.add(std::to_string((uint64_t)&jit_print_newline), "_jit_print_newline");
-    symbols.add(std::to_string((uint64_t)&jit_dynarray_setlength), "_jit_dynarray_setlength");
-    symbols.add(std::to_string((uint64_t)&jit_dynstring_setlength), "_jit_dynstring_setlength");
-    symbols.add(std::to_string((uint64_t)&jit_array_bounds_error), "_jit_array_bounds_error");
-    symbols.add(std::to_string((uint64_t)&jit_string_range_error), "_jit_string_range_error");
-    symbols.add(std::to_string((uint64_t)&jit_nil_pointer_error), "_jit_nil_pointer_error");
-    symbols.add(std::to_string((uint64_t)&jit_out_of_memory_error), "_jit_out_of_memory_error");
-    symbols.add(std::to_string((uint64_t)&jit_new_memory), "_jit_new_memory");
-    symbols.add(std::to_string((uint64_t)&jit_dispose_memory), "_jit_dispose_memory");
+    symbols.add(std::to_string((uint64_t)&_jit_print_text), "_jit_print_text");
+    symbols.add(std::to_string((uint64_t)&_jit_print_int), "_jit_print_int");
+    symbols.add(std::to_string((uint64_t)&_jit_print_double), "_jit_print_double");
+    symbols.add(std::to_string((uint64_t)&_jit_print_newline), "_jit_print_newline");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_new_memory), "_jit_new_memory");
+    symbols.add(std::to_string((uint64_t)&_jit_dispose_memory), "_jit_dispose_memory");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_dynarray_setlength), "_jit_dynarray_setlength");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_from_cstr), "_jit_dynstring_from_cstr");
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_setlength), "_jit_dynstring_setlength");
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_length), "_jit_dynstring_length");
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_concat), "_jit_dynstring_concat");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_set_exception), "_jit_set_exception");
+    symbols.add(std::to_string((uint64_t)&_jit_runtime_error), "_jit_runtime_error");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_array_bounds_error), "_jit_array_bounds_error");
+    symbols.add(std::to_string((uint64_t)&_jit_string_range_error), "_jit_string_range_error");
+    symbols.add(std::to_string((uint64_t)&_jit_nil_pointer_error), "_jit_nil_pointer_error");
+    symbols.add(std::to_string((uint64_t)&_jit_out_of_memory_error), "_jit_out_of_memory_error");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_ExitProcess), "_jit_ExitProcess");
     symbols.apply(asm_text);
     
     LabelMappings labels;
@@ -115,13 +132,17 @@ int main() {
     
     replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
     replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
-    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.print_int_tmp]");
-    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.print_double_tmp]");
+    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.string_vars]");
+    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.record_vars]");
+    replace_all(asm_text, "[r12+32]",  "[r12 + JitContext.arrays_vars]");
+    replace_all(asm_text, "[r12+40]",  "[r12 + JitContext.pointr_vars]");
+    replace_all(asm_text, "[r12+48]",  "[r12 + JitContext.print_int_tmp]");
+    replace_all(asm_text, "[r12+56]",  "[r12 + JitContext.print_double_tmp]");
     
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-10\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-11\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -143,21 +164,31 @@ int main() {
     asm_out << std::endl;
     asm_out << std::endl;
     
-    asm_out << "extern _jit_array_bounds_error"  << std::endl;
-    asm_out << "extern _jit_string_range_error"  << std::endl;
-    asm_out << "extern _jit_dynarray_setlength"  << std::endl;
-    asm_out << "extern _jit_dynstring_setlength" << std::endl;
+    
+    asm_out << "extern _jit_print_text" << std::endl;
+    asm_out << "extern _jit_print_int" << std::endl;
+    asm_out << "extern _jit_print_double" << std::endl;
+    asm_out << "extern _jit_print_newline" << std::endl;
     asm_out << std::endl;
-    
-    
-    asm_out << "extern _jit_print_text\n";
-    asm_out << "extern _jit_print_int\n";
-    asm_out << "extern _jit_print_double\n";
-    asm_out << "extern _jit_print_newline\n";
-    asm_out << "extern _jit_new_memory\n";
-    asm_out << "extern _jit_dispose_memory\n";
-    asm_out << "extern _jit_nil_pointer_error\n";
-    asm_out << "extern _jit_out_of_memory_error\n";
+    asm_out << "extern _jit_new_memory" << std::endl;
+    asm_out << "extern _jit_dispose_memory" << std::endl;
+    asm_out << std::endl;
+    asm_out << "extern _jit_dynarray_setlength" << std::endl;
+    asm_out << std::endl;
+    asm_out << "extern _jit_dynstring_from_cstr" << std::endl;
+    asm_out << "extern _jit_dynstring_setlength" << std::endl;
+    asm_out << "extern _jit_dynstring_length" << std::endl;
+    asm_out << "extern _jit_dynstring_concat" << std::endl;
+    asm_out << std::endl;
+    asm_out << "extern _jit_set_exception" << std::endl;
+    asm_out << "extern _jit_runtime_error" << std::endl;
+    asm_out << std::endl;
+    asm_out << "extern _jit_nil_pointer_error" << std::endl;
+    asm_out << "extern _jit_out_of_memory_error" << std::endl;
+    asm_out << "extern _jit_array_bounds_error" << std::endl;
+    asm_out << "extern _jit_string_range_error" << std::endl;
+    asm_out << std::endl;
+    asm_out << "extern _jit_ExitProcess" << std::endl;
     
     
     asm_out << "\nsection .data\n";

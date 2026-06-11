@@ -216,8 +216,8 @@ replace_all_str(
     }
 }
 
-uint64_t
-double_to_bits(double value) {
+DLL_API uint64_t
+_double_to_bits(double value) {
     uint64_t bits;
     std::memcpy(&bits, &value, sizeof(bits));
     return bits;

@@ -26,8 +26,8 @@ python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
 echo create: Python + Exe files ...
 python -m compileall pas2asmjit.py
 
-::for /L %%N in (2,1,48) do (
-for %%N in (48) do (
+::for /L %%N in (2,1,50) do (
+for %%N in (50) do (
     echo create: test%%N.exe
     python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
     g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 ^
@@ -36,7 +36,7 @@ for %%N in (48) do (
     strip   testout/test%%N.exe
 )
 echo create: batch files
-for /L %%N in (2,1,48) do (
+for /L %%N in (2,1,50) do (
     echo ^:^: ------------------------------------------------------------ > testout/run_test%%N.bat
     echo ^:^: Copyright ^(c^) 2026 by Jens Kallup - paule32 >> testout/run_test%%N.bat
     echo ^:^: all rights reserved. >testout/run_test%%N.bat >> testout/run_test%%N.bat
@@ -45,6 +45,22 @@ for /L %%N in (2,1,48) do (
     echo set PATH=%CD%;T:\msys64\mingw64\bin;T:\GitHub\asmjit\build-dll;..\runtime;%PATH% >> testout/run_test%%N.bat
     echo test%%N.exe >> testout/run_test%%N.bat
     echo nasm -fwin64 -o test%%N.o test%%N.asm >> testout/run_test%%N.bat
+    
+    echo ^:^: ------------------------------------------------------------ > testout/run_test%%Na.bat
+    echo ^:^: Copyright ^(c^) 2026 by Jens Kallup - paule32 >> testout/run_test%%Na.bat
+    echo ^:^: all rights reserved. >testout/run_test%%N.bat >> testout/run_test%%Na.bat
+    echo ^:^: ------------------------------------------------------------ >> testout/run_test%%Na.bat
+    echo @echo off >> testout/run_test%%Na.bat
+    echo set PATH=%CD%;T:\msys64\mingw64\bin;T:\GitHub\asmjit\build-dll;..\runtime;%PATH% >> testout/run_test%%Na.bat
+    echo.>> testout/run_test%%Na.bat
+    echo g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 -L../runtime ^^>> testout/run_test%%Na.bat
+    echo     -nostartfiles ^^>> testout/run_test%%Na.bat
+    echo     -o test%%Na.exe test%%N.o -ldbase2many.dll -lkernel32 ^^>> testout/run_test%%Na.bat
+    echo     -Wl,-e,_main>> testout/run_test%%Na.bat
+    echo.>> testout/run_test%%Na.bat
+    echo echo final exe:>> testout/run_test%%Na.bat
+    echo strip test%%Na.exe>> testout/run_test%%Na.bat
+    echo test%%Na.exe>> testout/run_test%%Na.bat
 )
 goto ok
 
