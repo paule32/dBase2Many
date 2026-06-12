@@ -19,6 +19,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#classMethodImplementation.
+    def visitClassMethodImplementation(self, ctx:MiniPascalParser.ClassMethodImplementationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#constSection.
     def visitConstSection(self, ctx:MiniPascalParser.ConstSectionContext):
         return self.visitChildren(ctx)
@@ -46,6 +51,36 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#typeDeclaration.
     def visitTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#classDeclaration.
+    def visitClassDeclaration(self, ctx:MiniPascalParser.ClassDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#classBody.
+    def visitClassBody(self, ctx:MiniPascalParser.ClassBodyContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#classMember.
+    def visitClassMember(self, ctx:MiniPascalParser.ClassMemberContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#classFieldDeclaration.
+    def visitClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#constructorDeclaration.
+    def visitConstructorDeclaration(self, ctx:MiniPascalParser.ConstructorDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#destructorDeclaration.
+    def visitDestructorDeclaration(self, ctx:MiniPascalParser.DestructorDeclarationContext):
         return self.visitChildren(ctx)
 
 
@@ -194,6 +229,41 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#caseStatement.
+    def visitCaseStatement(self, ctx:MiniPascalParser.CaseStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#caseItem.
+    def visitCaseItem(self, ctx:MiniPascalParser.CaseItemContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#caseLabelList.
+    def visitCaseLabelList(self, ctx:MiniPascalParser.CaseLabelListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#caseLabel.
+    def visitCaseLabel(self, ctx:MiniPascalParser.CaseLabelContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#caseElse.
+    def visitCaseElse(self, ctx:MiniPascalParser.CaseElseContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#breakStatement.
+    def visitBreakStatement(self, ctx:MiniPascalParser.BreakStatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#continueStatement.
+    def visitContinueStatement(self, ctx:MiniPascalParser.ContinueStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#tryStatement.
     def visitTryStatement(self, ctx:MiniPascalParser.TryStatementContext):
         return self.visitChildren(ctx)
@@ -276,6 +346,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#boolAndExpr.
     def visitBoolAndExpr(self, ctx:MiniPascalParser.BoolAndExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#compareExpr.
+    def visitCompareExpr(self, ctx:MiniPascalParser.CompareExprContext):
         return self.visitChildren(ctx)
 
 

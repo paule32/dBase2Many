@@ -14,6 +14,12 @@ declarationPart
     | varSection
     | procedureDeclaration
     | functionDeclaration
+    | classMethodImplementation
+    ;
+
+classMethodImplementation
+    : CONSTRUCTOR IDENT DOT IDENT formalParamList? SEMI block SEMI?
+    | DESTRUCTOR  IDENT DOT IDENT formalParamList? SEMI block SEMI?
     ;
 
 constSection
@@ -43,6 +49,33 @@ typeDeclaration
     | enumDeclaration
     | recordDeclaration
     | arrayDeclaration
+    | classDeclaration
+    ;
+
+classDeclaration
+    : IDENT EQ_OP CLASS classBody END SEMI
+    ;
+
+classBody
+    : classMember*
+    ;
+
+classMember
+    : classFieldDeclaration
+    | constructorDeclaration
+    | destructorDeclaration
+    ;
+
+classFieldDeclaration
+    : identList COLON typeName SEMI
+    ;
+
+constructorDeclaration
+    : CONSTRUCTOR IDENT formalParamList? SEMI
+    ;
+
+destructorDeclaration
+    : DESTRUCTOR IDENT formalParamList? SEMI
     ;
 
 arrayDeclaration
@@ -121,11 +154,12 @@ declaration
     ;
 
 functionCallExpr
-    : IDENT LPAREN argumentList? RPAREN
+    : IDENT (DOT IDENT)? LPAREN argumentList? RPAREN
+    | IDENT DOT IDENT
     ;
 
 procedureCallStatement
-    : IDENT actualParamList? SEMI?
+    : IDENT (DOT IDENT)? actualParamList? SEMI?
     ;
 
 actualParamList
@@ -177,9 +211,41 @@ statement
     | whileStatement
     | repeatStatement
     | forStatement
+    | breakStatement
+    | continueStatement
+    | caseStatement
     | procedureCallStatement
     | exitStatement
     | compoundStatement
+    ;
+
+caseStatement
+    : CASE expr OF caseItem* caseElse? END
+    ;
+
+caseItem
+    : caseLabelList COLON statement SEMI?
+    ;
+
+caseLabelList
+    : caseLabel (COMMA caseLabel)*
+    ;
+
+caseLabel
+    : NUMBER
+    | IDENT
+    ;
+
+caseElse
+    : ELSE statementList SEMI?
+    ;
+
+breakStatement
+    : BREAK
+    ;
+
+continueStatement
+    : CONTINUE
     ;
 
 tryStatement
@@ -248,15 +314,19 @@ expr
     ;
 
 boolOrExpr
-    : boolXorExpr ((OR) boolXorExpr)*
+    : boolXorExpr (OR boolXorExpr)*
     ;
 
 boolXorExpr
-    : boolAndExpr ((XOR) boolAndExpr)*
+    : boolAndExpr (XOR boolAndExpr)*
     ;
 
 boolAndExpr
-    : addExpr ((AND) addExpr)*
+    : compareExpr (AND compareExpr)*
+    ;
+
+compareExpr
+    : addExpr (compareOp addExpr)?
     ;
 
 addExpr

@@ -15,17 +15,21 @@ NIL         : [nN][iI][lL] ;
 DOUBLE      : [Dd][Oo][Uu][Bb][Ll][Ee] ;
 INTEGER     : [Ii][Nn][Tt][Ee][Gg][Ee][Rr] ;
 
-IF          : [iI][fF];
-THEN        : [tT][hH][eE][nN];
-ELSE        : [eE][lL][sS][eE];
+CASE        : [Cc][Aa][Ss][Ee] ;
+IF          : [iI][fF] ;
+THEN        : [tT][hH][eE][nN] ;
+ELSE        : [eE][lL][sS][eE] ;
+
+BREAK       : [Bb][Rr][Ee][Aa][Kk] ;
+CONTINUE    : [Cc][Oo][Nn][Tt][Ii][Nn][Uu][Ee] ;
 
 NOT         : [nN][oO][tT] ;
 AND         : [aA][nN][dD] ;
 OR          : [oO][rR] ;
 XOR         : [xX][oO][rR] ;
 
-WHILE       : [wW][hH][iI][lL][eE];
-DO          : [dD][oO];
+WHILE       : [wW][hH][iI][lL][eE] ;
+DO          : [dD][oO] ;
 
 REPEAT      : [Rr][Ee][Pp][Ee][Aa][Tt] ;
 UNTIL       : [Uu][Nn][Tt][Ii][Ll] ;
@@ -42,6 +46,10 @@ EXIT        : [eE][xX][iI][tT] ;
 TRY         : [Tt][Rr][Yy];
 FINALLY     : [Ff][Ii][Nn][Aa][Ll][Ll][Yy];
 EXCEPT      : [Ee][Xx][Cc][Ee][Pp][Tt];
+
+CLASS       : [Cc][Ll][Aa][Ss][Ss] ;
+CONSTRUCTOR : [Cc][Oo][Nn][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;
+DESTRUCTOR  : [Dd][Ee][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;
 
 WRITELN     : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 

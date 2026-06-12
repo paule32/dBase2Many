@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-11
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-12
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
@@ -252,6 +252,8 @@ int main() {
     symbols.add(std::to_string((uint64_t)&_jit_dynstring_setlength), "_jit_dynstring_setlength");
     symbols.add(std::to_string((uint64_t)&_jit_dynstring_length), "_jit_dynstring_length");
     symbols.add(std::to_string((uint64_t)&_jit_dynstring_concat), "_jit_dynstring_concat");
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_copy), "_jit_dynstring_copy");
+    symbols.add(std::to_string((uint64_t)&_jit_dynstring_pos), "_jit_dynstring_pos");
     
     symbols.add(std::to_string((uint64_t)&_jit_set_exception), "_jit_set_exception");
     symbols.add(std::to_string((uint64_t)&_jit_runtime_error), "_jit_runtime_error");
@@ -290,7 +292,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-11\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-12\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -327,6 +329,8 @@ int main() {
     asm_out << "extern _jit_dynstring_setlength" << std::endl;
     asm_out << "extern _jit_dynstring_length" << std::endl;
     asm_out << "extern _jit_dynstring_concat" << std::endl;
+    asm_out << "extern _jit_dynstring_copy" << std::endl;
+    asm_out << "extern _jit_dynstring_pos" << std::endl;
     asm_out << std::endl;
     asm_out << "extern _jit_set_exception" << std::endl;
     asm_out << "extern _jit_runtime_error" << std::endl;

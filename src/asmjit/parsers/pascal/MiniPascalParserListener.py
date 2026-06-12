@@ -26,6 +26,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#classMethodImplementation.
+    def enterClassMethodImplementation(self, ctx:MiniPascalParser.ClassMethodImplementationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classMethodImplementation.
+    def exitClassMethodImplementation(self, ctx:MiniPascalParser.ClassMethodImplementationContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#constSection.
     def enterConstSection(self, ctx:MiniPascalParser.ConstSectionContext):
         pass
@@ -77,6 +86,60 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#typeDeclaration.
     def exitTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#classDeclaration.
+    def enterClassDeclaration(self, ctx:MiniPascalParser.ClassDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classDeclaration.
+    def exitClassDeclaration(self, ctx:MiniPascalParser.ClassDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#classBody.
+    def enterClassBody(self, ctx:MiniPascalParser.ClassBodyContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classBody.
+    def exitClassBody(self, ctx:MiniPascalParser.ClassBodyContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#classMember.
+    def enterClassMember(self, ctx:MiniPascalParser.ClassMemberContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classMember.
+    def exitClassMember(self, ctx:MiniPascalParser.ClassMemberContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#classFieldDeclaration.
+    def enterClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classFieldDeclaration.
+    def exitClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#constructorDeclaration.
+    def enterConstructorDeclaration(self, ctx:MiniPascalParser.ConstructorDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#constructorDeclaration.
+    def exitConstructorDeclaration(self, ctx:MiniPascalParser.ConstructorDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#destructorDeclaration.
+    def enterDestructorDeclaration(self, ctx:MiniPascalParser.DestructorDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#destructorDeclaration.
+    def exitDestructorDeclaration(self, ctx:MiniPascalParser.DestructorDeclarationContext):
         pass
 
 
@@ -341,6 +404,69 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#caseStatement.
+    def enterCaseStatement(self, ctx:MiniPascalParser.CaseStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#caseStatement.
+    def exitCaseStatement(self, ctx:MiniPascalParser.CaseStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#caseItem.
+    def enterCaseItem(self, ctx:MiniPascalParser.CaseItemContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#caseItem.
+    def exitCaseItem(self, ctx:MiniPascalParser.CaseItemContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#caseLabelList.
+    def enterCaseLabelList(self, ctx:MiniPascalParser.CaseLabelListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#caseLabelList.
+    def exitCaseLabelList(self, ctx:MiniPascalParser.CaseLabelListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#caseLabel.
+    def enterCaseLabel(self, ctx:MiniPascalParser.CaseLabelContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#caseLabel.
+    def exitCaseLabel(self, ctx:MiniPascalParser.CaseLabelContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#caseElse.
+    def enterCaseElse(self, ctx:MiniPascalParser.CaseElseContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#caseElse.
+    def exitCaseElse(self, ctx:MiniPascalParser.CaseElseContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#breakStatement.
+    def enterBreakStatement(self, ctx:MiniPascalParser.BreakStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#breakStatement.
+    def exitBreakStatement(self, ctx:MiniPascalParser.BreakStatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#continueStatement.
+    def enterContinueStatement(self, ctx:MiniPascalParser.ContinueStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#continueStatement.
+    def exitContinueStatement(self, ctx:MiniPascalParser.ContinueStatementContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#tryStatement.
     def enterTryStatement(self, ctx:MiniPascalParser.TryStatementContext):
         pass
@@ -491,6 +617,15 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#boolAndExpr.
     def exitBoolAndExpr(self, ctx:MiniPascalParser.BoolAndExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#compareExpr.
+    def enterCompareExpr(self, ctx:MiniPascalParser.CompareExprContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#compareExpr.
+    def exitCompareExpr(self, ctx:MiniPascalParser.CompareExprContext):
         pass
 
 

@@ -19,6 +19,7 @@
 # include <cstdio>
 # include <cstdint>
 # include <cstddef>
+# include <cstdlib>
 # include <cstring>
 
 # include <iostream>
@@ -66,6 +67,9 @@ DLL_API void* _jit_setlength_memory(void* old_ptr,uint64_t new_size);
 DLL_API void* _jit_new_memory(uint64_t size);
 DLL_API void  _jit_dispose_memory(void* p);
 DLL_API void  _jit_print_char(int c);
+
+DLL_API char* _jit_dynstring_copy(char* src, int start, int count);
+DLL_API int   _jit_dynstring_pos(char* needle, char* haystack);
 
 DLL_API void  _jit_nil_pointer_error(const char* name);
 DLL_API void  _jit_out_of_memory_error(const char* what);
