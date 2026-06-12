@@ -296,3 +296,5 @@ src/asmjit/runtime/libdbase2many.dll.a
 src/asmjit/runtime/dbase2many.dll
 src/asmjit/runtime/dbase2many.def
 src/asmjit/libasmjit.def
+/src/asmjit/build
+/src/asmjit/dist

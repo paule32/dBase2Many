@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-11
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-12
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
@@ -245,7 +245,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-11\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-12\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
