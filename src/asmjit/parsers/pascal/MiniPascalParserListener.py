@@ -98,6 +98,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#classParent.
+    def enterClassParent(self, ctx:MiniPascalParser.ClassParentContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classParent.
+    def exitClassParent(self, ctx:MiniPascalParser.ClassParentContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#classBody.
     def enterClassBody(self, ctx:MiniPascalParser.ClassBodyContext):
         pass

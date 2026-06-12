@@ -7,11 +7,17 @@
 program test54;
 
 type
-    TFoo = class
+    TObject = class
+        constructor Create;
+        destructor Destroy;
+    end;
+
+type
+    TFoo = class(TObject)
         field : Integer;
 
         constructor Create;
-        constructor Create(S: String);
+        constructor Create(S: String; I: Integer);
         
         destructor Destroy;
     end;
@@ -19,24 +25,40 @@ type
 var
     foo : TFoo;
 
-constructor TFoo.Create;
+constructor TObject.Create;
 begin
-    WriteLn('create');
+    WriteLn('TObject: Create');
 end;
 
-constructor TFoo.Create(S: String);
+destructor TObject.Destroy;
 begin
+    WriteLn('TObject: Destroy');
+end;
+
+constructor TFoo.Create;
+begin
+    WriteLn('TFoo: Create');
+end;
+
+constructor TFoo.Create(S: String; I: Integer);
+begin
+    inherited Create;
+    
     WriteLn('str: ', S);
+    WriteLn('int: ', I);
 end;
 
 destructor TFoo.Destroy;
 begin
-    WriteLn('destroy');
+    WriteLn('TFoo: Destroy');
 end;
 
 begin
-    foo := TFoo.Create('test');
-    foo.field := 42;
-    WriteLn('field: ', foo.field);
-    foo.Free;
+    foo := TFoo.Create('test', 12);
+    try
+        foo.field := 42;
+        WriteLn('field: ', foo.field);
+    finally
+        foo.Free;
+    end;
 end.

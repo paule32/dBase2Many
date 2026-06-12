@@ -53,7 +53,11 @@ typeDeclaration
     ;
 
 classDeclaration
-    : IDENT EQ_OP CLASS classBody END SEMI
+    : IDENT EQ_OP CLASS classParent? classBody END SEMI
+    ;
+
+classParent
+    : LPAREN IDENT RPAREN
     ;
 
 classBody

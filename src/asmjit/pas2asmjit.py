@@ -88,6 +88,7 @@ class ClassInfo:
     fields      : dict[str, RecordFieldInfo]
     methods     : dict[str, list[ClassMethodInfo]]
     size        : int
+    parent      : str | None = None
 
 # ---------------------------------------------------------------------------
 # Compiler Exception to mark errors in compilation unit ...
@@ -329,14 +330,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             size    = offset
         )
     
-    def declare_class(self, ctx, name, fields, methods):
+    def declare_class(self, ctx, name, fields, methods, parent_name=None):
         key = name.lower()
+        
+        parent_key      = None
+        parent_size     = 0
+        parent_fields   = {}
+        parent_methods  = {}
+        
+        if parent_name:
+            parent_key = parent_name.lower()
+
+            if parent_key not in self.classes:
+                raise CompileError(ctx, "E0004", name=parent_name)
+
+            parent_cls    = self.classes[parent_key]
+            parent_size   = parent_cls.size
+
+            parent_fields = dict(parent_cls.fields)
+
+            for mname, overloads in parent_cls.methods.items():
+                parent_methods[mname] = list(overloads)
         
         if key in self.classes:
             raise CompileError(ctx, "E0002", name=name)
         
-        offset = 0
-        class_fields = {}
+        offset = parent_size
+        class_fields = dict(parent_fields)
         
         for field_name, field_type in fields:
             field_key = field_name.lower()
@@ -352,7 +372,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             offset += size
         
-        class_methods = {}
+        class_methods = dict(parent_methods)
         
         for method in methods:
             method_key = method["name"].lower()
@@ -405,7 +425,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             name    = name,
             fields  = class_fields,
             methods = class_methods,
-            size    = offset
+            size    = offset,
+            parent  = parent_key
         )
     
     def validate_class_methods(self, ctx):
@@ -3956,7 +3977,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         fields = []
         methods = []
-
+        
+        parent_name = None
+        if ctx.classParent():
+            parent_name = ctx.classParent().IDENT().getText()
+    
         for member in ctx.classBody().classMember():
             if member.classFieldDeclaration():
                 field_ctx = member.classFieldDeclaration()
@@ -3991,7 +4016,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "params": self.collect_formal_params(dtor)
                 })
 
-        self.declare_class(ctx, class_name, fields, methods)
+        self.declare_class(ctx, class_name, fields, methods, parent_name=None)
         return None
     
     def visitTypeDeclaration(self, ctx):

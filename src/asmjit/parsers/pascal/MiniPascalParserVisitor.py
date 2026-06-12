@@ -59,6 +59,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#classParent.
+    def visitClassParent(self, ctx:MiniPascalParser.ClassParentContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#classBody.
     def visitClassBody(self, ctx:MiniPascalParser.ClassBodyContext):
         return self.visitChildren(ctx)
