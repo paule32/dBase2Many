@@ -1,5 +1,5 @@
 ; -----------------------------------------------------------------------------
-; GENERATED WITH PYTHON 3.14 ON: 2026-06-12
+; GENERATED WITH PYTHON 3.14 ON: 2026-06-13
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; all rights reserved.
 ; -----------------------------------------------------------------------------
@@ -67,7 +67,7 @@ pointr_vars: times 1 dq 0
 section .text
 global _main
 _main:
-    jmp         skip_class_TObject_Create_6
+    jmp         skip_class_TObject_Create_8
 class_TObject_Create_1:
     push        rbp
     mov         rbp, rsp
@@ -85,8 +85,8 @@ class_TObject_Create_1:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TObject_Create_6:
-    jmp         skip_class_TObject_Destroy_7
+skip_class_TObject_Create_8:
+    jmp         skip_class_TObject_Destroy_9
 class_TObject_Destroy_2:
     push        rbp
     mov         rbp, rsp
@@ -104,9 +104,20 @@ class_TObject_Destroy_2:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TObject_Destroy_7:
-    jmp         skip_class_TFoo_Create_8
-class_TFoo_Create_3:
+skip_class_TObject_Destroy_9:
+    jmp         skip_class_TObject_GetValue_10
+class_TObject_GetValue_3:
+    push        rbp
+    mov         rbp, rsp
+    push        rcx
+    sub         rsp, 256
+    mov         eax, 32
+    mov         rsp, rbp
+    pop         rbp
+    ret
+skip_class_TObject_GetValue_10:
+    jmp         class_TObject_Destroy_20
+class_TFoo_Create_4:
     push        rbp
     mov         rbp, rsp
     push        rcx
@@ -123,15 +134,28 @@ class_TFoo_Create_3:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Create_8:
-    jmp         skip_class_TFoo_Create_9
-class_TFoo_Create_4:
+class_TObject_Destroy_20:
+    jmp         class_TObject_Destroy_21
+class_TFoo_Create_5:
     push        rbp
     mov         rbp, rsp
     push        rcx
     push        rdx
     push        r8
     sub         rsp, 256
+    mov         rcx, qword [rbp-8]
+    sub         rsp, 32
+    call        class_TObject_Create_1
+    add         rsp, 32
+    mov         rcx, _str_2
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
     mov         rcx, _str_3
     mov         rax, _jit_print_text
     sub         rsp, 32
@@ -164,15 +188,62 @@ class_TFoo_Create_4:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Create_9:
-    jmp         skip_class_TFoo_Destroy_10
-class_TFoo_Destroy_5:
+class_TObject_Destroy_21:
+    jmp         class_TObject_Destroy_22
+class_TFoo_Create_6:
     push        rbp
     mov         rbp, rsp
     push        rcx
+    push        rdx
+    push        r8
     sub         rsp, 256
+    mov         rcx, qword [rbp-8]
+    sub         rsp, 32
+    call        class_TObject_Create_1
+    add         rsp, 32
+    mov         rcx, qword [rbp-8]
+    sub         rsp, 32
+    call        class_TObject_GetValue_3
+    add         rsp, 32
+    mov         dword [rbp-8], eax
     mov         rcx, _str_5
     mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         eax, dword [rbp-16]
+    mov         ecx, eax
+    mov         rax, _jit_print_int
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rcx, _str_6
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         eax, dword [rbp-24]
+    mov         ecx, eax
+    mov         rax, _jit_print_int
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rcx, _str_7
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         eax, dword [rbp-8]
+    mov         ecx, eax
+    mov         rax, _jit_print_int
     sub         rsp, 32
     call        rax
     add         rsp, 32
@@ -183,7 +254,30 @@ class_TFoo_Destroy_5:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Destroy_10:
+class_TObject_Destroy_22:
+    jmp         class_TObject_Destroy_23
+class_TFoo_Destroy_7:
+    push        rbp
+    mov         rbp, rsp
+    push        rcx
+    sub         rsp, 256
+    mov         rcx, _str_8
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rcx, qword [rbp-8]
+    sub         rsp, 32
+    call        class_TObject_Destroy_2
+    add         rsp, 32
+    mov         rsp, rbp
+    pop         rbp
+    ret
+class_TObject_Destroy_23:
     push        r12
     push        rbx
     sub         rsp, 8
@@ -191,7 +285,7 @@ skip_class_TFoo_Destroy_10:
     mov         eax, 12
     movsxd      rax, eax
     push        rax
-    mov         rax, _str_6
+    mov         rax, _str_9
     mov         rcx, rax
     mov         rax, _jit_dynstring_from_cstr
     sub         rsp, 32
@@ -208,7 +302,7 @@ skip_class_TFoo_Destroy_10:
     pop         r8
     push        rcx
     sub         rsp, 32
-    call        class_TFoo_Create_4
+    call        class_TFoo_Create_5
     add         rsp, 32
     pop         rax
     mov         r11, qword [r12 + JitContext.pointr_vars]
@@ -218,15 +312,15 @@ skip_class_TFoo_Destroy_10:
     mov         rax, qword [r12 + JitContext.pointr_vars]
     mov         rax, qword [rax]
     test        rax, rax
-    jnz         class_TObject_Destroy_20
-    mov         rcx, _str_8
+    jnz         class_TObject_Destroy_24
+    mov         rcx, _str_11
     mov         rax, _jit_runtime_error
     sub         rsp, 32
     call        rax
     add         rsp, 32
-class_TObject_Destroy_20:
+class_TObject_Destroy_24:
     mov         dword [rax], ebx
-    mov         rcx, _str_9
+    mov         rcx, _str_12
     mov         rax, _jit_print_text
     sub         rsp, 32
     call        rax
@@ -234,13 +328,13 @@ class_TObject_Destroy_20:
     mov         rax, qword [r12 + JitContext.pointr_vars]
     mov         rax, qword [rax]
     test        rax, rax
-    jnz         class_TObject_Destroy_21
-    mov         rcx, _str_8
+    jnz         class_TObject_Destroy_25
+    mov         rcx, _str_11
     mov         rax, _jit_runtime_error
     sub         rsp, 32
     call        rax
     add         rsp, 32
-class_TObject_Destroy_21:
+class_TObject_Destroy_25:
     mov         eax, dword [rax]
     mov         ecx, eax
     mov         rax, _jit_print_int
@@ -254,11 +348,11 @@ class_TObject_Destroy_21:
     mov         rax, qword [r12 + JitContext.pointr_vars]
     mov         rax, qword [rax]
     test        rax, rax
-    jz          class_TObject_Destroy_22
+    jz          class_TObject_Destroy_26
     push        rax
     mov         rcx, rax
     sub         rsp, 32
-    call        class_TFoo_Destroy_5
+    call        class_TFoo_Destroy_7
     add         rsp, 32
     pop         rcx
     mov         rax, _jit_dispose_memory
@@ -268,9 +362,9 @@ class_TObject_Destroy_21:
     xor         rax, rax
     mov         r11, qword [r12 + JitContext.pointr_vars]
     mov         qword [r11], rax
-    jmp         class_TObject_Destroy_23
-class_TObject_Destroy_22:
-class_TObject_Destroy_23:
+    jmp         class_TObject_Destroy_27
+class_TObject_Destroy_26:
+class_TObject_Destroy_27:
     add         rsp, 8
     pop         rbx
     pop         r12
@@ -286,8 +380,11 @@ _str_1 db "TObject: Destroy", 0
 _str_2 db "TFoo: Create", 0
 _str_3 db "str: ", 0
 _str_4 db "int: ", 0
-_str_5 db "TFoo: Destroy", 0
-_str_6 db "test", 0
-_str_7 db "foo", 0
-_str_8 db "Nil pointer error: foo", 0
-_str_9 db "field: ", 0
+_str_5 db "I1: ", 0
+_str_6 db "I2: ", 0
+_str_7 db "h : ", 0
+_str_8 db "TFoo: Destroy", 0
+_str_9 db "test", 0
+_str_10 db "foo", 0
+_str_11 db "Nil pointer error: foo", 0
+_str_12 db "field: ", 0

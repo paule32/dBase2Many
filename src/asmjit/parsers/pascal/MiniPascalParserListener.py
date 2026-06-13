@@ -8,12 +8,111 @@ else:
 # This class defines a complete listener for a parse tree produced by MiniPascalParser.
 class MiniPascalParserListener(ParseTreeListener):
 
+    # Enter a parse tree produced by MiniPascalParser#sourceFile.
+    def enterSourceFile(self, ctx:MiniPascalParser.SourceFileContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#sourceFile.
+    def exitSourceFile(self, ctx:MiniPascalParser.SourceFileContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#programFile.
     def enterProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
         pass
 
     # Exit a parse tree produced by MiniPascalParser#programFile.
     def exitProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#unitFile.
+    def enterUnitFile(self, ctx:MiniPascalParser.UnitFileContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#unitFile.
+    def exitUnitFile(self, ctx:MiniPascalParser.UnitFileContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#libraryFile.
+    def enterLibraryFile(self, ctx:MiniPascalParser.LibraryFileContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#libraryFile.
+    def exitLibraryFile(self, ctx:MiniPascalParser.LibraryFileContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#usesClause.
+    def enterUsesClause(self, ctx:MiniPascalParser.UsesClauseContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#usesClause.
+    def exitUsesClause(self, ctx:MiniPascalParser.UsesClauseContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#qualifiedIdentList.
+    def enterQualifiedIdentList(self, ctx:MiniPascalParser.QualifiedIdentListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#qualifiedIdentList.
+    def exitQualifiedIdentList(self, ctx:MiniPascalParser.QualifiedIdentListContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#interfaceSection.
+    def enterInterfaceSection(self, ctx:MiniPascalParser.InterfaceSectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#interfaceSection.
+    def exitInterfaceSection(self, ctx:MiniPascalParser.InterfaceSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#implementationSection.
+    def enterImplementationSection(self, ctx:MiniPascalParser.ImplementationSectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#implementationSection.
+    def exitImplementationSection(self, ctx:MiniPascalParser.ImplementationSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#interfaceDeclarationPart.
+    def enterInterfaceDeclarationPart(self, ctx:MiniPascalParser.InterfaceDeclarationPartContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#interfaceDeclarationPart.
+    def exitInterfaceDeclarationPart(self, ctx:MiniPascalParser.InterfaceDeclarationPartContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#implementationDeclarationPart.
+    def enterImplementationDeclarationPart(self, ctx:MiniPascalParser.ImplementationDeclarationPartContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#implementationDeclarationPart.
+    def exitImplementationDeclarationPart(self, ctx:MiniPascalParser.ImplementationDeclarationPartContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#unitInitBlock.
+    def enterUnitInitBlock(self, ctx:MiniPascalParser.UnitInitBlockContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#unitInitBlock.
+    def exitUnitInitBlock(self, ctx:MiniPascalParser.UnitInitBlockContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#qualifiedIdent.
+    def enterQualifiedIdent(self, ctx:MiniPascalParser.QualifiedIdentContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#qualifiedIdent.
+    def exitQualifiedIdent(self, ctx:MiniPascalParser.QualifiedIdentContext):
         pass
 
 
@@ -32,6 +131,24 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#classMethodImplementation.
     def exitClassMethodImplementation(self, ctx:MiniPascalParser.ClassMethodImplementationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#procedureHeader.
+    def enterProcedureHeader(self, ctx:MiniPascalParser.ProcedureHeaderContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#procedureHeader.
+    def exitProcedureHeader(self, ctx:MiniPascalParser.ProcedureHeaderContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#functionHeader.
+    def enterFunctionHeader(self, ctx:MiniPascalParser.FunctionHeaderContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#functionHeader.
+    def exitFunctionHeader(self, ctx:MiniPascalParser.FunctionHeaderContext):
         pass
 
 
@@ -125,12 +242,39 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#classFunctionDeclaration.
+    def enterClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classFunctionDeclaration.
+    def exitClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#classProcedureDeclaration.
+    def enterClassProcedureDeclaration(self, ctx:MiniPascalParser.ClassProcedureDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#classProcedureDeclaration.
+    def exitClassProcedureDeclaration(self, ctx:MiniPascalParser.ClassProcedureDeclarationContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#classFieldDeclaration.
     def enterClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
         pass
 
     # Exit a parse tree produced by MiniPascalParser#classFieldDeclaration.
     def exitClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#inheritedStatement.
+    def enterInheritedStatement(self, ctx:MiniPascalParser.InheritedStatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#inheritedStatement.
+    def exitInheritedStatement(self, ctx:MiniPascalParser.InheritedStatementContext):
         pass
 
 

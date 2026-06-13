@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-12
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-13
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
@@ -15,11 +15,14 @@ static const char str_1[] = "TObject: Destroy";
 static const char str_2[] = "TFoo: Create";
 static const char str_3[] = "str: ";
 static const char str_4[] = "int: ";
-static const char str_5[] = "TFoo: Destroy";
-static const char str_6[] = "test";
-static const char str_7[] = "foo";
-static const char str_8[] = "Nil pointer error: foo";
-static const char str_9[] = "field: ";
+static const char str_5[] = "I1: ";
+static const char str_6[] = "I2: ";
+static const char str_7[] = "h : ";
+static const char str_8[] = "TFoo: Destroy";
+static const char str_9[] = "test";
+static const char str_10[] = "foo";
+static const char str_11[] = "Nil pointer error: foo";
+static const char str_12[] = "field: ";
 
 int main() {
     JitRuntime rt;
@@ -37,11 +40,13 @@ int main() {
 
     Label class_TObject_Create_1 = a.new_label();
     Label class_TObject_Destroy_2 = a.new_label();
-    Label class_TFoo_Create_3 = a.new_label();
+    Label class_TObject_GetValue_3 = a.new_label();
     Label class_TFoo_Create_4 = a.new_label();
-    Label class_TFoo_Destroy_5 = a.new_label();
-    Label skip_class_TObject_Create_6 = a.new_label();
-    a.jmp(skip_class_TObject_Create_6);
+    Label class_TFoo_Create_5 = a.new_label();
+    Label class_TFoo_Create_6 = a.new_label();
+    Label class_TFoo_Destroy_7 = a.new_label();
+    Label skip_class_TObject_Create_8 = a.new_label();
+    a.jmp(skip_class_TObject_Create_8);
     a.bind(class_TObject_Create_1);
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
@@ -59,9 +64,9 @@ int main() {
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
-    a.bind(skip_class_TObject_Create_6);
-    Label skip_class_TObject_Destroy_7 = a.new_label();
-    a.jmp(skip_class_TObject_Destroy_7);
+    a.bind(skip_class_TObject_Create_8);
+    Label skip_class_TObject_Destroy_9 = a.new_label();
+    a.jmp(skip_class_TObject_Destroy_9);
     a.bind(class_TObject_Destroy_2);
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
@@ -79,10 +84,22 @@ int main() {
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
-    a.bind(skip_class_TObject_Destroy_7);
-    Label skip_class_TFoo_Create_8 = a.new_label();
-    a.jmp(skip_class_TFoo_Create_8);
-    a.bind(class_TFoo_Create_3);
+    a.bind(skip_class_TObject_Destroy_9);
+    Label skip_class_TObject_GetValue_10 = a.new_label();
+    a.jmp(skip_class_TObject_GetValue_10);
+    a.bind(class_TObject_GetValue_3);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.push(x86::rcx); // Self
+    a.sub(x86::rsp, 256); // class method locals
+    a.mov(x86::eax, 32);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(skip_class_TObject_GetValue_10);
+    Label skip_class_TFoo_Create_11 = a.new_label();
+    a.jmp(skip_class_TFoo_Create_11);
+    a.bind(class_TFoo_Create_4);
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
     a.push(x86::rcx); // Self
@@ -99,16 +116,29 @@ int main() {
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
-    a.bind(skip_class_TFoo_Create_8);
-    Label skip_class_TFoo_Create_9 = a.new_label();
-    a.jmp(skip_class_TFoo_Create_9);
-    a.bind(class_TFoo_Create_4);
+    a.bind(skip_class_TFoo_Create_11);
+    Label skip_class_TFoo_Create_12 = a.new_label();
+    a.jmp(skip_class_TFoo_Create_12);
+    a.bind(class_TFoo_Create_5);
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
     a.push(x86::rcx); // Self
     a.push(x86::rdx); // save class method param S
     a.push(x86::r8); // save class method param I
     a.sub(x86::rsp, 256); // class method locals
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // inherited Self
+    a.sub(x86::rsp, 32);
+    a.call(class_TObject_Create_1); // inherited TObject.Create
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_2));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
     a.mov(x86::rcx, imm((uint64_t)str_3));
     a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -141,16 +171,63 @@ int main() {
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
-    a.bind(skip_class_TFoo_Create_9);
-    Label skip_class_TFoo_Destroy_10 = a.new_label();
-    a.jmp(skip_class_TFoo_Destroy_10);
-    a.bind(class_TFoo_Destroy_5);
+    a.bind(skip_class_TFoo_Create_12);
+    Label skip_class_TFoo_Create_13 = a.new_label();
+    a.jmp(skip_class_TFoo_Create_13);
+    a.bind(class_TFoo_Create_6);
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
     a.push(x86::rcx); // Self
+    a.push(x86::rdx); // save class method param I1
+    a.push(x86::r8); // save class method param I2
     a.sub(x86::rsp, 256); // class method locals
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // inherited Self
+    a.sub(x86::rsp, 32);
+    a.call(class_TObject_Create_1); // inherited TObject.Create
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // Self
+    a.sub(x86::rsp, 32);
+    a.call(class_TObject_GetValue_3); // Self.GetValue
+    a.add(x86::rsp, 32);
+    a.mov(x86::dword_ptr(x86::rbp, -8), x86::eax); // local h :=
     a.mov(x86::rcx, imm((uint64_t)str_5));
     a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -16)); // load integer parameter
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_6));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -24)); // load integer parameter
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_int));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_7));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::eax, x86::dword_ptr(x86::rbp, -8)); // local h
+    a.mov(x86::ecx, x86::eax);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_int));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
@@ -161,7 +238,31 @@ int main() {
     a.mov(x86::rsp, x86::rbp);
     a.pop(x86::rbp);
     a.ret();
-    a.bind(skip_class_TFoo_Destroy_10);
+    a.bind(skip_class_TFoo_Create_13);
+    Label skip_class_TFoo_Destroy_14 = a.new_label();
+    a.jmp(skip_class_TFoo_Destroy_14);
+    a.bind(class_TFoo_Destroy_7);
+    a.push(x86::rbp);
+    a.mov(x86::rbp, x86::rsp);
+    a.push(x86::rcx); // Self
+    a.sub(x86::rsp, 256); // class method locals
+    a.mov(x86::rcx, imm((uint64_t)str_8));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // inherited Self
+    a.sub(x86::rsp, 32);
+    a.call(class_TObject_Destroy_2); // inherited TObject.Destroy
+    a.add(x86::rsp, 32);
+    a.mov(x86::rsp, x86::rbp);
+    a.pop(x86::rbp);
+    a.ret();
+    a.bind(skip_class_TFoo_Destroy_14);
     a.push(x86::r12);
     a.push(x86::rbx);
     a.sub(x86::rsp, 8); // align stack
@@ -169,7 +270,7 @@ int main() {
     a.mov(x86::eax, 12);
     a.movsxd(x86::rax, x86::eax);
     a.push(x86::rax); // ctor integer arg
-    a.mov(x86::rax, imm((uint64_t)str_6));
+    a.mov(x86::rax, imm((uint64_t)str_9));
     a.mov(x86::rcx, x86::rax);
     a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_from_cstr));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
@@ -186,7 +287,7 @@ int main() {
     a.pop(x86::r8); // ctor arg 2
     a.push(x86::rcx); // save constructor result object
     a.sub(x86::rsp, 32);
-    a.call(class_TFoo_Create_4);
+    a.call(class_TFoo_Create_5);
     a.add(x86::rsp, 32);
     a.pop(x86::rax); // constructor result
     a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
@@ -195,32 +296,32 @@ int main() {
     a.mov(x86::ebx, x86::eax); // save class field value
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // object foo
-    Label ptr_not_nil_11 = a.new_label();
+    Label ptr_not_nil_15 = a.new_label();
     a.test(x86::rax, x86::rax);
-    a.jnz(ptr_not_nil_11);
-    a.mov(x86::rcx, imm((uint64_t)str_8));
+    a.jnz(ptr_not_nil_15);
+    a.mov(x86::rcx, imm((uint64_t)str_11));
     a.mov(x86::rax, imm((uint64_t)&_jit_runtime_error));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.bind(ptr_not_nil_11);
+    a.bind(ptr_not_nil_15);
     a.mov(x86::dword_ptr(x86::rax, 0), x86::ebx); // foo.field :=
-    a.mov(x86::rcx, imm((uint64_t)str_9));
+    a.mov(x86::rcx, imm((uint64_t)str_12));
     a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // object foo
-    Label ptr_not_nil_12 = a.new_label();
+    Label ptr_not_nil_16 = a.new_label();
     a.test(x86::rax, x86::rax);
-    a.jnz(ptr_not_nil_12);
-    a.mov(x86::rcx, imm((uint64_t)str_8));
+    a.jnz(ptr_not_nil_16);
+    a.mov(x86::rcx, imm((uint64_t)str_11));
     a.mov(x86::rax, imm((uint64_t)&_jit_runtime_error));
     a.sub(x86::rsp, 32); // Windows x64 shadow space
     a.call(x86::rax);
     a.add(x86::rsp, 32);
-    a.bind(ptr_not_nil_12);
+    a.bind(ptr_not_nil_16);
     a.mov(x86::eax, x86::dword_ptr(x86::rax, 0)); // foo.field
     a.mov(x86::ecx, x86::eax);
     a.mov(x86::rax, imm((uint64_t)&_jit_print_int));
@@ -233,14 +334,14 @@ int main() {
     a.add(x86::rsp, 32);
     a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // object foo
-    Label free_nil_13 = a.new_label();
-    Label free_end_14 = a.new_label();
+    Label free_nil_17 = a.new_label();
+    Label free_end_18 = a.new_label();
     a.test(x86::rax, x86::rax);
-    a.jz(free_nil_13);
+    a.jz(free_nil_17);
     a.push(x86::rax); // save object for dispose
     a.mov(x86::rcx, x86::rax); // Self
     a.sub(x86::rsp, 32);
-    a.call(class_TFoo_Destroy_5);
+    a.call(class_TFoo_Destroy_7);
     a.add(x86::rsp, 32);
     a.pop(x86::rcx);
     a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));
@@ -250,9 +351,9 @@ int main() {
     a.xor_(x86::rax, x86::rax);
     a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
     a.mov(x86::qword_ptr(x86::r11, 0), x86::rax); // object foo
-    a.jmp(free_end_14);
-    a.bind(free_nil_13);
-    a.bind(free_end_14);
+    a.jmp(free_end_18);
+    a.bind(free_nil_17);
+    a.bind(free_end_18);
     a.add(x86::rsp, 8); // undo alignment
     a.pop(x86::rbx);
     a.pop(x86::r12);
@@ -286,6 +387,9 @@ int main() {
     symbols.add(std::to_string((uint64_t)&str_7), "_str_7");
     symbols.add(std::to_string((uint64_t)&str_8), "_str_8");
     symbols.add(std::to_string((uint64_t)&str_9), "_str_9");
+    symbols.add(std::to_string((uint64_t)&str_10), "_str_10");
+    symbols.add(std::to_string((uint64_t)&str_11), "_str_11");
+    symbols.add(std::to_string((uint64_t)&str_12), "_str_12");
     symbols.add(std::to_string((uint64_t)&_jit_print_text), "_jit_print_text");
     symbols.add(std::to_string((uint64_t)&_jit_print_int), "_jit_print_int");
     symbols.add(std::to_string((uint64_t)&_jit_print_double), "_jit_print_double");
@@ -317,18 +421,22 @@ int main() {
     LabelMappings labels;
     labels.add("L0", "class_TObject_Create_1");
     labels.add("L1", "class_TObject_Destroy_2");
-    labels.add("L2", "class_TFoo_Create_3");
+    labels.add("L2", "class_TObject_GetValue_3");
     labels.add("L3", "class_TFoo_Create_4");
-    labels.add("L4", "class_TFoo_Destroy_5");
-    labels.add("L5", "skip_class_TObject_Create_6");
-    labels.add("L6", "skip_class_TObject_Destroy_7");
-    labels.add("L7", "skip_class_TFoo_Create_8");
-    labels.add("L8", "skip_class_TFoo_Create_9");
-    labels.add("L9", "skip_class_TFoo_Destroy_10");
-    labels.add("L10", "ptr_not_nil_11");
-    labels.add("L11", "ptr_not_nil_12");
-    labels.add("L12", "free_nil_13");
-    labels.add("L13", "free_end_14");
+    labels.add("L4", "class_TFoo_Create_5");
+    labels.add("L5", "class_TFoo_Create_6");
+    labels.add("L6", "class_TFoo_Destroy_7");
+    labels.add("L7", "skip_class_TObject_Create_8");
+    labels.add("L8", "skip_class_TObject_Destroy_9");
+    labels.add("L9", "skip_class_TObject_GetValue_10");
+    labels.add("L10", "skip_class_TFoo_Create_11");
+    labels.add("L11", "skip_class_TFoo_Create_12");
+    labels.add("L12", "skip_class_TFoo_Create_13");
+    labels.add("L13", "skip_class_TFoo_Destroy_14");
+    labels.add("L14", "ptr_not_nil_15");
+    labels.add("L15", "ptr_not_nil_16");
+    labels.add("L16", "free_nil_17");
+    labels.add("L17", "free_end_18");
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
@@ -347,7 +455,7 @@ int main() {
     
     
     asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-12\n";
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-13\n";
     asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
     asm_out << "; all rights reserved.\n";
     asm_out << "; -----------------------------------------------------------------------------\n\n";
@@ -432,11 +540,14 @@ int main() {
     asm_out << "_str_2 db \"TFoo: Create\", 0\n";
     asm_out << "_str_3 db \"str: \", 0\n";
     asm_out << "_str_4 db \"int: \", 0\n";
-    asm_out << "_str_5 db \"TFoo: Destroy\", 0\n";
-    asm_out << "_str_6 db \"test\", 0\n";
-    asm_out << "_str_7 db \"foo\", 0\n";
-    asm_out << "_str_8 db \"Nil pointer error: foo\", 0\n";
-    asm_out << "_str_9 db \"field: \", 0\n";
+    asm_out << "_str_5 db \"I1: \", 0\n";
+    asm_out << "_str_6 db \"I2: \", 0\n";
+    asm_out << "_str_7 db \"h : \", 0\n";
+    asm_out << "_str_8 db \"TFoo: Destroy\", 0\n";
+    asm_out << "_str_9 db \"test\", 0\n";
+    asm_out << "_str_10 db \"foo\", 0\n";
+    asm_out << "_str_11 db \"Nil pointer error: foo\", 0\n";
+    asm_out << "_str_12 db \"field: \", 0\n";
     
     std::string final_asm_text = asm_out.str();
 

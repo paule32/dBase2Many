@@ -10,6 +10,8 @@ type
     TObject = class
         constructor Create;
         destructor Destroy;
+        
+        function GetValue: Integer;
     end;
 
 type
@@ -18,6 +20,7 @@ type
 
         constructor Create;
         constructor Create(S: String; I: Integer);
+        constructor Create(I1, I2: Integer);
         
         destructor Destroy;
     end;
@@ -35,6 +38,11 @@ begin
     WriteLn('TObject: Destroy');
 end;
 
+function TObject.GetValue: Integer;
+begin
+    result := 32;
+end;
+
 constructor TFoo.Create;
 begin
     WriteLn('TFoo: Create');
@@ -43,14 +51,27 @@ end;
 constructor TFoo.Create(S: String; I: Integer);
 begin
     inherited Create;
+    WriteLn('TFoo: Create');
     
     WriteLn('str: ', S);
     WriteLn('int: ', I);
 end;
 
+constructor TFoo.Create(I1, I2: Integer);
+var
+    h: Integer;
+begin
+    inherited Create;
+    h := GetValue;
+    WriteLn('I1: ', I1);
+    WriteLn('I2: ', I2);
+    WriteLn('h : ', h );
+end;
+
 destructor TFoo.Destroy;
 begin
     WriteLn('TFoo: Destroy');
+    inherited Destroy;
 end;
 
 begin

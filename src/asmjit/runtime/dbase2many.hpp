@@ -66,6 +66,7 @@ DLL_API void* _jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
 DLL_API void* _jit_new_memory(uint64_t size);
 DLL_API void  _jit_dispose_memory(void* p);
+
 DLL_API void  _jit_print_char(int c);
 
 DLL_API char* _jit_dynstring_copy(char* src, int start, int count);
@@ -161,6 +162,8 @@ DLL_API void *   _jit_dynstring_setlength(void * data, uint64_t length);
 DLL_API int      _jit_dynstring_length(const char * data);
 DLL_API char *   _jit_dynstring_concat(const char* left, const char* right);
 DLL_API char *   _jit_dynstring_from_cstr(const char* text);
+
+DLL_API void     _jit_symbols_add(SymbolMappings& symbols);
 
 DLL_API uint64_t _double_to_bits(double value);    
 

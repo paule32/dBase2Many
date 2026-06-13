@@ -9,8 +9,63 @@ else:
 
 class MiniPascalParserVisitor(ParseTreeVisitor):
 
+    # Visit a parse tree produced by MiniPascalParser#sourceFile.
+    def visitSourceFile(self, ctx:MiniPascalParser.SourceFileContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#programFile.
     def visitProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#unitFile.
+    def visitUnitFile(self, ctx:MiniPascalParser.UnitFileContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#libraryFile.
+    def visitLibraryFile(self, ctx:MiniPascalParser.LibraryFileContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#usesClause.
+    def visitUsesClause(self, ctx:MiniPascalParser.UsesClauseContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#qualifiedIdentList.
+    def visitQualifiedIdentList(self, ctx:MiniPascalParser.QualifiedIdentListContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#interfaceSection.
+    def visitInterfaceSection(self, ctx:MiniPascalParser.InterfaceSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#implementationSection.
+    def visitImplementationSection(self, ctx:MiniPascalParser.ImplementationSectionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#interfaceDeclarationPart.
+    def visitInterfaceDeclarationPart(self, ctx:MiniPascalParser.InterfaceDeclarationPartContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#implementationDeclarationPart.
+    def visitImplementationDeclarationPart(self, ctx:MiniPascalParser.ImplementationDeclarationPartContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#unitInitBlock.
+    def visitUnitInitBlock(self, ctx:MiniPascalParser.UnitInitBlockContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#qualifiedIdent.
+    def visitQualifiedIdent(self, ctx:MiniPascalParser.QualifiedIdentContext):
         return self.visitChildren(ctx)
 
 
@@ -21,6 +76,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#classMethodImplementation.
     def visitClassMethodImplementation(self, ctx:MiniPascalParser.ClassMethodImplementationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#procedureHeader.
+    def visitProcedureHeader(self, ctx:MiniPascalParser.ProcedureHeaderContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#functionHeader.
+    def visitFunctionHeader(self, ctx:MiniPascalParser.FunctionHeaderContext):
         return self.visitChildren(ctx)
 
 
@@ -74,8 +139,23 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#classFunctionDeclaration.
+    def visitClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#classProcedureDeclaration.
+    def visitClassProcedureDeclaration(self, ctx:MiniPascalParser.ClassProcedureDeclarationContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#classFieldDeclaration.
     def visitClassFieldDeclaration(self, ctx:MiniPascalParser.ClassFieldDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#inheritedStatement.
+    def visitInheritedStatement(self, ctx:MiniPascalParser.InheritedStatementContext):
         return self.visitChildren(ctx)
 
 

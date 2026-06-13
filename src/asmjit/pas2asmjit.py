@@ -80,6 +80,8 @@ class ClassMethodInfo:
     kind        : str
     label       : str
     params      : list
+    owner       : str
+    return_type : str | None = None
     implemented : bool = False
 
 @dataclass
@@ -115,6 +117,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.program_name       = "Program"
         self.var_types          = {}
         self.cpp_print_lines    = []
+
+        self.source_file       = None
+        self.source_dir        = None
+
+        self.loaded_units      = {}
+        self.loading_units     = set()
+        self.unit_init_labels  = []
+        self.current_unit      = None
         
         self.vars               = {}
         self.var_types          = {}
@@ -143,6 +153,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.arrays             = {}
         self.classes            = {}
         
+        self.current_class  = None
+        self.current_method = None
         
         self.type_aliases       = {}
         self.pointer_types      = {}
@@ -176,6 +188,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.asm_file               = asm_file
         self.emit_local_string_data = True
+        
+        self.module_kind        = "program"
+        self.module_kind_value  = 1
     
     def format_error(self, filename, err):
         template = ERROR_MAP.get(err.code, err.code)
@@ -382,19 +397,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 kind        = method["kind"],
                 label       = method["label"],
                 params      = method.get("params", []),
+                owner       = key,
+                return_type = method.get("return_type", None),
                 implemented = False
             )
             
             class_methods.setdefault(method_key, [])
             sig = self.method_signature(info.params)
             
-            for old in class_methods[method_key]:
-                if self.method_signature(old.params) == sig:
-                    raise CompileError(
-                        ctx,
-                        "E0019",
-                        text = f"duplicate overloaded method {name}.{method['name']}"
-                    )
+            # gleiche Signatur aus Parent-Klasse entfernen:
+            # Kindklasse überschreibt diese Methode
+            class_methods[method_key] = [
+                old for old in class_methods[method_key]
+                if self.method_signature(old.params) != sig
+            ]
             
             class_methods[method_key].append(info)
         
@@ -430,9 +446,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         )
     
     def validate_class_methods(self, ctx):
-        for class_name, cls in self.classes.items():
+        for class_key, cls in self.classes.items():
             for method_name, overloads in cls.methods.items():
                 for method in overloads:
+
+                    # geerbte Methode gehört nicht zu dieser Klasse
+                    if method.owner != class_key:
+                        continue
+
                     if not method.implemented:
                         raise CompileError(
                             ctx,
@@ -443,11 +464,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                                 f"is declared but not implemented"
                             )
                         )
-                
+    
     def normalize_bool_eax(self):
         self.emit("a.cmp(x86::eax, 0);")
         self.emit("a.setne(x86::al);")
         self.emit("a.movzx(x86::eax, x86::al);")
+    
+    def normalize_unit_name(self, unit_name):
+        return unit_name.lower().replace(".", "_")
+
+    def unit_scoped_name(self, name):
+        if self.current_unit:
+            return self.normalize_unit_name(self.current_unit) + "_" + name
+
+        return name
+    
+    def qualified_ident_text(self, ctx):
+        return ctx.getText()
     
     def declare_array(self, ctx, name, index_min, index_max, element_type, init_values=None, dimensions=None):
         key = name.lower()
@@ -904,6 +937,82 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return typ
     
+    def load_unit(self, ctx, unit_name):
+        unit_key = unit_name.lower()
+
+        if unit_key in self.loaded_units:
+            return
+
+        if unit_key in self.loading_units:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"circular unit reference detected: {unit_name}"
+            )
+
+        unit_file = self.find_unit_file(ctx, unit_name)
+
+        self.loading_units.add(unit_key)
+
+        old_source_file = self.source_file
+        old_source_dir  = self.source_dir
+        old_unit        = self.current_unit
+
+        self.source_file  = unit_file
+        self.source_dir   = os.path.dirname(unit_file)
+        self.current_unit = unit_key
+
+        stream = FileStream(unit_file, encoding="utf-8")
+        lexer  = MiniPascalLexer(stream)
+        tokens = CommonTokenStream(lexer)
+        parser = MiniPascalParser(tokens)
+
+        tree = parser.sourceFile()
+
+        if parser.getNumberOfSyntaxErrors() > 0:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"syntax error in unit {unit_name}"
+            )
+
+        self.visit(tree)
+
+        self.current_unit = old_unit
+        self.source_file  = old_source_file
+        self.source_dir   = old_source_dir
+
+        self.loading_units.remove(unit_key)
+        self.loaded_units[unit_key] = unit_file
+    
+    def find_unit_file(self, ctx, unit_name):
+        candidates = [
+            unit_name + ".pas",
+            unit_name + ".pp",
+            unit_name.lower() + ".pas",
+            unit_name.lower() + ".pp"
+        ]
+        
+        search_dirs = []
+        
+        if self.source_dir:
+            search_dirs.append(self.source_dir)
+        
+        search_dirs.append(os.getcwd())
+        
+        for directory in search_dirs:
+            for filename in candidates:
+                path = os.path.abspath(os.path.join(directory, filename))
+                
+                if os.path.exists(path):
+                    return path
+        
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"unit {unit_name} not found"
+        )
+    
     def find_const(self, name):
         key = name.lower()
 
@@ -977,6 +1086,51 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             ctx,
             "E0019",
             text = f"no matching overload for {cls.name}.{method_name}"
+        )
+    
+    def find_class_method_recursive(self, ctx, class_name, method_name, actual_types):
+        if isinstance(class_name, ClassInfo):
+            class_key = class_name.name.lower()
+        else:
+            class_key = class_name.lower()
+        
+        if class_key not in self.classes:
+            raise CompileError(ctx, "E0004", name=class_name)
+        
+        cls = self.classes[class_key]
+        method_key = method_name.lower()
+        
+        if method_key in cls.methods:
+            for method in cls.methods[method_key]:
+                params = method.params
+                
+                if len(params) != len(actual_types):
+                    continue
+                
+                ok = True
+                
+                for p, actual_type in zip(params, actual_types):
+                    formal_type = self.resolve_type(p["type"])
+                    
+                    if formal_type != actual_type:
+                        ok = False
+                        break
+                
+                if ok:
+                    return method, cls
+        
+        if cls.parent:
+            return self.find_class_method_recursive(
+                ctx,
+                cls.parent,
+                method_name,
+                actual_types
+            )
+        
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"no matching inherited overload for {class_name}.{method_name}"
         )
     
     def get_record_field(self, ctx, var_name, field_name):
@@ -1080,7 +1234,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     text=f"unsupported constructor argument type {arg_type}"
                 )
         
-        method = self.find_class_method_overload(
+        method, owner_cls = self.find_class_method_recursive(
             ctx,
             cls,
             method_name,
@@ -1133,9 +1287,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.push(x86::rax); // save object for dispose")
 
         if "destroy" in cls.methods:
-            method = self.find_class_method_overload(
+            method, owner_cls = self.find_class_method_recursive(
                 ctx,
-                cls,
+                class_type,
                 "Destroy",
                 []
             )
@@ -2960,6 +3114,34 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit(f"a.bind({end_label});")
     
+    def emit_self_method_call(self, ctx, method_name, actual_types=None):
+        if actual_types is None:
+            actual_types = []
+
+        if self.current_class is None:
+            return None
+
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            self.current_class,
+            method_name,
+            actual_types
+        )
+
+        if method.kind not in ("function", "constructor"):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"{method_name} is not a function"
+            )
+
+        self.emit("a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // Self")
+        self.emit("a.sub(x86::rsp, 32);")
+        self.emit(f"a.call({method.label}); // Self.{method.name}")
+        self.emit("a.add(x86::rsp, 32);")
+
+        return self.resolve_type(method.return_type)
+    
     def emit_init_array_var(self, ctx, name, info):
         array_type = info["type"]
 
@@ -3305,8 +3487,31 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(arg, "E0015", text=arg.getText())
     
+    def visitSourceFile(self, ctx):
+        if ctx.programFile():
+            return self.visit(ctx.programFile())
+
+        if ctx.unitFile():
+            return self.visit(ctx.unitFile())
+        
+        if ctx.libraryFile():
+            return self.visit(ctx.libraryFile())
+
+        return None
+    
+    def visitUsesClause(self, ctx):
+        for ident in ctx.qualifiedIdentList().qualifiedIdent():
+            self.load_unit(ctx, ident.getText())
+        
+        return None
+    
     def visitProgramFile(self, ctx):
-        self.program_name = ctx.IDENT().getText()
+        self.program_name       = ctx.IDENT().getText()
+        self.module_kind        = "program"
+        self.module_kind_value  = 1
+        
+        if ctx.usesClause():
+            self.visit(ctx.usesClause())
         
         for decl in ctx.declarationPart():
             if decl is not None:
@@ -3319,12 +3524,142 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.sub(x86::rsp, 8); // align stack")
         self.emit("a.mov (x86::r12, x86::rcx); // ctx")
         
+        for init_label in self.unit_init_labels:
+            self.emit("a.sub(x86::rsp, 32); // unit init shadow space")
+            self.emit(f"a.call({init_label});")
+            self.emit("a.add(x86::rsp, 32);")
+        
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
                 self.emit_init_array_var(ctx, name, info)
         
         self.visit(ctx.block())
         return self.render_cpp()
+    
+    def visitLibraryFile(self, ctx):
+        self.program_name       = ctx.IDENT().getText()
+        self.module_kind        = "library"
+        self.module_kind_value  = 3
+
+        if ctx.usesClause():
+            self.visit(ctx.usesClause())
+
+        for decl in ctx.declarationPart():
+            if decl is not None:
+                self.visit(decl)
+
+        self.validate_class_methods(ctx)
+
+        self.emit("a.push(x86::r12);")
+        self.emit("a.push(x86::rbx);")
+        self.emit("a.sub(x86::rsp, 8); // align stack")
+        self.emit("a.mov (x86::r12, x86::rcx); // ctx")
+
+        for init_label in self.unit_init_labels:
+            self.emit("a.sub(x86::rsp, 32); // unit init shadow space")
+            self.emit(f"a.call({init_label});")
+            self.emit("a.add(x86::rsp, 32);")
+
+        for name, info in self.vars.items():
+            if info["type"] in self.arrays:
+                self.emit_init_array_var(ctx, name, info)
+
+        self.visit(ctx.block())
+
+        return self.render_cpp()
+    
+    def visitUnitFile(self, ctx):
+        unit_name = ctx.qualifiedIdent().getText()
+        unit_key  = self.normalize_unit_name(unit_name)
+        old_unit  = self.current_unit
+        
+        old_kind        = self.module_kind
+        old_kind_value  = self.module_kind_value
+        
+        self.module_kind        = "unit"
+        self.module_kind_value  = 2
+        
+        self.current_unit       = unit_key
+
+        self.visit(ctx.interfaceSection())
+        self.visit(ctx.implementationSection())
+
+        if ctx.unitInitBlock():
+            safe_unit_name = self.normalize_unit_name(unit_name)
+
+            init_label = self.new_named_label("unit_init_" + safe_unit_name)
+            skip_label = self.new_named_label("skip_unit_init_" + safe_unit_name)
+
+            self.unit_init_labels.append(init_label)
+
+            self.emit(f"a.jmp({skip_label});")
+            self.emit(f"a.bind({init_label});")
+            self.visit(ctx.unitInitBlock())
+            self.emit("a.ret();")
+            self.emit(f"a.bind({skip_label});")
+
+        self.module_kind        = old_kind
+        self.module_kind_value  = old_kind_value
+        self.current_unit       = old_unit
+        
+        return None
+    
+    def visitInterfaceDeclarationPart(self, ctx):
+        if ctx.constSection():
+            return self.visit(ctx.constSection())
+        
+        if ctx.typeSection():
+            return self.visit(ctx.typeSection())
+        
+        if ctx.varSection():
+            return self.visit(ctx.varSection())
+        
+        if ctx.procedureHeader():
+            return self.visit(ctx.procedureHeader())
+        
+        if ctx.functionHeader():
+            return self.visit(ctx.functionHeader())
+        
+        return None
+    
+    def visitImplementationDeclarationPart(self, ctx):
+        if ctx.constSection():
+            return self.visit(ctx.constSection())
+        
+        if ctx.typeSection():
+            return self.visit(ctx.typeSection())
+        
+        if ctx.varSection():
+            return self.visit(ctx.varSection())
+        
+        if ctx.procedureDeclaration():
+            return self.visit(ctx.procedureDeclaration())
+        
+        if ctx.functionDeclaration():
+            return self.visit(ctx.functionDeclaration())
+        
+        if ctx.classMethodImplementation():
+            return self.visit(ctx.classMethodImplementation())
+        
+        return None
+    
+    def visitInterfaceSection(self, ctx):
+        if ctx.usesClause():
+            self.visit(ctx.usesClause())
+
+        for decl in ctx.interfaceDeclarationPart():
+            self.visit(decl)
+
+        return None
+    
+    def visitImplementationSection(self, ctx):
+        if ctx.usesClause():
+            self.visit(ctx.usesClause())
+
+        for decl in ctx.implementationDeclarationPart():
+            self.visit(decl)
+
+        return None
     
     def visitExitStatement(self, ctx):
         if not self.exit_label_stack:
@@ -3336,6 +3671,96 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitConstSection(self, ctx):
         for decl in ctx.constDeclaration():
             self.visit(decl)
+        return None
+
+    def visitInheritedStatement(self, ctx):
+        if self.current_class is None or self.current_method is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="inherited used outside class method"
+            )
+
+        cls = self.classes[self.current_class]
+
+        if not cls.parent:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"class {cls.name} has no parent class"
+            )
+
+        # inherited;
+        # inherited Create;
+        if ctx.IDENT():
+            method_name = ctx.IDENT().getText()
+        else:
+            method_name = self.current_method.name
+
+        args = self.function_call_args(ctx)
+        actual_types = []
+
+        for arg in reversed(args):
+            arg_type = self.visit_actual_param_expr(arg)
+            actual_types.insert(0, arg_type)
+
+            if arg_type == "integer":
+                self.emit("a.movsxd(x86::rax, x86::eax);")
+                self.emit("a.push(x86::rax); // inherited integer arg")
+
+            elif arg_type == "string":
+                self.emit("a.push(x86::rax); // inherited string arg")
+
+            elif isinstance(arg_type, str) and arg_type.startswith("^"):
+                self.emit("a.push(x86::rax); // inherited pointer arg")
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=f"unsupported inherited argument type {arg_type}"
+                )
+
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            cls.parent,
+            method_name,
+            actual_types
+        )
+
+        param_regs = ["rdx", "r8", "r9"]
+
+        # Parameter 4..N bleiben als Stack-Parameter liegen
+        stack_count = 0
+
+        for index in range(len(args) - 1, 2, -1):
+            stack_count += 1
+
+        # Self laden
+        self.emit("a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // inherited Self")
+
+        # Parameter 1..3 aus temporärem Stack holen
+        reg_count = min(3, len(args))
+
+        for index in range(reg_count):
+            self.emit(f"a.pop(x86::{param_regs[index]}); // inherited arg {index + 1}")
+
+        align_pad = 0
+
+        if stack_count % 2 == 1:
+            self.emit("a.sub(x86::rsp, 8); // align stack before inherited call")
+            align_pad = 8
+
+        self.emit("a.sub(x86::rsp, 32);")
+        self.emit(f"a.call({method.label}); // inherited {owner_cls.name}.{method.name}")
+        self.emit("a.add(x86::rsp, 32);")
+
+        if align_pad:
+            self.emit("a.add(x86::rsp, 8); // remove inherited alignment padding")
+
+        if stack_count > 0:
+            self.emit(f"a.add(x86::rsp, {stack_count * 8}); // remove inherited stack args")
+
         return None
     
     def visitClassMethodImplementation(self, ctx):
@@ -3364,6 +3789,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             method_name,
             [p["type"] for p in params]
         )
+
+        if method.owner != class_key:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"cannot implement inherited method "
+                    f"{class_name}.{method_name}; "
+                    f"declare it in {class_name} first"
+                )
+            )
+
         method.implemented = True
         
         skip_label = self.new_named_label(
@@ -3422,7 +3859,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.push_local_scope()
         self.push_const_scope()
         
+        old_class    = self.current_class
+        old_method   = self.current_method
+        old_function = self.current_function
+
+        self.current_class  = class_key
+        self.current_method = method
+
+        if method.kind == "function":
+            self.current_function = {
+                "name": method.name,
+                "return_type": method.return_type,
+                "scoped_name": class_name + "_" + method.name
+            }
+        
         self.visit(ctx.block())
+
+        self.current_class    = old_class
+        self.current_method   = old_method
+        self.current_function = old_function
         
         self.pop_const_scope()
         self.pop_local_scope()
@@ -3872,6 +4327,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.procedureCallStatement():
             return self.visit(ctx.procedureCallStatement())
         
+        if ctx.inheritedStatement():
+            return self.visit(ctx.inheritedStatement())
+        
         if ctx.tryStatement():
             return self.visit(ctx.tryStatement())
         
@@ -3908,6 +4366,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.compoundStatement():
             return self.visit(ctx.compoundStatement())
         
+        return None
+    
+    def visitFunctionHeader(self, ctx):
+        name    = ctx.IDENT().getText()
+        scoped  = self.unit_scoped_name(name)
+        key     = name.lower()
+
+        if key not in self.functions:
+            self.functions[key] = {
+                "name"       : name,
+                "scoped_name": scoped,
+                "return_type": self.resolve_type(ctx.typeName().getText()),
+                "label"      : None,
+                "params"     : self.collect_formal_params(ctx)
+            }
+        
+        # zusätzlich unqualifizierter Alias für uses
+        self.functions[name.lower()] = self.functions[key]
+        return None
+    
+    def visitProcedureHeader(self, ctx):
+        name    = ctx.IDENT().getText()
+        scoped  = self.unit_scoped_name(name)
+        key     = name.lower()
+
+        if key not in self.procedures:
+            self.procedures[key] = {
+                "name"       : name,
+                "scoped_name": scoped,
+                "label"      : None,
+                "params"     : self.collect_formal_params(ctx)
+            }
+            
+        self.procedures[name.lower()] = self.procedures[key]
         return None
     
     def visitTypeSection(self, ctx):
@@ -3995,11 +4487,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 method_name = ctor.IDENT().getText()
 
                 methods.append({
-                    "name": method_name,
-                    "kind": "constructor",
-                    "label": self.new_named_label(
-                        "class_" + class_name + "_" + method_name
-                    ),
+                    "name"  : method_name,
+                    "kind"  : "constructor",
+                    "label" : self.new_named_label("class_" + class_name + "_" + method_name),
                     "params": self.collect_formal_params(ctor)
                 })
 
@@ -4008,15 +4498,37 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 method_name = dtor.IDENT().getText()
 
                 methods.append({
-                    "name": method_name,
-                    "kind": "destructor",
-                    "label": self.new_named_label(
-                        "class_" + class_name + "_" + method_name
-                    ),
+                    "name"  : method_name,
+                    "kind"  : "destructor",
+                    "label" : self.new_named_label("class_" + class_name + "_" + method_name),
                     "params": self.collect_formal_params(dtor)
                 })
-
-        self.declare_class(ctx, class_name, fields, methods, parent_name=None)
+            
+            elif member.classFunctionDeclaration():
+                fn = member.classFunctionDeclaration()
+                method_name = fn.IDENT().getText()
+                
+                methods.append({
+                    "name"       : method_name,
+                    "kind"       : "function",
+                    "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "params"     : self.collect_formal_params(fn),
+                    "return_type": self.resolve_type(fn.typeName().getText())
+                })
+            
+            elif member.classProcedureDeclaration():
+                proc = member.classProcedureDeclaration()
+                method_name = proc.IDENT().getText()
+                
+                methods.append({
+                    "name"       : method_name,
+                    "kind"       : "procedure",
+                    "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "params"     : self.collect_formal_params(proc),
+                    "return_type": None
+                })
+        
+        self.declare_class(ctx, class_name, fields, methods, parent_name=parent_name)
         return None
     
     def visitTypeDeclaration(self, ctx):
@@ -4045,8 +4557,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             ctx.typeName().getText()
         )
 
-        scoped = self.scoped_name(name)
-        key = scoped.lower()
+        scoped = self.unit_scoped_name(self.scoped_name(name))
+        key    = scoped.lower()
 
         self.functions[key] = {
             "name": name,
@@ -4541,6 +5053,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_load_var(name, info)
                 return info["type"]
             
+            if self.current_class is not None:
+                try:
+                    return self.emit_self_method_call(ctx, name, [])
+                except CompileError:
+                    pass
+            
             func = self.find_function(name)
             if func:
                 params = func.get("params", [])
@@ -4633,6 +5151,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 info = self.var_info(ctx, name)
                 self.emit_load_var(name, info)
                 return info["type"]
+            
+            if self.current_class is not None:
+                try:
+                    return self.emit_self_method_call(ctx, name, [])
+                except CompileError:
+                    pass
             
             # parameterlose Funktion ohne Klammern:
             func = self.find_function(name)
@@ -5195,40 +5719,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             out.append(
                 f'symbols.add(std::to_string((uint64_t)&{name}), "_{name}");'
             )
-
-        func_list = [
-            "print_text",
-            "print_int",
-            "print_double",
-            "print_newline",
-            "",
-            "new_memory",
-            "dispose_memory",
-            "",
-            "dynarray_setlength",
-            "",
-            "dynstring_from_cstr",
-            "dynstring_setlength",
-            "dynstring_length",
-            "dynstring_concat",
-            "dynstring_copy",
-            "dynstring_pos",
-            "",
-            "set_exception",
-            "runtime_error",
-            "",
-            "array_bounds_error",
-            "string_range_error",
-            "nil_pointer_error",
-            "out_of_memory_error",
-            "",
-            "ExitProcess"
-        ]
-        for fun in func_list:
-            if len(fun) > 1:
-                out.append(f'symbols.add(std::to_string((uint64_t)&_jit_{fun}), "_jit_{fun}");')
-                continue
-            out.append("")
+        out.append("")
+        out.append(f'_jit_symbols_add(symbols);')
 
         return "\n    ".join(out)
         
@@ -5252,22 +5744,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return "\n    ".join(out)
         
     def render_cpp(self):
-        body         = "\n".join(self.lines)
+        body            = "\n".join(self.lines)
         
-        var_count    = max(257, self.next_slot)
-        int_count    = max(  1, self.next_int_slot)
+        var_count       = max(257, self.next_slot)
+        int_count       = max(  1, self.next_int_slot)
         
-        double_count = max(  1, self.next_double_slot)
-        string_count = max(  1, self.next_string_slot)
-        record_count = max(  1, self.next_record_slot)
-        arrays_count = max(  1, self.next_arrays_slot)
-        pointr_count = max(  1, self.next_pointr_slot)
+        double_count    = max(  1, self.next_double_slot)
+        string_count    = max(  1, self.next_string_slot)
+        record_count    = max(  1, self.next_record_slot)
+        arrays_count    = max(  1, self.next_arrays_slot)
+        pointr_count    = max(  1, self.next_pointr_slot)
         
         # todo !!!
-        self.func_name = "main"
-        self.date_str  = datetime.now().strftime("%Y-%m-%d")
+        self.func_name  = "main"
+        self.date_str   = datetime.now().strftime("%Y-%m-%d")
         
-        src_comment    = ('-' * 77)
+        module_kind     = self.module_kind_value
+        
+        src_comment     = ('-' * 77)
+        
         return f"""// {src_comment}
 // AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: {self.date_str}
 //
@@ -5279,6 +5774,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
 using namespace std;
 using namespace asmjit;
+
+static constexpr int DBASE2MANY_MODULE_KIND = {self.module_kind_value};
 
 {self.render_string_literals()}
 
@@ -5349,7 +5846,13 @@ int main() {{
         record_count,
         arrays_count,
         pointr_count)}
-    
+
+    asm_out << std::endl;
+    asm_out << "dbase2many_module_kind dq {self.module_kind_value}\\n";
+    asm_out << "dbase2many_module_kind_program equ 1\\n";
+    asm_out << "dbase2many_module_kind_unit equ 2\\n";
+    asm_out << "dbase2many_module_kind_library equ 3\\n\\n";
+
     asm_out << std::endl;
     asm_out << "section .text\\n";
     asm_out << \"global \" << \"_{self.func_name}\" << std::endl;
@@ -5448,14 +5951,18 @@ def main():
         tokens = CommonTokenStream(lexer)
         parser = MiniPascalParser(tokens)
         
-        tree = parser.programFile()
+        tree = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
             return 1
         
         generator = AsmJitGenerator(asm_file)
+        generator.source_file = os.path.abspath(source_file)
+        generator.source_dir  = os.path.dirname(generator.source_file)
+        
         cpp = generator.visit(tree)
         print(cpp)
+        
         return 0
         
     except CompileError as e:

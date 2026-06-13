@@ -27,7 +27,7 @@ echo create: Python + Exe files ...
 python -m compileall pas2asmjit.py
 
 ::for /L %%N in (2,1,50) do (
-for %%N in (54) do (
+for %%N in (55) do (
     echo create: test%%N.exe
     python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
     g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 ^
@@ -36,7 +36,7 @@ for %%N in (54) do (
     strip   testout/test%%N.exe
 )
 echo create: batch files
-for /L %%N in (2,1,54) do (
+for /L %%N in (2,1,55) do (
     echo ^:^: ------------------------------------------------------------ > testout/run_test%%N.bat
     echo ^:^: Copyright ^(c^) 2026 by Jens Kallup - paule32 >> testout/run_test%%N.bat
     echo ^:^: all rights reserved. >testout/run_test%%N.bat >> testout/run_test%%N.bat

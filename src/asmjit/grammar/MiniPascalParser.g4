@@ -4,8 +4,71 @@ options {
     tokenVocab = MiniPascalLexer;
 }
 
+sourceFile
+    : programFile
+    | unitFile
+    | libraryFile
+    ;
+
 programFile
-    : PROGRAM IDENT SEMI declarationPart* block DOT
+    : PROGRAM IDENT SEMI usesClause? declarationPart* block DOT
+    ;
+
+unitFile
+    : UNIT qualifiedIdent SEMI
+      interfaceSection
+      implementationSection
+      unitInitBlock?
+      DOT
+    ;
+
+libraryFile
+    : LIBRARY IDENT SEMI
+      usesClause?
+      declarationPart*
+      block
+      DOT
+    ;
+
+usesClause
+    : USES qualifiedIdentList SEMI
+    ;
+
+qualifiedIdentList
+    : qualifiedIdent (COMMA qualifiedIdent)*
+    ;
+
+interfaceSection
+    : INTERFACE usesClause? interfaceDeclarationPart*
+    ;
+
+implementationSection
+    : IMPLEMENTATION usesClause? implementationDeclarationPart*
+    ;
+
+interfaceDeclarationPart
+    : constSection
+    | typeSection
+    | varSection
+    | procedureHeader
+    | functionHeader
+    ;
+
+implementationDeclarationPart
+    : constSection
+    | typeSection
+    | varSection
+    | procedureDeclaration
+    | functionDeclaration
+    | classMethodImplementation
+    ;
+    
+unitInitBlock
+    : BEGIN_ statementList END
+    ;
+
+qualifiedIdent
+    : IDENT (DOT IDENT)*
     ;
 
 declarationPart
@@ -18,8 +81,18 @@ declarationPart
     ;
 
 classMethodImplementation
-    : CONSTRUCTOR IDENT DOT IDENT formalParamList? SEMI block SEMI?
-    | DESTRUCTOR  IDENT DOT IDENT formalParamList? SEMI block SEMI?
+    : (CONSTRUCTOR | DESTRUCTOR | FUNCTION | PROCEDURE)
+      IDENT DOT IDENT formalParamList? (COLON typeName)? SEMI
+      block
+      SEMI?
+    ;
+
+procedureHeader
+    : PROCEDURE IDENT formalParamList? SEMI
+    ;
+
+functionHeader
+    : FUNCTION IDENT formalParamList? COLON typeName SEMI
     ;
 
 constSection
@@ -68,10 +141,24 @@ classMember
     : classFieldDeclaration
     | constructorDeclaration
     | destructorDeclaration
+    | classFunctionDeclaration
+    | classProcedureDeclaration
+    ;
+
+classFunctionDeclaration
+    : FUNCTION IDENT formalParamList? COLON typeName SEMI
+    ;
+
+classProcedureDeclaration
+    : PROCEDURE IDENT formalParamList? SEMI
     ;
 
 classFieldDeclaration
     : identList COLON typeName SEMI
+    ;
+
+inheritedStatement
+    : INHERITED IDENT? actualParamList?
     ;
 
 constructorDeclaration
@@ -219,6 +306,7 @@ statement
     | continueStatement
     | caseStatement
     | procedureCallStatement
+    | inheritedStatement
     | exitStatement
     | compoundStatement
     ;
