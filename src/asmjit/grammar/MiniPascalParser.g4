@@ -26,8 +26,25 @@ libraryFile
     : LIBRARY IDENT SEMI
       usesClause?
       declarationPart*
+      exportsClause?
       block
       DOT
+    ;
+
+exportsClause
+    : EXPORTS exportItem (COMMA exportItem)* SEMI
+    ;
+
+exportItem
+    : qualifiedIdent exportSignature?
+    ;
+
+exportSignature
+    : LPAREN exportTypeList? RPAREN
+    ;
+
+exportTypeList
+    : typeName (COMMA typeName)*
     ;
 
 usesClause

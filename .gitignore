@@ -298,3 +298,4 @@ src/asmjit/runtime/dbase2many.def
 src/asmjit/libasmjit.def
 /src/asmjit/build
 /src/asmjit/dist
+src/asmjit/testout/test56a.dll

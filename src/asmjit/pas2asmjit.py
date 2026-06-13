@@ -83,6 +83,7 @@ class ClassMethodInfo:
     owner       : str
     return_type : str | None = None
     implemented : bool = False
+    mangled     : str | None = None
 
 @dataclass
 class ClassInfo:
@@ -191,6 +192,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.module_kind        = "program"
         self.module_kind_value  = 1
+        
+        self.exports = []
     
     def format_error(self, filename, err):
         template = ERROR_MAP.get(err.code, err.code)
@@ -399,7 +402,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 params      = method.get("params", []),
                 owner       = key,
                 return_type = method.get("return_type", None),
-                implemented = False
+                implemented = False,
+                mangled     = method.get("mangled", None)
             )
             
             class_methods.setdefault(method_key, [])
@@ -793,6 +797,329 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     raise CompileError(ctx, "E0005", got=current_type, expected="record")
 
         return offset, field
+
+    def pascal_import_type(self, typ):
+        typ = self.resolve_type(typ)
+
+        if typ == "integer":
+            return "Integer"
+
+        if typ == "double":
+            return "Double"
+
+        if typ == "string":
+            return "AnsiString"
+
+        if isinstance(typ, str) and typ.startswith("^"):
+            return "Pointer"
+
+        return str(typ)
+
+    def render_import_params(self, params):
+        if not params:
+            return ""
+
+        parts = []
+
+        for p in params:
+            prefix = "var " if p.get("is_var", False) else ""
+            parts.append(
+                f"{prefix}{p['name']}: {self.pascal_import_type(p['type'])}"
+            )
+
+        return "; ".join(parts)
+
+    def render_call_args(self, params):
+        return ", ".join(p["name"] for p in params)
+
+    def render_external_decl(self, item):
+        params = self.render_import_params(item.get("params", []))
+        lines = []
+
+        if item.get("return_type"):
+            ret = self.pascal_import_type(item["return_type"])
+
+            if params:
+                lines.append(
+                    f"function {item['name']}({params}): {ret}; "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+            else:
+                lines.append(
+                    f"function {item['name']}: {ret}; "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+        else:
+            if params:
+                lines.append(
+                    f"procedure {item['name']}({params}); "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+            else:
+                lines.append(
+                    f"procedure {item['name']}; "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+
+        return lines
+
+    def render_class_external_decl(self, item, handle_type):
+        lines = []
+
+        raw_name = item["export_name"]
+        params   = list(item.get("params", []))
+        mk       = item["method_kind"].lower()
+
+        if mk == "constructor":
+            params_text = self.render_import_params(params)
+
+            if params_text:
+                lines.append(
+                    f"function {raw_name}({params_text}): {handle_type}; "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+            else:
+                lines.append(
+                    f"function {raw_name}: {handle_type}; "
+                    f"external DLL_NAME name '{item['mangled']}';"
+                )
+
+            return lines
+
+        if mk == "destructor":
+            lines.append(
+                f"procedure {raw_name}(Self: {handle_type}); "
+                f"external DLL_NAME name '{item['mangled']}';"
+            )
+            return lines
+
+        params_text = self.render_import_params(params)
+
+        if params_text:
+            params_text = "Self: " + handle_type + "; " + params_text
+        else:
+            params_text = "Self: " + handle_type
+
+        if item.get("return_type"):
+            ret = self.pascal_import_type(item["return_type"])
+            lines.append(
+                f"function {raw_name}({params_text}): {ret}; "
+                f"external DLL_NAME name '{item['mangled']}';"
+            )
+        else:
+            lines.append(
+                f"procedure {raw_name}({params_text}); "
+                f"external DLL_NAME name '{item['mangled']}';"
+            )
+
+        return lines
+
+    def render_fpc_import_unit(self):
+        lib_name  = self.program_name.lower()
+        unit_name = "import_" + lib_name
+        dll_name  = lib_name + ".dll"
+
+        class_exports = {}
+        normal_exports = []
+
+        for item in self.exports:
+            if item.get("kind") == "class_method":
+                class_exports.setdefault(item["class_name"], [])
+                class_exports[item["class_name"]].append(item)
+            else:
+                normal_exports.append(item)
+
+        lines = []
+        lines.append("{$mode objfpc}{$H+}")
+        lines.append(f"unit {unit_name};")
+        lines.append("")
+        lines.append("interface")
+        lines.append("")
+        lines.append("const")
+        lines.append(f"  DLL_NAME = '{dll_name}';")
+        lines.append("")
+
+        # normale Funktionen / Prozeduren
+        for item in normal_exports:
+            lines.extend(self.render_external_decl(item))
+            lines.append("")
+
+        # rohe Klassen-Imports
+        for class_name, methods in class_exports.items():
+            handle_type = class_name + "Handle"
+
+            lines.append("type")
+            lines.append(f"  {handle_type} = Pointer;")
+            lines.append("")
+
+            for item in methods:
+                lines.extend(self.render_class_external_decl(item, handle_type))
+                lines.append("")
+
+        # Wrapper-Klassen
+        if class_exports:
+            lines.append("type")
+
+        for class_name, methods in class_exports.items():
+            handle_type = class_name + "Handle"
+
+            lines.append(f"  {class_name} = class")
+            lines.append("  private")
+            lines.append(f"    FHandle: {handle_type};")
+            lines.append("  public")
+
+            for item in methods:
+                mk = item["method_kind"].lower()
+
+                if mk == "constructor":
+                    params = self.render_import_params(item.get("params", []))
+                    
+                    if params:
+                        lines.append(f"    constructor Create({params});")
+                    else:
+                        lines.append("    constructor Create;")
+                
+                elif mk == "destructor":
+                    lines.append("    destructor Destroy; override;")
+                
+                elif mk == "function":
+                    params = self.render_import_params(item.get("params", []))
+                    ret = self.pascal_import_type(item["return_type"])
+
+                    if params:
+                        lines.append(f"    function {item['method_name']}({params}): {ret};")
+                    else:
+                        lines.append(f"    function {item['method_name']}: {ret};")
+
+                elif mk == "procedure":
+                    params = self.render_import_params(item.get("params", []))
+
+                    if params:
+                        lines.append(f"    procedure {item['method_name']}({params});")
+                    else:
+                        lines.append(f"    procedure {item['method_name']};")
+
+            lines.append("  end;")
+            lines.append("")
+
+        lines.append("implementation")
+        lines.append("")
+
+        # Wrapper-Implementierungen
+        for class_name, methods in class_exports.items():
+            handle_type = class_name + "Handle"
+
+            for item in methods:
+                mk = item["method_kind"].lower()
+                method_name = item["method_name"]
+                export_name = item["export_name"]
+
+                if mk == "constructor":
+                    params = self.render_import_params(item.get("params", []))
+                    call_args = self.render_call_args(item.get("params", []))
+
+                    if params:
+                        lines.append(f"constructor {class_name}.Create({params});")
+                    else:
+                        lines.append(f"constructor {class_name}.Create;")
+
+                    lines.append("begin")
+                    lines.append("  inherited Create;")
+
+                    if call_args:
+                        lines.append(f"  FHandle := {export_name}({call_args});")
+                    else:
+                        lines.append(f"  FHandle := {export_name};")
+
+                    lines.append("end;")
+                    lines.append("")
+
+                elif mk == "destructor":
+                    lines.append(f"destructor {class_name}.Destroy;")
+                    lines.append("begin")
+                    lines.append("  if FHandle <> nil then")
+                    lines.append("  begin")
+                    lines.append(f"    {export_name}(FHandle);")
+                    lines.append("    FHandle := nil;")
+                    lines.append("  end;")
+                    lines.append("")
+                    lines.append("  inherited Destroy;")
+                    lines.append("end;")
+                    lines.append("")
+
+                elif mk == "function":
+                    params = self.render_import_params(item.get("params", []))
+                    ret = self.pascal_import_type(item["return_type"])
+                    call_args = self.render_call_args(item.get("params", []))
+
+                    if params:
+                        lines.append(f"function {class_name}.{method_name}({params}): {ret};")
+                    else:
+                        lines.append(f"function {class_name}.{method_name}: {ret};")
+
+                    lines.append("begin")
+
+                    if call_args:
+                        lines.append(f"  Result := {export_name}(FHandle, {call_args});")
+                    else:
+                        lines.append(f"  Result := {export_name}(FHandle);")
+
+                    lines.append("end;")
+                    lines.append("")
+
+                elif mk == "procedure":
+                    params = self.render_import_params(item.get("params", []))
+                    call_args = self.render_call_args(item.get("params", []))
+
+                    if params:
+                        lines.append(f"procedure {class_name}.{method_name}({params});")
+                    else:
+                        lines.append(f"procedure {class_name}.{method_name};")
+
+                    lines.append("begin")
+
+                    if call_args:
+                        lines.append(f"  {export_name}(FHandle, {call_args});")
+                    else:
+                        lines.append(f"  {export_name}(FHandle);")
+
+                    lines.append("end;")
+                    lines.append("")
+
+        lines.append("begin")
+        lines.append("end.")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    def write_fpc_import_unit(self):
+        if self.module_kind != "library":
+            return
+
+        if not self.exports:
+            return
+        
+        # todo !!!
+        self.output_dir = "testout"
+        
+        imports_dir = os.path.join(
+            self.output_dir,
+            "imports"
+        )
+        
+        os.makedirs(imports_dir, exist_ok=True)
+        
+        lib_name = self.program_name.lower()
+        filename = os.path.join(
+            imports_dir,
+            f"import_{lib_name}.pas"
+        )
+        
+        # todo !!!
+        #print("WRITE IMPORT UNIT:", filename)
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(self.render_fpc_import_unit())
     
     def resolve_pointer_record_path(self, ctx, parts):
         ptr_name = parts[0]
@@ -984,6 +1311,49 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.loading_units.remove(unit_key)
         self.loaded_units[unit_key] = unit_file
+
+    def find_export_method_overload(self, ctx, overloads, wanted_types):
+        for method in overloads:
+            method_types = [
+                self.resolve_type(p["type"])
+                for p in method.params
+            ]
+
+            if method_types == wanted_types:
+                return method
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"export overload not found"
+        )
+    
+    def export_wrapper_suffix(self, params):
+        if not params:
+            return ""
+
+        return "_" + "_".join(
+            self.pascal_import_type(p["type"])
+            for p in params
+        ).replace(" ", "")
+
+    def find_export_function_overload(self, name, wanted_types):
+        key = name.lower()
+
+        if key not in self.functions:
+            return None
+
+        func = self.functions[key]
+
+        func_types = [
+            self.resolve_type(p["type"])
+            for p in func.get("params", [])
+        ]
+
+        if func_types == wanted_types:
+            return func
+
+        return None
     
     def find_unit_file(self, ctx, unit_name):
         candidates = [
@@ -1049,6 +1419,26 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for scope in reversed(self.local_var_stack):
             if key in scope["vars"]:
                 return scope["vars"][key]
+
+        return None
+    
+    def find_class_method_export(self, qualified_name):
+        parts = qualified_name.split(".")
+
+        if len(parts) != 2:
+            return None
+
+        class_name  = parts[0]
+        method_name = parts[1]
+
+        cls = self.classes.get(class_name.lower())
+
+        if not cls:
+            return None
+
+        for m in cls.methods:
+            if m.name.lower() == method_name.lower():
+                return cls, m
 
         return None
     
@@ -1199,6 +1589,68 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "asmjit": asmjit_label,
             "target": target_label
         })
+    
+    def fpc_mangle_type(self, typ):
+        typ = self.resolve_type(typ)
+
+        if typ == "integer":
+            return "INTEGER"
+
+        if typ == "double":
+            return "DOUBLE"
+
+        if typ == "string":
+            return "ANSISTRING"
+
+        if isinstance(typ, str) and typ.startswith("^"):
+            return "POINTER"
+
+        return str(typ).upper()
+
+    def fpc_mangle_params(self, params):
+        if not params:
+            return ""
+
+        return "".join(
+            "$" + self.fpc_mangle_type(p["type"])
+            for p in params
+        )
+
+    def fpc_mangle_unit(self, unit_name):
+        return self.normalize_unit_name(unit_name).upper()
+
+    def fpc_mangle_routine(self, name, params=None, unit_name=None):
+        params = params or []
+
+        routine = name.upper()
+        suffix  = self.fpc_mangle_params(params)
+
+        if unit_name:
+            unit = self.fpc_mangle_unit(unit_name)
+            return f"_{unit}$$_{routine}{suffix}"
+
+        if self.current_unit:
+            unit = self.fpc_mangle_unit(self.current_unit)
+            return f"_{unit}$$_{routine}{suffix}"
+
+        return f"_{routine}{suffix}"
+
+    def fpc_mangle_class_method(self, class_name, method_name, params=None, unit_name=None):
+        params = params or []
+
+        cls    = class_name.upper()
+        method = method_name.upper()
+        suffix = self.fpc_mangle_params(params)
+
+        if unit_name:
+            unit = self.fpc_mangle_unit(unit_name)
+            return f"_{unit}$$_$$_{cls}_$$_{method}{suffix}"
+
+        if self.current_unit:
+            unit = self.fpc_mangle_unit(self.current_unit)
+            return f"_{unit}$$_$$_{cls}_$$_{method}{suffix}"
+
+        return f"_$$_{cls}_$$_{method}{suffix}"
     
     def emit_class_constructor_call(self, ctx, class_name, method_name):
         class_key = class_name.lower()
@@ -3036,8 +3488,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         key         = name.lower()
         scoped      = self.scoped_name(name)
 
-        label     = self.new_named_label("func_" + scoped)
-        end_label = self.new_named_label("endfunc_" + scoped)
+        label       = self.functions[key]["label"]
+        end_label   = self.new_named_label("endfunc_" + name)
 
         self.functions[scoped.lower()]["label"] = label
 
@@ -3547,7 +3999,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for decl in ctx.declarationPart():
             if decl is not None:
                 self.visit(decl)
-
+        
+        if ctx.exportsClause():
+            self.visit(ctx.exportsClause())
+            
         self.validate_class_methods(ctx)
 
         self.emit("a.push(x86::r12);")
@@ -3916,6 +4371,118 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if hasattr(ctx, "functionDeclaration") and ctx.functionDeclaration():
             return self.visit(ctx.functionDeclaration())
+        
+        return None
+    
+    def visitExportsClause(self, ctx):
+        for item in ctx.exportItem():
+            name  = item.qualifiedIdent().getText()
+            parts = name.split(".")
+            
+            wanted_types = []
+            
+            if item.exportSignature():
+                lst = item.exportSignature().exportTypeList()
+                
+                if lst:
+                    for t in lst.typeName():
+                        wanted_types.append(
+                            self.resolve_type(t.getText())
+                        )
+            
+            # Klassenmethode: TFoo.Create / TFoo.Create(String) / TFoo.Add(Integer,Integer)
+            if len(parts) == 2:
+                class_name  = parts[0]
+                method_name = parts[1]
+                
+                cls = self.classes.get(class_name.lower())
+                
+                if not cls:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"export class not found: {class_name}"
+                    )
+                
+                overloads = cls.methods.get(method_name.lower(), [])
+                
+                if not overloads:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"export method not found: {name}"
+                    )
+                
+                if item.exportSignature():
+                    methods_to_export = [
+                        self.find_export_method_overload(
+                            ctx,
+                            overloads,
+                            wanted_types
+                        )
+                    ]
+                else:
+                    methods_to_export = overloads
+                
+                for method in methods_to_export:
+                    export_name = (
+                        class_name
+                        + "_"
+                        + method.name
+                        + self.export_wrapper_suffix(method.params)
+                    )
+                    
+                    self.exports.append({
+                        "kind"          : "class_method",
+                        "name"          : name,
+                        "class_name"    : class_name,
+                        "method_name"   : method.name,
+                        "method_kind"   : method.kind,
+                        "mangled"       : method.mangled,
+                        "export_name"   : export_name,
+                        "return_type"   : method.return_type,
+                        "params"        : method.params
+                    })
+                
+                continue
+            
+            # Normale Funktion: Add / Add(Integer,Integer)
+            if wanted_types:
+                func = self.find_export_function_overload(name, wanted_types)
+            else:
+                func = self.find_function(name)
+            
+            if func:
+                self.exports.append({
+                    "kind"          : "function",
+                    "name"          : name,
+                    "mangled"       : func["mangled"],
+                    "export_name"   : name,
+                    "return_type"   : func["return_type"],
+                    "params"        : func.get("params", [])
+                })
+                continue
+            
+            key = name.lower()
+            
+            if key in self.procedures:
+                proc = self.procedures[key]
+                
+                self.exports.append({
+                    "kind"          : "procedure",
+                    "name"          : name,
+                    "mangled"       : proc["mangled"],
+                    "export_name"   : name,
+                    "return_type"   : None,
+                    "params"        : proc.get("params", [])
+                })
+                continue
+            
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"export symbol not found: {name}"
+            )
         
         return None
     
@@ -4466,53 +5033,80 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def visitClassDeclaration(self, ctx):
         class_name = ctx.IDENT().getText()
-
-        fields = []
+        
+        fields  = []
         methods = []
         
         parent_name = None
         if ctx.classParent():
             parent_name = ctx.classParent().IDENT().getText()
-    
+        
         for member in ctx.classBody().classMember():
             if member.classFieldDeclaration():
                 field_ctx = member.classFieldDeclaration()
                 field_type = field_ctx.typeName().getText()
-
+                
                 for ident in field_ctx.identList().IDENT():
                     fields.append((ident.getText(), field_type))
-
+            
             elif member.constructorDeclaration():
                 ctor = member.constructorDeclaration()
                 method_name = ctor.IDENT().getText()
-
+                
+                params  = self.collect_formal_params(ctor)
+                mangled = self.fpc_mangle_class_method(
+                    class_name,
+                    method_name,
+                    params,
+                    self.current_unit if self.current_unit else self.program_name
+                )
+                
                 methods.append({
-                    "name"  : method_name,
-                    "kind"  : "constructor",
-                    "label" : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "params": self.collect_formal_params(ctor)
+                    "name"   : method_name,
+                    "kind"   : "constructor",
+                    "label"  : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "mangled": mangled,
+                    "params" : params
                 })
-
+            
             elif member.destructorDeclaration():
                 dtor = member.destructorDeclaration()
                 method_name = dtor.IDENT().getText()
 
+                params  = self.collect_formal_params(dtor)
+                mangled = self.fpc_mangle_class_method(
+                    class_name,
+                    method_name,
+                    params,
+                    self.current_unit if self.current_unit else self.program_name
+                )
+
                 methods.append({
-                    "name"  : method_name,
-                    "kind"  : "destructor",
-                    "label" : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "params": self.collect_formal_params(dtor)
+                    "name"   : method_name,
+                    "kind"   : "destructor",
+                    "label"  : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "mangled": mangled,
+                    "params" : params
                 })
             
             elif member.classFunctionDeclaration():
                 fn = member.classFunctionDeclaration()
                 method_name = fn.IDENT().getText()
                 
+                params  = self.collect_formal_params(fn)
+                mangled = self.fpc_mangle_class_method(
+                    class_name,
+                    method_name,
+                    params,
+                    self.current_unit if self.current_unit else self.program_name
+                )
+
                 methods.append({
                     "name"       : method_name,
                     "kind"       : "function",
                     "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "params"     : self.collect_formal_params(fn),
+                    "mangled"    : mangled,
+                    "params"     : params,
                     "return_type": self.resolve_type(fn.typeName().getText())
                 })
             
@@ -4520,11 +5114,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 proc = member.classProcedureDeclaration()
                 method_name = proc.IDENT().getText()
                 
+                params  = self.collect_formal_params(proc)
+                mangled = self.fpc_mangle_class_method(
+                    class_name,
+                    method_name,
+                    params,
+                    self.current_unit if self.current_unit else self.program_name
+                )
+
                 methods.append({
                     "name"       : method_name,
                     "kind"       : "procedure",
                     "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "params"     : self.collect_formal_params(proc),
+                    "mangled"    : mangled,
+                    "params"     : params,
                     "return_type": None
                 })
         
@@ -4557,22 +5160,38 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             ctx.typeName().getText()
         )
 
-        scoped = self.unit_scoped_name(self.scoped_name(name))
-        key    = scoped.lower()
+        params  = self.collect_formal_params(ctx)
+        
+        scoped  = self.unit_scoped_name(self.scoped_name(name))
+        key     = scoped.lower()
 
+        asmjit_label = self.new_named_label("func_" + scoped)
+        fpc_name     = self.fpc_mangle_routine(
+            name,
+            params,
+            self.current_unit if self.current_unit else None)
+
+        self.add_asm_label_mapping(
+            asmjit_label,
+            fpc_name
+        )
+        
         self.functions[key] = {
             "name": name,
             "scoped_name": scoped,
             "return_type": return_type,
-            "label": f"func_{scoped}",
-            "params": self.collect_formal_params(ctx)
+            "label": asmjit_label,      # für a.bind(...)
+            "mangled": fpc_name,        # für NASM / Export / Mapping
+            "params": params
         }
 
+        # globaler Alias, damit "Add" gefunden wird
+        self.functions[name.lower()] = self.functions[key]
+
         old_function = self.current_function
-
-        self.emit_function_declaration(ctx, name, return_type)
-
+        self.emit_function_declaration(ctx, scoped, return_type)
         self.current_function = old_function
+        
         return None
     
     def visitAssignment(self, ctx):
@@ -5570,6 +6189,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return name
     
+    def render_asm_exports(self):
+        out = []
+
+        for item in self.exports:
+            out.append(f'asm_out << "global {item["mangled"]}\\n";')
+
+        if out:
+            out.append('asm_out << "\\n";')
+
+        return "\n    ".join(out)
+    
     def render_asm_double_replacements(self):
         out = []
         for name, value in self.double_literals:
@@ -5855,8 +6485,9 @@ int main() {{
 
     asm_out << std::endl;
     asm_out << "section .text\\n";
-    asm_out << \"global \" << \"_{self.func_name}\" << std::endl;
-    asm_out << \"_{self.func_name}\" << \":" << std::endl;
+    asm_out << "global " << "_{self.func_name}" << std::endl;
+    {self.render_asm_exports()}
+    asm_out << "_{self.func_name}" << ":" << std::endl;
     
     asm_out << asm_text;
     
@@ -5961,6 +6592,7 @@ def main():
         generator.source_dir  = os.path.dirname(generator.source_file)
         
         cpp = generator.visit(tree)
+        generator.write_fpc_import_unit()
         print(cpp)
         
         return 0

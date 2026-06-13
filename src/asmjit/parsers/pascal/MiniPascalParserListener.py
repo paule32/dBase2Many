@@ -44,6 +44,42 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#exportsClause.
+    def enterExportsClause(self, ctx:MiniPascalParser.ExportsClauseContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#exportsClause.
+    def exitExportsClause(self, ctx:MiniPascalParser.ExportsClauseContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#exportItem.
+    def enterExportItem(self, ctx:MiniPascalParser.ExportItemContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#exportItem.
+    def exitExportItem(self, ctx:MiniPascalParser.ExportItemContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#exportSignature.
+    def enterExportSignature(self, ctx:MiniPascalParser.ExportSignatureContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#exportSignature.
+    def exitExportSignature(self, ctx:MiniPascalParser.ExportSignatureContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#exportTypeList.
+    def enterExportTypeList(self, ctx:MiniPascalParser.ExportTypeListContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#exportTypeList.
+    def exitExportTypeList(self, ctx:MiniPascalParser.ExportTypeListContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#usesClause.
     def enterUsesClause(self, ctx:MiniPascalParser.UsesClauseContext):
         pass

@@ -29,6 +29,26 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#exportsClause.
+    def visitExportsClause(self, ctx:MiniPascalParser.ExportsClauseContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#exportItem.
+    def visitExportItem(self, ctx:MiniPascalParser.ExportItemContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#exportSignature.
+    def visitExportSignature(self, ctx:MiniPascalParser.ExportSignatureContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#exportTypeList.
+    def visitExportTypeList(self, ctx:MiniPascalParser.ExportTypeListContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#usesClause.
     def visitUsesClause(self, ctx:MiniPascalParser.UsesClauseContext):
         return self.visitChildren(ctx)

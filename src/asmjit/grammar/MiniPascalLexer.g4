@@ -10,6 +10,8 @@ INTERFACE       : [Ii][Nn][Tt][Ee][Rr][Ff][Aa][Cc][Ee] ;
 IMPLEMENTATION  : [Ii][Mm][Pp][Ll][Ee][Mm][Ee][Nn][Tt][Aa][Tt][Ii][Oo][Nn] ;
 USES            : [Uu][Ss][Ee][Ss] ;
 
+EXPORTS         : [eE][xX][pP][oO][rR][tT][sS] ;
+
 CONST           : [Cc][Oo][Nn][Ss][Tt] ;
 VAR             : [Vv][Aa][Rr] ;
 TYPE            : [Tt][Yy][Pp][Ee] ;
