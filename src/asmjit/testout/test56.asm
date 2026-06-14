@@ -75,7 +75,7 @@ dbase2many_module_kind_library  equ 3
 section .text
 global _main
 _main:
-    jmp         L5
+    jmp         L7
 _ADD$INTEGER$INTEGER:
     push        rbp
     mov         rbp, rsp
@@ -94,9 +94,9 @@ _ADD$INTEGER$INTEGER:
     mov         rsp, rbp
     pop         rbp
     ret
-L5:
-    jmp         endfunc_Add_6
-class_TFoo_Create_1:
+L7:
+    jmp         endfunc_Add_8
+class_TFoo_Create_2:
     push        rbp
     mov         rbp, rsp
     push        rcx
@@ -113,9 +113,9 @@ class_TFoo_Create_1:
     mov         rsp, rbp
     pop         rbp
     ret
-endfunc_Add_6:
-    jmp         skip_class_TFoo_Create_7
-class_TFoo_Create_2:
+endfunc_Add_8:
+    jmp         skip_class_TFoo_Create_9
+class_TFoo_Create_3:
     push        rbp
     mov         rbp, rsp
     push        rcx
@@ -133,9 +133,9 @@ class_TFoo_Create_2:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Create_7:
-    jmp         skip_class_TFoo_Create_8
-class_TFoo_Create_3:
+skip_class_TFoo_Create_9:
+    jmp         class_TFoo_Create_20
+class_TFoo_Create_4:
     push        rbp
     mov         rbp, rsp
     push        rcx
@@ -154,9 +154,9 @@ class_TFoo_Create_3:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Create_8:
-    jmp         skip_class_TFoo_Create_9
-class_TFoo_Destroy_4:
+class_TFoo_Create_20:
+    jmp         class_TFoo_Create_21
+class_TFoo_Destroy_5:
     push        rbp
     mov         rbp, rsp
     push        rcx
@@ -173,7 +173,34 @@ class_TFoo_Destroy_4:
     mov         rsp, rbp
     pop         rbp
     ret
-skip_class_TFoo_Create_9:
+class_TFoo_Create_21:
+    jmp         class_TFoo_Create_22
+class_TFoo_SetValue_1:
+    push        rbp
+    mov         rbp, rsp
+    push        rcx
+    push        rdx
+    sub         rsp, 256
+    mov         eax, dword [rbp-16]
+    mov         ebx, eax
+    mov         rax, qword [rbp-8]
+    mov         dword [rax], ebx
+    mov         rsp, rbp
+    pop         rbp
+    ret
+class_TFoo_Create_22:
+    jmp         class_TFoo_Create_23
+class_TFoo_GetValue_6:
+    push        rbp
+    mov         rbp, rsp
+    push        rcx
+    sub         rsp, 256
+    mov         rax, qword [rbp-8]
+    mov         eax, dword [rax]
+    mov         rsp, rbp
+    pop         rbp
+    ret
+class_TFoo_Create_23:
     push        r12
     push        rbx
     sub         rsp, 8
@@ -185,7 +212,7 @@ skip_class_TFoo_Create_9:
     call        rax
     add         rsp, 32
     push        rax
-    mov         rcx, 0
+    mov         rcx, 4
     mov         rax, _jit_new_memory
     sub         rsp, 32
     call        rax
@@ -194,7 +221,7 @@ skip_class_TFoo_Create_9:
     pop         rdx
     push        rcx
     sub         rsp, 32
-    call        class_TFoo_Create_2
+    call        class_TFoo_Create_3
     add         rsp, 32
     pop         rax
     mov         r11, qword [r12 + JitContext.pointr_vars]
@@ -224,11 +251,11 @@ skip_class_TFoo_Create_9:
     mov         rax, qword [r12 + JitContext.pointr_vars]
     mov         rax, qword [rax]
     test        rax, rax
-    jz          class_TFoo_Create_20
+    jz          class_TFoo_Create_24
     push        rax
     mov         rcx, rax
     sub         rsp, 32
-    call        class_TFoo_Destroy_4
+    call        class_TFoo_Destroy_5
     add         rsp, 32
     pop         rcx
     mov         rax, _jit_dispose_memory
@@ -238,9 +265,9 @@ skip_class_TFoo_Create_9:
     xor         rax, rax
     mov         r11, qword [r12 + JitContext.pointr_vars]
     mov         qword [r11], rax
-    jmp         class_TFoo_Create_21
-class_TFoo_Create_20:
-class_TFoo_Create_21:
+    jmp         class_TFoo_Create_25
+class_TFoo_Create_24:
+class_TFoo_Create_25:
     add         rsp, 8
     pop         rbx
     pop         r12

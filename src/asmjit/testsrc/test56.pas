@@ -13,11 +13,18 @@ program test56;
 
 type
     TFoo = class
+    private
+        FValue: Integer;
+    protected
+        procedure SetValue(v: Integer);
+    public
         constructor Create;
         constructor Create(S: String);
         constructor Create(I1, I2: Integer);
         
         destructor Destroy;
+        
+        function GetValue: Integer;
     end;
 
 function Add(a, b: Integer): Integer;
@@ -43,6 +50,16 @@ end;
 destructor TFoo.Destroy;
 begin
     WriteLn('TFoo: Destroy');
+end;
+
+procedure TFoo.SetValue(v: Integer);
+begin
+    FValue := v;
+end;
+
+function TFoo.GetValue: Integer;
+begin
+    result := FValue;
 end;
 
 {$ifdef DLL_API}

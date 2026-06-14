@@ -287,6 +287,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#visibilitySection.
+    def enterVisibilitySection(self, ctx:MiniPascalParser.VisibilitySectionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#visibilitySection.
+    def exitVisibilitySection(self, ctx:MiniPascalParser.VisibilitySectionContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#classFunctionDeclaration.
     def enterClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
         pass

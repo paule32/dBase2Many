@@ -59,6 +59,10 @@ CLASS               : [Cc][Ll][Aa][Ss][Ss] ;
 CONSTRUCTOR         : [Cc][Oo][Nn][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;
 DESTRUCTOR          : [Dd][Ee][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;
 
+PRIVATE             : [pP][rR][iI][vV][aA][tT][eE] ;
+PROTECTED           : [pP][rR][oO][tT][eE][cC][tT][eE][dD] ;
+PUBLIC              : [pP][uU][bB][lL][iI][cC] ;
+
 INHERITED           : [iI][nN][hH][eE][rR][iI][tT][eE][dD] ;
 
 WRITELN             : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;

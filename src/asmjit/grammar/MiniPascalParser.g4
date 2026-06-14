@@ -159,11 +159,18 @@ classBody
     ;
 
 classMember
-    : classFieldDeclaration
+    : visibilitySection
+    | classFieldDeclaration
     | constructorDeclaration
     | destructorDeclaration
     | classFunctionDeclaration
     | classProcedureDeclaration
+    ;
+
+visibilitySection
+    : PRIVATE
+    | PROTECTED
+    | PUBLIC
     ;
 
 classFunctionDeclaration

@@ -56,6 +56,7 @@ class RecordFieldInfo:
     type        : str
     offset      : int
     size        : int
+    visibility  : str = "public"
 
 @dataclass
 class RecordInfo:
@@ -85,6 +86,7 @@ class ClassMethodInfo:
     return_type : str | None = None
     implemented : bool = False
     mangled     : str | None = None
+    visibility  : str = "public"
 
 @dataclass
 class ClassInfo:
@@ -153,7 +155,447 @@ def parse_args():
         help    = "Define preprocessor symbol, e.g. -D DLL_API"
     )
     
+    parser.add_argument(
+        "--backend",
+        choices  = ["asmjit", "nasm"],
+        default  = "asmjit",
+        help     = "Code backend: asmjit or nasm"
+    )
+    
     return parser.parse_args()
+
+# ---------------------------------------------------------------------------
+# currently, we support:
+# - asmjit for GNU C++ compatible Code
+# - nasm   for NASM Assembly Code
+# ---------------------------------------------------------------------------
+class CodeBackend:
+    def __init__(self):
+        self.lines = []
+
+    def emit(self, line):
+        self.lines.append("    " + line)
+    
+    def get_lines(self):
+        return self.lines
+    
+    def mov_eax_imm(self, value):
+        raise NotImplementedError
+    
+    def mov_eax_imm(self, value): raise NotImplementedError
+    def mov_ebx_imm(self, value): raise NotImplementedError
+    def mov_acx_imm(self, value): raise NotImplementedError
+    def mov_edx_imm(self, value): raise NotImplementedError
+    
+    def mov_rax_imm(self, value): raise NotImplementedError
+    def mov_rbx_imm(self, value): raise NotImplementedError
+    def mov_rcx_imm(self, value): raise NotImplementedError
+    def mov_rdx_imm(self, value): raise NotImplementedError
+    
+    
+    def xor_al_al(self): raise NotImplementedError
+    def xor_al_bl(self): raise NotImplementedError
+    def xor_al_cl(self): raise NotImplementedError
+    def xor_al_dl(self): raise NotImplementedError
+    # ---
+    def xor_bl_al(self): raise NotImplementedError
+    def xor_bl_bl(self): raise NotImplementedError
+    def xor_bl_cl(self): raise NotImplementedError
+    def xor_bl_dl(self): raise NotImplementedError
+    # ---
+    def xor_cl_al(self): raise NotImplementedError
+    def xor_cl_bl(self): raise NotImplementedError
+    def xor_cl_cl(self): raise NotImplementedError
+    def xor_cl_dl(self): raise NotImplementedError
+    # ---
+    def xor_dl_al(self): raise NotImplementedError
+    def xor_dl_bl(self): raise NotImplementedError
+    def xor_dl_cl(self): raise NotImplementedError
+    def xor_dl_dl(self): raise NotImplementedError
+    
+    
+    def xor_ah_ah(self): raise NotImplementedError
+    def xor_ah_bh(self): raise NotImplementedError
+    def xor_ah_ch(self): raise NotImplementedError
+    def xor_ah_dh(self): raise NotImplementedError
+    # ---
+    def xor_bh_ah(self): raise NotImplementedError
+    def xor_bh_bh(self): raise NotImplementedError
+    def xor_bh_ch(self): raise NotImplementedError
+    def xor_bh_dh(self): raise NotImplementedError
+    # ---
+    def xor_ch_ah(self): raise NotImplementedError
+    def xor_ch_bh(self): raise NotImplementedError
+    def xor_ch_ch(self): raise NotImplementedError
+    def xor_ch_dh(self): raise NotImplementedError
+    # ---
+    def xor_dh_ah(self): raise NotImplementedError
+    def xor_dh_bh(self): raise NotImplementedError
+    def xor_dh_ch(self): raise NotImplementedError
+    def xor_dh_dh(self): raise NotImplementedError
+    # ---
+
+    def xor_ebx_eax(self): raise NotImplementedError
+    def xor_ebx_ebx(self): raise NotImplementedError
+    def xor_ebx_ecx(self): raise NotImplementedError
+    def xor_ebx_edx(self): raise NotImplementedError
+    # ---
+    def xor_ecx_eax(self): raise NotImplementedError
+    def xor_ecx_ebx(self): raise NotImplementedError
+    def xor_ecx_ecx(self): raise NotImplementedError
+    def xor_ecx_edx(self): raise NotImplementedError
+    # ---
+    def xor_edx_eax(self): raise NotImplementedError
+    def xor_edx_ebx(self): raise NotImplementedError
+    def xor_edx_ecx(self): raise NotImplementedError
+    def xor_edx_edx(self): raise NotImplementedError
+    
+    
+    def xor_ax_ax(self): raise NotImplementedError
+    def xor_ax_bx(self): raise NotImplementedError
+    def xor_ax_cx(self): raise NotImplementedError
+    def xor_ax_dx(self): raise NotImplementedError
+    # ---
+    def xor_bx_ax(self): raise NotImplementedError
+    def xor_bx_bx(self): raise NotImplementedError
+    def xor_bx_cx(self): raise NotImplementedError
+    def xor_bx_dx(self): raise NotImplementedError
+    # ---
+    def xor_cx_ax(self): raise NotImplementedError
+    def xor_cx_bx(self): raise NotImplementedError
+    def xor_cx_cx(self): raise NotImplementedError
+    def xor_cx_dx(self): raise NotImplementedError
+    # ---
+    def xor_dx_ax(self): raise NotImplementedError
+    def xor_dx_bx(self): raise NotImplementedError
+    def xor_dx_cx(self): raise NotImplementedError
+    def xor_dx_dx(self): raise NotImplementedError
+    
+    
+    def xor_eax_eax(self): raise NotImplementedError
+    def xor_eax_ebx(self): raise NotImplementedError
+    def xor_eax_ecx(self): raise NotImplementedError
+    def xor_eax_edx(self): raise NotImplementedError
+    # ---
+    def xor_ebx_eax(self): raise NotImplementedError
+    def xor_ebx_ebx(self): raise NotImplementedError
+    def xor_ebx_ecx(self): raise NotImplementedError
+    def xor_ebx_edx(self): raise NotImplementedError
+    # ---
+    def xor_ecx_eax(self): raise NotImplementedError
+    def xor_ecx_ebx(self): raise NotImplementedError
+    def xor_ecx_ecx(self): raise NotImplementedError
+    def xor_ecx_edx(self): raise NotImplementedError
+    # ---
+    def xor_edx_eax(self): raise NotImplementedError
+    def xor_edx_ebx(self): raise NotImplementedError
+    def xor_edx_ecx(self): raise NotImplementedError
+    def xor_edx_edx(self): raise NotImplementedError
+    
+    def xor_rax_rax(self): raise NotImplementedError
+    def xor_rax_rbx(self): raise NotImplementedError
+    def xor_rax_rcx(self): raise NotImplementedError
+    def xor_rax_rdx(self): raise NotImplementedError
+    # ---
+    def xor_rbx_rax(self): raise NotImplementedError
+    def xor_rbx_rbx(self): raise NotImplementedError
+    def xor_rbx_rcx(self): raise NotImplementedError
+    def xor_rbx_rdx(self): raise NotImplementedError
+    # ---
+    def xor_rcx_rax(self): raise NotImplementedError
+    def xor_rcx_rbx(self): raise NotImplementedError
+    def xor_rcx_rcx(self): raise NotImplementedError
+    def xor_rcx_rdx(self): raise NotImplementedError
+    # ---
+    def xor_rdx_rax(self): raise NotImplementedError
+    def xor_rdx_rbx(self): raise NotImplementedError
+    def xor_rdx_rcx(self): raise NotImplementedError
+    def xor_rdx_rdx(self): raise NotImplementedError
+    
+    def push(self, reg):
+        raise NotImplementedError
+    
+    def pop(self, reg):
+        raise NotImplementedError
+    
+    def call(self, target):
+        raise NotImplementedError
+    
+    def ret(self):
+        raise NotImplementedError
+    
+    def jmp(self, label):
+        raise NotImplementedError
+    
+    def bind_label(self, label):
+        raise NotImplementedError
+
+# ---------------------------------------------------------------------------
+# AsmJit backend ...
+# ---------------------------------------------------------------------------
+class AsmJitBackend(CodeBackend):
+    # ---
+    def mov_eax_ebx(self): self.emit("a.mov(x86::eax, x86::ebx);")
+    def mov_eax_ecx(self): self.emit("a.mov(x86::eax, x86::ecx);")
+    def mov_eax_edx(self): self.emit("a.mov(x86::eax, x86::edx);")
+    # ---
+    def mov_ebx_eax(self): self.emit("a.mov(x86::ebx, x86::eax);")
+    def mov_ebx_ecx(self): self.emit("a.mov(x86::ebx, x86::ecx);")
+    def mov_ebx_edx(self): self.emit("a.mov(x86::ebx, x86::edx);")
+    # ---
+    def mov_ecx_eax(self): self.emit("a.mov(x86::ecx, x86::eax);")
+    def mov_ecx_ebx(self): self.emit("a.mov(x86::ecx, x86::ebx);")
+    def mov_ecx_edx(self): self.emit("a.mov(x86::ecx, x86::edx);")
+    # ---
+    def mov_edx_eax(self): self.emit("a.mov(x86::edx, x86::eax);")
+    def mov_edx_ebx(self): self.emit("a.mov(x86::edx, x86::ebx);")
+    def mov_edx_ecx(self): self.emit("a.mov(x86::edx, x86::ecx);")
+    
+    # ---
+    def mov_eax_imm(self, value): self.emit(f"a.mov(x86::eax, {value});")
+    def mov_ebx_imm(self, value): self.emit(f"a.mov(x86::ebx, {value});")
+    def mov_ecx_imm(self, value): self.emit(f"a.mov(x86::ecx, {value});")
+    def mov_edx_imm(self, value): self.emit(f"a.mov(x86::edx, {value});")
+    # ---
+    def mov_rax_imm(self, value): self.emit(f"a.mov(x86::rax, imm((uint64_t){value}));")
+    def mov_rbx_imm(self, value): self.emit(f"a.mov(x86::rbx, imm((uint64_t){value}));")
+    def mov_rcx_imm(self, value): self.emit(f"a.mov(x86::rcx, imm((uint64_t){value}));")
+    def mov_rdx_imm(self, value): self.emit(f"a.mov(x86::rdx, imm((uint64_t){value}));")
+    
+    
+    def xor_al_al(self): self.emit("a.xor_(x86::al, x86::al);")
+    def xor_al_bl(self): self.emit("a.xor_(x86::al, x86::bl);")
+    def xor_al_cl(self): self.emit("a.xor_(x86::al, x86::cl);")
+    def xor_al_dl(self): self.emit("a.xor_(x86::al, x86::dl);")
+    # ---
+    def xor_bl_al(self): self.emit("a.xor_(x86::bl, x86::al);")
+    def xor_bl_bl(self): self.emit("a.xor_(x86::bl, x86::bl);")
+    def xor_bl_cl(self): self.emit("a.xor_(x86::bl, x86::cl);")
+    def xor_bl_dl(self): self.emit("a.xor_(x86::bl, x86::dl);")
+    # ---
+    def xor_cl_al(self): self.emit("a.xor_(x86::cl, x86::al);")
+    def xor_cl_bl(self): self.emit("a.xor_(x86::cl, x86::bl);")
+    def xor_cl_cl(self): self.emit("a.xor_(x86::cl, x86::cl);")
+    def xor_cl_dl(self): self.emit("a.xor_(x86::cl, x86::dl);")
+    # ---
+    def xor_dl_al(self): self.emit("a.xor_(x86::dl, x86::al);")
+    def xor_dl_bl(self): self.emit("a.xor_(x86::dl, x86::bl);")
+    def xor_dl_cl(self): self.emit("a.xor_(x86::dl, x86::cl);")
+    def xor_dl_dl(self): self.emit("a.xor_(x86::dl, x86::dl);")
+    
+    
+    def xor_ah_ah(self): self.emit("a.xor_(x86::ah, x86::ah);")
+    def xor_ah_bh(self): self.emit("a.xor_(x86::ah, x86::bh);")
+    def xor_ah_ch(self): self.emit("a.xor_(x86::ah, x86::ch);")
+    def xor_ah_dh(self): self.emit("a.xor_(x86::ah, x86::dh);")
+    # ---
+    def xor_bh_ah(self): self.emit("a.xor_(x86::ah, x86::ah);")
+    def xor_bh_bh(self): self.emit("a.xor_(x86::bh, x86::bh);")
+    def xor_bh_ch(self): self.emit("a.xor_(x86::bh, x86::ch);")
+    def xor_bh_dh(self): self.emit("a.xor_(x86::bh, x86::dh);")
+    # ---
+    def xor_ch_ah(self): self.emit("a.xor_(x86::ch, x86::ah);")
+    def xor_ch_bh(self): self.emit("a.xor_(x86::ch, x86::bh);")
+    def xor_ch_ch(self): self.emit("a.xor_(x86::ch, x86::ch);")
+    def xor_ch_dh(self): self.emit("a.xor_(x86::ch, x86::dh);")
+    # ---
+    def xor_dh_ah(self): self.emit("a.xor_(x86::dh, x86::ah);")
+    def xor_dh_bh(self): self.emit("a.xor_(x86::dh, x86::bh);")
+    def xor_dh_ch(self): self.emit("a.xor_(x86::dh, x86::ch);")
+    def xor_dh_dh(self): self.emit("a.xor_(x86::dh, x86::dh);")
+    # ---
+    
+    
+    def xor_eax_eax(self): self.emit("a.xor_(x86::eax, x86::eax);")
+    def xor_eax_ebx(self): self.emit("a.xor_(x86::eax, x86::ebx);")
+    def xor_eax_ecx(self): self.emit("a.xor_(x86::eax, x86::ecx);")
+    def xor_eax_edx(self): self.emit("a.xor_(x86::eax, x86::edx);")
+    # ---
+    def xor_ebx_eax(self): self.emit("a.xor_(x86::ebx, x86::eax);")
+    def xor_ebx_ebx(self): self.emit("a.xor_(x86::ebx, x86::ebx);")
+    def xor_ebx_ecx(self): self.emit("a.xor_(x86::ebx, x86::ecx);")
+    def xor_ebx_edx(self): self.emit("a.xor_(x86::ebx, x86::edx);")
+    # ---
+    def xor_ecx_eax(self): self.emit("a.xor_(x86::ecx, x86::eax);")
+    def xor_ecx_ebx(self): self.emit("a.xor_(x86::ecx, x86::ebx);")
+    def xor_ecx_ecx(self): self.emit("a.xor_(x86::ecx, x86::ecx);")
+    def xor_ecx_edx(self): self.emit("a.xor_(x86::ecx, x86::edx);")
+    # ---
+    def xor_edx_eax(self): self.emit("a.xor_(x86::edx, x86::eax);")
+    def xor_edx_ebx(self): self.emit("a.xor_(x86::edx, x86::ebx);")
+    def xor_edx_ecx(self): self.emit("a.xor_(x86::edx, x86::ecx);")
+    def xor_edx_edx(self): self.emit("a.xor_(x86::edx, x86::edx);")
+    
+    def xor_rax_rax(self): self.emit("a.xor_(x86::rax, x86::rax);")
+    def xor_rax_rbx(self): self.emit("a.xor_(x86::rax, x86::rbx);")
+    def xor_rax_rcx(self): self.emit("a.xor_(x86::rax, x86::rcx);")
+    def xor_rax_rdx(self): self.emit("a.xor_(x86::rax, x86::rdx);")
+    # ---
+    def xor_rbx_rax(self): self.emit("a.xor_(x86::rbx, x86::rax);")
+    def xor_rbx_rbx(self): self.emit("a.xor_(x86::rbx, x86::rbx);")
+    def xor_rbx_rcx(self): self.emit("a.xor_(x86::rbx, x86::rcx);")
+    def xor_rbx_rdx(self): self.emit("a.xor_(x86::rbx, x86::rdx);")
+    # ---
+    def xor_rcx_rax(self): self.emit("a.xor_(x86::rcx, x86::rax);")
+    def xor_rcx_rbx(self): self.emit("a.xor_(x86::rcx, x86::rbx);")
+    def xor_rcx_rcx(self): self.emit("a.xor_(x86::rcx, x86::rcx);")
+    def xor_rcx_rdx(self): self.emit("a.xor_(x86::rcx, x86::rdx);")
+    # ---
+    def xor_rdx_rax(self): self.emit("a.xor_(x86::rdx, x86::rax);")
+    def xor_rdx_rbx(self): self.emit("a.xor_(x86::rdx, x86::rbx);")
+    def xor_rdx_rcx(self): self.emit("a.xor_(x86::rdx, x86::rcx);")
+    def xor_rdx_rdx(self): self.emit("a.xor_(x86::rdx, x86::rdx);")
+
+    def push(self, reg):
+        self.emit(f"a.push(x86::{reg});")
+
+    def pop(self, reg):
+        self.emit(f"a.pop(x86::{reg});")
+
+    def call(self, target):
+        self.emit(f"a.call({target});")
+
+    def ret(self):
+        self.emit("a.ret();")
+
+    def jmp(self, label):
+        self.emit(f"a.jmp({label});")
+
+    def bind_label(self, label):
+        self.emit(f"a.bind({label});")
+
+# ---------------------------------------------------------------------------
+# NASM backend ...
+# ---------------------------------------------------------------------------
+class NasmBackend(CodeBackend):
+    # ---
+    def mov_eax_ebx(self): self.emit("mov eax, ebx")
+    def mov_eax_ecx(self): self.emit("mov eax, ecx")
+    def mov_eax_edx(self): self.emit("mov eax, edx")
+    # ---
+    def mov_ebx_eax(self): self.emit("mov ebx, eax")
+    def mov_ebx_ecx(self): self.emit("mov ebx, ecx")
+    def mov_ebx_edx(self): self.emit("mov ebx, edx")
+    # ---
+    def mov_ecx_eax(self): self.emit("mov ecx, eax")
+    def mov_ecx_ebx(self): self.emit("mov ecx, ebx")
+    def mov_ecx_edx(self): self.emit("mov ecx, edx")
+    # ---
+    def mov_edx_eax(self): self.emit("mov edx, eax")
+    def mov_edx_ebx(self): self.emit("mov edx, ebx")
+    def mov_edx_ecx(self): self.emit("mov edx, ecx")
+    # ---
+    
+    def mov_eax_imm(self, value): self.emit(f"mov eax, {value}")
+    def mov_ebx_imm(self, value): self.emit(f"mov ebx, {value}")
+    def mov_ecx_imm(self, value): self.emit(f"mov ecx, {value}")
+    def mov_edx_imm(self, value): self.emit(f"mov edx, {value}")
+    # ---
+    def mov_rax_imm(self, value): self.emit(f"mov rax, {value}")
+    def mov_rbx_imm(self, value): self.emit(f"mov rbx, {value}")
+    def mov_rcx_imm(self, value): self.emit(f"mov rcx, {value}")
+    def mov_rdx_imm(self, value): self.emit(f"mov rdx, {value}")
+
+
+    def xor_al_al(self): self.emit("xor al, al")
+    def xor_al_bl(self): self.emit("xor al, bl")
+    def xor_al_cl(self): self.emit("xor al, cl")
+    def xor_al_dl(self): self.emit("xor al, dl")
+    # ---
+    def xor_bl_al(self): self.emit("xor bl, al")
+    def xor_bl_bl(self): self.emit("xor bl, bl")
+    def xor_bl_cl(self): self.emit("xor bl, cl")
+    def xor_bl_dl(self): self.emit("xor bl, dl")
+    # ---
+    def xor_cl_al(self): self.emit("xor cl, al")
+    def xor_cl_bl(self): self.emit("xor cl, bl")
+    def xor_cl_cl(self): self.emit("xor cl, cl")
+    def xor_cl_dl(self): self.emit("xor cl, dl")
+    # ---
+    def xor_dl_al(self): self.emit("xor dl, al")
+    def xor_dl_bl(self): self.emit("xor dl, bl")
+    def xor_dl_cl(self): self.emit("xor dl, cl")
+    def xor_dl_dl(self): self.emit("xor dl, dl")
+    
+    
+    def xor_ah_ah(self): self.emit("xor ah, ah")
+    def xor_ah_bh(self): self.emit("xor ah, bh")
+    def xor_ah_ch(self): self.emit("xor ah, ch")
+    def xor_ah_dh(self): self.emit("xor ah, dh")
+    # ---
+    def xor_bh_ah(self): self.emit("xor ah, ah")
+    def xor_bh_bh(self): self.emit("xor bh, bh")
+    def xor_bh_ch(self): self.emit("xor bh, ch")
+    def xor_bh_dh(self): self.emit("xor bh, dh")
+    # ---
+    def xor_ch_ah(self): self.emit("xor ch, ah")
+    def xor_ch_bh(self): self.emit("xor ch, bh")
+    def xor_ch_ch(self): self.emit("xor ch, ch")
+    def xor_ch_dh(self): self.emit("xor ch, dh")
+    # ---
+    def xor_dh_ah(self): self.emit("xor dh, ah")
+    def xor_dh_bh(self): self.emit("xor dh, bh")
+    def xor_dh_ch(self): self.emit("xor dh, ch")
+    def xor_dh_dh(self): self.emit("xor dh, dh")
+
+    
+    def xor_eax_eax(self): self.emit("xor eax, eax);")
+    def xor_eax_ebx(self): self.emit("xor eax, ebx);")
+    def xor_eax_ecx(self): self.emit("xor eax, ecx);")
+    def xor_eax_edx(self): self.emit("xor eax, edx);")
+    # ---
+    def xor_ebx_eax(self): self.emit("xor ebx, eax);")
+    def xor_ebx_ebx(self): self.emit("xor ebx, ebx);")
+    def xor_ebx_ecx(self): self.emit("xor ebx, ecx);")
+    def xor_ebx_edx(self): self.emit("xor ebx, edx);")
+    # ---
+    def xor_ecx_eax(self): self.emit("xor ecx, eax);")
+    def xor_ecx_ebx(self): self.emit("xor ecx, ebx);")
+    def xor_ecx_ecx(self): self.emit("xor ecx, ecx);")
+    def xor_ecx_edx(self): self.emit("xor ecx, edx);")
+    # ---
+    def xor_edx_eax(self): self.emit("xor edx, eax);")
+    def xor_edx_ebx(self): self.emit("xor edx, ebx);")
+    def xor_edx_ecx(self): self.emit("xor edx, ecx);")
+    def xor_edx_edx(self): self.emit("xor edx, edx);")
+    
+    def xor_rax_rax(self): self.emit("xor rax, rax);")
+    def xor_rax_rbx(self): self.emit("xor rax, rbx);")
+    def xor_rax_rcx(self): self.emit("xor rax, rcx);")
+    def xor_rax_rdx(self): self.emit("xor rax, rdx);")
+    # ---
+    def xor_rbx_rax(self): self.emit("xor rbx, rax);")
+    def xor_rbx_rbx(self): self.emit("xor rbx, rbx);")
+    def xor_rbx_rcx(self): self.emit("xor rbx, rcx);")
+    def xor_rbx_rdx(self): self.emit("xor rbx, rdx);")
+    # ---
+    def xor_rcx_rax(self): self.emit("xor rcx, rax);")
+    def xor_rcx_rbx(self): self.emit("xor rcx, rbx);")
+    def xor_rcx_rcx(self): self.emit("xor rcx, rcx);")
+    def xor_rcx_rdx(self): self.emit("xor rcx, rdx);")
+    # ---
+    def xor_rdx_rax(self): self.emit("xor rdx, rax);")
+    def xor_rdx_rbx(self): self.emit("xor rdx, rbx);")
+    def xor_rdx_rcx(self): self.emit("xor rdx, rcx);")
+    def xor_rdx_rdx(self): self.emit("xor rdx, rdx);")
+    
+    def push(self, reg):
+        self.emit(f"push {reg}")
+    
+    def pop(self, reg):
+        self.emit(f"pop {reg}")
+    
+    def call(self, target):
+        self.emit(f"call {target}")
+    
+    def ret(self):
+        self.emit("ret")
+    
+    def jmp(self, label):
+        self.emit(f"jmp {label}")
+    
+    def bind_label(self, label):
+        self.lines.append(f"{label}:")
 
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
@@ -163,11 +605,10 @@ class PascalPreprocessor:
         self.defines = set()
     
     def process(self, text):
-        lines = text.splitlines()
+        lines   = text.splitlines()
         
-        output = []
-        
-        stack = []
+        output  = []
+        stack   = []
         enabled = True
         
         for line in lines:
@@ -176,21 +617,26 @@ class PascalPreprocessor:
             if stripped.lower() == "{$break}":
                 if enabled:
                     output.append("__debug_break;")
+                    output.append("")
+                else:
+                    output.append("")
                 continue
             
             if stripped.startswith("{$define"):
+                output.append("")
                 name = stripped[8:-1].strip()
                 self.defines.add(name.upper())
                 continue
             
             if stripped.startswith("{$undef"):
+                output.append("")
                 name = stripped[7:-1].strip()
                 self.defines.discard(name.upper())
                 continue
             
             if stripped.startswith("{$ifdef"):
+                output.append("")
                 name = stripped[7:-1].strip()
-                
                 cond = name.upper() in self.defines
                 
                 stack.append(enabled)
@@ -198,8 +644,8 @@ class PascalPreprocessor:
                 continue
             
             if stripped.startswith("{$ifndef"):
+                output.append("")
                 name = stripped[8:-1].strip()
-                
                 cond = name.upper() not in self.defines
                 
                 stack.append(enabled)
@@ -207,12 +653,13 @@ class PascalPreprocessor:
                 continue
             
             if stripped.startswith("{$else"):
-                parent = stack[-1]
-                
+                output.append("")
+                parent  = stack[-1]
                 enabled = parent and not enabled
                 continue
             
             if stripped.startswith("{$endif"):
+                output.append("")
                 enabled = stack.pop()
                 continue
             
@@ -225,10 +672,12 @@ class PascalPreprocessor:
 # the transpiler generator for Pascal->Assembly
 # ---------------------------------------------------------------------------
 class AsmJitGenerator(MiniPascalParserVisitor):
-    def __init__(self, asm_file = None):
+    def __init__(self, backend=None, asm_file=None):
+        self.backend = backend or AsmJitBackend()   # default backend
+        self.lines   = self.backend.lines
+        
         self.vars               = {}
         self.next_slot          = 0
-        self.lines              = []
         self.program_name       = "Program"
         self.var_types          = {}
         self.cpp_print_lines    = []
@@ -490,16 +939,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         offset = parent_size
         class_fields = dict(parent_fields)
         
-        for field_name, field_type in fields:
+        for field_name, field_type, visibility in fields:
             field_key = field_name.lower()
             resolved_type = self.resolve_type(field_type)
             size = self.type_size(ctx, resolved_type)
             
             class_fields[field_key] = RecordFieldInfo(
-                name    = field_name,
-                type    = resolved_type,
-                offset  = offset,
-                size    = size
+                name        = field_name,
+                type        = resolved_type,
+                offset      = offset,
+                size        = size,
+                visibility  = visibility
             )
             
             offset += size
@@ -517,7 +967,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 owner       = key,
                 return_type = method.get("return_type", None),
                 implemented = False,
-                mangled     = method.get("mangled", None)
+                mangled     = method.get("mangled", None),
+                visibility  = method.get("visibility", "public")
             )
             
             class_methods.setdefault(method_key, [])
@@ -1476,6 +1927,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.loading_units.remove(unit_key)
         self.loaded_units[unit_key] = unit_file
 
+    def find_current_class_field(self, name):
+        if self.current_class is None:
+            return None
+
+        cls = self.classes[self.current_class]
+        key = name.lower()
+
+        if key not in cls.fields:
+            return None
+
+        return cls.fields[key]
+    
     def find_export_method_overload(self, ctx, overloads, wanted_types):
         for method in overloads:
             method_types = [
@@ -2332,7 +2795,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             self.emit("a.add(x86::ebx, x86::eax);")
 
-        self.emit("a.mov(x86::eax, x86::ebx); // final linear index")
+        #self.emit("a.mov(x86::eax, x86::ebx); // final linear index")
+        self.emit_mov_eax_ebx()
 
     def emit_array_bounds_check_dimension(self, ctx, var_name, min_value, max_value):
         ok_label    = self.new_named_label("array_bounds_ok")
@@ -2490,6 +2954,43 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         # Index wiederherstellen
         self.emit("a.mov(x86::eax, x86::ebx); // restore array index")
+    
+    def emit_load_self_field(self, ctx, name):
+        if self.current_class is None:
+            return None
+
+        cls = self.classes[self.current_class]
+        key = name.lower()
+
+        if key not in cls.fields:
+            return None
+
+        field = cls.fields[key]
+
+        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
+
+        if field.type == "integer":
+            self.emit(
+                f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {field.offset})); "
+                f"// Self.{name}"
+            )
+            return "integer"
+
+        if field.type == "double":
+            self.emit(
+                f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {field.offset})); "
+                f"// Self.{name}"
+            )
+            return "double"
+
+        if field.type == "string":
+            self.emit(
+                f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); "
+                f"// Self.{name}"
+            )
+            return "string"
+
+        return field.type
     
     def emit_load_object_var(self, ctx, name, info):
         slot = info["slot"]
@@ -2779,6 +3280,39 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_setlength));")
         self.emit_call_rax()
         self.emit_store_string_var_from_rax(ctx, name)
+    
+    def emit_store_self_field(self, ctx, name, expr_type):
+        field = self.find_current_class_field(name)
+
+        if field is None:
+            return False
+
+        if field.type != expr_type:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+
+        if expr_type == "integer":
+            self.emit("a.mov(x86::ebx, x86::eax);")
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
+            self.emit(f"a.mov(x86::dword_ptr(x86::rax, {field.offset}), x86::ebx); // Self.{name} :=")
+            return True
+
+        if expr_type == "double":
+            self.emit("a.sub(x86::rsp, 8);")
+            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
+            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
+            self.emit("a.add(x86::rsp, 8);")
+            self.emit(f"a.movsd(x86::qword_ptr(x86::rax, {field.offset}), x86::xmm0); // Self.{name} :=")
+            return True
+
+        if expr_type == "string":
+            self.emit("a.push(x86::rax);")
+            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
+            self.emit("a.pop(x86::r11);")
+            self.emit(f"a.mov(x86::qword_ptr(x86::rax, {field.offset}), x86::r11); // Self.{name} :=")
+            return True
+
+        raise CompileError(ctx, "E0013", var_type=field.type)
     
     def emit_store_object_var(self, ctx, name, info):
         slot = info["slot"]
@@ -4111,7 +4645,147 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return self.var_info(ctx, name)["slot"]
     
     def emit(self, line):
-        self.lines.append("    " + line)
+        self.backend.emit(line)
+    
+    def emit_mov_eax_ebx(self):
+        self.backend.mov_eax_ebx()
+    
+    # ---
+    def emit_mov_eax_imm(self, value): self.backend.mov_eax_imm(value)
+    def emit_mov_ebx_imm(self, value): self.backend.mov_ebx_imm(value)
+    def emit_mov_ecx_imm(self, value): self.backend.mov_ecx_imm(value)
+    def emit_mov_edx_imm(self, value): self.backend.mov_edx_imm(value)
+    # ---
+    def emit_mov_rax_imm(self, value): self.backend.mov_rax_imm(value)
+    def emit_mov_rbx_imm(self, value): self.backend.mov_rbx_imm(value)
+    def emit_mov_rcx_imm(self, value): self.backend.mov_rcx_imm(value)
+    def emit_mov_rdx_imm(self, value): self.backend.mov_rdx_imm(value)
+    
+    
+    def emit_xor_al_al(self): self.backend.xor_al_al()
+    def emit_xor_al_bl(self): self.backend.xor_al_bl()
+    def emit_xor_al_cl(self): self.backend.xor_al_cl()
+    def emit_xor_al_dl(self): self.backend.xor_al_dl()
+    # ---
+    def emit_xor_bl_al(self): self.backend.xor_bl_al()
+    def emit_xor_bl_bl(self): self.backend.xor_bl_bl()
+    def emit_xor_bl_cl(self): self.backend.xor_bl_cl()
+    def emit_xor_bl_dl(self): self.backend.xor_bl_dl()
+    # ---
+    def emit_xor_cl_al(self): self.backend.xor_cl_al()
+    def emit_xor_cl_bl(self): self.backend.xor_cl_bl()
+    def emit_xor_cl_cl(self): self.backend.xor_cl_cl()
+    def emit_xor_cl_dl(self): self.backend.xor_cl_dl()
+    # ---
+    def emit_xor_dl_al(self): self.backend.xor_dl_al()
+    def emit_xor_dl_bl(self): self.backend.xor_dl_bl()
+    def emit_xor_dl_cl(self): self.backend.xor_dl_cl()
+    def emit_xor_dl_dl(self): self.backend.xor_dl_dl()
+    # ---
+    
+    def emit_xor_ah_ah(self): self.backend.xor_ah_ah()
+    def emit_xor_ah_bh(self): self.backend.xor_ah_bh()
+    def emit_xor_ah_ch(self): self.backend.xor_ah_ch()
+    def emit_xor_ah_dh(self): self.backend.xor_ah_dh()
+    # ---
+    def emit_xor_bh_ah(self): self.backend.xor_bh_ah()
+    def emit_xor_bh_bh(self): self.backend.xor_bh_bh()
+    def emit_xor_bh_ch(self): self.backend.xor_bh_ch()
+    def emit_xor_bh_dh(self): self.backend.xor_bh_dh()
+    # ---
+    def emit_xor_ch_ah(self): self.backend.xor_ch_ah()
+    def emit_xor_ch_bh(self): self.backend.xor_ch_bh()
+    def emit_xor_ch_ch(self): self.backend.xor_ch_ch()
+    def emit_xor_ch_dh(self): self.backend.xor_ch_dh()
+    # ---
+    def emit_xor_dh_ah(self): self.backend.xor_dh_ah()
+    def emit_xor_dh_bh(self): self.backend.xor_dh_bh()
+    def emit_xor_dh_ch(self): self.backend.xor_dh_ch()
+    def emit_xor_dh_dh(self): self.backend.xor_dh_dh()
+    # ---
+    def emit_xor_ax_ax(self): self.backend.xor_ax_ax()
+    def emit_xor_ax_bx(self): self.backend.xor_ax_bx()
+    def emit_xor_ax_cx(self): self.backend.xor_ax_cx()
+    def emit_xor_ax_dx(self): self.backend.xor_ax_dx()
+    
+    # ---
+    def emit_xor_bx_ax(self): self.backend.xor_bx_ax()
+    def emit_xor_bx_bx(self): self.backend.xor_bx_bx()
+    def emit_xor_bx_cx(self): self.backend.xor_bx_cx()
+    def emit_xor_bx_dx(self): self.backend.xor_bx_dx()
+    # ---
+    def emit_xor_cx_ax(self): self.backend.xor_cx_ax()
+    def emit_xor_cx_bx(self): self.backend.xor_cx_bx()
+    def emit_xor_cx_cx(self): self.backend.xor_cx_cx()
+    def emit_xor_cx_dx(self): self.backend.xor_cx_dx()
+    # ---
+    def emit_xor_dx_ax(self): self.backend.xor_dx_ax()
+    def emit_xor_dx_bx(self): self.backend.xor_dx_bx()
+    def emit_xor_dx_cx(self): self.backend.xor_dx_cx()
+    def emit_xor_dx_dx(self): self.backend.xor_dx_dx()
+    # ---
+    def emit_xor_eax_eax(self): self.backend.xor_eax_eax()
+    def emit_xor_eax_ebx(self): self.backend.xor_eax_eax()
+    def emit_xor_eax_ecx(self): self.backend.xor_eax_eax()
+    def emit_xor_eax_edx(self): self.backend.xor_eax_eax()
+    # ---
+    def emit_xor_ebx_eax(self): self.backend.xor_ebx_eax()
+    def emit_xor_ebx_ebx(self): self.backend.xor_ebx_ebx()
+    def emit_xor_ebx_ecx(self): self.backend.xor_ebx_ecx()
+    def emit_xor_ebx_edx(self): self.backend.xor_ebx_edx()
+    # ---
+    def emit_xor_ecx_eax(self): self.backend.xor_ecx_eax()
+    def emit_xor_ecx_ebx(self): self.backend.xor_ecx_ebx()
+    def emit_xor_ecx_ecx(self): self.backend.xor_ecx_ecx()
+    def emit_xor_ecx_edx(self): self.backend.xor_ecx_edx()
+    # ---
+    def emit_xor_edx_eax(self): self.backend.xor_edx_eax()
+    def emit_xor_edx_ebx(self): self.backend.xor_edx_ebx()
+    def emit_xor_edx_ecx(self): self.backend.xor_edx_ecx()
+    def emit_xor_edx_edx(self): self.backend.xor_edx_edx()
+    
+    def emit_xor_rax_rax(self): self.backend.xor_rax_rax()
+    def emit_xor_rax_rbx(self): self.backend.xor_rax_rbx()
+    def emit_xor_rax_rcx(self): self.backend.xor_rax_rcx()
+    def emit_xor_rax_rdx(self): self.backend.xor_rax_rdx()
+    # ---
+    def emit_xor_rbx_rax(self): self.backend.xor_rbx_rax()
+    def emit_xor_rbx_rbx(self): self.backend.xor_rbx_rbx()
+    def emit_xor_rbx_rcx(self): self.backend.xor_rbx_rcx()
+    def emit_xor_rbx_rdx(self): self.backend.xor_rbx_rdx()
+    # ---
+    def emit_xor_rcx_rax(self): self.backend.xor_rcx_rax()
+    def emit_xor_rcx_rbx(self): self.backend.xor_rcx_rbx()
+    def emit_xor_rcx_rcx(self): self.backend.xor_rcx_rcx()
+    def emit_xor_rcx_rdx(self): self.backend.xor_rcx_rdx()
+    # ---
+    def emit_xor_rdx_rax(self): self.backend.xor_rdx_rax()
+    def emit_xor_rdx_rbx(self): self.backend.xor_rdx_rbx()
+    def emit_xor_rdx_rcx(self): self.backend.xor_rdx_rcx()
+    def emit_xor_rdx_rdx(self): self.backend.xor_rdx_rdx()
+    
+    
+    def emit_push(self, reg):
+        self.backend.push(reg)
+    
+    def emit_pop(self, reg):
+        self.backend.pop(reg)
+    
+    def emit_backend_call(self, target):
+        self.backend.call(target)
+    
+    def emit_backend_ret(self):
+        self.backend.ret()
+    
+    def emit_backend_jmp(self, label):
+        self.backend.jmp(label)
+    
+    def emit_backend_label(self, label):
+        self.backend.bind_label(label)
+    
+    def emit_load_integer_const(self, value):
+        self.backend.mov_imm_eax(value)
+        return "integer"
     
     def new_label_name(self, prefix):
         self.label_id += 1
@@ -5255,17 +5929,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         fields  = []
         methods = []
         
-        parent_name = None
+        parent_name         = None
+        current_visibility  = "public"
+        
         if ctx.classParent():
             parent_name = ctx.classParent().IDENT().getText()
         
         for member in ctx.classBody().classMember():
+            
+            if member.visibilitySection():
+                current_visibility = member.visibilitySection().getText().lower()
+                continue
+                
             if member.classFieldDeclaration():
                 field_ctx = member.classFieldDeclaration()
                 field_type = field_ctx.typeName().getText()
                 
                 for ident in field_ctx.identList().IDENT():
-                    fields.append((ident.getText(), field_type))
+                    fields.append((ident.getText(), field_type, current_visibility))
             
             elif member.constructorDeclaration():
                 ctor = member.constructorDeclaration()
@@ -5280,11 +5961,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 )
                 
                 methods.append({
-                    "name"   : method_name,
-                    "kind"   : "constructor",
-                    "label"  : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled": mangled,
-                    "params" : params
+                    "name"      : method_name,
+                    "kind"      : "constructor",
+                    "label"     : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "mangled"   : mangled,
+                    "params"    : params,
+                    "visibility": current_visibility
                 })
             
             elif member.destructorDeclaration():
@@ -5300,11 +5982,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 )
 
                 methods.append({
-                    "name"   : method_name,
-                    "kind"   : "destructor",
-                    "label"  : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled": mangled,
-                    "params" : params
+                    "name"      : method_name,
+                    "kind"      : "destructor",
+                    "label"     : self.new_named_label("class_" + class_name + "_" + method_name),
+                    "mangled"   : mangled,
+                    "params"    : params,
+                    "visibility": current_visibility
                 })
             
             elif member.classFunctionDeclaration():
@@ -5325,7 +6008,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
                     "mangled"    : mangled,
                     "params"     : params,
-                    "return_type": self.resolve_type(fn.typeName().getText())
+                    "return_type": self.resolve_type(fn.typeName().getText()),
+                    "visibility" : current_visibility
                 })
             
             elif member.classProcedureDeclaration():
@@ -5346,7 +6030,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
                     "mangled"    : mangled,
                     "params"     : params,
-                    "return_type": None
+                    "return_type": None,
+                    "visibility" : current_visibility
                 })
         
         self.declare_class(ctx, class_name, fields, methods, parent_name=parent_name)
@@ -5420,6 +6105,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if target.lower() == "result":
             self.emit_store_result(ctx, expr_type)
             return None
+        
+        if "." not in target and "[" not in target and "^" not in target:
+            if self.emit_store_self_field(ctx, target, expr_type):
+                return None
         
         param = self.find_param(target)
         if param and param.get("is_var", False):
@@ -5762,8 +6451,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return self.visit(ctx.functionCallExpr())
         
         if ctx.variableRef():
-            ref = ctx.variableRef()
+            ref      = ctx.variableRef()
             suffixes = ref.variableSuffix()
+            name     = ref.IDENT().getText()
+
+            if not suffixes:
+                self_field_type = self.emit_load_self_field(ctx, name)
+                if self_field_type is not None:
+                    return self_field_type
             
             if suffixes:
                 first     = suffixes[0]
@@ -5920,13 +6615,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return self.visit(expr_list)
         
         if ctx.NIL():
-            self.emit("a.xor_(x86::rax, x86::rax); // nil")
+            self.emit_xor_rax_rax("a.xor_(x86::rax, x86::rax); // nil")
             return "^nil"
         
         # Integer
         if ctx.NUMBER():
             value = ctx.NUMBER().getText()
-            self.emit(f"a.mov(x86::eax, {value});")
+            self.emit_mov_eax_imm(value)
+            #self.emit(f"a.mov(x86::eax, {value});")
             return "integer"
         
         # Double
@@ -5961,6 +6657,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             param = self.find_param(name)
             if param:
                 return self.emit_load_param(ctx, name)
+            
+            self_field_type = self.emit_load_self_field(ctx, name)
+            if self_field_type is not None:
+                return self_field_type
             
             const_info = self.find_const(name)
             if const_info:
@@ -6848,12 +7548,21 @@ def main():
         tree    = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
-            return 1
+            raise Exception("source code have syntax errors.")
         
         # -----------------------------------------
-        # 4. generate asmjit c++ code  ...
+        # 4. generate asmjit c++ / nasm code  ...
         # -----------------------------------------
-        generator = AsmJitGenerator(asm_file)
+        backend = None
+        if args.backend == "nasm":
+            backend = NasmBackend()
+        else:
+            backend = AsmJitBackend()
+        
+        if backend is None:
+            raise Exception("could not create backend")
+        
+        generator = AsmJitGenerator(backend, asm_file)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         

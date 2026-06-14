@@ -164,6 +164,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#visibilitySection.
+    def visitVisibilitySection(self, ctx:MiniPascalParser.VisibilitySectionContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#classFunctionDeclaration.
     def visitClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
         return self.visitChildren(ctx)
