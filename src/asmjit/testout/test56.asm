@@ -1,5 +1,5 @@
 ; -----------------------------------------------------------------------------
-; GENERATED WITH PYTHON 3.14 ON: 2026-06-13
+; GENERATED WITH PYTHON 3.14 ON: 2026-06-14
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; all rights reserved.
 ; -----------------------------------------------------------------------------
@@ -42,6 +42,8 @@ extern _jit_out_of_memory_error
 extern _jit_array_bounds_error
 extern _jit_string_range_error
 
+extern _jit_debug_break
+
 extern _jit_ExitProcess
 
 section .data
@@ -64,19 +66,14 @@ record_vars: times 1 db 0
 arrays_vars: times 1 db 0
 pointr_vars: times 1 dq 0
 
-    dbase2many_module_kind    dq 3
-dbase2many_module_kind_program equ 1
-dbase2many_module_kind_unit equ 2
-dbase2many_module_kind_library equ 3
+    dbase2many_module_kind    dq 1
+dbase2many_module_kind_program  equ 1
+dbase2many_module_kind_unit     equ 2
+dbase2many_module_kind_library  equ 3
 
 
 section .text
 global _main
-global _ADD$INTEGER$INTEGER
-global _TEST56$$_$$_TFOO_$$_CREATE
-global _TEST56$$_$$_TFOO_$$_CREATE$ANSISTRING
-global _TEST56$$_$$_TFOO_$$_CREATE$INTEGER$INTEGER
-
 _main:
     jmp         L5
 _ADD$INTEGER$INTEGER:
@@ -181,6 +178,69 @@ skip_class_TFoo_Create_9:
     push        rbx
     sub         rsp, 8
     lea         r12, [rel ctx]
+    mov         rax, _str_4
+    mov         rcx, rax
+    mov         rax, _jit_dynstring_from_cstr
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    push        rax
+    mov         rcx, 0
+    mov         rax, _jit_new_memory
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rcx, rax
+    pop         rdx
+    push        rcx
+    sub         rsp, 32
+    call        class_TFoo_Create_2
+    add         rsp, 32
+    pop         rax
+    mov         r11, qword [r12 + JitContext.pointr_vars]
+    mov         qword [r11], rax
+    mov         rcx, _str_5
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_debug_break
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rcx, _str_6
+    mov         rax, _jit_print_text
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, _jit_print_newline
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    mov         rax, qword [r12 + JitContext.pointr_vars]
+    mov         rax, qword [rax]
+    test        rax, rax
+    jz          class_TFoo_Create_20
+    push        rax
+    mov         rcx, rax
+    sub         rsp, 32
+    call        class_TFoo_Destroy_4
+    add         rsp, 32
+    pop         rcx
+    mov         rax, _jit_dispose_memory
+    sub         rsp, 32
+    call        rax
+    add         rsp, 32
+    xor         rax, rax
+    mov         r11, qword [r12 + JitContext.pointr_vars]
+    mov         qword [r11], rax
+    jmp         class_TFoo_Create_21
+class_TFoo_Create_20:
+class_TFoo_Create_21:
     add         rsp, 8
     pop         rbx
     pop         r12
@@ -195,3 +255,6 @@ _str_0 db "TFoo: Create", 0
 _str_1 db "TFoo: Create(S: String)", 0
 _str_2 db "TFoo: Create(I1, I2: Integer)", 0
 _str_3 db "TFoo: Destroy", 0
+_str_4 db "TFoo: String", 0
+_str_5 db "before break", 0
+_str_6 db "after break", 0

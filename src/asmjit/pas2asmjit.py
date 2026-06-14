@@ -5,6 +5,7 @@
 # ---------------------------------------------------------------------------
 import sys
 import os
+import argparse
 
 from datetime    import datetime
 from dataclasses import dataclass
@@ -46,21 +47,21 @@ COMMENT_REPL = ('-' * 77)
 # ---------------------------------------------------------------------------
 @dataclass
 class EnumInfo:
-    name  : str
-    values: dict[str, int]
+    name        : str
+    values      : dict[str, int]
 
 @dataclass
 class RecordFieldInfo:
-    name  : str
-    type  : str
-    offset: int
-    size  : int
+    name        : str
+    type        : str
+    offset      : int
+    size        : int
 
 @dataclass
 class RecordInfo:
-    name  : str
-    fields: dict[str, RecordFieldInfo]
-    size  : int
+    name        : str
+    fields      : dict[str, RecordFieldInfo]
+    size        : int
 
 @dataclass
 class ArrayInfo:
@@ -106,6 +107,119 @@ class CompileError(Exception):
         self.params = params
         
         super().__init__(code)
+
+# ---------------------------------------------------------------------------
+# console argument parser from overgiven application command arguments ...
+# ---------------------------------------------------------------------------
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description = "Pascal to AsmJit/NASM compiler"
+    )
+    
+    parser.add_argument(
+        "source",
+        help = "Pascal source file (.pas/.pp)"
+    )
+    
+    parser.add_argument(
+        "-o", "--output",
+        default = "testout",
+        help    = "Output directory"
+    )
+    
+    parser.add_argument(
+        "--asm",
+        action  = "store_true",
+        help    = "Generate NASM assembler output"
+    )
+    
+    parser.add_argument(
+        "--dll",
+        action  = "store_true",
+        help    = "Build as DLL"
+    )
+    
+    parser.add_argument(
+        "--exe",
+        action  = "store_true",
+        help    = "Build as EXE"
+    )
+    
+    parser.add_argument(
+        "-D",
+        "--define",
+        action  = "append",
+        default = [],
+        help    = "Define preprocessor symbol, e.g. -D DLL_API"
+    )
+    
+    return parser.parse_args()
+
+# ---------------------------------------------------------------------------
+# the pre-processor class ...
+# ---------------------------------------------------------------------------
+class PascalPreprocessor:
+    def __init__(self):
+        self.defines = set()
+    
+    def process(self, text):
+        lines = text.splitlines()
+        
+        output = []
+        
+        stack = []
+        enabled = True
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            if stripped.lower() == "{$break}":
+                if enabled:
+                    output.append("__debug_break;")
+                continue
+            
+            if stripped.startswith("{$define"):
+                name = stripped[8:-1].strip()
+                self.defines.add(name.upper())
+                continue
+            
+            if stripped.startswith("{$undef"):
+                name = stripped[7:-1].strip()
+                self.defines.discard(name.upper())
+                continue
+            
+            if stripped.startswith("{$ifdef"):
+                name = stripped[7:-1].strip()
+                
+                cond = name.upper() in self.defines
+                
+                stack.append(enabled)
+                enabled = enabled and cond
+                continue
+            
+            if stripped.startswith("{$ifndef"):
+                name = stripped[8:-1].strip()
+                
+                cond = name.upper() not in self.defines
+                
+                stack.append(enabled)
+                enabled = enabled and cond
+                continue
+            
+            if stripped.startswith("{$else"):
+                parent = stack[-1]
+                
+                enabled = parent and not enabled
+                continue
+            
+            if stripped.startswith("{$endif"):
+                enabled = stack.pop()
+                continue
+            
+            if enabled:
+                output.append(line)
+        
+        return "\n".join(output)
 
 # ---------------------------------------------------------------------------
 # the transpiler generator for Pascal->Assembly
@@ -814,6 +928,56 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return "Pointer"
 
         return str(typ)
+
+    def render_asm_export_thunks(self):
+        out  = []
+        seen = set()
+
+        for item in self.exports:
+            mangled = item["mangled"]
+
+            if mangled in seen:
+                continue
+            seen.add(mangled)
+
+            # normale Funktionen sind bereits direkt gemappt:
+            # _ADD$INTEGER$INTEGER:
+            if item.get("kind") == "function":
+                continue
+
+            # Prozeduren später genauso behandeln, wenn sie direkt gemappt sind
+            if item.get("kind") == "procedure":
+                continue
+
+            if item.get("kind") != "class_method":
+                continue
+
+            class_name  = item["class_name"].lower()
+            method_name = item["method_name"].lower()
+
+            cls = self.classes[class_name]
+            overloads = cls.methods[method_name]
+
+            method = self.find_export_method_overload(
+                None,
+                overloads,
+                [
+                    self.resolve_type(p["type"])
+                    for p in item.get("params", [])
+                ]
+            )
+
+            target = method.label
+
+            # Sicherheitsbremse gegen Selbstaufruf
+            if target == mangled:
+                continue
+
+            out.append(f'asm_out << "{mangled}:" << std::endl;')
+            out.append(f'asm_out << "    call {target}" << std::endl;')
+            out.append(f'asm_out << "    ret" << std::endl << std::endl;')
+
+        return "\n    ".join(out)
 
     def render_import_params(self, params):
         if not params:
@@ -1795,6 +1959,60 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         )
 
         self.emit(f"a.bind({ok_label});")
+    
+    def emit_builtin_debug_break(self):
+        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_debug_break));")
+        self.emit_call_rax()
+        return None
+    
+    def emit_builtin_readln(self, ctx):
+        actuals = []
+
+        if ctx.actualParamList():
+            actuals = list(ctx.actualParamList().actualParam())
+
+        if len(actuals) != 1:
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
+
+        ref = self.actual_param_variable_ref(ctx, actuals[0])
+        name = ref.IDENT().getText()
+
+        info = self.find_local_var(name)
+        is_local = info is not None
+
+        if info is None:
+            info = self.var_info(ctx, name)
+
+        typ = self.resolve_type(info["type"])
+
+        if typ == "integer":
+            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_int));")
+            self.emit_call_rax()
+
+            if is_local:
+                self.emit_store_local_var(ctx, name, "integer")
+            else:
+                self.emit_store_var(ctx, name, info)
+
+            return None
+
+        if typ == "string":
+            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_string));")
+            self.emit_call_rax()
+
+            if is_local:
+                self.emit_store_local_var(ctx, name, "string")
+            else:
+                self.emit_store_var(ctx, name, info)
+
+            return None
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=typ,
+            expected="integer/string"
+        )
     
     def emit_builtin_assigned(self, ctx):
         args = self.function_call_args(ctx)
@@ -5980,19 +6198,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key == "setlength":
             return self.emit_builtin_setlength(ctx)
         
+        if key == "readln":
+            return self.emit_builtin_readln(ctx)
+        
+        if key == "__debug_break":
+            return self.emit_builtin_debug_break()
+        
         if key not in self.procedures:
             raise CompileError(ctx, "E0001", name=name)
-
+        
         proc    = self.procedures[key]
         params  = proc["params"]
         actuals = []
-
+        
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
-
+        
         if len(actuals) != len(params):
             raise CompileError(ctx, "E0005", got=str(len(actuals)), expected=str(len(params)))
-
+        
         def emit_push_argument(index):
             arg         = actuals[index]
             formal      = params[index]
@@ -6193,10 +6417,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out = []
 
         for item in self.exports:
-            out.append(f'asm_out << "global {item["mangled"]}\\n";')
+            out.append(f'asm_out << "global {item["mangled"]}" << std::endl;')
 
         if out:
-            out.append('asm_out << "\\n";')
+            out.append('asm_out <<  std::endl;')
 
         return "\n    ".join(out)
     
@@ -6229,16 +6453,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def render_asm_double_symbols(self):
         out = []
         for name, value in self.double_literals:
-            out.append(f'asm_out << "{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}\\n";')
+            out.append(f'asm_out << "{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}" << std::endl;')
         return "\n    ".join(out)
     
     def render_asm_nasm_header(self):
         return f"""
-    asm_out << "; {COMMENT_REPL}\\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: {datetime.now().strftime("%Y-%m-%d")}\\n";
-    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\\n";
-    asm_out << "; all rights reserved.\\n";
-    asm_out << "; {COMMENT_REPL}\\n\\n";
+    asm_out << "; {COMMENT_REPL}" << std::endl;
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: {datetime.now().strftime("%Y-%m-%d")}" << std::endl;
+    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32" << std::endl;
+    asm_out << "; all rights reserved." << std::endl;
+    asm_out << "; {COMMENT_REPL}" << std::endl << std::endl;
     """
     
     def render_asm_nasm_structs(self):
@@ -6263,25 +6487,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         arrays_count,
         pointr_count):
         return f"""
-    asm_out << "\\nsection .data\\n";
-    asm_out << "ctx:\\n";
-    asm_out << "    istruc JitContext\\n";
-    asm_out << "        at JitContext.int_vars,         dq int_vars\\n";
-    asm_out << "        at JitContext.double_vars,      dq double_vars\\n";
-    asm_out << "        at JitContext.string_vars,      dq string_vars\\n";
-    asm_out << "        at JitContext.record_vars,      dq record_vars\\n";
-    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars\\n";
-    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars\\n";
-    asm_out << "        at JitContext.print_int_tmp,    dd 0\\n";
-    asm_out << "        at JitContext.print_double_tmp, dq 0\\n";
+    asm_out << std::endl << "section .data" << std::endl;
+    asm_out << "ctx:" << std::endl;
+    asm_out << "    istruc JitContext" << std::endl;
+    asm_out << "        at JitContext.int_vars,         dq int_vars"    << std::endl;
+    asm_out << "        at JitContext.double_vars,      dq double_vars" << std::endl;
+    asm_out << "        at JitContext.string_vars,      dq string_vars" << std::endl;
+    asm_out << "        at JitContext.record_vars,      dq record_vars" << std::endl;
+    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars" << std::endl;
+    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars" << std::endl;
+    asm_out << "        at JitContext.print_int_tmp,    dd 0" << std::endl;
+    asm_out << "        at JitContext.print_double_tmp, dq 0" << std::endl;
     asm_out << "    iend\\n\\n";
 
-    asm_out << "int_vars:    times {int_count} dd 0\\n";
-    asm_out << "double_vars: times {double_count} dq 0\\n";
-    asm_out << "string_vars: times {string_count} dq 0\\n";
-    asm_out << "record_vars: times {record_count} db 0\\n";
-    asm_out << "arrays_vars: times {arrays_count} db 0\\n";
-    asm_out << "pointr_vars: times {pointr_count} dq 0\\n";
+    asm_out << "int_vars:    times {int_count} dd 0" << std::endl;
+    asm_out << "double_vars: times {double_count} dq 0" << std::endl;
+    asm_out << "string_vars: times {string_count} dq 0" << std::endl;
+    asm_out << "record_vars: times {record_count} db 0" << std::endl;
+    asm_out << "arrays_vars: times {arrays_count} db 0" << std::endl;
+    asm_out << "pointr_vars: times {pointr_count} dq 0" << std::endl;
     """
 
     def render_asm_context_replacements(self):
@@ -6301,10 +6525,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if not self.emit_local_string_data:
             for name, text in self.string_literals:
-                out.append(f'asm_out << "extern _{name}\\n";')
+                out.append(f'asm_out << "extern _{name}"; << std::endl')
 
             if self.string_literals:
-                out.append('asm_out << "\\n";')
+                out.append('asm_out << std::endl;')
 
         func_list = [
             "print_text",
@@ -6331,6 +6555,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "out_of_memory_error",
             "array_bounds_error",
             "string_range_error",
+            "",
+            "debug_break",
             "",
             "ExitProcess"
         ]
@@ -6359,11 +6585,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return ""
 
         out = []
-        out.append('asm_out << "\\nsection .data\\n";')
+        out.append('asm_out << std::endl << "section .data" << std::endl;')
 
         for name, text in self.string_literals:
             escaped = self.cpp_escape(text)
-            out.append(f'asm_out << "_{name} db \\"{escaped}\\", 0\\n";')
+            out.append(f'asm_out << "_{name} db \\"{escaped}\\", 0" << std::endl;')
 
         return "\n    ".join(out)
     
@@ -6478,19 +6704,20 @@ int main() {{
         pointr_count)}
 
     asm_out << std::endl;
-    asm_out << "dbase2many_module_kind dq {self.module_kind_value}\\n";
-    asm_out << "dbase2many_module_kind_program equ 1\\n";
-    asm_out << "dbase2many_module_kind_unit equ 2\\n";
-    asm_out << "dbase2many_module_kind_library equ 3\\n\\n";
+    asm_out << "dbase2many_module_kind dq {self.module_kind_value}" << std::endl;
+    asm_out << "dbase2many_module_kind_program  equ 1" << std::endl;
+    asm_out << "dbase2many_module_kind_unit     equ 2" << std::endl;
+    asm_out << "dbase2many_module_kind_library  equ 3" << std::endl << std::endl;
 
     asm_out << std::endl;
-    asm_out << "section .text\\n";
+    asm_out << "section .text" << std::endl;
     asm_out << "global " << "_{self.func_name}" << std::endl;
     {self.render_asm_exports()}
     asm_out << "_{self.func_name}" << ":" << std::endl;
     
     asm_out << asm_text;
     
+    {self.render_asm_export_thunks()}
     {self.render_asm_string_data()}
     
     std::string final_asm_text = asm_out.str();
@@ -6544,12 +6771,12 @@ int main() {{
 
     def render_variable_output(self):
         out = []
-
+        
         for key, info in sorted(self.vars.items(), key=lambda x: x[1]["slot"]):
             name = info["name"]
             typ  = info["type"]
             slot = info["slot"]
-
+            
             if typ == "integer":
                 out.append(
                     f'    std::cout << "{name} = " << int_vars[{slot}] << std::endl;'
@@ -6558,41 +6785,84 @@ int main() {{
                 out.append(
                     f'    std::cout << "{name} = " << double_vars[{slot}] << std::endl;'
                 )
-
+        
         return "\\n".join(out)
         
     def render_print_output(self):
         return "\n".join(self.cpp_print_lines)
 
+# ---------------------------------------------------------------------------
+# the main definition 
+# ---------------------------------------------------------------------------
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python pascal_to_asmjit.py file.pas", file=sys.stderr)
-        return 1
+    #if len(sys.argv) != 2:
+    #    print("Usage: python pascal_to_asmjit.py file.pas", file=sys.stderr)
+    #    return 1
     
     generator   = None
     source_file = ""
     
     try:
-        source_file = sys.argv[1]
+        # -----------------------------------------
+        # 0. prepare pascal file ...
+        # -----------------------------------------
+        args        = parse_args()
+        source_file = args.source
+        
+        name, ext   = os.path.splitext(source_file)
+        found       = False
+        
+        if ext.lower() in [".pas", ".pp"]:
+            source_file = name + ext
+        else:
+            raise Exception(f"file not found: {source_file}")
+        
         base_name   = os.path.basename(source_file)
         asm_file    = os.path.splitext(base_name)[0] + ".asm"
         
-        stream = FileStream(sys.argv[1], encoding="utf-8")
-        lexer  = MiniPascalLexer(stream)
-        tokens = CommonTokenStream(lexer)
-        parser = MiniPascalParser(tokens)
+        with open(source_file, "r", encoding="utf-8") as f:
+            source = f.read()
+            f.close()
         
-        tree = parser.sourceFile()
+        # -----------------------------------------
+        # 1. pre-process pascal file ...
+        # -----------------------------------------
+        pre     = PascalPreprocessor()
+        
+        for define in args.define:
+            pre.defines.add(define.upper())
+        
+        source  = pre.process(source)
+        stream  = InputStream(source)
+        
+        # -----------------------------------------
+        # 2. lexical analyse pascal file ...
+        # -----------------------------------------
+        lexer   = MiniPascalLexer(stream)
+        tokens  = CommonTokenStream(lexer)
+        
+        # -----------------------------------------
+        # 3. parse pascal file ...
+        # -----------------------------------------
+        parser  = MiniPascalParser(tokens)
+        tree    = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
             return 1
         
+        # -----------------------------------------
+        # 4. generate asmjit c++ code  ...
+        # -----------------------------------------
         generator = AsmJitGenerator(asm_file)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
         cpp = generator.visit(tree)
         generator.write_fpc_import_unit()
+        
+        # -----------------------------------------
+        # 5. finalize: create c++ output file ...
+        # -----------------------------------------
         print(cpp)
         
         return 0
@@ -6600,18 +6870,30 @@ def main():
     except CompileError as e:
         if generator is not None:
             print(generator.format_error(source_file, e), file = sys.stderr)
-            return 2
+            return 3
         else:
             print(e, file = sys.stderr)
-            return 2
-    
+            return 3
+    except FileNotFoundError as e:
+        print(f"Error: File not found '{e.filename}'")
+        print(f"Text : {e.strerror}")
+        print(f"Code : {e.errno}")
+        return 2
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        print(f"Error: {str(e)}")
+        #import traceback
+        #traceback.print_exc()
         return 1
     #except Exception as e:
     #    print(e, file=sys.stderr)
     #    return 1
 
+# ---------------------------------------------------------------------------
+# entry point für start-up the application
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# ---------------------------------------------------------------------------
+# E O F  -  End Of File.
+# ---------------------------------------------------------------------------

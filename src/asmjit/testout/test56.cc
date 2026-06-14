@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-13
+// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: 2026-06-14
 //
 // DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
 // Copyright (c) 2026 by Jens Kallup - paule32
@@ -10,12 +10,15 @@
 using namespace std;
 using namespace asmjit;
 
-static constexpr int DBASE2MANY_MODULE_KIND = 3;
+static constexpr int DBASE2MANY_MODULE_KIND = 1;
 
 static const char str_0[] = "TFoo: Create";
 static const char str_1[] = "TFoo: Create(S: String)";
 static const char str_2[] = "TFoo: Create(I1, I2: Integer)";
 static const char str_3[] = "TFoo: Destroy";
+static const char str_4[] = "TFoo: String";
+static const char str_5[] = "before break";
+static const char str_6[] = "after break";
 
 int main() {
     JitRuntime rt;
@@ -144,6 +147,71 @@ int main() {
     a.push(x86::rbx);
     a.sub(x86::rsp, 8); // align stack
     a.mov (x86::r12, x86::rcx); // ctx
+    a.mov(x86::rax, imm((uint64_t)str_4));
+    a.mov(x86::rcx, x86::rax);
+    a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_from_cstr));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.push(x86::rax); // ctor string arg
+    a.mov(x86::rcx, 0);
+    a.mov(x86::rax, imm((uint64_t)&_jit_new_memory));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, x86::rax); // Self
+    a.pop(x86::rdx); // ctor arg 1
+    a.push(x86::rcx); // save constructor result object
+    a.sub(x86::rsp, 32);
+    a.call(class_TFoo_Create_2);
+    a.add(x86::rsp, 32);
+    a.pop(x86::rax); // constructor result
+    a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
+    a.mov(x86::qword_ptr(x86::r11, 0), x86::rax); // object foo
+    a.mov(x86::rcx, imm((uint64_t)str_5));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_debug_break));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rcx, imm((uint64_t)str_6));
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_text));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
+    a.mov(x86::rax, x86::qword_ptr(x86::rax, 0)); // object foo
+    Label free_nil_11 = a.new_label();
+    Label free_end_12 = a.new_label();
+    a.test(x86::rax, x86::rax);
+    a.jz(free_nil_11);
+    a.push(x86::rax); // save object for dispose
+    a.mov(x86::rcx, x86::rax); // Self
+    a.sub(x86::rsp, 32);
+    a.call(class_TFoo_Destroy_4);
+    a.add(x86::rsp, 32);
+    a.pop(x86::rcx);
+    a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));
+    a.sub(x86::rsp, 32); // Windows x64 shadow space
+    a.call(x86::rax);
+    a.add(x86::rsp, 32);
+    a.xor_(x86::rax, x86::rax);
+    a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));
+    a.mov(x86::qword_ptr(x86::r11, 0), x86::rax); // object foo
+    a.jmp(free_end_12);
+    a.bind(free_nil_11);
+    a.bind(free_end_12);
     a.add(x86::rsp, 8); // undo alignment
     a.pop(x86::rbx);
     a.pop(x86::r12);
@@ -171,6 +239,9 @@ int main() {
     symbols.add(std::to_string((uint64_t)&str_1), "_str_1");
     symbols.add(std::to_string((uint64_t)&str_2), "_str_2");
     symbols.add(std::to_string((uint64_t)&str_3), "_str_3");
+    symbols.add(std::to_string((uint64_t)&str_4), "_str_4");
+    symbols.add(std::to_string((uint64_t)&str_5), "_str_5");
+    symbols.add(std::to_string((uint64_t)&str_6), "_str_6");
     
     _jit_symbols_add(symbols);
     symbols.apply(asm_text);
@@ -187,6 +258,8 @@ int main() {
     labels.add("L8", "skip_class_TFoo_Create_8");
     labels.add("L9", "skip_class_TFoo_Create_9");
     labels.add("L10", "skip_class_TFoo_Destroy_10");
+    labels.add("L11", "free_nil_11");
+    labels.add("L12", "free_end_12");
     labels.apply(asm_text);
 
     replace_all_ptr(asm_text);
@@ -204,11 +277,11 @@ int main() {
     
     
     
-    asm_out << "; -----------------------------------------------------------------------------\n";
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-13\n";
-    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32\n";
-    asm_out << "; all rights reserved.\n";
-    asm_out << "; -----------------------------------------------------------------------------\n\n";
+    asm_out << "; -----------------------------------------------------------------------------" << std::endl;
+    asm_out << "; GENERATED WITH PYTHON 3.14 ON: 2026-06-14" << std::endl;
+    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32" << std::endl;
+    asm_out << "; all rights reserved." << std::endl;
+    asm_out << "; -----------------------------------------------------------------------------" << std::endl << std::endl;
     
     
         asm_out << "struc JitContext\n";
@@ -253,53 +326,55 @@ int main() {
     asm_out << "extern _jit_array_bounds_error" << std::endl;
     asm_out << "extern _jit_string_range_error" << std::endl;
     asm_out << std::endl;
+    asm_out << "extern _jit_debug_break" << std::endl;
+    asm_out << std::endl;
     asm_out << "extern _jit_ExitProcess" << std::endl;
     
     
-    asm_out << "\nsection .data\n";
-    asm_out << "ctx:\n";
-    asm_out << "    istruc JitContext\n";
-    asm_out << "        at JitContext.int_vars,         dq int_vars\n";
-    asm_out << "        at JitContext.double_vars,      dq double_vars\n";
-    asm_out << "        at JitContext.string_vars,      dq string_vars\n";
-    asm_out << "        at JitContext.record_vars,      dq record_vars\n";
-    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars\n";
-    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars\n";
-    asm_out << "        at JitContext.print_int_tmp,    dd 0\n";
-    asm_out << "        at JitContext.print_double_tmp, dq 0\n";
+    asm_out << std::endl << "section .data" << std::endl;
+    asm_out << "ctx:" << std::endl;
+    asm_out << "    istruc JitContext" << std::endl;
+    asm_out << "        at JitContext.int_vars,         dq int_vars"    << std::endl;
+    asm_out << "        at JitContext.double_vars,      dq double_vars" << std::endl;
+    asm_out << "        at JitContext.string_vars,      dq string_vars" << std::endl;
+    asm_out << "        at JitContext.record_vars,      dq record_vars" << std::endl;
+    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars" << std::endl;
+    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars" << std::endl;
+    asm_out << "        at JitContext.print_int_tmp,    dd 0" << std::endl;
+    asm_out << "        at JitContext.print_double_tmp, dq 0" << std::endl;
     asm_out << "    iend\n\n";
 
-    asm_out << "int_vars:    times 1 dd 0\n";
-    asm_out << "double_vars: times 1 dq 0\n";
-    asm_out << "string_vars: times 1 dq 0\n";
-    asm_out << "record_vars: times 1 db 0\n";
-    asm_out << "arrays_vars: times 1 db 0\n";
-    asm_out << "pointr_vars: times 1 dq 0\n";
+    asm_out << "int_vars:    times 1 dd 0" << std::endl;
+    asm_out << "double_vars: times 1 dq 0" << std::endl;
+    asm_out << "string_vars: times 1 dq 0" << std::endl;
+    asm_out << "record_vars: times 1 db 0" << std::endl;
+    asm_out << "arrays_vars: times 1 db 0" << std::endl;
+    asm_out << "pointr_vars: times 1 dq 0" << std::endl;
     
 
     asm_out << std::endl;
-    asm_out << "dbase2many_module_kind dq 3\n";
-    asm_out << "dbase2many_module_kind_program equ 1\n";
-    asm_out << "dbase2many_module_kind_unit equ 2\n";
-    asm_out << "dbase2many_module_kind_library equ 3\n\n";
+    asm_out << "dbase2many_module_kind dq 1" << std::endl;
+    asm_out << "dbase2many_module_kind_program  equ 1" << std::endl;
+    asm_out << "dbase2many_module_kind_unit     equ 2" << std::endl;
+    asm_out << "dbase2many_module_kind_library  equ 3" << std::endl << std::endl;
 
     asm_out << std::endl;
-    asm_out << "section .text\n";
+    asm_out << "section .text" << std::endl;
     asm_out << "global " << "_main" << std::endl;
-    asm_out << "global _ADD$INTEGER$INTEGER\n";
-    asm_out << "global _TEST56$$_$$_TFOO_$$_CREATE\n";
-    asm_out << "global _TEST56$$_$$_TFOO_$$_CREATE$ANSISTRING\n";
-    asm_out << "global _TEST56$$_$$_TFOO_$$_CREATE$INTEGER$INTEGER\n";
-    asm_out << "\n";
+    
     asm_out << "_main" << ":" << std::endl;
     
     asm_out << asm_text;
     
-    asm_out << "\nsection .data\n";
-    asm_out << "_str_0 db \"TFoo: Create\", 0\n";
-    asm_out << "_str_1 db \"TFoo: Create(S: String)\", 0\n";
-    asm_out << "_str_2 db \"TFoo: Create(I1, I2: Integer)\", 0\n";
-    asm_out << "_str_3 db \"TFoo: Destroy\", 0\n";
+    
+    asm_out << std::endl << "section .data" << std::endl;
+    asm_out << "_str_0 db \"TFoo: Create\", 0" << std::endl;
+    asm_out << "_str_1 db \"TFoo: Create(S: String)\", 0" << std::endl;
+    asm_out << "_str_2 db \"TFoo: Create(I1, I2: Integer)\", 0" << std::endl;
+    asm_out << "_str_3 db \"TFoo: Destroy\", 0" << std::endl;
+    asm_out << "_str_4 db \"TFoo: String\", 0" << std::endl;
+    asm_out << "_str_5 db \"before break\", 0" << std::endl;
+    asm_out << "_str_6 db \"after break\", 0" << std::endl;
     
     std::string final_asm_text = asm_out.str();
 

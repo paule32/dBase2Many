@@ -3,8 +3,13 @@
 // Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
+{$define DLL_API2}
 
+{$ifdef DLL_API}
 library test56;
+{$else}
+program test56;
+{$endif}
 
 type
     TFoo = class
@@ -40,12 +45,31 @@ begin
     WriteLn('TFoo: Destroy');
 end;
 
+{$ifdef DLL_API}
 exports
     Add(Integer, Integer),
     TFoo.Create(),
     TFoo.Create(String),
     TFoo.Create(Integer, Integer)
     ;
+{$endif}
+
+{$ifndef DLL_API}
+var
+    foo: TFoo;
+{$endif}
 
 begin
+
+{$ifndef DLL_API}
+    try
+        foo := TFoo.Create('TFoo: String');
+        WriteLn('before break');
+        {$break}
+        WriteLn('after break');
+    finally
+        foo.Free;
+    end;
+{$endif}
+
 end.

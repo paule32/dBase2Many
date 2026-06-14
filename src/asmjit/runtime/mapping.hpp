@@ -58,6 +58,7 @@ public:
     void add(
         const  std::string& addressText,
         const  std::string& symbolName);
+        
     void apply(std::string& asm_text);
 };
 

@@ -112,5 +112,10 @@ _jit_symbols_add(SymbolMappings& symbols)
     symbols.add(std::to_string((uint64_t)&_jit_nil_pointer_error), "_jit_nil_pointer_error");
     symbols.add(std::to_string((uint64_t)&_jit_out_of_memory_error), "_jit_out_of_memory_error");
     
+    symbols.add(std::to_string((uint64_t)&_jit_read_int), "_jit_read_int");
+    symbols.add(std::to_string((uint64_t)&_jit_read_string), "_jit_read_string");
+    
+    symbols.add(std::to_string((uint64_t)&_jit_debug_break), "_jit_debug_break");
+    
     symbols.add(std::to_string((uint64_t)&_jit_ExitProcess), "_jit_ExitProcess");
 }

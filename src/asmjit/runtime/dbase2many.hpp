@@ -163,8 +163,12 @@ DLL_API int      _jit_dynstring_length(const char * data);
 DLL_API char *   _jit_dynstring_concat(const char* left, const char* right);
 DLL_API char *   _jit_dynstring_from_cstr(const char* text);
 
+DLL_API int32_t  _jit_read_int();
+DLL_API char *   _jit_read_string();
+
 DLL_API void     _jit_symbols_add(SymbolMappings& symbols);
 
+DLL_API void     _jit_debug_break();
 DLL_API uint64_t _double_to_bits(double value);    
 
 // ---------------------------------------------------------------------------

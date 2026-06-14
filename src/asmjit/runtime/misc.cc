@@ -176,6 +176,26 @@ write_formatted_asm_file(
     }
 }
 
+DLL_API int32_t _jit_read_int() {
+    int32_t v;
+    std::cin >> v;
+    return v;
+}
+
+DLL_API char* _jit_read_string() {
+    std::string s;
+    std::getline(std::cin, s);
+
+    char* mem = (char*)malloc(s.size() + 1);
+    memcpy(mem, s.c_str(), s.size() + 1);
+    return mem;
+}
+
+DLL_API void _jit_debug_break() {
+    std::cout << "[BREAK] Press ENTER..." << std::endl;
+    std::cin.get();
+}
+
 DLL_API bool
 replace_all_str_c(
     const char* asm_text,

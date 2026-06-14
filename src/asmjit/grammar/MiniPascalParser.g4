@@ -31,6 +31,10 @@ libraryFile
       DOT
     ;
 
+compilerDirective
+    : COMPILER_DIRECTIVE
+    ;
+
 exportsClause
     : EXPORTS exportItem (COMMA exportItem)* SEMI
     ;

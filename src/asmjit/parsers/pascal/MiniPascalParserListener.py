@@ -44,6 +44,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#compilerDirective.
+    def enterCompilerDirective(self, ctx:MiniPascalParser.CompilerDirectiveContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#compilerDirective.
+    def exitCompilerDirective(self, ctx:MiniPascalParser.CompilerDirectiveContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#exportsClause.
     def enterExportsClause(self, ctx:MiniPascalParser.ExportsClauseContext):
         pass

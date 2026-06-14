@@ -29,6 +29,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#compilerDirective.
+    def visitCompilerDirective(self, ctx:MiniPascalParser.CompilerDirectiveContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#exportsClause.
     def visitExportsClause(self, ctx:MiniPascalParser.ExportsClauseContext):
         return self.visitChildren(ctx)

@@ -4,7 +4,7 @@
 :: all rights reserved.
 :: ----------------------------------------------------------------------------
 mkdir obj
-g++ -O2 -m64 -std=c++20 -shared -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -x c++-header dbase2many.hpp -o dbase2many.hpp.gch
+::g++ -O2 -m64 -std=c++20 -shared -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -x c++-header dbase2many.hpp -o dbase2many.hpp.gch
 
 g++ -O2 -m64 -std=c++20 -shared -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/error.o   error.cc
 g++ -O2 -m64 -std=c++20 -shared -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o obj/print.o   print.cc
