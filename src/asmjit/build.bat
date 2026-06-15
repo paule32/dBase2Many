@@ -13,8 +13,8 @@ set ANTLR_VERSION=4.13.2
 
 echo create: Lexer + Parser
 
-antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal grammar/MiniPascalLexer.g4
-antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal -visitor -lib parsers/pascal grammar/MiniPascalParser.g4
+::antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal grammar/MiniPascalLexer.g4
+::antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal -visitor -lib parsers/pascal grammar/MiniPascalParser.g4
 
 :: rm -rf testout
 rm debug.log
@@ -29,12 +29,14 @@ python -m compileall pas2asmjit.py
 ::for /L %%N in (2,1,50) do (
 for %%N in (56) do (
     echo create: test%%N.exe
-    python pas2asmjit.py testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
-    g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 ^
-        -LT:/GitHub/asmjit/build-dll -Lruntime ^
-        -o  testout/test%%N.exe testout/test%%N.cc -ldbase2many.dll -lasmjit
-    strip   testout/test%%N.exe
+    python pas2asmjit.py --backend nasm testsrc/test%%N.pas 1> testout/test%%N.cc 2>> debug.log
+    echo done
 )
+    ::g++ -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -I. -m64 -mconsole -O2 ^
+    ::    -LT:/GitHub/asmjit/build-dll -Lruntime ^
+    ::    -o  testout/test%%N.exe testout/test%%N.cc -ldbase2many.dll -lasmjit
+    ::strip   testout/test%%N.exe
+goto ok
 echo create: batch files
 for /L %%N in (2,1,54) do (
     echo ^:^: ------------------------------------------------------------ > testout/run_test%%N.bat

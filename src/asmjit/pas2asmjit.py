@@ -7,13 +7,27 @@ import sys
 import os
 import argparse
 
-from datetime    import datetime
+from os          import linesep   as NL
+from datetime    import datetime  as dt
 from dataclasses import dataclass
 from antlr4      import *
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
 from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
+
+# ---------------------------------------------------------------------------
+# we support the following backend's:
+# - nasm
+# - asmjit
+# ---------------------------------------------------------------------------
+BACKEND_ASMJIT  = "asmjit"
+BACKEND_NASM    = "nasm"
+BACKEND         = ""
+
+@dataclass
+class CommonData:
+    BACKEND     : str = BACKEND_ASMJIT
 
 # ---------------------------------------------------------------------------
 # used error code to information text map ...
@@ -170,8 +184,10 @@ def parse_args():
 # - nasm   for NASM Assembly Code
 # ---------------------------------------------------------------------------
 class CodeBackend:
-    def __init__(self):
+    def __init__(self, name:str="asmjit"):
         self.lines = []
+        self.name  = name
+        CommonData.BACKEND = name
 
     def emit(self, line):
         self.lines.append("    " + line)
@@ -179,423 +195,145 @@ class CodeBackend:
     def get_lines(self):
         return self.lines
     
-    def mov_eax_imm(self, value):
+    def emit_add(self, reg, value, comment=""): raise NotImplementedError
+        
+    def emit_cmp_val(self, dst, value, comment=""): raise NotImplementedError
+    def emit_mov_imm(self, dst, value, comment=""): raise NotImplementedError
+    
+    def emit_mov  (self, dst, src, comment=""): raise NotImplementedError
+    def emit_movzx(self, dst, src, comment=""): raise NotImplementedError
+    
+    def emit_xor(self, dst, src, comment=""): raise NotImplementedError
+    
+    def emit_push(self, reg, comment=""): raise NotImplementedError
+    def emit_pop (self, reg, comment=""): raise NotImplementedError
+    
+    def emit_sub  (self, reg, value, comment=""): raise NotImplementedError
+    def emit_setne(self, reg, comment=""): raise NotImplementedError
+    
+    def emit_call(self, target, comment=""):
         raise NotImplementedError
     
-    def mov_eax_imm(self, value): raise NotImplementedError
-    def mov_ebx_imm(self, value): raise NotImplementedError
-    def mov_acx_imm(self, value): raise NotImplementedError
-    def mov_edx_imm(self, value): raise NotImplementedError
-    
-    def mov_rax_imm(self, value): raise NotImplementedError
-    def mov_rbx_imm(self, value): raise NotImplementedError
-    def mov_rcx_imm(self, value): raise NotImplementedError
-    def mov_rdx_imm(self, value): raise NotImplementedError
-    
-    
-    def xor_al_al(self): raise NotImplementedError
-    def xor_al_bl(self): raise NotImplementedError
-    def xor_al_cl(self): raise NotImplementedError
-    def xor_al_dl(self): raise NotImplementedError
-    # ---
-    def xor_bl_al(self): raise NotImplementedError
-    def xor_bl_bl(self): raise NotImplementedError
-    def xor_bl_cl(self): raise NotImplementedError
-    def xor_bl_dl(self): raise NotImplementedError
-    # ---
-    def xor_cl_al(self): raise NotImplementedError
-    def xor_cl_bl(self): raise NotImplementedError
-    def xor_cl_cl(self): raise NotImplementedError
-    def xor_cl_dl(self): raise NotImplementedError
-    # ---
-    def xor_dl_al(self): raise NotImplementedError
-    def xor_dl_bl(self): raise NotImplementedError
-    def xor_dl_cl(self): raise NotImplementedError
-    def xor_dl_dl(self): raise NotImplementedError
-    
-    
-    def xor_ah_ah(self): raise NotImplementedError
-    def xor_ah_bh(self): raise NotImplementedError
-    def xor_ah_ch(self): raise NotImplementedError
-    def xor_ah_dh(self): raise NotImplementedError
-    # ---
-    def xor_bh_ah(self): raise NotImplementedError
-    def xor_bh_bh(self): raise NotImplementedError
-    def xor_bh_ch(self): raise NotImplementedError
-    def xor_bh_dh(self): raise NotImplementedError
-    # ---
-    def xor_ch_ah(self): raise NotImplementedError
-    def xor_ch_bh(self): raise NotImplementedError
-    def xor_ch_ch(self): raise NotImplementedError
-    def xor_ch_dh(self): raise NotImplementedError
-    # ---
-    def xor_dh_ah(self): raise NotImplementedError
-    def xor_dh_bh(self): raise NotImplementedError
-    def xor_dh_ch(self): raise NotImplementedError
-    def xor_dh_dh(self): raise NotImplementedError
-    # ---
-
-    def xor_ebx_eax(self): raise NotImplementedError
-    def xor_ebx_ebx(self): raise NotImplementedError
-    def xor_ebx_ecx(self): raise NotImplementedError
-    def xor_ebx_edx(self): raise NotImplementedError
-    # ---
-    def xor_ecx_eax(self): raise NotImplementedError
-    def xor_ecx_ebx(self): raise NotImplementedError
-    def xor_ecx_ecx(self): raise NotImplementedError
-    def xor_ecx_edx(self): raise NotImplementedError
-    # ---
-    def xor_edx_eax(self): raise NotImplementedError
-    def xor_edx_ebx(self): raise NotImplementedError
-    def xor_edx_ecx(self): raise NotImplementedError
-    def xor_edx_edx(self): raise NotImplementedError
-    
-    
-    def xor_ax_ax(self): raise NotImplementedError
-    def xor_ax_bx(self): raise NotImplementedError
-    def xor_ax_cx(self): raise NotImplementedError
-    def xor_ax_dx(self): raise NotImplementedError
-    # ---
-    def xor_bx_ax(self): raise NotImplementedError
-    def xor_bx_bx(self): raise NotImplementedError
-    def xor_bx_cx(self): raise NotImplementedError
-    def xor_bx_dx(self): raise NotImplementedError
-    # ---
-    def xor_cx_ax(self): raise NotImplementedError
-    def xor_cx_bx(self): raise NotImplementedError
-    def xor_cx_cx(self): raise NotImplementedError
-    def xor_cx_dx(self): raise NotImplementedError
-    # ---
-    def xor_dx_ax(self): raise NotImplementedError
-    def xor_dx_bx(self): raise NotImplementedError
-    def xor_dx_cx(self): raise NotImplementedError
-    def xor_dx_dx(self): raise NotImplementedError
-    
-    
-    def xor_eax_eax(self): raise NotImplementedError
-    def xor_eax_ebx(self): raise NotImplementedError
-    def xor_eax_ecx(self): raise NotImplementedError
-    def xor_eax_edx(self): raise NotImplementedError
-    # ---
-    def xor_ebx_eax(self): raise NotImplementedError
-    def xor_ebx_ebx(self): raise NotImplementedError
-    def xor_ebx_ecx(self): raise NotImplementedError
-    def xor_ebx_edx(self): raise NotImplementedError
-    # ---
-    def xor_ecx_eax(self): raise NotImplementedError
-    def xor_ecx_ebx(self): raise NotImplementedError
-    def xor_ecx_ecx(self): raise NotImplementedError
-    def xor_ecx_edx(self): raise NotImplementedError
-    # ---
-    def xor_edx_eax(self): raise NotImplementedError
-    def xor_edx_ebx(self): raise NotImplementedError
-    def xor_edx_ecx(self): raise NotImplementedError
-    def xor_edx_edx(self): raise NotImplementedError
-    
-    def xor_rax_rax(self): raise NotImplementedError
-    def xor_rax_rbx(self): raise NotImplementedError
-    def xor_rax_rcx(self): raise NotImplementedError
-    def xor_rax_rdx(self): raise NotImplementedError
-    # ---
-    def xor_rbx_rax(self): raise NotImplementedError
-    def xor_rbx_rbx(self): raise NotImplementedError
-    def xor_rbx_rcx(self): raise NotImplementedError
-    def xor_rbx_rdx(self): raise NotImplementedError
-    # ---
-    def xor_rcx_rax(self): raise NotImplementedError
-    def xor_rcx_rbx(self): raise NotImplementedError
-    def xor_rcx_rcx(self): raise NotImplementedError
-    def xor_rcx_rdx(self): raise NotImplementedError
-    # ---
-    def xor_rdx_rax(self): raise NotImplementedError
-    def xor_rdx_rbx(self): raise NotImplementedError
-    def xor_rdx_rcx(self): raise NotImplementedError
-    def xor_rdx_rdx(self): raise NotImplementedError
-    
-    def push(self, reg):
+    def emit_ret(self, comment=""):
         raise NotImplementedError
     
-    def pop(self, reg):
+    def emit_jmp(self, label, comment=""):
         raise NotImplementedError
     
-    def call(self, target):
+    def emit_bind_label(self, label, comment=""):
         raise NotImplementedError
     
-    def ret(self):
-        raise NotImplementedError
-    
-    def jmp(self, label):
-        raise NotImplementedError
-    
-    def bind_label(self, label):
-        raise NotImplementedError
-
 # ---------------------------------------------------------------------------
 # AsmJit backend ...
 # ---------------------------------------------------------------------------
 class AsmJitBackend(CodeBackend):
-    # ---
-    def mov_eax_ebx(self): self.emit("a.mov(x86::eax, x86::ebx);")
-    def mov_eax_ecx(self): self.emit("a.mov(x86::eax, x86::ecx);")
-    def mov_eax_edx(self): self.emit("a.mov(x86::eax, x86::edx);")
-    # ---
-    def mov_ebx_eax(self): self.emit("a.mov(x86::ebx, x86::eax);")
-    def mov_ebx_ecx(self): self.emit("a.mov(x86::ebx, x86::ecx);")
-    def mov_ebx_edx(self): self.emit("a.mov(x86::ebx, x86::edx);")
-    # ---
-    def mov_ecx_eax(self): self.emit("a.mov(x86::ecx, x86::eax);")
-    def mov_ecx_ebx(self): self.emit("a.mov(x86::ecx, x86::ebx);")
-    def mov_ecx_edx(self): self.emit("a.mov(x86::ecx, x86::edx);")
-    # ---
-    def mov_edx_eax(self): self.emit("a.mov(x86::edx, x86::eax);")
-    def mov_edx_ebx(self): self.emit("a.mov(x86::edx, x86::ebx);")
-    def mov_edx_ecx(self): self.emit("a.mov(x86::edx, x86::ecx);")
+    def __init__(self, name="asmjit"):
+        super().__init__(name)
     
-    # ---
-    def mov_eax_imm(self, value): self.emit(f"a.mov(x86::eax, {value});")
-    def mov_ebx_imm(self, value): self.emit(f"a.mov(x86::ebx, {value});")
-    def mov_ecx_imm(self, value): self.emit(f"a.mov(x86::ecx, {value});")
-    def mov_edx_imm(self, value): self.emit(f"a.mov(x86::edx, {value});")
-    # ---
-    def mov_rax_imm(self, value): self.emit(f"a.mov(x86::rax, imm((uint64_t){value}));")
-    def mov_rbx_imm(self, value): self.emit(f"a.mov(x86::rbx, imm((uint64_t){value}));")
-    def mov_rcx_imm(self, value): self.emit(f"a.mov(x86::rcx, imm((uint64_t){value}));")
-    def mov_rdx_imm(self, value): self.emit(f"a.mov(x86::rdx, imm((uint64_t){value}));")
+    def emit_add(self, reg, value, comment=""):
+        self.emit(f"a.add(x86::{reg}, {value});{self.make_comment(comment)}")
     
+    def emit_cmp_val(self, dst, value, comment=""):
+        self.emit(f"a.cmp(x86::{dst}, {value});{self.make_comment(comment)}")
+        
+    def emit_mov_imm(self, dst, value, comment=""):
+        self.emit(f"a.mov(x86::{dst}, imm((uint64_t)&{value}));{self.make_comment(comment)}")
     
-    def xor_al_al(self): self.emit("a.xor_(x86::al, x86::al);")
-    def xor_al_bl(self): self.emit("a.xor_(x86::al, x86::bl);")
-    def xor_al_cl(self): self.emit("a.xor_(x86::al, x86::cl);")
-    def xor_al_dl(self): self.emit("a.xor_(x86::al, x86::dl);")
-    # ---
-    def xor_bl_al(self): self.emit("a.xor_(x86::bl, x86::al);")
-    def xor_bl_bl(self): self.emit("a.xor_(x86::bl, x86::bl);")
-    def xor_bl_cl(self): self.emit("a.xor_(x86::bl, x86::cl);")
-    def xor_bl_dl(self): self.emit("a.xor_(x86::bl, x86::dl);")
-    # ---
-    def xor_cl_al(self): self.emit("a.xor_(x86::cl, x86::al);")
-    def xor_cl_bl(self): self.emit("a.xor_(x86::cl, x86::bl);")
-    def xor_cl_cl(self): self.emit("a.xor_(x86::cl, x86::cl);")
-    def xor_cl_dl(self): self.emit("a.xor_(x86::cl, x86::dl);")
-    # ---
-    def xor_dl_al(self): self.emit("a.xor_(x86::dl, x86::al);")
-    def xor_dl_bl(self): self.emit("a.xor_(x86::dl, x86::bl);")
-    def xor_dl_cl(self): self.emit("a.xor_(x86::dl, x86::cl);")
-    def xor_dl_dl(self): self.emit("a.xor_(x86::dl, x86::dl);")
+    def emit_mov  (self, dst , src , comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+        
+    def emit_movzx(self, reg1, reg2, comment=""):
+        self.emit(f"a.movzx(x86::{reg1}, x86::{reg2});{self.make_comment(comment)}")
     
+    def emit_xor(self, dst, src, comment=""):
+        self.emit(f"a.xor_(x86::{dst}, x86::{src});{self.make_comment(comment)}")
     
-    def xor_ah_ah(self): self.emit("a.xor_(x86::ah, x86::ah);")
-    def xor_ah_bh(self): self.emit("a.xor_(x86::ah, x86::bh);")
-    def xor_ah_ch(self): self.emit("a.xor_(x86::ah, x86::ch);")
-    def xor_ah_dh(self): self.emit("a.xor_(x86::ah, x86::dh);")
-    # ---
-    def xor_bh_ah(self): self.emit("a.xor_(x86::ah, x86::ah);")
-    def xor_bh_bh(self): self.emit("a.xor_(x86::bh, x86::bh);")
-    def xor_bh_ch(self): self.emit("a.xor_(x86::bh, x86::ch);")
-    def xor_bh_dh(self): self.emit("a.xor_(x86::bh, x86::dh);")
-    # ---
-    def xor_ch_ah(self): self.emit("a.xor_(x86::ch, x86::ah);")
-    def xor_ch_bh(self): self.emit("a.xor_(x86::ch, x86::bh);")
-    def xor_ch_ch(self): self.emit("a.xor_(x86::ch, x86::ch);")
-    def xor_ch_dh(self): self.emit("a.xor_(x86::ch, x86::dh);")
-    # ---
-    def xor_dh_ah(self): self.emit("a.xor_(x86::dh, x86::ah);")
-    def xor_dh_bh(self): self.emit("a.xor_(x86::dh, x86::bh);")
-    def xor_dh_ch(self): self.emit("a.xor_(x86::dh, x86::ch);")
-    def xor_dh_dh(self): self.emit("a.xor_(x86::dh, x86::dh);")
-    # ---
+    def emit_push(self, reg, comment=""):
+        self.emit(f"a.push(x86::{reg});{self.make_comment(comment)}")
+        
+    def emit_pop(self, reg, comment=""):
+        self.emit(f"a.pop(x86::{reg});{self.make_comment(comment)}")
     
+    def emit_sub(self, reg, value, comment=""):
+        self.emit(f"a.sub(x86::{reg}, {value});{self.make_comment(comment)}")
     
-    def xor_eax_eax(self): self.emit("a.xor_(x86::eax, x86::eax);")
-    def xor_eax_ebx(self): self.emit("a.xor_(x86::eax, x86::ebx);")
-    def xor_eax_ecx(self): self.emit("a.xor_(x86::eax, x86::ecx);")
-    def xor_eax_edx(self): self.emit("a.xor_(x86::eax, x86::edx);")
-    # ---
-    def xor_ebx_eax(self): self.emit("a.xor_(x86::ebx, x86::eax);")
-    def xor_ebx_ebx(self): self.emit("a.xor_(x86::ebx, x86::ebx);")
-    def xor_ebx_ecx(self): self.emit("a.xor_(x86::ebx, x86::ecx);")
-    def xor_ebx_edx(self): self.emit("a.xor_(x86::ebx, x86::edx);")
-    # ---
-    def xor_ecx_eax(self): self.emit("a.xor_(x86::ecx, x86::eax);")
-    def xor_ecx_ebx(self): self.emit("a.xor_(x86::ecx, x86::ebx);")
-    def xor_ecx_ecx(self): self.emit("a.xor_(x86::ecx, x86::ecx);")
-    def xor_ecx_edx(self): self.emit("a.xor_(x86::ecx, x86::edx);")
-    # ---
-    def xor_edx_eax(self): self.emit("a.xor_(x86::edx, x86::eax);")
-    def xor_edx_ebx(self): self.emit("a.xor_(x86::edx, x86::ebx);")
-    def xor_edx_ecx(self): self.emit("a.xor_(x86::edx, x86::ecx);")
-    def xor_edx_edx(self): self.emit("a.xor_(x86::edx, x86::edx);")
-    
-    def xor_rax_rax(self): self.emit("a.xor_(x86::rax, x86::rax);")
-    def xor_rax_rbx(self): self.emit("a.xor_(x86::rax, x86::rbx);")
-    def xor_rax_rcx(self): self.emit("a.xor_(x86::rax, x86::rcx);")
-    def xor_rax_rdx(self): self.emit("a.xor_(x86::rax, x86::rdx);")
-    # ---
-    def xor_rbx_rax(self): self.emit("a.xor_(x86::rbx, x86::rax);")
-    def xor_rbx_rbx(self): self.emit("a.xor_(x86::rbx, x86::rbx);")
-    def xor_rbx_rcx(self): self.emit("a.xor_(x86::rbx, x86::rcx);")
-    def xor_rbx_rdx(self): self.emit("a.xor_(x86::rbx, x86::rdx);")
-    # ---
-    def xor_rcx_rax(self): self.emit("a.xor_(x86::rcx, x86::rax);")
-    def xor_rcx_rbx(self): self.emit("a.xor_(x86::rcx, x86::rbx);")
-    def xor_rcx_rcx(self): self.emit("a.xor_(x86::rcx, x86::rcx);")
-    def xor_rcx_rdx(self): self.emit("a.xor_(x86::rcx, x86::rdx);")
-    # ---
-    def xor_rdx_rax(self): self.emit("a.xor_(x86::rdx, x86::rax);")
-    def xor_rdx_rbx(self): self.emit("a.xor_(x86::rdx, x86::rbx);")
-    def xor_rdx_rcx(self): self.emit("a.xor_(x86::rdx, x86::rcx);")
-    def xor_rdx_rdx(self): self.emit("a.xor_(x86::rdx, x86::rdx);")
+    def emit_setne(self, reg, comment=""):
+        self.emit("a.setne(x86::{reg});{self.make_comment(comment)}")
 
-    def push(self, reg):
-        self.emit(f"a.push(x86::{reg});")
+    def emit_call(self, target, comment=""):
+        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
+        self.emit(f"a.call(x86::{target});")
+        self.emit_add("rsp", 32, comment)
+    
+    def emit_ret(self, comment=""):
+        self.emit("a.ret();{self.make_comment(comment)}")
 
-    def pop(self, reg):
-        self.emit(f"a.pop(x86::{reg});")
+    def emit_jmp(self, label, comment=""):
+        self.emit(f"a.jmp({label});{self.make_comment(comment)}")
 
-    def call(self, target):
-        self.emit(f"a.call({target});")
+    def emit_bind_label(self, label, comment=""):
+        self.emit(f"a.bind({label});{self.make_comment(comment)}")
 
-    def ret(self):
-        self.emit("a.ret();")
-
-    def jmp(self, label):
-        self.emit(f"a.jmp({label});")
-
-    def bind_label(self, label):
-        self.emit(f"a.bind({label});")
+    def make_comment(self, comment):
+        if comment:
+            return f"  // {comment}"
+        return f""
 
 # ---------------------------------------------------------------------------
 # NASM backend ...
 # ---------------------------------------------------------------------------
 class NasmBackend(CodeBackend):
-    # ---
-    def mov_eax_ebx(self): self.emit("mov eax, ebx")
-    def mov_eax_ecx(self): self.emit("mov eax, ecx")
-    def mov_eax_edx(self): self.emit("mov eax, edx")
-    # ---
-    def mov_ebx_eax(self): self.emit("mov ebx, eax")
-    def mov_ebx_ecx(self): self.emit("mov ebx, ecx")
-    def mov_ebx_edx(self): self.emit("mov ebx, edx")
-    # ---
-    def mov_ecx_eax(self): self.emit("mov ecx, eax")
-    def mov_ecx_ebx(self): self.emit("mov ecx, ebx")
-    def mov_ecx_edx(self): self.emit("mov ecx, edx")
-    # ---
-    def mov_edx_eax(self): self.emit("mov edx, eax")
-    def mov_edx_ebx(self): self.emit("mov edx, ebx")
-    def mov_edx_ecx(self): self.emit("mov edx, ecx")
-    # ---
+    def __init__(self, name:str="nasm"):
+        super().__init__(name)
     
-    def mov_eax_imm(self, value): self.emit(f"mov eax, {value}")
-    def mov_ebx_imm(self, value): self.emit(f"mov ebx, {value}")
-    def mov_ecx_imm(self, value): self.emit(f"mov ecx, {value}")
-    def mov_edx_imm(self, value): self.emit(f"mov edx, {value}")
-    # ---
-    def mov_rax_imm(self, value): self.emit(f"mov rax, {value}")
-    def mov_rbx_imm(self, value): self.emit(f"mov rbx, {value}")
-    def mov_rcx_imm(self, value): self.emit(f"mov rcx, {value}")
-    def mov_rdx_imm(self, value): self.emit(f"mov rdx, {value}")
-
-
-    def xor_al_al(self): self.emit("xor al, al")
-    def xor_al_bl(self): self.emit("xor al, bl")
-    def xor_al_cl(self): self.emit("xor al, cl")
-    def xor_al_dl(self): self.emit("xor al, dl")
-    # ---
-    def xor_bl_al(self): self.emit("xor bl, al")
-    def xor_bl_bl(self): self.emit("xor bl, bl")
-    def xor_bl_cl(self): self.emit("xor bl, cl")
-    def xor_bl_dl(self): self.emit("xor bl, dl")
-    # ---
-    def xor_cl_al(self): self.emit("xor cl, al")
-    def xor_cl_bl(self): self.emit("xor cl, bl")
-    def xor_cl_cl(self): self.emit("xor cl, cl")
-    def xor_cl_dl(self): self.emit("xor cl, dl")
-    # ---
-    def xor_dl_al(self): self.emit("xor dl, al")
-    def xor_dl_bl(self): self.emit("xor dl, bl")
-    def xor_dl_cl(self): self.emit("xor dl, cl")
-    def xor_dl_dl(self): self.emit("xor dl, dl")
+    def emit_add(self, reg, value, comment=""):
+        self.emit(f"add {reg}, {value}{self.make_comment(comment)}")
     
+    def emit_cmp_val(self, dst, value, comment=""):
+        self.emit(f"cmp {dst}, {value}{self.make_comment(comment)}")
     
-    def xor_ah_ah(self): self.emit("xor ah, ah")
-    def xor_ah_bh(self): self.emit("xor ah, bh")
-    def xor_ah_ch(self): self.emit("xor ah, ch")
-    def xor_ah_dh(self): self.emit("xor ah, dh")
-    # ---
-    def xor_bh_ah(self): self.emit("xor ah, ah")
-    def xor_bh_bh(self): self.emit("xor bh, bh")
-    def xor_bh_ch(self): self.emit("xor bh, ch")
-    def xor_bh_dh(self): self.emit("xor bh, dh")
-    # ---
-    def xor_ch_ah(self): self.emit("xor ch, ah")
-    def xor_ch_bh(self): self.emit("xor ch, bh")
-    def xor_ch_ch(self): self.emit("xor ch, ch")
-    def xor_ch_dh(self): self.emit("xor ch, dh")
-    # ---
-    def xor_dh_ah(self): self.emit("xor dh, ah")
-    def xor_dh_bh(self): self.emit("xor dh, bh")
-    def xor_dh_ch(self): self.emit("xor dh, ch")
-    def xor_dh_dh(self): self.emit("xor dh, dh")
-
+    def emit_mov    (self, dst, src, comment=""):
+        self.emit(f"mov {dst}, {src}{self.make_comment(comment)}")
+        
+    def emit_mov_imm(self, dst, src, comment=""):
+        self.emit(f"mov {dst}, {src}{self.make_comment(comment)}")
+        
+    def emit_movzx  (self, dst, src, comment=""):
+        self.emit(f"movzx {dst}, {src}{self.make_comment(comment)}")
     
-    def xor_eax_eax(self): self.emit("xor eax, eax);")
-    def xor_eax_ebx(self): self.emit("xor eax, ebx);")
-    def xor_eax_ecx(self): self.emit("xor eax, ecx);")
-    def xor_eax_edx(self): self.emit("xor eax, edx);")
-    # ---
-    def xor_ebx_eax(self): self.emit("xor ebx, eax);")
-    def xor_ebx_ebx(self): self.emit("xor ebx, ebx);")
-    def xor_ebx_ecx(self): self.emit("xor ebx, ecx);")
-    def xor_ebx_edx(self): self.emit("xor ebx, edx);")
-    # ---
-    def xor_ecx_eax(self): self.emit("xor ecx, eax);")
-    def xor_ecx_ebx(self): self.emit("xor ecx, ebx);")
-    def xor_ecx_ecx(self): self.emit("xor ecx, ecx);")
-    def xor_ecx_edx(self): self.emit("xor ecx, edx);")
-    # ---
-    def xor_edx_eax(self): self.emit("xor edx, eax);")
-    def xor_edx_ebx(self): self.emit("xor edx, ebx);")
-    def xor_edx_ecx(self): self.emit("xor edx, ecx);")
-    def xor_edx_edx(self): self.emit("xor edx, edx);")
+    def emit_xor(self, dst, src, comment=""):
+        self.emit(f"xor {dst}, {src}{self.make_comment(comment)}")
     
-    def xor_rax_rax(self): self.emit("xor rax, rax);")
-    def xor_rax_rbx(self): self.emit("xor rax, rbx);")
-    def xor_rax_rcx(self): self.emit("xor rax, rcx);")
-    def xor_rax_rdx(self): self.emit("xor rax, rdx);")
-    # ---
-    def xor_rbx_rax(self): self.emit("xor rbx, rax);")
-    def xor_rbx_rbx(self): self.emit("xor rbx, rbx);")
-    def xor_rbx_rcx(self): self.emit("xor rbx, rcx);")
-    def xor_rbx_rdx(self): self.emit("xor rbx, rdx);")
-    # ---
-    def xor_rcx_rax(self): self.emit("xor rcx, rax);")
-    def xor_rcx_rbx(self): self.emit("xor rcx, rbx);")
-    def xor_rcx_rcx(self): self.emit("xor rcx, rcx);")
-    def xor_rcx_rdx(self): self.emit("xor rcx, rdx);")
-    # ---
-    def xor_rdx_rax(self): self.emit("xor rdx, rax);")
-    def xor_rdx_rbx(self): self.emit("xor rdx, rbx);")
-    def xor_rdx_rcx(self): self.emit("xor rdx, rcx);")
-    def xor_rdx_rdx(self): self.emit("xor rdx, rdx);")
+    def emit_push(self, reg, comment=""):
+        self.emit(f"push {reg}{self.make_comment(comment)}")
+        
+    def emit_pop(self, reg, comment=""):
+        self.emit(f"pop {reg}{self.make_comment(comment)}")
     
-    def push(self, reg):
-        self.emit(f"push {reg}")
+    def emit_sub(self, reg, value, comment=""):
+        self.emit(f"sub {reg}, {value}{self.make_comment(comment)}")
     
-    def pop(self, reg):
-        self.emit(f"pop {reg}")
+    def emit_setne(self, reg, comment=""):
+        self.emit("setne {reg}{self.make_comment(comment)}")
     
-    def call(self, target):
+    def emit_call(self, target, comment=""):
+        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
         self.emit(f"call {target}")
+        self.emit_add("rsp", 32, comment)
     
-    def ret(self):
-        self.emit("ret")
+    def emit_ret(self, comment=""):
+        self.emit("ret{self.make_comment(comment)}")
     
-    def jmp(self, label):
-        self.emit(f"jmp {label}")
+    def emit_jmp(self, label, comment=""):
+        self.emit(f"jmp {label}{self.make_comment(comment)}")
     
-    def bind_label(self, label):
-        self.lines.append(f"{label}:")
+    def emit_bind_label(self, label, comment=""):
+        self.lines.append(f"{label}:{self.make_comment(comment)}")
+
+    def make_comment(self, comment):
+        if comment:
+            return f"  ; {comment}"
+        return f""
 
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
@@ -737,6 +475,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.current_function   = None
         self.current_proc_params= {}
+        
+        self.section_text = []
+        self.section_data = []
         
         self.constants["true"] = {
             "name": "True",
@@ -990,21 +731,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(
                 ctx,
                 "E0019",
-                text=f"class {name} requires constructor Create"
+                text = f"class {name} requires constructor Create"
             )
         
         if not has_destroy:
             raise CompileError(
                 ctx,
                 "E0019",
-                text=f"class {name} requires destructor Destroy"
+                text = f"class {name} requires destructor Destroy"
             )
         
         if "create" not in class_methods:
-            raise CompileError(ctx, "E0019", text=f"class {name} requires constructor Create")
+            raise CompileError(ctx, "E0019", text = f"class {name} requires constructor Create")
         
         if "destroy" not in class_methods:
-            raise CompileError(ctx, "E0019", text=f"class {name} requires destructor Destroy")
+            raise CompileError(ctx, "E0019", text = f"class {name} requires destructor Destroy")
         
         self.classes[key] = ClassInfo(
             name    = name,
@@ -1018,16 +759,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for class_key, cls in self.classes.items():
             for method_name, overloads in cls.methods.items():
                 for method in overloads:
-
+                    
                     # geerbte Methode gehört nicht zu dieser Klasse
                     if method.owner != class_key:
                         continue
-
+                    
                     if not method.implemented:
                         raise CompileError(
                             ctx,
                             "E0019",
-                            text=(
+                            text = (
                                 f"class {cls.name} method "
                                 f"{method.name}{self.format_method_signature(method.params)} "
                                 f"is declared but not implemented"
@@ -1035,9 +776,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         )
     
     def normalize_bool_eax(self):
-        self.emit("a.cmp(x86::eax, 0);")
-        self.emit("a.setne(x86::al);")
-        self.emit("a.movzx(x86::eax, x86::al);")
+        self.emit_cmp_val("eax", 0)
+        self.emit_setne("al")
+        self.emit_movzx("eax", "al")
     
     def normalize_unit_name(self, unit_name):
         return unit_name.lower().replace(".", "_")
@@ -2324,25 +2065,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.emit(f"a.mov(x86::rcx, {size});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_new_memory));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         
         param_regs = ["rdx", "r8", "r9"]
         
         # Self zuerst setzen, aber NICHT sofort pushen
-        self.emit("a.mov(x86::rcx, x86::rax); // Self")
+        self.emit_mov("rcx", "rax", comment="self") # "a.mov(x86::rcx, x86::rax); // Self")
         
         # Constructor-Parameter aus dem temporären Stack holen
         for index in range(len(args)):
-            self.emit(f"a.pop(x86::{param_regs[index]}); // ctor arg {index + 1}")
+            self.emit_pop(f"{param_regs[index]}", comment="ctor arg {index + 1}")
+            #self.emit(f"a.pop(x86::{param_regs[index]});")
         
         # Self über den Call retten
-        self.emit("a.push(x86::rcx); // save constructor result object")
+        self.emit_push("rcx", comment="save constructor result object")
         
-        self.emit("a.sub(x86::rsp, 32);")
-        self.emit(f"a.call({method.label});")
-        self.emit("a.add(x86::rsp, 32);")
-        
-        self.emit("a.pop(x86::rax); // constructor result")
+        self.emit_sub("rsp", 32)
+        self.emit_call(f"{method.label}")
+        self.emit_add("add", 32)
+        self.emit_pop("rax", comment = "constructor result")
         
         return class_key
     
@@ -2380,7 +2121,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit("a.pop(x86::rcx);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         # foo := nil
         self.emit("a.xor_(x86::rax, x86::rax);")
@@ -2399,7 +2140,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             label = self.add_string_literal(message)
             self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
             self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_runtime_error));")
-            self.emit_call_rax()
+            self.emit_call("rax")
             return
 
         label = self.add_string_literal(message)
@@ -2407,7 +2148,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.mov(x86::rcx, x86::r12); // ctx")
         self.emit(f"a.mov(x86::rdx, imm((uint64_t){label}));")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_set_exception));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         self.emit(f"a.jmp({except_label});")
     
     def emit_nil_pointer_check(self, ptr_name):
@@ -2425,7 +2166,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_builtin_debug_break(self):
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_debug_break));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         return None
     
     def emit_builtin_readln(self, ctx):
@@ -2450,7 +2191,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ == "integer":
             self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_int));")
-            self.emit_call_rax()
+            self.emit_call("rax")
 
             if is_local:
                 self.emit_store_local_var(ctx, name, "integer")
@@ -2461,7 +2202,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ == "string":
             self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_string));")
-            self.emit_call_rax()
+            self.emit_call("rax")
 
             if is_local:
                 self.emit_store_local_var(ctx, name, "string")
@@ -2523,7 +2264,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit(f"a.mov(x86::rcx, {size});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_new_memory));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         if is_local:
             self.emit_store_local_var(ctx, name, ptr_type)
@@ -2548,7 +2289,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit("a.mov(x86::rcx, x86::rax);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_length));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         return "integer"
     
@@ -2645,7 +2386,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit("a.sub(x86::rsp, 32);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_copy));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         self.emit("a.add(x86::rsp, 32);")
 
         return "string"
@@ -2678,7 +2419,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit("a.sub(x86::rsp, 32);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_pos));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         self.emit("a.add(x86::rsp, 32);")
 
         return "integer"
@@ -2727,7 +2468,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit("a.mov(x86::rcx, x86::rax);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         self.emit("a.xor_(x86::rax, x86::rax);")
 
@@ -2751,7 +2492,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.mov(x86::rcx, x86::rax);")
 
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynarray_setlength));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         self.emit_store_var(ctx, name, var_info)
     
@@ -2819,7 +2560,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit(f"a.mov(x86::r8d, {min_value});")
         self.emit(f"a.mov(x86::r9d, {max_value});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_array_bounds_error));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         self.emit(f"a.bind({ok_label});")
         self.emit("a.mov(x86::eax, x86::r10d); // restore dimension index")
@@ -2948,7 +2689,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit(f"a.mov(x86::r8d, {array_info.index_min});")
         self.emit(f"a.mov(x86::r9d, {array_info.index_max});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_array_bounds_error));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         self.emit(f"a.bind({ok_label});")
 
@@ -3278,7 +3019,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_load_string_var_to_rax(ctx, name)
         self.emit("a.mov(x86::rcx, x86::rax);")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_setlength));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         self.emit_store_string_var_from_rax(ctx, name)
     
     def emit_store_self_field(self, ctx, name, expr_type):
@@ -3408,7 +3149,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit("a.test(x86::rax, x86::rax);")
         self.emit(f"a.jnz({nil_ok});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_string_range_error));")
-        self.emit_call_rax()
+        self.emit_call("rax")
         self.emit(f"a.bind({nil_ok});")
 
         # length aus Header laden: header liegt 16 Bytes vor data
@@ -3429,7 +3170,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit(f"a.bind({fail_label});")
         self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_string_range_error));")
-        self.emit_call_rax()
+        self.emit_call("rax")
 
         self.emit(f"a.bind({ok_label});")
 
@@ -4035,9 +3776,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0011", typ=typ)
         
     def emit_call_rax(self):
-        self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
-        self.emit("a.call(x86::rax);")
-        self.emit("a.add(x86::rsp, 32);")
+        self.backend.emit_call("rax")
     
     def emit_load_var(self, name, info):
         typ  = info["type"]
@@ -4257,30 +3996,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 got="too many params",
                 expected="max 4 params"
             )
-
+        
         self.emit(f"a.jmp({end_label});")
         self.emit(f"a.bind({label});")
-
-        self.emit("a.push(x86::rbp);")
-        self.emit("a.mov(x86::rbp, x86::rsp);")
-        self.emit("a.push(x86::rbx); // preserve non-volatile RBX")
-
+        
+        self.emit_push("rbp",        comment="epilog")
+        self.emit_mov ("rbp", "rsp", comment="stack frame")
+        self.emit_push("rbx",        comment="preserve non-volatile RBX")
+        
         old_params   = self.current_proc_params
         old_function = self.current_function
-
+        
         self.current_proc_params = {}
         self.current_function = {
             "name": name,
             "return_type": return_type.lower(),
             "scoped_name": scoped
         }
-
+        
         for index, p in enumerate(params):
             reg = param_regs[index]
             pname = p["name"]
-
+            
             self.emit(f"a.push(x86::{reg}); // save function param {pname}")
-
+            
             self.current_proc_params[pname.lower()] = {
                 "type": p["type"],
                 "reg": reg,
@@ -4288,10 +4027,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             }
             
         if len(params) % 2 == 0:
-            self.emit("a.sub(x86::rsp, 8); // align stack in function")
-
+            self.emit_sub("rsp", 8, comment="align stack in function")
+        
         self.scope_stack.append(name)
-        self.emit("a.sub(x86::rsp, 256); // local variables")
+        self.emit_sub("rsp", 256, comment="local variables")
         
         self.push_local_scope()
         self.push_const_scope()
@@ -4626,15 +4365,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     # typen überprüfung ...
     def var_info(self, ctx, name):
         key = name.lower()
-
+        
         if key not in self.vars:
             raise CompileError(ctx, "E0001", name=name)
-
+        
         return self.vars[key]
         
     def var_type_of(self, ctx, name):
         return self.var_info(ctx, name)["type"]
-
+    
     def variable_ref_has_dot(self, ref):
         return any(s.DOT() for s in ref.variableSuffix())
     
@@ -4647,129 +4386,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit(self, line):
         self.backend.emit(line)
     
-    def emit_mov_eax_ebx(self):
-        self.backend.mov_eax_ebx()
+    def emit_add(self, reg, value, comment=""):
+        self.backend.emit_add(reg, value, comment)
+        
+    def emit_call(self, dst, comment=""):
+        self.backend.emit_call(dst, comment)
+        
+    def emit_mov    (self, dst, src, comment=""): self.backend.emit_mov    (dst, src, comment)
+    def emit_mov_imm(self, dst, src, comment=""): self.backend.emit_mov_imm(dst, src, comment)
     
-    # ---
-    def emit_mov_eax_imm(self, value): self.backend.mov_eax_imm(value)
-    def emit_mov_ebx_imm(self, value): self.backend.mov_ebx_imm(value)
-    def emit_mov_ecx_imm(self, value): self.backend.mov_ecx_imm(value)
-    def emit_mov_edx_imm(self, value): self.backend.mov_edx_imm(value)
-    # ---
-    def emit_mov_rax_imm(self, value): self.backend.mov_rax_imm(value)
-    def emit_mov_rbx_imm(self, value): self.backend.mov_rbx_imm(value)
-    def emit_mov_rcx_imm(self, value): self.backend.mov_rcx_imm(value)
-    def emit_mov_rdx_imm(self, value): self.backend.mov_rdx_imm(value)
+    def emit_xor(self, dst, src, comment=""):
+        self.backend.emit_xor(dst, src, comment)
     
+    def emit_push(self, reg, comment=""): self.backend.emit_push(reg, comment)
+    def emit_pop (self, reg, comment=""): self.backend.emit_pop (reg, comment)
     
-    def emit_xor_al_al(self): self.backend.xor_al_al()
-    def emit_xor_al_bl(self): self.backend.xor_al_bl()
-    def emit_xor_al_cl(self): self.backend.xor_al_cl()
-    def emit_xor_al_dl(self): self.backend.xor_al_dl()
-    # ---
-    def emit_xor_bl_al(self): self.backend.xor_bl_al()
-    def emit_xor_bl_bl(self): self.backend.xor_bl_bl()
-    def emit_xor_bl_cl(self): self.backend.xor_bl_cl()
-    def emit_xor_bl_dl(self): self.backend.xor_bl_dl()
-    # ---
-    def emit_xor_cl_al(self): self.backend.xor_cl_al()
-    def emit_xor_cl_bl(self): self.backend.xor_cl_bl()
-    def emit_xor_cl_cl(self): self.backend.xor_cl_cl()
-    def emit_xor_cl_dl(self): self.backend.xor_cl_dl()
-    # ---
-    def emit_xor_dl_al(self): self.backend.xor_dl_al()
-    def emit_xor_dl_bl(self): self.backend.xor_dl_bl()
-    def emit_xor_dl_cl(self): self.backend.xor_dl_cl()
-    def emit_xor_dl_dl(self): self.backend.xor_dl_dl()
-    # ---
-    
-    def emit_xor_ah_ah(self): self.backend.xor_ah_ah()
-    def emit_xor_ah_bh(self): self.backend.xor_ah_bh()
-    def emit_xor_ah_ch(self): self.backend.xor_ah_ch()
-    def emit_xor_ah_dh(self): self.backend.xor_ah_dh()
-    # ---
-    def emit_xor_bh_ah(self): self.backend.xor_bh_ah()
-    def emit_xor_bh_bh(self): self.backend.xor_bh_bh()
-    def emit_xor_bh_ch(self): self.backend.xor_bh_ch()
-    def emit_xor_bh_dh(self): self.backend.xor_bh_dh()
-    # ---
-    def emit_xor_ch_ah(self): self.backend.xor_ch_ah()
-    def emit_xor_ch_bh(self): self.backend.xor_ch_bh()
-    def emit_xor_ch_ch(self): self.backend.xor_ch_ch()
-    def emit_xor_ch_dh(self): self.backend.xor_ch_dh()
-    # ---
-    def emit_xor_dh_ah(self): self.backend.xor_dh_ah()
-    def emit_xor_dh_bh(self): self.backend.xor_dh_bh()
-    def emit_xor_dh_ch(self): self.backend.xor_dh_ch()
-    def emit_xor_dh_dh(self): self.backend.xor_dh_dh()
-    # ---
-    def emit_xor_ax_ax(self): self.backend.xor_ax_ax()
-    def emit_xor_ax_bx(self): self.backend.xor_ax_bx()
-    def emit_xor_ax_cx(self): self.backend.xor_ax_cx()
-    def emit_xor_ax_dx(self): self.backend.xor_ax_dx()
-    
-    # ---
-    def emit_xor_bx_ax(self): self.backend.xor_bx_ax()
-    def emit_xor_bx_bx(self): self.backend.xor_bx_bx()
-    def emit_xor_bx_cx(self): self.backend.xor_bx_cx()
-    def emit_xor_bx_dx(self): self.backend.xor_bx_dx()
-    # ---
-    def emit_xor_cx_ax(self): self.backend.xor_cx_ax()
-    def emit_xor_cx_bx(self): self.backend.xor_cx_bx()
-    def emit_xor_cx_cx(self): self.backend.xor_cx_cx()
-    def emit_xor_cx_dx(self): self.backend.xor_cx_dx()
-    # ---
-    def emit_xor_dx_ax(self): self.backend.xor_dx_ax()
-    def emit_xor_dx_bx(self): self.backend.xor_dx_bx()
-    def emit_xor_dx_cx(self): self.backend.xor_dx_cx()
-    def emit_xor_dx_dx(self): self.backend.xor_dx_dx()
-    # ---
-    def emit_xor_eax_eax(self): self.backend.xor_eax_eax()
-    def emit_xor_eax_ebx(self): self.backend.xor_eax_eax()
-    def emit_xor_eax_ecx(self): self.backend.xor_eax_eax()
-    def emit_xor_eax_edx(self): self.backend.xor_eax_eax()
-    # ---
-    def emit_xor_ebx_eax(self): self.backend.xor_ebx_eax()
-    def emit_xor_ebx_ebx(self): self.backend.xor_ebx_ebx()
-    def emit_xor_ebx_ecx(self): self.backend.xor_ebx_ecx()
-    def emit_xor_ebx_edx(self): self.backend.xor_ebx_edx()
-    # ---
-    def emit_xor_ecx_eax(self): self.backend.xor_ecx_eax()
-    def emit_xor_ecx_ebx(self): self.backend.xor_ecx_ebx()
-    def emit_xor_ecx_ecx(self): self.backend.xor_ecx_ecx()
-    def emit_xor_ecx_edx(self): self.backend.xor_ecx_edx()
-    # ---
-    def emit_xor_edx_eax(self): self.backend.xor_edx_eax()
-    def emit_xor_edx_ebx(self): self.backend.xor_edx_ebx()
-    def emit_xor_edx_ecx(self): self.backend.xor_edx_ecx()
-    def emit_xor_edx_edx(self): self.backend.xor_edx_edx()
-    
-    def emit_xor_rax_rax(self): self.backend.xor_rax_rax()
-    def emit_xor_rax_rbx(self): self.backend.xor_rax_rbx()
-    def emit_xor_rax_rcx(self): self.backend.xor_rax_rcx()
-    def emit_xor_rax_rdx(self): self.backend.xor_rax_rdx()
-    # ---
-    def emit_xor_rbx_rax(self): self.backend.xor_rbx_rax()
-    def emit_xor_rbx_rbx(self): self.backend.xor_rbx_rbx()
-    def emit_xor_rbx_rcx(self): self.backend.xor_rbx_rcx()
-    def emit_xor_rbx_rdx(self): self.backend.xor_rbx_rdx()
-    # ---
-    def emit_xor_rcx_rax(self): self.backend.xor_rcx_rax()
-    def emit_xor_rcx_rbx(self): self.backend.xor_rcx_rbx()
-    def emit_xor_rcx_rcx(self): self.backend.xor_rcx_rcx()
-    def emit_xor_rcx_rdx(self): self.backend.xor_rcx_rdx()
-    # ---
-    def emit_xor_rdx_rax(self): self.backend.xor_rdx_rax()
-    def emit_xor_rdx_rbx(self): self.backend.xor_rdx_rbx()
-    def emit_xor_rdx_rcx(self): self.backend.xor_rdx_rcx()
-    def emit_xor_rdx_rdx(self): self.backend.xor_rdx_rdx()
-    
-    
-    def emit_push(self, reg):
-        self.backend.push(reg)
-    
-    def emit_pop(self, reg):
-        self.backend.pop(reg)
+    def emit_sub (self, reg, value, comment=""):
+        self.backend.emit_sub(reg, value, comment)
     
     def emit_backend_call(self, target):
         self.backend.call(target)
@@ -4818,13 +4451,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             value = arg.STRING().getText()[1:-1]
             label = self.add_string_literal(value)
 
-            self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+            self.emit_mov("rax", label)
 
             if len(value) == 1:
                 return "char"
 
-            self.emit("a.mov(x86::rcx, x86::rax);")
-            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_from_cstr));")
+            self.emit_mov("rcx", "rax")
+            self.emit_mov_imm("rax", "imm((uint64_t)&_jit_dynstring_from_cstr")
             self.emit_call_rax()
 
             return "string"
@@ -6280,8 +5913,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if right_type != "string":
                     raise CompileError(ctx, "E0005", got=right_type, expected="string")
 
-                self.emit("a.mov(x86::rdx, x86::rax); // right string")
-                self.emit("a.pop(x86::rcx);           // left string")
+                self.emit_mov("rdx", "rax", comment="right string")
+                self.emit_pop(rcx         , comment="left string")
                 self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_concat));")
                 self.emit_call_rax()
 
@@ -6298,8 +5931,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     if op != "+":
                         raise CompileError(ctx, "E0005", got="integer/string", expected="string + string")
 
-                    self.emit("a.mov(x86::rdx, x86::rax); // right string")
-                    self.emit("a.pop(x86::rcx);          // left string/char literal")
+                    self.emit_mov("rdx", "rax", comment = "right string")
+                    self.emit_pop("rcx"       , comment = "left string/char literal")
 
                     self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_concat));")
                     self.emit_call_rax()
@@ -6308,22 +5941,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     continue
 
                 if right_type == "integer":
-                    self.emit("a.mov(x86::ebx, x86::eax);")
-                    self.emit("a.pop(x86::rax);")
+                    self.emit_mov("ebx", "eax")
+                    self.emit_pop("rax")
 
                     if op == "+":
-                        self.emit("a.add(x86::eax, x86::ebx);")
+                        self.emit_add("eax", "ebx")
                     elif op == "-":
-                        self.emit("a.sub(x86::eax, x86::ebx);")
+                        self.emit_sub("eax", "ebx")
 
                     result_type = "integer"
                     continue
 
-                self.emit("a.pop(x86::rax);")
+                self.emit_pop("rax")
                 self.emit("a.cvtsi2sd(x86::xmm1, x86::eax);")
                 result_type = "double"
 
-            self.emit("a.sub(x86::rsp, 8);")
+            self.emit_sub("rsp", 8)
             self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
 
             right_type = self.visit(ctx.term(i))
@@ -6332,7 +5965,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
 
             self.emit("a.movsd(x86::xmm1, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
+            self.emit_add("rsp", 8)
 
             if op == "+":
                 self.emit("a.addsd(x86::xmm0, x86::xmm1);")
@@ -6352,13 +5985,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             op = ctx.getChild(2 * i - 1).getText()
 
             if result_type == "integer":
-                self.emit("a.push(x86::rax);")
+                self.emit_push("rax")
 
                 right_type = self.visit(ctx.factor(i))
 
                 if right_type == "integer":
-                    self.emit("a.mov(x86::ebx, x86::eax);")
-                    self.emit("a.pop(x86::rax);")
+                    self.emit_mov("ebx", "eax")
+                    self.emit_pop("rax")
 
                     if op == "*":
                         self.emit("a.imul(x86::eax, x86::ebx);")
@@ -6371,12 +6004,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                     continue
 
-                self.emit("a.pop(x86::rax);")
+                self.emit_pop("rax")
                 self.emit("a.cvtsi2sd(x86::xmm1, x86::eax);")
                 result_type = "double"
 
             else:
-                self.emit("a.sub(x86::rsp, 8);")
+                self.emit_sub("rsp", 8)
                 self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
 
                 right_type = self.visit(ctx.factor(i))
@@ -6411,14 +6044,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
                 
             self.normalize_bool_eax()
-            self.emit("a.xor_(x86::eax, 1); // not")
+            self.emit_xor("eax", 1, comment = "not")
             return "integer"
         
         if key in self.constants:
             c = self.constants[key]
             
             if c["type"] == "integer":
-                self.emit(f"a.mov(x86::eax, {c['value']});")
+                self.emit_mov("eax", f"{c['value']}")
                 return "integer"
                 
             if c["type"] == "double":
@@ -6596,9 +6229,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 params = func.get("params", [])
                 
                 if len(params) == 0:
-                    self.emit("a.sub(x86::rsp, 32); // shadow space for parameterless function call")
-                    self.emit(f"a.call({func['label']});")
-                    self.emit("a.add(x86::rsp, 32);")
+                    self.emit_sub("rsp", 32, comment = "shadow space for parameterless function call")
+                    self.emit_call(f"{func['label']}")
+                    self.emit_add("rsp", 32)
                     return func["return_type"].lower()
                 
                 raise CompileError(ctx, "E0005", got="0", expected=str(len(params)))
@@ -6615,13 +6248,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return self.visit(expr_list)
         
         if ctx.NIL():
-            self.emit_xor_rax_rax("a.xor_(x86::rax, x86::rax); // nil")
+            self.emit_xor("rax", "rax", comment = "nil")
             return "^nil"
         
         # Integer
         if ctx.NUMBER():
             value = ctx.NUMBER().getText()
-            self.emit_mov_eax_imm(value)
+            self.emit_mov_imm("eax", value)
             #self.emit(f"a.mov(x86::eax, {value});")
             return "integer"
         
@@ -6635,12 +6268,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             value = ctx.STRING().getText()[1:-1]
             label = self.add_string_literal(value)
             
-            self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+            self.emit_mov_imm("rax", label)
+            #self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
             
             if len(value) == 1:
                 return "char"
             
-            self.emit("a.mov(x86::rcx, x86::rax);")
+            self.emit_mov("rcx", "rax")
             self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_from_cstr));")
             self.emit_call_rax()
             
@@ -6701,9 +6335,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 params = func.get("params", [])
                 
                 if len(params) == 0:
-                    self.emit("a.sub(x86::rsp, 32); // shadow space for parameterless function call")
-                    self.emit(f"a.call({func['label']});")
-                    self.emit("a.add(x86::rsp, 32);")
+                    self.emit_sub("rsp", 32, comment = "shadow space for parameterless function call")
+                    self.emit_call(f"{func['label']}")
+                    self.emit_add("rsp", 32)
                     return func["return_type"].lower()
                 
                 raise CompileError(ctx, "E0005", got="0", expected=str(len(params)))
@@ -6770,9 +6404,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             else:
                 raise CompileError(ctx, "E0005", got=formal["type"], expected="integer")
 
-        self.emit("a.sub(x86::rsp, 32); // shadow space for function call")
+        self.emit_sub("rsp", 32, comment = "shadow space for function call")
         self.emit(f"a.call({func['label']});")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_add("rsp", 32)
 
         return func["return_type"].lower()
     
@@ -6806,8 +6440,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit(f"a.jmp({skip_label});")
         self.emit(f"a.bind({label});")
         
-        self.emit("a.push(x86::rbp);")
-        self.emit("a.mov(x86::rbp, x86::rsp);")
+        self.emit_push("rbp")
+        self.emit_mov("rbp", "rsp")
         
         old_params = self.current_proc_params
         self.current_proc_params = {}
@@ -6847,9 +6481,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         saved_param_count = min(len(params), 4)
         
         if saved_param_count % 2 == 1:
-            self.emit("a.sub(x86::rsp, 8); // align stack after odd param saves")
+            self.emit_sub("rsp", 8, comment = "align stack after odd param saves")
     
-        self.emit("a.sub(x86::rsp, 512); // local variables")
+        self.emit_sub("rsp", 512, comment = "local variables")
         
         self.exit_label_stack.append(exit_label)
         self.push_local_scope()
@@ -6869,9 +6503,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit(f"a.bind({exit_label});")
         self.current_proc_params = old_params
         
-        self.emit("a.mov(x86::rsp, x86::rbp);")
-        self.emit("a.pop(x86::rbp);")
-        self.emit("a.ret();")
+        self.emit_mov("rsp", "rbp")
+        self.emit_pop("rbp")
+        self.emit_ret()
         
         self.emit(f"a.bind({skip_label});")
         return None
@@ -6946,8 +6580,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     raise CompileError(
                         ctx,
                         "E0005",
-                        got=actual_type,
-                        expected=formal_type
+                        got      = actual_type,
+                        expected = formal_type
                     )
 
                 self.emit_address_of_var(ctx, var_name)
@@ -6961,7 +6595,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
 
                 self.emit("a.movsxd(x86::rax, x86::eax);")
-                self.emit("a.push(x86::rax); // integer parameter")
+                self.emit_push("rax", comment = "integer parameter")
                 return
 
             if formal_type == "string":
@@ -7000,15 +6634,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit("a.sub(x86::rsp, 8); // align stack before procedure call")
             align_pad = 8
 
-        self.emit("a.sub(x86::rsp, 32); // Windows x64 shadow space")
-        self.emit(f"a.call({proc['label']});")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
+        self.emit_call(f"{proc['label']}")
+        self.emit_add("rsp", 32)
 
         if align_pad:
-            self.emit("a.add(x86::rsp, 8); // remove stack alignment padding")
+            self.emit_add("rsp", 8, comment = "remove stack alignment padding")
 
         if stack_count > 0:
-            self.emit(f"a.add(x86::rsp, {stack_count * 8}); // remove stack parameters")
+            self.emit_add(f"rsp", {stack_count * 8}, comment = "remove stack parameters")
 
         return None
     
@@ -7144,40 +6778,64 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out = []
 
         for name, text in self.string_literals:
-            out.append(
-                f'static const char {name}[] = "{self.cpp_escape(text)}";'
-            )
+            if CommonData.BACKEND == BACKEND_ASMJIT:
+                out.append(f'static const char {name}[] = "{self.cpp_escape(text)}";')
+            elif CommonData.BACKEND == BACKEND_NASM:
+                out.append(f'{name}: db "{self.cpp_escape(text)}"' + NL)
 
         return "\n".join(out)
     
     def render_asm_double_symbols(self):
         out = []
         for name, value in self.double_literals:
-            out.append(f'asm_out << "{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}" << std::endl;')
+            if CommonData.BACKEND == BACKEND_ASMJIT:
+                out.append(f'asm_out << "{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}" << std::endl;')
+            elif CommonData.BACKEND == BACKEND_NASM:
+                out.append(f'{name} equ {value}' + NL)
         return "\n    ".join(out)
     
     def render_asm_nasm_header(self):
-        return f"""
-    asm_out << "; {COMMENT_REPL}" << std::endl;
-    asm_out << "; GENERATED WITH PYTHON 3.14 ON: {datetime.now().strftime("%Y-%m-%d")}" << std::endl;
-    asm_out << "; Copyright (c) 2026 by Jens Kallup - paule32" << std::endl;
-    asm_out << "; all rights reserved." << std::endl;
-    asm_out << "; {COMMENT_REPL}" << std::endl << std::endl;
-    """
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            return (
+                f'asm_out << std::endl << "; {COMMENT_REPL}"' + NL +
+                f'asm_out << std::endl << "; GENERATED WITH PYTHON 3.14 ON: {dt.now().strftime("%Y-%m-%d")}"' + NL +
+                f'asm_out << std::endl << "; Copyright (c) 2026 by Jens Kallup - paule32"' + NL +
+                f'asm_out << std::endl << "; all rights reserved."' + NL +
+                f'asm_out << std::endl << "; {COMMENT_REPL}"'  + NL + NL +
+                f'')
+        elif CommonData.BACKEND == BACKEND_NASM:
+            return ""
     
     def render_asm_nasm_structs(self):
-        return r"""
-        asm_out << "struc JitContext\n";
-        asm_out << "    .int_vars:         resq 1" << std::endl;
-        asm_out << "    .double_vars:      resq 1" << std::endl;
-        asm_out << "    .string_vars:      resq 1" << std::endl;
-        asm_out << "    .record_vars:      resq 1" << std::endl;
-        asm_out << "    .arrays_vars:      resq 1" << std::endl;
-        asm_out << "    .pointr_vars:      resq 1" << std::endl;
-        asm_out << "    .print_int_tmp:    resd 1" << std::endl;
-        asm_out << "    .print_double_tmp: resq 1" << std::endl;
-        asm_out << "endstruc" << std::endl << std::endl;
-        """
+        result = ""
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            result = (
+                f'asm_out << "struc JitContext\n";'                         + NL +
+                f'asm_out << "    .int_vars:         resq 1" << std::endl;' + NL +
+                f'asm_out << "    .double_vars:      resq 1" << std::endl;' + NL +
+                f'asm_out << "    .string_vars:      resq 1" << std::endl;' + NL +
+                f'asm_out << "    .record_vars:      resq 1" << std::endl;' + NL +
+                f'asm_out << "    .arrays_vars:      resq 1" << std::endl;' + NL +
+                f'asm_out << "    .pointr_vars:      resq 1" << std::endl;' + NL +
+                f'asm_out << "    .print_int_tmp:    resd 1" << std::endl;' + NL +
+                f'asm_out << "    .print_double_tmp: resq 1" << std::endl;' + NL +
+                f'asm_out << "endstruc" << std::endl << std::endl;'         + NL +
+                f'')
+        elif CommonData.BACKEND == BACKEND_NASM:
+            result = (
+                f'struc JitContext'            + NL +
+                f'  .int_vars:         resq 1' + NL +
+                f'  .double_vars:      resq 1' + NL +
+                f'  .string_vars:      resq 1' + NL +
+                f'  .record_vars:      resq 1' + NL +
+                f'  .arrays_vars:      resq 1' + NL +
+                f'  .pointr_vars:      resq 1' + NL +
+                f'  .print_int_tmp:    resd 1' + NL +
+                f'  .print_double_tmp: resq 1' + NL +
+                f'endstruc'                    + NL +
+                f''
+            )
+        return result
 
     def render_asm_context_data(self,
         int_count,
@@ -7186,49 +6844,96 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         record_count,
         arrays_count,
         pointr_count):
-        return f"""
-    asm_out << std::endl << "section .data" << std::endl;
-    asm_out << "ctx:" << std::endl;
-    asm_out << "    istruc JitContext" << std::endl;
-    asm_out << "        at JitContext.int_vars,         dq int_vars"    << std::endl;
-    asm_out << "        at JitContext.double_vars,      dq double_vars" << std::endl;
-    asm_out << "        at JitContext.string_vars,      dq string_vars" << std::endl;
-    asm_out << "        at JitContext.record_vars,      dq record_vars" << std::endl;
-    asm_out << "        at JitContext.arrays_vars,      dq arrays_vars" << std::endl;
-    asm_out << "        at JitContext.pointr_vars,      dq pointr_vars" << std::endl;
-    asm_out << "        at JitContext.print_int_tmp,    dd 0" << std::endl;
-    asm_out << "        at JitContext.print_double_tmp, dq 0" << std::endl;
-    asm_out << "    iend\\n\\n";
-
-    asm_out << "int_vars:    times {int_count} dd 0" << std::endl;
-    asm_out << "double_vars: times {double_count} dq 0" << std::endl;
-    asm_out << "string_vars: times {string_count} dq 0" << std::endl;
-    asm_out << "record_vars: times {record_count} db 0" << std::endl;
-    asm_out << "arrays_vars: times {arrays_count} db 0" << std::endl;
-    asm_out << "pointr_vars: times {pointr_count} dq 0" << std::endl;
-    """
+        
+        asm_out = "asm_out << "
+        std_end = " << std::endl"
+        result  = ""
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            result = [
+                f'{asm_out}std::endl << "section .data"{std_end};',
+                f'{asm_out}"ctx:"{std_end};',
+                f'{asm_out}"    istruc JitContext"{std_end};',
+                f'{asm_out}"        at JitContext.int_vars,         dq int_vars"   {std_end};',
+                f'{asm_out}"        at JitContext.double_vars,      dq double_vars"{std_end};',
+                f'{asm_out}"        at JitContext.string_vars,      dq string_vars"{std_end};',
+                f'{asm_out}"        at JitContext.record_vars,      dq record_vars"{std_end};',
+                f'{asm_out}"        at JitContext.arrays_vars,      dq arrays_vars"{std_end};',
+                f'{asm_out}"        at JitContext.pointr_vars,      dq pointr_vars"{std_end};',
+                f'{asm_out}"        at JitContext.print_int_tmp,    dd 0"{std_end};',
+                f'{asm_out}"        at JitContext.print_double_tmp, dq 0"{std_end};',
+                f'{asm_out}"    iend"{std_end};',
+                f'{asm_out}std::endl;',
+                f'{asm_out}"int_vars:    times {int_count} dd 0" {std_end};',
+                f'{asm_out}"double_vars: times {double_count} dq 0"{std_end};',
+                f'{asm_out}"string_vars: times {string_count} dq 0"{std_end};',
+                f'{asm_out}"record_vars: times {record_count} db 0"{std_end};',
+                f'{asm_out}"arrays_vars: times {arrays_count} db 0"{std_end};',
+                f'{asm_out}"pointr_vars: times {pointr_count} dq 0"{std_end};',
+                f'{asm_out}std::endl;',
+                f'']
+            result = NL.join(result) + NL
+            return result
+        elif CommonData.BACKEND == BACKEND_NASM:
+            result = [
+                f"section .data",
+                f"ctx:",
+                f"istruc JitContext",
+                f"  at JitContext.int_vars,         dq int_vars",
+                f"  at JitContext.double_vars,      dq double_vars",
+                f"  at JitContext.string_vars,      dq string_vars",
+                f"  at JitContext.record_vars,      dq record_vars",
+                f"  at JitContext.arrays_vars,      dq arrays_vars",
+                f"  at JitContext.pointr_vars,      dq pointr_vars",
+                f"  at JitContext.print_int_tmp,    dd 0",
+                f"  at JitContext.print_double_tmp, dq 0",
+                f"iend",
+                f"",
+                f"",
+                f"int_vars:    times {int_count} dd 0",
+                f"double_vars: times {double_count} dq 0",
+                f"string_vars: times {string_count} dq 0",
+                f"record_vars: times {record_count} db 0",
+                f"arrays_vars: times {arrays_count} db 0",
+                f"pointr_vars: times {pointr_count} dq 0",
+                f""]
+            result = NL.join(result) + NL
+            return result
+        else:
+            return "<unknown backend>"
 
     def render_asm_context_replacements(self):
-        return r"""
-    replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]");
-    replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]");
-    replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.string_vars]");
-    replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.record_vars]");
-    replace_all(asm_text, "[r12+32]",  "[r12 + JitContext.arrays_vars]");
-    replace_all(asm_text, "[r12+40]",  "[r12 + JitContext.pointr_vars]");
-    replace_all(asm_text, "[r12+48]",  "[r12 + JitContext.print_int_tmp]");
-    replace_all(asm_text, "[r12+56]",  "[r12 + JitContext.print_double_tmp]");
-    """
+        result = ""
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            result = (
+                r'replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]"        );' + NL +
+                r'replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]"     );' + NL +
+                r'replace_all(asm_text, "[r12+16]",  "[r12 + JitContext.string_vars]"     );' + NL +
+                r'replace_all(asm_text, "[r12+24]",  "[r12 + JitContext.record_vars]"     );' + NL +
+                r'replace_all(asm_text, "[r12+32]",  "[r12 + JitContext.arrays_vars]"     );' + NL +
+                r'replace_all(asm_text, "[r12+40]",  "[r12 + JitContext.pointr_vars]"     );' + NL +
+                r'replace_all(asm_text, "[r12+48]",  "[r12 + JitContext.print_int_tmp]"   );' + NL +
+                r'replace_all(asm_text, "[r12+56]",  "[r12 + JitContext.print_double_tmp]");' + NL +
+                r""
+            )
+        elif CommonData.BACKEND == BACKEND_NASM:
+            result = ""
+        return result
     
     def render_asm_extern_symbols(self):
         out = []
 
         if not self.emit_local_string_data:
             for name, text in self.string_literals:
-                out.append(f'asm_out << "extern _{name}"; << std::endl')
+                if CommonData.BACKEND == BACKEND_ASMJIT:
+                    out.append(f'asm_out << "extern _{name}"; << std::endl')
+                elif CommonData.BACKEND == BACKEND_NASM:
+                    out.append(f'extern _{name}')
 
             if self.string_literals:
-                out.append('asm_out << std::endl;')
+                if CommonData.BACKEND == BACKEND_ASMJIT:
+                    out.append('asm_out << std::endl;')
+                elif CommonData.BACKEND == BACKEND_NASM:
+                    out.append(NL)
 
         func_list = [
             "print_text",
@@ -7262,11 +6967,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ]
         for fun in func_list:
             if len(fun) > 1:
-                out.append(f'asm_out << "extern _jit_{fun}" << std::endl;')
-                continue
-            out.append('asm_out << std::endl;')
+                if CommonData.BACKEND == BACKEND_ASMJIT:
+                    out.append(f'asm_out << "extern _jit_{fun}" << std::endl;')
+                    continue
+                elif CommonData.BACKEND == BACKEND_NASM:
+                    out.append(f'extern _jit_{fun}')
+                    continue
+            if CommonData.BACKEND == BACKEND_ASMJIT:
+                out.append('asm_out << std::endl;')
 
-        return "\n    ".join(out)
+        return NL.join(out) + NL
     
     def render_asm_symbol_mappings(self):
         out = []
@@ -7285,12 +6995,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return ""
 
         out = []
-        out.append('asm_out << std::endl << "section .data" << std::endl;')
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            out.append('asm_out << std::endl << "section .data" << std::endl;')
+        elif CommonData.BACKEND == BACKEND_NASM:
+            out.append('section .data' + NL)
 
         for name, text in self.string_literals:
             escaped = self.cpp_escape(text)
-            out.append(f'asm_out << "_{name} db \\"{escaped}\\", 0" << std::endl;')
-
+            if CommonData.BACKEND == BACKEND_ASMJIT:
+                out.append(f'asm_out << "_{name} db \\"{escaped}\\", 0" << std::endl;')
+            elif CommonData.BACKEND == BACKEND_NASM:
+                out.append(f'_{name} db \"{escaped}\", 0' + NL)
+        
         return "\n    ".join(out)
     
     def render_asm_label_mappings(self):
@@ -7313,162 +7029,205 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         # todo !!!
         self.func_name  = "main"
-        self.date_str   = datetime.now().strftime("%Y-%m-%d")
+        self.date_str   = dt.now().strftime("%Y-%m-%d")
         
         module_kind     = self.module_kind_value
         
         src_comment     = ('-' * 77)
+        src_linecom     = ""
         
-        return f"""// {src_comment}
-// AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: {self.date_str}
-//
-// DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !
-// Copyright (c) 2026 by Jens Kallup - paule32
-// all rights reserved.
-// {src_comment}
-# include "runtime/dbase2many.hpp"
-
-using namespace std;
-using namespace asmjit;
-
-static constexpr int DBASE2MANY_MODULE_KIND = {self.module_kind_value};
-
-{self.render_string_literals()}
-
-int main() {{
-    JitRuntime rt;
-
-    CodeHolder code;
-    code.init(rt.environment());
-    
-    StringLogger logger;
-    
-    logger.options().set_indentation(FormatIndentationGroup::kCode, 1);
-    logger.options().set_padding(FormatPaddingGroup::kMachineCode, 0);
-    
-    code.set_logger(&logger);
-    x86::Assembler a(&code);
-
-{body}
-    a.add(x86::rsp, 8); // undo alignment
-    a.pop(x86::rbx);
-    a.pop(x86::r12);
-    
-    a.xor_(x86::ecx, x86::ecx);
-    a.sub(x86::rsp, 32);
-    a.mov(x86::rax, imm((uint64_t)&_jit_ExitProcess));
-    a.call(x86::rax);
-    a.ret();        // never reach
-
-    JitFunc fn = nullptr;
-    Error err = rt.add(&fn, &code);
-    if (err != Error::kOk) {{
-        std::cerr << \"AsmJit error: \" << DebugUtils::error_as_string(err) << std::endl;
-        return 1;
-    }}
-    
-    std::ostringstream asm_out;
-    std::string asm_text = logger.data();
-
-    replace_all_fun(asm_text);
-    
-    SymbolMappings symbols;
-    {self.render_asm_symbol_mappings()}
-    symbols.apply(asm_text);
-    
-    LabelMappings labels;
-    {self.render_asm_label_mappings()}
-    labels.apply(asm_text);
-
-    replace_all_ptr(asm_text);
-    replace_all(asm_text, "mov r12, rcx", "lea r12, [rel ctx]");
-    
-    {self.render_asm_context_replacements()}
-    
-    {self.render_asm_nasm_header()}
-    {self.render_asm_nasm_structs()}
-    
-    {self.render_asm_double_replacements()}
-    asm_out << std::endl;
-    asm_out << std::endl;
-    
-    {self.render_asm_double_symbols()}
-    {self.render_asm_extern_symbols()}
-    
-    {self.render_asm_context_data(
-        int_count,
-        double_count,
-        string_count,
-        record_count,
-        arrays_count,
-        pointr_count)}
-
-    asm_out << std::endl;
-    asm_out << "dbase2many_module_kind dq {self.module_kind_value}" << std::endl;
-    asm_out << "dbase2many_module_kind_program  equ 1" << std::endl;
-    asm_out << "dbase2many_module_kind_unit     equ 2" << std::endl;
-    asm_out << "dbase2many_module_kind_library  equ 3" << std::endl << std::endl;
-
-    asm_out << std::endl;
-    asm_out << "section .text" << std::endl;
-    asm_out << "global " << "_{self.func_name}" << std::endl;
-    {self.render_asm_exports()}
-    asm_out << "_{self.func_name}" << ":" << std::endl;
-    
-    asm_out << asm_text;
-    
-    {self.render_asm_export_thunks()}
-    {self.render_asm_string_data()}
-    
-    std::string final_asm_text = asm_out.str();
-
-    if (!write_formatted_asm_file(
-        final_asm_text.c_str(),
-        \"{self.asm_file}\"
-    )) {{
-        std::cerr << "Could not write ASM file: {self.asm_file}" << std::endl;
-    }}
-    
-    std::array<int,      {int_count}> int_vars{{}};
-    std::array<double,   {double_count}> double_vars{{}};
-    std::array<char*,    {string_count}> string_vars{{}};
-    std::array<uint8_t,  {record_count}> record_vars{{}};
-    std::array<uint8_t,  {arrays_count}> arrays_vars{{}};
-    std::array<uint64_t, {pointr_count}> pointr_vars{{}};
-    
-    JitContext ctx{{}};
-    ctx.int_vars    = int_vars.data();
-    
-    ctx.double_vars = double_vars.data();
-    ctx.string_vars = string_vars.data();
-    ctx.record_vars = record_vars.data();
-    ctx.arrays_vars = arrays_vars.data();
-    ctx.pointr_vars = pointr_vars.data();
-    
-    try {{
-        fn(&ctx);
-    }}
-    catch (const JitRuntimeError& e) {{
-        std::cerr << "JIT runtime error: " << e.what() << std::endl;
-        rt.release(fn);
-        return 2;
-    }}
-    catch (const std::exception& e) {{
-        std::cerr << "C++ exception: " << e.what() << std::endl;
-        rt.release(fn);
-        return 3;
-    }}
-    catch (...) {{
-        std::cerr << "Unknown JIT exception" << std::endl;
-        rt.release(fn);
-        return 4;
-    }}
-
-    rt.release(fn);
-    return 0;
-}}
-"""
-
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            src_linecom = "//"
+        else:
+            src_linecom = ";"
+        
+        output_header   = (
+            f"{src_linecom} {src_comment}"                                                    + NL +
+            f"{src_linecom} AUTOMATIC GENERATED WITH Python 3.14 SCRIPT ON: {self.date_str}"  + NL +
+            f"{src_linecom}"                                                                  + NL +
+            f"{src_linecom} DON'T MODIFIED THIS CODE. ALL CHANGES WILL BE LOST BY NEXT RUN !" + NL +
+            f"{src_linecom} Copyright (c) 2026 by Jens Kallup - paule32"                      + NL +
+            f"{src_linecom} all rights reserved."                                             + NL +
+            f"{src_linecom} {src_comment}"                                                    + NL +
+            f""
+        )
+        if CommonData.BACKEND == BACKEND_ASMJIT:
+            result = [
+                output_header,
+                '# include "runtime/dbase2many.hpp"',
+                '',
+                'using namespace std;' ,
+                'using namespace asmjit;' ,
+                '' ,
+                f'static constexpr int DBASE2MANY_MODULE_KIND = {self.module_kind_value};',
+                '' ,
+                f'{self.render_string_literals()}' ,
+                '' ,
+                'int main() {{' ,
+                '  JitRuntime rt;',
+                '',
+                '   CodeHolder code;',
+                '  code.init(rt.environment());',
+                '',
+                '  StringLogger logger;',
+                '',
+                '  logger.options().set_indentation(FormatIndentationGroup::kCode, 1);',
+                '  logger.options().set_padding(FormatPaddingGroup::kMachineCode, 0);',
+                '',
+                '  code.set_logger(&logger);',
+                '  x86::Assembler a(&code);',
+                '',
+                f'{body}',
+                '  a.add(x86::rsp, 8); // undo alignment',
+                '  a.pop(x86::rbx);',
+                '  a.pop(x86::r12);',
+                '',
+                '  a.xor_(x86::ecx, x86::ecx);',
+                '  a.sub(x86::rsp, 32);',
+                '  a.mov(x86::rax, imm((uint64_t)&_jit_ExitProcess));',
+                '  a.call(x86::rax);',
+                '  a.ret();        // never reach',
+                '',
+                '  JitFunc fn = nullptr;',
+                '  Error err = rt.add(&fn, &code);',
+                '  if (err != Error::kOk) {{',
+                '      std::cerr << \"AsmJit error: \" << DebugUtils::error_as_string(err) << std::endl;',
+                '      return 1;',
+                '  }}',
+                '',
+                '  std::ostringstream asm_out;',
+                '  std::string asm_text = logger.data();',
+                '',
+                '  replace_all_fun(asm_text);',
+                '',
+                '  SymbolMappings symbols;',
+                f'  {self.render_asm_symbol_mappings()}',
+                '  symbols.apply(asm_text);',
+                '',
+                '  LabelMappings labels;',
+                f'  {self.render_asm_label_mappings()}',
+                '  labels.apply(asm_text);',
+                '',
+                '  replace_all_ptr(asm_text);',
+                '  replace_all(asm_text, "mov r12, rcx", "lea r12, [rel ctx]");',
+                '',
+                f'  {self.render_asm_context_replacements()}',
+                '',
+                f'  {self.render_asm_nasm_header()}',
+                f'  {self.render_asm_nasm_structs()}',
+                '',
+                f'  {self.render_asm_double_replacements()}',
+                '  asm_out << std::endl;',
+                '  asm_out << std::endl;',
+                '',
+                f'  {self.render_asm_double_symbols()}',
+                f'  {self.render_asm_extern_symbols()}',
+                '',
+                f'  {self.render_asm_context_data(
+                        int_count,
+                        double_count,
+                        string_count,
+                        record_count,
+                        arrays_count,
+                        pointr_count)}',
+                f'',
+                '    asm_out << std::endl;',
+                '    asm_out << "dbase2many_module_kind dq {self.module_kind_value}" << std::endl;',
+                '    asm_out << "dbase2many_module_kind_program  equ 1" << std::endl;',
+                '    asm_out << "dbase2many_module_kind_unit     equ 2" << std::endl;',
+                '    asm_out << "dbase2many_module_kind_library  equ 3" << std::endl << std::endl;',
+                f'',
+                '    asm_out << std::endl;',
+                '    asm_out << "section .text" << std::endl;',
+                f'    asm_out << "global " << "_{self.func_name}" << std::endl;',
+                f'   {self.render_asm_exports()}',
+                f'    asm_out << "_{self.func_name}" << ":" << std::endl;',
+                f'',
+                f'    asm_out << asm_text;',
+                f'',
+                f'    {self.render_asm_export_thunks()}',
+                f'    {self.render_asm_string_data()}',
+                f'',
+                f'    std::string final_asm_text = asm_out.str();',
+                f'',
+                f'    if (!write_formatted_asm_file(',
+                f'        final_asm_text.c_str(),',
+                f'        \"{self.asm_file}\")) {{',
+                f'        std::cerr << "Could not write ASM file: {self.asm_file}" << std::endl;',
+                f'    }}',
+                f'',
+                f'    std::array<int,      {int_count}> int_vars{{}};',
+                f'    std::array<double,   {double_count}> double_vars{{}};',
+                f'    std::array<char*,    {string_count}> string_vars{{}};',
+                f'    std::array<uint8_t,  {record_count}> record_vars{{}};',
+                f'    std::array<uint8_t,  {arrays_count}> arrays_vars{{}};',
+                f'    std::array<uint64_t, {pointr_count}> pointr_vars{{}};',
+                '',
+                '    JitContext ctx{};',
+                '    ctx.int_vars    = int_vars.data();',
+                '',
+                '    ctx.double_vars = double_vars.data();',
+                '    ctx.string_vars = string_vars.data();',
+                '    ctx.record_vars = record_vars.data();',
+                '    ctx.arrays_vars = arrays_vars.data();',
+                '    ctx.pointr_vars = pointr_vars.data();',
+                '',
+                '    try {',
+                '        fn(&ctx);',
+                '    }',
+                '    catch (const JitRuntimeError& e) {',
+                '        std::cerr << "JIT runtime error: " << e.what() << std::endl;',
+                '        rt.release(fn);',
+                '        return 2;',
+                '    }',
+                '    catch (const std::exception& e) {',
+                '        std::cerr << "C++ exception: " << e.what() << std::endl;',
+                '        rt.release(fn);',
+                '        return 3;',
+                '    }',
+                '    catch (...) {',
+                '        std::cerr << "Unknown JIT exception" << std::endl;',
+                '        rt.release(fn);',
+                '        return 4;',
+                '   }',
+                '',
+                '    rt.release(fn);',
+                '    return 0;',
+                '}',
+                '']
+            result = NL.join(result) + NL
+            return result
+        elif CommonData.BACKEND == BACKEND_NASM:
+            result = [
+                output_header,
+                f'',
+                '  add rsp, 8  ; undo alignment',
+                '  pop rbx',
+                '  pop r12',
+                '',
+                '  xor ecx, ecx',
+                '  sub rsp, 32',
+                '  mov rax, &_jit_ExitProcess',
+                '  call rax',
+                '  ret      ; never reach',
+                '',
+                f'{self.render_asm_context_data(
+                    int_count,
+                    double_count,
+                    string_count,
+                    record_count,
+                    arrays_count,
+                    pointr_count)}',
+                f''
+                f'{self.render_asm_extern_symbols()}',
+                f''
+                f'DBASE2MANY_MODULE_KIND: db {self.module_kind_value}'
+            ]            
+            result = NL.join(result) + NL
+            return result
+        else:
+            return "<unknown backend>"
+        
     def render_variable_output(self):
         out = []
         
@@ -7556,8 +7315,10 @@ def main():
         backend = None
         if args.backend == "nasm":
             backend = NasmBackend()
+            CommonData.BACKEND = "nasm"
         else:
             backend = AsmJitBackend()
+            CommonData.BACKEND = "asmjit"
         
         if backend is None:
             raise Exception("could not create backend")
@@ -7590,8 +7351,8 @@ def main():
         return 2
     except Exception as e:
         print(f"Error: {str(e)}")
-        #import traceback
-        #traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return 1
     #except Exception as e:
     #    print(e, file=sys.stderr)
