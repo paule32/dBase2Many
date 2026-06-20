@@ -16,8 +16,8 @@ g++ -O2 -m64 -std=c++20 -shared -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXP
 ar rcs libdBase2Many.a obj/*.o
 
 g++ -O2 -m64 -std=c++20 -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF ^
-	-s -shared -fPIC -Wl,--subsystem,windows obj/*.o ^
-	-LT:/GitHub/asmjit/build-dll -L. -lasmjit -o dbase2many.dll
+	-s -shared -fPIC -Wl,--subsystem,console obj/*.o ^
+	-LT:/GitHub/asmjit/build-dll -L. -lasmjit -lkernel32 -o dbase2many.dll
 
 gendef dbase2many.dll
 dlltool -d dbase2many.def -l libdbase2many.dll.a

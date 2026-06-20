@@ -299,3 +299,6 @@ src/asmjit/libasmjit.def
 /src/asmjit/build
 /src/asmjit/dist
 src/asmjit/testout/test56a.dll
+src/asmjit/x64/test56a.dll
+src/asmjit/x64/dbase2many.dll
+src/asmjit/1

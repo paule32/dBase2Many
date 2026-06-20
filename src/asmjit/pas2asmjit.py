@@ -6,10 +6,14 @@
 import sys
 import os
 import argparse
+import struct
+import time
 
 from os          import linesep   as NL
 from datetime    import datetime  as dt
 from dataclasses import dataclass
+from pathlib     import PureWindowsPath, Path
+
 from antlr4      import *
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
@@ -23,12 +27,132 @@ from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
 # ---------------------------------------------------------------------------
 BACKEND_ASMJIT  = "asmjit"
 BACKEND_NASM    = "nasm"
-BACKEND         = ""
+BACKEND_OBJFILE = "objfile"
 
 @dataclass
-class CommonData:
-    BACKEND     : str = BACKEND_ASMJIT
+class LastError:
+    NO_ERROR                : int =    0
+    NO_MEMORY               : int =    1
+    NO_SOURCE               : int =    2
+    NO_TARGET               : int =    3
+    NO_FILE                 : int =    4
+    NO_DIRECTORY            : int =    5
+    NO_FILE_OR_DIRECTORY    : int =    6
+    FILE_NOT_FOUND          : int =    7
+    FILE_EXISTS             : int =    8
+    FILE_LOCKED             : int =    9
+    IS_FILE                 : int =   10
+    IS_DIRECTORY            : int =   11
+    PATH_NO_DIRECTORY       : int = 1000
+    DIRECTORY_DONT_EXISTS   : int = 1001
+    DIRECTORY_NOT_READABLE  : int = 1002
+    DIRECTORY_NOT_WRITEABLE : int = 1003
 
+@dataclass
+class LastError:
+    NO_ERROR                : int =    0
+    NO_MEMORY               : int =    1
+    NO_SOURCE               : int =    2
+    NO_TARGET               : int =    3
+    NO_FILE                 : int =    4
+    NO_DIRECTORY            : int =    5
+    NO_FILE_OR_DIRECTORY    : int =    6
+    FILE_NOT_FOUND          : int =    7
+    FILE_EXISTS             : int =    8
+    FILE_LOCKED             : int =    9
+    IS_FILE                 : int =   10
+    IS_DIRECTORY            : int =   11
+    PATH_NO_DIRECTORY       : int = 1000
+    DIRECTORY_DONT_EXISTS   : int = 1001
+    DIRECTORY_NOT_READABLE  : int = 1002
+    DIRECTORY_NOT_WRITEABLE : int = 1003
+
+# ---------------------------------------------------------------------------
+# 16-bit register placeholder ...
+# ---------------------------------------------------------------------------
+REG_AL     = "al"       # low register
+REG_AH     = "ah"       # high register
+
+REG_AX     = "ax"       # alround / return code register
+REG_BX     = "bx"       # backup register
+REG_CX     = "cx"       # counter register
+REG_DX     = "dx"       # decrement register
+REG_BP     = "bp"       # base pointer register
+REG_SP     = "sp"       # stack pointer register
+REG_SI     = "si"       # source index register
+REG_DI     = "di"       # destination index register
+# ---------------------------------------------------------------------------
+# 32-bit register placeholder ...
+# ---------------------------------------------------------------------------
+REG_EAX     = "eax"     # alround / return code register
+REG_EBX     = "ebx"     # backup register
+REG_ECX     = "ecx"     # counter register
+REG_RDX     = "edx"     # decrement register
+REG_EBP     = "ebp"     # extended base pointer register
+REG_ESP     = "esp"     # extended stack pointer register
+REG_ESI     = "esi"     # extended source index register
+REG_EDI     = "edi"     # extended destination index register
+# ---------------------------------------------------------------------------
+# 64-bit register placeholder ...
+# ---------------------------------------------------------------------------
+REG_RAX     = "rax"     # alround / return code register
+REG_RBX     = "rbx"     # backup register
+REG_RCX     = "rcx"     # counter register
+REG_RDX     = "rdx"     # decrement register
+REG_RBP     = "rbp"     # 64-bit base pointer register
+REG_RSP     = "rsp"     # stack pointer register
+REG_RSI     = "rsi"     # source index register
+REG_RDI     = "rdi"     # destination index register
+
+# ---------------------------------------------------------------------------
+# misc. placeholder's ...
+# ---------------------------------------------------------------------------
+ASM_OUT_PH  = "asm_out << "
+
+# ---------------------------------------------------------------------------
+# coff writer constants:
+# ---------------------------------------------------------------------------
+IMAGE_FILE_MACHINE_AMD64        = 0x8664
+IMAGE_SCN_CNT_CODE              = 0x00000020
+IMAGE_SCN_MEM_EXECUTE           = 0x20000000
+IMAGE_SCN_MEM_READ              = 0x40000000
+
+IMAGE_SYM_CLASS_EXTERNAL        = 2
+IMAGE_SYM_DTYPE_FUNCTION        = 0x20
+
+IMAGE_REL_AMD64_REL32           = 0x0004
+IMAGE_SYM_CLASS_EXTERNAL        = 2
+IMAGE_SYM_CLASS_STATIC          = 3
+
+IMAGE_SCN_CNT_INITIALIZED_DATA  = 0x00000040
+IMAGE_SCN_MEM_WRITE             = 0x80000000
+
+# ---------------------------------------------------------------------------
+# backend assembly ...
+# ---------------------------------------------------------------------------
+class BackEndInfo():
+    def __init__(self):
+        self.asmjit  = BACKEND_ASMJIT
+        self.nasm    = BACKEND_NASM
+        self.lines   = ""
+        self.current = ""
+
+class CommonData():
+    def __init__(self):
+        self.LastErrorCode       : int  = 0
+        self.BackEnd             = BackEndInfo()
+        self.CurrentWorkingDir   : str  = ""
+        self.src_file            : str  = ""
+        self.asm_file            : str  = ""
+        self.cpp_file            : str  = ""
+        self.exe_file            : str  = ""
+        self.obj_file            : str  = ""
+        self.ExeOutputDir        : str  = ""
+        self.InputFiles          : list = []
+        self.IncludeDirs         : list = []
+
+global CDATA
+CDATA = CommonData()
 # ---------------------------------------------------------------------------
 # used error code to information text map ...
 # ---------------------------------------------------------------------------
@@ -111,6 +235,250 @@ class ClassInfo:
     parent      : str | None = None
 
 # ---------------------------------------------------------------------------
+# we build our own argument parser exception ...
+# ---------------------------------------------------------------------------
+class ArgumentParserError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+class ThrowingArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise ArgumentParserError(message)
+
+def ask_yes_no(question, default=False):
+    while True:
+        answer = input(question + " (y/N): ").strip().lower()
+        
+        if answer in ("j", "y", "ja", "yes"):
+            return True
+        
+        if answer in ("n", "no", "nein"):
+            return False
+        
+        if answer == "":
+            return default
+        
+        print("Enter [Y]es or [N]o .")
+
+def is_windows_drive(path: Path) -> bool:
+    resolved = path.resolve()
+    anchor = Path(resolved.anchor)
+
+    return resolved == anchor
+
+def can_write_file(path: Path) -> bool:
+    try:
+        with open(path, "a+b"):
+            pass
+        return True
+    except PermissionError:
+        return False
+    except OSError:
+        return False
+
+def validate_output_path(value: str):
+    if value == ".":
+        if sys.platform.startswith("win"):
+            value = os.getcwd() + "\\x64"
+        elif sys.platform.startswith("linux"):
+            value = os.getcwd() + "/x64"
+    else:
+        if sys.platform.startswith("win"):
+            value += "\\x64"
+        elif sys.platform.startswith("linux"):
+            value += "/x64"
+    
+    output_dir = Path(value)
+    output_dir.mkdir(parents=True, exist_ok=True)
+        
+    CDATA.CurrentWorkingDir = value
+    CDATA.exe_file = value
+    print(CDATA.CurrentWorkingDir)
+    path = Path(value)
+    print(path)
+
+    # Existierendes Verzeichnis
+    if path.exists() and path.is_dir():
+        if not path.drive and os.name == "nt":
+            raise RuntimeError("no drive given.")
+
+        if not path.exists():
+            CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
+            raise RuntimeError("directory does not exists.")
+
+        if not os.access(path, os.R_OK):
+            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
+            raise RuntimeError("directory not readable.")
+
+        if not os.access(path, os.W_OK):
+            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
+            raise RuntimeError("directory not writeable.")
+
+        print(">>",path)
+        return {
+            "kind": "directory",
+            "path": path
+        }
+    
+    # Datei oder noch nicht existierende Datei
+    parent = path.parent if path.parent != Path("") else Path(".")
+    
+    if not parent.exists():
+        CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
+        raise RuntimeError(f"target directory does not exists: {parent}")
+    
+    if not parent.is_dir():
+        CDATA.LastErrorCode = LastError.PATH_NO_DIRECTORY
+        raise RuntimeError(f"target path is not a directory: {parent}")
+    
+    if not os.access(parent, os.R_OK):
+        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
+        raise RuntimeError(f"target directory is not readable: {parent}")
+    
+    if not os.access(parent, os.W_OK):
+        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
+        raise RuntimeError(f"target directory is not writeable: {parent}")
+    
+    if path.exists():
+        if path.is_dir():
+            CDATA.LastErrorCode = LastError.IS_DIRECTORY
+            raise RuntimeError("target is a directory, not a file.")
+        
+        if not path.is_file():
+            CDATA.LastErrorCode = LastError.NO_FILE_OR_DIRECTORY
+            raise RuntimeError("target exists, but it is not a normal file.")
+        
+        if not ask_yes_no(f"file '{path}' already exists. Overwrite?"):
+            CDATA.LastErrorCode = LastError.FILE_EXISTS
+            raise RuntimeError("Canceled.")
+        
+        if not can_write_file(path):
+            CDATA.LastErrorCode = LastError.FILE_LOCKED
+            raise RuntimeError(
+                f"File can not be overwrite. "
+                f"The file is blocked by other Process: {path}"
+            )
+    
+    return {
+        "kind": "file",
+        "path": path
+    }
+
+# ---------------------------------------------------------------------------
+# console argument parser from overgiven application command arguments ...
+# ---------------------------------------------------------------------------
+def args_func():
+    args_parser     = ThrowingArgumentParser(
+        prog        = "pas2asmjit",
+        description = "Pascal to AsmJit/NASM compiler"
+    )
+    
+    args_parser.add_argument(
+        "source",
+        nargs   = "?",
+        default = None,
+        help    = "Pascal source file (.pas/.pp)"
+    )
+    
+    args_parser.add_argument(
+        "-o",
+        "--output",
+        default = None,
+        help    = "Output directory"
+    )
+    
+    args_parser.add_argument(
+        "--asm",
+        action  = "store_true",
+        help    = "Generate NASM assembler output"
+    )
+    
+    args_parser.add_argument(
+        "--dll",
+        action  = "store_true",
+        help    = "Build as DLL"
+    )
+    
+    args_parser.add_argument(
+        "--exe",
+        action  = "store_true",
+        help    = "Build as EXE"
+    )
+    
+    args_parser.add_argument(
+        "-D",
+        "--define",
+        action  = "append",
+        default = [],
+        help    = "Define preprocessor symbol, e.g. -D DLL_API"
+    )
+    
+    args_parser.add_argument(
+        "--backend",
+        choices  = ["asmjit", "nasm"],
+        default  = "asmjit",
+        help     = "Code backend: asmjit or nasm."
+    )
+    
+    args_parser.add_argument(
+        "-Fi",
+        action  = "append",
+        default = [],
+        help    = "Add include file search path."
+    )
+    
+    args_parser.add_argument(
+        "-FE",
+        dest    = "exe_output_dir",
+        default = ".",
+        help    = "Set output directory for executables."
+    )
+    
+    args_parser.add_argument(
+        "-T",
+        "--target",
+        choices = ["dos", "win32", "win64"],
+        default = "win64",
+        help    = "Target OS Platform"
+    )
+    
+    args_parser.add_argument(
+        "-i",
+        "--info",
+        nargs   = "?",
+        const   = "",
+        choices = ["", "V", "W", "TP"],
+        default = None,
+        help    = "Version help informations"
+    )
+    return args_parser
+
+def handle_args(args):
+    if args.exe_output_dir is not None:
+        CDATA.ExeOutputDir = args.exe_output_dir
+        #print("==> ", CDATA.CurrentWorkingDir)
+
+    result = validate_output_path(args.exe_output_dir)
+    if result["kind"] == "directory":
+        return args
+    if result["kind"] == "file":
+        CDATA.LastErrorCode = LastError.NO_DIRECTORY
+        raise Exception("executable output is not a directory or does not exists.")
+            
+    if args.info is not None:
+        if args.info == "":
+            print("Common Info")
+        elif args.info == "V":
+            print("Version")
+        elif args.info == "W":
+            print("Warning")
+        elif args.info == "TP":
+            print("Target platform")
+    
+    return args
+
+# ---------------------------------------------------------------------------
 # Compiler Exception to mark errors in compilation unit ...
 # ---------------------------------------------------------------------------
 class CompileError(Exception):
@@ -125,216 +493,1355 @@ class CompileError(Exception):
         super().__init__(code)
 
 # ---------------------------------------------------------------------------
-# console argument parser from overgiven application command arguments ...
-# ---------------------------------------------------------------------------
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description = "Pascal to AsmJit/NASM compiler"
-    )
-    
-    parser.add_argument(
-        "source",
-        help = "Pascal source file (.pas/.pp)"
-    )
-    
-    parser.add_argument(
-        "-o", "--output",
-        default = "testout",
-        help    = "Output directory"
-    )
-    
-    parser.add_argument(
-        "--asm",
-        action  = "store_true",
-        help    = "Generate NASM assembler output"
-    )
-    
-    parser.add_argument(
-        "--dll",
-        action  = "store_true",
-        help    = "Build as DLL"
-    )
-    
-    parser.add_argument(
-        "--exe",
-        action  = "store_true",
-        help    = "Build as EXE"
-    )
-    
-    parser.add_argument(
-        "-D",
-        "--define",
-        action  = "append",
-        default = [],
-        help    = "Define preprocessor symbol, e.g. -D DLL_API"
-    )
-    
-    parser.add_argument(
-        "--backend",
-        choices  = ["asmjit", "nasm"],
-        default  = "asmjit",
-        help     = "Code backend: asmjit or nasm"
-    )
-    
-    return parser.parse_args()
-
-# ---------------------------------------------------------------------------
 # currently, we support:
 # - asmjit for GNU C++ compatible Code
 # - nasm   for NASM Assembly Code
 # ---------------------------------------------------------------------------
-class CodeBackend:
-    def __init__(self, name:str="asmjit"):
-        self.lines = []
-        self.name  = name
-        CommonData.BACKEND = name
+def double_to_bits(value):
+    return struct.unpack(
+        "<Q",
+        struct.pack("<d", float(value))
+    )[0]
 
+class CodeBackend:
+    def __init__(self, name: str = "asmjit"):
+        self.lines = []
+        self.name = name
+        CDATA.BackEnd.current = name
+    
     def emit(self, line):
         self.lines.append("    " + line)
     
     def get_lines(self):
         return self.lines
     
+    def emit_new_label_decl(self, name, comment=""): raise NotImplementedError
+    
     def emit_add(self, reg, value, comment=""): raise NotImplementedError
-        
-    def emit_cmp_val(self, dst, value, comment=""): raise NotImplementedError
+    def emit_imul(self, dst, src, value=None, comment=""): raise NotImplementedError
+    def emit_cmp(self, dst, value, comment=""): raise NotImplementedError
+    def emit_cmp_dword(self, dst, base, field, comment=""): raise NotImplementedError
+
+    def emit_jl(self, label, comment=""): raise NotImplementedError
+    def emut_jl(self, label, comment=""): return self.emit_jl(label, comment)
+    def emit_jg(self, label, comment=""): raise NotImplementedError
+    def emit_jz(self, label, comment=""): raise NotImplementedError
+    def emit_jb(self, label, comment=""): raise NotImplementedError
+    def emit_ja(self, label, comment=""): raise NotImplementedError
+    def emit_jae(self, label, comment=""): raise NotImplementedError
+    def emit_jbe(self, label, comment=""): raise NotImplementedError
+    def emit_je(self, label, comment=""): raise NotImplementedError
+    def emit_jle(self, label, comment=""): raise NotImplementedError
+    def emit_jge(self, label, comment=""): raise NotImplementedError
+    def emit_jne(self, label, comment=""): raise NotImplementedError
+    def emit_jnz(self, label, comment=""): raise NotImplementedError
+    def emit_jmp(self, label, comment=""): raise NotImplementedError
+
+    def emit_lea_byte(self, dst, base, offset, comment=""): raise NotImplementedError
+    def emit_lea_dword(self, dst, base, offset, comment=""): raise NotImplementedError
+    def emit_lea_qword(self, dst, base, offset, comment=""): raise NotImplementedError
+
+    def emit_mov_byte(self, dst, base, field, comment=""): raise NotImplementedError
+    def emit_mov_dword(self, dst, base, field, comment=""): raise NotImplementedError
+    def emit_mov_qword(self, dst, base, field, comment=""): raise NotImplementedError
+
+    def emit_mov_byte_ptr(self, dst, base, offset=0, comment=""): raise NotImplementedError
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""): raise NotImplementedError
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""): raise NotImplementedError
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
+    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
+
+    def emit_mov_reg_byte(self, dst, base, comment=""): raise NotImplementedError
+    def emit_mov_reg_dword(self, dst, base, comment=""): raise NotImplementedError
+    def emit_mov_reg_qword(self, dst, base, comment=""): raise NotImplementedError
+
     def emit_mov_imm(self, dst, value, comment=""): raise NotImplementedError
-    
-    def emit_mov  (self, dst, src, comment=""): raise NotImplementedError
+    def emit_mov(self, dst, src, comment=""): raise NotImplementedError
     def emit_movzx(self, dst, src, comment=""): raise NotImplementedError
-    
+    def emit_movsxd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_movq(self, dst, src, comment=""): raise NotImplementedError
+    def emit_movsd_load(self, dst, base, offset=0, comment=""): raise NotImplementedError
+    def emit_movsd_load_field(self, dst, base, field, comment=""): raise NotImplementedError
+    def emit_movsd_store(self, base, offset, src, comment=""): raise NotImplementedError
+    def emit_ucomisd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_cvtsi2sd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_movapd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_addsd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_subsd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_mulsd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_divsd(self, dst, src, comment=""): raise NotImplementedError
+    def emit_cdq(self, comment=""): raise NotImplementedError
+    def emit_idiv(self, reg, comment=""): raise NotImplementedError
+
     def emit_xor(self, dst, src, comment=""): raise NotImplementedError
-    
     def emit_push(self, reg, comment=""): raise NotImplementedError
-    def emit_pop (self, reg, comment=""): raise NotImplementedError
-    
-    def emit_sub  (self, reg, value, comment=""): raise NotImplementedError
+    def emit_pop(self, reg, comment=""): raise NotImplementedError
+    def emit_sub(self, reg, value, comment=""): raise NotImplementedError
     def emit_setne(self, reg, comment=""): raise NotImplementedError
-    
-    def emit_call(self, target, comment=""):
-        raise NotImplementedError
-    
-    def emit_ret(self, comment=""):
-        raise NotImplementedError
-    
-    def emit_jmp(self, label, comment=""):
-        raise NotImplementedError
-    
-    def emit_bind_label(self, label, comment=""):
-        raise NotImplementedError
-    
+    def emit_test(self, reg1, reg2, comment=""): raise NotImplementedError
+
+    def emit_call(self, target, comment=""): raise NotImplementedError
+    def emit_call_reg(self, target, comment=""): return self.emit_call(target, comment)
+    def emit_call_lbl(self, target, comment=""): raise NotImplementedError
+    def emit_ret(self, comment=""): raise NotImplementedError
+    def emit_bind_label(self, label, comment=""): raise NotImplementedError
+
+
 # ---------------------------------------------------------------------------
 # AsmJit backend ...
 # ---------------------------------------------------------------------------
 class AsmJitBackend(CodeBackend):
     def __init__(self, name="asmjit"):
         super().__init__(name)
+
+    def make_comment(self, comment):
+        return f"  // {comment}" if comment else ""
+
+    def emit_new_label_decl(self, name, comment=""):
+        self.emit(
+            f"Label {name} = a.new_label();{self.make_comment(comment)}"
+        )
     
+    def _imm(self, value):
+        s = str(value)
+        if s.startswith("imm("):
+            return s
+        if s.startswith("&"):
+            return f"imm((uint64_t){s})"
+        if s.startswith("_") or s.startswith("str_") or s.startswith("dbl_"):
+            return f"imm((uint64_t)&{s})"
+        return s
+
+    def _operand(self, value):
+        if isinstance(value, str) and value.isidentifier():
+            return f"x86::{value}"
+        return str(value)
+
     def emit_add(self, reg, value, comment=""):
-        self.emit(f"a.add(x86::{reg}, {value});{self.make_comment(comment)}")
-    
-    def emit_cmp_val(self, dst, value, comment=""):
-        self.emit(f"a.cmp(x86::{dst}, {value});{self.make_comment(comment)}")
-        
+        self.emit(f"a.add(x86::{reg}, {self._operand(value)});{self.make_comment(comment)}")
+
+    def emit_imul(self, dst, src, value=None, comment=""):
+        if value is None:
+            self.emit(f"a.imul(x86::{dst}, {self._operand(src)});{self.make_comment(comment)}")
+        else:
+            self.emit(f"a.imul(x86::{dst}, {self._operand(src)}, {value});{self.make_comment(comment)}")
+
+    def emit_cmp(self, dst, value, comment=""):
+        if isinstance(value, str) and value.isidentifier():
+            self.emit(f"a.cmp(x86::{dst}, x86::{value});{self.make_comment(comment)}")
+        else:
+            self.emit(f"a.cmp(x86::{dst}, {value});{self.make_comment(comment)}")
+    def emit_cmp_dword(self, dst, base, field, comment=""):
+        self.emit(f"a.cmp(x86::{dst}, x86::dword_ptr(x86::{base}, offsetof(JitContext, {field})));{self.make_comment(comment)}")
+
+    def emit_jl(self, label, comment=""): self.emit(f"a.jl({label});{self.make_comment(comment)}")
+    def emit_jg(self, label, comment=""): self.emit(f"a.jg({label});{self.make_comment(comment)}")
+    def emit_jz(self, label, comment=""): self.emit(f"a.jz({label});{self.make_comment(comment)}")
+    def emit_jb(self, label, comment=""): self.emit(f"a.jb({label});{self.make_comment(comment)}")
+    def emit_ja(self, label, comment=""): self.emit(f"a.ja({label});{self.make_comment(comment)}")
+    def emit_jae(self, label, comment=""): self.emit(f"a.jae({label});{self.make_comment(comment)}")
+    def emit_jbe(self, label, comment=""): self.emit(f"a.jbe({label});{self.make_comment(comment)}")
+    def emit_je(self, label, comment=""): self.emit(f"a.je({label});{self.make_comment(comment)}")
+    def emit_jle(self, label, comment=""): self.emit(f"a.jle({label});{self.make_comment(comment)}")
+    def emit_jge(self, label, comment=""): self.emit(f"a.jge({label});{self.make_comment(comment)}")
+    def emit_jne(self, label, comment=""): self.emit(f"a.jne({label});{self.make_comment(comment)}")
+    def emit_jnz(self, label, comment=""): self.emit(f"a.jnz({label});{self.make_comment(comment)}")
+    def emit_jmp(self, label, comment=""): self.emit(f"a.jmp({label});{self.make_comment(comment)}")
+
+    def emit_lea_byte(self, dst, base, offset, comment=""):
+        self.emit(f"a.lea(x86::{dst}, x86::byte_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_lea_dword(self, dst, base, offset, comment=""):
+        self.emit(f"a.lea(x86::{dst}, x86::dword_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_lea_qword(self, dst, base, offset, comment=""):
+        self.emit(f"a.lea(x86::{dst}, x86::qword_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+
+    def emit_mov_byte(self, dst, base, field, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::byte_ptr(x86::{base}, offsetof(JitContext, {field})));{self.make_comment(comment)}")
+    def emit_mov_dword(self, dst, base, field, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::dword_ptr(x86::{base}, offsetof(JitContext, {field})));{self.make_comment(comment)}")
+    def emit_mov_qword(self, dst, base, field, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::qword_ptr(x86::{base}, offsetof(JitContext, {field})));{self.make_comment(comment)}")
+
+    def emit_mov_byte_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::byte_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::dword_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::qword_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"a.mov(x86::qword_ptr(x86::{base}, {offset}), x86::{src});{self.make_comment(comment)}")
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"a.mov(x86::dword_ptr(x86::{base}, {offset}), x86::{src});{self.make_comment(comment)}")
+    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"a.mov(x86::byte_ptr(x86::{base}, {offset}), x86::{src});{self.make_comment(comment)}")
+
+    def emit_mov_reg_byte(self, dst, base, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::byte_ptr(x86::{base}));{self.make_comment(comment)}")
+    def emit_mov_reg_dword(self, dst, base, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::dword_ptr(x86::{base}));{self.make_comment(comment)}")
+    def emit_mov_reg_qword(self, dst, base, comment=""):
+        self.emit(f"a.mov(x86::{dst}, x86::qword_ptr(x86::{base}));{self.make_comment(comment)}")
+
     def emit_mov_imm(self, dst, value, comment=""):
-        self.emit(f"a.mov(x86::{dst}, imm((uint64_t)&{value}));{self.make_comment(comment)}")
-    
-    def emit_mov  (self, dst , src , comment=""):
-        self.emit(f"a.mov(x86::{dst}, x86::{src});{self.make_comment(comment)}")
-        
-    def emit_movzx(self, reg1, reg2, comment=""):
-        self.emit(f"a.movzx(x86::{reg1}, x86::{reg2});{self.make_comment(comment)}")
-    
+        self.emit(f"a.mov(x86::{dst}, {self._imm(value)});{self.make_comment(comment)}")
+
+    def emit_mov(self, dst, src, comment=""):
+        if isinstance(src, int) or (isinstance(src, str) and (src.lstrip('-').isdigit() or src.startswith('&') or src.startswith('imm('))):
+            self.emit_mov_imm(dst, src, comment)
+        else:
+            self.emit(f"a.mov(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+
+    def emit_movzx(self, dst, src, comment=""):
+        s = str(src)
+        if s.startswith("byte_ptr(") and s.endswith(")"):
+            base = s[len("byte_ptr("):-1]
+            self.emit(f"a.movzx(x86::{dst}, x86::byte_ptr(x86::{base}));{self.make_comment(comment)}")
+        else:
+            self.emit(f"a.movzx(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_movsxd(self, dst, src, comment=""):
+        self.emit(f"a.movsxd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_movq(self, dst, src, comment=""):
+        self.emit(f"a.movq(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_movsd_load(self, dst, base, offset=0, comment=""):
+        self.emit(f"a.movsd(x86::{dst}, x86::qword_ptr(x86::{base}, {offset}));{self.make_comment(comment)}")
+    def emit_movsd_load_field(self, dst, base, field, comment=""):
+        self.emit(f"a.movsd(x86::{dst}, x86::qword_ptr(x86::{base}, offsetof(JitContext, {field})));{self.make_comment(comment)}")
+    def emit_movsd_store(self, base, offset, src, comment=""):
+        self.emit(f"a.movsd(x86::qword_ptr(x86::{base}, {offset}), x86::{src});{self.make_comment(comment)}")
+    def emit_ucomisd(self, dst, src, comment=""):
+        self.emit(f"a.ucomisd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_cvtsi2sd(self, dst, src, comment=""):
+        self.emit(f"a.cvtsi2sd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_movapd(self, dst, src, comment=""):
+        self.emit(f"a.movapd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_addsd(self, dst, src, comment=""):
+        self.emit(f"a.addsd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_subsd(self, dst, src, comment=""):
+        self.emit(f"a.subsd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_mulsd(self, dst, src, comment=""):
+        self.emit(f"a.mulsd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_divsd(self, dst, src, comment=""):
+        self.emit(f"a.divsd(x86::{dst}, x86::{src});{self.make_comment(comment)}")
+    def emit_cdq(self, comment=""):
+        self.emit(f"a.cdq();{self.make_comment(comment)}")
+    def emit_idiv(self, reg, comment=""):
+        self.emit(f"a.idiv(x86::{reg});{self.make_comment(comment)}")
+
     def emit_xor(self, dst, src, comment=""):
         self.emit(f"a.xor_(x86::{dst}, x86::{src});{self.make_comment(comment)}")
-    
     def emit_push(self, reg, comment=""):
         self.emit(f"a.push(x86::{reg});{self.make_comment(comment)}")
-        
     def emit_pop(self, reg, comment=""):
         self.emit(f"a.pop(x86::{reg});{self.make_comment(comment)}")
-    
     def emit_sub(self, reg, value, comment=""):
         self.emit(f"a.sub(x86::{reg}, {value});{self.make_comment(comment)}")
-    
     def emit_setne(self, reg, comment=""):
-        self.emit("a.setne(x86::{reg});{self.make_comment(comment)}")
+        self.emit(f"a.setne(x86::{reg});{self.make_comment(comment)}")
+    def emit_test(self, reg1, reg2, comment=""):
+        self.emit(f"a.test(x86::{reg1}, x86::{reg2});{self.make_comment(comment)}")
 
     def emit_call(self, target, comment=""):
-        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
-        self.emit(f"a.call(x86::{target});")
-        self.emit_add("rsp", 32, comment)
-    
+        self.emit_sub("rsp", 32, comment="Windows x64 shadow space")
+        self.emit(f"a.call(x86::{target});{self.make_comment(comment)}")
+        self.emit_add("rsp", 32)
+    def emit_call_reg(self, target, comment=""):
+        self.emit_call(target, comment)
+    def emit_call_lbl(self, target, comment=""):
+        self.emit_sub("rsp", 32, comment="Windows x64 shadow space")
+        self.emit(f"a.call({target});{self.make_comment(comment)}")
+        self.emit_add("rsp", 32)
     def emit_ret(self, comment=""):
-        self.emit("a.ret();{self.make_comment(comment)}")
-
-    def emit_jmp(self, label, comment=""):
-        self.emit(f"a.jmp({label});{self.make_comment(comment)}")
-
+        self.emit(f"a.ret();{self.make_comment(comment)}")
     def emit_bind_label(self, label, comment=""):
         self.emit(f"a.bind({label});{self.make_comment(comment)}")
 
-    def make_comment(self, comment):
-        if comment:
-            return f"  // {comment}"
-        return f""
 
 # ---------------------------------------------------------------------------
 # NASM backend ...
 # ---------------------------------------------------------------------------
 class NasmBackend(CodeBackend):
-    def __init__(self, name:str="nasm"):
+    def __init__(self, name: str = "nasm"):
         super().__init__(name)
+
+    def make_comment(self, comment):
+        return f"  ; {comment}" if comment else ""
+
+    def emit_new_label_decl(self, name, comment=""):
+        # NASM braucht keine vorherige Label-Deklaration
+        return
     
+    def _mem(self, base, offset=0):
+        if offset in (None, "", 0, "0"):
+            return f"[{base}]"
+        off = str(offset)
+        if off.startswith("-"):
+            return f"[{base} - {off[1:]}]"
+        return f"[{base} + {off}]"
+
+    def _symbol(self, value):
+        s = str(value)
+        if s.startswith("&"):
+            return s[1:]
+        if s.startswith("imm((uint64_t)&") and s.endswith(")"):
+            return s[len("imm((uint64_t)&"):-1]
+        return s
+
     def emit_add(self, reg, value, comment=""):
         self.emit(f"add {reg}, {value}{self.make_comment(comment)}")
-    
-    def emit_cmp_val(self, dst, value, comment=""):
+    def emit_imul(self, dst, src, value=None, comment=""):
+        if value is None:
+            self.emit(f"imul {dst}, {src}{self.make_comment(comment)}")
+        else:
+            self.emit(f"imul {dst}, {src}, {value}{self.make_comment(comment)}")
+    def emit_cmp(self, dst, value, comment=""):
         self.emit(f"cmp {dst}, {value}{self.make_comment(comment)}")
-    
-    def emit_mov    (self, dst, src, comment=""):
+    def emit_cmp_dword(self, dst, base, field, comment=""):
+        self.emit(f"cmp {dst}, dword [{base} + JitContext.{field}]{self.make_comment(comment)}")
+
+    def emit_jl(self, label, comment=""): self.emit(f"jl {label}{self.make_comment(comment)}")
+    def emit_jg(self, label, comment=""): self.emit(f"jg {label}{self.make_comment(comment)}")
+    def emit_jz(self, label, comment=""): self.emit(f"jz {label}{self.make_comment(comment)}")
+    def emit_jb(self, label, comment=""): self.emit(f"jb {label}{self.make_comment(comment)}")
+    def emit_ja(self, label, comment=""): self.emit(f"ja {label}{self.make_comment(comment)}")
+    def emit_jae(self, label, comment=""): self.emit(f"jae {label}{self.make_comment(comment)}")
+    def emit_jbe(self, label, comment=""): self.emit(f"jbe {label}{self.make_comment(comment)}")
+    def emit_je(self, label, comment=""): self.emit(f"je {label}{self.make_comment(comment)}")
+    def emit_jle(self, label, comment=""): self.emit(f"jle {label}{self.make_comment(comment)}")
+    def emit_jge(self, label, comment=""): self.emit(f"jge {label}{self.make_comment(comment)}")
+    def emit_jne(self, label, comment=""): self.emit(f"jne {label}{self.make_comment(comment)}")
+    def emit_jnz(self, label, comment=""): self.emit(f"jnz {label}{self.make_comment(comment)}")
+    def emit_jmp(self, label, comment=""): self.emit(f"jmp {label}{self.make_comment(comment)}")
+
+    def emit_lea_byte(self, dst, base, offset, comment=""):
+        self.emit(f"lea {dst}, {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_lea_dword(self, dst, base, offset, comment=""):
+        self.emit(f"lea {dst}, {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_lea_qword(self, dst, base, offset, comment=""):
+        self.emit(f"lea {dst}, {self._mem(base, offset)}{self.make_comment(comment)}")
+
+    def emit_mov_byte(self, dst, base, field, comment=""):
+        self.emit(f"mov {dst}, byte [{base} + JitContext.{field}]{self.make_comment(comment)}")
+    def emit_mov_dword(self, dst, base, field, comment=""):
+        self.emit(f"mov {dst}, dword [{base} + JitContext.{field}]{self.make_comment(comment)}")
+    def emit_mov_qword(self, dst, base, field, comment=""):
+        self.emit(f"mov {dst}, qword [{base} + JitContext.{field}]{self.make_comment(comment)}")
+
+    def emit_mov_byte_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"mov {dst}, byte {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"mov {dst}, dword {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""):
+        self.emit(f"mov {dst}, qword {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"mov qword {self._mem(base, offset)}, {src}{self.make_comment(comment)}")
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"mov dword {self._mem(base, offset)}, {src}{self.make_comment(comment)}")
+    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""):
+        self.emit(f"mov byte {self._mem(base, offset)}, {src}{self.make_comment(comment)}")
+
+    def emit_mov_reg_byte(self, dst, base, comment=""):
+        self.emit(f"mov {dst}, byte [{base}]{self.make_comment(comment)}")
+    def emit_mov_reg_dword(self, dst, base, comment=""):
+        self.emit(f"mov {dst}, dword [{base}]{self.make_comment(comment)}")
+    def emit_mov_reg_qword(self, dst, base, comment=""):
+        self.emit(f"mov {dst}, qword [{base}]{self.make_comment(comment)}")
+
+    def emit_mov(self, dst, src, comment=""):
         self.emit(f"mov {dst}, {src}{self.make_comment(comment)}")
-        
-    def emit_mov_imm(self, dst, src, comment=""):
-        self.emit(f"mov {dst}, {src}{self.make_comment(comment)}")
-        
-    def emit_movzx  (self, dst, src, comment=""):
-        self.emit(f"movzx {dst}, {src}{self.make_comment(comment)}")
-    
+    def emit_mov_imm(self, dst, value, comment=""):
+        self.emit(f"mov {dst}, {self._symbol(value)}{self.make_comment(comment)}")
+    def emit_movzx(self, dst, src, comment=""):
+        s = str(src)
+        if s.startswith("byte_ptr(") and s.endswith(")"):
+            base = s[len("byte_ptr("):-1]
+            self.emit(f"movzx {dst}, byte [{base}]{self.make_comment(comment)}")
+        else:
+            self.emit(f"movzx {dst}, {src}{self.make_comment(comment)}")
+    def emit_movsxd(self, dst, src, comment=""):
+        self.emit(f"movsxd {dst}, {src}{self.make_comment(comment)}")
+    def emit_movq(self, dst, src, comment=""):
+        self.emit(f"movq {dst}, {src}{self.make_comment(comment)}")
+    def emit_movsd_load(self, dst, base, offset=0, comment=""):
+        self.emit(f"movsd {dst}, qword {self._mem(base, offset)}{self.make_comment(comment)}")
+    def emit_movsd_load_field(self, dst, base, field, comment=""):
+        self.emit(f"movsd {dst}, qword [{base} + JitContext.{field}]{self.make_comment(comment)}")
+    def emit_movsd_store(self, base, offset, src, comment=""):
+        self.emit(f"movsd qword {self._mem(base, offset)}, {src}{self.make_comment(comment)}")
+    def emit_ucomisd(self, dst, src, comment=""):
+        self.emit(f"ucomisd {dst}, {src}{self.make_comment(comment)}")
+    def emit_cvtsi2sd(self, dst, src, comment=""):
+        self.emit(f"cvtsi2sd {dst}, {src}{self.make_comment(comment)}")
+    def emit_movapd(self, dst, src, comment=""):
+        self.emit(f"movapd {dst}, {src}{self.make_comment(comment)}")
+    def emit_addsd(self, dst, src, comment=""):
+        self.emit(f"addsd {dst}, {src}{self.make_comment(comment)}")
+    def emit_subsd(self, dst, src, comment=""):
+        self.emit(f"subsd {dst}, {src}{self.make_comment(comment)}")
+    def emit_mulsd(self, dst, src, comment=""):
+        self.emit(f"mulsd {dst}, {src}{self.make_comment(comment)}")
+    def emit_divsd(self, dst, src, comment=""):
+        self.emit(f"divsd {dst}, {src}{self.make_comment(comment)}")
+    def emit_cdq(self, comment=""):
+        self.emit(f"cdq{self.make_comment(comment)}")
+    def emit_idiv(self, reg, comment=""):
+        self.emit(f"idiv {reg}{self.make_comment(comment)}")
+
     def emit_xor(self, dst, src, comment=""):
         self.emit(f"xor {dst}, {src}{self.make_comment(comment)}")
-    
     def emit_push(self, reg, comment=""):
         self.emit(f"push {reg}{self.make_comment(comment)}")
-        
     def emit_pop(self, reg, comment=""):
         self.emit(f"pop {reg}{self.make_comment(comment)}")
-    
     def emit_sub(self, reg, value, comment=""):
         self.emit(f"sub {reg}, {value}{self.make_comment(comment)}")
-    
     def emit_setne(self, reg, comment=""):
-        self.emit("setne {reg}{self.make_comment(comment)}")
-    
+        self.emit(f"setne {reg}{self.make_comment(comment)}")
+    def emit_test(self, reg1, reg2, comment=""):
+        self.emit(f"test {reg1}, {reg2}{self.make_comment(comment)}")
+
     def emit_call(self, target, comment=""):
-        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
-        self.emit(f"call {target}")
-        self.emit_add("rsp", 32, comment)
-    
+        self.emit_sub("rsp", 32, comment="Windows x64 shadow space")
+        self.emit(f"call {target}{self.make_comment(comment)}")
+        self.emit_add("rsp", 32)
+    def emit_call_reg(self, target, comment=""):
+        self.emit_call(target, comment)
+    def emit_call_lbl(self, target, comment=""):
+        self.emit_call(target, comment)
     def emit_ret(self, comment=""):
-        self.emit("ret{self.make_comment(comment)}")
-    
-    def emit_jmp(self, label, comment=""):
-        self.emit(f"jmp {label}{self.make_comment(comment)}")
-    
+        self.emit(f"ret{self.make_comment(comment)}")
     def emit_bind_label(self, label, comment=""):
         self.lines.append(f"{label}:{self.make_comment(comment)}")
 
-    def make_comment(self, comment):
-        if comment:
-            return f"  ; {comment}"
-        return f""
+# ---------------------------------------------------------------------------
+# win64 pe coff writer ...
+# ---------------------------------------------------------------------------
+class PECoffWriter:
+    regs = {
+        "rax" :  0, "rcx" :  1, "rdx" :  2, "rbx" :  3,
+        "rsp" :  4, "rbp" :  5, "rsi" :  6, "rdi" :  7,
+        "r8"  :  8, "r9"  :  9, "r10" : 10, "r11" : 11,
+        "r12" : 12, "r13" : 13, "r14" : 14, "r15" : 15,
+        
+        "eax" :  0, "ecx" :  1, "edx" :  2, "ebx" :  3,
+        "esp" :  4, "ebp" :  5, "esi" :  6, "edi" :  7,
+        "r8d" :  8, "r9d" :  9, "r10d": 10, "r11d": 11,
+        "r12d": 12, "r13d": 13, "r14d": 14, "r15d": 15,
+    }
+    
+    def __init__(self):
+        self.text               = bytearray()
+        self.data               = bytearray()
+        
+        self.text_relocations   = []
+        self.data_relocations   = []
 
+        self.symbols            = []
+        self.labels             = {}
+        self.fixups             = []
+        
+        self.string_table       = bytearray()
+        self.string_offsets     = {}
+    
+    def _reg_id(self, reg):
+        if reg not in regs:
+            raise RuntimeError(f"unsupported register: {reg}")
+        return regs[reg]
+    
+    def _is_ext_reg(self, reg): return self._reg_id(reg) >= 8
+    def _reg_low3  (self, reg): return self._reg_id(reg)  & 7
+    
+    # --------------------------------
+    # Label definieren
+    # --------------------------------
+    def bind_label(self, name):
+        self.labels[name] = len(self.text)
+
+        pending = [
+            f for f in self.fixups
+            if f["label"] == name
+        ]
+
+        for fix in pending:
+            self.patch_rel32(
+                fix["patch_pos"],
+                self.labels[name]
+            )
+
+        self.fixups = [
+            f for f in self.fixups
+            if f["label"] != name
+        ]
+    
+    # --------------------------------
+    # add r32, r32
+    # --------------------------------
+    def emit_add_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+
+        if src_id >= 8:
+            rex |= 0x04  # REX.R
+
+        if dst_id >= 8:
+            rex |= 0x01  # REX.B
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x01)  # add r/m32, r32
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    # --------------------------------
+    # and r32, r32
+    # --------------------------------
+    def emit_and_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        if src_id >= 8 or dst_id >= 8:
+            rex = 0x40
+            if src_id >= 8:
+                rex |= 0x04
+            if dst_id >= 8:
+                rex |= 0x01
+            self.text.append(rex)
+
+        self.text.append(0x21)
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    # --------------------------------
+    # or r32, r32
+    # --------------------------------
+    def emit_or_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        if src_id >= 8 or dst_id >= 8:
+            rex = 0x40
+            if src_id >= 8:
+                rex |= 0x04
+            if dst_id >= 8:
+                rex |= 0x01
+            self.text.append(rex)
+
+        self.text.append(0x09)
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    # --------------------------------
+    # xor r32, r32
+    # --------------------------------
+    def emit_xor_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        if src_id >= 8 or dst_id >= 8:
+            rex = 0x40
+            if src_id >= 8:
+                rex |= 0x04
+            if dst_id >= 8:
+                rex |= 0x01
+            self.text.append(rex)
+
+        self.text.append(0x31)
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+        
+    # --------------------------------
+    # sub r32, r32
+    # --------------------------------
+    def emit_sub_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+
+        if src_id >= 8:
+            rex |= 0x04
+
+        if dst_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x29)  # sub r/m32, r32
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    # --------------------------------
+    # imul r32, r32
+    # --------------------------------
+    def emit_imul_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+
+        if dst_id >= 8:
+            rex |= 0x04  # REX.R
+
+        if src_id >= 8:
+            rex |= 0x01  # REX.B
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text += b"\x0F\xAF"
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+    
+    def emit_cdq(self):
+        self.text.append(0x99)
+    
+    # --------------------------------
+    # idiv r32
+    # --------------------------------
+    def emit_idiv_r32(self, reg):
+        reg_id = self._reg_id(reg)
+
+        if reg_id >= 8:
+            self.text.append(0x41)
+
+        self.text.append(0xF7)
+        self.text.append(0xF8 | (reg_id & 7))  # /7 idiv
+    
+    # --------------------------------
+    # Vergleichsoperator abbilden
+    # --------------------------------
+    def emit_compare_result_eax_ebx(self, op):
+        self.emit_cmp_r32_r32("eax", "ebx")
+
+        set_map = {
+            "=":  "sete",
+            "<>": "setne",
+            "<":  "setl",
+            "<=": "setle",
+            ">":  "setg",
+            ">=": "setge",
+        }
+
+        if op not in set_map:
+            raise RuntimeError(f"unsupported compare operator: {op}")
+
+        self.emit_setcc_al(set_map[op])
+        self.emit_movzx_eax_al()
+    
+    # --------------------------------
+    # Sprung auf Label
+    # --------------------------------
+    def emit_jmp_label(self, label):
+        patch_pos = self.emit_jmp_placeholder()
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
+    # --------------------------------
+    # Bedingter Sprung auf Label
+    # --------------------------------
+    def emit_jcc_label(self, cc, label):
+        patch_pos = self.emit_jcc_placeholder(cc)
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
+    # --------------------------------
+    # Am Ende prüfen
+    # --------------------------------
+    def check_unresolved_labels(self):
+        if self.fixups:
+            names = ", ".join(f["label"] for f in self.fixups)
+            raise RuntimeError(f"Unresolved labels: {names}")
+    
+    def emit_call_rel32(self, symbol_name):
+        sym_index = self.find_or_add_external(symbol_name)
+        self.text.append(0xE8)
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset"        : reloc_offset,
+            "symbol_index"  : sym_index,
+            "type"          : IMAGE_REL_AMD64_REL32
+        })
+    
+    # --------------------------------
+    # cmp r32, imm32
+    # --------------------------------
+    def emit_cmp_r32_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        if reg_id >= 8:
+            self.text.append(0x41)  # REX.B für r8d-r15d
+
+        self.text.append(0x81)
+
+        # /7 = CMP
+        modrm = 0xF8 | (reg_id & 7)
+        self.text.append(modrm)
+
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    # --------------------------------
+    # cmp r32, r32
+    # --------------------------------
+    def emit_cmp_r32_r32(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        rex = 0x40
+
+        if right_id >= 8:
+            rex |= 0x04  # REX.R
+
+        if left_id >= 8:
+            rex |= 0x01  # REX.B
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x39)  # cmp r/m32, r32
+
+        modrm = 0xC0 | ((right_id & 7) << 3) | (left_id & 7)
+        self.text.append(modrm)
+    
+    # --------------------------------
+    # cmp r64, r64
+    # --------------------------------
+    def emit_cmp_r64_r64(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        rex = 0x48
+
+        if right_id >= 8:
+            rex |= 0x04
+
+        if left_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x39)
+        self.text.append(0xC0 | ((right_id & 7) << 3) | (left_id & 7))
+    
+    def emit_cmp_r64_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+        
+        rex = 0x48
+        
+        if reg_id >= 8:
+            rex |= 0x01
+        
+        self.text.append(rex)
+        self.text.append(0x81)
+        
+        # /7 = cmp
+        self.text.append(0xF8 | (reg_id & 7))
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_cmp_r64_r64(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        rex = 0x48
+
+        if right_id >= 8:
+            rex |= 0x04
+
+        if left_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x39)
+        self.text.append(0xC0 | ((right_id & 7) << 3) | (left_id & 7))
+    
+    def emit_nil_check_rax(self, ok_label, fail_label):
+        self.emit_test_r64_r64("rax", "rax")
+        self.emit_jcc_label("jne", ok_label)
+        self.emit_jmp_label(fail_label)
+    
+    # --------------------------------
+    # Relativer Sprung mit Patch-Liste
+    # --------------------------------
+    def emit_jcc_placeholder(self, cc):
+        opcodes = {
+            "je":  b"\x0F\x84",
+            "jne": b"\x0F\x85",
+            "jl":  b"\x0F\x8C",
+            "jle": b"\x0F\x8E",
+            "jg":  b"\x0F\x8F",
+            "jge": b"\x0F\x8D",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"unsupported condition jump: {cc}")
+
+        self.text += opcodes[cc]
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        return patch_pos
+    
+    # --------------------------------
+    # Operator jump
+    # --------------------------------
+    def emit_jump_by_op(self, op, label):
+        jump_map = {
+            "=":  "je",
+            "<>": "jne",
+            "<":  "jl",
+            "<=": "jle",
+            ">":  "jg",
+            ">=": "jge",
+        }
+
+        if op not in jump_map:
+            raise RuntimeError(f"unsupported jump op: {op}")
+
+        self.emit_jcc_label(jump_map[op], label)
+    
+    # --------------------------------
+    # Unbedingter Sprung
+    # --------------------------------
+    def emit_jmp_placeholder(self):
+        self.text.append(0xE9)
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        return patch_pos
+    
+    # --------------------------------
+    # Sprung patcher
+    # --------------------------------
+    def patch_rel32(self, patch_pos, target_pos):
+        # rel32 ist relativ zum nächsten Befehl,
+        # also patch_pos + 4
+        rel = target_pos - (patch_pos + 4)
+
+        self.text[patch_pos:patch_pos + 4] = int(rel).to_bytes(
+            4,
+            "little",
+            signed=True
+        )
+    
+    def emit_lea_rcx_data_label(self, label):
+        self.emit_lea_reg_data_label("rcx", label)
+
+    # --------------------------------
+    # lea reg, [rel data_label]
+    # --------------------------------
+    def emit_lea_reg_data_label(self, reg, label):
+        opcodes = {
+            "rax": b"\x48\x8D\x05",
+            "rcx": b"\x48\x8D\x0D",
+            "rdx": b"\x48\x8D\x15",
+            "rbx": b"\x48\x8D\x1D",
+        }
+
+        if reg not in opcodes:
+            raise RuntimeError(f"unsupported lea register: {reg}")
+
+        sym_index = self.find_or_add_symbol(label)
+
+        self.text += opcodes[reg]
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_REL32
+        })
+
+    def emit_mov_eax_imm32(self, value):
+        self.text.append(0xB8)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_rax_imm64(self, value):
+        self.text += b"\x48\xB8"
+        self.text += int(value).to_bytes(8, "little", signed=False)
+    
+    def emit_mov_ecx_imm32(self, value):
+        self.text.append(0xB9)  # mov ecx, imm32
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_reg_imm32(self, reg, value):
+        opcodes = {
+            "eax": b"\xB8",
+            "ecx": b"\xB9",
+            "edx": b"\xBA",
+            "ebx": b"\xBB",
+        }
+        
+        if reg not in opcodes:
+            raise RuntimeError(f"unsupported imm32 register: {reg}")
+        
+        self.text += opcodes[reg]
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    # --------------------------------
+    # mov r64, imm64
+    # --------------------------------
+    def emit_mov_reg_imm64(self, reg, value):
+        opcodes = {
+            "rax": b"\x48\xB8",
+            "rcx": b"\x48\xB9",
+            "rdx": b"\x48\xBA",
+            "rbx": b"\x48\xBB",
+        }
+
+        if reg not in opcodes:
+            raise RuntimeError(f"unsupported imm64 register: {reg}")
+
+        self.text += opcodes[reg]
+        self.text += int(value).to_bytes(8, "little", signed=False)
+    
+    # --------------------------------
+    # mov eax, dword [rax + 8]
+    # --------------------------------
+    def emit_mov_r32_mem(self, dst, base, offset=0):
+        if dst != "eax":
+            raise RuntimeError(f"unsupported dst r32: {dst}")
+
+        base_id = regs[base]
+        self.text.append(0x8B)
+
+        # rbp braucht immer Displacement
+        if offset == 0 and base != "rbp":
+            self.text.append(0x00 | base_id)
+        elif -128 <= offset <= 127:
+            self.text.append(0x40 | base_id)
+            self.text.append(offset & 0xFF)
+        else:
+            self.text.append(0x80 | base_id)
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+    
+    # --------------------------------
+    # mov r64, [base + offset]
+    # --------------------------------
+    def emit_mov_r64_mem(self, dst, base, offset=0):
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
+
+        rex = 0x48
+
+        if dst_id >= 8:
+            rex |= 0x04  # REX.R
+
+        if base_id >= 8:
+            rex |= 0x01  # REX.B
+
+        self.text.append(rex)
+        self.text.append(0x8B)  # mov r64, r/m64
+
+        self._emit_modrm_mem(dst_id, base, offset)
+    
+    # --------------------------------
+    # mov dword [base + offset], r32
+    # --------------------------------
+    def emit_mov_mem_r32(self, base, offset, src):
+        if src != "eax":
+            raise RuntimeError(f"unsupported src r32: {src}")
+
+        base_id = regs[base]
+        self.text.append(0x89)
+
+        if offset == 0 and base != "rbp":
+            self.text.append(0x00 | base_id)
+        elif -128 <= offset <= 127:
+            self.text.append(0x40 | base_id)
+            self.text.append(offset & 0xFF)
+        else:
+            self.text.append(0x80 | base_id)
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+    
+    # --------------------------------
+    # mov [base + offset], r64
+    # --------------------------------
+    def emit_mov_mem_r64(self, base, offset, src):
+        src_id  = self._reg_id(src)
+        base_id = self._reg_id(base)
+
+        rex = 0x48
+
+        if src_id >= 8:
+            rex |= 0x04  # REX.R
+
+        if base_id >= 8:
+            rex |= 0x01  # REX.B
+
+        self.text.append(rex)
+        self.text.append(0x89)  # mov r/m64, r64
+
+        self._emit_modrm_mem(src_id, base, offset)
+    
+    def emit_mov_r8d_imm32(self, value):
+        self.text += b"\x41\xB8"
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_r9d_imm32(self, value):
+        self.text += b"\x41\xB9"
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_r8_imm64(self, value):
+        self.text += b"\x49\xB8"
+        self.text += int(value).to_bytes(8, "little", signed=False)
+    
+    def emit_mov_r9_imm64(self, value):
+        self.text += b"\x49\xB9"
+        self.text += int(value).to_bytes(8, "little", signed=False)
+    
+    # --------------------------------
+    # mov r64, r64
+    # --------------------------------
+    def emit_mov_r64_r64(self, dst, src):
+        ##
+        dst_id = regs[dst]
+        src_id = regs[src]
+        
+        rex = 0x48
+        
+        if src_id >= 8:
+            rex |= 0x04   # REX.R
+        
+        if dst_id >= 8:
+            rex |= 0x01   # REX.B
+        
+        self.text.append(rex)
+        self.text.append(0x89)
+        
+        modrm = 0xC0 | ((src_id & 7) << 3) | (dst_id & 7)
+        self.text.append(modrm)
+    
+    # --------------------------------
+    # movzx eax, al
+    # --------------------------------
+    def emit_movzx_eax_al(self):
+        self.text += b"\x0F\xB6\xC0"
+    
+    def emit_push_r64(self, reg):
+        ##
+        reg_id = regs[reg]
+        
+        if reg_id >= 8:
+            self.text.append(0x41)
+        
+        self.text.append(0x50 + (reg_id & 7))
+    
+    def emit_pop_r64(self, reg):
+        ##
+        reg_id = regs[reg]
+        
+        if reg_id >= 8:
+            self.text.append(0x41)
+        
+        self.text.append(0x58 + (reg_id & 7))
+        
+    def emit_ret(self):
+        self.text.append(0xC3)
+    
+    def emit_setcc_al(self, cc):
+        opcodes = {
+            "sete":  b"\x0F\x94",
+            "setne": b"\x0F\x95",
+            "setl":  b"\x0F\x9C",
+            "setle": b"\x0F\x9E",
+            "setg":  b"\x0F\x9F",
+            "setge": b"\x0F\x9D",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"unsupported setcc: {cc}")
+
+        self.text += opcodes[cc]
+        self.text.append(0xC0)  # al
+    
+    def emit_sub_rsp_imm8(self, value):
+        self.text += b"\x48\x83\xEC"
+        self.text.append(value & 0xFF)
+
+    def emit_add_rsp_imm8(self, value):
+        self.text += b"\x48\x83\xC4"
+        self.text.append(value & 0xFF)
+
+    # --------------------------------
+    # test r32, r32
+    # --------------------------------
+    def emit_test_r32_r32(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        rex = 0x40
+
+        if right_id >= 8:
+            rex |= 0x04
+
+        if left_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x85)
+        self.text.append(0xC0 | ((right_id & 7) << 3) | (left_id & 7))
+    
+    # --------------------------------
+    # test r64, r64
+    # --------------------------------
+    def emit_test_r64_r64(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        rex = 0x48
+
+        if right_id >= 8:
+            rex |= 0x04
+
+        if left_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x85)
+        self.text.append(0xC0 | ((right_id & 7) << 3) | (left_id & 7))
+    
+    def emit_function_prolog(self, local_size=256):
+        self.emit_push_r64("rbp")
+        self.emit_mov_r64_r64("rbp", "rsp")
+
+        if local_size:
+            self.emit_sub_r64_imm32("rsp", local_size)
+
+    def emit_function_epilog(self):
+        self.emit_mov_r64_r64("rsp", "rbp")
+        self.emit_pop_r64("rbp")
+        self.emit_ret()
+    
+    def add_data_string(self, name, text):
+        offset = len(self.data)
+        self.data += text.encode("utf-8") + b"\x00"
+        self.add_symbol(
+            name            = name,
+            value           = offset,
+            section_number  = 2
+        )
+        return offset
+    
+    def add_symbol(self, name, value, section_number=1):
+        self.symbols.append({
+            "name"      : name,
+            "value"     : value,
+            "section"   : section_number,
+            "type"      : IMAGE_SYM_DTYPE_FUNCTION,
+            "storage"   : IMAGE_SYM_CLASS_EXTERNAL,
+            "aux"       : 0
+        })
+    
+    # boolean
+    def emit_normalize_bool_eax(self):
+        self.emit_test_r32_r32("eax", "eax")
+        self.emit_setcc_al("setne")
+        self.emit_movzx_eax_al()
+        
+    def emit_bool_not_eax(self):
+        self.emit_test_r32_r32("eax", "eax")
+        self.emit_setcc_al("sete")
+        self.emit_movzx_eax_al()
+        
+    def write_symbol(self, sym):
+        name = sym["name"].encode("ascii")
+        
+        if len(name) <= 8:
+            name_field = name.ljust(8, b"\x00")
+        else:
+            offset = self.get_string_offset(sym["name"])
+            
+            # Long name:
+            # first 4 bytes = 0
+            # next  4 bytes = offset into string table
+            name_field = struct.pack("<II", 0, offset)
+        
+        return (
+            name_field +
+            struct.pack(
+                "<IhHBB",
+                sym["value"],
+                sym["section"],
+                sym["type"],
+                sym["storage"],
+                sym["aux"]
+            )
+        )
+    
+    def add_external_symbol(self, name):
+        index = len(self.symbols)
+        self.symbols.append({
+            "name": name,
+            "value": 0,
+            "section": 0,
+            "type": 0,
+            "storage": IMAGE_SYM_CLASS_EXTERNAL,
+            "aux": 0
+        })
+        return index
+
+    def get_string_offset(self, name):
+        if name in self.string_offsets:
+            return self.string_offsets[name]
+
+        # Offset zählt ab Anfang der String Table.
+        # Die ersten 4 Bytes sind später die Größenangabe.
+        offset = 4 + len(self.string_table)
+
+        self.string_table += name.encode("ascii") + b"\x00"
+        self.string_offsets[name] = offset
+
+        return offset
+
+    def find_symbol_index(self, name):
+        for index, sym in enumerate(self.symbols):
+            if sym["name"] == name:
+                return index
+        return None
+
+    def find_or_add_symbol(self, name):
+        index = self.find_symbol_index(name)
+
+        if index is None:
+            raise RuntimeError(f"Symbol not defined: {name}")
+
+        return index
+    
+    def find_or_add_external(self, name):
+        for index, sym in enumerate(self.symbols):
+            if sym["name"] == name:
+                return index
+        
+        return self.add_external_symbol(name)
+    
+    def write(self, filename):
+        number_of_sections  = 2
+
+        coff_header_size    = 20
+        section_header_size = 40
+
+        header_size = coff_header_size + number_of_sections * section_header_size
+        
+        text_size = len(self.text)
+        data_size = len(self.data)
+        
+        text_ptr  = header_size
+        data_ptr  = text_ptr + text_size
+        
+        text_reloc_ptr   = data_ptr + data_size
+        text_reloc_count = len(self.text_relocations)
+        text_reloc_size  = text_reloc_count * 10
+        
+        text_reloc_data  = bytearray()
+        for reloc in self.text_relocations:
+            text_reloc_data += struct.pack(
+                "<IIH",
+                reloc["offset"],
+                reloc["symbol_index"],
+                reloc["type"]
+            )
+        
+        data_reloc_ptr   = text_reloc_ptr + text_reloc_size
+        data_reloc_count = len(self.data_relocations)
+        data_reloc_size  = data_reloc_count * 10
+        
+        data_reloc_data  = bytearray()
+        for reloc in self.data_relocations:
+            data_reloc_data += struct.pack(
+                "<IIH",
+                reloc["offset"],
+                reloc["symbol_index"],
+                reloc["type"]
+            )
+        
+        symbol_table_ptr  = data_reloc_ptr + data_reloc_size
+        number_of_symbols = len(self.symbols)
+
+        coff_header = struct.pack(
+            "<HHIIIHH",
+            IMAGE_FILE_MACHINE_AMD64,
+            number_of_sections,
+            int(time.time()),
+            symbol_table_ptr,
+            number_of_symbols,
+            0,
+            0
+        )
+        
+        text_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".text\x00\x00\x00",
+            0,
+            0,
+            text_size,
+            text_ptr,
+            text_reloc_ptr if text_reloc_count else 0,
+            0,
+            text_reloc_count,
+            0,
+            IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+        )
+
+        data_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".data\x00\x00\x00",
+            0,
+            0,
+            data_size,
+            data_ptr if data_size else 0,
+            data_reloc_ptr if data_reloc_count else 0,
+            0,
+            data_reloc_count,
+            0,
+            IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE
+        )
+
+        symbol_data = bytearray()
+        for sym in self.symbols:
+            symbol_data += self.write_symbol(sym)
+
+        string_table = (
+            struct.pack("<I", 4 + len(self.string_table)) +
+            self.string_table
+        )
+
+        print("text_relocations:", self.text_relocations)
+        print("text_reloc_count:", text_reloc_count)
+        print("text_reloc_ptr:", text_reloc_ptr)
+        
+        self.check_unresolved_labels()
+        
+        with open(filename, "wb") as f:
+            f.write(coff_header)
+            f.write(text_section_header)
+            f.write(data_section_header)
+            
+            f.write(self.text)
+            f.write(self.data)
+            
+            f.write(text_reloc_data)
+            f.write(data_reloc_data)
+            
+            f.write(symbol_data)
+            f.write(string_table)
+        
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
 # ---------------------------------------------------------------------------
@@ -414,15 +1921,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.backend = backend or AsmJitBackend()   # default backend
         self.lines   = self.backend.lines
         
+        self.coff        = PECoffWriter()
+        self.coff.add_data_string("str_0", "Hallo aus COFF")
+
+        self.main_offset = len(self.coff.text)
+        
+        self.coff.emit_lea_rcx_data_label("str_0")
+        self.coff.emit_sub_rsp_imm8(40)
+        self.coff.emit_call_rel32("_jit_print_text")
+        self.coff.emit_add_rsp_imm8(40)
+        
+        self.coff.emit_mov_ecx_imm32(123)
+        self.coff.emit_sub_rsp_imm8(40)
+        self.coff.emit_call_rel32("_jit_print_int")
+        self.coff.emit_add_rsp_imm8(40)
+        self.coff.emit_ret()
+        
+        self.coff.add_symbol("_main", self.main_offset, section_number = 1)
+        
         self.vars               = {}
         self.next_slot          = 0
         self.program_name       = "Program"
         self.var_types          = {}
         self.cpp_print_lines    = []
-
+        
         self.source_file       = None
         self.source_dir        = None
-
+        
         self.loaded_units      = {}
         self.loading_units     = set()
         self.unit_init_labels  = []
@@ -499,6 +2024,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.exports = []
     
+    def write_main(self, filename):
+        self.coff.write(filename)
+        
     def format_error(self, filename, err):
         template = ERROR_MAP.get(err.code, err.code)
         message  = template.format(**err.params)
@@ -776,9 +2304,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         )
     
     def normalize_bool_eax(self):
-        self.emit_cmp_val("eax", 0)
-        self.emit_setne("al")
-        self.emit_movzx("eax", "al")
+        self.emit_cmp   (REG_EAX, 0)
+        self.emit_setne (REG_AL)
+        self.emit_movzx (REG_EAX, REG_AL)
     
     def normalize_unit_name(self, unit_name):
         return unit_name.lower().replace(".", "_")
@@ -1165,11 +2693,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if target == mangled:
                 continue
 
-            out.append(f'asm_out << "{mangled}:" << std::endl;')
-            out.append(f'asm_out << "    call {target}" << std::endl;')
-            out.append(f'asm_out << "    ret" << std::endl << std::endl;')
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append(f'{ASM_OUT_PH}"{mangled}:" << std::endl;')
+                out.append(f'{ASM_OUT_PH}"    call {target}" << std::endl;')
+                out.append(f'{ASM_OUT_PH}"    ret" << std::endl << std::endl;')
+            elif CDATA.BackEnd.current == BACKEND_NASM:
+                out.append(f'{mangled}:')
+                out.append(f'    call {target}')
+                out.append(f'    ret')
 
-        return "\n    ".join(out)
+        return "\n".join(out)
 
     def render_import_params(self, params):
         if not params:
@@ -1551,15 +3084,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_array_bounds_check(ctx, var_name, array_info)
 
         if array_info.index_min != 0:
-            self.emit(f"a.sub(x86::eax, {array_info.index_min});")
+            self.emit_sub(REG_EAX, array_info.index_min)
 
-        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+        self.emit_imul(REG_EAX, REG_EAX, array_info.element_size)
+        self.emit_add (REG_EAX, var_info["slot"])
 
         # Array-Basis holen
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.add(x86::r11, x86::rax);")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd(REG_RAX, REG_EAX)
+        self.emit_add("r11", REG_RAX)
 
         # Jetzt zeigt R11 auf points[index]
         current_type = element_type
@@ -1582,7 +3115,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     raise CompileError(ctx, "E0005", got=current_type, expected="record")
 
         if field_offset != 0:
-            self.emit(f"a.add(x86::r11, {field_offset});")
+            self.emit_add("r11", field_offset)
 
         return field
     
@@ -2038,14 +3571,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             actual_types.insert(0, arg_type)
             
             if arg_type == "integer":
-                self.emit("a.movsxd(x86::rax, x86::eax);")
-                self.emit("a.push(x86::rax); // ctor integer arg")
+                self.emit_movsxd(REG_RAX, REG_EAX)
+                self.emit_push(REG_RAX, comment='ctor integer arg')
             
             elif arg_type == "string":
-                self.emit("a.push(x86::rax); // ctor string arg")
+                self.emit_push(REG_RAX, comment='ctor string arg')
             
             elif isinstance(arg_type, str) and arg_type.startswith("^"):
-                self.emit("a.push(x86::rax); // ctor pointer arg")
+                self.emit_push(REG_RAX, comment='ctor pointer arg')
             
             else:
                 raise CompileError(
@@ -2063,8 +3596,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         size = cls.size
         
-        self.emit(f"a.mov(x86::rcx, {size});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_new_memory));")
+        self.emit_mov("rcx", size)
+        self.emit_mov_imm("rax", "&_jit_new_memory")
         self.emit_call("rax")
         
         param_regs = ["rdx", "r8", "r9"]
@@ -2081,8 +3614,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_push("rcx", comment="save constructor result object")
         
         self.emit_sub("rsp", 32)
-        self.emit_call(f"{method.label}")
-        self.emit_add("add", 32)
+        self.emit_call_lbl(method.label)
+        self.emit_add("rsp", 32)
         self.emit_pop("rax", comment = "constructor result")
         
         return class_key
@@ -2101,10 +3634,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         null_label = self.new_named_label("free_nil")
         end_label  = self.new_named_label("free_end")
 
-        self.emit("a.test(x86::rax, x86::rax);")
-        self.emit(f"a.jz({null_label});")
+        self.emit_test("rax", "rax")
+        self.emit_jz(null_label)
 
-        self.emit("a.push(x86::rax); // save object for dispose")
+        self.emit_push("rax", comment='save object for dispose')
 
         if "destroy" in cls.methods:
             method, owner_cls = self.find_class_method_recursive(
@@ -2114,22 +3647,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 []
             )
             
-            self.emit("a.mov(x86::rcx, x86::rax); // Self")
-            self.emit("a.sub(x86::rsp, 32);")
-            self.emit(f"a.call({method.label});")
-            self.emit("a.add(x86::rsp, 32);")
+            self.emit_mov("rcx", "rax", comment='Self')
+            self.emit_sub("rsp", 32)
+            self.emit_call_lbl(method.label)
+            self.emit_add("rsp", 32)
 
-        self.emit("a.pop(x86::rcx);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));")
+        self.emit_pop("rcx")
+        self.emit_mov_imm("rax", "&_jit_dispose_memory")
         self.emit_call("rax")
 
         # foo := nil
-        self.emit("a.xor_(x86::rax, x86::rax);")
+        self.emit_xor("rax", "rax")
         self.emit_store_object_var(ctx, obj_name, info)
 
-        self.emit(f"a.jmp({end_label});")
-        self.emit(f"a.bind({null_label});")
-        self.emit(f"a.bind({end_label});")
+        self.emit_jmp(end_label)
+        self.emit_bind_label(null_label)
+        self.emit_bind_label(end_label)
 
         return None
     
@@ -2138,34 +3671,34 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if except_label is None:
             label = self.add_string_literal(message)
-            self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
-            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_runtime_error));")
+            self.emit_mov_imm("rcx", label)
+            self.emit_mov_imm("rax", "&_jit_runtime_error")
             self.emit_call("rax")
             return
 
         label = self.add_string_literal(message)
 
-        self.emit("a.mov(x86::rcx, x86::r12); // ctx")
-        self.emit(f"a.mov(x86::rdx, imm((uint64_t){label}));")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_set_exception));")
+        self.emit_mov("rcx", "r12", comment='ctx')
+        self.emit_mov_imm("rdx", label)
+        self.emit_mov_imm("rax", "&_jit_set_exception")
         self.emit_call("rax")
-        self.emit(f"a.jmp({except_label});")
+        self.emit_jmp(except_label)
     
     def emit_nil_pointer_check(self, ptr_name):
         ok_label = self.new_named_label("ptr_not_nil")
         name_label = self.add_string_literal(ptr_name)
 
-        self.emit("a.test(x86::rax, x86::rax);")
-        self.emit(f"a.jnz({ok_label});")
+        self.emit_test("rax", "rax")
+        self.emit_jnz(ok_label)
 
         self.emit_soft_runtime_error(
             f"Nil pointer error: {ptr_name}"
         )
 
-        self.emit(f"a.bind({ok_label});")
+        self.emit_bind_label(ok_label)
     
     def emit_builtin_debug_break(self):
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_debug_break));")
+        self.emit_mov_imm("rax", "&_jit_debug_break")
         self.emit_call("rax")
         return None
     
@@ -2190,7 +3723,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ = self.resolve_type(info["type"])
 
         if typ == "integer":
-            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_int));")
+            self.emit_mov_imm("rax", "&_jit_read_int")
             self.emit_call("rax")
 
             if is_local:
@@ -2201,7 +3734,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return None
 
         if typ == "string":
-            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_read_string));")
+            self.emit_mov_imm("rax", "&_jit_read_string")
             self.emit_call("rax")
 
             if is_local:
@@ -2229,9 +3762,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if not isinstance(expr_type, str) or not expr_type.startswith("^"):
             raise CompileError(ctx, "E0005", got=expr_type, expected="pointer")
 
-        self.emit("a.test(x86::rax, x86::rax);")
-        self.emit("a.setne(x86::al);")
-        self.emit("a.movzx(x86::eax, x86::al);")
+        self.emit_test (REG_RAX, REG_RAX)
+        self.emit_setne(REG_AL)
+        self.emit_movzx(REG_EAX, REG_AL)
 
         return "integer"
     
@@ -2262,8 +3795,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         base_type = ptr_type[1:]
         size = self.type_size(ctx, base_type)
 
-        self.emit(f"a.mov(x86::rcx, {size});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_new_memory));")
+        self.emit_mov("rcx", size)
+        self.emit_mov_imm("rax", "&_jit_new_memory")
         self.emit_call("rax")
 
         if is_local:
@@ -2287,8 +3820,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if expr_type != "string":
             raise CompileError(ctx, "E0005", got=expr_type, expected="string")
 
-        self.emit("a.mov(x86::rcx, x86::rax);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_length));")
+        self.emit_mov("rcx", "rax")
+        self.emit_mov_imm("rax", "&_jit_dynstring_length")
         self.emit_call("rax")
 
         return "integer"
@@ -2364,30 +3897,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if t1 != "string":
             raise CompileError(ctx, "E0005", got=t1, expected="string")
 
-        self.emit("a.push(x86::rax); // Copy source")
+        self.emit_push("rax", comment='Copy source')
 
         t2 = self.visit(args[1])
         if t2 != "integer":
             raise CompileError(ctx, "E0005", got=t2, expected="integer")
 
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.push(x86::rax); // Copy start")
+        self.emit_movsxd(REG_RAX, REG_EAX)
+        self.emit_push  (REG_RAX, comment='Copy start')
 
         t3 = self.visit(args[2])
         if t3 != "integer":
             raise CompileError(ctx, "E0005", got=t3, expected="integer")
 
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.push(x86::rax); // Copy count")
+        self.emit_movsxd(REG_RAX, REG_EAX)
+        self.emit_push  (REG_RAX, comment='Copy count')
 
-        self.emit("a.pop(x86::r8);")
-        self.emit("a.pop(x86::rdx);")
-        self.emit("a.pop(x86::rcx);")
+        self.emit_pop("r8")
+        self.emit_pop(REG_RBX)
+        self.emit_pop(REG_RCX)
 
-        self.emit("a.sub(x86::rsp, 32);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_copy));")
-        self.emit_call("rax")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_sub     (REG_RSP, 32)
+        self.emit_mov_imm (REG_RAX, "&_jit_dynstring_copy")
+        self.emit_call    (REG_RAX)
+        self.emit_add     (REG_RSP, 32)
 
         return "string"
     
@@ -2406,21 +3939,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if t1 != "string":
             raise CompileError(ctx, "E0005", got=t1, expected="string")
 
-        self.emit("a.push(x86::rax); // Pos needle")
+        self.emit_push(REG_RAX, comment='Pos needle')
 
         t2 = self.visit(args[1])
         if t2 != "string":
             raise CompileError(ctx, "E0005", got=t2, expected="string")
 
-        self.emit("a.push(x86::rax); // Pos haystack")
+        self.emit_push("rax", comment='Pos haystack')
 
-        self.emit("a.pop(x86::rdx);")
-        self.emit("a.pop(x86::rcx);")
+        self.emit_pop(REG_RDX)
+        self.emit_pop(REG_RCX)
 
-        self.emit("a.sub(x86::rsp, 32);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_pos));")
-        self.emit_call("rax")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_sub     (REG_RSP, 32)
+        self.emit_mov_imm (REG_RAX, "&_jit_dynstring_pos")
+        self.emit_call    (REG_RAX)
+        self.emit_add     (REG_RSP, 32)
 
         return "integer"
     
@@ -2466,11 +3999,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         else:
             self.emit_load_var(name, info)
 
-        self.emit("a.mov(x86::rcx, x86::rax);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dispose_memory));")
+        self.emit_mov("rcx", "rax")
+        self.emit_mov_imm("rax", "&_jit_dispose_memory")
         self.emit_call("rax")
 
-        self.emit("a.xor_(x86::rax, x86::rax);")
+        self.emit_xor("rax", "rax")
 
         if is_local:
             self.emit_store_local_var(ctx, name, ptr_type)
@@ -2485,13 +4018,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.visit(length_ctx)
 
-        self.emit("a.movsxd(x86::rdx, x86::eax);")
-        self.emit(f"a.mov(x86::r8, {array_info.element_size});")
+        self.emit_movsxd("rdx", "eax")
+        self.emit_mov("r8", array_info.element_size)
 
         self.emit_load_var(name, var_info)
-        self.emit("a.mov(x86::rcx, x86::rax);")
+        self.emit_mov("rcx", "rax")
 
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynarray_setlength));")
+        self.emit_mov_imm("rax", "&_jit_dynarray_setlength")
         self.emit_call("rax")
 
         self.emit_store_var(ctx, name, var_info)
@@ -2507,7 +4040,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 expected=str(len(dims))
             )
 
-        self.emit("a.xor_(x86::ebx, x86::ebx); // linear array index")
+        self.emit_xor("ebx", "ebx", comment="linear array index")
 
         for i, expr in enumerate(index_exprs):
             index_type = self.visit(expr)
@@ -2525,18 +4058,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             )
 
             if dim["min"] != 0:
-                self.emit(f"a.sub(x86::eax, {dim['min']});")
+                self.emit_sub("eax", dim["min"])
 
             factor = 1
             for next_dim in dims[i + 1:]:
                 factor *= next_dim["max"] - next_dim["min"] + 1
 
             if factor != 1:
-                self.emit(f"a.imul(x86::eax, x86::eax, {factor});")
+                self.emit_imul("eax", "eax", factor)
 
-            self.emit("a.add(x86::ebx, x86::eax);")
+            self.emit_add("ebx", "eax")
 
-        #self.emit("a.mov(x86::eax, x86::ebx); // final linear index")
+        #self.emit_mov("eax", "ebx", comment='final linear index')
         self.emit_mov_eax_ebx()
 
     def emit_array_bounds_check_dimension(self, ctx, var_name, min_value, max_value):
@@ -2544,40 +4077,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         fail_label  = self.new_named_label("array_bounds_fail")
         array_label = self.add_string_literal(var_name)
 
-        self.emit("a.mov(x86::r10d, x86::eax); // save dimension index")
+        self.emit_mov("r10d", "eax", comment = "// save dimension index")
 
-        self.emit(f"a.cmp(x86::eax, {min_value});")
-        self.emit(f"a.jl({fail_label});")
+        self.emit_cmp("eax", min_value)
+        self.emit_jl(fail_label)
 
-        self.emit(f"a.cmp(x86::eax, {max_value});")
-        self.emit(f"a.jg({fail_label});")
+        self.emit_cmp("eax", max_value)
+        self.emit_jg(fail_label)
 
-        self.emit(f"a.jmp({ok_label});")
+        self.emit_jmp(ok_label)
 
-        self.emit(f"a.bind({fail_label});")
-        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
-        self.emit("a.mov(x86::edx, x86::r10d);")
-        self.emit(f"a.mov(x86::r8d, {min_value});")
-        self.emit(f"a.mov(x86::r9d, {max_value});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_array_bounds_error));")
+        self.emit_bind_label(fail_label)
+        self.emit_mov_imm("rcx", array_label)
+        self.emit_mov("edx", "r10d")
+        self.emit_mov("r8d", min_value)
+        self.emit_mov("r9d", max_value)
+        self.emit_mov_imm("rax", "&_jit_array_bounds_error")
         self.emit_call("rax")
 
-        self.emit(f"a.bind({ok_label});")
-        self.emit("a.mov(x86::eax, x86::r10d); // restore dimension index")
+        self.emit_bind_label(ok_label)
+        self.emit_mov("eax", "r10d", comment = "restore dimension index")
     
     def emit_array_bounds_check_for_dimension(self, dim):
         min_value = dim["min"]
         max_value = dim["max"]
 
-        self.asm.emit("push rax")
+        self.emit_push("rax")
 
-        self.asm.emit(f"cmp eax, {min_value}")
-        self.asm.emit("jl array_bounds_error")
+        self.emit_cmp("eax", min_value)
+        self.emit_jl("array_bounds_error")
 
-        self.asm.emit(f"cmp eax, {max_value}")
-        self.asm.emit("jg array_bounds_error")
+        self.emit_cmp("eax", max_value)
+        self.emit_jg("array_bounds_error")
 
-        self.asm.emit("pop rax")
+        self.emit_pop("rax")
     
     def emit_address_of_var(self, ctx, name):
         local_var = self.find_local_var(name)
@@ -2587,27 +4120,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             offset = local_var["offset"]
 
             if typ == "integer":
-                self.emit(f"a.lea(x86::rax, x86::dword_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_dword("rax", "rbp", offset, comment = "@{name}")
                 return "^integer"
 
             if typ == "double":
-                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_qword("rax", "rbp", offset, comment = "@{name}")
                 return "^double"
 
             if typ == "string":
-                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_qword("rax", "rbp", offset, comment = "@{name}")
                 return "^string"
 
             if isinstance(typ, str) and typ.startswith("^"):
-                self.emit(f"a.lea(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_qword("rax", "rbp", offset, comment = "@{name}")
                 return "^" + typ
 
             if isinstance(typ, str) and typ in self.records:
-                self.emit(f"a.lea(x86::rax, x86::byte_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_byte("rax", "rbp", offset, comment = "@{name}")
                 return "^" + typ
 
             if isinstance(typ, str) and typ in self.arrays:
-                self.emit(f"a.lea(x86::rax, x86::byte_ptr(x86::rbp, {offset})); // @{name}")
+                self.emit_lea_byte("rax", "rbp", offset, comment = "@{name}")
                 return "^" + typ
 
             raise CompileError(ctx, "E0014", var_type=typ)
@@ -2622,33 +4155,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = info["slot"]
 
         if typ == "integer":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 4}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "int_vars")
+            self.emit_add("rax", slot * 4, comment=f"@{name}")
             return "^integer"
 
         if typ == "double":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "double_vars")
+            self.emit_add("rax", slot * 8, comment=f"@{name}")
             return "^double"
 
         if typ == "string":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "string_vars")
+            self.emit_add("rax", slot * 8, comment=f"@{name}")
             return "^string"
 
         if isinstance(typ, str) and typ.startswith("^"):
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-            self.emit(f"a.add(x86::rax, {slot * 8}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "pointr_vars")
+            self.emit_add("rax", slot * 8, comment=f"@{name}")
             return "^" + typ
 
         if isinstance(typ, str) and typ in self.records:
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
-            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "record_vars")
+            self.emit_add("rax", slot, comment=f"@{name}")
             return "^" + typ
 
         if isinstance(typ, str) and typ in self.arrays:
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-            self.emit(f"a.add(x86::rax, {slot}); // @{name}")
+            self.emit_mov_qword("rax", "r12", "arrays_vars")
+            self.emit_add("rax", slot, comment=f"@{name}")
             return "^" + typ
 
         raise CompileError(ctx, "E0014", var_type=typ)
@@ -2658,12 +4191,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
-        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+        self.emit_imul("eax", "eax", array_info.element_size)
+        self.emit_add("eax", var_info["slot"])
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.add(x86::rax, x86::r11); // @array[index]")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd("rax", "eax")
+        self.emit_add("rax", "r11", comment="@array[index]")
 
         return "^" + array_info.element_type
         
@@ -2673,28 +4206,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         array_label = self.add_string_literal(var_name)
 
         # Originalindex in EBX sichern
-        self.emit("a.mov(x86::ebx, x86::eax); // save array index")
+        self.emit_mov("ebx", "eax", comment = "save array index")
 
-        self.emit(f"a.cmp(x86::eax, {array_info.index_min});")
-        self.emit(f"a.jl({fail_label});")
+        self.emit_cmp("eax", array_info.index_min)
+        self.emit_jl(fail_label)
 
-        self.emit(f"a.cmp(x86::eax, {array_info.index_max});")
-        self.emit(f"a.jg({fail_label});")
+        self.emit_cmp("eax", array_info.index_max)
+        self.emit_jg(fail_label)
 
-        self.emit(f"a.jmp({ok_label});")
+        self.emit_jmp(ok_label)
 
-        self.emit(f"a.bind({fail_label});")
-        self.emit(f"a.mov(x86::rcx, imm((uint64_t){array_label}));")
-        self.emit("a.mov(x86::edx, x86::ebx);")
-        self.emit(f"a.mov(x86::r8d, {array_info.index_min});")
-        self.emit(f"a.mov(x86::r9d, {array_info.index_max});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_array_bounds_error));")
+        self.emit_bind_label(fail_label)
+        self.emit_mov_imm("rcx", array_label)
+        self.emit_mov("edx", "ebx")
+        self.emit_mov("r8d", array_info.index_min)
+        self.emit_mov("r9d", array_info.index_max)
+        self.emit_mov_imm("rax", "&_jit_array_bounds_error")
         self.emit_call("rax")
 
-        self.emit(f"a.bind({ok_label});")
+        self.emit_bind_label(ok_label)
 
         # Index wiederherstellen
-        self.emit("a.mov(x86::eax, x86::ebx); // restore array index")
+        self.emit_mov("eax", "ebx", comment='restore array index')
     
     def emit_load_self_field(self, ctx, name):
         if self.current_class is None:
@@ -2708,27 +4241,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         field = cls.fields[key]
 
-        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
+        self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
 
         if field.type == "integer":
-            self.emit(
-                f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {field.offset})); "
-                f"// Self.{name}"
-            )
+            self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"Self.{name}")
             return "integer"
 
         if field.type == "double":
-            self.emit(
-                f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {field.offset})); "
-                f"// Self.{name}"
-            )
+            self.emit_movsd_load("xmm0", "rax", field.offset, comment=f"Self.{name}")
             return "double"
 
         if field.type == "string":
-            self.emit(
-                f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); "
-                f"// Self.{name}"
-            )
+            self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"Self.{name}")
             return "string"
 
         return field.type
@@ -2736,8 +4260,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_load_object_var(self, ctx, name, info):
         slot = info["slot"]
 
-        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-        self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // object {name}")
+        self.emit_mov_qword("rax", "r12", "pointr_vars")
+        self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"object {name}")
     
     def emit_load_string_char(self, ctx, name, index_exprs):
         if not isinstance(index_exprs, list):
@@ -2751,15 +4275,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if index_type != "integer":
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
         
-        self.emit("a.sub(x86::eax, 1);")
-        self.emit("a.mov(x86::r10d, x86::eax);")
+        self.emit_sub("eax", 1)
+        self.emit_mov("r10d", "eax")
         
         var_info = self.var_info(ctx, name)
         self.emit_load_var(name, var_info)
         
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit("a.add(x86::r11, x86::rax);")
-        self.emit("a.movzx(x86::eax, x86::byte_ptr(x86::r11));")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_add("r11", "rax")
+        self.emit_movzx("eax", "byte_ptr(r11)")
         
         return "char"
     
@@ -2772,15 +4296,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_nil_pointer_check(parts[0])
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {field.offset})); // {path}")
+            self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"{path}")
             return "integer"
 
         if field.type == "double":
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {field.offset})); // {path}")
+            self.emit_movsd_load("xmm0", "rax", field.offset, comment=path)
             return "double"
 
         if field.type == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // {path}")
+            self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"{path}")
             return "string"
 
         return field.type
@@ -2795,7 +4319,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         val = c["value"]
 
         if typ == "integer":
-            self.emit(f"a.mov(x86::eax, {val});")
+            self.emit_mov("eax", val)
             return "integer"
 
         if typ == "double":
@@ -2803,7 +4327,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ == "string":
             label = self.add_string_literal(val)
-            self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+            self.emit_mov_imm("rax", label)
             return "string"
 
         raise CompileError(ctx, "E0014", var_type=typ)
@@ -2813,8 +4337,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.add_double_literal(value_text)
 
-        self.emit(f"a.mov(x86::rax, imm(_double_to_bits({value_text})));")
-        self.emit("a.movq(x86::xmm0, x86::rax);")
+        self.emit_mov_imm("rax", double_to_bits(float(value_text)))
+        self.emit_movq("xmm0", "rax")
 
         return "double"
     
@@ -2822,15 +4346,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
-        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-        self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8}));")
+        self.emit_mov_qword("rax", "r12", "string_vars")
+        self.emit_mov_qword_ptr("rax", "rax", slot * 8)
     
     def emit_load_pointer_var_to_rax(self, ctx, name):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
-        self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-        self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8}));")
+        self.emit_mov_qword("rax", "r12", "pointr_vars")
+        self.emit_mov_qword_ptr("rax", "rax", slot * 8)
     
     def emit_load_pointer_deref(self, ctx, name):
         key = name.lower()
@@ -2849,15 +4373,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_load_var(name, info)
 
         if base_type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::rax)); // p^")
+            self.emit_mov_reg_dword("eax", "rax", comment='p^')
             return "integer"
 
         if base_type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rax)); // p^")
+            self.emit_movsd_load("xmm0", "rax", 0, comment="p^")
             return "double"
 
         if base_type == "string":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rax)); // p^")
+            self.emit_mov_reg_qword("rax", "rax", comment='p^')
             return "string"
 
         raise CompileError(ctx, "E0014", var_type=base_type)
@@ -2872,28 +4396,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         offset = param["stack_offset"]
         
         if param.get("is_var", False):
-            self.emit(f"a.mov(x86::r11, x86::qword_ptr(x86::rbp, {offset})); // var param address {name}")
+            self.emit_mov_qword_ptr("r11", "rbp", offset, comment=f"var param address {name}")
             
             if typ == "integer":
-                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+                self.emit_mov_reg_dword("eax", "r11")
                 return "integer"
             
             if isinstance(typ, str) and typ.startswith("^"):
-                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r11));")
+                self.emit_mov_reg_qword("rax", "r11")
                 return typ
             
             raise CompileError(ctx, "E0014", var_type=typ)
         
         if typ == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset}));")
+            self.emit_mov_dword_ptr("eax", "rbp", offset)
             return "integer"
         
         if typ == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset}));")
+            self.emit_mov_qword_ptr("rax", "rbp", offset)
             return "string"
         
         if isinstance(typ, str) and typ.startswith("^"):
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset}));")
+            self.emit_mov_qword_ptr("rax", "rbp", offset)
             return typ
             
         raise CompileError(ctx, "E0014", var_type=typ)
@@ -2902,18 +4426,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         field_offset, field = self.resolve_record_path(ctx, parts)
         path = ".".join(parts)
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
+        self.emit_mov_qword("r11", "r12", "record_vars")
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::r11, {field_offset})); // {path}")
+            self.emit_mov_dword_ptr("eax", "r11", field_offset, comment=f"{path}")
             return "integer"
 
         if field.type == "double":
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::r11, {field_offset})); // {path}")
+            self.emit_movsd_load("xmm0", "r11", field_offset, comment=path)
             return "double"
 
         if field.type == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::r11, {field_offset})); // {path}")
+            self.emit_mov_qword_ptr("rax", "r11", field_offset, comment=f"{path}")
             return "string"
 
         return field.type
@@ -2961,19 +4485,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             if is_last:
                 if field.type == "integer":
-                    self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"{'.'.join(parts)}")
                     return "integer"
 
                 if field.type == "double":
-                    self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    self.emit_movsd_load("xmm0", "rax", field.offset, comment=f"{'.'.join(parts)}")
                     return "double"
 
                 if field.type == "string":
-                    self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"{'.'.join(parts)}")
                     return "string"
 
                 if field.type.startswith("^"):
-                    self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // {'.'.join(parts)}")
+                    self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"{'.'.join(parts)}")
                     return field.type
 
                 return field.type
@@ -2981,14 +4505,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             # Weiter in der Kette:
             # Next ist Pointer -> Pointerwert laden
             if field.type.startswith("^"):
-                self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {field.offset})); // follow pointer {field_name}")
+                self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"follow pointer {field_name}")
                 current_type = field.type[1:]
                 continue
 
             # eingebetteter Record
             if field.type in self.records:
                 if field.offset != 0:
-                    self.emit(f"a.add(x86::rax, {field.offset}); // nested record {field_name}")
+                    self.emit_add("rax", field.offset, comment=f"nested record {field_name}")
                 current_type = field.type
                 continue
 
@@ -3004,21 +4528,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         offset = var["offset"]
 
         if typ == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // local {name}")
+            self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"local {name}")
             return "integer"
 
         if isinstance(typ, str) and typ.startswith("^"):
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rbp, {offset})); // local pointer {name}")
+            self.emit_mov_qword_ptr("rax", "rbp", offset, comment=f"local pointer {name}")
             return typ
 
         raise CompileError(ctx, "E0011", typ=typ)
 
     def emit_builtin_string_setlength(self, ctx, name, length_ctx):
         self.visit(length_ctx)
-        self.emit("a.movsxd(x86::rdx, x86::eax);")
+        self.emit_movsxd("rdx", "eax")
         self.emit_load_string_var_to_rax(ctx, name)
-        self.emit("a.mov(x86::rcx, x86::rax);")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_setlength));")
+        self.emit_mov("rcx", "rax")
+        self.emit_mov_imm("rax", "&_jit_dynstring_setlength")
         self.emit_call("rax")
         self.emit_store_string_var_from_rax(ctx, name)
     
@@ -3032,25 +4556,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax);")
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
-            self.emit(f"a.mov(x86::dword_ptr(x86::rax, {field.offset}), x86::ebx); // Self.{name} :=")
+            self.emit_mov("ebx", "eax")
+            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
+            self.emit_mov_dword_ptr_store("rax", field.offset, "ebx", comment=f"Self.{name} :=")
             return True
 
         if expr_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::rax, {field.offset}), x86::xmm0); // Self.{name} :=")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
+            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
+            self.emit_movsd_load("xmm0", "rsp")
+            self.emit_add("rsp", 8)
+            self.emit_movsd_store("rax", field.offset, "xmm0", comment=f"Self.{name} :=")
             return True
 
         if expr_type == "string":
-            self.emit("a.push(x86::rax);")
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::rbp, -8)); // Self")
-            self.emit("a.pop(x86::r11);")
-            self.emit(f"a.mov(x86::qword_ptr(x86::rax, {field.offset}), x86::r11); // Self.{name} :=")
+            self.emit_push("rax")
+            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
+            self.emit_pop("r11")
+            self.emit_mov_qword_ptr_store("rax", field.offset, "r11", comment=f"Self.{name} :=")
             return True
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3058,8 +4582,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_store_object_var(self, ctx, name, info):
         slot = info["slot"]
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-        self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // object {name}")
+        self.emit_mov_qword("r11", "r12", "pointr_vars")
+        self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"object {name}")
     
     def emit_store_class_field(self, ctx, parts, expr_type):
         var_info, field = self.resolve_class_field_path(ctx, parts)
@@ -3069,14 +4593,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         # rechten Wert sichern, bevor RAX für Objektpointer benutzt wird
         if expr_type == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax); // save class field value")
+            self.emit_mov("ebx", "eax", comment='save class field value')
         
         elif expr_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
         
         elif expr_type == "string":
-            self.emit("a.push(x86::rax); // save string field value")
+            self.emit_push("rax", comment='save string field value')
         
         else:
             raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3085,27 +4609,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_nil_pointer_check(parts[0])
         
         if field.type == "integer":
-            self.emit(
-                f"a.mov(x86::dword_ptr(x86::rax, {field.offset}), x86::ebx); "
-                f"// {'.'.join(parts)} :="
-            )
+            self.emit_mov_dword_ptr_store("rax", field.offset, "ebx", comment=f"{'.'.join(parts)} :=")
             return
         
         if field.type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
-            self.emit(
-                f"a.movsd(x86::qword_ptr(x86::rax, {field.offset}), x86::xmm0); "
-                f"// {'.'.join(parts)} :="
-            )
+            self.emit_movsd_load("xmm0", "rsp")
+            self.emit_add("rsp", 8)
+            self.emit_movsd_store("rax", field.offset, "xmm0", comment=f"{'.'.join(parts)} :=")
             return
         
         if field.type == "string":
-            self.emit("a.pop(x86::r11);")
-            self.emit(
-                f"a.mov(x86::qword_ptr(x86::rax, {field.offset}), x86::r11); "
-                f"// {'.'.join(parts)} :="
-            )
+            self.emit_pop("r11")
+            self.emit_mov_qword_ptr_store("rax", field.offset, "r11", comment=f"{'.'.join(parts)} :=")
             return
         
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3114,8 +4629,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
-        self.emit("a.mov(x86::rdx, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-        self.emit(f"a.mov(x86::qword_ptr(x86::rdx, {slot * 8}), x86::rax);")
+        self.emit_mov_qword("rdx", "r12", "string_vars")
+        self.emit_mov_qword_ptr_store("rdx", slot * 8, "rax")
     
     def emit_store_string_char(self, ctx, name, index_exprs, expr_type):
         if not isinstance(index_exprs, list):
@@ -3128,7 +4643,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=expr_type, expected="char")
 
         # Zeichenwert sichern: RAX zeigt auf Stringliteral, erstes Zeichen laden
-        self.emit("a.movzx(x86::ebx, x86::byte_ptr(x86::rax)); // char value")
+        self.emit_movzx("ebx", "byte_ptr(rax)", comment="char value")
 
         # Index berechnen
         index_type = self.visit(index_exprs[0])
@@ -3137,8 +4652,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
         # Pascal: s[1] -> data[0]
-        self.emit("a.sub(x86::eax, 1);")
-        self.emit("a.mov(x86::r10d, x86::eax); // zero based string index")
+        self.emit_sub("eax", 1)
+        self.emit_mov("r10d", "eax", comment='zero based string index')
 
         # String-Datenpointer laden
         var_info = self.var_info(ctx, name)
@@ -3146,45 +4661,45 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         # nil check
         nil_ok = self.new_named_label("string_not_nil")
-        self.emit("a.test(x86::rax, x86::rax);")
-        self.emit(f"a.jnz({nil_ok});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_string_range_error));")
+        self.emit_test("rax", "rax")
+        self.emit_jnz(nil_ok)
+        self.emit_mov_imm("rax", "&_jit_string_range_error")
         self.emit_call("rax")
-        self.emit(f"a.bind({nil_ok});")
+        self.emit_bind_label(nil_ok)
 
         # length aus Header laden: header liegt 16 Bytes vor data
-        self.emit("a.mov(x86::r11, x86::rax);")
-        self.emit("a.sub(x86::r11, 16);")
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r11)); // string length")
+        self.emit_mov("r11", "rax")
+        self.emit_sub("r11", 16)
+        self.emit_mov_reg_qword("r11", "r11", comment='string length')
 
         # Range Check:
         # r10d darf nicht negativ sein und muss < length sein
         ok_label = self.new_named_label("string_index_ok")
         fail_label = self.new_named_label("string_index_fail")
 
-        self.emit("a.cmp(x86::r10d, 0);")
-        self.emit(f"a.jl({fail_label});")
+        self.emit_cmp("r10d", 0)
+        self.emit_jl(fail_label)
 
-        self.emit("a.cmp(x86::r10, x86::r11);")
-        self.emit(f"a.jb({ok_label});")
+        self.emit_cmp("r10", "r11")
+        self.emit_jb(ok_label)
 
-        self.emit(f"a.bind({fail_label});")
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_string_range_error));")
+        self.emit_bind_label(fail_label)
+        self.emit_mov_imm("rax", "&_jit_string_range_error")
         self.emit_call("rax")
 
-        self.emit(f"a.bind({ok_label});")
+        self.emit_bind_label(ok_label)
 
         # Adresse berechnen und schreiben
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit("a.add(x86::r11, x86::rax);")
-        self.emit("a.mov(x86::byte_ptr(x86::r11), x86::bl); // s[index] :=")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_add("r11", "rax")
+        self.emit_mov_byte_ptr_store("r11", 0, "bl", comment="s[index] :=")
     
     def emit_store_pointer_var_from_rax(self, ctx, name):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
-        self.emit("a.mov(x86::rdx, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-        self.emit(f"a.mov(x86::qword_ptr(x86::rdx, {slot * 8}), x86::rax);")
+        self.emit_mov_qword("rdx", "r12", "pointr_vars")
+        self.emit_mov_qword_ptr_store("rdx", slot * 8, "rax")
     
     def emit_store_pointer_deref(self, ctx, name, expr_type):
         key = name.lower()
@@ -3204,37 +4719,37 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=expr_type, expected=base_type)
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax);")
+            self.emit_mov("ebx", "eax")
 
         elif expr_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
 
         elif expr_type == "string":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
 
         self.emit_load_var(name, info)
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::rax), x86::ebx); // p^ :=")
+            self.emit_mov_dword_ptr_store("rax", 0, "ebx", comment="p^ :=")
             return
 
         if expr_type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rax), x86::xmm0); // p^ :=")
+            self.emit_movsd_load("xmm0", "rsp")
+            self.emit_add("rsp", 8)
+            self.emit_movsd_store("rax", 0, "xmm0", comment="p^ :=")
             return
 
         if expr_type == "string":
-            self.emit("a.pop(x86::r11);")
-            self.emit("a.mov(x86::qword_ptr(x86::rax), x86::r11); // p^ :=")
+            self.emit_pop("r11")
+            self.emit_mov_qword_ptr_store("rax", 0, "r11", comment="p^ :=")
             return
         
     def emit_store_record_field(self, ctx, parts, expr_type):
         field_offset, field = self.resolve_record_path(ctx, parts)
 
         if field.type == "double" and expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
         if field.type != expr_type:
@@ -3242,18 +4757,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         path = ".".join(parts)
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, record_vars)));")
+        self.emit_mov_qword("r11", "r12", "record_vars")
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::dword_ptr(x86::r11, {field_offset}), x86::eax); // {path}")
+            self.emit_mov_dword_ptr_store("r11", field_offset, "eax", comment=path)
             return
 
         if field.type == "double":
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {field_offset}), x86::xmm0); // {path}")
+            self.emit_movsd_store("r11", field_offset, "xmm0", comment=path)
             return
 
         if field.type == "string":
-            self.emit(f"a.mov(x86::qword_ptr(x86::r11, {field_offset}), x86::rax); // {path}")
+            self.emit_mov_qword_ptr_store("r11", field_offset, "rax", comment=path)
             return
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3273,14 +4788,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if typ != expr_type and expr_type != "^nil":
             raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
 
-        self.emit(f"a.mov(x86::r11, x86::qword_ptr(x86::rbp, {offset})); // var param address {name}")
+        self.emit_mov_qword_ptr("r11", "rbp", offset, comment=f"var param address {name}")
 
         if typ == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+            self.emit_mov_dword_ptr_store("r11", 0, "eax")
             return
 
         if isinstance(typ, str) and typ.startswith("^"):
-            self.emit("a.mov(x86::qword_ptr(x86::r11), x86::rax);")
+            self.emit_mov_qword_ptr_store("r11", 0, "rax")
             return
 
         raise CompileError(ctx, "E0013", var_type=typ)
@@ -3298,7 +4813,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if isinstance(field.type, str) and field.type.startswith("^"):
             if is_nil_pointer:
-                self.emit("a.xor_(x86::rax, x86::rax); // nil pointer")
+                self.emit_xor("rax", "rax", comment="nil pointer")
 
         if field.type != expr_type and not is_nil_pointer:
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
@@ -3306,9 +4821,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         # Pointer-Feld zuerst behandeln!
         if isinstance(field.type, str) and field.type.startswith("^"):
             if is_nil_pointer:
-                self.emit("a.xor_(x86::rax, x86::rax); // nil pointer")
+                self.emit_xor("rax", "rax", comment="nil pointer")
 
-            self.emit("a.push(x86::rax); // save right pointer value")
+            self.emit_push("rax", comment='save right pointer value')
 
             if ptr_info.get("is_local", False):
                 self.emit_load_local_var(ctx, ptr_name, ptr_info)
@@ -3316,25 +4831,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_load_var(ptr_name, ptr_info)
 
             if field_offset != 0:
-                self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+                self.emit_add("rax", field_offset, comment="field offset")
 
-            self.emit("a.pop(x86::r11);")
-            self.emit(f"a.mov(x86::qword_ptr(x86::rax), x86::r11); // {path} :=")
+            self.emit_pop("r11")
+            self.emit_mov_qword_ptr_store("rax", 0, "r11", comment=f"{path} :=")
             return
 
         if field.type == "double" and expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax);")
+            self.emit_mov("ebx", "eax")
 
         elif expr_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
 
         elif expr_type == "string":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
 
         if ptr_info.get("is_local", False):
             self.emit_load_local_var(ctx, ptr_name, ptr_info)
@@ -3344,21 +4859,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_nil_pointer_check(ptr_name)
 
         if field_offset != 0:
-            self.emit(f"a.add(x86::rax, {field_offset}); // field offset")
+            self.emit_add("rax", field_offset, comment="field offset")
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::dword_ptr(x86::rax), x86::ebx); // {path} :=")
+            self.emit_mov_dword_ptr_store("rax", 0, "ebx", comment=f"{path} :=")
             return
 
         if field.type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::rax), x86::xmm0); // {path} :=")
+            self.emit_movsd_load("xmm0", "rsp")
+            self.emit_add("rsp", 8)
+            self.emit_movsd_store("rax", 0, "xmm0", comment=f"{path} :=")
             return
 
         if field.type == "string":
-            self.emit("a.pop(x86::r11);")
-            self.emit(f"a.mov(x86::qword_ptr(x86::rax), x86::r11); // {path} :=")
+            self.emit_pop("r11")
+            self.emit_mov_qword_ptr_store("rax", 0, "r11", comment=f"{path} :=")
             return
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3372,18 +4887,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if getattr(array_info, "is_dynamic", False):
             if array_info.element_type == "double" and expr_type == "integer":
-                self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                self.emit_cvtsi2sd("xmm0", "eax")
                 expr_type = "double"
 
             if array_info.element_type != expr_type:
                 raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
 
             if expr_type == "integer":
-                self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+                self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
             elif expr_type == "double":
-                self.emit("a.movsd(x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)), x86::xmm0);")
+                self.emit_movsd_store("r12", "offsetof(JitContext, print_double_tmp)", "xmm0")
             elif expr_type == "string":
-                self.emit("a.push(x86::rax);")
+                self.emit_push("rax")
 
             index_exprs = index_expr_ctx
             if not isinstance(index_exprs, list):
@@ -3397,70 +4912,70 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if index_type != "integer":
                 raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-            self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-            self.emit("a.mov(x86::r10d, x86::eax); // save dynamic array byte offset")
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_mov("r10d", "eax", comment='save dynamic array byte offset')
 
             self.emit_load_var(var_name, var_info)   # RAX = data pointer
-            self.emit("a.movsxd(x86::r11, x86::r10d);")
-            self.emit("a.add(x86::r11, x86::rax); // dynamic array element address")
+            self.emit_movsxd("r11", "r10d")
+            self.emit_add("r11", "rax", comment="dynamic array element address")
 
             if array_info.element_type == "integer":
-                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-                self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+                self.emit_mov_dword("eax", "r12", "print_int_tmp")
+                self.emit_mov_dword_ptr_store("r11", 0, "eax")
                 return
 
             if array_info.element_type == "double":
-                self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
-                self.emit("a.movsd(x86::qword_ptr(x86::r11), x86::xmm0);")
+                self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
+                self.emit_movsd_store("r11", 0, "xmm0")
                 return
 
             if array_info.element_type == "string":
-                self.emit("a.pop(x86::rax);")
-                self.emit("a.mov(x86::qword_ptr(x86::r11), x86::rax);")
+                self.emit_pop("rax")
+                self.emit_mov_qword_ptr_store("r11", 0, "rax")
                 return
 
             raise CompileError(ctx, "E0013", var_type=array_info.element_type)
 
         if array_info.element_type == "double" and expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
         if array_info.element_type != expr_type:
             raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
 
         if expr_type == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+            self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
 
         elif expr_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
 
         elif expr_type == "string":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
-        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+        self.emit_imul("eax", "eax", array_info.element_size)
+        self.emit_add("eax", var_info["slot"])
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.add(x86::r11, x86::rax);")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd("rax", "eax")
+        self.emit_add("r11", "rax")
 
         if array_info.element_type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-            self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+            self.emit_mov_dword("eax", "r12", "print_int_tmp")
+            self.emit_mov_dword_ptr_store("r11", 0, "eax")
             return
 
         if array_info.element_type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-            self.emit("a.add(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::r11), x86::xmm0);")
+            self.emit_movsd_load("xmm0", "rsp")
+            self.emit_add("rsp", 8)
+            self.emit_movsd_store("r11", 0, "xmm0")
             return
 
         if array_info.element_type == "string":
-            self.emit("a.pop(x86::rax);")
-            self.emit("a.mov(x86::qword_ptr(x86::r11), x86::rax);")
+            self.emit_pop("rax")
+            self.emit_mov_qword_ptr_store("r11", 0, "rax")
             return
 
         raise CompileError(ctx, "E0013", var_type=array_info.element_type)
@@ -3485,46 +5000,46 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if index_type != "integer":
                 raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-            self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-            self.emit("a.mov(x86::r10d, x86::eax); // save dynamic array byte offset")
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_mov("r10d", "eax", comment='save dynamic array byte offset')
 
             self.emit_load_var(var_name, var_info)   # RAX = data pointer
-            self.emit("a.movsxd(x86::r11, x86::r10d);")
-            self.emit("a.add(x86::r11, x86::rax); // dynamic array element address")
+            self.emit_movsxd("r11", "r10d")
+            self.emit_add("r11", "rax", comment="dynamic array element address")
 
             if array_info.element_type == "integer":
-                self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+                self.emit_mov_reg_dword("eax", "r11")
                 return "integer"
 
             if array_info.element_type == "double":
-                self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r11));")
+                self.emit_movsd_load("xmm0", "r11")
                 return "double"
 
             if array_info.element_type == "string":
-                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r11));")
+                self.emit_mov_reg_qword("rax", "r11")
                 return "string"
 
             raise CompileError(ctx, "E0014", var_type=array_info.element_type)
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
-        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+        self.emit_imul("eax", "eax", array_info.element_size)
+        self.emit_add("eax", var_info["slot"])
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.add(x86::r11, x86::rax);")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd("rax", "eax")
+        self.emit_add("r11", "rax")
 
         if array_info.element_type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+            self.emit_mov_reg_dword("eax", "r11")
             return "integer"
 
         if array_info.element_type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r11));")
+            self.emit_movsd_load("xmm0", "r11")
             return "double"
 
         if array_info.element_type == "string":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r11));")
+            self.emit_mov_reg_qword("rax", "r11")
             return "string"
 
         raise CompileError(ctx, "E0014", var_type=array_info.element_type)
@@ -3538,7 +5053,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         )
 
         if return_type == "double" and expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
         if return_type == "integer" and expr_type == "char":
@@ -3578,15 +5093,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         path = var_name + "[...]." + ".".join(field_parts)
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::r11)); // {path}")
+            self.emit_mov_dword_ptr("eax", "r11", 0, comment=path)
             return "integer"
 
         if field.type == "double":
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::r11)); // {path}")
+            self.emit_movsd_load("xmm0", "r11", 0, comment=path)
             return "double"
 
         if field.type == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::r11)); // {path}")
+            self.emit_mov_qword_ptr("rax", "r11", 0, comment=path)
             return "string"
 
         return field.type
@@ -3598,10 +5113,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
         # Wert sichern, bevor Index/Adresse berechnet wird
         if expr_type == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+            self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
 
         elif expr_type == "double":
-            self.emit("a.movsd(x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)), x86::xmm0);")
+            self.emit_movsd_store("r12", "offsetof(JitContext, print_double_tmp)", "xmm0")
 
         else:
             raise CompileError(ctx, "E0005", got=expr_type, expected="integer/double")
@@ -3614,22 +5129,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         )
 
         if field.type == "double" and expr_type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11), x86::xmm0); // {var_name}[...].{'.'.join(field_parts)} :=")
+            self.emit_mov_dword("eax", "r12", "print_int_tmp")
+            self.emit_cvtsi2sd("xmm0", "eax")
+            self.emit_movsd_store("r11", 0, "xmm0", comment=f"{var_name}[...].{'.'.join(field_parts)} :=")
             return
 
         if field.type != expr_type:
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
         if field.type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-            self.emit(f"a.mov(x86::dword_ptr(x86::r11), x86::eax); // {var_name}[...].{'.'.join(field_parts)} :=")
+            self.emit_mov_dword("eax", "r12", "print_int_tmp")
+            self.emit_mov_dword_ptr_store("r11", 0, "eax", comment=f"{var_name}[...].{'.'.join(field_parts)} :=")
             return
 
         if field.type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11), x86::xmm0); // {var_name}[...].{'.'.join(field_parts)} :=")
+            self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
+            self.emit_movsd_store("r11", 0, "xmm0", comment=f"{var_name}[...].{'.'.join(field_parts)} :=")
             return
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3638,26 +5153,26 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         arr = self.lookup_var(name)
 
         self.visit(index_ctx)                  # eax = index
-        self.emit("a.mov(x86::r10d, x86::eax);")
+        self.emit_mov("r10d", "eax")
 
         self.emit_load_var_value(name)         # rax = data pointer
-        self.emit("a.test(x86::rax, x86::rax);")
-        self.emit("a.jz(label_array_nil_error);")
+        self.emit_test("rax", "rax")
+        self.emit_jz("label_array_nil_error")
 
         # Bounds Check
-        self.emit("a.mov(x86::r11, x86::rax);")
-        self.emit("a.sub(x86::r11, 16);")      # Header
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r11));")  # length
-        self.emit("a.cmp(x86::r10, x86::r11);")
-        self.emit("a.jae(label_array_bounds_error);")
+        self.emit_mov("r11", "rax")
+        self.emit_sub("r11", 16)      # Header
+        self.emit_mov_reg_qword("r11", "r11")  # length
+        self.emit_cmp("r10", "r11")
+        self.emit_jae("label_array_bounds_error")
 
         self.visit(value_ctx)                  # eax = value
 
         self.emit_load_var_value(name)         # rax = data pointer
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit("a.imul(x86::r11, x86::r11, 4);")
-        self.emit("a.add(x86::r11, x86::rax);")
-        self.emit("a.mov(x86::dword_ptr(x86::r11), x86::eax);")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_imul("r11", "r11", 4)
+        self.emit_add("r11", "rax")
+        self.emit_mov_dword_ptr_store("r11", 0, "eax")
     
     def emit_store_dynamic_array_record_field(self,
         ctx,
@@ -3681,11 +5196,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         # Wert sichern
         if expr_type == "integer":
-            self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)), x86::eax);")
+            self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
         elif expr_type == "double":
-            self.emit("a.movsd(x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)), x86::xmm0);")
+            self.emit_movsd_store("r12", "offsetof(JitContext, print_double_tmp)", "xmm0")
         elif expr_type == "string":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
         else:
             raise CompileError(ctx, "E0005", got=expr_type, expected="integer/double/string")
 
@@ -3695,15 +5210,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if index_type != "integer":
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-        self.emit("a.mov(x86::r10d, x86::eax); // dynamic record array index")
+        self.emit_mov("r10d", "eax", comment='dynamic record array index')
 
         # Datenpointer laden
         self.emit_load_var(var_name, var_info)  # RAX = data pointer
 
         # Elementadresse: data + index * record_size
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit(f"a.imul(x86::r11, x86::r11, {array_info.element_size});")
-        self.emit("a.add(x86::r11, x86::rax); // record element address")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_imul("r11", "r11", array_info.element_size)
+        self.emit_add("r11", "rax", comment="record element address")
 
         # Feldoffset berechnen
         current_type = record_type
@@ -3725,27 +5240,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got="field", expected="record field")
 
         if field.type == "double" and expr_type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {field_offset}), x86::xmm0);")
+            self.emit_mov_dword("eax", "r12", "print_int_tmp")
+            self.emit_cvtsi2sd("xmm0", "eax")
+            self.emit_movsd_store("r11", field_offset, "xmm0")
             return
 
         if field.type != expr_type:
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
         if field.type == "integer":
-            self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, print_int_tmp)));")
-            self.emit(f"a.mov(x86::dword_ptr(x86::r11, {field_offset}), x86::eax);")
+            self.emit_mov_dword("eax", "r12", "print_int_tmp")
+            self.emit_mov_dword_ptr_store("r11", field_offset, "eax")
             return
 
         if field.type == "double":
-            self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::r12, offsetof(JitContext, print_double_tmp)));")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {field_offset}), x86::xmm0);")
+            self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
+            self.emit_movsd_store("r11", field_offset, "xmm0")
             return
 
         if field.type == "string":
-            self.emit("a.pop(x86::rax);")
-            self.emit(f"a.mov(x86::qword_ptr(x86::r11, {field_offset}), x86::rax);")
+            self.emit_pop("rax")
+            self.emit_mov_qword_ptr_store("r11", field_offset, "rax")
             return
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -3763,14 +5278,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if expr_type != "integer":
                 raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
 
-            self.emit(f"a.mov(x86::dword_ptr(x86::rbp, {offset}), x86::eax); // local {name} :=")
+            self.emit_mov_dword_ptr_store("rbp", offset, "eax", comment=f"local {name} :=")
             return
 
         if isinstance(typ, str) and typ.startswith("^"):
             if expr_type != typ and expr_type != "^nil":
                 raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
 
-            self.emit(f"a.mov(x86::qword_ptr(x86::rbp, {offset}), x86::rax); // local pointer {name} :=")
+            self.emit_mov_qword_ptr_store("rbp", offset, "rax", comment=f"local pointer {name} :=")
             return
 
         raise CompileError(ctx, "E0011", typ=typ)
@@ -3783,8 +5298,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = info["slot"]
         
         if isinstance(typ, str) and typ.startswith("^"):
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // {name}")
+            self.emit_mov_qword("rax", "r12", "pointr_vars")
+            self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"{name}")
             return
         
         if isinstance(typ, str) and typ in self.classes:
@@ -3794,23 +5309,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             array_info = self.arrays[typ]
             
             if getattr(array_info, "is_dynamic", False):
-                self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-                self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // dynamic array {name}")
+                self.emit_mov_qword("rax", "r12", "pointr_vars")
+                self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"dynamic array {name}")
                 return
         
         if typ == "integer":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rax, {slot * 4})); // {name}")
+            self.emit_mov_qword("rax", "r12", "int_vars")
+            self.emit_mov_dword_ptr("eax", "rax", slot * 4, comment=f"{name}")
             return
         
         if typ == "double":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::rax, {slot * 8})); // {name}")
+            self.emit_mov_qword("rax", "r12", "double_vars")
+            self.emit_movsd_load("xmm0", "rax", slot * 8, comment=f"{name}")
             return
         
         if typ == "string":
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::rax, {slot * 8})); // {name}")
+            self.emit_mov_qword("rax", "r12", "string_vars")
+            self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"{name}")
             return
         
         raise CompileError(None, "E0014", var_type=typ)
@@ -3819,14 +5334,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         arr = self.lookup_var(name)
 
         self.visit(index_ctx)
-        self.emit("a.mov(x86::r10d, x86::eax);")
+        self.emit_mov("r10d", "eax")
 
         self.emit_load_var_value(name)         # rax = data pointer
 
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit("a.imul(x86::r11, x86::r11, 4);")
-        self.emit("a.add(x86::r11, x86::rax);")
-        self.emit("a.mov(x86::eax, x86::dword_ptr(x86::r11));")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_imul("r11", "r11", 4)
+        self.emit_add("r11", "rax")
+        self.emit_mov_reg_dword("eax", "r11")
 
         return "integer"
     
@@ -3854,13 +5369,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if index_type != "integer":
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-        self.emit("a.mov(x86::r10d, x86::eax); // dynamic record array index")
+        self.emit_mov("r10d", "eax", comment='dynamic record array index')
 
         self.emit_load_var(var_name, var_info)  # RAX = data pointer
 
-        self.emit("a.movsxd(x86::r11, x86::r10d);")
-        self.emit(f"a.imul(x86::r11, x86::r11, {array_info.element_size});")
-        self.emit("a.add(x86::r11, x86::rax); // record element address")
+        self.emit_movsxd("r11", "r10d")
+        self.emit_imul("r11", "r11", array_info.element_size)
+        self.emit_add("r11", "rax", comment="record element address")
 
         current_type = record_type
         field = None
@@ -3878,15 +5393,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             current_type = field.type
 
         if field.type == "integer":
-            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::r11, {field_offset}));")
+            self.emit_mov_dword_ptr("eax", "r11", field_offset)
             return "integer"
 
         if field.type == "double":
-            self.emit(f"a.movsd(x86::xmm0, x86::qword_ptr(x86::r11, {field_offset}));")
+            self.emit_movsd_load("xmm0", "r11", field_offset)
             return "double"
 
         if field.type == "string":
-            self.emit(f"a.mov(x86::rax, x86::qword_ptr(x86::r11, {field_offset}));")
+            self.emit_mov_qword_ptr("rax", "r11", field_offset)
             return "string"
 
         raise CompileError(ctx, "E0014", var_type=field.type)
@@ -3896,32 +5411,32 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = info["slot"]
 
         if typ.startswith("^"):
-            self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-            self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // {name}")
+            self.emit_mov_qword("r11", "r12", "pointr_vars")
+            self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"{name}")
             return
         
         if isinstance(typ, str) and typ in self.arrays:
             array_info = self.arrays[typ]
             
             if getattr(array_info, "is_dynamic", False):
-                self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, pointr_vars)));")
-                self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // dynamic array {name}")
+                self.emit_mov_qword("r11", "r12", "pointr_vars")
+                self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"dynamic array {name}")
                 return
                 
         if typ == "integer":
-            self.emit("a.mov(x86::ebx, x86::eax);")
-            self.emit("a.mov(x86::rax, x86::qword_ptr(x86::r12, offsetof(JitContext, int_vars)));")
-            self.emit(f"a.mov(x86::dword_ptr(x86::rax, {slot * 4}), x86::ebx); // {name}")
+            self.emit_mov("ebx", "eax")
+            self.emit_mov_qword("rax", "r12", "int_vars")
+            self.emit_mov_dword_ptr_store("rax", slot * 4, "ebx", comment=f"{name}")
             return
 
         if typ == "double":
-            self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, double_vars)));")
-            self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {slot * 8}), x86::xmm0); // {name}")
+            self.emit_mov_qword("r11", "r12", "double_vars")
+            self.emit_movsd_store("r11", slot * 8, "xmm0", comment=f"{name}")
             return
 
         if typ == "string":
-            self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, string_vars)));")
-            self.emit(f"a.mov(x86::qword_ptr(x86::r11, {slot * 8}), x86::rax); // {name}")
+            self.emit_mov_qword("r11", "r12", "string_vars")
+            self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"{name}")
             return
 
         raise CompileError(ctx, "E0013", var_type=typ)
@@ -3931,12 +5446,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         end_label = self.new_label(f"endproc_{proc_name}")
 
-        self.emit(f"jmp {end_label}")
-        self.emit(f"{proc_name}:")
+        self.emit_jmp(end_label)
+        self.emit_bind_label(proc_name)
 
-        self.emit("push rbp")
-        self.emit("mov rbp, rsp")
-        self.emit("sub rsp, 256")
+        self.emit_push("rbp")
+        self.emit_mov("rbp", "rsp")
+        self.emit_sub("rsp", 256, comment="local variables")
 
         self.push_local_scope()
 
@@ -3954,23 +5469,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.pop_local_scope()
 
-        self.emit("mov rsp, rbp")
-        self.emit("pop rbp")
-        self.emit("ret")
+        self.emit_mov("rsp", "rbp")
+        self.emit_pop("rbp")
+        self.emit_ret()
 
-        self.emit(f"{end_label}:")
+        self.emit_bind_label(end_label)
     
     def emit_address_of_array_element(self, ctx, var_name, index_exprs):
         var_info, array_info = self.get_array_info(ctx, var_name)
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
-        self.emit(f"a.imul(x86::eax, x86::eax, {array_info.element_size});")
-        self.emit(f"a.add(x86::eax, {var_info['slot']});")
+        self.emit_imul("eax", "eax", array_info.element_size)
+        self.emit_add("eax", var_info["slot"])
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
-        self.emit("a.movsxd(x86::rax, x86::eax);")
-        self.emit("a.add(x86::rax, x86::r11); // @array[index]")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd("rax", "eax")
+        self.emit_add("rax", "r11", comment="@array[index]")
 
         return "^" + array_info.element_type
     
@@ -3997,8 +5512,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 expected="max 4 params"
             )
         
-        self.emit(f"a.jmp({end_label});")
-        self.emit(f"a.bind({label});")
+        self.emit_jmp(end_label)
+        self.emit_bind_label(label)
         
         self.emit_push("rbp",        comment="epilog")
         self.emit_mov ("rbp", "rsp", comment="stack frame")
@@ -4018,7 +5533,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             reg = param_regs[index]
             pname = p["name"]
             
-            self.emit(f"a.push(x86::{reg}); // save function param {pname}")
+            self.emit_push(reg, comment=f"save function param {pname}")
             
             self.current_proc_params[pname.lower()] = {
                 "type": p["type"],
@@ -4050,12 +5565,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if return_type.lower() not in ["integer", "string", "double"]:
             raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
 
-        self.emit("a.mov(x86::rbx, x86::qword_ptr(x86::rbp, -8));")
-        self.emit("a.mov(x86::rsp, x86::rbp);")
-        self.emit("a.pop(x86::rbp);")
-        self.emit("a.ret();")
+        self.emit_mov_qword_ptr("rbx", "rbp", -8)
+        self.emit_mov("rsp", "rbp")
+        self.emit_pop("rbp")
+        self.emit_ret()
 
-        self.emit(f"a.bind({end_label});")
+        self.emit_bind_label(end_label)
     
     def emit_self_method_call(self, ctx, method_name, actual_types=None):
         if actual_types is None:
@@ -4078,10 +5593,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 text=f"{method_name} is not a function"
             )
 
-        self.emit("a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // Self")
-        self.emit("a.sub(x86::rsp, 32);")
-        self.emit(f"a.call({method.label}); // Self.{method.name}")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_mov_qword_ptr("rcx", "rbp", -8, comment='Self')
+        self.emit_sub("rsp", 32)
+        self.emit_call_lbl(method.label, comment=f"Self.{method.name}")
+        self.emit_add("rsp", 32)
 
         return self.resolve_type(method.return_type)
     
@@ -4098,23 +5613,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         base_offset = info["slot"]
 
-        self.emit("a.mov(x86::r11, x86::qword_ptr(x86::r12, offsetof(JitContext, arrays_vars)));")
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
 
         for index, value in enumerate(array_info.init_values):
             offset = base_offset + index * array_info.element_size
 
             if array_info.element_type == "integer":
-                self.emit(f"a.mov(x86::dword_ptr(x86::r11, {offset}), {value}); // init {name}[{index + array_info.index_min}]")
+                self.emit_mov_dword_ptr_store("r11", offset, value, comment=f"init {name}[{index + array_info.index_min}]")
 
             elif array_info.element_type == "double":
-                self.emit(f"a.mov(x86::rax, imm(_double_to_bits({value})));")
-                self.emit("a.movq(x86::xmm0, x86::rax);")
-                self.emit(f"a.movsd(x86::qword_ptr(x86::r11, {offset}), x86::xmm0); // init {name}[{index + array_info.index_min}]")
+                self.emit_mov_imm("rax", double_to_bits(float(value)))
+                self.emit_movq("xmm0", "rax")
+                self.emit_movsd_store("r11", offset, "xmm0", comment=f"init {name}[{index + array_info.index_min}]")
 
             elif array_info.element_type == "string":
                 label = self.add_string_literal(value)
-                self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
-                self.emit(f"a.mov(x86::qword_ptr(x86::r11, {offset}), x86::rax); // init {name}[{index + array_info.index_min}]")
+                self.emit_mov_imm("rax", label)
+                self.emit_mov_qword_ptr_store("r11", offset, "rax", comment=f"init {name}[{index + array_info.index_min}]")
                 
     def emit_if_statement(self, ctx):
         else_name = self.new_named_label("else")
@@ -4125,15 +5640,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.visit(ctx.statement(0))
 
         if ctx.ELSE():
-            self.emit(f"a.jmp({end_name});")
-            self.emit(f"a.bind({else_name});")
+            self.emit_jmp(end_name)
+            self.emit_bind_label(else_name)
             self.visit(ctx.statement(1))
-            self.emit(f"a.bind({end_name});")
+            self.emit_bind_label(end_name)
         else:
-            self.emit(f"a.bind({else_name});")
+            self.emit_bind_label(else_name)
         
     def emit_int_to_double(self):
-        self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+        self.emit_cvtsi2sd("xmm0", "eax")
     
     def emit_condition_jump_false(self, ctx, false_label):
         # Boolean-Ausdruck ohne Vergleich:
@@ -4145,8 +5660,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
 
             self.normalize_bool_eax()
-            self.emit("a.cmp(x86::eax, 0);")
-            self.emit(f"a.je({false_label});")
+            self.emit_cmp("eax", 0)
+            self.emit_je(false_label)
             return
 
         left_ctx  = ctx.expr(0)
@@ -4156,7 +5671,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         left_type = self.visit(left_ctx)
         
         if isinstance(left_type, str) and left_type.startswith("^"):
-            self.emit("a.push(x86::rax); // save left pointer")
+            self.emit_push("rax", comment='save left pointer')
 
             right_type = self.visit(right_ctx)
 
@@ -4168,16 +5683,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     expected=left_type + "/nil"
                 )
 
-            self.emit("a.mov(x86::rbx, x86::rax); // right pointer")
-            self.emit("a.pop(x86::rax);           // left pointer")
-            self.emit("a.cmp(x86::rax, x86::rbx);")
+            self.emit_mov("rbx", "rax", comment='right pointer')
+            self.emit_pop("rax", comment="left pointer")
+            self.emit_cmp("rax", "rbx")
 
             if op == "=":
-                self.emit(f"a.jne({false_label});")
+                self.emit_jne(false_label)
                 return
 
             if op == "<>":
-                self.emit(f"a.je({false_label});")
+                self.emit_je(false_label)
                 return
 
             raise CompileError(
@@ -4188,10 +5703,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             )
 
         if left_type == "integer":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
         elif left_type == "double":
-            self.emit("a.sub(x86::rsp, 8);")
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_sub("rsp", 8)
+            self.emit_movsd_store("rsp", 0, "xmm0")
         else:
             raise CompileError(ctx, "E0005", got=left_type, expected="integer/double")
 
@@ -4199,53 +5714,53 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if left_type == "double" or right_type == "double":
             if right_type == "integer":
-                self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                self.emit_cvtsi2sd("xmm0", "eax")
             elif right_type != "double":
                 raise CompileError(ctx, "E0005", got=right_type, expected="integer/double")
 
-            self.emit("a.movapd(x86::xmm1, x86::xmm0);")
+            self.emit_movapd("xmm1", "xmm0")
 
             if left_type == "integer":
-                self.emit("a.pop(x86::rax);")
-                self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                self.emit_pop("rax")
+                self.emit_cvtsi2sd("xmm0", "eax")
             else:
-                self.emit("a.movsd(x86::xmm0, x86::qword_ptr(x86::rsp));")
-                self.emit("a.add(x86::rsp, 8);")
+                self.emit_movsd_load("xmm0", "rsp")
+                self.emit_add("rsp", 8)
 
-            self.emit("a.ucomisd(x86::xmm0, x86::xmm1);")
+            self.emit_ucomisd("xmm0", "xmm1")
 
             jump_map = {
-                "=":  "jne",
-                "<>": "je",
-                "<":  "jae",
-                "<=": "ja",
-                ">":  "jbe",
-                ">=": "jb",
+                "=":  self.emit_jne,
+                "<>": self.emit_je,
+                "<":  self.emit_jae,
+                "<=": self.emit_ja,
+                ">":  self.emit_jbe,
+                ">=": self.emit_jb,
             }
 
-            self.emit(f"a.{jump_map[op]}({false_label});")
+            jump_map[op](false_label)
             return
 
-        self.emit("a.mov(x86::ebx, x86::eax);")
-        self.emit("a.pop(x86::rax);")
-        self.emit("a.cmp(x86::eax, x86::ebx);")
+        self.emit_mov("ebx", "eax")
+        self.emit_pop("rax")
+        self.emit_cmp("eax", "ebx")
 
         jump_map = {
-            "=":  "jne",
-            "<>": "je",
-            "<":  "jge",
-            "<=": "jg",
-            ">":  "jle",
-            ">=": "jl",
+            "=":  self.emit_jne,
+            "<>": self.emit_je,
+            "<":  self.emit_jge,
+            "<=": self.emit_jg,
+            ">":  self.emit_jle,
+            ">=": self.emit_jl,
         }
 
-        self.emit(f"a.{jump_map[op]}({false_label});")
+        jump_map[op](false_label)
     
     def emit_expr_as_double(self, ctx):
         expr_type = self.visit(ctx)
 
         if expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
 
         elif expr_type != "double":
             raise CompileError(ctx, "E0005", got=expr_type, expected="double")
@@ -4256,13 +5771,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         start_name = self.new_named_label("while")
         end_name   = self.new_named_label("endwhile")
 
-        self.emit(f"a.bind({start_name});")
+        self.emit_bind_label(start_name)
         self.emit_condition_jump_false(ctx.condition(), end_name)
 
         self.visit(ctx.statement())
 
-        self.emit(f"a.jmp({start_name});")
-        self.emit(f"a.bind({end_name});")
+        self.emit_jmp(start_name)
+        self.emit_bind_label(end_name)
     
     def emit_repeat_statement(self, ctx):
         start_label = self.new_label_name("repeat")
@@ -4291,14 +5806,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         start_name = self.new_named_label("repeat")
         end_name   = self.new_named_label("endrepeat")
 
-        self.emit(f"a.bind({start_name});")
+        self.emit_bind_label(start_name)
 
         for stmt in ctx.statementList().statement():
             self.visit(stmt)
 
         self.emit_condition_jump_false(ctx.condition(), start_name)
 
-        self.emit(f"a.bind({end_name});")
+        self.emit_bind_label(end_name)
     
     def emit_for_statement(self, ctx):
         var_name = ctx.IDENT().getText()
@@ -4325,20 +5840,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if end_type != "integer":
             raise CompileError(ctx, "E0005", got=end_type, expected="integer")
 
-        self.emit("a.mov(x86::dword_ptr(x86::r12, offsetof(JitContext, _print_int_tmp)), x86::eax); // for end value")
+        self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, _print_int_tmp)", "eax", comment="for end value")
 
-        self.emit(f"a.bind({start_name});")
+        self.emit_bind_label(start_name)
 
         self.emit_load_var(var_name, info)
 
         direction = ctx.getChild(4).getText().lower()
 
         if direction == "to":
-            self.emit("a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, _print_int_tmp)));")
-            self.emit(f"a.jg({end_name});")
+            self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
+            self.emit_jg(end_name)
         else:
-            self.emit("a.cmp(x86::eax, x86::dword_ptr(x86::r12, offsetof(JitContext, _print_int_tmp)));")
-            self.emit(f"a.jl({end_name});")
+            self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
+            self.emit_jl(end_name)
 
         self.break_label_stack.append(end_name)
         self.continue_label_stack.append(continue_name)
@@ -4348,19 +5863,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.continue_label_stack.pop()
         self.break_label_stack.pop()
 
-        self.emit(f"a.bind({continue_name});")
+        self.emit_bind_label(continue_name)
 
         self.emit_load_var(var_name, info)
 
         if direction == "to":
-            self.emit("a.add(x86::eax, 1);")
+            self.emit_add("eax", 1)
         else:
-            self.emit("a.sub(x86::eax, 1);")
+            self.emit_sub("eax", 1)
 
         self.emit_store_var(ctx, var_name, info)
 
-        self.emit(f"a.jmp({start_name});")
-        self.emit(f"a.bind({end_name});")
+        self.emit_jmp(start_name)
+        self.emit_bind_label(end_name)
     
     # typen überprüfung ...
     def var_info(self, ctx, name):
@@ -4388,12 +5903,91 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_add(self, reg, value, comment=""):
         self.backend.emit_add(reg, value, comment)
-        
+
+    def emit_imul(self, dst, src, value=None, comment=""):
+        self.backend.emit_imul(dst, src, value, comment)
+    
+    def emit_bind_label(self, label, comment=""):
+        self.backend.emit_bind_label(label, comment)
+
+    def emit_new_label_decl(self, name, comment=""):
+        self.backend.emit_new_label_decl(name, comment)
+    
     def emit_call(self, dst, comment=""):
         self.backend.emit_call(dst, comment)
+
+    def emit_cmp(self, reg, value, comment=""):
+        self.backend.emit_cmp(reg, value, comment)
+
+    def emit_cmp_dword(self, reg, base, field, comment=""):
+        self.backend.emit_cmp_dword(reg, base, field, comment)
+
+    def emit_jg(self, label, comment=""): self.backend.emit_jg(label, comment)
+    def emit_jl(self, label, comment=""): self.backend.emit_jl(label, comment)
+    def emit_jz(self, label, comment=""): self.backend.emit_jz(label, comment)
+    def emit_jb(self, label, comment=""): self.backend.emit_jb(label, comment)
+    def emit_ja(self, label, comment=""): self.backend.emit_ja(label, comment)
+    def emit_jae(self, label, comment=""): self.backend.emit_jae(label, comment)
+    def emit_jbe(self, label, comment=""): self.backend.emit_jbe(label, comment)
+    def emit_je(self, label, comment=""): self.backend.emit_je(label, comment)
+    def emit_jle(self, label, comment=""): self.backend.emit_jle(label, comment)
+    def emit_jge(self, label, comment=""): self.backend.emit_jge(label, comment)
+    def emit_jne(self, label, comment=""): self.backend.emit_jne(label, comment)
+    def emit_jnz(self, label, comment=""): self.backend.emit_jnz(label, comment)
+
+    def emit_jmp(self, target, comment=""):
+        self.backend.emit_jmp(target, comment)
+    
+    def emit_lea_byte (self, reg1, reg2, offset, comment=""):
+        self.backend.emit_lea_byte(reg1, reg2, offset, comment)
+        
+    def emit_lea_dword(self, reg1, reg2, offset, comment=""):
+        self.backend.emit_lea_dword(reg1, reg2, offset, comment)
+        
+    def emit_lea_qword(self, reg1, reg2, offset, comment=""):
+        self.backend.emit_lea_qword(reg1, reg2, offset, comment)
+    
+    def emit_mov_byte (self, reg1, reg2, vars, comment=""):
+        self.backend.emit_mov_byte(reg1, reg2, vars, comment)
+    
+    def emit_mov_dword(self, reg1, reg2, vars, comment=""):
+        self.backend.emit_mov_dword(reg1, reg2, vars, comment)
+        
+    def emit_mov_qword(self, reg1, reg2, vars, comment=""):
+        self.backend.emit_mov_qword(reg1, reg2, vars, comment)
+    
+    def emit_new_label_decl(self, name, comment=""):
+        self.backend.emit_new_label_decl(name, comment)
         
     def emit_mov    (self, dst, src, comment=""): self.backend.emit_mov    (dst, src, comment)
     def emit_mov_imm(self, dst, src, comment=""): self.backend.emit_mov_imm(dst, src, comment)
+    def emit_movzx  (self, dst, src, comment=""): self.backend.emit_movzx  (dst, src, comment)
+    def emit_movsxd (self, dst, src, comment=""): self.backend.emit_movsxd (dst, src, comment)
+    def emit_movq(self, dst, src, comment=""): self.backend.emit_movq(dst, src, comment)
+    def emit_movsd_load(self, dst, base, offset=0, comment=""): self.backend.emit_movsd_load(dst, base, offset, comment)
+    def emit_movsd_load_field(self, dst, base, field, comment=""): self.backend.emit_movsd_load_field(dst, base, field, comment)
+    def emit_movsd_store(self, base, offset, src, comment=""): self.backend.emit_movsd_store(base, offset, src, comment)
+    def emit_ucomisd(self, dst, src, comment=""): self.backend.emit_ucomisd(dst, src, comment)
+    def emit_cvtsi2sd(self, dst, src, comment=""): self.backend.emit_cvtsi2sd(dst, src, comment)
+    def emit_movapd(self, dst, src, comment=""): self.backend.emit_movapd(dst, src, comment)
+    def emit_addsd(self, dst, src, comment=""): self.backend.emit_addsd(dst, src, comment)
+    def emit_subsd(self, dst, src, comment=""): self.backend.emit_subsd(dst, src, comment)
+    def emit_mulsd(self, dst, src, comment=""): self.backend.emit_mulsd(dst, src, comment)
+    def emit_divsd(self, dst, src, comment=""): self.backend.emit_divsd(dst, src, comment)
+    def emit_cdq(self, comment=""): self.backend.emit_cdq(comment)
+    def emit_idiv(self, reg, comment=""): self.backend.emit_idiv(reg, comment)
+    def emit_mov_byte_ptr (self, dst, base, offset=0, comment=""): self.backend.emit_mov_byte_ptr (dst, base, offset, comment)
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""): self.backend.emit_mov_dword_ptr(dst, base, offset, comment)
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""): self.backend.emit_mov_qword_ptr(dst, base, offset, comment)
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_qword_ptr_store(base, offset, src, comment)
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_dword_ptr_store(base, offset, src, comment)
+    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_byte_ptr_store(base, offset, src, comment)
+    def emit_mov_reg_byte (self, dst, base, comment=""): self.backend.emit_mov_reg_byte (dst, base, comment)
+    def emit_mov_reg_dword(self, dst, base, comment=""): self.backend.emit_mov_reg_dword(dst, base, comment)
+    def emit_mov_reg_qword(self, dst, base, comment=""): self.backend.emit_mov_reg_qword(dst, base, comment)
+    def emit_test(self, reg1, reg2, comment=""): self.backend.emit_test(reg1, reg2, comment)
+    def emit_call_reg(self, target, comment=""): self.backend.emit_call_reg(target, comment)
+    def emit_call_lbl(self, target, comment=""): self.backend.emit_call_lbl(target, comment)
     
     def emit_xor(self, dst, src, comment=""):
         self.backend.emit_xor(dst, src, comment)
@@ -4404,20 +5998,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_sub (self, reg, value, comment=""):
         self.backend.emit_sub(reg, value, comment)
     
-    def emit_backend_call(self, target):
-        self.backend.call(target)
-    
-    def emit_backend_ret(self):
-        self.backend.ret()
+    def emit_ret(self, comment=""):
+        self.backend.emit_ret(comment)
     
     def emit_backend_jmp(self, label):
-        self.backend.jmp(label)
+        self.backend.emit_jmp(label)
     
     def emit_backend_label(self, label):
-        self.backend.bind_label(label)
+        self.backend.emit_bind_label(label)
     
     def emit_load_integer_const(self, value):
-        self.backend.mov_imm_eax(value)
+        self.backend.emit_mov_imm("eax", value)
         return "integer"
     
     def new_label_name(self, prefix):
@@ -4457,7 +6048,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return "char"
 
             self.emit_mov("rcx", "rax")
-            self.emit_mov_imm("rax", "imm((uint64_t)&_jit_dynstring_from_cstr")
+            self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
             self.emit_call_rax()
 
             return "string"
@@ -4496,15 +6087,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.validate_class_methods(ctx)
         
-        self.emit("a.push(x86::r12);")
-        self.emit("a.push(x86::rbx);")
-        self.emit("a.sub(x86::rsp, 8); // align stack")
-        self.emit("a.mov (x86::r12, x86::rcx); // ctx")
+        self.emit_push("r12")
+        self.emit_push("rbx")
+        self.emit_sub("rsp", 8, comment="align stack")
+        self.emit_mov("r12", "rcx", comment="ctx")
         
         for init_label in self.unit_init_labels:
-            self.emit("a.sub(x86::rsp, 32); // unit init shadow space")
-            self.emit(f"a.call({init_label});")
-            self.emit("a.add(x86::rsp, 32);")
+            self.emit_call_lbl(init_label, comment="unit init")
         
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
@@ -4530,15 +6119,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
         self.validate_class_methods(ctx)
 
-        self.emit("a.push(x86::r12);")
-        self.emit("a.push(x86::rbx);")
-        self.emit("a.sub(x86::rsp, 8); // align stack")
-        self.emit("a.mov (x86::r12, x86::rcx); // ctx")
+        self.emit_push("r12")
+        self.emit_push("rbx")
+        self.emit_sub("rsp", 8, comment="align stack")
+        self.emit_mov("r12", "rcx", comment="ctx")
 
         for init_label in self.unit_init_labels:
-            self.emit("a.sub(x86::rsp, 32); // unit init shadow space")
-            self.emit(f"a.call({init_label});")
-            self.emit("a.add(x86::rsp, 32);")
+            self.emit_call_lbl(init_label, comment="unit init")
 
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
@@ -4572,11 +6159,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             self.unit_init_labels.append(init_label)
 
-            self.emit(f"a.jmp({skip_label});")
-            self.emit(f"a.bind({init_label});")
+            self.emit_jmp(skip_label)
+            self.emit_bind_label(init_label)
             self.visit(ctx.unitInitBlock())
-            self.emit("a.ret();")
-            self.emit(f"a.bind({skip_label});")
+            self.emit_ret()
+            self.emit_bind_label(skip_label)
 
         self.module_kind        = old_kind
         self.module_kind_value  = old_kind_value
@@ -4645,7 +6232,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if not self.exit_label_stack:
             raise CompileError(ctx, "E0006")
 
-        self.emit(f"a.jmp({self.exit_label_stack[-1]}); // Exit")
+        self.emit_jmp(self.exit_label_stack[-1], comment="Exit")
         return None
     
     def visitConstSection(self, ctx):
@@ -4683,24 +6270,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         for arg in reversed(args):
             arg_type = self.visit_actual_param_expr(arg)
             actual_types.insert(0, arg_type)
-
+            
             if arg_type == "integer":
-                self.emit("a.movsxd(x86::rax, x86::eax);")
-                self.emit("a.push(x86::rax); // inherited integer arg")
-
+                self.emit_movsxd("rax", "eax")
+                self.emit_push("rax", comment="inherited integer arg")
+            
             elif arg_type == "string":
-                self.emit("a.push(x86::rax); // inherited string arg")
-
+                self.emit_push("rax", comment="inherited string arg")
+            
             elif isinstance(arg_type, str) and arg_type.startswith("^"):
-                self.emit("a.push(x86::rax); // inherited pointer arg")
-
+                self.emit_push("rax", comment="inherited pointer arg")
+            
             else:
                 raise CompileError(
                     ctx,
                     "E0019",
                     text=f"unsupported inherited argument type {arg_type}"
                 )
-
+        
         method, owner_cls = self.find_class_method_recursive(
             ctx,
             cls.parent,
@@ -4717,29 +6304,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             stack_count += 1
 
         # Self laden
-        self.emit("a.mov(x86::rcx, x86::qword_ptr(x86::rbp, -8)); // inherited Self")
+        self.emit_mov_qword_ptr("rcx", "rbp", -8, comment='inherited Self')
 
         # Parameter 1..3 aus temporärem Stack holen
         reg_count = min(3, len(args))
 
         for index in range(reg_count):
-            self.emit(f"a.pop(x86::{param_regs[index]}); // inherited arg {index + 1}")
+            self.emit_pop(param_regs[index], comment=f"inherited arg {index + 1}")
 
         align_pad = 0
 
         if stack_count % 2 == 1:
-            self.emit("a.sub(x86::rsp, 8); // align stack before inherited call")
+            self.emit_sub("rsp", 8, comment = "align stack before inherited call")
             align_pad = 8
 
-        self.emit("a.sub(x86::rsp, 32);")
-        self.emit(f"a.call({method.label}); // inherited {owner_cls.name}.{method.name}")
-        self.emit("a.add(x86::rsp, 32);")
+        self.emit_call(method.label, comment = f"inherited {owner_cls.name}.{method.name}")
 
         if align_pad:
-            self.emit("a.add(x86::rsp, 8); // remove inherited alignment padding")
+            self.emit_add("rsp", 8, comment = "remove inherited alignment padding")
 
         if stack_count > 0:
-            self.emit(f"a.add(x86::rsp, {stack_count * 8}); // remove inherited stack args")
+            self.emit_add("rsp", stack_count * 8, comment = "remove inherited stack args")
 
         return None
     
@@ -4787,13 +6372,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "skip_class_" + class_name + "_" + method_name
         )
         
-        self.emit(f"a.jmp({skip_label});")
-        self.emit(f"a.bind({method.label});")
+        self.emit_jmp(skip_label)
+        self.emit_bind_label(method.label)
         
         # rcx = Self
-        self.emit("a.push(x86::rbp);")
-        self.emit("a.mov(x86::rbp, x86::rsp);")
-        self.emit("a.push(x86::rcx); // Self")
+        self.emit_push("rbp")
+        self.emit_mov("rbp", "rsp")
+        self.emit_push("rcx", comment = "Self")
         
         old_params = self.current_proc_params
         self.current_proc_params = {
@@ -4813,7 +6398,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             if index < len(param_regs):
                 reg = param_regs[index]
-                self.emit(f"a.push(x86::{reg}); // save class method param {pname}")
+                self.emit_push(reg, comment=f"save class method param {pname}")
                 stack_offset = -8 * (index + 2)
             else:
                 reg = None
@@ -4834,7 +6419,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 "is_var"        : p.get("is_var", False)
             }
         
-        self.emit("a.sub(x86::rsp, 256); // class method locals")
+        self.emit_sub("rsp", 256, comment = "class method locals")
         
         self.push_local_scope()
         self.push_const_scope()
@@ -4864,11 +6449,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.current_proc_params = old_params
         
-        self.emit("a.mov(x86::rsp, x86::rbp);")
-        self.emit("a.pop(x86::rbp);")
-        self.emit("a.ret();")
+        self.emit_mov("rsp", "rbp")
+        self.emit_pop("rbp")
+        self.emit_ret()
         
-        self.emit(f"a.bind({skip_label});")
+        self.emit_bind_label(skip_label)
         
         return None
     
@@ -5045,16 +6630,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
 
             self.normalize_bool_eax()
-            self.emit("a.cmp(x86::eax, 0);")
-            self.emit(f"a.jne({true_label});")
+            self.emit_cmp("eax", 0)
+            self.emit_jne(true_label)
 
-        self.emit("a.xor_(x86::eax, x86::eax);")
-        self.emit(f"a.jmp({end_label});")
+        self.emit_xor("eax", "eax")
+        self.emit_jmp(end_label)
 
-        self.emit(f"a.bind({true_label});")
-        self.emit("a.mov(x86::eax, 1);")
+        self.emit_bind_label(true_label)
+        self.emit_mov("eax", 1)
 
-        self.emit(f"a.bind({end_label});")
+        self.emit_bind_label(end_label)
 
         return "integer"
     
@@ -5066,7 +6651,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer")
 
             self.normalize_bool_eax()
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
 
             right_type = self.visit(ctx.boolAndExpr(i))
 
@@ -5075,8 +6660,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             self.normalize_bool_eax()
 
-            self.emit("a.pop(x86::rbx);")
-            self.emit("a.xor_(x86::eax, x86::ebx);")
+            self.emit_pop("rbx")
+            self.emit_mov("eax", "ebx")
             self.normalize_bool_eax()
 
             result_type = "integer"
@@ -5099,16 +6684,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
 
             self.normalize_bool_eax()
-            self.emit("a.cmp(x86::eax, 0);")
-            self.emit(f"a.je({false_label});")
+            self.emit_cmp("eax", 0)
+            self.emit_je(false_label)
 
-        self.emit("a.mov(x86::eax, 1);")
-        self.emit(f"a.jmp({end_label});")
+        self.emit_mov("eax", 1)
+        self.emit_jmp(end_label)
 
-        self.emit(f"a.bind({false_label});")
-        self.emit("a.xor_(x86::eax, x86::eax);")
+        self.emit_bind_label(false_label)
+        self.emit_xor("eax", "eax")
 
-        self.emit(f"a.bind({end_label});")
+        self.emit_bind_label(end_label)
 
         return "integer"
 
@@ -5116,14 +6701,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if not self.break_label_stack:
             raise CompileError(ctx, "E0006")
         
-        self.emit(f"a.jmp({self.break_label_stack[-1]}); // break")
+        self.emit_jmp(self.break_label_stack[-1], comment="break")
         return None
 
     def visitContinueStatement(self, ctx):
         if not self.continue_label_stack:
             raise CompileError(ctx, "E0006")
         
-        self.emit(f"a.jmp({self.continue_label_stack[-1]}); // continue")
+        self.emit_jmp(self.continue_label_stack[-1], comment="continue")
         return None
 
     def visitCompareExpr(self, ctx):
@@ -5135,9 +6720,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         op = ctx.compareOp().getText()
 
         if left_type == "integer":
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
         elif isinstance(left_type, str) and left_type.startswith("^"):
-            self.emit("a.push(x86::rax);")
+            self.emit_push("rax")
         else:
             raise CompileError(ctx, "E0005", got=left_type, expected="integer/pointer")
 
@@ -5147,35 +6732,35 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if right_type != left_type and right_type != "^nil":
                 raise CompileError(ctx, "E0005", got=right_type, expected=left_type + "/nil")
 
-            self.emit("a.mov(x86::rbx, x86::rax);")
-            self.emit("a.pop(x86::rax);")
-            self.emit("a.cmp(x86::rax, x86::rbx);")
+            self.emit_mov("rbx", "rax")
+            self.emit_pop("rax")
+            self.emit_cmp("rax", "rbx")
         else:
             if right_type != "integer":
                 raise CompileError(ctx, "E0005", got=right_type, expected="integer")
 
-            self.emit("a.mov(x86::ebx, x86::eax);")
-            self.emit("a.pop(x86::rax);")
-            self.emit("a.cmp(x86::eax, x86::ebx);")
+            self.emit_mov("ebx", "eax")
+            self.emit_pop("rax")
+            self.emit_cmp("eax", "ebx")
 
         true_label = self.new_named_label("cmp_true")
         end_label  = self.new_named_label("cmp_end")
 
         jump_map = {
-            "=":  "je",
-            "<>": "jne",
-            "<":  "jl",
-            "<=": "jle",
-            ">":  "jg",
-            ">=": "jge",
+            "=":  self.emit_je,
+            "<>": self.emit_jne,
+            "<":  self.emit_jl,
+            "<=": self.emit_jle,
+            ">":  self.emit_jg,
+            ">=": self.emit_jge,
         }
 
-        self.emit(f"a.{jump_map[op]}({true_label});")
-        self.emit("a.xor_(x86::eax, x86::eax);")
-        self.emit(f"a.jmp({end_label});")
-        self.emit(f"a.bind({true_label});")
-        self.emit("a.mov(x86::eax, 1);")
-        self.emit(f"a.bind({end_label});")
+        jump_map[op](true_label)
+        self.emit_xor("eax", "eax")
+        self.emit_jmp(end_label)
+        self.emit_bind_label(true_label)
+        self.emit_mov("eax", 1)
+        self.emit_bind_label(end_label)
 
         return "integer"
     
@@ -5334,13 +6919,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.try_except_stack.pop()
 
             # kein Fehler -> except überspringen
-            self.emit(f"a.jmp({end_label});")
+            self.emit_jmp(end_label)
 
             # except-block
-            self.emit(f"a.bind({except_label});")
+            self.emit_bind_label(except_label)
             self.visit(ctx.statementList(1))
 
-            self.emit(f"a.bind({end_label});")
+            self.emit_bind_label(end_label)
             return None
 
         return None
@@ -5374,7 +6959,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if expr_type != "integer":
             raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
 
-        self.emit("a.mov(x86::ebx, x86::eax); // case selector")
+        self.emit_mov("ebx", "eax", comment='case selector')
 
         items = list(ctx.caseItem())
 
@@ -5385,24 +6970,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             for label_ctx in item.caseLabelList().caseLabel():
                 value = self.case_label_value(ctx, label_ctx)
 
-                self.emit(f"a.cmp(x86::ebx, {value});")
-                self.emit(f"a.je({item_label});")
+                self.emit_cmp("ebx", value)
+                self.emit_je(item_label)
 
         if ctx.caseElse():
-            self.emit(f"a.jmp({else_label});")
+            self.emit_jmp(else_label)
         else:
-            self.emit(f"a.jmp({end_label});")
+            self.emit_jmp(end_label)
 
         for item, item_label in item_labels:
-            self.emit(f"a.bind({item_label});")
+            self.emit_bind_label(item_label)
             self.visit(item.statement())
-            self.emit(f"a.jmp({end_label});")
+            self.emit_jmp(end_label)
 
         if ctx.caseElse():
-            self.emit(f"a.bind({else_label});")
+            self.emit_bind_label(else_label)
             self.visit(ctx.caseElse().statementList())
 
-        self.emit(f"a.bind({end_label});")
+        self.emit_bind_label(end_label)
         return None
     
     def visitStatementList(self, ctx):
@@ -5883,7 +7468,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return None
         
         if var_type == "double" and expr_type == "integer":
-            self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+            self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
             
         if var_type != expr_type:
@@ -5906,7 +7491,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if op != "+":
                     raise CompileError(ctx, "E0005", got="string -", expected="string + string")
 
-                self.emit("a.push(x86::rax); // save left string")
+                self.emit_push("rax", comment='save left string')
 
                 right_type = self.visit(ctx.term(i))
 
@@ -5915,14 +7500,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 self.emit_mov("rdx", "rax", comment="right string")
                 self.emit_pop(rcx         , comment="left string")
-                self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_concat));")
+                self.emit_mov_imm("rax", "&_jit_dynstring_concat")
                 self.emit_call_rax()
 
                 result_type = "string"
                 continue
 
             if result_type == "integer":
-                self.emit("a.push(x86::rax);")
+                self.emit_push("rax")
 
                 right_type = self.visit(ctx.term(i))
 
@@ -5934,7 +7519,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_mov("rdx", "rax", comment = "right string")
                     self.emit_pop("rcx"       , comment = "left string/char literal")
 
-                    self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_concat));")
+                    self.emit_mov_imm("rax", "&_jit_dynstring_concat")
                     self.emit_call_rax()
 
                     result_type = "string"
@@ -5953,26 +7538,26 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     continue
 
                 self.emit_pop("rax")
-                self.emit("a.cvtsi2sd(x86::xmm1, x86::eax);")
+                self.emit_cvtsi2sd("xmm1", "eax")
                 result_type = "double"
 
             self.emit_sub("rsp", 8)
-            self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+            self.emit_movsd_store("rsp", 0, "xmm0")
 
             right_type = self.visit(ctx.term(i))
 
             if right_type == "integer":
-                self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                self.emit_cvtsi2sd("xmm0", "eax")
 
-            self.emit("a.movsd(x86::xmm1, x86::qword_ptr(x86::rsp));")
+            self.emit_movsd_load("xmm1", "rsp", 0)
             self.emit_add("rsp", 8)
 
             if op == "+":
-                self.emit("a.addsd(x86::xmm0, x86::xmm1);")
+                self.emit_addsd("xmm0", "xmm1")
             elif op == "-":
-                self.emit("a.movapd(x86::xmm2, x86::xmm0);")
-                self.emit("a.movapd(x86::xmm0, x86::xmm1);")
-                self.emit("a.subsd(x86::xmm0, x86::xmm2);")
+                self.emit_movapd("xmm2", "xmm0")
+                self.emit_movapd("xmm0", "xmm1")
+                self.emit_subsd("xmm0", "xmm2")
 
             result_type = "double"
 
@@ -5994,40 +7579,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_pop("rax")
 
                     if op == "*":
-                        self.emit("a.imul(x86::eax, x86::ebx);")
+                        self.emit_imul("eax", "ebx")
                         result_type = "integer"
 
                     elif op == "/":
-                        self.emit("a.cdq();")
-                        self.emit("a.idiv(x86::ebx);")
+                        self.emit_cdq()
+                        self.emit_idiv("ebx")
                         result_type = "integer"
 
                     continue
 
                 self.emit_pop("rax")
-                self.emit("a.cvtsi2sd(x86::xmm1, x86::eax);")
+                self.emit_cvtsi2sd("xmm1", "eax")
                 result_type = "double"
 
             else:
                 self.emit_sub("rsp", 8)
-                self.emit("a.movsd(x86::qword_ptr(x86::rsp), x86::xmm0);")
+                self.emit_movsd_store("rsp", 0, "xmm0")
 
                 right_type = self.visit(ctx.factor(i))
 
-                self.emit("a.movsd(x86::xmm1, x86::qword_ptr(x86::rsp));")
-                self.emit("a.add(x86::rsp, 8);")
+                self.emit_movsd_load("xmm1", "rsp", 0)
+                self.emit_add("rsp", 8)
 
             if result_type == "double":
                 if right_type == "integer":
-                    self.emit("a.cvtsi2sd(x86::xmm0, x86::eax);")
+                    self.emit_cvtsi2sd("xmm0", "eax")
 
                 if op == "*":
-                    self.emit("a.mulsd(x86::xmm0, x86::xmm1);")
+                    self.emit_mulsd("xmm0", "xmm1")
 
                 elif op == "/":
-                    self.emit("a.movapd(x86::xmm2, x86::xmm0);")
-                    self.emit("a.movapd(x86::xmm0, x86::xmm1);")
-                    self.emit("a.divsd(x86::xmm0, x86::xmm2);")
+                    self.emit_movapd("xmm2", "xmm0")
+                    self.emit_movapd("xmm0", "xmm1")
+                    self.emit_divsd("xmm0", "xmm2")
 
                 result_type = "double"
 
@@ -6059,7 +7644,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 
             if c["type"] == "string":
                 label = self.add_string_literal(c["value"])
-                self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+                self.emit_mov_imm("rax", label)
                 return "string"
         
         if ctx.AT():
@@ -6269,13 +7854,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             label = self.add_string_literal(value)
             
             self.emit_mov_imm("rax", label)
-            #self.emit(f"a.mov(x86::rax, imm((uint64_t){label}));")
+            #self.emit_mov_imm("rax", label)
             
             if len(value) == 1:
                 return "char"
             
             self.emit_mov("rcx", "rax")
-            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_dynstring_from_cstr));")
+            self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
             self.emit_call_rax()
             
             return "string"
@@ -6400,12 +7985,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if expr_type != "integer":
                     raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
 
-                self.emit(f"a.mov(x86::{int_regs[index]}, x86::eax);")
+                self.emit_mov(int_regs[index], "eax")
             else:
                 raise CompileError(ctx, "E0005", got=formal["type"], expected="integer")
 
         self.emit_sub("rsp", 32, comment = "shadow space for function call")
-        self.emit(f"a.call({func['label']});")
+        self.emit_call_lbl(func["label"])
         self.emit_add("rsp", 32)
 
         return func["return_type"].lower()
@@ -6437,8 +8022,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         #        got="too many params",
         #        expected="max 4 params")
         
-        self.emit(f"a.jmp({skip_label});")
-        self.emit(f"a.bind({label});")
+        self.emit_jmp(skip_label)
+        self.emit_bind_label(label)
         
         self.emit_push("rbp")
         self.emit_mov("rbp", "rsp")
@@ -6449,7 +8034,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         #for index, p in enumerate(params):
         #    reg = param_regs[index]
         #    pname = p["name"]
-        #    self.emit(f"a.push(x86::{reg}); // save param {pname}")
+        #    self.emit_push(reg, comment=f"save param {pname}")
         #    
         #    self.current_proc_params[p["name"].lower()] = {
         #        "type": p["type"],
@@ -6465,7 +8050,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             if index < 4:
                 reg = param_regs[index]
-                self.emit(f"a.push(x86::{reg}); // save param {pname}")
+                self.emit_push(reg, comment=f"save param {pname}")
                 stack_offset = -8 * (index + 1)
             else:
                 reg = None
@@ -6500,14 +8085,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.pop_local_scope()
         self.exit_label_stack.pop()
         
-        self.emit(f"a.bind({exit_label});")
+        self.emit_bind_label(exit_label)
         self.current_proc_params = old_params
         
         self.emit_mov("rsp", "rbp")
         self.emit_pop("rbp")
         self.emit_ret()
         
-        self.emit(f"a.bind({skip_label});")
+        self.emit_bind_label(skip_label)
         return None
     
     def visitProcedureCallStatement(self, ctx):
@@ -6585,7 +8170,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     )
 
                 self.emit_address_of_var(ctx, var_name)
-                self.emit("a.push(x86::rax); // var parameter")
+                self.emit_push("rax", comment='var parameter')
                 return
 
             expr_type = self.visit_actual_param_expr(arg)
@@ -6594,7 +8179,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if expr_type != "integer":
                     raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
 
-                self.emit("a.movsxd(x86::rax, x86::eax);")
+                self.emit_movsxd("rax", "eax")
                 self.emit_push("rax", comment = "integer parameter")
                 return
 
@@ -6602,14 +8187,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if expr_type != "string":
                     raise CompileError(ctx, "E0005", got=expr_type, expected="string")
 
-                self.emit("a.push(x86::rax); // string parameter")
+                self.emit_push("rax", comment='string parameter')
                 return
 
             if isinstance(formal_type, str) and formal_type.startswith("^"):
                 if expr_type != formal_type and expr_type != "^nil":
                     raise CompileError(ctx, "E0005", got=expr_type, expected=formal_type)
 
-                self.emit("a.push(x86::rax); // pointer parameter")
+                self.emit_push("rax", comment='pointer parameter')
                 return
 
             raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
@@ -6626,12 +8211,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             emit_push_argument(index)
 
         for index in range(reg_count):
-            self.emit(f"a.pop(x86::{param_regs[index]}); // load parameter {index + 1}")
+            self.emit_pop(param_regs[index], comment=f"load parameter {index + 1}")
 
         align_pad = 0
 
         if stack_count % 2 == 1:
-            self.emit("a.sub(x86::rsp, 8); // align stack before procedure call")
+            self.emit_sub("rsp", 8, comment="align stack before procedure call")
             align_pad = 8
 
         self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
@@ -6672,8 +8257,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     value = arg.STRING().getText()[1:-1]
                     label = self.add_string_literal(value)
 
-                    self.emit(f"a.mov(x86::rcx, imm((uint64_t){label}));")
-                    self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
+                    self.emit_mov_imm("rcx", f"{label}")
+                    self.emit_mov_imm("rax", "&_jit_print_text")
                     self.emit_call_rax()
                     
                 else:
@@ -6684,42 +8269,42 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         if pinfo["type"] == "integer":
                             offset = pinfo["stack_offset"]
                             offset = pinfo["stack_offset"]
-                            self.emit(f"a.mov(x86::eax, x86::dword_ptr(x86::rbp, {offset})); // load integer parameter")
-                            self.emit("a.mov(x86::ecx, x86::eax);")
-                            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_int));")
+                            self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"load integer parameter")
+                            self.emit_mov("ecx", "eax")
+                            self.emit_mov_imm("rax", "&_jit_print_int")
                             self.emit_call_rax()
                             continue
                             
                         if pinfo["type"] == "string":
                             offset = pinfo["stack_offset"]
-                            self.emit(f"a.mov(x86::rcx, x86::qword_ptr(x86::rbp, {offset})); // load string parameter")
-                            self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
+                            self.emit_mov_qword_ptr("rcx", "rbp", offset, comment=f"load string parameter")
+                            self.emit_mov_imm("rax", "&_jit_print_text")
                             self.emit_call_rax()
                             continue
                     
                     expr_type = self.visit(arg.expr())
                     
                     if expr_type == "char":
-                        self.emit("a.mov(x86::ecx, x86::eax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_char));")
+                        self.emit_mov("ecx", "eax")
+                        self.emit_mov_imm("rax", "&_jit_print_char")
                         self.emit_call_rax()
                     
                     if expr_type == "string":
-                        self.emit("a.mov(x86::rcx, x86::rax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_text));")
+                        self.emit_mov("rcx", "rax")
+                        self.emit_mov_imm("rax", "&_jit_print_text")
                         self.emit_call_rax()
                     
                     if expr_type == "integer":
-                        self.emit("a.mov(x86::ecx, x86::eax);")
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_int));")
+                        self.emit_mov("ecx", "eax")
+                        self.emit_mov_imm("rax", "&_jit_print_int")
                         self.emit_call_rax()
                     
                     elif expr_type == "double":
                         # Windows x64: double-Argument liegt in xmm0
-                        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_double));")
+                        self.emit_mov_imm("rax", "&_jit_print_double")
                         self.emit_call_rax()
         
-        self.emit("a.mov(x86::rax, imm((uint64_t)&_jit_print_newline));")
+        self.emit_mov_imm("rax", "&_jit_print_newline")
         self.emit_call_rax()
         
         return None
@@ -6738,7 +8323,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = self.new_label_name(prefix)
         asmjit_label = f"L{len(self.asm_label_mappings)}"
 
-        self.emit(f"Label {name} = a.new_label();")
+        self.emit_new_label_decl(name)
 
         self.add_asm_label_mapping(
             asmjit_label,
@@ -6751,12 +8336,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out = []
 
         for item in self.exports:
-            out.append(f'asm_out << "global {item["mangled"]}" << std::endl;')
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append(f'{ASM_OUT_PH}"global {item["mangled"]}" << std::endl;')
+            elif CDATA.BackEnd.current == BACKEND_NASM:
+                out.append(f'global {item["mangled"]}')
 
         if out:
-            out.append('asm_out <<  std::endl;')
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append('{ASM_OUT_PH}std::endl;')
+            elif CDATA.BackEnd.current == BACKEND_NASM:
+                out.append(NL)
 
-        return "\n    ".join(out)
+        return "\n".join(out)
     
     def render_asm_double_replacements(self):
         out = []
@@ -6778,50 +8369,50 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         out = []
 
         for name, text in self.string_literals:
-            if CommonData.BACKEND == BACKEND_ASMJIT:
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
                 out.append(f'static const char {name}[] = "{self.cpp_escape(text)}";')
-            elif CommonData.BACKEND == BACKEND_NASM:
-                out.append(f'{name}: db "{self.cpp_escape(text)}"' + NL)
+            elif CDATA.BackEnd.current == BACKEND_NASM:
+                out.append(f'{name}: db "{self.cpp_escape(text)}", 0')
 
         return "\n".join(out)
     
     def render_asm_double_symbols(self):
         out = []
         for name, value in self.double_literals:
-            if CommonData.BACKEND == BACKEND_ASMJIT:
-                out.append(f'asm_out << "{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}" << std::endl;')
-            elif CommonData.BACKEND == BACKEND_NASM:
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append(f'{ASM_OUT_PH}"{name} equ " << std::to_string(_double_to_bits({value})) << " ; {value}" << std::endl;')
+            elif CDATA.BackEnd.current == BACKEND_NASM:
                 out.append(f'{name} equ {value}' + NL)
         return "\n    ".join(out)
     
     def render_asm_nasm_header(self):
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             return (
-                f'asm_out << std::endl << "; {COMMENT_REPL}"' + NL +
-                f'asm_out << std::endl << "; GENERATED WITH PYTHON 3.14 ON: {dt.now().strftime("%Y-%m-%d")}"' + NL +
-                f'asm_out << std::endl << "; Copyright (c) 2026 by Jens Kallup - paule32"' + NL +
-                f'asm_out << std::endl << "; all rights reserved."' + NL +
-                f'asm_out << std::endl << "; {COMMENT_REPL}"'  + NL + NL +
+                f'{ASM_OUT_PH}std::endl << "; {COMMENT_REPL}"' + NL +
+                f'{ASM_OUT_PH}std::endl << "; GENERATED WITH PYTHON 3.14 ON: {dt.now().strftime("%Y-%m-%d")}"' + NL +
+                f'{ASM_OUT_PH}std::endl << "; Copyright (c) 2026 by Jens Kallup - paule32"' + NL +
+                f'{ASM_OUT_PH}std::endl << "; all rights reserved."' + NL +
+                f'{ASM_OUT_PH}std::endl << "; {COMMENT_REPL}"'  + NL + NL +
                 f'')
-        elif CommonData.BACKEND == BACKEND_NASM:
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             return ""
     
     def render_asm_nasm_structs(self):
         result = ""
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             result = (
-                f'asm_out << "struc JitContext\n";'                         + NL +
-                f'asm_out << "    .int_vars:         resq 1" << std::endl;' + NL +
-                f'asm_out << "    .double_vars:      resq 1" << std::endl;' + NL +
-                f'asm_out << "    .string_vars:      resq 1" << std::endl;' + NL +
-                f'asm_out << "    .record_vars:      resq 1" << std::endl;' + NL +
-                f'asm_out << "    .arrays_vars:      resq 1" << std::endl;' + NL +
-                f'asm_out << "    .pointr_vars:      resq 1" << std::endl;' + NL +
-                f'asm_out << "    .print_int_tmp:    resd 1" << std::endl;' + NL +
-                f'asm_out << "    .print_double_tmp: resq 1" << std::endl;' + NL +
-                f'asm_out << "endstruc" << std::endl << std::endl;'         + NL +
+                f'{ASM_OUT_PH}"struc JitContext\n";'                         + NL +
+                f'{ASM_OUT_PH}"    .int_vars:         resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .double_vars:      resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .string_vars:      resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .record_vars:      resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .arrays_vars:      resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .pointr_vars:      resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .print_int_tmp:    resd 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"    .print_double_tmp: resq 1" << std::endl;' + NL +
+                f'{ASM_OUT_PH}"endstruc" << std::endl << std::endl;'         + NL +
                 f'')
-        elif CommonData.BACKEND == BACKEND_NASM:
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             result = (
                 f'struc JitContext'            + NL +
                 f'  .int_vars:         resq 1' + NL +
@@ -6845,35 +8436,34 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         arrays_count,
         pointr_count):
         
-        asm_out = "asm_out << "
         std_end = " << std::endl"
         result  = ""
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             result = [
-                f'{asm_out}std::endl << "section .data"{std_end};',
-                f'{asm_out}"ctx:"{std_end};',
-                f'{asm_out}"    istruc JitContext"{std_end};',
-                f'{asm_out}"        at JitContext.int_vars,         dq int_vars"   {std_end};',
-                f'{asm_out}"        at JitContext.double_vars,      dq double_vars"{std_end};',
-                f'{asm_out}"        at JitContext.string_vars,      dq string_vars"{std_end};',
-                f'{asm_out}"        at JitContext.record_vars,      dq record_vars"{std_end};',
-                f'{asm_out}"        at JitContext.arrays_vars,      dq arrays_vars"{std_end};',
-                f'{asm_out}"        at JitContext.pointr_vars,      dq pointr_vars"{std_end};',
-                f'{asm_out}"        at JitContext.print_int_tmp,    dd 0"{std_end};',
-                f'{asm_out}"        at JitContext.print_double_tmp, dq 0"{std_end};',
-                f'{asm_out}"    iend"{std_end};',
-                f'{asm_out}std::endl;',
-                f'{asm_out}"int_vars:    times {int_count} dd 0" {std_end};',
-                f'{asm_out}"double_vars: times {double_count} dq 0"{std_end};',
-                f'{asm_out}"string_vars: times {string_count} dq 0"{std_end};',
-                f'{asm_out}"record_vars: times {record_count} db 0"{std_end};',
-                f'{asm_out}"arrays_vars: times {arrays_count} db 0"{std_end};',
-                f'{asm_out}"pointr_vars: times {pointr_count} dq 0"{std_end};',
-                f'{asm_out}std::endl;',
+                f'{ASM_OUT_PH}std::endl << "section .data"{std_end};',
+                f'{ASM_OUT_PH}"ctx:"{std_end};',
+                f'{ASM_OUT_PH}"    istruc JitContext"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.int_vars,         dq int_vars"   {std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.double_vars,      dq double_vars"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.string_vars,      dq string_vars"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.record_vars,      dq record_vars"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.arrays_vars,      dq arrays_vars"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.pointr_vars,      dq pointr_vars"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.print_int_tmp,    dd 0"{std_end};',
+                f'{ASM_OUT_PH}"        at JitContext.print_double_tmp, dq 0"{std_end};',
+                f'{ASM_OUT_PH}"    iend"{std_end};',
+                f'{ASM_OUT_PH}std::endl;',
+                f'{ASM_OUT_PH}"int_vars:    times {int_count} dd 0" {std_end};',
+                f'{ASM_OUT_PH}"double_vars: times {double_count} dq 0"{std_end};',
+                f'{ASM_OUT_PH}"string_vars: times {string_count} dq 0"{std_end};',
+                f'{ASM_OUT_PH}"record_vars: times {record_count} db 0"{std_end};',
+                f'{ASM_OUT_PH}"arrays_vars: times {arrays_count} db 0"{std_end};',
+                f'{ASM_OUT_PH}"pointr_vars: times {pointr_count} dq 0"{std_end};',
+                f'{ASM_OUT_PH}std::endl;',
                 f'']
             result = NL.join(result) + NL
             return result
-        elif CommonData.BACKEND == BACKEND_NASM:
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             result = [
                 f"section .data",
                 f"ctx:",
@@ -6903,7 +8493,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
     def render_asm_context_replacements(self):
         result = ""
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             result = (
                 r'replace_all(asm_text, "[r12]",     "[r12 + JitContext.int_vars]"        );' + NL +
                 r'replace_all(asm_text, "[r12+8]",   "[r12 + JitContext.double_vars]"     );' + NL +
@@ -6915,7 +8505,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 r'replace_all(asm_text, "[r12+56]",  "[r12 + JitContext.print_double_tmp]");' + NL +
                 r""
             )
-        elif CommonData.BACKEND == BACKEND_NASM:
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             result = ""
         return result
     
@@ -6924,15 +8514,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if not self.emit_local_string_data:
             for name, text in self.string_literals:
-                if CommonData.BACKEND == BACKEND_ASMJIT:
-                    out.append(f'asm_out << "extern _{name}"; << std::endl')
-                elif CommonData.BACKEND == BACKEND_NASM:
+                if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                    out.append(f'{ASM_OUT_PH}"extern _{name}"; << std::endl')
+                elif CDATA.BackEnd.current == BACKEND_NASM:
                     out.append(f'extern _{name}')
 
             if self.string_literals:
-                if CommonData.BACKEND == BACKEND_ASMJIT:
-                    out.append('asm_out << std::endl;')
-                elif CommonData.BACKEND == BACKEND_NASM:
+                if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                    out.append(f'{ASM_OUT_PH}std::endl;')
+                elif CDATA.BackEnd.current == BACKEND_NASM:
                     out.append(NL)
 
         func_list = [
@@ -6967,14 +8557,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         ]
         for fun in func_list:
             if len(fun) > 1:
-                if CommonData.BACKEND == BACKEND_ASMJIT:
-                    out.append(f'asm_out << "extern _jit_{fun}" << std::endl;')
+                if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                    out.append(f'{ASM_OUT_PH}"extern _jit_{fun}" << std::endl;')
                     continue
-                elif CommonData.BACKEND == BACKEND_NASM:
+                elif CDATA.BackEnd.current == BACKEND_NASM:
                     out.append(f'extern _jit_{fun}')
                     continue
-            if CommonData.BACKEND == BACKEND_ASMJIT:
-                out.append('asm_out << std::endl;')
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append('{ASM_OUT_PH}std::endl;')
 
         return NL.join(out) + NL
     
@@ -6995,16 +8585,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return ""
 
         out = []
-        if CommonData.BACKEND == BACKEND_ASMJIT:
-            out.append('asm_out << std::endl << "section .data" << std::endl;')
-        elif CommonData.BACKEND == BACKEND_NASM:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
+            out.append('{ASM_OUT_PH}std::endl << "section .data" << std::endl;')
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             out.append('section .data' + NL)
 
         for name, text in self.string_literals:
             escaped = self.cpp_escape(text)
-            if CommonData.BACKEND == BACKEND_ASMJIT:
-                out.append(f'asm_out << "_{name} db \\"{escaped}\\", 0" << std::endl;')
-            elif CommonData.BACKEND == BACKEND_NASM:
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                out.append(f'{ASM_OUT_PH}"_{name} db \\"{escaped}\\", 0" << std::endl;')
+            elif CDATA.BackEnd.current == BACKEND_NASM:
                 out.append(f'_{name} db \"{escaped}\", 0' + NL)
         
         return "\n    ".join(out)
@@ -7036,7 +8626,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         src_comment     = ('-' * 77)
         src_linecom     = ""
         
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             src_linecom = "//"
         else:
             src_linecom = ";"
@@ -7051,7 +8641,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             f"{src_linecom} {src_comment}"                                                    + NL +
             f""
         )
-        if CommonData.BACKEND == BACKEND_ASMJIT:
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
             result = [
                 output_header,
                 '# include "runtime/dbase2many.hpp"',
@@ -7117,8 +8707,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 f'  {self.render_asm_nasm_structs()}',
                 '',
                 f'  {self.render_asm_double_replacements()}',
-                '  asm_out << std::endl;',
-                '  asm_out << std::endl;',
+                f'  {ASM_OUT_PH}std::endl;',
+                f'  {ASM_OUT_PH}std::endl;',
                 '',
                 f'  {self.render_asm_double_symbols()}',
                 f'  {self.render_asm_extern_symbols()}',
@@ -7131,17 +8721,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         arrays_count,
                         pointr_count)}',
                 f'',
-                '    asm_out << std::endl;',
-                '    asm_out << "dbase2many_module_kind dq {self.module_kind_value}" << std::endl;',
-                '    asm_out << "dbase2many_module_kind_program  equ 1" << std::endl;',
-                '    asm_out << "dbase2many_module_kind_unit     equ 2" << std::endl;',
-                '    asm_out << "dbase2many_module_kind_library  equ 3" << std::endl << std::endl;',
+                f'    {ASM_OUT_PH}std::endl;',
+                f'    {ASM_OUT_PH}"dbase2many_module_kind dq {self.module_kind_value}" << std::endl;',
+                f'    {ASM_OUT_PH}"dbase2many_module_kind_program  equ 1" << std::endl;',
+                f'    {ASM_OUT_PH}"dbase2many_module_kind_unit     equ 2" << std::endl;',
+                f'    {ASM_OUT_PH}"dbase2many_module_kind_library  equ 3" << std::endl << std::endl;',
                 f'',
-                '    asm_out << std::endl;',
-                '    asm_out << "section .text" << std::endl;',
-                f'    asm_out << "global " << "_{self.func_name}" << std::endl;',
-                f'   {self.render_asm_exports()}',
-                f'    asm_out << "_{self.func_name}" << ":" << std::endl;',
+                f'    {ASM_OUT_PH}std::endl;',
+                f'    {ASM_OUT_PH}"section .text" << std::endl;',
+                f'    {ASM_OUT_PH}"global " << "_{self.func_name}" << std::endl;',
+                f'    {self.render_asm_exports()}',
+                f'    {ASM_OUT_PH}"_{self.func_name}" << ":" << std::endl;',
                 f'',
                 f'    asm_out << asm_text;',
                 f'',
@@ -7197,20 +8787,29 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 '']
             result = NL.join(result) + NL
             return result
-        elif CommonData.BACKEND == BACKEND_NASM:
+        elif CDATA.BackEnd.current == BACKEND_NASM:
             result = [
                 output_header,
+                f'section .text',
+                f'{self.render_asm_exports()}',
+                f'{self.render_asm_export_thunks()}',
+                #f'{self.render_asm_string_data()}',
                 f'',
+                f'section .text',
+                f'global _{self.func_name}',
+                f'_{self.func_name}:',
+                f'{body}',
                 '  add rsp, 8  ; undo alignment',
                 '  pop rbx',
                 '  pop r12',
                 '',
                 '  xor ecx, ecx',
                 '  sub rsp, 32',
-                '  mov rax, &_jit_ExitProcess',
+                '  lea rax, [rel _jit_ExitProcess]',
                 '  call rax',
                 '  ret      ; never reach',
                 '',
+                f'{self.render_asm_nasm_structs()}',
                 f'{self.render_asm_context_data(
                     int_count,
                     double_count,
@@ -7218,7 +8817,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     record_count,
                     arrays_count,
                     pointr_count)}',
-                f''
+                f'',
+                f'{self.render_string_literals()}' ,
+                f'',
+                f'{self.render_asm_double_symbols()}',
                 f'{self.render_asm_extern_symbols()}',
                 f''
                 f'DBASE2MANY_MODULE_KIND: db {self.module_kind_value}'
@@ -7261,25 +8863,54 @@ def main():
     generator   = None
     source_file = ""
     
+    args_parser = args_func()
+    args        = None
+    
+    CDATA.InputFiles = []
+    CDATA.CurrentWorkingDir = os.getcwd()
     try:
         # -----------------------------------------
         # 0. prepare pascal file ...
         # -----------------------------------------
-        args        = parse_args()
-        source_file = args.source
+        args = args_parser.parse_args()
+        args = handle_args(args)
         
+        if not args.source:
+            CDATA.LastErrorCode = LastError.NO_SOURCE
+            raise Exception("no source file given.")
+        
+        source_file = args.source
         name, ext   = os.path.splitext(source_file)
         found       = False
         
         if ext.lower() in [".pas", ".pp"]:
             source_file = name + ext
         else:
-            raise Exception(f"file not found: {source_file}")
+            if not ext or len(ext) < 2:
+                source_file = name + ".pas"
+            else:
+                source_file = name + ext
         
-        base_name   = os.path.basename(source_file)
-        asm_file    = os.path.splitext(base_name)[0] + ".asm"
+        # todo !!!
+        CDATA.InputFiles.append(source_file)
         
-        with open(source_file, "r", encoding="utf-8") as f:
+        name, _  = os.path.splitext(os.path.basename(source_file))
+        CDATA.src_file = CDATA.InputFiles[0]
+        CDATA.asm_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".asm")
+        CDATA.cpp_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".cc" )
+        CDATA.obj_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".o"  )
+        
+        print("Compile-Run ...")
+        print("---------------------------")
+        print("input : ", CDATA.src_file)
+        print("output: ", CDATA.exe_file)
+        print("")
+        print("nasm  : ", CDATA.asm_file)
+        print("asmjit: ", CDATA.cpp_file)
+        print("object: ", CDATA.obj_file)
+        print("---------------------------")
+        
+        with open(CDATA.src_file, "r", encoding="utf-8") as f:
             source = f.read()
             f.close()
         
@@ -7307,6 +8938,7 @@ def main():
         tree    = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
+            return 1
             raise Exception("source code have syntax errors.")
         
         # -----------------------------------------
@@ -7315,25 +8947,73 @@ def main():
         backend = None
         if args.backend == "nasm":
             backend = NasmBackend()
-            CommonData.BACKEND = "nasm"
+            backend.current = "nasm"
         else:
             backend = AsmJitBackend()
-            CommonData.BACKEND = "asmjit"
+            backend.current = "asmjit"
         
         if backend is None:
             raise Exception("could not create backend")
         
-        generator = AsmJitGenerator(backend, asm_file)
+        generator = AsmJitGenerator(backend, CDATA.asm_file)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
-        cpp = generator.visit(tree)
+        text = generator.visit(tree)
         generator.write_fpc_import_unit()
         
         # -----------------------------------------
         # 5. finalize: create c++ output file ...
         # -----------------------------------------
-        print(cpp)
+        if CDATA.BackEnd.current == BACKEND_ASMJIT:
+            if not CDATA.cpp_file:
+                CDATA.cpp_file = "aout.cc"
+            outfile = Path(CDATA.cpp_file)
+            if outfile.exists():
+                check = input(f"{cpp_file}: exists. Overwrite? (Y/N): ").strip().lower()
+                if check in ('j', 'y'):
+                    with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
+                        f.write(text)
+                        f.close()
+            else:
+                with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
+                    f.write(text)
+                    f.close()
+        elif CDATA.BackEnd.current == BACKEND_NASM:
+            if not CDATA.asm_file:
+                CDATA.asm_file = "aout.asm"
+            outfile = Path(CDATA.asm_file)
+            if outfile.exists():
+                check = input(f"{CDATA.asm_file}: exists. Overwrite? (Y/N): ").strip().lower()
+                if check in ('j', 'y'):
+                    with open(CDATA.asm_file, "w", encoding="utf-8") as f:
+                        f.write(text)
+                        f.close()
+                    CDATA.BackEnd.current = BACKEND_OBJFILE
+            else:
+                with open(CDATA.asm_file, "w", encoding="utf-8") as f:
+                    f.write(text)
+                    f.close()
+                CDATA.BackEnd.current = BACKEND_OBJFILE
+                    
+        if CDATA.BackEnd.current == BACKEND_OBJFILE:
+            if not CDATA.obj_file:
+                CDATA.obj_file = "aout.o"
+            outfile = Path(CDATA.obj_file)
+            if outfile.exists():
+                check = input(f"{CDATA.obj_file}: exists. Overwrite? (Y/N): ").strip().lower()
+                if check in ('j', 'y'):
+                    generator.coff.write(CDATA.obj_file)
+                    #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
+                    #    f.write(text)
+                    #    f.close()
+            else:
+                generator.coff.write(CDATA.obj_file)
+                #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
+                #    f.write(text)
+                #    f.close()
+        else:
+            print(text)
         
         return 0
         
@@ -7344,6 +9024,11 @@ def main():
         else:
             print(e, file = sys.stderr)
             return 3
+    except ArgumentParserError as e:
+        print(f"Error: Invalid argument(s)")
+        print(f"Text : {e.message}")
+        #print(f"Code : {e.errno}")
+        return 2
     except FileNotFoundError as e:
         print(f"Error: File not found '{e.filename}'")
         print(f"Text : {e.strerror}")
