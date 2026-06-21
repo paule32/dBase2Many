@@ -38,7 +38,9 @@ from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
 # ---------------------------------------------------------------------------
 BACKEND_ASMJIT  = "asmjit"
 BACKEND_NASM    = "nasm"
+
 BACKEND_OBJFILE = "objfile"
+BACKEND_EXEFILE = "exefile"
 
 @dataclass
 class LastError:
@@ -64,15 +66,16 @@ class LastError:
     NO_ERROR                : int =    0
     NO_MEMORY               : int =    1
     NO_SOURCE               : int =    2
-    NO_TARGET               : int =    3
-    NO_FILE                 : int =    4
-    NO_DIRECTORY            : int =    5
-    NO_FILE_OR_DIRECTORY    : int =    6
-    FILE_NOT_FOUND          : int =    7
-    FILE_EXISTS             : int =    8
-    FILE_LOCKED             : int =    9
-    IS_FILE                 : int =   10
-    IS_DIRECTORY            : int =   11
+    NO_BACKEND              : int =    3
+    NO_TARGET               : int =    4
+    NO_FILE                 : int =    5
+    NO_DIRECTORY            : int =    6
+    NO_FILE_OR_DIRECTORY    : int =    7
+    FILE_NOT_FOUND          : int =    8
+    FILE_EXISTS             : int =    9
+    FILE_LOCKED             : int =   10
+    IS_FILE                 : int =   11
+    IS_DIRECTORY            : int =   12
     PATH_NO_DIRECTORY       : int = 1000
     DIRECTORY_DONT_EXISTS   : int = 1001
     DIRECTORY_NOT_READABLE  : int = 1002
@@ -149,7 +152,7 @@ class BackEndInfo():
         self.nasm    = BACKEND_NASM
         self.lines   = ""
         self.current = ""
-
+        
 class CommonData():
     def __init__(self):
         self.LastErrorCode       : int  = 0
@@ -160,6 +163,8 @@ class CommonData():
         self.cpp_file            : str  = ""
         self.exe_file            : str  = ""
         self.obj_file            : str  = ""
+        self.args_target         : str  = ""
+        self.args_backend        : str  = ""
         self.ExeOutputDir        : str  = ""
         self.InputFiles          : list = []
         self.IncludeDirs         : list = []
@@ -192,6 +197,20 @@ ERROR_MAP = {
 }
 
 COMMENT_REPL = ('-' * 77)
+
+# ---------------------------------------------------------------------------
+# Assembly JIT context offsets sizes ...
+# ---------------------------------------------------------------------------
+JIT_CONTEXT_OFFSETS = {
+    "int_vars"          :  0,
+    "double_vars"       :  8,
+    "string_vars"       : 16,
+    "record_vars"       : 24,
+    "arrays_vars"       : 32,
+    "pointr_vars"       : 40,
+    "print_int_tmp"     : 48,
+    "print_double_tmp"  : 56,
+}
 
 # ---------------------------------------------------------------------------
 # data classes as record workaround ...
@@ -526,7 +545,7 @@ def args_func():
         "--exe",
         action  = "store_true",
         dest    = "exeoutput",
-        help    = "Build as EXE"
+        help    = "Build EXE file"
     )
     
     # -------------------------------------------------------------
@@ -552,8 +571,8 @@ def args_func():
         "-T",
         "--target",
         dest    = "target",
-        choices = [ "dos"       , # compile for MS-Dos 16-bit
-                    "windows"   , # placeholder for win64
+        choices = [ "dos"       , # compile for MS-Dos      16-bit
+                    "dos16"     , # placeholder for "dos"
                     "win16"     , # compile for Windows 3.1 16-bit
                     "win32"     , # compile for Windows     32-bit
                     "win64"     , # compile for Windows     64-bit
@@ -618,14 +637,15 @@ def args_func():
     # -------------------------------------------------------------
     args_parser.add_argument(
         "--backend",
-        dest     = "backend",
+        dest     =  "backend",
+        nargs    =  "?",
         choices  = ["c++", "asmjit",
                     "asm", "nasm",
                     "obj", "objfile",
                     "exe", "exefile",
         ],
-        default  = "asmjit",
-        help     = "Code backend: asmjit, nasm, objfile."
+        default  =  "asmjit",
+        help     =  "Code backend: asmjit, nasm, objfile."
     )
     
     # -------------------------------------------------------------
@@ -1127,6 +1147,260 @@ class NasmBackend(CodeBackend):
         self.emit(f"ret{self.make_comment(comment)}")
     def emit_bind_label(self, label, comment=""):
         self.lines.append(f"{label}:{self.make_comment(comment)}")
+
+# ---------------------------------------------------------------------------
+# win64 pe coff backend ...
+# ---------------------------------------------------------------------------
+class CoffBackend(CodeBackend):
+    def __init__(self, writer=None):
+        super().__init__(CDATA.args_backend)
+        
+        if writer is None:
+            raise Exception("no writer given.")
+            
+        self.writer              = writer
+        self.pending_call_symbol = None
+
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_r32(base, offset, src)
+
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_r64(base, offset, src)
+
+    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_r8(base, offset, src)
+
+    def emit_mov_byte_ptr(self, dst, base, offset=0, comment=""):
+        self.writer.emit_mov_r8_mem(dst, base, offset)
+        
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
+        self.writer.emit_mov_r32_mem(dst, base, offset)
+
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""):
+        self.writer.emit_mov_r64_mem(dst, base, offset)
+
+    def emit_mov_ptr_dword(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_r32(base, offset, src)
+
+    def emit_mov_ptr_qword(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_r64(base, offset, src)
+
+    def emit_lea_dword(self, dst, base, offset=0, comment=""):
+        self.writer.emit_lea_dword(dst, base, offset)
+
+    def emit_lea_qword(self, dst, base, offset=0, comment=""):
+        self.writer.emit_lea_qword(dst, base, offset)
+
+    def emit_new_label_decl(self, name, comment=""):
+        return
+
+    def emit_mov_qword(self, dst, base, field, comment=""):
+        self.writer.emit_mov_r64_mem(
+            dst,
+            base,
+            JIT_CONTEXT_OFFSETS[field]
+        )
+
+    def emit_mov_dword(self, dst, base, field, comment=""):
+        self.writer.emit_mov_r32_mem(
+            dst,
+            base,
+            JIT_CONTEXT_OFFSETS[field]
+        )
+
+    def emit_mov_byte(self, dst, base, field, comment=""):
+        self.writer.emit_mov_r8_mem(
+            dst,
+            base,
+            JIT_CONTEXT_OFFSETS[field]
+        )
+    
+    def emit_lea_qword(self, dst, base, offset, comment=""):
+        self.writer.emit_lea_qword(dst, base, offset)
+
+    def emit_lea_dword(self, dst, base, offset, comment=""):
+        self.writer.emit_lea_dword(dst, base, offset)
+
+    def emit_lea_byte(self, dst, base, offset, comment=""):
+        self.writer.emit_lea_byte(dst, base, offset)
+
+    def emit_bind_label(self, label, comment=""):
+        self.writer.bind_label(label)
+
+    def emit_push(self, reg, comment=""):
+        self.writer.emit_push_r64(reg)
+
+    def emit_pop(self, reg, comment=""):
+        self.writer.emit_pop_r64(reg)
+
+    def emit_ret(self, comment=""):
+        self.writer.emit_ret()
+
+    def emit_mov(self, dst, src, comment=""):
+        if isinstance(src, str) and src.startswith("str_"):
+            self.writer.emit_lea_reg_data_label(dst, src)
+        else:
+            self.writer.emit_mov(dst, src)
+
+    def emit_mov_imm(self, dst, value, comment=""):
+        if isinstance(value, str):
+            if value.startswith("&"):
+                name = value[1:]
+
+                if name.startswith("_jit_") or name == "ExitProcess":
+                    self.pending_call_symbol = name
+                    return
+
+                self.writer.emit_lea_reg_data_label(dst, name)
+                return
+
+            if (
+                value.startswith("str_")
+                or value.startswith("dbl_")
+                or value.startswith("_var_")
+            ):
+                self.coff.emit_lea_reg_data_label(dst, value)
+                return
+
+        self.writer.emit_mov(dst, value)
+
+    def emit_add(self, dst, src, comment=""):
+        self.writer.emit_add(dst, src)
+
+    def emit_sub(self, dst, src, comment=""):
+        self.writer.emit_sub(dst, src)
+
+    def emit_imul(self, dst, src, value=None, comment=""):
+        self.writer.emit_imul(dst, src, value)
+
+    def emit_cmp(self, dst, src, comment=""):
+        self.writer.emit_cmp(dst, src)
+
+    def emit_test(self, a, b, comment=""):
+        self.writer.emit_test(a, b)
+
+    def emit_jmp(self, label, comment=""):
+        self.writer.emit_jmp(label)
+
+    def emit_je(self, label, comment=""):
+        self.writer.emit_je(label)
+
+    def emit_jne(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jz(self, label, comment=""):
+        self.writer.emit_jz(label)
+
+    def emit_jnz(self, label, comment=""):
+        self.writer.emit_jnz(label)
+
+    def emit_jl(self, label, comment=""):
+        self.writer.emit_jl(label)
+
+    def emit_jle(self, label, comment=""):
+        self.writer.emit_jle(label)
+
+    def emit_jg(self, label, comment=""):
+        self.writer.emit_jg(label)
+
+    def emit_jge(self, label, comment=""):
+        self.writer.emit_jge(label)
+
+    def emit_call_lbl(self, target, comment=""):
+        # internes Label: normaler rel32-call, KEIN Runtime-/Import-call
+        if target in self.coff.labels:
+            self.writer.emit_call_label(target)
+            return
+        
+        # noch nicht gebundenes internes Label
+        if target.startswith("class_") or target.startswith("proc_") or target.startswith("func_"):
+            self.writer.emit_call_label(target)
+            return
+        
+        # echte Runtime/Import-Funktion
+        self.writer.emit_runtime_call(target)
+    
+    def emit_call(self, target, comment=""):
+        if target == "rax" and self.pending_call_symbol:
+            name = self.pending_call_symbol
+            self.pending_call_symbol = None
+            self.writer.emit_runtime_call(name)
+            return
+            
+        self.writer.emit_call(target)
+
+    def emit_call_reg(self, target, comment=""):
+        self.writer.emit_call_reg(target)
+
+    def emit_movzx(self, dst, src, comment=""):
+        self.writer.emit_movzx(dst, src)
+
+    def emit_movsxd(self, dst, src, comment=""):
+        self.writer.emit_movsxd_r64_r32(dst, src)
+
+    def emit_xor(self, dst, src, comment=""):
+        self.writer.emit_xor_r32_r32(dst, src)
+
+# ---------------------------------------------------------------------------
+# MS-DOS 16-Bit backend ...
+# ---------------------------------------------------------------------------
+class DosBackend(CodeBackend):
+    def __init__(self, writer=None):
+        super().__init__(CDATA.args_backend)
+        
+        self.pending_call = None
+        self.writer       = writer
+        self.lines        = ""
+    
+    def emit_new_label_decl(self, name, comment=""):
+        # DOS/MZ braucht keine Vorab-Label-Deklaration
+        return
+
+    def emit_bind_label(self, label, comment=""):
+        self.writer.bind_label(label)
+
+    def emit_jmp(self, label, comment=""):
+        self.writer.emit_jmp(label)
+
+    def emit_mov_imm(self, dst, value, comment=""):
+        if isinstance(value, str) and value == "&_jit_print_text":
+            self.pending_call = "_dos_print_text"
+            return
+        if isinstance(value, str) and value == "&_jit_print_newline":
+            self.pending_call = "_dos_print_newline"
+            return
+            
+        # Win64-Visitor benutzt rcx als 1. Parameter.
+        # Für DOS WriteLn(String) mappen wir rcx -> dx.
+        if dst in ("rcx", "ecx", "cx") and isinstance(value, str):
+            self.writer.emit_mov_dx_label(value)
+            return
+
+        if dst in ("rax", "eax", "ax") and isinstance(value, int):
+            self.writer.emit_mov_ax_imm16(value)
+            return
+
+        raise NotImplementedError(f"DOS emit_mov_imm {dst}, {value}")
+
+    def emit_call(self, target, comment=""):
+        if target in ("rax", "eax", "ax"):
+            if self.pending_call == "_dos_print_text":
+                self.pending_call = None
+                self.writer.emit_print_string_current_dx()
+                return
+
+            if self.pending_call == "_dos_print_newline":
+                self.pending_call = None
+                self.writer.emit_print_newline()
+                return
+
+        raise NotImplementedError(f"DOS call not supported yet: {target}")
+            
+            
+        raise NotImplementedError(f"DOS call not supported yet: {target}")
+
+    def emit_ret(self, comment=""):
+        self.writer.emit_ret()
 
 # ---------------------------------------------------------------------------
 # win64 pe coff writer ...
@@ -1826,13 +2100,18 @@ class PECoffWriter:
         self.text.append(0xD0 | (reg_id & 7))  # /2 call r64
     
     def emit_call(self, target):
-        if target.startswith("_") or target in self.labels:
-            self.emit_runtime_call(target)
-        else:
-            self.emit_sub_rsp_imm8(40)
-            self.emit_call_r64(target)
-            self.emit_add_rsp_imm8(40)
+        if target in self.labels or target.startswith(("class_", "proc_", "func_")):
+            self.emit_call_label(target)
+            return
 
+        if target.startswith("_"):
+            self.emit_runtime_call(target)
+            return
+
+        self.emit_sub_rsp_imm8(40)
+        self.emit_call_r64(target)
+        self.emit_add_rsp_imm8(40)
+    
     def emit_call_lbl(self, target):
         self.emit_runtime_call(target)
 
@@ -2776,7 +3055,7 @@ class PECoffWriter:
 
         print("text_relocations:", self.text_relocations)
         print("text_reloc_count:", text_reloc_count)
-        print("text_reloc_ptr:", text_reloc_ptr)
+        print("text_reloc_ptr:"  , text_reloc_ptr)
         
         self.check_unresolved_labels()
         
@@ -2795,7 +3074,181 @@ class PECoffWriter:
             f.write(string_table)
 
 # ---------------------------------------------------------------------------
-# Windows 10 64-Bit PE executable writer
+# MS-DOS 16-Bit MZ executable writer ...
+# ---------------------------------------------------------------------------
+class MZWriter16:
+    def __init__(self):
+        self.code   = bytearray()
+        self.data   = bytearray()
+        
+        self.fixups = []
+        self.labels = {}
+
+    def bind_label(self, name):
+        self.labels[name] = len(self.code)
+
+        pending = [f for f in self.fixups if f["label"] == name]
+        for fix in pending:
+            self.patch_rel16(fix["patch_pos"], self.labels[name])
+
+        self.fixups = [f for f in self.fixups if f["label"] != name]
+
+    def emit_jmp(self, label):
+        # near jmp rel16: E9 xx xx
+        self.code.append(0xE9)
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel16(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+
+    def patch_rel16(self, patch_pos, target_pos):
+        rel = target_pos - (patch_pos + 2)
+        self.code[patch_pos:patch_pos + 2] = int(rel).to_bytes(
+            2,
+            "little",
+            signed=True
+        )
+    
+    def emit_mov_dx_label(self, label):
+        self.code += b"\xBA"          # mov dx, imm16
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16",
+            "patch_pos": patch_pos,
+            "label": label
+        })
+    
+    def emit_print_string_current_dx(self):
+        self.emit_mov_ah_imm8(0x09)
+        self.emit_int(0x21)
+    
+    def emit_print_string(self, offset):
+        self.emit_mov_dx_imm16(offset)
+        self.emit_mov_ah_imm8(0x09)
+        self.emit_int(0x21)
+    
+    def emit_print_newline(self):
+        # CR
+        self.emit_mov_dl_imm8(13)
+        self.emit_mov_ah_imm8(0x02)
+        self.emit_int(0x21)
+
+        # LF
+        self.emit_mov_dl_imm8(10)
+        self.emit_mov_ah_imm8(0x02)
+        self.emit_int(0x21)
+
+    def emit_mov_dl_imm8(self, value):
+        self.code += b"\xB2"
+        self.code.append(value & 0xFF)
+    
+    def emit_startup(self):
+        self.emit_push_cs_pop_ds()
+    
+    def add_dos_string(self, name, text):
+        offset            = len(self.data)
+        self.labels[name] = offset
+        self.data += text.encode("ascii", errors="replace") + b"$"
+        return offset
+
+    def emit_mov_ax_imm16(self, value):
+        self.code += b"\xB8"
+        self.code += int(value).to_bytes(2, "little")
+
+    def emit_mov_dx_imm16(self, value):
+        self.code += b"\xBA"
+        self.code += int(value).to_bytes(2, "little")
+
+    def emit_mov_ah_imm8(self, value):
+        self.code += b"\xB4"
+        self.code.append(value & 0xFF)
+
+    def emit_int(self, value):
+        self.code += b"\xCD"
+        self.code.append(value & 0xFF)
+
+    def emit_push_cs_pop_ds(self):
+        self.code += b"\x0E"  # push cs
+        self.code += b"\x1F"  # pop ds
+
+    def emit_exit(self, code=0):
+        self.emit_mov_ax_imm16(0x4C00 | (code & 0xFF))
+        self.emit_int(0x21)
+
+    def patch_data_fixups(self):
+        data_base = len(self.code)
+
+        for fix in self.fixups:
+            if fix.get("kind") != "data16":
+                continue
+
+            label = fix["label"]
+            if label not in self.labels:
+                raise RuntimeError(f"unknown DOS data label: {label}")
+
+            value = data_base + self.labels[label]
+
+            self.code[fix["patch_pos"]:fix["patch_pos"] + 2] = int(value).to_bytes(
+                2,
+                "little",
+                signed=False
+            )
+
+    def write(self, filename):
+        code_size         =  len(self.code)
+        data_size         =  len(self.data)
+        
+        HEADER_PARAGRAPHS = 4
+        HEADER_SIZE       = HEADER_PARAGRAPHS * 16   # 64 Byte
+        image_size        = HEADER_SIZE + len(self.code) + len(self.data)
+        
+        self.patch_data_fixups()
+
+        last_page_bytes   =  image_size % 512
+        page_count        = (image_size + 511) // 512
+        
+        if  last_page_bytes == 0:
+            last_page_bytes = 512
+
+        header = struct.pack(
+            "<14H",
+            0x5A4D,               # "MZ"
+            last_page_bytes,      # Bytes der letzten Seite
+            page_count,           # Seiten im File
+            0,                    # e_crlc
+            HEADER_PARAGRAPHS,    # header paragraphs (4 * 16 = 64)
+            0,                    # min alloc
+            0xFFFF,               # max alloc
+            0,                    # SS
+            0xFFFE,               # SP
+            0,                    # checksum
+            0,                    # IP
+            0,                    # CS
+            0x40,                 # reloc table
+            0                     # overlay number
+        )
+
+        with open(filename, "wb") as f:
+            f.write(header)
+            
+            if len(header) < HEADER_SIZE:
+                f.write(b"\x00" * (HEADER_SIZE - len(header)))
+                
+            f.write(self.code)
+            f.write(self.data)
+
+# ---------------------------------------------------------------------------
+# Windows 10 64-Bit PE executable writer ...
 # ---------------------------------------------------------------------------
 class PEWriter64:
     IMAGE_BASE     = 0x140000000
@@ -2811,7 +3264,33 @@ class PEWriter64:
             ],
             "dbase2many.dll": [
                 "_jit_print_int",
-                "_jit_print_text"
+                "_jit_print_text",
+                "_jit_print_newline",
+                "_jit_print_double",
+                "_jit_print_char",
+
+                "_jit_new_memory",
+                "_jit_dispose_memory",
+
+                "_jit_debug_break",
+
+                "_jit_runtime_error",
+                "_jit_array_bounds_error",
+                "_jit_string_range_error",
+                "_jit_nil_pointer_error",
+                "_jit_out_of_memory_error",
+
+                "_jit_dynarray_setlength",
+                "_jit_dynstring_setlength",
+                "_jit_dynstring_from_cstr",
+                "_jit_dynstring_length",
+                "_jit_dynstring_concat",
+                "_jit_dynstring_copy",
+                "_jit_dynstring_pos",
+
+                "_jit_set_exception",
+                "_jit_read_int",
+                "_jit_read_string"
             ]
         }
 
@@ -2869,8 +3348,11 @@ class PEWriter64:
             sym = self.coff.symbols[reloc["symbol_index"]]
             name = sym["name"]
 
-            if name not in self.import_thunk_offsets:
+            if sym["section"] != 0:
                 continue
+
+            if name not in self.import_thunk_offsets:
+                raise RuntimeError(f"external call not imported: {name}")
 
             patch_pos = reloc["offset"]
             thunk_off = self.import_thunk_offsets[name]
@@ -2879,12 +3361,7 @@ class PEWriter64:
             next_rva   = text_rva + patch_pos + 4
 
             rel32 = target_rva - next_rva
-
-            text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(
-                4,
-                "little",
-                signed=True
-            )
+            text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
 
     def patch_import_thunks(self, text_image, text_rva):
         for name, thunk_off in self.import_thunk_offsets.items():
@@ -3071,9 +3548,7 @@ class PEWriter64:
         idata_raw           = data_raw + data_raw_size
         idata               = self.build_import_section(idata_rva)
 
-        data_image = bytearray(self.data)
-
-        idata = self.build_import_section(idata_rva)
+        data_image          = bytearray(self.data)
 
         self.patch_internal_relocations(
             text_image,
@@ -3214,6 +3689,92 @@ class PEWriter64:
 
         with open(filename, "wb") as f:
             f.write(image)
+
+# ---------------------------------------------------------------------------
+# PE coff backend ...
+# ---------------------------------------------------------------------------
+class PECodeBackend(CodeBackend):
+    def __init__(self, coff):
+        super().__init__(CDATA.args_backend)
+        self.coff = coff
+
+    def emit_bind_label(self, label, comment=""):
+        self.coff.bind_label(label)
+
+    def emit_ret(self, comment=""):
+        self.coff.emit_ret()
+
+    def emit_mov(self, dst, src, comment=""):
+        self.coff.emit_mov(dst, src)
+
+    def emit_mov_imm(self, dst, value, comment=""):
+        if isinstance(value, str) and value.startswith("&"):
+            # Runtime-Adresse/importierter Name
+            raise RuntimeError("PE-Backend: direkte &symbol mov später über IAT/Thunk lösen")
+        self.coff.emit_mov(dst, value)
+
+    def emit_add(self, dst, src, comment=""):
+        self.coff.emit_add(dst, src)
+
+    def emit_sub(self, dst, src, comment=""):
+        self.coff.emit_sub(dst, src)
+
+    def emit_imul(self, dst, src, value=None, comment=""):
+        self.coff.emit_imul(dst, src, value)
+
+    def emit_cmp(self, dst, value, comment=""):
+        self.coff.emit_cmp(dst, value)
+
+    def emit_test(self, reg1, reg2, comment=""):
+        self.coff.emit_test(reg1, reg2)
+
+    def emit_jmp(self, label, comment=""):
+        self.coff.emit_jmp(label)
+
+    def emit_je(self, label, comment=""):
+        self.coff.emit_je(label)
+
+    def emit_jne(self, label, comment=""):
+        self.coff.emit_jne(label)
+
+    def emit_jz(self, label, comment=""):
+        self.coff.emit_jz(label)
+
+    def emit_jnz(self, label, comment=""):
+        self.coff.emit_jnz(label)
+
+    def emit_jl(self, label, comment=""):
+        self.coff.emit_jl(label)
+
+    def emit_jle(self, label, comment=""):
+        self.coff.emit_jle(label)
+
+    def emit_jg(self, label, comment=""):
+        self.coff.emit_jg(label)
+
+    def emit_jge(self, label, comment=""):
+        self.coff.emit_jge(label)
+
+    def emit_call_lbl(self, target, comment=""):
+        self.coff.emit_runtime_call(target)
+
+    def emit_call(self, target, comment=""):
+        self.coff.emit_call(target)
+
+    def emit_push(self, reg, comment=""):
+        self.coff.emit_push_r64(reg)
+
+    def emit_pop(self, reg, comment=""):
+        self.coff.emit_pop_r64(reg)
+
+    def emit_movzx(self, dst, src, comment=""):
+        self.coff.emit_movzx(dst, src)
+
+    def emit_movsxd(self, dst, src, comment=""):
+        if dst == "rax" and src == "eax":
+            self.coff.emit_movsxd_rax_eax()
+        else:
+            self.coff.emit_movsxd_r64_r32(dst, src)
 
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
@@ -3848,9 +4409,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0002", name=name)
         
         symbol = None
+        
         use_direct_coff_globals = (
             hasattr(self, "coff")
-            and self.backend.name == BACKEND_OBJFILE
+            and self.backend.name == CDATA.args_backend
         )
         
         if typ == "integer":
@@ -5639,8 +6201,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return field.type
     
     def emit_load_object_var(self, ctx, name, info):
+        if hasattr(self, "coff") and "symbol" in info:
+            self.coff.emit_mov_r64_data_label("rax", info["symbol"])
+            return
+        
         slot = info["slot"]
-
         self.emit_mov_qword("rax", "r12", "pointr_vars")
         self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"object {name}")
     
@@ -5961,8 +6526,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0013", var_type=field.type)
     
     def emit_store_object_var(self, ctx, name, info):
-        slot = info["slot"]
+        if hasattr(self, "coff") and "symbol" in info:
+            self.coff.emit_mov_data_label_r64(info["symbol"], "rax")
+            return
 
+        slot = info["slot"]
         self.emit_mov_qword("r11", "r12", "pointr_vars")
         self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"object {name}")
     
@@ -7443,14 +8011,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     # de-dupplizierer - doppelte Zeichen ignorieren
     def add_string_literal(self, text):
-        for name, existing_text in self.string_literals:
-            if existing_text == text:
-                return name
+        label = f"str_{len(self.string_literals)}"
+        self.string_literals.append((label, text))
 
-        name = f"str_{len(self.string_literals)}"
-        self.string_literals.append((name, text))
-        return name
-    
+        if CDATA.args_backend == BACKEND_EXEFILE\
+        or CDATA.args_backend == BACKEND_OBJFILE:
+            if CDATA.args_target.lower() in ["dos", "dos16"]:
+                self.writer.add_dos_string(label, text)
+                return label
+                
+            elif CDATA.args_target.lower() in ["win32", "win64"]:
+                if (hasattr(self, "coff")
+                    and self.backend.name == CDATA.args_backend
+                    and self.coff.find_symbol_index(label) is None):
+                        self.coff.add_data_string(label, text)
+                        return label
+            else:
+                raise Exception("target not supported.")
+        raise Exception("backend not supported.")
+        
     def visit(self, tree):
         if tree is None:
             return None
@@ -10283,18 +10862,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 # generator class
 # ---------------------------------------------------------------------------
 class GeneratorClass(AsmJitGenerator):
-    def __init__(self, backend, format):
+    def __init__(self, backend, writer=None):
         super().__init__(backend)
-        self.coff = None
+        self.writer = None
         
-        if format is not None:
-            if isinstance(format, PECoffWriter):
-                self.coff       = format
+        if writer is not None:
+            self.writer = writer
         else:
-            raise RuntimError("executable format invalid")
+            raise RuntimError("generator writer invalid")
             
-        self.coff_context_done  = False
-        self.coff_main_done     = False
+        self.writer_context_done  = False
+        self.writer_main_done     = False
         
         #self.main_offset = len(self.coff.text)
         #
@@ -10311,11 +10889,68 @@ class GeneratorClass(AsmJitGenerator):
         
         #self.coff.add_symbol("_main", self.main_offset, section_number = 1)
 
+    def write_string_literals_to_coff(self):
+        for label, text in self.string_literals:
+            if self.writer.find_symbol_index(label) is None:
+                self.writer.add_data_string(label, text)
+
+    def visitProgramFile(self, ctx):
+        self.program_name = ctx.IDENT().getText()
+        self.module_kind  = "program"
+        self.module_kind_value = 1
+
+        if ctx.usesClause():
+            self.visit(ctx.usesClause())
+
+        for decl in ctx.declarationPart():
+            if decl is not None:
+                self.visit(decl)
+
+        self.validate_class_methods(ctx)
+
+        if  CDATA.args_backend == BACKEND_OBJFILE\
+        or  CDATA.args_backend == BACKEND_EXEFILE:
+            if CDATA.args_target.lower() in ["win32", "win64"]:
+                self.finalize_coff_context()
+            
+                self.writer.begin_function("_main", local_size=0)
+
+                self.emit_push("r12")
+                self.emit_push("rbx")
+                self.emit_sub("rsp", 8)
+
+                # PE-EXE hat keinen JIT-Aufrufer, also ctx direkt laden:
+                self.writer.emit_lea_reg_data_label("r12", "ctx")
+        
+            elif CDATA.args_target.lower() in ["dos", "dos16"]:
+                self.writer.emit_startup()
+
+        for init_label in self.unit_init_labels:
+            self.emit_call_lbl(init_label)
+
+        for name, info in self.vars.items():
+            if info["type"] in self.arrays:
+                self.emit_init_array_var(ctx, name, info)
+
+        self.visit(ctx.block())
+
+        if  CDATA.args_backend == BACKEND_OBJFILE\
+        or  CDATA.args_backend == BACKEND_EXEFILE:
+            if CDATA.args_target.lower() in ["win32", "win64"]:
+                self.emit_mov("ecx", 0)
+                self.writer.emit_runtime_call("ExitProcess")
+                self.writer.end_function()
+            
+            elif CDATA.args_target.lower() in ["dos", "dos16"]:
+                self.writer.emit_exit(0)
+                
+        return None
+
     def finalize_coff_context(self):
         if getattr(self, "coff_context_done", False):
             return
         
-        self.coff.add_jit_context(
+        self.writer.add_jit_context(
             int_count     = max(1, self.next_int_slot),
             double_count  = max(1, self.next_double_slot),
             string_count  = max(1, self.next_string_slot),
@@ -10353,6 +10988,34 @@ class GeneratorClass(AsmJitGenerator):
         pe.write(exe_file)
 
 # ---------------------------------------------------------------------------
+# generic output writer's ...
+# ---------------------------------------------------------------------------
+class OutputWriter:
+    def write(self, filename):    raise NotImplementedError
+
+class PEExeWriter(OutputWriter):
+    def __init__(self, coff):
+        self.coff = coff
+        
+    def write(self, filename):
+        pe = PEWriter64(self.coff)
+        pe.write(filename)
+
+class CoffObjectWriter(OutputWriter):
+    def __init__(self,  coff):
+        self.coff = coff
+        
+    def write(self, filename):
+        self.coff.write(filename)
+        
+class DosExeWriter(OutputWriter):
+    def __init__(self, mz):
+        self.mz = mz
+        
+    def write(self, filename):
+        self.mz.write(filename)
+
+# ---------------------------------------------------------------------------
 # the main definition 
 # ---------------------------------------------------------------------------
 def main():
@@ -10375,9 +11038,70 @@ def main():
         args = args_parser.parse_args()
         args = handle_args(args)
         
+        # -----------------------------------------
+        # get input source file
+        # -----------------------------------------
         if not args.source:
             CDATA.LastErrorCode = LastError.NO_SOURCE
             raise Exception("no source file given.")
+        
+        # -----------------------------------------
+        # get target platform ...
+        # -----------------------------------------
+        if not args.target:
+            CDATA.LastErrorCode = LastError.NO_TARGET
+            raise Exception("no target platform given.")
+        
+        if args.target in ["dos", "dos16", "win32", "win64"]:
+            CDATA.args_target = args.target
+        else:
+            CDATA.LastErrorCode = LastError.NO_TARGET
+            raise Exception("given target is not supported.")
+        
+        # -----------------------------------------
+        # set backend
+        # -----------------------------------------
+        backend    = None
+        writer     = None
+        target_obj = None
+        # -----------------------------------------
+        if   args.backend in ["c++", "asmjit"]:
+            CDATA.args_backend = BACKEND_ASMJIT
+            if args.target in ["win32", "win64"]:
+                backend    = AsmJitBackend()
+                writer     = CppOutputWriter()
+                
+        elif args.backend in ["asm", "nasm"]:
+            CDATA.args_backend = BACKEND_NASM
+            if args.target in ["win32", "win64"]:
+                backend    = NasmBackend()
+                writer     = NasmOutputWriter()
+        
+        elif args.backend in ["obj", "objfile"]:
+            CDATA.args_backend = BACKEND_OBJFILE
+            if args.target in ["win32", "win64"]:
+                target_obj = PECoffWriter()
+                backend    = CoffBackend(target_obj)
+                writer     = CoffObjectWriter(target_obj)
+        
+        elif args.backend in ["exe", "exefile"]:
+            CDATA.args_backend = BACKEND_EXEFILE
+            if args.target in ["win32", "win64"]:
+                target_obj = PECoffWriter()
+                backend    = CoffBackend(target_obj)
+                writer     = PEExeWriter(target_obj)
+                
+            elif args.target in ["dos", "dos16"]:
+                target_obj = MZWriter16()
+                backend    = DosBackend(target_obj)
+                writer     = DosExeWriter(target_obj)
+        else:
+            CDATA.LastErrorCode = LastError.NO_BACKEND
+            raise Exception("backend not supported.")
+            
+        if backend is None:
+            CDATA.LastErrorCode = LastError.NO_BACKEND
+            raise Exception("could not create backend")
         
         source_file = args.source
         name, ext   = os.path.splitext(source_file)
@@ -10391,9 +11115,15 @@ def main():
             else:
                 source_file = name + ext
         
+        print('T: ' + CDATA.args_target)
+        print('B: ' + CDATA.args_backend)
+        
         # todo !!!
         CDATA.InputFiles.append(source_file)
         
+        # -----------------------------------------
+        # tackle file + path
+        # -----------------------------------------
         name, _  = os.path.splitext(os.path.basename(source_file))
         CDATA.src_file = CDATA.InputFiles[0]
         CDATA.asm_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".asm")
@@ -10412,6 +11142,9 @@ def main():
         print("win64 : ", CDATA.exe_file)
         print("---------------------------")
         
+        # -----------------------------------------
+        # open source file and read contents
+        # -----------------------------------------
         with open(CDATA.src_file, "r", encoding="utf-8") as f:
             source = f.read()
             f.close()
@@ -10446,76 +11179,91 @@ def main():
         # -----------------------------------------
         # 4. generate asmjit c++ / nasm code  ...
         # -----------------------------------------
-        backend = None
-        if args.backend == "nasm":
-            backend = NasmBackend()
-            backend.current = "nasm"
-        else:
-            backend = AsmJitBackend()
-            backend.current = "asmjit"
-        
-        if backend is None:
-            raise Exception("could not create backend")
-        
-        generator = GeneratorClass(backend, PECoffWriter())
+        generator = GeneratorClass(backend, target_obj)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
         text = generator.visit(tree)
-        generator.write_fpc_import_unit()
+        
+        ##generator.write_string_literals_to_coff()
+        ##generator.write_fpc_import_unit()
+        ##coff.write()
+        ##pe = PEWriter64(coff)
+        ##pe.write(CDATA.exe_file)
         
         # -----------------------------------------
         # 5. finalize: create c++ output file ...
         # -----------------------------------------
-        if CDATA.BackEnd.current == BACKEND_ASMJIT:
-            if not CDATA.cpp_file:
-                CDATA.cpp_file = "aout.cc"
-            outfile = Path(CDATA.cpp_file)
-            if outfile.exists():
-                check = input(f"{cpp_file}: exists. Overwrite? (Y/N): ").strip().lower()
-                if check in ('j', 'y'):
+        overwrite = "exists. Overwrite? (Y/N): "
+        
+        if CDATA.args_target.lower() in ["dos", "dos16"]:
+            if CDATA.args_backend.lower() == BACKEND_EXEFILE:
+                outfile = Path(CDATA.exe_file)
+                if outfile.exists():
+                    check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
+                    if check in ('j', 'y'):
+                        target_obj.write(CDATA.exe_file)
+                else:   target_obj.write(CDATA.exe_file)
+                    
+        elif CDATA.args_target.lower() == "win64":
+            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+                if not CDATA.cpp_file:
+                    CDATA.cpp_file = "aout.cc"
+                outfile = Path(CDATA.cpp_file)
+                if outfile.exists():
+                    check = input(f"{cpp_file}: {overwrite}").strip().lower()
+                    if check in ('j', 'y'):
+                        with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
+                            f.write(text)
+                            f.close()
+                else:
                     with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
                         f.write(text)
                         f.close()
-            else:
-                with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
-                    f.write(text)
-                    f.close()
-        elif CDATA.BackEnd.current == BACKEND_NASM:
-            if not CDATA.asm_file:
-                CDATA.asm_file = "aout.asm"
-            outfile = Path(CDATA.asm_file)
-            if outfile.exists():
-                check = input(f"{CDATA.asm_file}: exists. Overwrite? (Y/N): ").strip().lower()
-                if check in ('j', 'y'):
+            elif CDATA.BackEnd.current == BACKEND_NASM:
+                if not CDATA.asm_file:
+                    CDATA.asm_file = "aout.asm"
+                outfile = Path(CDATA.asm_file)
+                if outfile.exists():
+                    check = input(f"{CDATA.asm_file}: {overwrite}").strip().lower()
+                    if check in ('j', 'y'):
+                        with open(CDATA.asm_file, "w", encoding="utf-8") as f:
+                            f.write(text)
+                            f.close()
+                        CDATA.BackEnd.current = CDATA.args_backend
+                else:
                     with open(CDATA.asm_file, "w", encoding="utf-8") as f:
                         f.write(text)
                         f.close()
-                    CDATA.BackEnd.current = BACKEND_OBJFILE
-            else:
-                with open(CDATA.asm_file, "w", encoding="utf-8") as f:
-                    f.write(text)
-                    f.close()
-                CDATA.BackEnd.current = BACKEND_OBJFILE
-                    
-        if CDATA.BackEnd.current == BACKEND_OBJFILE:
-            if not CDATA.obj_file:
-                CDATA.obj_file = "aout.o"
-            outfile = Path(CDATA.obj_file)
-            if outfile.exists():
-                check = input(f"{CDATA.obj_file}: exists. Overwrite? (Y/N): ").strip().lower()
-                if check in ('j', 'y'):
-                    generator.write_main(CDATA.obj_file, CDATA.exe_file)
+            elif CDATA.BackEnd.current == BACKEND_EXEFILE:
+                if not CDATA.obj_file:
+                    CDATA.obj_file = "aout.o"
+                outfile = Path(CDATA.obj_file)
+                if outfile.exists():
+                    check = input(f"{CDATA.obj_file}: {overwrite}").strip().lower()
+                    if check in ('j', 'y'):
+                        generator.write_string_literals_to_coff()
+                        generator.write_fpc_import_unit()
+                        target_obj.write(CDATA.exe_file)
+                        #pe = PEWriter64(target_obj)
+                        #pe.write(CDATA.exe_file)
+                        ##generator.write_main(CDATA.obj_file, CDATA.exe_file)
+                        #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
+                        #    f.write(text)
+                        #    f.close()
+                else:
+                    generator.write_string_literals_to_coff()
+                    generator.write_fpc_import_unit()
+                    target_obj.write()
+                    #pe = PEWriter64(target_obj)
+                    #pe.write(CDATA.exe_file)
+                    ##generator.write_main(CDATA.obj_file, CDATA.exe_file)
                     #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
                     #    f.write(text)
                     #    f.close()
-            else:
-                generator.write_main(CDATA.obj_file, CDATA.exe_file)
-                #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
-                #    f.write(text)
-                #    f.close()
         else:
-            print(text)
+            #print(text)
+            raise Exception("backend not given or not supported.")
         
         return 0
         

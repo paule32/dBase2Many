@@ -40,6 +40,7 @@ end;
 constructor TFoo.Create(S: String);
 begin
     WriteLn('TFoo: Create(S: String)');
+    WriteLn(S);
 end;
 
 constructor TFoo.Create(I1, I2: Integer);
