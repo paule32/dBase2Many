@@ -3,16 +3,27 @@
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
+from __future__ import annotations
+
 import sys
 import os
+import io
 import argparse
 import struct
 import time
+
+# ---------------------------------------------------------------------------
+# i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
+# ---------------------------------------------------------------------------
+import locale
+import gettext
+import polib
 
 from os          import linesep   as NL
 from datetime    import datetime  as dt
 from dataclasses import dataclass
 from pathlib     import PureWindowsPath, Path
+from typing      import Union
 
 from antlr4      import *
 
@@ -113,19 +124,21 @@ ASM_OUT_PH  = "asm_out << "
 # coff writer constants:
 # ---------------------------------------------------------------------------
 IMAGE_FILE_MACHINE_AMD64        = 0x8664
+
 IMAGE_SCN_CNT_CODE              = 0x00000020
+IMAGE_SCN_CNT_INITIALIZED_DATA  = 0x00000040
+
 IMAGE_SCN_MEM_EXECUTE           = 0x20000000
 IMAGE_SCN_MEM_READ              = 0x40000000
+IMAGE_SCN_MEM_WRITE             = 0x80000000
 
-IMAGE_SYM_CLASS_EXTERNAL        = 2
-IMAGE_SYM_DTYPE_FUNCTION        = 0x20
-
-IMAGE_REL_AMD64_REL32           = 0x0004
 IMAGE_SYM_CLASS_EXTERNAL        = 2
 IMAGE_SYM_CLASS_STATIC          = 3
 
-IMAGE_SCN_CNT_INITIALIZED_DATA  = 0x00000040
-IMAGE_SCN_MEM_WRITE             = 0x80000000
+IMAGE_SYM_DTYPE_FUNCTION        = 0x20
+
+IMAGE_REL_AMD64_ADDR64          = 0x0001
+IMAGE_REL_AMD64_REL32           = 0x0004
 
 # ---------------------------------------------------------------------------
 # backend assembly ...
@@ -235,6 +248,94 @@ class ClassInfo:
     parent      : str | None = None
 
 # ---------------------------------------------------------------------------
+# locales (gnu gettext) support ...
+# Loads GNU gettext .mo files from a zip and provides tr().
+# ---------------------------------------------------------------------------
+class TranslationManager:
+    def get_default_lang(self) -> str:
+        loc = locale.getlocale()
+        if loc is None: return "en"
+        
+        lang = loc[0]
+        if not lang: return "en"
+        return lang
+    
+    def add_trans(self, trans: gettext.GNUTranslations):
+        self.translations.append(trans)
+        
+    def __init__(self, mode: int = 0):
+        self.lang         = self.get_default_lang().split("_")[0].lower()
+        self.mode         = mode
+        self.translations = []
+        self.filename     = ""
+        self.trans        = gettext.NullTranslations()
+        
+        self._langSwitch(self.lang)
+    
+    def _trres(self, msgid:str) -> str:
+        for trans in self.translations:
+            text = trans.gettext(msgid)
+            if text != msgid:
+                return text
+        return msgid
+    
+    def _langSwitch(self, lang: str):
+        self.lang = lang
+        self.translations.clear()
+        self.filename = f"locales/{lang}/pascal.mo"
+        try:
+            self.trans = self.load_mo(self.filename)
+            self.add_trans(self.trans)
+            
+        except FileNotFoundError as e:
+            app = self.ensure_app()
+            print(f"File not found Error:")
+            print(f"The requested file: {self.filename} could not be found.")
+            return
+            
+        except PermissionError as e:
+            print(f"File Permission Error:")
+            print(f"You have not enough permissions to open file: {self.filename}.")
+            return
+            
+        except RuntimeError as e:
+            print(f"Runtime Error:")
+            print(f"The Python Library throws a Runtime Error on opening file: {self.filename}.")
+            return
+            
+        except OSError as e:
+            print(f"Operating System Error:")
+            print(f"The System is not able to open file: {self.filename}.")
+            return
+            
+        except Exception as e:
+            print(f"Common Exception Error:")
+            print(f"Common Exception throwed on open file: {self.filename}.")
+            return
+        return
+    
+    def load_mo(self, filename: str) -> gettext.GNUTranslations:
+        with open(filename, "rb") as f:
+            data = f.read()
+        return gettext.GNUTranslations(fp = io.BytesIO(data))
+    
+    def _tr(self, msgid: str) -> str:
+        try:
+            return self._trres(msgid)
+        except Exception:
+            return msgid
+
+# ---------------------------------------------------------------------------
+# Global translation hook used by UI code: tr("File") -> "Datei" if de loaded
+# ---------------------------------------------------------------------------
+I18N = TranslationManager()
+
+# ---- Standard-Locale beim Start setzen ----
+def tr(msgid: str) -> str: return I18N._trres(msgid)
+def LangSwitch(lang: str): return I18N._langSwitch(lang)
+
+
+# ---------------------------------------------------------------------------
 # we build our own argument parser exception ...
 # ---------------------------------------------------------------------------
 class ArgumentParserError(Exception):
@@ -296,7 +397,7 @@ def validate_output_path(value: str):
     CDATA.exe_file = value
     print(CDATA.CurrentWorkingDir)
     path = Path(value)
-    print(path)
+    #print(path)
 
     # Existierendes Verzeichnis
     if path.exists() and path.is_dir():
@@ -315,7 +416,7 @@ def validate_output_path(value: str):
             CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
             raise RuntimeError("directory not writeable.")
 
-        print(">>",path)
+        #print(">>",path)
         return {
             "kind": "directory",
             "path": path
@@ -388,46 +489,159 @@ def args_func():
         help    = "Output directory"
     )
     
+    # -------------------------------------------------------------
+    # emitter for nasm compatible assembly code
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "--asm",
         action  = "store_true",
-        help    = "Generate NASM assembler output"
+        dest    = "asmoutput",
+        help    = "Generate NASM compatible assembly output"
     )
     
+    # -------------------------------------------------------------
+    # emitter for AsmJIT C++ code ...
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "--asmjit",
+        action  = "store_true",
+        dest    = "asmjitoutput",
+        help    = "Generate AsmJIT C++ output"
+    )
+    
+    # -------------------------------------------------------------
+    # emitter for creating a Windows dll ...
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "--dll",
         action  = "store_true",
+        dest    = "dlloutputt",
         help    = "Build as DLL"
     )
     
+    # -------------------------------------------------------------
+    # emitter for creating a Windows exe ...
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "--exe",
         action  = "store_true",
+        dest    = "exeoutput",
         help    = "Build as EXE"
     )
     
+    # -------------------------------------------------------------
+    # --define=<macro>
+    # Example: pas.exe -D DLL_API test.pas
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "-D",
         "--define",
+        dest    = "define",
         action  = "append",
         default = [],
         help    = "Define preprocessor symbol, e.g. -D DLL_API"
     )
-    
+
+    # -------------------------------------------------------------
+    # -T<target>
+    # Common Target OS identifiers
+    # Example: pas.exe -T       win64 test.pas
+    #          pas.exe --target win64 test.pas
+    # -------------------------------------------------------------
     args_parser.add_argument(
-        "--backend",
-        choices  = ["asmjit", "nasm"],
-        default  = "asmjit",
-        help     = "Code backend: asmjit or nasm."
+        "-T",
+        "--target",
+        dest    = "target",
+        choices = [ "dos"       , # compile for MS-Dos 16-bit
+                    "windows"   , # placeholder for win64
+                    "win16"     , # compile for Windows 3.1 16-bit
+                    "win32"     , # compile for Windows     32-bit
+                    "win64"     , # compile for Windows     64-bit
+        ],
+        default = "win64",
+        help    = "Target OS Platform"
     )
     
+    # -------------------------------------------------------------
+    # --fpcsignature=<str>
+    # Beispiel: pas.exe --signature="MyApp 1.2.3 (build 4567)"
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "--signature",
+        default = "PAS 0.0.1 win64",
+        dest    = "signature",
+        help    = ("Replace the ident string in the .fpc_version section "
+                   "of produced object.")
+    )
+    
+    # -------------------------------------------------------------
+    # --linkerversion=<Major.Minor>
+    # Beispiel: pas.exe --linkerversion=8
+    #
+    # Name    | Major | Minor
+    # --------|-------|-------
+    # 95      |    4  |  0
+    # 98      |    4  | 10
+    # NE      |    4  | 90
+    # 2000    |    5  |  0
+    # XP      |    5  |  1
+    # 2003    |    5  |  2
+    # Vista   |    6  |  0
+    # 7       |    6  |  1
+    # 8       |    6  |  2
+    # 8.1     |    6  |  3
+    # 10 / 11 |   10  |  0
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "--linkerversion",
+        dest    = "linkerversion",
+        help    = ("Sets the minimum OS version fields in the PE optional "
+                   "header."),
+        choices = [ "3"   , "3.1" , "3.11",
+                    "4"   , "4.0" , "4.10", "4.90" ,
+                    "5"   , "5.0" , "5.1" , "5.2"  ,
+                    "6"   , "6.0" , "6.1" , "6.2"  , "6.3",
+                    "7"   ,
+                    "8"   , "8.1" ,
+                    "10"  , "10.0",
+                    "11"  ,
+                    "95"  ,
+                    "98"  , "ME"  ,
+                    "2000", "XP"  ,
+                    "2003", "Vista"
+        ],
+        default = "10"
+    )
+    
+    # -------------------------------------------------------------
+    # emitter backend ...
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "--backend",
+        dest     = "backend",
+        choices  = ["c++", "asmjit",
+                    "asm", "nasm",
+                    "obj", "objfile",
+                    "exe", "exefile",
+        ],
+        default  = "asmjit",
+        help     = "Code backend: asmjit, nasm, objfile."
+    )
+    
+    # -------------------------------------------------------------
+    # modules include path
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "-Fi",
+        dest    = "includepath",
         action  = "append",
         default = [],
         help    = "Add include file search path."
     )
     
+    # -------------------------------------------------------------
+    # executable output path ...
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "-FE",
         dest    = "exe_output_dir",
@@ -435,22 +649,23 @@ def args_func():
         help    = "Set output directory for executables."
     )
     
-    args_parser.add_argument(
-        "-T",
-        "--target",
-        choices = ["dos", "win32", "win64"],
-        default = "win64",
-        help    = "Target OS Platform"
-    )
-    
+    # -------------------------------------------------------------
+    # --info V  -> informations about the compiler
+    # Example: pas.exe --info V
+    # -------------------------------------------------------------
     args_parser.add_argument(
         "-i",
         "--info",
-        nargs   = "?",
-        const   = "",
-        choices = ["", "V", "W", "TP"],
+        dest    =   "information",
+        nargs   =   "?",
+        const   =   "",
+        choices = [ "",
+                    "V",    # version information's
+                    "W",
+                    "TP"
+        ],
         default = None,
-        help    = "Version help informations"
+        help    = "Help informations about the compiler"
     )
     return args_parser
 
@@ -917,19 +1132,24 @@ class NasmBackend(CodeBackend):
 # win64 pe coff writer ...
 # ---------------------------------------------------------------------------
 class PECoffWriter:
-    regs = {
-        "rax" :  0, "rcx" :  1, "rdx" :  2, "rbx" :  3,
-        "rsp" :  4, "rbp" :  5, "rsi" :  6, "rdi" :  7,
-        "r8"  :  8, "r9"  :  9, "r10" : 10, "r11" : 11,
-        "r12" : 12, "r13" : 13, "r14" : 14, "r15" : 15,
-        
-        "eax" :  0, "ecx" :  1, "edx" :  2, "ebx" :  3,
-        "esp" :  4, "ebp" :  5, "esi" :  6, "edi" :  7,
-        "r8d" :  8, "r9d" :  9, "r10d": 10, "r11d": 11,
-        "r12d": 12, "r13d": 13, "r14d": 14, "r15d": 15,
-    }
-    
     def __init__(self):
+        self.regs = {
+            "al"  :  0, "cl"  :  1, "dl"  :  2, "bl"  :  3,
+            "spl" :  4, "bpl" :  5, "sil" :  6, "dil" :  7,
+            "r8b" :  8, "r9b" :  9, "r10b": 10, "r11b": 11,
+            "r12b": 12, "r13b": 13, "r14b": 14, "r15b": 15,
+
+            "rax" :  0, "rcx" :  1, "rdx" :  2, "rbx" :  3,
+            "rsp" :  4, "rbp" :  5, "rsi" :  6, "rdi" :  7,
+            "r8"  :  8, "r9"  :  9, "r10" : 10, "r11" : 11,
+            "r12" : 12, "r13" : 13, "r14" : 14, "r15" : 15,
+            
+            "eax" :  0, "ecx" :  1, "edx" :  2, "ebx" :  3,
+            "esp" :  4, "ebp" :  5, "esi" :  6, "edi" :  7,
+            "r8d" :  8, "r9d" :  9, "r10d": 10, "r11d": 11,
+            "r12d": 12, "r13d": 13, "r14d": 14, "r15d": 15,
+        }
+        
         self.text               = bytearray()
         self.data               = bytearray()
         
@@ -943,14 +1163,410 @@ class PECoffWriter:
         self.string_table       = bytearray()
         self.string_offsets     = {}
     
-    def _reg_id(self, reg):
-        if reg not in regs:
-            raise RuntimeError(f"unsupported register: {reg}")
-        return regs[reg]
+    def begin_function(self, name, local_size=0, public=True):
+        offset = len(self.text)
+        self.bind_label(name)
+        self.add_symbol(
+            name            = name,
+            value           = offset,
+            section_number  = 1
+        )
+        self.emit_function_prolog(local_size)
+        return offset
+
+    def end_function(self):
+        self.emit_function_epilog()
+        
+    def align_data(self, alignment):
+        while len(self.data) % alignment != 0:
+            self.data.append(0)
+
+    def add_data_i32(self, name, value=0):
+        return self.add_data_bytes(name,
+            int(value).to_bytes(4, "little", signed=True),
+            alignment = 4
+        )
+
+    def add_data_qword(self, name, value=0):
+        return self.add_data_bytes(name,
+            int(value).to_bytes(8, "little", signed=False),
+            alignment = 8
+        )
+
+    def add_data_double(self, name, value=0.0):
+        bits = double_to_bits(value)
+        return self.add_data_bytes(name,
+            int(bits).to_bytes(8, "little", signed=False),
+            alignment = 8
+        )
+
+    def add_data_bytes(self, name, data_bytes, alignment=1):
+        self.align_data(alignment)
+
+        offset = len(self.data)
+        self.data += data_bytes
+
+        self.add_symbol(
+            name=name,
+            value=offset,
+            section_number = 2
+        )
+        return offset
+
+    def add_data_zeros(self, name, size, alignment=8):
+        return self.add_data_bytes(name,
+            b"\x00" * size,
+            alignment
+        )
+    
+    def add_data_qword_symbol_ref(self, target_symbol):
+        sym_index   = self.find_or_add_symbol(target_symbol)
+        offset      = len(self.data)
+        self.data  += b"\x00" * 8
+
+        self.data_relocations.append({
+            "offset": offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_ADDR64
+        })
+        return offset
+        
+    def add_data_i32_array   (self, name, count): return self.add_data_zeros(name, count * 4, alignment=4)
+    def add_data_qword_array (self, name, count): return self.add_data_zeros(name, count * 8, alignment=8)
+    def add_data_double_array(self, name, count): return self.add_data_zeros(name, count * 8, alignment=8)
+    
+    def add_jit_context( self,
+        name          = "ctx",
+        int_count     =   256,
+        double_count  =   256,
+        string_count  =   256,
+        record_bytes  =  4096,
+        arrays_bytes  =  4096,
+        pointer_count =   256):
+        
+        self.add_data_i32_array     ("int_vars"   , int_count)
+        self.add_data_double_array  ("double_vars", double_count)
+        self.add_data_qword_array   ("string_vars", string_count)
+        self.add_data_zeros         ("record_vars", record_bytes, alignment = 8)
+        self.add_data_zeros         ("arrays_vars", arrays_bytes, alignment = 8)
+        self.add_data_qword_array   ("pointr_vars", pointer_count)
+
+        self.align_data(8)
+        ctx_offset = len(self.data)
+
+        self.add_symbol(
+            name           = name,
+            value          = ctx_offset,
+            section_number = 2
+        )
+
+        self.add_data_qword_symbol_ref("int_vars")
+        self.add_data_qword_symbol_ref("double_vars")
+        self.add_data_qword_symbol_ref("string_vars")
+        self.add_data_qword_symbol_ref("record_vars")
+        self.add_data_qword_symbol_ref("arrays_vars")
+        self.add_data_qword_symbol_ref("pointr_vars")
+
+        self.data += b"\x00" * 4   # print_int_tmp
+        self.data += b"\x00" * 4   # padding
+        self.data += b"\x00" * 8   # print_double_tmp
+
+        return ctx_offset
+    
+    def add_data_i32(self, name, value = 0):
+        return self.add_data_bytes(name,
+            int(value).to_bytes(4, "little", signed = True),
+            alignment=4
+        )
+
+    def add_data_qword(self, name, value = 0):
+        return self.add_data_bytes(name,
+            int(value).to_bytes(8, "little", signed = False),
+            alignment=8
+        )
     
     def _is_ext_reg(self, reg): return self._reg_id(reg) >= 8
     def _reg_low3  (self, reg): return self._reg_id(reg)  & 7
     
+    def _reg_id(self, reg):
+        if reg not in self.regs:
+            raise RuntimeError(f"unsupported register: {reg}")
+        return self.regs[reg]
+    
+    def _xmm_id(self, reg):
+        if not isinstance(reg, str):
+            raise RuntimeError(f"unsupported xmm register: {reg}")
+
+        reg = reg.lower()
+
+        if not reg.startswith("xmm"):
+            raise RuntimeError(f"unsupported xmm register: {reg}")
+        try:
+            n = int(reg[3:])
+        except ValueError:
+            raise RuntimeError(f"unsupported xmm register: {reg}")
+
+        if n < 0 or n > 15:
+            raise RuntimeError(f"unsupported xmm register: {reg}")
+
+        return n
+    
+    def _emit_rex_xmm_mem(self, xmm_id, base):
+        base_id = self._reg_id(base)
+
+        rex = 0x48
+        if xmm_id  >= 8: rex |= 0x04
+        if base_id >= 8: rex |= 0x01
+
+        self.text.append(rex)
+
+    def emit_mov_r32_data_label(self, dst, label):
+        dst_id    = self._reg_id(dst)
+        sym_index = self.find_or_add_symbol(label)
+
+        rex = 0x40
+        if dst_id >= 8: rex |= 0x04
+        if rex != 0x40: self.text.append(rex)
+
+        self.text.append(0x8B)  # mov r32, r/m32
+
+        # RIP-relative: mod=00, reg=dst, rm=101
+        self.text.append(0x05 | ((dst_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset"        : reloc_offset,
+            "symbol_index"  : sym_index,
+            "type"          : IMAGE_REL_AMD64_REL32
+        })
+
+    def emit_mov_data_label_r32(self, label, src):
+        src_id    = self._reg_id(src)
+        sym_index = self.find_or_add_symbol(label)
+
+        rex = 0x40
+        if src_id >= 8: rex |= 0x04
+        if rex != 0x40: self.text.append(rex)
+
+        self.text.append(0x89)  # mov r/m32, r32
+
+        # RIP-relative: mod=00, reg=src, rm=101
+        self.text.append(0x05 | ((src_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset"        : reloc_offset,
+            "symbol_index"  : sym_index,
+            "type"          : IMAGE_REL_AMD64_REL32
+        })
+
+    def emit_mov_r64_data_label(self, dst, label):
+        dst_id = self._reg_id(dst)
+        sym_index = self.find_or_add_symbol(label)
+
+        rex = 0x48
+        if dst_id >= 8:
+            rex |= 0x04
+
+        self.text.append(rex)
+        self.text.append(0x8B)
+
+        self.text.append(0x05 | ((dst_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_REL32
+        })
+
+    def emit_mov_data_label_r64(self, label, src):
+        src_id = self._reg_id(src)
+        sym_index = self.find_or_add_symbol(label)
+
+        rex = 0x48
+        if src_id >= 8:
+            rex |= 0x04
+
+        self.text.append(rex)
+        self.text.append(0x89)
+
+        self.text.append(0x05 | ((src_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_REL32
+        })
+    
+    def emit_movsd_data_label(self, dst, label):
+        dst_id = self._xmm_id(dst)
+        sym_index = self.find_or_add_symbol(label)
+
+        self.text += b"\xF2"
+
+        rex = 0x40
+        if dst_id >= 8: rex |= 0x04
+        if rex != 0x40: self.text.append(rex)
+
+        self.text += b"\x0F\x10"
+        self.text.append(0x05 | ((dst_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_REL32
+        })
+
+    def emit_movsd_data_label_store(self, label, src):
+        src_id = self._xmm_id(src)
+        sym_index = self.find_or_add_symbol(label)
+
+        self.text += b"\xF2"
+
+        rex = 0x40
+        if src_id >= 8: rex |= 0x04
+        if rex != 0x40: self.text.append(rex)
+
+        self.text += b"\x0F\x11"
+        self.text.append(0x05 | ((src_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_AMD64_REL32
+        })
+    
+    ##
+    def emit_movsd_load(self, dst, base, offset=0):
+        dst_id = self._xmm_id(dst)
+
+        self.text += b"\xF2"
+        self._emit_rex_xmm_mem(dst_id, base)
+        self.text += b"\x0F\x10"
+
+        self._emit_modrm_mem(dst_id, base, offset)
+
+    def emit_movsd_store(self, base, offset, src):
+        src_id = self._xmm_id(src)
+
+        self.text += b"\xF2"
+        self._emit_rex_xmm_mem(src_id, base)
+        self.text += b"\x0F\x11"
+
+        self._emit_modrm_mem(src_id, base, offset)
+    
+    def _emit_modrm_mem(self, reg_id, base, offset=0):
+        base_id = self._reg_id(base)
+
+        reg = reg_id  & 7
+        rm  = base_id & 7
+
+        needs_sib  = rm == 4          # rsp / r12
+        needs_disp = base in ("rbp", "r13") and offset == 0
+
+        if offset == 0 and not needs_disp: mod = 0x00
+        elif -128 <= offset <= 127:        mod = 0x40
+        else:                              mod = 0x80
+
+        if needs_disp:
+            mod = 0x40
+            offset = 0
+
+        if needs_sib:
+            self.text.append(mod | (reg << 3) | 0x04)
+
+            # SIB: scale=0, index=none(4), base=rm
+            self.text.append(0x20 | rm)
+        else:
+            self.text.append(mod | (reg << 3) | rm)
+
+        if mod == 0x40:
+            self.text.append(offset & 0xFF)
+        elif mod == 0x80:
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+
+    def _emit_xmm_xmm(self, prefix, opcode, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._xmm_id(src)
+
+        if prefix is not None:
+            self.text.append(prefix)
+
+        rex = 0x40
+        if dst_id >= 8:
+            rex |= 0x04
+        if src_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text += b"\x0F"
+        self.text.append(opcode)
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+
+    def emit_addsd(self, dst, src): self._emit_xmm_xmm(0xF2, 0x58, dst, src)
+    def emit_subsd(self, dst, src): self._emit_xmm_xmm(0xF2, 0x5C, dst, src)
+    def emit_mulsd(self, dst, src): self._emit_xmm_xmm(0xF2, 0x59, dst, src)
+    def emit_divsd(self, dst, src): self._emit_xmm_xmm(0xF2, 0x5E, dst, src)
+
+    def emit_ucomisd(self, left, right):
+        self._emit_xmm_xmm(0x66, 0x2E, left, right)
+
+    def emit_cvtsi2sd(self, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._reg_id(src)
+        
+        self.text += b"\xF2"
+        
+        rex = 0x48
+        if dst_id >= 8: rex |= 0x04
+        if src_id >= 8: rex |= 0x01
+        
+        self.text.append(rex)
+        self.text += b"\x0F\x2A"
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+
+    def emit_sub_r64_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        rex = 0x48
+        if reg_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x81)
+        self.text.append(0xE8 | (reg_id & 7))  # /5 SUB
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_add_r64_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        rex = 0x48
+        if reg_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x81)
+        self.text.append(0xC0 | (reg_id & 7))  # /0 ADD
+        self.text += int(value).to_bytes(4, "little", signed=True)
+        
     # --------------------------------
     # Label definieren
     # --------------------------------
@@ -1010,6 +1626,65 @@ class PECoffWriter:
             self.text.append(rex)
 
         self.text.append(0x21)
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    def emit_add_r32_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        rex = 0x40
+        if reg_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x81)
+        self.text.append(0xC0 | (reg_id & 7))  # /0 ADD
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_sub_r32_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        rex = 0x40
+        if reg_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x81)
+        self.text.append(0xE8 | (reg_id & 7))  # /5 SUB
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_add_r32_imm(self, reg, value): self.emit_add_r32_imm32(reg, value)
+    def emit_sub_r32_imm(self, reg, value): self.emit_sub_r32_imm32(reg, value)
+    
+    def emit_add_r64_r64(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x48
+        if src_id >= 8:
+            rex |= 0x04
+        if dst_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x01)  # add r/m64, r64
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+
+    def emit_sub_r64_r64(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x48
+        if src_id >= 8:
+            rex |= 0x04
+        if dst_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x29)  # sub r/m64, r64
         self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
     
     # --------------------------------
@@ -1090,6 +1765,96 @@ class PECoffWriter:
         self.text += b"\x0F\xAF"
         self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
     
+    def emit_imul_r32_r32_imm32(self, dst, src, value):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+        if dst_id >= 8: rex |= 0x04
+        if src_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x69)  # imul r32, r/m32, imm32
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_imul(self, dst, src, value=None):
+        if value is None:
+            self.emit_imul_r32_r32(dst, src)
+        else:
+            self.emit_imul_r32_r32_imm32(dst, src, value)
+    
+    def emit_external_call(self, symbol_name):
+        self.emit_call_rel32(symbol_name)
+
+    def emit_runtime_call(self, symbol_name, arg_regs=None):
+        if arg_regs is None:
+            arg_regs = []
+
+        # Windows x64:
+        # 32 Byte Shadow Space + 8 Byte Alignment-Ausgleich
+        self.emit_sub_rsp_imm8(40)
+        self.emit_external_call(symbol_name)
+        self.emit_add_rsp_imm8(40)
+    
+    def emit_call_rel32(self, symbol_name):
+        sym_index = self.find_or_add_external(symbol_name)
+        self.text.append(0xE8)
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset"        : reloc_offset,
+            "symbol_index"  : sym_index,
+            "type"          : IMAGE_REL_AMD64_REL32
+        })
+    
+    def emit_call_r64(self, reg):
+        reg_id = self._reg_id(reg)
+
+        rex = 0x40
+        if reg_id >= 8:
+            rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0xFF)
+        self.text.append(0xD0 | (reg_id & 7))  # /2 call r64
+    
+    def emit_call(self, target):
+        if target.startswith("_") or target in self.labels:
+            self.emit_runtime_call(target)
+        else:
+            self.emit_sub_rsp_imm8(40)
+            self.emit_call_r64(target)
+            self.emit_add_rsp_imm8(40)
+
+    def emit_call_lbl(self, target):
+        self.emit_runtime_call(target)
+
+    def emit_call_reg(self, target):
+        self.emit_sub_rsp_imm8(40)
+        self.emit_call_r64(target)
+        self.emit_add_rsp_imm8(40)
+
+    def emit_call_label(self, label):
+        self.text.append(0xE8)
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
     def emit_cdq(self):
         self.text.append(0x99)
     
@@ -1162,18 +1927,34 @@ class PECoffWriter:
             names = ", ".join(f["label"] for f in self.fixups)
             raise RuntimeError(f"Unresolved labels: {names}")
     
-    def emit_call_rel32(self, symbol_name):
-        sym_index = self.find_or_add_external(symbol_name)
-        self.text.append(0xE8)
+    def emit_cmp(self, left, right):
+        if isinstance(right, int):
+            if left.startswith("r") and not left.endswith("d"):
+                self.emit_cmp_r64_imm32(left, right)
+            else:
+                self.emit_cmp_r32_imm32(left, right)
+            return
 
-        reloc_offset = len(self.text)
-        self.text += b"\x00\x00\x00\x00"
+        if left.startswith("r") and not left.endswith("d") and right.startswith("r") and not right.endswith("d"):
+            self.emit_cmp_r64_r64(left, right)
+        else:
+            self.emit_cmp_r32_r32(left, right)
 
-        self.text_relocations.append({
-            "offset"        : reloc_offset,
-            "symbol_index"  : sym_index,
-            "type"          : IMAGE_REL_AMD64_REL32
-        })
+    def emit_test(self, left, right):
+        if left.startswith("r") and not left.endswith("d") and right.startswith("r") and not right.endswith("d"):
+            self.emit_test_r64_r64(left, right)
+        else:
+            self.emit_test_r32_r32(left, right)
+
+    def emit_jmp(self, label): self.emit_jmp_label(label)
+    def emit_je (self, label): self.emit_jcc_label("je" , label)
+    def emit_jne(self, label): self.emit_jcc_label("jne", label)
+    def emit_jz (self, label): self.emit_jcc_label("je" , label)
+    def emit_jnz(self, label): self.emit_jcc_label("jne", label)
+    def emit_jl (self, label): self.emit_jcc_label("jl" , label)
+    def emit_jle(self, label): self.emit_jcc_label("jle", label)
+    def emit_jg (self, label): self.emit_jcc_label("jg" , label)
+    def emit_jge(self, label): self.emit_jcc_label("jge", label)
     
     # --------------------------------
     # cmp r32, imm32
@@ -1338,24 +2119,45 @@ class PECoffWriter:
     
     def emit_lea_rcx_data_label(self, label):
         self.emit_lea_reg_data_label("rcx", label)
+        
+    def emit_lea_r64_mem(self, dst, base, offset=0):
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
+
+        rex = 0x48
+
+        if dst_id >= 8:
+            rex |= 0x04
+
+        if base_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x8D)  # LEA r64, m
+
+        self._emit_modrm_mem(dst_id, base, offset)
+    
+    def emit_lea_byte (self, dst, base, offset): self.emit_lea_r64_mem(dst, base, offset)
+    def emit_lea_dword(self, dst, base, offset): self.emit_lea_r64_mem(dst, base, offset)
+    def emit_lea_qword(self, dst, base, offset): self.emit_lea_r64_mem(dst, base, offset)
 
     # --------------------------------
     # lea reg, [rel data_label]
     # --------------------------------
     def emit_lea_reg_data_label(self, reg, label):
-        opcodes = {
-            "rax": b"\x48\x8D\x05",
-            "rcx": b"\x48\x8D\x0D",
-            "rdx": b"\x48\x8D\x15",
-            "rbx": b"\x48\x8D\x1D",
-        }
+        reg_id = self._reg_id(reg)
 
-        if reg not in opcodes:
-            raise RuntimeError(f"unsupported lea register: {reg}")
+        rex = 0x48
+        if reg_id >= 8:
+            rex |= 0x04
 
         sym_index = self.find_or_add_symbol(label)
 
-        self.text += opcodes[reg]
+        self.text.append(rex)
+        self.text += b"\x8D"
+
+        # RIP-relative: mod=00, r/m=101
+        self.text.append(0x05 | ((reg_id & 7) << 3))
 
         reloc_offset = len(self.text)
         self.text += b"\x00\x00\x00\x00"
@@ -1379,55 +2181,105 @@ class PECoffWriter:
         self.text += int(value).to_bytes(4, "little", signed=True)
     
     def emit_mov_reg_imm32(self, reg, value):
-        opcodes = {
-            "eax": b"\xB8",
-            "ecx": b"\xB9",
-            "edx": b"\xBA",
-            "ebx": b"\xBB",
-        }
+        reg_id = self._reg_id(reg)
         
-        if reg not in opcodes:
-            raise RuntimeError(f"unsupported imm32 register: {reg}")
+        if reg_id >= 8:
+            self.text.append(0x41)
         
-        self.text += opcodes[reg]
+        self.text.append(0xB8 + (reg_id & 7))
         self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_r8_mem(self, dst, base, offset=0):
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
+
+        rex = 0x40
+        if dst_id  >= 8: rex |= 0x04
+        if base_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x8A)  # mov r8, r/m8
+        self._emit_modrm_mem(dst_id, base, offset)
+
+    def emit_mov_mem_r8(self, base, offset, src):
+        src_id  = self._reg_id(src)
+        base_id = self._reg_id(base)
+
+        rex = 0x40
+        if src_id  >= 8: rex |= 0x04
+        if base_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x88)  # mov r/m8, r8
+        self._emit_modrm_mem(src_id, base, offset)
+    
+    def emit_mov_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+        if src_id >= 8: rex |= 0x04
+        if dst_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text.append(0x89)
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+    
+    def emit_movsxd_r64_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x48
+        if dst_id >= 8:
+            rex |= 0x04
+        if src_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text.append(0x63)
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+    
+    def emit_mov_eax_ebx   (self): self.emit_mov_r32_r32   ("eax", "ebx")
+    def emit_mov_ebx_eax   (self): self.emit_mov_r32_r32   ("ebx", "eax")
+    
+    def emit_movsxd_rax_eax(self): self.emit_movsxd_r64_r32("rax", "eax")
     
     # --------------------------------
     # mov r64, imm64
     # --------------------------------
     def emit_mov_reg_imm64(self, reg, value):
-        opcodes = {
-            "rax": b"\x48\xB8",
-            "rcx": b"\x48\xB9",
-            "rdx": b"\x48\xBA",
-            "rbx": b"\x48\xBB",
-        }
-
-        if reg not in opcodes:
-            raise RuntimeError(f"unsupported imm64 register: {reg}")
-
-        self.text += opcodes[reg]
+        reg_id = self._reg_id(reg)
+        rex    = 0x48
+        
+        if reg_id >= 8:
+            rex |= 0x01
+            
+        self.text.append(rex)
+        self.text.append(0xB8 + (reg_id & 7))
         self.text += int(value).to_bytes(8, "little", signed=False)
     
     # --------------------------------
     # mov eax, dword [rax + 8]
     # --------------------------------
     def emit_mov_r32_mem(self, dst, base, offset=0):
-        if dst != "eax":
-            raise RuntimeError(f"unsupported dst r32: {dst}")
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
 
-        base_id = regs[base]
+        rex = 0x40
+        if dst_id  >= 8: rex |= 0x04
+        if base_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
         self.text.append(0x8B)
-
-        # rbp braucht immer Displacement
-        if offset == 0 and base != "rbp":
-            self.text.append(0x00 | base_id)
-        elif -128 <= offset <= 127:
-            self.text.append(0x40 | base_id)
-            self.text.append(offset & 0xFF)
-        else:
-            self.text.append(0x80 | base_id)
-            self.text += int(offset).to_bytes(4, "little", signed=True)
+        self._emit_modrm_mem(dst_id, base, offset)
     
     # --------------------------------
     # mov r64, [base + offset]
@@ -1453,20 +2305,18 @@ class PECoffWriter:
     # mov dword [base + offset], r32
     # --------------------------------
     def emit_mov_mem_r32(self, base, offset, src):
-        if src != "eax":
-            raise RuntimeError(f"unsupported src r32: {src}")
+        src_id  = self._reg_id(src)
+        base_id = self._reg_id(base)
 
-        base_id = regs[base]
+        rex = 0x40
+        if src_id  >= 8: rex |= 0x04
+        if base_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
         self.text.append(0x89)
-
-        if offset == 0 and base != "rbp":
-            self.text.append(0x00 | base_id)
-        elif -128 <= offset <= 127:
-            self.text.append(0x40 | base_id)
-            self.text.append(offset & 0xFF)
-        else:
-            self.text.append(0x80 | base_id)
-            self.text += int(offset).to_bytes(4, "little", signed=True)
+        self._emit_modrm_mem(src_id, base, offset)
     
     # --------------------------------
     # mov [base + offset], r64
@@ -1509,8 +2359,8 @@ class PECoffWriter:
     # --------------------------------
     def emit_mov_r64_r64(self, dst, src):
         ##
-        dst_id = regs[dst]
-        src_id = regs[src]
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
         
         rex = 0x48
         
@@ -1532,9 +2382,111 @@ class PECoffWriter:
     def emit_movzx_eax_al(self):
         self.text += b"\x0F\xB6\xC0"
     
+    def emit_movq_xmm_r64(self, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._reg_id(src)
+
+        self.text += b"\x66"
+
+        rex = 0x48
+        if dst_id >= 8:
+            rex |= 0x04
+        if src_id >= 8:
+            rex |= 0x01
+
+        self.text.append(rex)
+        self.text += b"\x0F\x6E"
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+
+    def emit_movzx_r32_r8(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        rex = 0x40
+        if dst_id >= 8: rex |= 0x04
+        if src_id >= 8: rex |= 0x01
+
+        if rex != 0x40:
+            self.text.append(rex)
+
+        self.text += b"\x0F\xB6"
+        self.text.append(0xC0 | ((dst_id & 7) << 3) | (src_id & 7))
+
+    def emit_movq_r64_xmm(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._xmm_id(src)
+
+        self.text += b"\x66"
+
+        rex = 0x48
+        if src_id >= 8: rex |= 0x04
+        if dst_id >= 8: rex |= 0x01
+
+        self.text.append(rex)
+        self.text += b"\x0F\x7E"
+        self.text.append(0xC0 | ((src_id & 7) << 3) | (dst_id & 7))
+
+    def emit_mov_xmm_imm64_double_bits(self, xmm, bits):
+        self.emit_mov_reg_imm64("rax", bits)
+        self.emit_movq_xmm_r64(xmm, "rax")
+
+    def emit_movzx(self, dst, src):
+        if dst == "eax" and src == "al":
+            self.emit_movzx_eax_al()
+            return
+
+        self.emit_movzx_r32_r8(dst, src)
+    
+    def emit_mov(self, dst, src):
+        if isinstance(src, int):
+            if dst.startswith("r") and not dst.endswith("d"):
+                self.emit_mov_reg_imm64(dst, src)
+            else:
+                self.emit_mov_reg_imm32(dst, src)
+            return
+
+        if dst.startswith("xmm"):
+            raise RuntimeError("use XMM-specific mov methods")
+
+        if dst.startswith("r") and not dst.endswith("d") and src.startswith("r") and not src.endswith("d"):
+            self.emit_mov_r64_r64(dst, src)
+        else:
+            self.emit_mov_r32_r32(dst, src)
+
+    def emit_add(self, dst, src):
+        if isinstance(src, int):
+            if dst.startswith("r") and not dst.endswith("d"):
+                self.emit_add_r64_imm32(dst, src)
+            else:
+                self.emit_add_r32_imm32(dst, src)
+            return
+
+        if dst.startswith("r") and not dst.endswith("d") and src.startswith("r") and not src.endswith("d"):
+            self.emit_add_r64_r64(dst, src)
+        else:
+            self.emit_add_r32_r32(dst, src)
+
+    def emit_setne(self, reg):
+        if reg != "al":
+            raise RuntimeError("currently only setne al supported")
+        self.emit_setcc_al("setne")
+
+    def emit_sub(self, dst, src):
+        if isinstance(src, int):
+            if dst.startswith("r") and not dst.endswith("d"):
+                self.emit_sub_r64_imm32(dst, src)
+            else:
+                self.emit_sub_r32_imm32(dst, src)
+            return
+
+        if dst.startswith("r") and not dst.endswith("d") and src.startswith("r") and not src.endswith("d"):
+            self.emit_sub_r64_r64(dst, src)
+        else:
+            self.emit_sub_r32_r32(dst, src)
+    
     def emit_push_r64(self, reg):
         ##
-        reg_id = regs[reg]
+        reg_id = self._reg_id(reg)
         
         if reg_id >= 8:
             self.text.append(0x41)
@@ -1543,7 +2495,7 @@ class PECoffWriter:
     
     def emit_pop_r64(self, reg):
         ##
-        reg_id = regs[reg]
+        reg_id = self._reg_id(reg)
         
         if reg_id >= 8:
             self.text.append(0x41)
@@ -1841,7 +2793,428 @@ class PECoffWriter:
             
             f.write(symbol_data)
             f.write(string_table)
+
+# ---------------------------------------------------------------------------
+# Windows 10 64-Bit PE executable writer
+# ---------------------------------------------------------------------------
+class PEWriter64:
+    IMAGE_BASE     = 0x140000000
+    FILE_ALIGNMENT = 0x200
+    SECTION_ALIGN  = 0x1000
+
+    def __init__(self, coff):
+        self.coff = coff
         
+        self.imports = {
+            "kernel32.dll": [
+                "ExitProcess"
+            ],
+            "dbase2many.dll": [
+                "_jit_print_int",
+                "_jit_print_text"
+            ]
+        }
+
+    @property
+    def text(self):
+        return self.coff.text
+    
+    @property
+    def code(self):
+        return self.coff.code
+    
+    @property
+    def data(self):
+        return self.coff.data
+
+    def find_entrypoint(self):
+        for sym in self.coff.symbols:
+            if sym["name"] in ("main", "_main"):
+                return sym["value"]
+        raise RuntimeError("entry point not found: main/_main")
+
+    def align(self, value, alignment):
+        return (value + alignment - 1) & ~(alignment - 1)
+
+    def pad_to(self, data, size):
+        while len(data) < size:
+            data.append(0)
+    
+    def emit_ret(self):
+        self.text.append(0xC3)
+
+    def all_import_functions(self):
+        funcs = []
+        for dll_name, names in self.imports.items():
+            for name in names:
+                if name not in funcs:
+                    funcs.append(name)
+        return funcs
+
+    def build_text_with_import_thunks(self):
+        text_image = bytearray(self.text)
+        self.import_thunk_offsets = {}
+
+        for name in self.all_import_functions():
+            self.import_thunk_offsets[name] = len(text_image)
+
+            # jmp qword [rip + disp32]
+            # FF 25 xx xx xx xx
+            text_image += b"\xFF\x25\x00\x00\x00\x00"
+
+        return text_image
+
+    def patch_external_call_relocations(self, text_image, text_rva):
+        for reloc in self.coff.text_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+            name = sym["name"]
+
+            if name not in self.import_thunk_offsets:
+                continue
+
+            patch_pos = reloc["offset"]
+            thunk_off = self.import_thunk_offsets[name]
+
+            target_rva = text_rva + thunk_off
+            next_rva   = text_rva + patch_pos + 4
+
+            rel32 = target_rva - next_rva
+
+            text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(
+                4,
+                "little",
+                signed=True
+            )
+
+    def patch_import_thunks(self, text_image, text_rva):
+        for name, thunk_off in self.import_thunk_offsets.items():
+            if name not in self.import_iat_rvas:
+                raise RuntimeError(f"IAT RVA missing for import: {name}")
+
+            iat_rva = self.import_iat_rvas[name]
+
+            thunk_rva = text_rva + thunk_off
+            next_rva  = thunk_rva + 6
+
+            disp32 = iat_rva - next_rva
+
+            text_image[thunk_off:thunk_off + 6] = (
+                b"\xFF\x25" +
+                int(disp32).to_bytes(4, "little", signed=True)
+            )
+
+    def symbol_rva(self, sym, text_rva, data_rva):
+        if sym["section"] == 1:
+            return text_rva + sym["value"]
+
+        if sym["section"] == 2:
+            return data_rva + sym["value"]
+
+        raise RuntimeError(f"unsupported symbol section: {sym}")
+
+    def patch_internal_relocations(self, text_image, data_image, text_rva, data_rva):
+        # .text Relocations, z.B. lea rcx, [rel str_0]
+        for reloc in self.coff.text_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            # externe Imports werden separat über Thunks behandelt
+            if sym["section"] == 0:
+                continue
+
+            if reloc["type"] == IMAGE_REL_AMD64_REL32:
+                patch_pos = reloc["offset"]
+                target_rva = self.symbol_rva(sym, text_rva, data_rva)
+                next_rva = text_rva + patch_pos + 4
+
+                rel32 = target_rva - next_rva
+
+                text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(
+                    4,
+                    "little",
+                    signed=True
+                )
+            else:
+                raise RuntimeError(f"unsupported text relocation type: {reloc['type']}")
+
+        # .data Relocations, z.B. ctx enthält qword-Adresse von int_vars
+        for reloc in self.coff.data_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            if reloc["type"] == IMAGE_REL_AMD64_ADDR64:
+                patch_pos = reloc["offset"]
+                target_va = self.IMAGE_BASE + self.symbol_rva(sym, text_rva, data_rva)
+
+                data_image[patch_pos:patch_pos + 8] = int(target_va).to_bytes(
+                    8,
+                    "little",
+                    signed=False
+                )
+            else:
+                raise RuntimeError(f"unsupported data relocation type: {reloc['type']}")
+
+    def build_import_section(self, idata_rva):
+        imports = self.imports
+        self.import_iat_rvas = {}
+
+        descriptor_size = 20
+        descriptors_size = (len(imports) + 1) * descriptor_size
+
+        data = bytearray(b"\x00" * descriptors_size)
+
+        cursor = descriptors_size
+        descriptors = []
+
+        for dll_name, funcs in imports.items():
+            ilt_rva = idata_rva + cursor
+
+            ilt_offsets = []
+            for func in funcs:
+                ilt_offsets.append(cursor)
+                data += b"\x00" * 8
+                cursor += 8
+
+            data += b"\x00" * 8
+            cursor += 8
+
+            iat_rva = idata_rva + cursor
+
+            iat_offsets = []
+            for func in funcs:
+                iat_offsets.append(cursor)
+                self.import_iat_rvas[func] = idata_rva + cursor
+                data += b"\x00" * 8
+                cursor += 8
+
+            data += b"\x00" * 8
+            cursor += 8
+
+            hint_name_rvas = []
+
+            for func in funcs:
+                hint_name_rva = idata_rva + cursor
+                hint_name_rvas.append(hint_name_rva)
+
+                data += struct.pack("<H", 0)
+                data += func.encode("ascii") + b"\x00"
+                cursor = len(data)
+
+            dll_name_rva = idata_rva + cursor
+            data += dll_name.encode("ascii") + b"\x00"
+            cursor = len(data)
+
+            for off, hn_rva in zip(ilt_offsets, hint_name_rvas):
+                struct.pack_into("<Q", data, off, hn_rva)
+
+            for off, hn_rva in zip(iat_offsets, hint_name_rvas):
+                struct.pack_into("<Q", data, off, hn_rva)
+
+            descriptors.append((ilt_rva, dll_name_rva, iat_rva))
+
+        for index, (ilt_rva, dll_name_rva, iat_rva) in enumerate(descriptors):
+            struct.pack_into(
+                "<IIIII",
+                data,
+                index * descriptor_size,
+                ilt_rva,
+                0,
+                0,
+                dll_name_rva,
+                iat_rva
+            )
+
+        return data
+
+    def write(self, filename):
+        dos_header = bytearray(64)
+        dos_header[0:2] = b"MZ"
+        struct.pack_into("<I", dos_header, 0x3C, 0x80)
+
+        dos_stub = bytearray(0x80 - len(dos_header))
+
+        pe_sig = b"PE\x00\x00"
+
+        number_of_sections      = 3
+        size_of_optional_header = 0xF0
+        section_header_size     = 40
+
+        file_header = struct.pack(
+            "<HHIIIHH",
+            0x8664,
+            number_of_sections,
+            int(time.time()),
+            0,
+            0,
+            size_of_optional_header,
+            0x0022
+        )
+
+        headers_size = self.align(0x80 + 4 + 20 +
+            size_of_optional_header + number_of_sections * section_header_size,
+            self.FILE_ALIGNMENT
+        )
+
+        text_image          = self.build_text_with_import_thunks()
+
+        text_rva            = self.SECTION_ALIGN
+        entry_rva           = text_rva + self.find_entrypoint()
+
+        text_raw            = headers_size
+        text_raw_size       = self.align(len(text_image), self.FILE_ALIGNMENT)
+        text_virtual_size   = len(text_image)
+        
+        data_rva            = self.align(text_rva + text_virtual_size, self.SECTION_ALIGN)
+        data_raw            = text_raw + text_raw_size
+        data_raw_size       = self.align(len(self.data), self.FILE_ALIGNMENT)
+        data_virtual_size   = len(self.data)
+        
+        idata_rva           = self.align(data_rva + data_virtual_size, self.SECTION_ALIGN)
+        idata_raw           = data_raw + data_raw_size
+        idata               = self.build_import_section(idata_rva)
+
+        data_image = bytearray(self.data)
+
+        idata = self.build_import_section(idata_rva)
+
+        self.patch_internal_relocations(
+            text_image,
+            data_image,
+            text_rva,
+            data_rva
+        )
+
+        self.patch_external_call_relocations(text_image, text_rva)
+        self.patch_import_thunks(text_image, text_rva)
+        
+        idata_raw_size      = self.align(len(idata), self.FILE_ALIGNMENT)
+        idata_virtual_size  = len(idata)
+        
+        size_of_image = self.align(
+            idata_rva + idata_virtual_size,
+            self.SECTION_ALIGN
+        )
+
+        optional_header     = bytearray()
+
+        optional_header += struct.pack("<H", 0x20B)      # PE32+
+        optional_header += struct.pack("<BB", 14, 0)     # linker version
+        optional_header += struct.pack("<III",
+            text_raw_size, 0, 0
+        )
+
+        optional_header += struct.pack("<I", entry_rva)  # AddressOfEntryPoint
+        optional_header += struct.pack("<I", text_rva)   # BaseOfCode
+        optional_header += struct.pack("<Q", self.IMAGE_BASE)
+
+        optional_header += struct.pack("<II",
+            self.SECTION_ALIGN,
+            self.FILE_ALIGNMENT
+        )
+
+        optional_header += struct.pack("<HHHHHH",
+            6, 0,    # OS version
+            0, 0,    # Image version
+            6, 0     # Subsystem version
+        )
+
+        optional_header += struct.pack("<I", 0)          # Win32VersionValue
+        optional_header += struct.pack("<I", size_of_image)
+        optional_header += struct.pack("<I", headers_size)
+        optional_header += struct.pack("<I", 0)          # Checksum
+
+        optional_header += struct.pack("<HH",
+            3,       # Windows CUI
+            0x8160   # DLL characteristics
+        )
+
+        optional_header += struct.pack("<QQQQ",
+            0x100000,  # SizeOfStackReserve
+            0x1000,    # SizeOfStackCommit
+            0x100000,  # SizeOfHeapReserve
+            0x1000     # SizeOfHeapCommit
+        )
+
+        optional_header += struct.pack("<II",
+            0,      # LoaderFlags
+            16      # NumberOfRvaAndSizes
+        )
+
+        data_directories = bytearray(16 * 8)
+        struct.pack_into(
+            "<II",
+            data_directories,
+            1 * 8,        # Import Directory
+            idata_rva,
+            len(idata)
+        )
+        
+        optional_header += data_directories
+
+        if len(optional_header) != size_of_optional_header:
+            raise RuntimeError(len(optional_header))
+
+        text_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".text\x00\x00\x00",
+            text_virtual_size,
+            text_rva,
+            text_raw_size,
+            text_raw,
+            0,
+            0,
+            0,
+            0,
+            0x60000020
+        )
+
+        data_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".data\x00\x00\x00",
+            data_virtual_size,
+            data_rva,
+            data_raw_size,
+            data_raw,
+            0,
+            0,
+            0,
+            0,
+            0xC0000040
+        )
+        
+        idat_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".idata\x00\x00",
+            idata_virtual_size,
+            idata_rva,
+            idata_raw_size,
+            idata_raw,
+            0,
+            0,
+            0,
+            0,
+            0xC0000040
+        )
+        
+        image  = bytearray()
+        image += dos_header
+        image += dos_stub
+        
+        image += pe_sig
+        image += file_header
+        image += optional_header
+        
+        image += text_section_header
+        image += data_section_header
+        image += idat_section_header
+
+        self.pad_to(image, text_raw)
+        
+        image += text_image; self.pad_to( image,  text_raw +  text_raw_size )
+        image += data_image; self.pad_to( image,  data_raw +  data_raw_size )
+        image +=      idata; self.pad_to( image, idata_raw + idata_raw_size )
+
+        with open(filename, "wb") as f:
+            f.write(image)
+
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
 # ---------------------------------------------------------------------------
@@ -1917,27 +3290,9 @@ class PascalPreprocessor:
 # the transpiler generator for Pascal->Assembly
 # ---------------------------------------------------------------------------
 class AsmJitGenerator(MiniPascalParserVisitor):
-    def __init__(self, backend=None, asm_file=None):
+    def __init__(self, backend=None):
         self.backend = backend or AsmJitBackend()   # default backend
         self.lines   = self.backend.lines
-        
-        self.coff        = PECoffWriter()
-        self.coff.add_data_string("str_0", "Hallo aus COFF")
-
-        self.main_offset = len(self.coff.text)
-        
-        self.coff.emit_lea_rcx_data_label("str_0")
-        self.coff.emit_sub_rsp_imm8(40)
-        self.coff.emit_call_rel32("_jit_print_text")
-        self.coff.emit_add_rsp_imm8(40)
-        
-        self.coff.emit_mov_ecx_imm32(123)
-        self.coff.emit_sub_rsp_imm8(40)
-        self.coff.emit_call_rel32("_jit_print_int")
-        self.coff.emit_add_rsp_imm8(40)
-        self.coff.emit_ret()
-        
-        self.coff.add_symbol("_main", self.main_offset, section_number = 1)
         
         self.vars               = {}
         self.next_slot          = 0
@@ -2016,7 +3371,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "value": 0
         }
 
-        self.asm_file               = asm_file
+        self.asm_file               = CDATA.asm_file
         self.emit_local_string_data = True
         
         self.module_kind        = "program"
@@ -2024,9 +3379,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.exports = []
     
-    def write_main(self, filename):
-        self.coff.write(filename)
-        
     def format_error(self, filename, err):
         template = ERROR_MAP.get(err.code, err.code)
         message  = template.format(**err.params)
@@ -2495,17 +3847,35 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key in self.vars:
             raise CompileError(ctx, "E0002", name=name)
         
+        symbol = None
+        use_direct_coff_globals = (
+            hasattr(self, "coff")
+            and self.backend.name == BACKEND_OBJFILE
+        )
+        
         if typ == "integer":
             slot = self.next_int_slot
             self.next_int_slot += 1
+            
+            if use_direct_coff_globals:
+                symbol = f"_var_{name}"
+                self.coff.add_data_i32(symbol)
         
         elif typ == "double":
             slot = self.next_double_slot
             self.next_double_slot += 1
+            
+            if use_direct_coff_globals:
+                symbol = f"_var_{name}"
+                self.coff.add_data_double(symbol)
         
         elif typ == "string":
             slot = self.next_string_slot
             self.next_string_slot += 1
+            
+            if use_direct_coff_globals:
+                symbol = f"_var_{name}"
+                self.coff.add_data_qword(symbol)
         
         elif isinstance(typ, str) and typ in self.records:
             slot = self.next_record_slot
@@ -2525,9 +3895,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
             
+            if use_direct_coff_globals:
+                symbol = f"_var_{name}"
+                self.coff.add_data_qword(symbol)
+            
         elif isinstance(typ, str) and typ.startswith("^"):
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
+            
+            if use_direct_coff_globals:
+                symbol = f"_var_{name}"
+                self.coff.add_data_qword(symbol)
             
         else:
             raise CompileError(ctx, "E0004", name=vtype)
@@ -2538,6 +3916,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "slot": slot,
         }
         
+        if symbol is not None:
+            self.vars[key]["symbol"] = symbol
+            
         self.var_types[key] = typ
 
     def identifier_exists(self, name):
@@ -5297,6 +6678,32 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ  = info["type"]
         slot = info["slot"]
         
+        # -------------------------------------------------
+        # Neues COFF-Backend:
+        # direkte globale Variable per Symbol laden
+        # -------------------------------------------------
+        if hasattr(self, "coff") and "symbol" in info:
+            symbol = info["symbol"]
+
+            if typ == "integer":
+                self.coff.emit_mov_r32_data_label("eax", symbol)
+                return
+
+            if typ == "double":
+                self.coff.emit_movsd_data_label("xmm0", symbol)
+                return
+
+            if typ == "string":
+                self.coff.emit_mov_r64_data_label("rax", symbol)
+                return
+
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.coff.emit_mov_r64_data_label("rax", symbol)
+                return
+        
+        # -------------------------------------------------
+        # Altes System über JitContext / r12
+        # -------------------------------------------------
         if isinstance(typ, str) and typ.startswith("^"):
             self.emit_mov_qword("rax", "r12", "pointr_vars")
             self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"{name}")
@@ -5409,6 +6816,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_store_var(self, ctx, name, info):
         typ  = info["type"]
         slot = info["slot"]
+
+        if hasattr(self, "coff") and "symbol" in info:
+            symbol = info["symbol"]
+
+            if typ == "integer":
+                self.coff.emit_mov_data_label_r32(symbol, "eax")
+                return
+
+            if typ == "double":
+                self.coff.emit_movsd_data_label_store(symbol, "xmm0")
+                return
+
+            if typ == "string":
+                self.coff.emit_mov_data_label_r64(symbol, "rax")
+                return
+
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.coff.emit_mov_data_label_r64(symbol, "rax")
+                return
 
         if typ.startswith("^"):
             self.emit_mov_qword("r11", "r12", "pointr_vars")
@@ -8852,6 +10278,80 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def render_print_output(self):
         return "\n".join(self.cpp_print_lines)
 
+
+# ---------------------------------------------------------------------------
+# generator class
+# ---------------------------------------------------------------------------
+class GeneratorClass(AsmJitGenerator):
+    def __init__(self, backend, format):
+        super().__init__(backend)
+        self.coff = None
+        
+        if format is not None:
+            if isinstance(format, PECoffWriter):
+                self.coff       = format
+        else:
+            raise RuntimError("executable format invalid")
+            
+        self.coff_context_done  = False
+        self.coff_main_done     = False
+        
+        #self.main_offset = len(self.coff.text)
+        #
+        #self.coff.emit_lea_rcx_data_label("str_0")
+        #self.coff.emit_sub_rsp_imm8(40)
+        #self.coff.emit_call_rel32("_jit_print_text")
+        #self.coff.emit_add_rsp_imm8(40)
+        #
+        #self.coff.emit_mov_ecx_imm32(123)
+        #self.coff.emit_sub_rsp_imm8(40)
+        #self.coff.emit_call_rel32("_jit_print_int")
+        #self.coff.emit_add_rsp_imm8(40)
+        #self.coff.emit_ret()
+        
+        #self.coff.add_symbol("_main", self.main_offset, section_number = 1)
+
+    def finalize_coff_context(self):
+        if getattr(self, "coff_context_done", False):
+            return
+        
+        self.coff.add_jit_context(
+            int_count     = max(1, self.next_int_slot),
+            double_count  = max(1, self.next_double_slot),
+            string_count  = max(1, self.next_string_slot),
+            record_bytes  = max(8, self.next_record_slot),
+            arrays_bytes  = max(8, self.next_arrays_slot),
+            pointer_count = max(1, self.next_pointr_slot)
+        )
+        self.coff_context_done = True
+        
+    def coff_main(self):
+        if getattr(self, "coff_main_done", False):
+            return
+        
+        self.finalize_coff_context()
+        
+        self.coff.begin_function("_main", local_size = 0)
+        self.coff.emit_lea_reg_data_label("r12", "ctx")
+        self.coff.emit_lea_rcx_data_label("str_0")
+        self.coff.emit_runtime_call("_jit_print_text")
+        self.coff.emit_mov_reg_imm32("ecx", 123)
+        self.coff.emit_runtime_call("_jit_print_int")
+        self.coff.end_function()
+        
+        self.coff_main_done = True
+        
+    def write_main(self, obj_file, exe_file):
+        if self.coff.find_symbol_index("str_0") is None:
+            self.coff.add_data_string("str_0", "Hallo aus COFF")
+            
+        self.coff_main()
+        self.coff.write(obj_file)
+        
+        pe = PEWriter64(self.coff)
+        pe.emit_ret()
+        pe.write(exe_file)
+
 # ---------------------------------------------------------------------------
 # the main definition 
 # ---------------------------------------------------------------------------
@@ -8899,6 +10399,7 @@ def main():
         CDATA.asm_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".asm")
         CDATA.cpp_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".cc" )
         CDATA.obj_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".o"  )
+        CDATA.exe_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".exe")
         
         print("Compile-Run ...")
         print("---------------------------")
@@ -8908,6 +10409,7 @@ def main():
         print("nasm  : ", CDATA.asm_file)
         print("asmjit: ", CDATA.cpp_file)
         print("object: ", CDATA.obj_file)
+        print("win64 : ", CDATA.exe_file)
         print("---------------------------")
         
         with open(CDATA.src_file, "r", encoding="utf-8") as f:
@@ -8955,7 +10457,7 @@ def main():
         if backend is None:
             raise Exception("could not create backend")
         
-        generator = AsmJitGenerator(backend, CDATA.asm_file)
+        generator = GeneratorClass(backend, PECoffWriter())
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
@@ -9003,12 +10505,12 @@ def main():
             if outfile.exists():
                 check = input(f"{CDATA.obj_file}: exists. Overwrite? (Y/N): ").strip().lower()
                 if check in ('j', 'y'):
-                    generator.coff.write(CDATA.obj_file)
+                    generator.write_main(CDATA.obj_file, CDATA.exe_file)
                     #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
                     #    f.write(text)
                     #    f.close()
             else:
-                generator.coff.write(CDATA.obj_file)
+                generator.write_main(CDATA.obj_file, CDATA.exe_file)
                 #with open(CDATA.obj_file, "w", encoding="utf-8") as f:
                 #    f.write(text)
                 #    f.close()
@@ -9035,7 +10537,7 @@ def main():
         print(f"Code : {e.errno}")
         return 2
     except Exception as e:
-        print(f"Error: {str(e)}")
+        #print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return 1
