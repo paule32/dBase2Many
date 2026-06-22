@@ -1347,10 +1347,47 @@ class CoffBackend(CodeBackend):
 class DosBackend(CodeBackend):
     def __init__(self, writer=None):
         super().__init__(CDATA.args_backend)
+
+        self.REG_MAP = {
+            "rax": "ax", "eax": "ax", "ax": "ax",
+            "rbx": "bx", "ebx": "bx", "bx": "bx",
+            "rcx": "cx", "ecx": "cx", "cx": "cx",
+            "rdx": "dx", "edx": "dx", "dx": "dx",
+
+            "rbp": "bp", "ebp": "bp", "bp": "bp",
+            "rsp": "sp", "esp": "sp", "sp": "sp",
+
+            "rsi": "si", "esi": "si", "si": "si",
+            "rdi": "di", "edi": "di", "di": "di",
+        }
         
         self.pending_call = None
         self.writer       = writer
         self.lines        = ""
+    
+    def emit_add(self, dst, value, comment=""):
+        dst16 = self.map_reg(dst)
+
+        if isinstance(value, str) and value.lstrip("-").isdigit():
+            value = int(value)
+
+        if isinstance(value, int):
+            self.writer.emit_add_reg16_imm16(dst16, value)
+            return
+
+        self.writer.emit_add_reg16_reg16(dst16, self.map_reg(value))
+
+    def emit_sub(self, dst, value, comment=""):
+        dst16 = self.map_reg(dst)
+
+        if isinstance(value, str) and value.lstrip("-").isdigit():
+            value = int(value)
+
+        if isinstance(value, int):
+            self.writer.emit_sub_reg16_imm16(dst16, value)
+            return
+
+        self.writer.emit_sub_reg16_reg16(dst16, self.map_reg(value))
     
     def emit_new_label_decl(self, name, comment=""):
         # DOS/MZ braucht keine Vorab-Label-Deklaration
@@ -1362,19 +1399,46 @@ class DosBackend(CodeBackend):
     def emit_jmp(self, label, comment=""):
         self.writer.emit_jmp(label)
 
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
+        # Win64: mov eax, dword [rax + offset]
+        # DOS16: mov si, ax / mov ax, word [si + offset]
+
+        dst16  = self.map_reg(dst)
+        base16 = self.map_reg(base)
+
+        if base16 != "si":
+            self.writer.emit_mov_reg16_reg16("si", base16)
+            base16 = "si"
+
+        self.writer.emit_mov_reg16_mem16_base_disp(
+            dst16,
+            base16,
+            int(offset)
+        )
+
     def emit_mov_imm(self, dst, value, comment=""):
+        if isinstance(value, str) and value == "&_jit_runtime_error":
+            self.pending_call = "_dos_runtime_error"
+            return
+            
+        if isinstance(value, str) and value == "&_jit_print_int":
+            self.pending_call = "_dos_print_int"
+            return
+            
         if isinstance(value, str) and value == "&_jit_print_text":
             self.pending_call = "_dos_print_text"
             return
+
         if isinstance(value, str) and value == "&_jit_print_newline":
             self.pending_call = "_dos_print_newline"
             return
-            
-        # Win64-Visitor benutzt rcx als 1. Parameter.
-        # Für DOS WriteLn(String) mappen wir rcx -> dx.
+
         if dst in ("rcx", "ecx", "cx") and isinstance(value, str):
             self.writer.emit_mov_dx_label(value)
             return
+
+        if isinstance(value, str) and value.lstrip("-").isdigit():
+            value = int(value)
 
         if dst in ("rax", "eax", "ax") and isinstance(value, int):
             self.writer.emit_mov_ax_imm16(value)
@@ -1382,25 +1446,297 @@ class DosBackend(CodeBackend):
 
         raise NotImplementedError(f"DOS emit_mov_imm {dst}, {value}")
 
+    def emit_store_word_var(self, name, src="ax"):
+        self.writer.emit_mov_mem16_reg16(name, self.map_reg(src))
+
+    def emit_load_word_var(self, dst, name):
+        self.writer.emit_mov_reg16_mem16(self.map_reg(dst), name)
+
+    def emit_call_lbl(self, target, comment=""):
+        self.writer.emit_call_label(target)
+    
     def emit_call(self, target, comment=""):
         if target in ("rax", "eax", "ax"):
             if self.pending_call == "_dos_print_text":
                 self.pending_call = None
                 self.writer.emit_print_string_current_dx()
                 return
-
+                
+            if self.pending_call == "_dos_print_int":
+                self.pending_call = None
+                self.writer.emit_print_int_ax()
+                return
+                
             if self.pending_call == "_dos_print_newline":
                 self.pending_call = None
                 self.writer.emit_print_newline()
                 return
+                
+            if self.pending_call == "_dos_runtime_error":
+                self.pending_call = None
+                self.writer.emit_print_string_current_dx()
+                self.writer.emit_print_newline()
+                self.writer.emit_exit(1)
+                return
 
+        # interne Pascal-Prozeduren/Funktionen
+        if isinstance(target, str) and (
+            target in self.writer.labels
+            or target.startswith("proc_")
+            or target.startswith("func_")
+            or target.startswith("class_")
+        ):
+            self.writer.emit_call_label(target)
+            return
+        
         raise NotImplementedError(f"DOS call not supported yet: {target}")
-            
-            
-        raise NotImplementedError(f"DOS call not supported yet: {target}")
+
+    def emit_cmp(self, dst, value, comment=""):
+        dst = self.map_reg(dst)
+
+        if isinstance(value, int):
+            self.writer.emit_cmp_reg16_imm16(dst, value)
+            return
+
+        value = self.map_reg(value)
+        self.writer.emit_cmp_reg16_reg16(dst, value)
+
+    def emit_je (self, label, comment=""): self.writer.emit_je (label)
+    def emit_jne(self, label, comment=""): self.writer.emit_jne(label)
+    def emit_jz (self, label, comment=""): self.writer.emit_jz (label)
+    def emit_jnz(self, label, comment=""): self.writer.emit_jnz(label)
+    def emit_jl (self, label, comment=""): self.writer.emit_jl (label)
+    def emit_jle(self, label, comment=""): self.writer.emit_jle(label)
+    def emit_jg (self, label, comment=""): self.writer.emit_jg (label)
+    def emit_jge(self, label, comment=""): self.writer.emit_jge(label)
+
+    def map_reg(self, reg):
+        if reg not in self.REG_MAP:
+            raise NotImplementedError(f"DOS unsupported register: {reg}")
+        return self.REG_MAP[reg]
+
+    def emit_setne(self, reg, comment=""):
+        # DOS16 Ersatz für: setne al
+        # Nach cmp ax,0:
+        # ax = 1 wenn != 0, sonst 0
+
+        true_label = f"__setne_true_{len(self.writer.code)}"
+        done_label = f"__setne_done_{len(self.writer.code)}"
+
+        self.writer.emit_jne(true_label)
+
+        self.writer.emit_mov_reg16_imm16("ax", 0)
+        self.writer.emit_jmp(done_label)
+
+        self.writer.bind_label(true_label)
+        self.writer.emit_mov_reg16_imm16("ax", 1)
+
+        self.writer.bind_label(done_label)
+
+    def emit_push(self, reg, comment=""):
+        self.writer.emit_push_reg16(self.map_reg(reg))
+
+    def emit_pop(self, reg, comment=""):
+        self.writer.emit_pop_reg16(self.map_reg(reg))
+
+    def emit_mov(self, dst, src, comment=""):
+        dst16 = self.map_reg(dst)
+
+        if isinstance(src, str) and src.lstrip("-").isdigit():
+            src = int(src)
+
+        if isinstance(src, int):
+            self.writer.emit_mov_reg16_imm16(dst16, src)
+            return
+
+        self.writer.emit_mov_reg16_reg16(
+            dst16,
+            self.map_reg(src)
+        )
+
+    def emit_cdq(self, comment=""):
+        # Win64/32 Visitor ruft CDQ auf.
+        # DOS16 braucht CWD: AX -> DX:AX
+        self.writer.emit_cwd()
+
+    def emit_idiv(self, reg, comment=""):
+        self.writer.emit_idiv_reg16(self.map_reg(reg))
+
+    def emit_proc_enter(self, local_size=0):
+        self.writer.emit_function_prolog(local_size)
+
+    def emit_proc_leave(self):
+        self.writer.emit_function_epilog()
 
     def emit_ret(self, comment=""):
         self.writer.emit_ret()
+        
+    def emit_imul(self, dst, src, value=None, comment=""):
+        dst16 = self.map_reg(dst)
+        src16 = self.map_reg(src)
+        
+        if value is None:
+            self.writer.emit_imul_reg16_reg16(dst16, src16)
+            return
+        
+        self.writer.emit_imul_reg16_reg16_imm16(dst16, src16, value)
+    
+    def emit_xor(self, dst, src, comment=""):
+        self.writer.emit_xor_reg16_reg16(
+            self.map_reg(dst),
+            self.map_reg(src)
+        )
+    
+    def emit_movzx(self, dst, src, comment=""):
+        dst16 = self.map_reg(dst)
+
+        # Nach emit_setne() ist AX bereits 0 oder 1.
+        # movzx eax, al ist im DOS16-Backend daher ein No-Op.
+        if dst16 == "ax" and src == "al":
+            return
+
+        raise NotImplementedError(f"DOS emit_movzx {dst}, {src}")
+    
+    def emit_store_for_end_ax(self):
+        self.writer.emit_mov_mem16_reg16(
+            self.writer.dos_for_end_symbol,
+            "ax"
+        )
+
+    def emit_load_for_end_bx(self):
+        self.writer.emit_mov_reg16_mem16(
+            "bx",
+            self.writer.dos_for_end_symbol
+        )
+    
+    def emit_test(self, reg1, reg2, comment=""):
+        self.writer.emit_test_reg16_reg16(
+            self.map_reg(reg1),
+            self.map_reg(reg2)
+        )
+    
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        # Win64: mov dword [rax + offset], ebx
+        # DOS16: mov si, ax / mov word [si + offset], bx
+
+        base16 = self.map_reg(base)
+        src16  = self.map_reg(src)
+
+        if base16 != "si":
+            self.writer.emit_mov_reg16_reg16("si", base16)
+            base16 = "si"
+
+        self.writer.emit_mov_mem16_base_disp_reg16(
+            base16,
+            int(offset),
+            src16
+        )
+
+    def emit_new_pointer(self, ptr_symbol, size):
+        # bx = heap_pos
+        self.writer.emit_mov_reg16_mem16("bx", self.writer.dos_heap_pos_symbol)
+
+        # ax = heap_pos + size
+        self.writer.emit_mov_reg16_reg16("ax", "bx")
+        self.writer.emit_add_reg16_imm16("ax", size)
+
+        # heap_pos = ax
+        self.writer.emit_mov_mem16_reg16(
+            self.writer.dos_heap_pos_symbol,
+            "ax"
+        )
+
+        # ax = address(__dos_heap_area) + old heap_pos
+        self.writer.emit_mov_ax_data_label(self.writer.dos_heap_area_symbol)
+        self.writer.emit_add_reg16_reg16("ax", "bx")
+
+        # p := ax
+        self.writer.emit_mov_mem16_reg16(ptr_symbol, "ax")
+
+    def emit_dispose_pointer(self, ptr_symbol):
+        # einfache erste Version: p := nil
+        self.writer.emit_mov_reg16_imm16("ax", 0)
+        self.writer.emit_mov_mem16_reg16(ptr_symbol, "ax")
+    
+    def emit_store_far_pointer_var(self, symbol):
+        # Erwartung:
+        #   AX = Offset
+        #   DX = Segment
+        self.writer.emit_mov_mem16_reg16_disp(symbol, 0, "ax")
+        self.writer.emit_mov_mem16_reg16_disp(symbol, 2, "dx")
+
+    def emit_load_far_pointer_var(self, symbol):
+        # Ergebnis:
+        #   AX = Offset
+        #   DX = Segment
+        self.writer.emit_mov_reg16_mem16_disp("ax", symbol, 0)
+        self.writer.emit_mov_reg16_mem16_disp("dx", symbol, 2)
+    
+    def emit_new_pointer_far(self, ptr_symbol, size):
+        # DOS allociert in Paragraphen: 1 Paragraph = 16 Byte
+        paragraphs = (size + 15) // 16
+        if paragraphs <= 0:
+            paragraphs = 1
+
+        fail_label = f"__new_fail_{len(self.writer.code)}"
+        done_label = f"__new_done_{len(self.writer.code)}"
+
+        # AH = 48h, BX = paragraphs
+        self.writer.emit_mov_ah_imm8(0x48)
+        self.writer.emit_mov_reg16_imm16("bx", paragraphs)
+        self.writer.emit_int(0x21)
+
+        # CF gesetzt => Fehler
+        self.writer.emit_jc(fail_label)
+
+        # Erfolg:
+        # AX = Segment des neuen Blocks
+        # Pointer = Offset 0, Segment AX
+        self.writer.emit_mov_reg16_imm16("dx", 0)
+
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "dx")
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
+
+        self.writer.emit_jmp(done_label)
+
+        # Fehler:
+        self.writer.bind_label(fail_label)
+
+        # p := nil
+        self.writer.emit_mov_reg16_imm16("ax", 0)
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "ax")
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
+
+        # einfache Runtime-Meldung
+        msg_label = "__msg_out_of_memory"
+        self.writer.add_dos_string(msg_label, "Out of memory")
+        
+        self.writer.emit_mov_dx_label(msg_label)
+        self.writer.emit_print_string_current_dx()
+        self.writer.emit_print_newline()
+        self.writer.emit_exit(1)
+
+        self.writer.bind_label(done_label)
+    
+    def emit_dispose_pointer_far(self, ptr_symbol):
+        self.emit_load_far_pointer_var(ptr_symbol)
+
+        done = f"__dispose_done_{len(self.writer.code)}"
+
+        self.writer.emit_cmp_reg16_imm16("dx", 0)
+        self.writer.emit_je(done)
+
+        self.writer.emit_mov_es_reg16("dx")
+
+        self.writer.emit_mov_ah_imm8(0x49)
+        self.writer.emit_int(0x21)
+
+        self.writer.emit_mov_reg16_imm16("ax", 0)
+
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "ax")
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
+
+        self.writer.bind_label(done)
 
 # ---------------------------------------------------------------------------
 # win64 pe coff writer ...
@@ -3083,6 +3419,12 @@ class MZWriter16:
         
         self.fixups = []
         self.labels = {}
+        
+        self.dos_for_end_symbol   = "__dos_for_end"
+        
+        self.dos_heap_pos_symbol  = "__dos_heap_pos"
+        self.dos_heap_area_symbol = "__dos_heap_area"
+        self.dos_heap_size        = 8192
 
     def bind_label(self, name):
         self.labels[name] = len(self.code)
@@ -3128,6 +3470,21 @@ class MZWriter16:
             "label": label
         })
     
+    def emit_call_label(self, label):
+        # near call rel16: E8 xx xx
+        self.code.append(0xE8)
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel16(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
     def emit_print_string_current_dx(self):
         self.emit_mov_ah_imm8(0x09)
         self.emit_int(0x21)
@@ -3147,7 +3504,68 @@ class MZWriter16:
         self.emit_mov_dl_imm8(10)
         self.emit_mov_ah_imm8(0x02)
         self.emit_int(0x21)
+        
+    def emit_print_char_dl(self):
+        self.emit_mov_ah_imm8(0x02)
+        self.emit_int(0x21)
 
+    def emit_print_int_ax(self):
+        lbl_loop = f"__print_int_loop_{len(self.code)}"
+        lbl_out  = f"__print_int_out_{len(self.code)}"
+
+        # Spezialfall 0
+        self.emit_cmp_reg16_imm16("ax", 0)
+        self.emit_jne(lbl_loop)
+
+        self.emit_mov_dl_imm8(ord("0"))
+        self.emit_print_char_dl()
+        return_label = f"__print_int_done_{len(self.code)}"
+        self.emit_jmp(return_label)
+
+        # Zahl > 0
+        self.bind_label(lbl_loop)
+
+        # cx = 0  ; digit counter
+        self.emit_mov_reg16_imm16("cx", 0)
+
+        # bx = 10
+        self.emit_mov_reg16_imm16("bx", 10)
+
+        div_loop = f"__print_int_div_{len(self.code)}"
+        print_loop = f"__print_int_print_{len(self.code)}"
+
+        self.bind_label(div_loop)
+
+        # dx = 0
+        self.emit_mov_reg16_imm16("dx", 0)
+
+        # div bx  -> ax = ax / 10, dx = rest
+        self.emit_div_reg16("bx")
+
+        # Rest nach ASCII wandeln: dl += '0'
+        self.emit_add_dl_imm8(ord("0"))
+
+        # Digit speichern
+        self.emit_push_reg16("dx")
+
+        # cx++
+        self.emit_inc_reg16("cx")
+
+        # solange ax != 0
+        self.emit_cmp_reg16_imm16("ax", 0)
+        self.emit_jne(div_loop)
+
+        self.bind_label(print_loop)
+
+        self.emit_pop_reg16("dx")
+        self.emit_print_char_dl()
+
+        self.emit_dec_reg16("cx")
+        self.emit_cmp_reg16_imm16("cx", 0)
+        self.emit_jne(print_loop)
+
+        self.bind_label(return_label)
+        
     def emit_mov_dl_imm8(self, value):
         self.code += b"\xB2"
         self.code.append(value & 0xFF)
@@ -3168,34 +3586,47 @@ class MZWriter16:
     def emit_mov_dx_imm16(self, value):
         self.code += b"\xBA"
         self.code += int(value).to_bytes(2, "little")
-
+    
     def emit_mov_ah_imm8(self, value):
         self.code += b"\xB4"
         self.code.append(value & 0xFF)
-
+    
     def emit_int(self, value):
         self.code += b"\xCD"
         self.code.append(value & 0xFF)
-
+    
     def emit_push_cs_pop_ds(self):
         self.code += b"\x0E"  # push cs
         self.code += b"\x1F"  # pop ds
-
+    
     def emit_exit(self, code=0):
         self.emit_mov_ax_imm16(0x4C00 | (code & 0xFF))
         self.emit_int(0x21)
-
+    
     def patch_data_fixups(self):
         data_base = len(self.code)
-
+        
         for fix in self.fixups:
+            if fix.get("kind") == "data16_disp":
+                label = fix["label"]
+                if label not in self.labels:
+                    raise RuntimeError(f"unknown DOS data label: {label}")
+                
+                value = data_base + self.labels[label] + fix.get("disp", 0)
+                self.code[fix["patch_pos"]:fix["patch_pos"] + 2] = int(value).to_bytes(
+                    2,
+                    "little",
+                    signed = False
+                )
+                continue
+                
             if fix.get("kind") != "data16":
                 continue
-
+            
             label = fix["label"]
             if label not in self.labels:
                 raise RuntimeError(f"unknown DOS data label: {label}")
-
+            
             value = data_base + self.labels[label]
 
             self.code[fix["patch_pos"]:fix["patch_pos"] + 2] = int(value).to_bytes(
@@ -3203,6 +3634,451 @@ class MZWriter16:
                 "little",
                 signed=False
             )
+
+    def _reg16_id(self, reg):
+        regs = {
+            "ax": 0,
+            "cx": 1,
+            "dx": 2,
+            "bx": 3,
+            "sp": 4,
+            "bp": 5,
+            "si": 6,
+            "di": 7,
+        }
+
+        if reg not in regs:
+            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+
+        return regs[reg]
+    
+    def emit_push_reg16(self, reg):
+        op = {
+            "ax": 0x50,
+            "cx": 0x51,
+            "dx": 0x52,
+            "bx": 0x53,
+            "sp": 0x54,
+            "bp": 0x55,
+            "si": 0x56,
+            "di": 0x57,
+        }
+
+        if reg not in op:
+            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+
+        self.code.append(op[reg])
+
+    def emit_pop_reg16(self, reg):
+        op = {
+            "ax": 0x58,
+            "cx": 0x59,
+            "dx": 0x5A,
+            "bx": 0x5B,
+            "sp": 0x5C,
+            "bp": 0x5D,
+            "si": 0x5E,
+            "di": 0x5F,
+        }
+
+        if reg not in op:
+            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+
+        self.code.append(op[reg])
+
+    def emit_mov_reg16_reg16(self, dst, src):
+        reg_id = {
+            "ax": 0,
+            "cx": 1,
+            "dx": 2,
+            "bx": 3,
+            "sp": 4,
+            "bp": 5,
+            "si": 6,
+            "di": 7,
+        }
+
+        if dst not in reg_id:
+            raise RuntimeError(f"unsupported dst register: {dst}")
+
+        if src not in reg_id:
+            raise RuntimeError(f"unsupported src register: {src}")
+
+        # mov r/m16, r16
+        self.code.append(0x89)
+        self.code.append(0xC0 | (reg_id[src] << 3) | reg_id[dst])
+
+    def emit_jcc(self, cc, label):
+        opcodes = {
+            "je":  b"\x0F\x84",
+            "jne": b"\x0F\x85",
+            "jl":  b"\x0F\x8C",
+            "jle": b"\x0F\x8E",
+            "jg":  b"\x0F\x8F",
+            "jge": b"\x0F\x8D",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"unsupported DOS jcc: {cc}")
+
+        self.code += opcodes[cc]
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel16(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+
+    def emit_je (self, label): self.emit_jcc("je",  label)
+    def emit_jne(self, label): self.emit_jcc("jne", label)
+    def emit_jz (self, label): self.emit_jcc("je",  label)
+    def emit_jnz(self, label): self.emit_jcc("jne", label)
+
+    def emit_jl (self, label): self.emit_jcc("jl",  label)
+    def emit_jle(self, label): self.emit_jcc("jle", label)
+    def emit_jg (self, label): self.emit_jcc("jg",  label)
+    def emit_jge(self, label): self.emit_jcc("jge", label)
+
+    def emit_cwd(self):
+        # CWD: sign extend AX -> DX:AX
+        self.code.append(0x99)
+
+    def emit_idiv_reg16(self, reg):
+        reg_id = self._reg16_id(reg)
+
+        # idiv r/m16
+        self.code.append(0xF7)
+        self.code.append(0xF8 | reg_id)
+    
+    def emit_div_reg16(self, reg):
+        reg_id = self._reg16_id(reg)
+
+        # div r/m16
+        self.code.append(0xF7)
+        self.code.append(0xF0 | reg_id)
+
+    def emit_inc_reg16(self, reg):
+        reg_id = self._reg16_id(reg)
+        self.code.append(0x40 + reg_id)
+
+    def emit_dec_reg16(self, reg):
+        reg_id = self._reg16_id(reg)
+        self.code.append(0x48 + reg_id)
+
+    def emit_add_dl_imm8(self, value):
+        # add dl, imm8
+        self.code += b"\x80\xC2"
+        self.code.append(value & 0xFF)
+
+    def emit_cmp_reg16_reg16(self, left, right):
+        left_id  = self._reg16_id(left)
+        right_id = self._reg16_id(right)
+
+        # cmp r/m16, r16
+        self.code.append(0x39)
+        self.code.append(0xC0 | (right_id << 3) | left_id)
+    
+    def emit_cmp_reg16_imm16(self, reg, value):
+        reg_id = self._reg16_id(reg)
+        
+        # cmp r/m16, imm16
+        self.code.append(0x81)
+        self.code.append(0xF8 | reg_id)
+        self.code += int(value).to_bytes(2, "little", signed=True)
+    
+    def emit_sub_sp_imm16(self, value):
+        if value <= 0:
+            return
+        
+        self.code += b"\x81\xEC"
+        self.code += int(value).to_bytes(2, "little", signed=False)
+
+    def emit_add_sp_imm16(self, value):
+        if value <= 0:
+            return
+
+        self.code += b"\x81\xC4"
+        self.code += int(value).to_bytes(2, "little", signed=False)
+
+    def emit_function_prolog(self, local_size=0):
+        self.emit_push_reg16("bp")
+        self.emit_mov_reg16_reg16("bp", "sp")
+
+        if local_size:
+            self.emit_sub_sp_imm16(local_size)
+
+    def emit_function_epilog(self):
+        self.emit_mov_reg16_reg16("sp", "bp")
+        self.emit_pop_reg16("bp")
+        self.emit_ret()
+
+    def emit_ret(self):
+        self.code.append(0xC3)
+
+    def add_word_var(self, name, value=0):
+        offset = len(self.data)
+        self.labels[name] = offset
+        self.data += int(value).to_bytes(2, "little", signed=True)
+        return offset
+
+    def emit_mov_reg16_imm16(self, reg, value):
+        reg_id = self._reg16_id(reg)
+
+        # mov r16, imm16
+        self.code.append(0xB8 + reg_id)
+        self.code += int(value).to_bytes(2, "little", signed=True)
+
+    def emit_mov_mem16_reg16(self, label, reg):
+        reg_id = self._reg16_id(reg)
+
+        # mov [imm16], r16
+        self.code.append(0x89)
+        self.code.append(0x06 | (reg_id << 3))
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16",
+            "patch_pos": patch_pos,
+            "label": label
+        })
+
+    def emit_mov_reg16_mem16(self, reg, label):
+        reg_id = self._reg16_id(reg)
+
+        # mov r16, [imm16]
+        self.code.append(0x8B)
+        self.code.append(0x06 | (reg_id << 3))
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16",
+            "patch_pos": patch_pos,
+            "label": label
+        })
+    
+    def emit_mov_reg16_mem16_base_disp(self, dst, base, offset):
+        dst_id  = self._reg16_id(dst)
+
+        if base != "si":
+            raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
+
+        # mov r16, r/m16
+        self.code.append(0x8B)
+
+        # [si] rm = 100
+        if offset == 0:
+            self.code.append(0x00 | (dst_id << 3) | 0x04)
+
+        elif -128 <= offset <= 127:
+            self.code.append(0x40 | (dst_id << 3) | 0x04)
+            self.code.append(offset & 0xFF)
+
+        else:
+            self.code.append(0x80 | (dst_id << 3) | 0x04)
+            self.code += int(offset).to_bytes(2, "little", signed=True)
+    
+    def emit_mov_reg16_mem16_disp(self, reg, label, disp):
+        if not isinstance(label, str):
+            raise RuntimeError(f"emit_mov_reg16_mem16_disp: label must be str, got {label!r}")
+            
+        reg_id = self._reg16_id(reg)
+
+        # mov r16, [imm16]
+        self.code.append(0x8B)
+        self.code.append(0x06 | (reg_id << 3))
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16_disp",
+            "patch_pos": patch_pos,
+            "label": label,
+            "disp": disp
+        })
+    
+    def emit_imul_reg16_reg16(self, dst, src):
+        dst_id = self._reg16_id(dst)
+        src_id = self._reg16_id(src)
+
+        # 0F AF /r  => imul r16, r/m16
+        self.code += b"\x0F\xAF"
+        self.code.append(0xC0 | (dst_id << 3) | src_id)
+
+    def emit_imul_reg16_reg16_imm16(self, dst, src, value):
+        dst_id = self._reg16_id(dst)
+        src_id = self._reg16_id(src)
+
+        # 69 /r iw => imul r16, r/m16, imm16
+        self.code.append(0x69)
+        self.code.append(0xC0 | (dst_id << 3) | src_id)
+        self.code += int(value).to_bytes(2, "little", signed=True)
+
+    def emit_xor_reg16_reg16(self, dst, src):
+        dst_id = self._reg16_id(dst)
+        src_id = self._reg16_id(src)
+
+        # xor r/m16, r16
+        self.code.append(0x31)
+        self.code.append(0xC0 | (src_id << 3) | dst_id)
+    
+    def emit_add_reg16_imm16(self, reg, value):
+        reg_id = self._reg16_id(reg)
+
+        self.code.append(0x81)
+        self.code.append(0xC0 | reg_id)
+        self.code += int(value).to_bytes(2, "little", signed=True)
+
+    def emit_sub_reg16_imm16(self, reg, value):
+        reg_id = self._reg16_id(reg)
+
+        self.code.append(0x81)
+        self.code.append(0xE8 | reg_id)
+        self.code += int(value).to_bytes(2, "little", signed=True)
+
+    def emit_add_reg16_reg16(self, dst, src):
+        dst_id = self._reg16_id(dst)
+        src_id = self._reg16_id(src)
+
+        self.code.append(0x01)
+        self.code.append(0xC0 | (src_id << 3) | dst_id)
+
+    def emit_sub_reg16_reg16(self, dst, src):
+        dst_id = self._reg16_id(dst)
+        src_id = self._reg16_id(src)
+
+        self.code.append(0x29)
+        self.code.append(0xC0 | (src_id << 3) | dst_id)
+
+    def emit_test_reg16_reg16(self, left, right):
+        left_id  = self._reg16_id(left)
+        right_id = self._reg16_id(right)
+
+        # test r/m16, r16
+        self.code.append(0x85)
+        self.code.append(0xC0 | (right_id << 3) | left_id)
+    
+    def emit_mov_mem16_reg16_disp(self, label, disp, reg):
+        if not isinstance(label, str):
+            raise RuntimeError(
+                f"emit_mov_mem16_reg16_disp: label must be str, got {label!r}"
+            )
+        reg_id = self._reg16_id(reg)
+
+        # mov [imm16], r16
+        self.code.append(0x89)
+        self.code.append(0x06 | (reg_id << 3))
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16_disp",
+            "patch_pos": patch_pos,
+            "label": label,
+            "disp": disp
+        })
+    
+    def emit_mov_mem16_base_disp_reg16(self, base, offset, src):
+        base_id = self._reg16_id(base)
+        src_id  = self._reg16_id(src)
+
+        # Für 16-bit addressing sind nur bestimmte Basisformen gültig.
+        # Wir unterstützen erstmal [si + disp].
+        if base != "si":
+            raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
+
+        # mov r/m16, r16
+        self.code.append(0x89)
+
+        # [si] rm = 100
+        if offset == 0:
+            mod = 0x00
+            rm  = 0x04
+            self.code.append(mod | (src_id << 3) | rm)
+        elif -128 <= offset <= 127:
+            mod = 0x40
+            rm  = 0x04
+            self.code.append(mod | (src_id << 3) | rm)
+            self.code.append(offset & 0xFF)
+        else:
+            mod = 0x80
+            rm  = 0x04
+            self.code.append(mod | (src_id << 3) | rm)
+            self.code += int(offset).to_bytes(2, "little", signed=True)
+
+    def add_bytes_var(self, name, data):
+        offset = len(self.data)
+        self.labels[name] = offset
+        self.data += data
+        return offset
+
+    def ensure_dos_heap(self):
+        if self.dos_heap_pos_symbol not in self.labels:
+            self.add_word_var(self.dos_heap_pos_symbol, 2)
+
+        if self.dos_heap_area_symbol not in self.labels:
+            self.add_bytes_var(
+                self.dos_heap_area_symbol,
+                b"\x00" * self.dos_heap_size
+            )
+
+    def emit_mov_ax_data_label(self, label):
+        self.code.append(0xB8)
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "data16",
+            "patch_pos": patch_pos,
+            "label": label
+        })
+    
+    def add_dword_var(self, name, value=0):
+        offset = len(self.data)
+        self.labels[name] = offset
+        self.data += int(value).to_bytes(4, "little", signed=False)
+        return offset
+
+    def emit_mov_es_reg16(self, reg):
+        reg_id = self._reg16_id(reg)
+
+        # mov Sreg, r/m16
+        # ES = 0
+        self.code.append(0x8E)
+        self.code.append(0xC0 | (0 << 3) | reg_id)
+
+    def emit_mov_bx_imm16(self, value):
+        self.emit_mov_reg16_imm16("bx", value)
+
+    def emit_jc(self, label):
+        self.emit_jcc_rel16(0x82, label)   # JC/JB/NAE
+
+    def emit_clc(self):
+        self.code.append(0xF8)
+        
+    def emit_jcc_rel16(self, opcode, label):
+        self.code += b"\x0F"
+        self.code.append(opcode)
+
+        patch_pos = len(self.code)
+        self.code += b"\x00\x00"
+
+        self.fixups.append({
+            "kind": "rel16",
+            "patch_pos": patch_pos,
+            "label": label
+        })
 
     def write(self, filename):
         code_size         =  len(self.code)
@@ -3212,6 +4088,10 @@ class MZWriter16:
         HEADER_SIZE       = HEADER_PARAGRAPHS * 16   # 64 Byte
         image_size        = HEADER_SIZE + len(self.code) + len(self.data)
         
+        if self.dos_for_end_symbol not in self.labels:
+            self.add_word_var(self.dos_for_end_symbol, 0)
+        
+        self.ensure_dos_heap()
         self.patch_data_fixups()
 
         last_page_bytes   =  image_size % 512
@@ -3227,8 +4107,8 @@ class MZWriter16:
             page_count,           # Seiten im File
             0,                    # e_crlc
             HEADER_PARAGRAPHS,    # header paragraphs (4 * 16 = 64)
-            0,                    # min alloc
-            0xFFFF,               # max alloc
+            0x0040,               # min alloc
+            0x0040,               # max alloc
             0,                    # SS
             0xFFFE,               # SP
             0,                    # checksum
@@ -4004,6 +4884,31 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def method_signature(self, params):
         return tuple(self.resolve_type(p["type"]) for p in params)
     
+    def sizeof_dos_pointed_type(self, ctx, ptr_type):
+        ptr_type = self.resolve_type(ptr_type)
+
+        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
+            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+        base_type = self.resolve_type(ptr_type[1:])
+
+        if base_type == "integer":
+            return 2
+
+        if base_type == "boolean":
+            return 2
+
+        if base_type in self.records:
+            # Achtung: Record-Felder sind aktuell noch 4/8 Byte aus Win64-Sicht.
+            # Für DOS später besser type_size_dos bauen.
+            return self.records[base_type].size
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"DOS New() unsupported pointed type: {base_type}"
+        )
+    
     def type_size(self, ctx, typ):
         typ = self.resolve_type(typ)
         
@@ -4419,7 +5324,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             slot = self.next_int_slot
             self.next_int_slot += 1
             
-            if use_direct_coff_globals:
+            if CDATA.args_target in ["dos", "dos16"]:
+                symbol = f"_var_{name}"
+                self.backend.writer.add_dword_var(symbol)
+            else:
+                #if use_direct_coff_globals:
                 symbol = f"_var_{name}"
                 self.coff.add_data_i32(symbol)
         
@@ -4445,7 +5354,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         elif isinstance(typ, str) and typ in self.arrays:
             array_info = self.arrays[typ]
-
+            
             if getattr(array_info, "is_dynamic", False):
                 slot = self.next_pointr_slot
                 self.next_pointr_slot += 1
@@ -4465,7 +5374,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
             
-            if use_direct_coff_globals:
+            if CDATA.args_target in ["dos", "dos16"]:
+                symbol = f"_var_{name}"
+                self.backend.writer.add_dword_var(symbol)
+                
+            elif use_direct_coff_globals:
                 symbol = f"_var_{name}"
                 self.coff.add_data_qword(symbol)
             
@@ -5609,6 +6522,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return None
     
+    def emit_setne(self, reg, comment=""):
+        self.backend.emit_setne(reg, comment)
+    
     def emit_soft_runtime_error(self, message):
         except_label = self.current_except_label()
 
@@ -5713,6 +6629,26 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_builtin_new(self, ctx):
         actuals = []
+
+        if CDATA.args_target in ["dos", "dos16"]:
+            args = self.function_call_args(ctx)
+
+            if len(args) != 1:
+                raise CompileError(ctx, "E0005", got=str(len(args)), expected="1")
+
+            ptr_name = args[0].getText()
+            info = self.var_info(ctx, ptr_name)
+
+            ptr_type = self.resolve_type(info["type"])
+            size = self.sizeof_dos_pointed_type(ctx, ptr_type)
+
+            symbol = info.get("symbol")
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+
+            self.backend.emit_new_pointer_far(symbol, size)
+            return None
 
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
@@ -5915,6 +6851,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_builtin_dispose(self, ctx):
         actuals = []
+
+        if CDATA.args_target in ("dos", "dos16"):
+            args = self.function_call_args(ctx)
+
+            if len(args) != 1:
+                raise CompileError(ctx, "E0005", got=str(len(args)), expected="1")
+
+            ptr_name = args[0].getText()
+            info = self.var_info(ctx, ptr_name)
+
+            ptr_type = self.resolve_type(info["type"])
+            if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
+                raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+
+            symbol = info.get("symbol")
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+
+            self.backend.emit_dispose_pointer_far(symbol)
+            return None
 
         if ctx.actualParamList():
             actuals = list(ctx.actualParamList().actualParam())
@@ -7246,6 +8203,29 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ  = info["type"]
         slot = info["slot"]
         
+        if CDATA.args_target in ["dos", "dos16"]:
+            var_type = self.resolve_type(info["type"])
+
+            if var_type == "integer":
+                symbol = info.get("symbol")
+
+                if not symbol:
+                    symbol = f"_var_{info['name']}"
+                    info["symbol"] = symbol
+
+                self.backend.emit_load_word_var("ax", symbol)
+                return "integer"
+            
+            if isinstance(var_type, str) and var_type.startswith("^"):
+                symbol = info.get("symbol")
+
+                if not symbol:
+                    symbol = f"_var_{info['name']}"
+                    info["symbol"] = symbol
+
+                self.backend.emit_load_word_var("ax", symbol)
+                return var_type
+        
         # -------------------------------------------------
         # Neues COFF-Backend:
         # direkte globale Variable per Symbol laden
@@ -7418,6 +8398,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return
                 
         if typ == "integer":
+            if CDATA.args_backend in ["exefile"]:
+                if CDATA.args_target in ["dos", "dos16"]:
+                    var_type = self.resolve_type(info["type"])
+
+                    if var_type == "integer":
+                        symbol = info.get("symbol")
+
+                        if not symbol:
+                            symbol = f"_var_{info['name']}"
+                            info["symbol"] = symbol
+
+                        self.backend.emit_store_word_var(symbol, "ax")
+                        return
+                        
+                    if isinstance(var_type, str) and var_type.startswith("^"):
+                        symbol = info.get("symbol")
+                        
+                        if not symbol:
+                            symbol = f"_var_{info['name']}"
+                            info["symbol"] = symbol
+                        
+                        self.backend.emit_store_word_var(symbol, "ax")
+                        return
+            
             self.emit_mov("ebx", "eax")
             self.emit_mov_qword("rax", "r12", "int_vars")
             self.emit_mov_dword_ptr_store("rax", slot * 4, "ebx", comment=f"{name}")
@@ -7834,20 +8838,36 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if end_type != "integer":
             raise CompileError(ctx, "E0005", got=end_type, expected="integer")
 
-        self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, _print_int_tmp)", "eax", comment="for end value")
+        if CDATA.args_target in ["dos", "dos16"]:
+            self.backend.emit_store_for_end_ax()
+        else:
+            self.emit_mov_dword_ptr_store(
+                "r12",
+                "offsetof(JitContext, _print_int_tmp)",
+                "eax",
+                comment="for end value"
+            )
 
         self.emit_bind_label(start_name)
-
         self.emit_load_var(var_name, info)
 
         direction = ctx.getChild(4).getText().lower()
 
-        if direction == "to":
-            self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
-            self.emit_jg(end_name)
+        if CDATA.args_target in ["dos", "dos16"]:
+            self.backend.emit_load_for_end_bx()
+            self.emit_cmp("eax", "ebx")
+
+            if direction == "to":
+                self.emit_jg(end_name)
+            else:
+                self.emit_jl(end_name)
         else:
-            self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
-            self.emit_jl(end_name)
+            if direction == "to":
+                self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
+                self.emit_jg(end_name)
+            else:
+                self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
+                self.emit_jl(end_name)
 
         self.break_label_stack.append(end_name)
         self.continue_label_stack.append(continue_name)
@@ -11285,7 +12305,7 @@ def main():
         print(f"Code : {e.errno}")
         return 2
     except Exception as e:
-        #print(f"Error: {str(e)}")
+        print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return 1
