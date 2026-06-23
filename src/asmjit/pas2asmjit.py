@@ -1673,44 +1673,28 @@ class DosBackend(CodeBackend):
         self.writer.emit_mov_reg16_mem16_disp("dx", symbol, 2)
     
     def emit_new_pointer_far(self, ptr_symbol, size):
-        # DOS allociert in Paragraphen: 1 Paragraph = 16 Byte
-        paragraphs = (size + 15) // 16
-        if paragraphs <= 0:
-            paragraphs = 1
-
         fail_label = f"__new_fail_{len(self.writer.code)}"
         done_label = f"__new_done_{len(self.writer.code)}"
 
-        # AH = 48h, BX = paragraphs
-        self.writer.emit_mov_ah_imm8(0x48)
-        self.writer.emit_mov_reg16_imm16("bx", paragraphs)
-        self.writer.emit_int(0x21)
+        self.writer.emit_mov_reg16_imm16("ax", size)
+        self.writer.emit_heap_alloc()
 
-        # CF gesetzt => Fehler
-        self.writer.emit_jc(fail_label)
+        # DX = 0 => Fehler
+        self.writer.emit_cmp_reg16_imm16("dx", 0)
+        self.writer.emit_je(fail_label)
 
-        # Erfolg:
-        # AX = Segment des neuen Blocks
-        # Pointer = Offset 0, Segment AX
-        self.writer.emit_mov_reg16_imm16("dx", 0)
-
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "dx")
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
+        # Pointer speichern:
+        # AX = Offset
+        # DX = Segment
+        self.emit_store_far_pointer_var(ptr_symbol)
 
         self.writer.emit_jmp(done_label)
 
-        # Fehler:
         self.writer.bind_label(fail_label)
 
-        # p := nil
-        self.writer.emit_mov_reg16_imm16("ax", 0)
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "ax")
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
-
-        # einfache Runtime-Meldung
         msg_label = "__msg_out_of_memory"
         self.writer.add_dos_string(msg_label, "Out of memory")
-        
+
         self.writer.emit_mov_dx_label(msg_label)
         self.writer.emit_print_string_current_dx()
         self.writer.emit_print_newline()
@@ -1719,27 +1703,23 @@ class DosBackend(CodeBackend):
         self.writer.bind_label(done_label)
     
     def emit_dispose_pointer_far(self, ptr_symbol):
-        self.emit_load_far_pointer_var(ptr_symbol)
-
-        done = f"__dispose_done_{len(self.writer.code)}"
-
-        self.writer.emit_cmp_reg16_imm16("dx", 0)
-        self.writer.emit_je(done)
-
-        self.writer.emit_mov_es_reg16("dx")
-
-        self.writer.emit_mov_ah_imm8(0x49)
-        self.writer.emit_int(0x21)
+        # neuer Heap: NICHT int 21h / AH=49h aufrufen!
+        # Dispose/Free setzt den Pointer erstmal nur auf NIL.
 
         self.writer.emit_mov_reg16_imm16("ax", 0)
 
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "ax")
-        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")
-
-        self.writer.bind_label(done)
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 0, "ax")  # Offset
+        self.writer.emit_mov_mem16_reg16_disp(ptr_symbol, 2, "ax")  # Segment
+    
+    def emit_heap_init(self, paragraphs=0x40):
+        self.writer.emit_heap_init(paragraphs)
+        
+    def emit_heap_alloc(self, size):
+        self.writer.emit_mov_reg16_imm16("ax", size)
+        self.writer.emit_heap_alloc()
 
 # ---------------------------------------------------------------------------
-# win64 pe coff writer ...
+# win64 pe coff writer ... \
 # ---------------------------------------------------------------------------
 class PECoffWriter:
     def __init__(self):
@@ -3486,6 +3466,10 @@ class MZWriter16:
             })
     
     def emit_print_string_current_dx(self):
+        # DOS AH=09h erwartet DS:DX.
+        # Unsere DOS-Strings liegen im Programmsegment.
+        self.emit_push_cs_pop_ds()
+
         self.emit_mov_ah_imm8(0x09)
         self.emit_int(0x21)
     
@@ -3510,28 +3494,26 @@ class MZWriter16:
         self.emit_int(0x21)
 
     def emit_print_int_ax(self):
-        lbl_loop = f"__print_int_loop_{len(self.code)}"
-        lbl_out  = f"__print_int_out_{len(self.code)}"
+        return_label = f"__print_int_done_{len(self.code)}"
+        lbl_nonzero  = f"__print_int_nonzero_{len(self.code)}"
 
         # Spezialfall 0
         self.emit_cmp_reg16_imm16("ax", 0)
-        self.emit_jne(lbl_loop)
+        self.emit_jne(lbl_nonzero)
 
         self.emit_mov_dl_imm8(ord("0"))
         self.emit_print_char_dl()
-        return_label = f"__print_int_done_{len(self.code)}"
         self.emit_jmp(return_label)
 
-        # Zahl > 0
-        self.bind_label(lbl_loop)
+        self.bind_label(lbl_nonzero)
 
-        # cx = 0  ; digit counter
+        # cx = 0 ; digit counter
         self.emit_mov_reg16_imm16("cx", 0)
 
         # bx = 10
         self.emit_mov_reg16_imm16("bx", 10)
 
-        div_loop = f"__print_int_div_{len(self.code)}"
+        div_loop   = f"__print_int_div_{len(self.code)}"
         print_loop = f"__print_int_print_{len(self.code)}"
 
         self.bind_label(div_loop)
@@ -3539,10 +3521,10 @@ class MZWriter16:
         # dx = 0
         self.emit_mov_reg16_imm16("dx", 0)
 
-        # div bx  -> ax = ax / 10, dx = rest
+        # div bx -> ax = ax / 10, dx = rest
         self.emit_div_reg16("bx")
 
-        # Rest nach ASCII wandeln: dl += '0'
+        # Rest nach ASCII wandeln
         self.emit_add_dl_imm8(ord("0"))
 
         # Digit speichern
@@ -3868,22 +3850,25 @@ class MZWriter16:
     def emit_mov_reg16_mem16_base_disp(self, dst, base, offset):
         dst_id  = self._reg16_id(dst)
 
-        if base != "si":
+        if base == "si":
+            rm = 0x04          # [si]
+        elif base == "bp":
+            rm = 0x06          # [bp + disp]
+        else:
             raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
 
         # mov r16, r/m16
         self.code.append(0x8B)
 
         # [si] rm = 100
-        if offset == 0:
-            self.code.append(0x00 | (dst_id << 3) | 0x04)
+        if offset == 0 and base != "bp":
+            self.code.append(0x00 | (dst_id << 3) | rm)
 
         elif -128 <= offset <= 127:
-            self.code.append(0x40 | (dst_id << 3) | 0x04)
+            self.code.append(0x40 | (dst_id << 3) | rm)
             self.code.append(offset & 0xFF)
-
         else:
-            self.code.append(0x80 | (dst_id << 3) | 0x04)
+            self.code.append(0x80 | (dst_id << 3) | rm)
             self.code += int(offset).to_bytes(2, "little", signed=True)
     
     def emit_mov_reg16_mem16_disp(self, reg, label, disp):
@@ -3989,31 +3974,29 @@ class MZWriter16:
         })
     
     def emit_mov_mem16_base_disp_reg16(self, base, offset, src):
-        base_id = self._reg16_id(base)
-        src_id  = self._reg16_id(src)
+        src_id = self._reg16_id(src)
 
-        # Für 16-bit addressing sind nur bestimmte Basisformen gültig.
-        # Wir unterstützen erstmal [si + disp].
-        if base != "si":
+        if base == "si":
+            rm = 0x04          # [si]
+        elif base == "bp":
+            rm = 0x06          # [bp + disp]
+        else:
             raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
 
-        # mov r/m16, r16
-        self.code.append(0x89)
+        self.code.append(0x89) # mov r/m16, r16
 
-        # [si] rm = 100
-        if offset == 0:
-            mod = 0x00
-            rm  = 0x04
-            self.code.append(mod | (src_id << 3) | rm)
+        # Achtung:
+        # [bp] ohne Displacement wäre im 16-bit Encoding eigentlich [disp16].
+        # Darum bei bp und offset == 0 trotzdem disp8=0 verwenden.
+        if offset == 0 and base != "bp":
+            self.code.append(0x00 | (src_id << 3) | rm)
+
         elif -128 <= offset <= 127:
-            mod = 0x40
-            rm  = 0x04
-            self.code.append(mod | (src_id << 3) | rm)
+            self.code.append(0x40 | (src_id << 3) | rm)
             self.code.append(offset & 0xFF)
+
         else:
-            mod = 0x80
-            rm  = 0x04
-            self.code.append(mod | (src_id << 3) | rm)
+            self.code.append(0x80 | (src_id << 3) | rm)
             self.code += int(offset).to_bytes(2, "little", signed=True)
 
     def add_bytes_var(self, name, data):
@@ -4080,6 +4063,213 @@ class MZWriter16:
             "label": label
         })
 
+    def ensure_dos_heap_symbols(self):
+        if "__heap_initialized" not in self.labels:
+            self.add_word_var("__heap_initialized", 0)
+        
+        if "__heap_segment" not in self.labels:
+            self.add_word_var("__heap_segment", 0)
+
+        if "__heap_size" not in self.labels:
+            self.add_word_var("__heap_size", 0)
+
+        if "__heap_free_head_off" not in self.labels:
+            self.add_word_var("__heap_free_head_off", 0)
+
+        if "__heap_free_head_seg" not in self.labels:
+            self.add_word_var("__heap_free_head_seg", 0)
+            
+        if "__heap_next" not in self.labels:
+            self.add_word_var("__heap_next", 0)
+
+    def emit_ja(self, label):
+        self.emit_jcc_rel16(0x87, label)
+
+    def emit_heap_init(self, paragraphs=0x40):
+        self.ensure_dos_heap_symbols()
+
+        fail_label = f"__heap_init_fail_{len(self.code)}"
+        done_label = f"__heap_init_done_{len(self.code)}"
+
+        already_label = f"__heap_init_already_{len(self.code)}"
+        
+        self.emit_mov_reg16_mem16("ax", "__heap_initialized")
+        self.emit_cmp_reg16_imm16("ax", 1)
+        self.emit_je(already_label)
+        
+        # AH = 48h, BX=Paragraphen
+        self.emit_mov_ah_imm8(0x48)
+        self.emit_mov_reg16_imm16("bx", paragraphs)
+        self.emit_int(0x21)
+
+        # CF gesetzt => Fehler
+        self.emit_jc(fail_label)
+        
+        self.emit_mov_reg16_imm16("bx", 1)
+        self.emit_mov_mem16_reg16("__heap_initialized", "bx")
+
+        # AX = Heap-Segment
+        self.emit_mov_mem16_reg16("__heap_segment", "ax")
+        self.emit_mov_reg16_imm16("bx", paragraphs)
+        self.emit_mov_mem16_reg16("__heap_size", "bx")
+
+        # FreeList Head = Offset 0, Segment AX
+        self.emit_mov_reg16_imm16("dx", 0)
+        self.emit_mov_mem16_reg16("__heap_free_head_off", "dx")
+        self.emit_mov_mem16_reg16("__heap_free_head_seg", "ax")
+
+        # erster freier Offset im Heap
+        self.emit_mov_reg16_imm16("bx", 0)
+        self.emit_mov_mem16_reg16("__heap_next", "bx")
+
+        self.emit_jmp(done_label)
+        self.bind_label(fail_label)
+
+        msg_label = "__msg_heap_init_failed"
+        self.add_dos_string(msg_label, "HeapInit failed")
+
+        self.emit_mov_dx_label(msg_label)
+        self.emit_print_string_current_dx()
+        self.emit_print_newline()
+        self.emit_exit(1)
+
+        self.bind_label(already_label)
+        self.bind_label(done_label)
+
+    # ---------------------------------------------------------------------------
+    #  Input:
+    #     AX = gewünschte Größe in Bytes
+    #
+    #  Output:
+    #     AX = Offset im Heap
+    #     DX = Heap-Segment
+    #     AX = 0/DX = 0 bei Fehler
+    # ---------------------------------------------------------------------------
+    def emit_heap_alloc(self):
+        fail_label = f"__heap_alloc_fail_{len(self.code)}"
+        done_label = f"__heap_alloc_done_{len(self.code)}"
+
+        # BX = size + header
+        self.emit_mov_reg16_reg16("bx", "ax")
+        self.emit_add_reg16_imm16("bx", 4)
+
+        # Größe auf gerade Zahl runden
+        self.emit_add_reg16_imm16("bx", 1)
+        # bx &= 0xFFFE fehlt noch -> einfache Version:
+        # vorerst nur WORD-ausgerichtete Größen vom Generator übergeben
+
+        # AX = heap_next
+        self.emit_mov_reg16_mem16("ax", "__heap_next")
+
+        # CX = alter heap_next = Rückgabe-Offset
+        self.emit_mov_reg16_reg16("cx", "ax")
+
+        # AX = heap_next + size
+        self.emit_add_reg16_reg16("ax", "bx")
+
+        # Prüfen gegen Heapgröße in Bytes
+        # DX = paragraphs
+        self.emit_mov_reg16_mem16("dx", "__heap_size")
+
+        # DX = paragraphs * 16
+        self.emit_shl_reg16_imm8("dx", 4)
+
+        # Sicherheitsreserve: 16 Bytes am Ende lassen
+        self.emit_sub_reg16_imm16("dx", 16)
+
+        self.emit_cmp_reg16_reg16("ax", "dx")
+        self.emit_ja(fail_label)
+
+        # heap_next = AX
+        self.emit_mov_mem16_reg16("__heap_next", "ax")
+
+        # Rückgabe:
+        # AX = alter Offset
+        # DX = Heap-Segment
+        self.emit_mov_reg16_reg16("ax", "cx")
+        self.emit_add_reg16_imm16("ax", 4)
+        self.emit_mov_reg16_mem16("dx", "__heap_segment")
+
+        self.emit_jmp(done_label)
+
+        self.bind_label(fail_label)
+
+        self.emit_mov_reg16_imm16("ax", 0)
+        self.emit_mov_reg16_imm16("dx", 0)
+
+        self.bind_label(done_label)
+
+    # ---------------------------------------------------------------------------
+    #  Input:
+    #    AX = Nutzdaten-Offset
+    #    DX = Heap-Segment
+    #
+    #  Fügt Block vorne in FreeList ein.
+    #  BlockHeader liegt bei AX - 4.
+    # ---------------------------------------------------------------------------
+    def emit_heap_free(self):
+        done_label = f"__heap_free_done_{len(self.code)}"
+
+        # nil?
+        self.emit_cmp_reg16_imm16("dx", 0)
+        self.emit_je(done_label)
+
+        self.emit_cmp_reg16_imm16("ax", 0)
+        self.emit_je(done_label)
+
+        # BX = block header offset = AX - 4
+        self.emit_mov_reg16_reg16("bx", "ax")
+        self.emit_sub_reg16_imm16("bx", 4)
+
+        # ES = Heap-Segment
+        self.emit_mov_es_reg16("dx")
+
+        # [ES:BX+2] = __heap_free_head_off
+        self.emit_mov_reg16_mem16("cx", "__heap_free_head_off")
+        self.emit_mov_mem16_es_bx_disp_reg16(2, "cx")
+
+        # __heap_free_head_off = BX
+        self.emit_mov_mem16_reg16("__heap_free_head_off", "bx")
+
+        # __heap_free_head_seg = DX
+        self.emit_mov_mem16_reg16("__heap_free_head_seg", "dx")
+
+        self.bind_label(done_label)
+
+    def emit_shl_reg16_imm8(self, reg, value):
+        reg_id = self._reg16_id(reg)
+
+        # C1 /4 ib  => shl r/m16, imm8
+        self.code.append(0xC1)
+        self.code.append(0xE0 | reg_id)
+        self.code.append(value & 0xFF)
+
+    def emit_mov_mem16_es_bx_disp_reg16(self, disp, src):
+        src_id = self._reg16_id(src)
+
+        # ES override
+        self.code.append(0x26)
+
+        # mov [bx+disp], r16
+        self.code.append(0x89)
+
+        if disp == 0:
+            self.code.append(0x07 | (src_id << 3))  # [bx]
+        elif -128 <= disp <= 127:
+            self.code.append(0x47 | (src_id << 3))  # [bx+disp8]
+            self.code.append(disp & 0xFF)
+        else:
+            self.code.append(0x87 | (src_id << 3))  # [bx+disp16]
+            self.code += int(disp).to_bytes(2, "little", signed=True)
+
+    def emit_mov_reg16_ds(self, reg):
+        reg_id = self._reg16_id(reg)
+
+        # mov r/m16, Sreg
+        # DS = Segmentregister 3
+        self.code.append(0x8C)
+        self.code.append(0xC0 | (3 << 3) | reg_id)
+
     def write(self, filename):
         code_size         =  len(self.code)
         data_size         =  len(self.data)
@@ -4091,7 +4281,7 @@ class MZWriter16:
         if self.dos_for_end_symbol not in self.labels:
             self.add_word_var(self.dos_for_end_symbol, 0)
         
-        self.ensure_dos_heap()
+        #self.ensure_dos_heap()
         self.patch_data_fixups()
 
         last_page_bytes   =  image_size % 512
@@ -4107,10 +4297,10 @@ class MZWriter16:
             page_count,           # Seiten im File
             0,                    # e_crlc
             HEADER_PARAGRAPHS,    # header paragraphs (4 * 16 = 64)
-            0x0040,               # min alloc
-            0x0040,               # max alloc
+            0x1000,               # min alloc
+            0x1000,               # max alloc
             0,                    # SS
-            0xFFFE,               # SP
+            0x8000,               # SP
             0,                    # checksum
             0,                    # IP
             0,                    # CS
@@ -5266,7 +5456,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             size = 8
         
         elif typ == "string":
-            size = 8
+            if CDATA.args_target in ["dos", "dos16"]:
+                size = 4      # DOS Far Pointer: offset + segment
+            else:
+                size = 8
         
         elif isinstance(typ, str) and typ.startswith("^"):
             size = 8
@@ -5365,6 +5558,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif isinstance(typ, str) and typ in self.classes:
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
+            
+            if CDATA.args_target in ["dos", "dos16"]:
+                symbol = f"_var_{name}"
+                self.backend.writer.add_dword_var(symbol)
             
             if use_direct_coff_globals:
                 symbol = f"_var_{name}"
@@ -6415,70 +6612,202 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if class_key not in self.classes:
             raise CompileError(ctx, "E0004", name=class_name)
         
-        cls = self.classes[class_key]
-        
+        cls  = self.classes[class_key]
         args = self.function_call_args(ctx)
         
         actual_types = []
         
-        # Argumente auswerten und pushen
-        for arg in reversed(args):
-            arg_type = self.visit(arg)
-            actual_types.insert(0, arg_type)
+        if CDATA.args_target in ["dos", "dos16"]:
+            # Argumente auswerten und auf DOS-Stack legen.
+            # Reihenfolge: reversed, damit Parameter 1 später bei [bp+4] liegt.
+            actual_types = []
+
+            for arg in reversed(args):
+                arg_type = self.visit(arg)
+                actual_types.insert(0, arg_type)
+
+                if arg_type == "integer":
+                    self.backend.writer.emit_push_reg16("ax")
+
+                elif arg_type == "string":
+                    # DOS String: DX = Offset, Segment ignorieren/0
+                    self.backend.writer.emit_push_reg16("dx")
+
+                elif isinstance(arg_type, str) and arg_type.startswith("^"):
+                    # Far Pointer: AX=Offset, DX=Segment
+                    self.backend.writer.emit_push_reg16("dx")
+                    self.backend.writer.emit_push_reg16("ax")
+
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"unsupported DOS constructor argument type {arg_type}"
+                    )
+
+            method, owner_cls = self.find_class_method_recursive(
+                ctx,
+                cls,
+                method_name,
+                actual_types
+            )
+
+            size = self.class_instance_size(ctx, class_name)
+
+            self.backend.writer.emit_mov_reg16_imm16("ax", size)
+            self.backend.writer.emit_heap_alloc()
+
+            fail_label = f"__class_new_fail_{len(self.backend.writer.code)}"
+            done_label = f"__class_new_done_{len(self.backend.writer.code)}"
+
+            self.backend.writer.emit_cmp_reg16_imm16("dx", 0)
+            self.backend.writer.emit_je(fail_label)
+
+            # Self retten
+            self.backend.writer.emit_push_reg16("dx")
+            self.backend.writer.emit_push_reg16("ax")
+
+            # Constructor bekommt Self in AX/DX
+            self.backend.writer.emit_call_label(method.label)
+
+            # Self zurückholen
+            self.backend.writer.emit_pop_reg16("ax")
+            self.backend.writer.emit_pop_reg16("dx")
+
+            # Constructor-Parameter vom Stack entfernen
+            stack_cleanup = 0
+            for typ in actual_types:
+                if isinstance(typ, str) and typ.startswith("^"):
+                    stack_cleanup += 4
+                else:
+                    stack_cleanup += 2
+
+            if stack_cleanup:
+                self.backend.writer.emit_add_sp_imm16(stack_cleanup)
+
+            self.backend.writer.emit_jmp(done_label)
+
+            self.backend.writer.bind_label(fail_label)
+
+            msg_label = "__msg_out_of_memory"
+            self.backend.writer.add_dos_string(msg_label, "Out of memory")
+            self.backend.writer.emit_mov_dx_label(msg_label)
+            self.backend.writer.emit_print_string_current_dx()
+            self.backend.writer.emit_print_newline()
+            self.backend.writer.emit_exit(1)
+
+            self.backend.writer.bind_label(done_label)
+
+            return class_key
             
-            if arg_type == "integer":
-                self.emit_movsxd(REG_RAX, REG_EAX)
-                self.emit_push(REG_RAX, comment='ctor integer arg')
+        else:
+            # Argumente auswerten und pushen
+            for arg in reversed(args):
+                arg_type = self.visit(arg)
+                actual_types.insert(0, arg_type)
+                
+                if arg_type == "integer":
+                    self.emit_movsxd(REG_RAX, REG_EAX)
+                    self.emit_push(REG_RAX, comment='ctor integer arg')
+                
+                elif arg_type == "string":
+                    self.emit_push(REG_RAX, comment='ctor string arg')
+                
+                elif isinstance(arg_type, str) and arg_type.startswith("^"):
+                    self.emit_push(REG_RAX, comment='ctor pointer arg')
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"unsupported constructor argument type {arg_type}"
+                    )
+            method, owner_cls = self.find_class_method_recursive(
+                ctx,
+                cls,
+                method_name,
+                actual_types
+            )
             
-            elif arg_type == "string":
-                self.emit_push(REG_RAX, comment='ctor string arg')
+            size = cls.size
+        
+            self.emit_mov("rcx", size)
+            self.emit_mov_imm("rax", "&_jit_new_memory")
+            self.emit_call("rax")
             
-            elif isinstance(arg_type, str) and arg_type.startswith("^"):
-                self.emit_push(REG_RAX, comment='ctor pointer arg')
+            param_regs = ["rdx", "r8", "r9"]
             
-            else:
-                raise CompileError(
-                    ctx,
-                    "E0019",
-                    text=f"unsupported constructor argument type {arg_type}"
-                )
-        
-        method, owner_cls = self.find_class_method_recursive(
-            ctx,
-            cls,
-            method_name,
-            actual_types
-        )
-        
-        size = cls.size
-        
-        self.emit_mov("rcx", size)
-        self.emit_mov_imm("rax", "&_jit_new_memory")
-        self.emit_call("rax")
-        
-        param_regs = ["rdx", "r8", "r9"]
-        
-        # Self zuerst setzen, aber NICHT sofort pushen
-        self.emit_mov("rcx", "rax", comment="self") # "a.mov(x86::rcx, x86::rax); // Self")
-        
-        # Constructor-Parameter aus dem temporären Stack holen
-        for index in range(len(args)):
-            self.emit_pop(f"{param_regs[index]}", comment="ctor arg {index + 1}")
-            #self.emit(f"a.pop(x86::{param_regs[index]});")
-        
-        # Self über den Call retten
-        self.emit_push("rcx", comment="save constructor result object")
-        
-        self.emit_sub("rsp", 32)
-        self.emit_call_lbl(method.label)
-        self.emit_add("rsp", 32)
-        self.emit_pop("rax", comment = "constructor result")
-        
-        return class_key
+            # Self zuerst setzen, aber NICHT sofort pushen
+            self.emit_mov("rcx", "rax", comment="self") # "a.mov(x86::rcx, x86::rax); // Self")
+            
+            # Constructor-Parameter aus dem temporären Stack holen
+            for index in range(len(args)):
+                self.emit_pop(f"{param_regs[index]}", comment="ctor arg {index + 1}")
+                #self.emit(f"a.pop(x86::{param_regs[index]});")
+            
+            # Self über den Call retten
+            self.emit_push("rcx", comment="save constructor result object")
+            
+            self.emit_sub("rsp", 32)
+            self.emit_call_lbl(method.label)
+            self.emit_add("rsp", 32)
+            self.emit_pop("rax", comment = "constructor result")
+            
+            return class_key
     
     def emit_class_free_call(self, ctx, obj_name):
         info = self.var_info(ctx, obj_name)
         class_type = info["type"]
+
+        if CDATA.args_target in ["dos", "dos16"]:
+            if class_type not in self.classes:
+                raise CompileError(ctx, "E0005", got=class_type, expected="class")
+
+            cls = self.classes[class_type]
+            symbol = info.get("symbol")
+
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+
+            null_label = self.new_named_label("free_nil")
+            end_label  = self.new_named_label("free_end")
+
+            # AX = Offset, DX = Segment
+            self.backend.emit_load_far_pointer_var(symbol)
+
+            # nil?
+            self.backend.writer.emit_cmp_reg16_imm16("dx", 0)
+            self.backend.writer.emit_je(null_label)
+
+            self.backend.writer.emit_cmp_reg16_imm16("ax", 0)
+            self.backend.writer.emit_je(null_label)
+
+            # Destructor mit Self in AX/DX aufrufen
+            if "destroy" in cls.methods:
+                method, owner_cls = self.find_class_method_recursive(
+                    ctx,
+                    cls,
+                    "Destroy",
+                    []
+                )
+
+                self.backend.writer.emit_push_reg16("dx")
+                self.backend.writer.emit_push_reg16("ax")
+
+                self.backend.writer.emit_call_label(method.label)
+
+                self.backend.writer.emit_pop_reg16("ax")
+                self.backend.writer.emit_pop_reg16("dx")
+
+            # Speicher vorerst nicht wirklich freigeben, nur NIL setzen
+            self.backend.emit_dispose_pointer_far(symbol)
+
+            self.backend.writer.emit_jmp(end_label)
+
+            self.emit_bind_label(null_label)
+            self.emit_bind_label(end_label)
+
+            return None
 
         if class_type not in self.classes:
             raise CompileError(ctx, "E0005", got=class_type, expected="class")
@@ -6546,14 +6875,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_nil_pointer_check(self, ptr_name):
         ok_label = self.new_named_label("ptr_not_nil")
         name_label = self.add_string_literal(ptr_name)
+        
+        if CDATA.args_target in ["dos", "dos16"]:
+            # DOS Far Pointer: DX = Segment, AX = Offset
+            self.emit_test("rdx", "rdx")
+        else:
+            self.emit_test("rax", "rax")
 
-        self.emit_test("rax", "rax")
         self.emit_jnz(ok_label)
-
-        self.emit_soft_runtime_error(
-            f"Nil pointer error: {ptr_name}"
-        )
-
+        self.emit_soft_runtime_error(f"Nil pointer error: {ptr_name}")
         self.emit_bind_label(ok_label)
     
     def emit_builtin_debug_break(self):
@@ -7158,6 +7488,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return field.type
     
     def emit_load_object_var(self, ctx, name, info):
+        if CDATA.args_target in ["dos", "dos16"]:
+            symbol = info.get("symbol")
+
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+
+            self.backend.emit_load_far_pointer_var(symbol)
+            return info["type"]
+        
         if hasattr(self, "coff") and "symbol" in info:
             self.coff.emit_mov_r64_data_label("rax", info["symbol"])
             return
@@ -7434,6 +7774,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"local {name}")
             return "integer"
 
+        if typ == "string":
+            if CDATA.args_target in ["dos", "dos16"]:
+                # DX = Offset, DS bleibt unverändert
+                self.backend.writer.emit_mov_reg16_mem16_base_disp("dx", "bp", offset)
+                return "string"
+
+            self.emit_mov_qword_ptr("rax", "rbp", offset, comment=f"local string {name}")
+            return "string"
+
         if isinstance(typ, str) and typ.startswith("^"):
             self.emit_mov_qword_ptr("rax", "rbp", offset, comment=f"local pointer {name}")
             return typ
@@ -7483,6 +7832,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0013", var_type=field.type)
     
     def emit_store_object_var(self, ctx, name, info):
+        var_info = info
+        
+        if CDATA.args_target in ["dos", "dos16"]:
+            symbol = var_info.get("symbol")
+
+            if not symbol:
+                symbol = f"_var_{var_info['name']}"
+                var_info["symbol"] = symbol
+
+            # Constructor liefert:
+            # AX = Offset
+            # DX = Segment
+            self.backend.emit_store_far_pointer_var(symbol)
+            return
+            
         if hasattr(self, "coff") and "symbol" in info:
             self.coff.emit_mov_data_label_r64(info["symbol"], "rax")
             return
@@ -7954,13 +8318,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if self.current_function is None:
             raise CompileError(ctx, "E0006")
 
-        return_type = self.resolve_type(
-            self.current_function["return_type"]
-        )
-
-        if return_type == "double" and expr_type == "integer":
-            self.emit_cvtsi2sd("xmm0", "eax")
-            expr_type = "double"
+        return_type = self.resolve_type(self.current_function["return_type"])
 
         if return_type == "integer" and expr_type == "char":
             expr_type = "integer"
@@ -7968,22 +8326,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if return_type != expr_type:
             raise CompileError(ctx, "E0005", got=expr_type, expected=return_type)
 
-        if return_type == "integer":
-            return None
+        result_var = self.find_local_var("Result")
+        if result_var is None:
+            raise CompileError(ctx, "E0012", name="Result")
 
-        if return_type == "double":
+        offset = result_var["offset"]
+
+        if CDATA.args_target in ["dos", "dos16"]:
+            if return_type == "integer":
+                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset, "ax")
+                return None
+
+            if return_type == "string":
+                # DX enthält Offset auf DOS-$-String
+                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset, "dx")
+
+                # Segment bleibt 0 / unbenutzt
+                self.backend.writer.emit_mov_reg16_imm16("ax", 0)
+                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset + 2, "ax")
+                return None
+
+            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+
+        if return_type == "integer":
+            self.emit_mov_dword_ptr_store("rbp", offset, "eax")
             return None
 
         if return_type == "string":
+            self.emit_mov_qword_ptr_store("rbp", offset, "rax")
             return None
 
-        raise CompileError(
-            ctx,
-            "E0005",
-            got=return_type,
-            expected="integer/string/double"
-        )
-
+        if return_type == "double":
+            self.emit_movsd_store("rbp", offset, "xmm0")
+            return None
+        
     def emit_load_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
         index_exprs = index_expr_ctx
         if not isinstance(index_exprs, list):
@@ -8187,6 +8563,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_mov_dword_ptr_store("rbp", offset, "eax", comment=f"local {name} :=")
             return
 
+        if typ == "string":
+            if expr_type not in ("string", "char"):
+                raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
+
+            if CDATA.args_target in ["dos", "dos16"]:
+                # DOS-String-Literal liegt in DX.
+                # Lokaler String als Far Pointer: offset + segment.
+                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset, "dx")
+                
+                # Segment nicht verwenden, immer 0 setzen
+                self.backend.writer.emit_mov_reg16_imm16("ax", 0)
+                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset + 2, "ax")
+                return
+
+            self.emit_mov_qword_ptr_store("rbp", offset, "rax", comment=f"local string {name} :=")
+            return
+    
         if isinstance(typ, str) and typ.startswith("^"):
             if expr_type != typ and expr_type != "^nil":
                 raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
@@ -8223,7 +8616,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     symbol = f"_var_{info['name']}"
                     info["symbol"] = symbol
 
-                self.backend.emit_load_word_var("ax", symbol)
+                self.backend.emit_load_far_pointer_var(symbol)
                 return var_type
         
         # -------------------------------------------------
@@ -8488,12 +8881,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return "^" + array_info.element_type
     
     def emit_function_declaration(self, ctx, name, return_type):
-        #return_type = self.resolve_type(return_type)
-        key         = name.lower()
-        scoped      = self.scoped_name(name)
+        key    = name.lower()
+        scoped = self.scoped_name(name)
 
-        label       = self.functions[key]["label"]
-        end_label   = self.new_named_label("endfunc_" + name)
+        label     = self.functions[key]["label"]
+        end_label = self.new_named_label("endfunc_" + name)
 
         self.functions[scoped.lower()]["label"] = label
 
@@ -8503,67 +8895,106 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         param_regs = ["rcx", "rdx", "r8", "r9"]
 
         if len(params) > len(param_regs):
-            raise CompileError(
-                ctx,
-                "E0005",
-                got="too many params",
-                expected="max 4 params"
-            )
-        
+            raise CompileError(ctx, "E0005", got="too many params", expected="max 4 params")
+
+        rt = return_type.lower()
+
+        if rt not in ["integer", "string", "double"]:
+            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
+
         self.emit_jmp(end_label)
         self.emit_bind_label(label)
-        
-        self.emit_push("rbp",        comment="epilog")
-        self.emit_mov ("rbp", "rsp", comment="stack frame")
-        self.emit_push("rbx",        comment="preserve non-volatile RBX")
-        
+
+        self.emit_push("rbp", comment="function prolog")
+        self.emit_mov("rbp", "rsp", comment="stack frame")
+
+        if CDATA.args_target not in ["dos", "dos16"]:
+            self.emit_push("rbx", comment="preserve non-volatile RBX")
+
         old_params   = self.current_proc_params
         old_function = self.current_function
-        
+
         self.current_proc_params = {}
         self.current_function = {
             "name": name,
-            "return_type": return_type.lower(),
+            "return_type": rt,
             "scoped_name": scoped
         }
-        
+
         for index, p in enumerate(params):
             reg = param_regs[index]
             pname = p["name"]
-            
+
             self.emit_push(reg, comment=f"save function param {pname}")
-            
+
             self.current_proc_params[pname.lower()] = {
                 "type": p["type"],
                 "reg": reg,
                 "stack_offset": -8 * (index + 2)
             }
-            
-        if len(params) % 2 == 0:
-            self.emit_sub("rsp", 8, comment="align stack in function")
-        
+
+        if CDATA.args_target not in ["dos", "dos16"]:
+            if len(params) % 2 == 0:
+                self.emit_sub("rsp", 8, comment="align stack in function")
+
         self.scope_stack.append(name)
-        self.emit_sub("rsp", 256, comment="local variables")
-        
+
+        # lokaler Stackbereich
+        if CDATA.args_target in ["dos", "dos16"]:
+            self.emit_sub("sp", 256, comment="local variables")
+        else:
+            self.emit_sub("rsp", 256, comment="local variables")
+
         self.push_local_scope()
         self.push_const_scope()
-        
+
+        # WICHTIG:
+        # Result als echte lokale Variable anlegen.
+        # Dadurch bekommt Result einen festen Offset und S kommt danach.
+        self.declare_local_var(ctx, "Result", rt)
+        result_var = self.find_local_var("Result")
+        result_off = result_var["offset"]
+
         self.exit_label_stack.append(end_label)
         self.visit(ctx.block())
         self.exit_label_stack.pop()
 
         self.pop_const_scope()
         self.pop_local_scope()
-        
+
         self.scope_stack.pop()
 
         self.current_function = old_function
         self.current_proc_params = old_params
 
-        if return_type.lower() not in ["integer", "string", "double"]:
-            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
+        if CDATA.args_target in ["dos", "dos16"]:
+            if rt == "string":
+                # Result ist Far-Pointer:
+                # [bp+result_off]     = Offset
+                # [bp+result_off + 2] = Segment
+                self.backend.writer.emit_mov_reg16_mem16_base_disp("dx", "bp", result_off)
+                self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off + 2)
 
-        self.emit_mov_qword_ptr("rbx", "rbp", -8)
+            elif rt == "integer":
+                self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off)
+
+            else:
+                raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+
+            self.backend.writer.emit_mov_reg16_reg16("sp", "bp")
+            self.backend.writer.emit_pop_reg16("bp")
+            self.backend.writer.emit_ret()
+
+            self.emit_bind_label(end_label)
+            return
+
+        if rt == "string":
+            self.emit_mov_qword_ptr("rax", "rbp", result_off)
+        elif rt == "integer":
+            self.emit_mov_dword_ptr("eax", "rbp", result_off)
+        else:
+            self.emit_movsd_load("xmm0", "rbp", result_off)
+
         self.emit_mov("rsp", "rbp")
         self.emit_pop("rbp")
         self.emit_ret()
@@ -10669,8 +11100,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 
             if c["type"] == "string":
                 label = self.add_string_literal(c["value"])
-                self.emit_mov_imm("rax", label)
-                return "string"
+                if CDATA.args_target in ["dos", "dos16"]:
+                    self.backend.writer.emit_mov_dx_label(label)
+                    return "string"
+                else:
+                    self.emit_mov_imm("rax", label)
+                    return "string"
         
         if ctx.AT():
             ref = ctx.variableRef()
@@ -10877,17 +11312,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.STRING():
             value = ctx.STRING().getText()[1:-1]
             label = self.add_string_literal(value)
-            
+
+            if CDATA.args_target in ["dos", "dos16"]:
+                self.backend.writer.emit_mov_dx_label(label)
+
+                if len(value) == 1:
+                    return "char"
+
+                return "string"
+
             self.emit_mov_imm("rax", label)
-            #self.emit_mov_imm("rax", label)
-            
+
             if len(value) == 1:
                 return "char"
-            
+
             self.emit_mov("rcx", "rax")
             self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
             self.emit_call_rax()
-            
+
             return "string"
         
         # Identifier
@@ -10957,7 +11399,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0015", text=text)
     
     def visitFunctionCallExpr(self, ctx):
-        idents = list(ctx.IDENT())
+        idents = ctx.IDENT()
+        
+        if isinstance(idents, list):
+            name = idents[0].getText()
+        else:
+            name = idents.getText()
 
         if len(idents) >= 2:
             left_name   = idents[0].getText()
@@ -10970,7 +11417,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     method_name
                 )
         
-        name = ctx.IDENT().getText()
+        #name = ctx.IDENT().getText()
         key  = name.lower()
         
         if key == "assigned":
@@ -11148,6 +11595,39 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key == "__debug_break":
             return self.emit_builtin_debug_break()
         
+        func = self.find_function(name)
+        if func:
+            params = func.get("params", [])
+
+            actuals = []
+            if ctx.actualParamList():
+                actuals = list(ctx.actualParamList().actualParam())
+
+            if len(actuals) != len(params):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=str(len(actuals)),
+                    expected=str(len(params))
+                )
+
+            # Für jetzt: parameterlose Funktion als Statement erlauben.
+            if len(params) == 0:
+                if CDATA.args_target in ["dos", "dos16"]:
+                    self.emit_call_lbl(func["label"])
+                else:
+                    self.emit_sub("rsp", 32)
+                    self.emit_call_lbl(func["label"])
+                    self.emit_add("rsp", 32)
+
+                return None
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="function calls with parameters as statement not supported yet"
+            )
+        
         if key not in self.procedures:
             raise CompileError(ctx, "E0001", name=name)
         
@@ -11293,7 +11773,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         
                         if pinfo["type"] == "integer":
                             offset = pinfo["stack_offset"]
-                            offset = pinfo["stack_offset"]
                             self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"load integer parameter")
                             self.emit_mov("ecx", "eax")
                             self.emit_mov_imm("rax", "&_jit_print_int")
@@ -11315,9 +11794,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         self.emit_call_rax()
                     
                     if expr_type == "string":
-                        self.emit_mov("rcx", "rax")
-                        self.emit_mov_imm("rax", "&_jit_print_text")
-                        self.emit_call_rax()
+                        if CDATA.args_target in ["dos", "dos16"]:
+                            # DX enthält bereits Offset auf $-String
+                            self.backend.writer.emit_print_string_current_dx()
+                        else:
+                            self.emit_mov("rcx", "rax")
+                            self.emit_mov_imm("rax", "&_jit_print_text")
+                            self.emit_call_rax()
                     
                     if expr_type == "integer":
                         self.emit_mov("ecx", "eax")
@@ -11919,6 +12402,12 @@ class GeneratorClass(AsmJitGenerator):
         self.module_kind  = "program"
         self.module_kind_value = 1
 
+        dos_main_label = None
+        if ((CDATA.args_backend == BACKEND_OBJFILE or CDATA.args_backend == BACKEND_EXEFILE)
+            and CDATA.args_target.lower() in ["dos", "dos16"]):
+            dos_main_label = "__dos_main_start"
+            self.writer.emit_jmp(dos_main_label)
+
         if ctx.usesClause():
             self.visit(ctx.usesClause())
 
@@ -11943,7 +12432,9 @@ class GeneratorClass(AsmJitGenerator):
                 self.writer.emit_lea_reg_data_label("r12", "ctx")
         
             elif CDATA.args_target.lower() in ["dos", "dos16"]:
+                self.writer.bind_label(dos_main_label)
                 self.writer.emit_startup()
+                self.backend.emit_heap_init(0x40)
 
         for init_label in self.unit_init_labels:
             self.emit_call_lbl(init_label)

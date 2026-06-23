@@ -9,18 +9,50 @@ type
         b: String;
     end;
     
+    TClass = class
+    public
+        constructor Create;
+        constructor Create(S: String);
+        
+        destructor Destroy;
+    end;
+
 var
     i, c: Integer;
     t: Tinker;
     foo: PFoo;
+    cls: TClass;
 
-(*function GetDouble: double;
-var
-    d: Double;
+constructor TClass.Create;
 begin
-    d := 3.1415;
-    result := d;
-end;*)
+    WriteLn('TClass: ctor');
+end;
+
+constructor TClass.Create(S: String);
+begin
+    WriteLn('TClass::String: ctor');
+end;
+
+destructor TClass.Destroy;
+begin
+    WriteLn('TClass: dtor');
+end;
+
+function GetString: String;
+var
+    S: String;
+begin
+    S := '3.1415';
+    result := S;
+end;
+
+function GetInteger: Integer;
+var
+    I: Integer;
+begin
+    I := 21;
+    result := I;
+end;
 
 begin
     i := 42;
@@ -62,8 +94,21 @@ begin
         i := i + 1;
     until i = 3;
     
-    New(foo);
-    foo^.a := 1234;
-    WriteLn('foo: ', foo^.a);
-    Dispose(foo);
+    try
+        New(foo);
+        foo^.a := 1234;
+        WriteLn('foo: ', foo^.a);
+    finally
+        WriteLn('Dispose');
+        Dispose(foo);
+    end;
+    
+    WriteLn('Class');
+    cls := TClass.Create('Klassler');
+    try
+        WriteLn('str: ', GetString);
+        WriteLn('int: ', GetInteger);
+    finally
+        cls.Free;
+    end;
 end.
