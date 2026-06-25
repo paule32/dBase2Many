@@ -127,6 +127,7 @@ ASM_OUT_PH  = "asm_out << "
 # coff writer constants:
 # ---------------------------------------------------------------------------
 IMAGE_FILE_MACHINE_AMD64        = 0x8664
+IMAGE_FILE_MACHINE_I386         = 0x014C
 
 IMAGE_SCN_CNT_CODE              = 0x00000020
 IMAGE_SCN_CNT_INITIALIZED_DATA  = 0x00000040
@@ -142,6 +143,9 @@ IMAGE_SYM_DTYPE_FUNCTION        = 0x20
 
 IMAGE_REL_AMD64_ADDR64          = 0x0001
 IMAGE_REL_AMD64_REL32           = 0x0004
+
+IMAGE_REL_I386_DIR32            = 0x0006
+IMAGE_REL_I386_REL32            = 0x0014
 
 # ---------------------------------------------------------------------------
 # backend assembly ...
@@ -573,9 +577,11 @@ def args_func():
         dest    = "target",
         choices = [ "dos"       , # compile for MS-Dos      16-bit
                     "dos16"     , # placeholder for "dos"
-                    "win16"     , # compile for Windows 3.1 16-bit
-                    "win32"     , # compile for Windows     32-bit
-                    "win64"     , # compile for Windows     64-bit
+                    "win16"     , # compile for Windows    3.1 16-bit
+                    "winnt"     , # compile for Windows NT 3.5 32-bit
+                    "nt35"      , # compile for Windows NT 3.5 32-bit
+                    "win32"     , # compile for Windows        32-bit
+                    "win64"     , # compile for Windows        64-bit
         ],
         default = "win64",
         help    = "Target OS Platform"
@@ -1149,11 +1155,336 @@ class NasmBackend(CodeBackend):
         self.lines.append(f"{label}:{self.make_comment(comment)}")
 
 # ---------------------------------------------------------------------------
-# win64 pe coff backend ...
+# Windows 32-Bit PE coff backend ...
 # ---------------------------------------------------------------------------
-class CoffBackend(CodeBackend):
+class Coff32Backend(CodeBackend):
+    def __init__(self, writer):
+        super().__init__("nt32")
+        self.writer = writer
+        self.pending_call_symbol = None
+
+    def emit_new_label_decl(self, name, comment=""):
+        # PE32/COFF braucht keine vorherige Label-Deklaration
+        return
+
+    def emit_bind_label(self, label, comment=""):
+        self.writer.bind_label(label)
+
+    def emit_ret(self, comment=""):
+        self.writer.emit_ret()
+
+    def emit_call_lbl(self, label, comment=""):
+        if label in ["rax", "eax"]:
+            self.writer.emit_call_reg32("eax")
+            return
+
+        if label in ["rbx", "ebx"]:
+            self.writer.emit_call_reg32("ebx")
+            return
+
+        if label in ["rcx", "ecx"]:
+            self.writer.emit_call_reg32("ecx")
+            return
+
+        if label in ["rdx", "edx"]:
+            self.writer.emit_call_reg32("edx")
+            return
+            
+        self.writer.emit_call_label(label)
+
+    def emit_call(self, target, comment=""):
+        if target in ["rax", "eax"]:
+            self.writer.emit_call_reg32("eax")
+            return
+
+        if target in ["rbx", "ebx"]:
+            self.writer.emit_call_reg32("ebx")
+            return
+
+        if target in ["rcx", "ecx"]:
+            self.writer.emit_call_reg32("ecx")
+            return
+
+        if target in ["rdx", "edx"]:
+            self.writer.emit_call_reg32("edx")
+            return
+
+        self.writer.emit_call_external(target)
+    
+    def emit_jmp(self, label, comment=""):
+        self.writer.emit_jmp(label)
+
+    def emit_je(self, label, comment=""):
+        self.writer.emit_je(label)
+
+    def emit_jne(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jz(self, label, comment=""):
+        self.writer.emit_je(label)
+
+    def emit_jnz(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jl(self, label, comment=""):
+        self.writer.emit_jl(label)
+
+    def emit_jle(self, label, comment=""):
+        self.writer.emit_jle(label)
+
+    def emit_jg(self, label, comment=""):
+        self.writer.emit_jg(label)
+
+    def emit_jge(self, label, comment=""):
+        self.writer.emit_jge(label)
+
+    def emit_jmp(self, label, comment=""):
+        self.writer.emit_jmp(label)
+
+    def emit_je(self, label, comment=""):
+        self.writer.emit_je(label)
+
+    def emit_jne(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jz(self, label, comment=""):
+        self.writer.emit_je(label)
+
+    def emit_jnz(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jl(self, label, comment=""):
+        self.writer.emit_jl(label)
+
+    def emit_jle(self, label, comment=""):
+        self.writer.emit_jle(label)
+
+    def emit_jg(self, label, comment=""):
+        self.writer.emit_jg(label)
+
+    def emit_jge(self, label, comment=""):
+        self.writer.emit_jge(label)
+
+    def emit_jcc(self, cc, label):
+        opcodes = {
+            "je":  b"\x0F\x84",
+            "jne": b"\x0F\x85",
+            "jl":  b"\x0F\x8C",
+            "jle": b"\x0F\x8E",
+            "jg":  b"\x0F\x8F",
+            "jge": b"\x0F\x8D",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"unsupported PE32 condition jump: {cc}")
+
+        self.text += opcodes[cc]
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
+    def map_reg32(self, reg):
+        reg_map = {
+            "rax": "eax", "eax": "eax",
+            "rbx": "ebx", "ebx": "ebx",
+            "rcx": "ecx", "ecx": "ecx",
+            "rdx": "edx", "edx": "edx",
+            "rbp": "ebp", "ebp": "ebp",
+            "rsp": "esp", "esp": "esp",
+            "rsi": "esi", "esi": "esi",
+            "rdi": "edi", "edi": "edi",
+        }
+        
+        if reg not in reg_map:
+            raise RuntimeError(f"unsupported NT32 register: {reg}")
+        
+        return reg_map[reg]
+
+    def emit_push(self, reg, comment=""):
+        self.writer.emit_push_reg32(self.map_reg32(reg))
+
+    def emit_pop(self, reg, comment=""):
+        self.writer.emit_pop_reg32(self.map_reg32(reg))
+        
+    def emit_mov(self, dst, src, comment=""):
+        dst32 = self.map_reg32(dst)
+
+        if isinstance(src, int):
+            self.writer.emit_mov_reg_imm32(dst32, src)
+            return
+
+        if isinstance(src, str):
+            if src.lstrip("-").isdigit():
+                self.writer.emit_mov_reg_imm32(dst32, int(src))
+                return
+
+            if src.startswith("str_") or src.startswith("_var_"):
+                self.writer.emit_mov_reg_data_label32(dst32, src)
+                return
+
+        self.writer.emit_mov_reg_reg32(
+            dst32,
+            self.map_reg32(src)
+        )
+
+    def emit_sub(self, reg, value, comment=""):
+        self.writer.emit_sub_reg_imm32(
+            self.map_reg32(reg),
+            value
+        )
+
+    def emit_add(self, reg, value, comment=""):
+        reg32 = self.map_reg32(reg)
+
+        if isinstance(value, int):
+            self.writer.emit_add_reg_imm32(reg32, value)
+            return
+
+        if isinstance(value, str):
+            if value.lstrip("-").isdigit():
+                self.writer.emit_add_reg_imm32(reg32, int(value))
+                return
+
+            self.writer.emit_add_reg_reg32(
+                reg32,
+                self.map_reg32(value)
+            )
+            return
+
+        raise RuntimeError(f"unsupported NT32 add value: {value}")
+        
+    def emit_mov_imm(self, dst, value, comment=""):
+        dst32 = self.map_reg32(dst)
+
+        if isinstance(value, str):
+            # String-/Datenlabel
+            if value.startswith("str_") or value.startswith("_var_"):
+                self.writer.emit_mov_reg_data_label32(dst32, value)
+                return
+
+            # &Runtime / &API
+            if value.startswith("&"):
+                self.pending_call_symbol = value[1:]
+                return
+
+            if value.lstrip("-").isdigit():
+                value = int(value)
+
+        self.writer.emit_mov_reg_imm32(dst32, value)
+        
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
+
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
+
+    def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""):
+        # Win64-Visitor ruft qword auf.
+        # NT32 lädt Pointer aber als dword.
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            int(offset)
+        )
+
+    def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            int(offset)
+        )
+        
+    def emit_imul(self, dst, src, value=None, comment=""):
+        self.writer.emit_imul(
+            self.map_reg32(dst),
+            self.map_reg32(src),
+            value
+        )
+
+    def emit_cdq(self, comment=""):
+        self.writer.emit_cdq()
+
+    def emit_idiv(self, reg, comment=""):
+        self.writer.emit_idiv_r32(
+            self.map_reg32(reg)
+        )
+        
+    def emit_cmp(self, dst, value, comment=""):
+        dst32 = self.map_reg32(dst)
+
+        if isinstance(value, str):
+            if value.lstrip("-").isdigit():
+                value = int(value)
+            else:
+                self.writer.emit_cmp_reg_reg32(
+                    dst32,
+                    self.map_reg32(value)
+                )
+                return
+
+        self.writer.emit_cmp_reg_imm32(dst32, value)
+    
+    def emit_xor(self, dst, src, comment=""):
+        self.writer.emit_xor_reg_reg(
+            self.map_reg32(dst),
+            self.map_reg32(src)
+        )
+    
+    def emit_setne(self, reg, comment=""):
+        self.writer.emit_setne(
+            self.map_reg8(reg)
+        )
+
+    def map_reg8(self, reg):
+        reg_map = {
+            "al": "al",
+            "cl": "cl",
+            "dl": "dl",
+            "bl": "bl",
+        }
+
+        if reg not in reg_map:
+            raise RuntimeError(f"unsupported NT32 8-bit register: {reg}")
+
+        return reg_map[reg]
+    
+    def emit_movzx(self, dst, src, comment=""):
+        self.writer.emit_movzx_r32_r8(
+            self.map_reg32(dst),
+            self.map_reg8(src)
+        )
+
+    def emit_test(self, reg1, reg2, comment=""):
+        self.writer.emit_test_reg_reg32(
+            self.map_reg32(reg1),
+            self.map_reg32(reg2)
+        )
+        
+    def emit_call_reg(self, reg, comment=""):
+        self.writer.emit_call_reg32(self.map_reg32(reg))
+
+# ---------------------------------------------------------------------------
+# Windows 64-Bit PE coff backend ...
+# ---------------------------------------------------------------------------
+class Coff64Backend(CodeBackend):
     def __init__(self, writer=None):
-        super().__init__(CDATA.args_backend)
+        super().__init__("nt35")
         
         if writer is None:
             raise Exception("no writer given.")
@@ -1340,6 +1671,36 @@ class CoffBackend(CodeBackend):
 
     def emit_xor(self, dst, src, comment=""):
         self.writer.emit_xor_r32_r32(dst, src)
+
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        # Win64-Visitor ruft qword auf.
+        # NT32 speichert Pointer aber als dword.
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
+
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
+
+    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
+
+    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
+        self.writer.emit_mov_mem_reg32(
+            self.map_reg32(base),
+            int(offset),
+            self.map_reg32(src)
+        )
 
 # ---------------------------------------------------------------------------
 # MS-DOS 16-Bit backend ...
@@ -1719,9 +2080,527 @@ class DosBackend(CodeBackend):
         self.writer.emit_heap_alloc()
 
 # ---------------------------------------------------------------------------
-# win64 pe coff writer ... \
+# Windows NT 3.5 PE COFF object/code writer
 # ---------------------------------------------------------------------------
-class PECoffWriter:
+class PE32Writer:
+    def __init__(self):
+        self.regs = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7,
+        }
+        
+        self.text = bytearray()
+        self.data = bytearray()
+
+        self.labels = {}
+        self.fixups = []
+
+        self.symbols = []
+        self.text_relocations = []
+        self.data_relocations = []
+
+        self.string_table = bytearray()
+        self.string_offsets = {}
+
+    def begin_function(self, name, local_size=0, public=True):
+        offset = len(self.text)
+
+        self.bind_label(name)
+
+        if self.find_symbol_index(name) is None:
+            self.add_symbol(
+                name=name,
+                value=offset,
+                section_number=1
+            )
+
+        # Für NT32 erst schlicht:
+        # push ebp
+        # mov  ebp, esp
+        self.emit_push_reg32("ebp")
+        self.emit_mov_reg_reg32("ebp", "esp")
+
+        if local_size:
+            self.emit_sub_reg_imm32("esp", local_size)
+
+        return offset
+    
+    def end_function(self):
+        self.emit_mov_reg_reg32("esp", "ebp")
+        self.emit_pop_reg32("ebp")
+        self.emit_ret()
+
+    def _reg_id(self, reg):
+        if reg not in self.regs:
+            raise RuntimeError(f"unsupported 32-bit register: {reg}")
+        return self.regs[reg]
+
+    def bind_label(self, name):
+        self.labels[name] = len(self.text)
+        
+        idx = self.find_symbol_index(name)
+        if idx is None:
+            self.add_symbol(name, len(self.text), section_number=1)
+        else:
+            self.symbols[idx]["value"] = len(self.text)
+            self.symbols[idx]["section"] = 1
+
+    def patch_rel32(self, patch_pos, target_pos):
+        rel = target_pos - (patch_pos + 4)
+        self.text[patch_pos:patch_pos + 4] = int(rel).to_bytes(
+            4,
+            "little",
+            signed=True
+        )
+
+    def emit_push_imm32(self, value):
+        self.text.append(0x68)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_push_reg32(self, reg):
+        reg_id = self._reg_id(reg)
+        self.text.append(0x50 + reg_id)
+
+    def emit_pop_reg32(self, reg):
+        reg_id = self._reg_id(reg)
+        self.text.append(0x58 + reg_id)
+
+    def emit_mov_reg_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+        self.text.append(0xB8 + reg_id)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_xor_reg_reg(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        self.text.append(0x31)
+        self.text.append(0xC0 | (src_id << 3) | dst_id)
+
+    def emit_ret(self):
+        self.text.append(0xC3)
+
+    def emit_call_label(self, label):
+        self.text.append(0xE8)
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+    
+    def emit_jmp(self, label):
+        self.text.append(0xE9)
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+
+    def emit_jcc(self, cc, label):
+        opcodes = {
+            "je":  b"\x0F\x84",
+            "jne": b"\x0F\x85",
+            "jl":  b"\x0F\x8C",
+            "jle": b"\x0F\x8E",
+            "jg":  b"\x0F\x8F",
+            "jge": b"\x0F\x8D",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"unsupported PE32 condition jump: {cc}")
+
+        self.text += opcodes[cc]
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+
+    def emit_je(self, label):  self.emit_jcc("je",  label)
+    def emit_jne(self, label): self.emit_jcc("jne", label)
+    def emit_jl(self, label):  self.emit_jcc("jl",  label)
+    def emit_jle(self, label): self.emit_jcc("jle", label)
+    def emit_jg(self, label):  self.emit_jcc("jg",  label)
+    def emit_jge(self, label): self.emit_jcc("jge", label)
+    
+    def emit_call_external(self, symbol_name):
+        if symbol_name in ["rax", "eax", "rbx", "ebx", "rcx", "ecx", "rdx", "edx"]:
+            raise RuntimeError(f"register passed to emit_call_external: {symbol_name}")
+        
+        sym_index = self.find_or_add_external(symbol_name)
+
+        self.text.append(0xE8)          # call rel32
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_REL32
+        })
+
+    def add_symbol(self, name, value, section_number=1):
+        self.symbols.append({
+            "name": name,
+            "value": value,
+            "section": section_number,
+            "type": 0x20,
+            "storage": IMAGE_SYM_CLASS_EXTERNAL,
+            "aux": 0
+        })
+
+    def add_external_symbol(self, name):
+        index = len(self.symbols)
+
+        self.symbols.append({
+            "name": name,
+            "value": 0,
+            "section": 0,
+            "type": 0,
+            "storage": IMAGE_SYM_CLASS_EXTERNAL,
+            "aux": 0
+        })
+
+        return index
+
+    def find_or_add_symbol(self, name):
+        index = self.find_symbol_index(name)
+
+        if index is None:
+            raise RuntimeError(f"Symbol not defined: {name}")
+
+        return index
+
+    def find_or_add_external(self, name):
+        for index, sym in enumerate(self.symbols):
+            if sym["name"] == name:
+                return index
+
+        return self.add_external_symbol(name)
+
+    def add_data_string(self, name, text):
+        offset = len(self.data)
+        self.data += text.encode("ascii", errors="replace") + b"\x00"
+
+        self.add_symbol(
+            name=name,
+            value=offset,
+            section_number=2
+        )
+
+        return offset
+
+    def add_data_i32(self, name, value=0):
+        return self.add_data_bytes(
+            name,
+            int(value).to_bytes(4, "little", signed=True),
+            alignment=4
+        )
+
+    def add_data_zeros(self, name, size, alignment=4):
+        return self.add_data_bytes(
+            name,
+            b"\x00" * size,
+            alignment=alignment
+        )
+
+    def align_data(self, alignment):
+        while len(self.data) % alignment != 0:
+            self.data.append(0)
+
+    def add_data_bytes(self, name, data_bytes, alignment=1):
+        self.align_data(alignment)
+
+        offset = len(self.data)
+        self.data += data_bytes
+
+        self.add_symbol(
+            name=name,
+            value=offset,
+            section_number=2
+        )
+
+        return offset
+    
+    def emit_mov_reg_reg32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        # mov r/m32, r32
+        self.text.append(0x89)
+        self.text.append(0xC0 | (src_id << 3) | dst_id)
+    
+    def emit_sub_reg_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        # sub r/m32, imm32
+        self.text.append(0x81)
+        self.text.append(0xE8 | reg_id)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_add_reg_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        # add r/m32, imm32
+        self.text.append(0x81)
+        self.text.append(0xC0 | reg_id)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_add_reg_reg32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        # add r/m32, r32
+        self.text.append(0x01)
+        self.text.append(0xC0 | (src_id << 3) | dst_id)
+
+    def find_symbol_index(self, name):
+        for index, sym in enumerate(self.symbols):
+            if sym["name"] == name:
+                return index
+
+        return None
+    
+    def emit_mov_reg_data_label32(self, reg, label):
+        reg_id    = self._reg_id(reg)
+        sym_index = self.find_or_add_symbol(label)
+
+        # mov r32, imm32
+        self.text.append(0xB8 + reg_id)
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+
+    def _emit_modrm_mem32(self, reg_id, base_id, offset=0):
+        rm = base_id & 7
+
+        needs_sib  = rm == 4          # esp
+        needs_disp = rm == 5 and offset == 0  # ebp braucht disp8=0
+
+        if offset == 0 and not needs_disp:
+            mod = 0x00
+        elif -128 <= offset <= 127:
+            mod = 0x40
+        else:
+            mod = 0x80
+
+        if needs_disp:
+            mod = 0x40
+            offset = 0
+
+        if needs_sib:
+            self.text.append(mod | ((reg_id & 7) << 3) | 0x04)
+            self.text.append(0x24)  # scale=0,index=none,base=esp
+        else:
+            self.text.append(mod | ((reg_id & 7) << 3) | rm)
+
+        if mod == 0x40:
+            self.text.append(offset & 0xFF)
+        elif mod == 0x80:
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+    
+    def emit_mov_mem_reg32(self, base, offset, src):
+        base_id = self._reg_id(base)
+        src_id  = self._reg_id(src)
+
+        self.text.append(0x89)  # mov r/m32, r32
+        self._emit_modrm_mem32(src_id, base_id, offset)
+    
+    def emit_mov_mem_reg32(self, base, offset, src):
+        base_id = self._reg_id(base)
+        src_id  = self._reg_id(src)
+
+        self.text.append(0x89)
+        self._emit_modrm_mem32(src_id, base_id, offset)
+    
+    def emit_mov_reg_mem32(self, dst, base, offset=0):
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
+
+        self.text.append(0x8B)  # mov r32, r/m32
+        self._emit_modrm_mem32(dst_id, base_id, offset)
+    
+    def emit_mov_data_label_r32(self, label, src):
+        src_id    = self._reg_id(src)
+        sym_index = self.find_or_add_symbol(label)
+
+        # mov r/m32, r32
+        # absoluter Speicherzugriff: [imm32]
+        self.text.append(0x89)
+        self.text.append(0x05 | ((src_id & 7) << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+    
+    def emit_mov_r32_data_label(self, dst, label):
+        return self.emit_mov_reg_data_label32(dst, label)
+    
+    def emit_imul_r32_r32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        # imul r32, r/m32
+        self.text += b"\x0F\xAF"
+        self.text.append(0xC0 | (dst_id << 3) | src_id)
+
+    def emit_imul_r32_r32_imm32(self, dst, src, value):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        # imul r32, r/m32, imm32
+        self.text.append(0x69)
+        self.text.append(0xC0 | (dst_id << 3) | src_id)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_imul(self, dst, src, value=None):
+        if value is None:
+            self.emit_imul_r32_r32(dst, src)
+        else:
+            self.emit_imul_r32_r32_imm32(dst, src, value)
+    
+    def emit_cdq(self):
+        # CDQ: EDX:EAX vorbereiten für IDIV
+        self.text.append(0x99)
+
+    def emit_idiv_r32(self, reg):
+        reg_id = self._reg_id(reg)
+
+        # idiv r/m32
+        self.text.append(0xF7)
+        self.text.append(0xF8 | reg_id)
+    
+    def emit_cmp_reg_reg32(self, left, right):
+        left_id  = self._reg_id(left)
+        right_id = self._reg_id(right)
+
+        # cmp r/m32, r32
+        self.text.append(0x39)
+        self.text.append(0xC0 | (right_id << 3) | left_id)
+
+    def emit_cmp_reg_imm32(self, reg, value):
+        reg_id = self._reg_id(reg)
+
+        # cmp r/m32, imm32
+        self.text.append(0x81)
+        self.text.append(0xF8 | reg_id)
+        self.text += int(value).to_bytes(4, "little", signed=True)
+    
+    def emit_setne(self, reg):
+        if reg != "al":
+            raise RuntimeError("PE32Writer.emit_setne currently supports only al")
+
+        # setne al
+        self.text += b"\x0F\x95\xC0"
+    
+    def emit_movzx(self, dst, src, comment=""):
+        self.writer.emit_movzx_r32_r8(
+            self.map_reg32(dst),
+            self.map_reg8(src)
+        )
+
+    def emit_movzx_r32_r8(self, dst, src):
+        dst_id = self._reg_id(dst)
+
+        reg8 = {
+            "al": 0,
+            "cl": 1,
+            "dl": 2,
+            "bl": 3,
+        }
+
+        if src not in reg8:
+            raise RuntimeError(f"unsupported 8-bit source register: {src}")
+
+        # movzx r32, r/m8
+        self.text += b"\x0F\xB6"
+        self.text.append(0xC0 | (dst_id << 3) | reg8[src])
+    
+    def emit_mov_r64_data_label(self, dst, label):
+        # NT32: r64-Aufruf vom gemeinsamen Generator auf r32 abbilden
+        return self.emit_mov_r32_data_label(
+            self._map_reg64_to_32(dst),
+            label
+        )
+
+    def emit_mov_data_label_r64(self, label, src):
+        # NT32: Pointer/String/Object-Handles sind 32-bit
+        return self.emit_mov_data_label_r32(
+            label,
+            self._map_reg64_to_32(src)
+        )
+
+    def _map_reg64_to_32(self, reg):
+        reg_map = {
+            "rax": "eax",
+            "rbx": "ebx",
+            "rcx": "ecx",
+            "rdx": "edx",
+            "rsi": "esi",
+            "rdi": "edi",
+            "rbp": "ebp",
+            "rsp": "esp",
+        }
+
+        return reg_map.get(reg, reg)
+    
+    def emit_test_reg_reg32(self, reg1, reg2):
+        r1 = self._reg_id(reg1)
+        r2 = self._reg_id(reg2)
+
+        # test r/m32, r32
+        self.text.append(0x85)
+        self.text.append(0xC0 | (r2 << 3) | r1)
+    
+    def emit_call_reg32(self, reg):
+        reg_id = self._reg_id(reg)
+
+        # call r/m32
+        self.text.append(0xFF)
+        self.text.append(0xD0 | reg_id)
+    
+    def write(self, filename):
+        NTWriter32(self).write(filename)
+        
+# ---------------------------------------------------------------------------
+# Windows 64-Bit PE coff writer ...
+# ---------------------------------------------------------------------------
+class PE64CoffWriter:
     def __init__(self):
         self.regs = {
             "al"  :  0, "cl"  :  1, "dl"  :  2, "bl"  :  3,
@@ -3392,7 +4271,7 @@ class PECoffWriter:
 # ---------------------------------------------------------------------------
 # MS-DOS 16-Bit MZ executable writer ...
 # ---------------------------------------------------------------------------
-class MZWriter16:
+class MZ16Writer:
     def __init__(self):
         self.code   = bytearray()
         self.data   = bytearray()
@@ -4318,9 +5197,373 @@ class MZWriter16:
             f.write(self.data)
 
 # ---------------------------------------------------------------------------
+# Windows NT 3.5 32-Bit PE executable writer ...
+# ---------------------------------------------------------------------------
+class NTWriter32:
+    IMAGE_BASE     = 0x00400000
+    FILE_ALIGNMENT = 0x200
+    SECTION_ALIGN  = 0x1000
+
+    def __init__(self, coff):
+        self.coff = coff
+        self.imports = {
+            "kernel32.dll": [
+                "ExitProcess",
+            ],
+            "user32.dll": [
+                "MessageBoxA",
+            ],
+            "dbase2many.32.dll": [
+                "_jit_print_text",
+                "_jit_print_newline",
+                "_jit_print_int",
+                "_jit_print_char",
+                "_jit_print_double",
+            ],
+        }
+
+    @property
+    def text(self): return self.coff.text
+
+    @property
+    def data(self): return self.coff.data
+
+    def align(self, value, alignment):
+        return (value + alignment - 1) & ~(alignment - 1)
+
+    def pad_to(self, data, size):
+        while len(data) < size:
+            data.append(0)
+
+    def find_entrypoint(self):
+        for sym in self.coff.symbols:
+            if sym["name"] in ("test", "main", "_main"):
+                return sym["value"]
+        raise RuntimeError("entry point not found: main/_main")
+
+    def all_import_functions(self):
+        funcs = []
+        for dll_name, names in self.imports.items():
+            for name in names:
+                if name not in funcs:
+                    funcs.append(name)
+        return funcs
+
+    def build_text_with_import_thunks(self):
+        text_image = bytearray(self.text)
+        self.import_thunk_offsets = {}
+
+        for name in self.all_import_functions():
+            self.import_thunk_offsets[name] = len(text_image)
+
+            # jmp dword [abs32]
+            text_image += b"\xFF\x25\x00\x00\x00\x00"
+
+        return text_image
+
+    def build_import_section(self, idata_rva):
+        self.import_iat_rvas = {}
+
+        descriptor_size  = 20
+        descriptors_size = (len(self.imports) + 1) * descriptor_size
+
+        data = bytearray(b"\x00" * descriptors_size)
+        cursor = descriptors_size
+        descriptors = []
+
+        for dll_name, funcs in self.imports.items():
+            ilt_rva = idata_rva + cursor
+            ilt_offsets = []
+
+            for func in funcs:
+                ilt_offsets.append(cursor)
+                data += b"\x00" * 4
+                cursor += 4
+
+            data += b"\x00" * 4
+            cursor += 4
+
+            iat_rva = idata_rva + cursor
+            iat_offsets = []
+
+            for func in funcs:
+                iat_offsets.append(cursor)
+                self.import_iat_rvas[func] = idata_rva + cursor
+                data += b"\x00" * 4
+                cursor += 4
+
+            data += b"\x00" * 4
+            cursor += 4
+
+            hint_name_rvas = []
+
+            for func in funcs:
+                hint_name_rva = idata_rva + cursor
+                hint_name_rvas.append(hint_name_rva)
+
+                data += struct.pack("<H", 0)
+                data += func.encode("ascii") + b"\x00"
+                cursor = len(data)
+
+            dll_name_rva = idata_rva + cursor
+            data += dll_name.encode("ascii") + b"\x00"
+            cursor = len(data)
+
+            for off, hn_rva in zip(ilt_offsets, hint_name_rvas):
+                struct.pack_into("<I", data, off, hn_rva)
+
+            for off, hn_rva in zip(iat_offsets, hint_name_rvas):
+                struct.pack_into("<I", data, off, hn_rva)
+
+            descriptors.append((ilt_rva, dll_name_rva, iat_rva))
+
+        for index, (ilt_rva, dll_name_rva, iat_rva) in enumerate(descriptors):
+            struct.pack_into(
+                "<IIIII",
+                data,
+                index * descriptor_size,
+                ilt_rva,
+                0,
+                0,
+                dll_name_rva,
+                iat_rva
+            )
+
+        return data
+
+    def patch_import_thunks(self, text_image):
+        for name, thunk_off in self.import_thunk_offsets.items():
+            iat_va = self.IMAGE_BASE + self.import_iat_rvas[name]
+
+            # FF 25 imm32 = jmp dword ptr [imm32]
+            text_image[thunk_off:thunk_off + 6] = (
+                b"\xFF\x25" +
+                int(iat_va).to_bytes(4, "little", signed=False)
+            )
+
+    def symbol_rva(self, sym, text_rva, data_rva):
+        if sym["section"] == 1:
+            return text_rva + sym["value"]
+        if sym["section"] == 2:
+            return data_rva + sym["value"]
+        raise RuntimeError(f"unsupported symbol section: {sym}")
+
+    def patch_internal_relocations(self, text_image, data_image, text_rva, data_rva):
+        for reloc in self.coff.text_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            if sym["section"] == 0:
+                continue
+
+            patch_pos = reloc["offset"]
+            target_rva = self.symbol_rva(sym, text_rva, data_rva)
+
+            if reloc["type"] == IMAGE_REL_I386_REL32:
+                next_rva = text_rva + patch_pos + 4
+                rel32 = target_rva - next_rva
+                text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
+
+            elif reloc["type"] == IMAGE_REL_I386_DIR32:
+                target_va = self.IMAGE_BASE + target_rva
+                text_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
+
+            else:
+                raise RuntimeError(f"unsupported text relocation type: {reloc['type']}")
+
+    def patch_external_call_relocations(self, text_image, text_rva):
+        for reloc in self.coff.text_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            if sym["section"] != 0:
+                continue
+
+            name = sym["name"]
+
+            if name not in self.import_thunk_offsets:
+                raise RuntimeError(f"external call not imported: {name}")
+
+            patch_pos = reloc["offset"]
+            thunk_off = self.import_thunk_offsets[name]
+
+            target_rva = text_rva + thunk_off
+            next_rva   = text_rva + patch_pos + 4
+            rel32      = target_rva - next_rva
+
+            text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
+
+    def write(self, filename):
+        print("NTWriter32.write called")
+        print(self.imports)
+        
+        dos_header = bytearray(64)
+        dos_header[0:2] = b"MZ"
+        struct.pack_into("<I", dos_header, 0x3C, 0x80)
+
+        dos_stub = bytearray(0x80 - len(dos_header))
+        pe_sig = b"PE\x00\x00"
+
+        number_of_sections      = 3
+        size_of_optional_header = 0xE0
+        section_header_size     = 40
+
+        file_header = struct.pack(
+            "<HHIIIHH",
+            0x014C,
+            number_of_sections,
+            int(time.time()),
+            0,
+            0,
+            size_of_optional_header,
+            0x010F
+        )
+
+        headers_size = self.align(
+            0x80 + 4 + 20 + size_of_optional_header +
+            number_of_sections * section_header_size,
+            self.FILE_ALIGNMENT
+        )
+
+        text_image = self.build_text_with_import_thunks()
+
+        text_rva          = self.SECTION_ALIGN
+        entry_rva         = text_rva + self.find_entrypoint()
+
+        text_raw          = headers_size
+        text_raw_size     = self.align(len(text_image), self.FILE_ALIGNMENT)
+        text_virtual_size = len(text_image)
+
+        data_rva          = self.align(text_rva + text_virtual_size, self.SECTION_ALIGN)
+        data_raw          = text_raw + text_raw_size
+        
+        data_virtual_size = max(1, len(self.data))
+        data_raw_size     = self.align(data_virtual_size, self.FILE_ALIGNMENT)
+
+        idata_rva  = self.align(data_rva + data_virtual_size, self.SECTION_ALIGN)
+        idata_raw  = data_raw + data_raw_size
+        
+        idata      = self.build_import_section(idata_rva)
+        data_image = bytearray(self.data)
+
+        self.patch_internal_relocations(text_image, data_image, text_rva, data_rva)
+        self.patch_external_call_relocations(text_image, text_rva)
+        self.patch_import_thunks(text_image)
+
+        idata_raw_size = self.align(len(idata), self.FILE_ALIGNMENT)
+        idata_virtual_size = len(idata)
+
+        size_of_image = self.align(idata_rva + idata_virtual_size, self.SECTION_ALIGN)
+
+        optional_header = bytearray()
+        optional_header += struct.pack("<H", 0x10B)
+        optional_header += struct.pack("<BB", 6, 0)
+        optional_header += struct.pack("<III", text_raw_size, data_raw_size, 0)
+        optional_header += struct.pack("<I", entry_rva)
+        optional_header += struct.pack("<I", text_rva)
+        optional_header += struct.pack("<I", data_rva)
+        optional_header += struct.pack("<I", self.IMAGE_BASE)
+        optional_header += struct.pack("<II", self.SECTION_ALIGN, self.FILE_ALIGNMENT)
+
+        optional_header += struct.pack(
+            "<HHHHHH",
+            3, 50,  # Major/Minor OS Version für NT 3.5
+            0, 0,   # Image Version
+            3, 50   # Subsystem Version
+        )
+
+        optional_header += struct.pack("<I", 0)
+        optional_header += struct.pack("<I", size_of_image)
+        optional_header += struct.pack("<I", headers_size)
+        optional_header += struct.pack("<I", 0)
+
+        optional_header += struct.pack("<HH", 2, 0)
+
+        optional_header += struct.pack(
+            "<IIIIII",
+            0x100000,
+            0x1000,
+            0x100000,
+            0x1000,
+            0,
+            16
+        )
+
+        data_directories = bytearray(16 * 8)
+        struct.pack_into("<II", data_directories, 1 * 8, idata_rva, len(idata))
+        optional_header += data_directories
+
+        if len(optional_header) != size_of_optional_header:
+            raise RuntimeError(f"optional header size: {len(optional_header)}")
+
+        text_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".text\x00\x00\x00",
+            text_virtual_size,
+            text_rva,
+            text_raw_size,
+            text_raw,
+            0, 0, 0, 0,
+            0x60000020
+        )
+
+        data_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".data\x00\x00\x00",
+            data_virtual_size,
+            data_rva,
+            data_raw_size,
+            data_raw,
+            0, 0, 0, 0,
+            0xC0000040
+        )
+
+        idata_section_header = struct.pack(
+            "<8sIIIIIIHHI",
+            b".idata\x00\x00",
+            idata_virtual_size,
+            idata_rva,
+            idata_raw_size,
+            idata_raw,
+            0, 0, 0, 0,
+            0xC0000040
+        )
+
+        image = bytearray()
+        image += dos_header
+        image += dos_stub
+        image += pe_sig
+        image += file_header
+        image += optional_header
+        image += text_section_header
+        image += data_section_header
+        image += idata_section_header
+
+        self.pad_to(image, text_raw)
+
+        image += text_image
+        self.pad_to(image, text_raw + text_raw_size)
+
+        image += data_image
+        self.pad_to(image, data_raw + data_raw_size)
+
+        image += idata
+        self.pad_to(image, idata_raw + idata_raw_size)
+
+        with open(filename, "wb") as f:
+            f.write(image)
+
+class NTImportTable32:
+    pass
+
+class NTResourceWriter32:
+    pass
+
+class NTStartup32:
+    pass
+
+# ---------------------------------------------------------------------------
 # Windows 10 64-Bit PE executable writer ...
 # ---------------------------------------------------------------------------
-class PEWriter64:
+class PE64Writer:
     IMAGE_BASE     = 0x140000000
     FILE_ALIGNMENT = 0x200
     SECTION_ALIGN  = 0x1000
@@ -4332,7 +5575,7 @@ class PEWriter64:
             "kernel32.dll": [
                 "ExitProcess"
             ],
-            "dbase2many.dll": [
+            "dbase2many.64.dll": [
                 "_jit_print_int",
                 "_jit_print_text",
                 "_jit_print_newline",
@@ -4378,7 +5621,7 @@ class PEWriter64:
 
     def find_entrypoint(self):
         for sym in self.coff.symbols:
-            if sym["name"] in ("main", "_main"):
+            if sym["name"] in ("test", "main", "_main"):
                 return sym["value"]
         raise RuntimeError("entry point not found: main/_main")
 
@@ -7851,9 +9094,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.coff.emit_mov_data_label_r64(info["symbol"], "rax")
             return
 
-        slot = info["slot"]
+        slot   = info["slot"]
+        target = CDATA.args_target.lower()
+
+        if target in ["winnt", "nt35", "win32"]:
+            symbol = info.get("symbol")
+
+            if not symbol:
+                symbol = f"_var_{name}"
+                info["symbol"] = symbol
+
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_i32(symbol, 0)
+
+            self.coff.emit_mov_data_label_r32(symbol, "eax")
+            return
+
         self.emit_mov_qword("r11", "r12", "pointr_vars")
         self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"object {name}")
+        return
     
     def emit_store_class_field(self, ctx, parts, expr_type):
         var_info, field = self.resolve_class_field_path(ctx, parts)
@@ -8774,14 +10033,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return
 
             if isinstance(typ, str) and typ.startswith("^"):
-                self.coff.emit_mov_data_label_r64(symbol, "rax")
+                if CDATA.args_target in ["winnt", "nt35", "win32"]:
+                    self.coff.emit_mov_data_label_r32(symbol, "eax")
+                else:
+                    self.coff.emit_mov_data_label_r64(symbol, "rax")
                 return
 
         if typ.startswith("^"):
+            if hasattr(self, "coff") and CDATA.args_target in ["winnt", "nt35", "win32"]:
+                symbol = info.get("symbol")
+
+                if not symbol:
+                    symbol = f"_var_{name}"
+                    info["symbol"] = symbol
+
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_i32(symbol, 0)
+
+                self.coff.emit_mov_data_label_r32(symbol, "eax")
+                return
+
             self.emit_mov_qword("r11", "r12", "pointr_vars")
             self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"{name}")
             return
-        
+
         if isinstance(typ, str) and typ in self.arrays:
             array_info = self.arrays[typ]
             
@@ -9269,12 +10544,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if end_type != "integer":
             raise CompileError(ctx, "E0005", got=end_type, expected="integer")
 
-        if CDATA.args_target in ["dos", "dos16"]:
-            self.backend.emit_store_for_end_ax()
+        target = CDATA.args_target.lower()
+
+        if target in ["winnt", "nt35", "win32"]:
+            # NT32: for-end-Wert erstmal in globaler Datenvariable speichern
+            if self.coff.find_symbol_index("__for_end_tmp") is None:
+                self.coff.add_data_i32("__for_end_tmp", 0)
+
+            self.coff.emit_mov_data_label_r32("__for_end_tmp", "eax")
+
         else:
             self.emit_mov_dword_ptr_store(
                 "r12",
-                "offsetof(JitContext, _print_int_tmp)",
+                JIT_CONTEXT_OFFSETS["print_int_tmp"],
                 "eax",
                 comment="for end value"
             )
@@ -9284,7 +10566,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         direction = ctx.getChild(4).getText().lower()
 
-        if CDATA.args_target in ["dos", "dos16"]:
+        target = CDATA.args_target.lower()
+
+        if target in ["dos", "dos16"]:
             self.backend.emit_load_for_end_bx()
             self.emit_cmp("eax", "ebx")
 
@@ -9292,6 +10576,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_jg(end_name)
             else:
                 self.emit_jl(end_name)
+        if target in ["winnt", "nt35", "win32"]:
+            self.coff.emit_mov_r32_data_label("ebx", "__for_end_tmp")
+            self.emit_cmp("eax", "ebx")
         else:
             if direction == "to":
                 self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
@@ -9467,18 +10754,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if CDATA.args_backend == BACKEND_EXEFILE\
         or CDATA.args_backend == BACKEND_OBJFILE:
+            
+            target = CDATA.args_target.lower()
+            
             if CDATA.args_target.lower() in ["dos", "dos16"]:
                 self.writer.add_dos_string(label, text)
                 return label
                 
-            elif CDATA.args_target.lower() in ["win32", "win64"]:
-                if (hasattr(self, "coff")
-                    and self.backend.name == CDATA.args_backend
-                    and self.coff.find_symbol_index(label) is None):
-                        self.coff.add_data_string(label, text)
-                        return label
-            else:
-                raise Exception("target not supported.")
+            elif target in ["win32", "win64", "winnt", "nt35"]:
+                if not hasattr(self, "coff") or self.coff is None:
+                    raise Exception("coff writer not installed")
+                    
+                if self.coff.find_symbol_index(label) is None:
+                    self.coff.add_data_string(label, text)
+                return label
+                
+            raise Exception("target not supported.")
         raise Exception("backend not supported.")
         
     def visit(self, tree):
@@ -12368,29 +13659,27 @@ class GeneratorClass(AsmJitGenerator):
     def __init__(self, backend, writer=None):
         super().__init__(backend)
         self.writer = None
-        
-        if writer is not None:
-            self.writer = writer
+        self.coff   = None
+
+        if writer is None:
+            raise RuntimeError("generator writer invalid")
+
+        self.writer = writer
+
+        # EXE-Writer bekommen: echten COFF-Writer herausziehen
+        if isinstance(writer, NTWriter32):
+            self.coff = writer.coff
+            self.writer = writer.coff
+
+        elif isinstance(writer, PE64Writer):
+            self.coff = writer.coff
+            self.writer = writer.coff
+
+        elif isinstance(writer, (PE32Writer, PE64CoffWriter)):
+            self.coff = writer
+
         else:
-            raise RuntimError("generator writer invalid")
-            
-        self.writer_context_done  = False
-        self.writer_main_done     = False
-        
-        #self.main_offset = len(self.coff.text)
-        #
-        #self.coff.emit_lea_rcx_data_label("str_0")
-        #self.coff.emit_sub_rsp_imm8(40)
-        #self.coff.emit_call_rel32("_jit_print_text")
-        #self.coff.emit_add_rsp_imm8(40)
-        #
-        #self.coff.emit_mov_ecx_imm32(123)
-        #self.coff.emit_sub_rsp_imm8(40)
-        #self.coff.emit_call_rel32("_jit_print_int")
-        #self.coff.emit_add_rsp_imm8(40)
-        #self.coff.emit_ret()
-        
-        #self.coff.add_symbol("_main", self.main_offset, section_number = 1)
+            raise RuntimeError(f"unsupported generator writer: {type(writer)}")
 
     def write_string_literals_to_coff(self):
         for label, text in self.string_literals:
@@ -12419,17 +13708,23 @@ class GeneratorClass(AsmJitGenerator):
 
         if  CDATA.args_backend == BACKEND_OBJFILE\
         or  CDATA.args_backend == BACKEND_EXEFILE:
-            if CDATA.args_target.lower() in ["win32", "win64"]:
+            if CDATA.args_target.lower() in ["win32", "win64", "nt35", "winnt"]:
                 self.finalize_coff_context()
-            
                 self.writer.begin_function("_main", local_size=0)
+                
+                target = CDATA.args_target.lower()
+                
+                if target in ["winnt", "nt35", "win32"]:
+                    # NT32: kein r12, kein Win64-Context, kein Shadow-Space
+                    pass
+                
+                else:
+                    self.emit_push("r12")
+                    self.emit_push("rbx")
+                    self.emit_sub("rsp", 8)
 
-                self.emit_push("r12")
-                self.emit_push("rbx")
-                self.emit_sub("rsp", 8)
-
-                # PE-EXE hat keinen JIT-Aufrufer, also ctx direkt laden:
-                self.writer.emit_lea_reg_data_label("r12", "ctx")
+                    # PE-EXE hat keinen JIT-Aufrufer, also ctx direkt laden:
+                    self.writer.emit_lea_reg_data_label("r12", "ctx")
         
             elif CDATA.args_target.lower() in ["dos", "dos16"]:
                 self.writer.bind_label(dos_main_label)
@@ -12447,18 +13742,33 @@ class GeneratorClass(AsmJitGenerator):
 
         if  CDATA.args_backend == BACKEND_OBJFILE\
         or  CDATA.args_backend == BACKEND_EXEFILE:
-            if CDATA.args_target.lower() in ["win32", "win64"]:
+            target = CDATA.args_target.lower()
+
+            if target in ["winnt", "nt35", "win32"]:
+                # NT32 / PE32: stdcall, Parameter per Stack
+                self.writer.emit_push_imm32(0)
+                self.writer.emit_call_external("ExitProcess")
+                self.writer.end_function()
+
+            elif target == "win64":
                 self.emit_mov("ecx", 0)
                 self.writer.emit_runtime_call("ExitProcess")
                 self.writer.end_function()
-            
-            elif CDATA.args_target.lower() in ["dos", "dos16"]:
+    
+            elif target in ["dos", "dos16"]:
                 self.writer.emit_exit(0)
                 
         return None
 
     def finalize_coff_context(self):
         if getattr(self, "coff_context_done", False):
+            return
+        
+        target = CDATA.args_target.lower()
+        
+        if target in ["winnt", "nt35", "win32"]:
+            # NT32: JitContext später separat aufbauen.
+            # Für den ersten MessageBox/Fenster-Test noch überspringen.
             return
         
         self.writer.add_jit_context(
@@ -12494,7 +13804,7 @@ class GeneratorClass(AsmJitGenerator):
         self.coff_main()
         self.coff.write(obj_file)
         
-        pe = PEWriter64(self.coff)
+        pe = PE64Writer(self.coff)
         pe.emit_ret()
         pe.write(exe_file)
 
@@ -12504,12 +13814,20 @@ class GeneratorClass(AsmJitGenerator):
 class OutputWriter:
     def write(self, filename):    raise NotImplementedError
 
-class PEExeWriter(OutputWriter):
+class PE32ExeWriter(OutputWriter):
+    def __init__(self, coff):
+        self.coff = coff
+    
+    def write(self, filename):
+        pe = PE32Writer(self.coff)
+        pe.write(filename)
+        
+class PE64ExeWriter(OutputWriter):
     def __init__(self, coff):
         self.coff = coff
         
     def write(self, filename):
-        pe = PEWriter64(self.coff)
+        pe = PE64Writer(self.coff)
         pe.write(filename)
 
 class CoffObjectWriter(OutputWriter):
@@ -12563,7 +13881,7 @@ def main():
             CDATA.LastErrorCode = LastError.NO_TARGET
             raise Exception("no target platform given.")
         
-        if args.target in ["dos", "dos16", "win32", "win64"]:
+        if args.target in ["dos", "dos16", "nt35", "winnt", "win32", "win64"]:
             CDATA.args_target = args.target
         else:
             CDATA.LastErrorCode = LastError.NO_TARGET
@@ -12591,21 +13909,38 @@ def main():
         elif args.backend in ["obj", "objfile"]:
             CDATA.args_backend = BACKEND_OBJFILE
             if args.target in ["win32", "win64"]:
-                target_obj = PECoffWriter()
-                backend    = CoffBackend(target_obj)
+                target_obj = PE64CoffWriter()
+                backend    = Coff64Backend(target_obj)
                 writer     = CoffObjectWriter(target_obj)
         
         elif args.backend in ["exe", "exefile"]:
             CDATA.args_backend = BACKEND_EXEFILE
-            if args.target in ["win32", "win64"]:
-                target_obj = PECoffWriter()
-                backend    = CoffBackend(target_obj)
-                writer     = PEExeWriter(target_obj)
+            if args.target in ["winnt", "nt35"]:
+                writer     = PE32Writer()
+                target_obj = NTWriter32(writer)
+                backend    = Coff32Backend(writer)
+                #writer     = target_obj
                 
+                
+                # Testcode erzeugen
+                #writer.begin_function("_main", local_size=0)
+                
+                writer.emit_push_imm32(99)
+                writer.emit_call_external("ExitProcess")
+                
+                #writer.end_function()
+                
+                #writer.write("test.exe")
+            
             elif args.target in ["dos", "dos16"]:
-                target_obj = MZWriter16()
+                target_obj = MZ16Writer()
                 backend    = DosBackend(target_obj)
                 writer     = DosExeWriter(target_obj)
+            
+            elif args.target in ["win32", "win64"]:
+                target_obj = PE64CoffWriter()
+                backend    = Coff64Backend(target_obj)
+                writer     = PE64ExeWriter(target_obj)
         else:
             CDATA.LastErrorCode = LastError.NO_BACKEND
             raise Exception("backend not supported.")
@@ -12715,7 +14050,16 @@ def main():
                     if check in ('j', 'y'):
                         target_obj.write(CDATA.exe_file)
                 else:   target_obj.write(CDATA.exe_file)
-                    
+        
+        elif CDATA.args_target.lower() in ["nt35", "winnt"]:
+            if CDATA.args_backend.lower() == BACKEND_EXEFILE:
+                outfile = Path(CDATA.exe_file)
+                if outfile.exists():
+                    check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
+                    if check in ('j', 'y'):
+                        writer.write(CDATA.exe_file)  #target_obj.write(CDATA.exe_file)
+                else:   writer.write(CDATA.exe_file)  #target_obj.write(CDATA.exe_file)
+                
         elif CDATA.args_target.lower() == "win64":
             if CDATA.BackEnd.current == BACKEND_ASMJIT:
                 if not CDATA.cpp_file:
@@ -12777,7 +14121,7 @@ def main():
             raise Exception("backend not given or not supported.")
         
         return 0
-        
+    
     except CompileError as e:
         if generator is not None:
             print(generator.format_error(source_file, e), file = sys.stderr)
@@ -12785,15 +14129,27 @@ def main():
         else:
             print(e, file = sys.stderr)
             return 3
+    except PermissionError as e:
+        print(f"Error: Permission Error")
+        print(f"Text : {e.message}")
+        return 2
     except ArgumentParserError as e:
         print(f"Error: Invalid argument(s)")
         print(f"Text : {e.message}")
         #print(f"Code : {e.errno}")
         return 2
+    except AttributeError as e:
+        print(f"Error: Attribute Error")
+        print(f"Text : {e.message}")
+        return 2
     except FileNotFoundError as e:
         print(f"Error: File not found '{e.filename}'")
         print(f"Text : {e.strerror}")
         print(f"Code : {e.errno}")
+        return 2
+    except ArithmeticError as e:
+        print(f"Error: Arithmetic Error")
+        print(f"Text : Division through 0")
         return 2
     except Exception as e:
         print(f"Error: {str(e)}")
