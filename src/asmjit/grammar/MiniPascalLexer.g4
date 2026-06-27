@@ -46,6 +46,9 @@ FOR                 : [Ff][Oo][Rr] ;
 TO                  : [Tt][Oo] ;
 DOWNTO              : [Dd][Oo][Ww][Nn][Tt][Oo] ;
 
+INC                 : [Ii][Nn][Cc] ;
+DEC                 : [Dd][Ee][Cc] ;
+
 PROCEDURE           : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 FUNCTION            : [Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn] ;
 RESULT              : [Rr][Ee][Ss][Uu][Ll][Tt] ;

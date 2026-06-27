@@ -611,6 +611,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#incstatement.
+    def enterIncstatement(self, ctx:MiniPascalParser.IncstatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#incstatement.
+    def exitIncstatement(self, ctx:MiniPascalParser.IncstatementContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#decstatement.
+    def enterDecstatement(self, ctx:MiniPascalParser.DecstatementContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#decstatement.
+    def exitDecstatement(self, ctx:MiniPascalParser.DecstatementContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#caseStatement.
     def enterCaseStatement(self, ctx:MiniPascalParser.CaseStatementContext):
         pass

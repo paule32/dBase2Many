@@ -1162,7 +1162,23 @@ class Coff32Backend(CodeBackend):
         super().__init__("nt32")
         self.writer = writer
         self.pending_call_symbol = None
+        
+        self.JIT_CONTEXT_OFFSETS32 = {
+            "int_vars": 0,
+            "double_vars": 4,
+            "string_vars": 8,
+            "record_vars": 12,
+            "arrays_vars": 16,
+            "pointr_vars": 20,
+            "print_int_tmp": 24,
+            "print_double_tmp": 28,
+        }
 
+    def pointer_slot_size(self):
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            return 4
+        return 8
+        
     def emit_new_label_decl(self, name, comment=""):
         # PE32/COFF braucht keine vorherige Label-Deklaration
         return
@@ -1193,10 +1209,16 @@ class Coff32Backend(CodeBackend):
         self.writer.emit_call_label(label)
 
     def emit_call(self, target, comment=""):
+        if target in ["rax", "eax"] and self.pending_call_symbol:
+            name = self.pending_call_symbol
+            self.pending_call_symbol = None
+            self.writer.emit_call_external(name)
+            return
+
         if target in ["rax", "eax"]:
             self.writer.emit_call_reg32("eax")
             return
-
+        
         if target in ["rbx", "ebx"]:
             self.writer.emit_call_reg32("ebx")
             return
@@ -1293,14 +1315,26 @@ class Coff32Backend(CodeBackend):
     
     def map_reg32(self, reg):
         reg_map = {
-            "rax": "eax", "eax": "eax",
-            "rbx": "ebx", "ebx": "ebx",
-            "rcx": "ecx", "ecx": "ecx",
-            "rdx": "edx", "edx": "edx",
-            "rbp": "ebp", "ebp": "ebp",
-            "rsp": "esp", "esp": "esp",
-            "rsi": "esi", "esi": "esi",
-            "rdi": "edi", "edi": "edi",
+            "rax" : "eax", "eax": "eax",
+            "rbx" : "ebx", "ebx": "ebx",
+            "rcx" : "ecx", "ecx": "ecx",
+            "rdx" : "edx", "edx": "edx",
+            "rbp" : "ebp", "ebp": "ebp",
+            "rsp" : "esp", "esp": "esp",
+            "rsi" : "esi", "esi": "esi",
+            "rdi" : "edi", "edi": "edi",
+            
+            "r8"  : "ecx",
+            "r8d" : "ecx",
+            "r9"  : "edx",
+            "r9d" : "edx",
+
+            "r10" : "edi",
+            "r10d": "edi",
+            "r11" : "ebx",
+            "r11d": "ebx",
+            
+            "r12" : "esi",
         }
         
         if reg not in reg_map:
@@ -1326,8 +1360,12 @@ class Coff32Backend(CodeBackend):
                 self.writer.emit_mov_reg_imm32(dst32, int(src))
                 return
 
-            if src.startswith("str_") or src.startswith("_var_"):
-                self.writer.emit_mov_reg_data_label32(dst32, src)
+            if src.startswith("str_"):
+                self.writer.emit_mov_reg_data_label32(dst32, src)   # Adresse
+                return
+
+            if src.startswith("_var_"):
+                self.writer.emit_mov_reg_from_data_label32(dst32, src)  # Inhalt
                 return
 
         self.writer.emit_mov_reg_reg32(
@@ -1336,10 +1374,24 @@ class Coff32Backend(CodeBackend):
         )
 
     def emit_sub(self, reg, value, comment=""):
-        self.writer.emit_sub_reg_imm32(
-            self.map_reg32(reg),
-            value
-        )
+        reg32 = self.map_reg32(reg)
+
+        if isinstance(value, int):
+            self.writer.emit_sub_reg_imm32(reg32, value)
+            return
+
+        if isinstance(value, str):
+            if value.lstrip("-").isdigit():
+                self.writer.emit_sub_reg_imm32(reg32, int(value))
+                return
+
+            self.writer.emit_sub_reg_reg32(
+                reg32,
+                self.map_reg32(value)
+            )
+            return
+
+        raise RuntimeError(f"unsupported NT32 sub value: {value}")
 
     def emit_add(self, reg, value, comment=""):
         reg32 = self.map_reg32(reg)
@@ -1366,8 +1418,12 @@ class Coff32Backend(CodeBackend):
 
         if isinstance(value, str):
             # String-/Datenlabel
-            if value.startswith("str_") or value.startswith("_var_"):
-                self.writer.emit_mov_reg_data_label32(dst32, value)
+            if value.startswith("str_"):
+                self.writer.emit_mov_reg_data_label32(dst32, value)         # Adresse
+                return
+            
+            if value.startswith("_var_"):
+                self.writer.emit_mov_reg_from_data_label32(dst32, value)     # Inhalt
                 return
 
             # &Runtime / &API
@@ -1383,31 +1439,43 @@ class Coff32Backend(CodeBackend):
     def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
         self.writer.emit_mov_mem_reg32(
             self.map_reg32(base),
-            int(offset),
+            self.resolve_offset32(offset),
             self.map_reg32(src)
         )
+
+    def resolve_offset32(self, offset):
+        if isinstance(offset, int):
+            return offset
+
+        if isinstance(offset, str):
+            if offset.lstrip("-").isdigit():
+                return int(offset)
+
+            if offset.startswith("offsetof(JitContext, ") and offset.endswith(")"):
+                field = offset[len("offsetof(JitContext, "):-1]
+                return self.JIT_CONTEXT_OFFSETS32[field]
+
+        raise RuntimeError(f"unsupported NT32 offset: {offset}")
 
     def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
         self.writer.emit_mov_mem_reg32(
             self.map_reg32(base),
-            int(offset),
+            self.resolve_offset32(offset),
             self.map_reg32(src)
         )
 
     def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""):
-        # Win64-Visitor ruft qword auf.
-        # NT32 lädt Pointer aber als dword.
         self.writer.emit_mov_reg_mem32(
             self.map_reg32(dst),
             self.map_reg32(base),
-            int(offset)
+            self.resolve_offset32(offset)
         )
 
     def emit_mov_dword_ptr(self, dst, base, offset=0, comment=""):
         self.writer.emit_mov_reg_mem32(
             self.map_reg32(dst),
             self.map_reg32(base),
-            int(offset)
+            self.resolve_offset32(offset)
         )
         
     def emit_imul(self, dst, src, value=None, comment=""):
@@ -1478,6 +1546,92 @@ class Coff32Backend(CodeBackend):
         
     def emit_call_reg(self, reg, comment=""):
         self.writer.emit_call_reg32(self.map_reg32(reg))
+    
+    def emit_push_data_label32(self, label):
+        self.writer.emit_push_data_label32(label)
+
+    def emit_cleanup_stack(self, size):
+        if size:
+            self.writer.emit_add_reg_imm32("esp", size)
+    
+    def emit_movsd_store(self, base, offset, src, comment=""):
+        self.writer.emit_movsd_store32(
+            self.map_reg32(base),
+            int(offset),
+            src
+        )
+
+    def emit_movsd_load(self, dst, base, offset=0, comment=""):
+        self.writer.emit_movsd_load32(
+            dst,
+            self.map_reg32(base),
+            int(offset)
+        )
+        
+    def emit_cvtsi2sd(self, dst, src, comment=""):
+        self.writer.emit_cvtsi2sd32(dst, self.map_reg32(src))
+    
+    def emit_addsd(self, dst, src, comment=""):
+        self.writer.emit_sse2_xmm_xmm32(0x58, dst, src)
+
+    def emit_subsd(self, dst, src, comment=""):
+        self.writer.emit_sse2_xmm_xmm32(0x5C, dst, src)
+
+    def emit_mulsd(self, dst, src, comment=""):
+        self.writer.emit_sse2_xmm_xmm32(0x59, dst, src)
+
+    def emit_divsd(self, dst, src, comment=""):
+        self.writer.emit_sse2_xmm_xmm32(0x5E, dst, src)
+    
+    def emit_mov_qword(self, dst, base, field, comment=""):
+        # NT32: qword aus gemeinsamem Generator bedeutet hier Pointer-Feld,
+        # aber im 32-bit Backend laden wir dword.
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            self.JIT_CONTEXT_OFFSETS32[field]
+        )
+
+    def emit_mov_dword(self, dst, base, field, comment=""):
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            self.JIT_CONTEXT_OFFSETS32[field]
+        )
+    
+    def emit_movsxd(self, dst, src, comment=""):
+        # NT32:
+        # Der gemeinsame 64-Bit-Code ruft z.B. movsxd rax,eax auf.
+        # In 32 Bit ist das ein No-Op, weil eax bereits 32 Bit ist.
+        dst32 = self.map_reg32(dst)
+        src32 = self.map_reg32(src)
+
+        if dst32 == src32:
+            return
+
+        self.writer.emit_mov_reg_reg32(dst32, src32)
+
+    def emit_mov_reg_dword(self, dst, base, comment=""):
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            0
+        )
+
+    def emit_mov_reg_qword(self, dst, base, comment=""):
+        # NT32: qword-Load aus gemeinsamem Code bedeutet meistens Pointer-Load.
+        # Also dword laden.
+        self.writer.emit_mov_reg_mem32(
+            self.map_reg32(dst),
+            self.map_reg32(base),
+            0
+        )
+
+    def emit_mov_reg_byte(self, dst, base, comment=""):
+        raise NotImplementedError("NT32 byte load is not implemented yet")
+    
+    def write(self, filename):
+        NTWriter32(self).write(filename)
 
 # ---------------------------------------------------------------------------
 # Windows 64-Bit PE coff backend ...
@@ -1675,20 +1829,6 @@ class Coff64Backend(CodeBackend):
     def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
         # Win64-Visitor ruft qword auf.
         # NT32 speichert Pointer aber als dword.
-        self.writer.emit_mov_mem_reg32(
-            self.map_reg32(base),
-            int(offset),
-            self.map_reg32(src)
-        )
-
-    def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
-        self.writer.emit_mov_mem_reg32(
-            self.map_reg32(base),
-            int(offset),
-            self.map_reg32(src)
-        )
-
-    def emit_mov_qword_ptr_store(self, base, offset, src, comment=""):
         self.writer.emit_mov_mem_reg32(
             self.map_reg32(base),
             int(offset),
@@ -2151,6 +2291,22 @@ class PE32Writer:
             self.symbols[idx]["value"] = len(self.text)
             self.symbols[idx]["section"] = 1
 
+        pending = [
+            f for f in self.fixups
+            if f["label"] == name
+        ]
+
+        for fix in pending:
+            self.patch_rel32(
+                fix["patch_pos"],
+                self.labels[name]
+            )
+
+        self.fixups = [
+            f for f in self.fixups
+            if f["label"] != name
+        ]
+
     def patch_rel32(self, patch_pos, target_pos):
         rel = target_pos - (patch_pos + 4)
         self.text[patch_pos:patch_pos + 4] = int(rel).to_bytes(
@@ -2361,6 +2517,14 @@ class PE32Writer:
         self.text.append(0x81)
         self.text.append(0xE8 | reg_id)
         self.text += int(value).to_bytes(4, "little", signed=True)
+
+    def emit_sub_reg_reg32(self, dst, src):
+        dst_id = self._reg_id(dst)
+        src_id = self._reg_id(src)
+
+        # sub r/m32, r32
+        self.text.append(0x29)
+        self.text.append(0xC0 | (src_id << 3) | dst_id)
 
     def emit_add_reg_imm32(self, reg, value):
         reg_id = self._reg_id(reg)
@@ -2594,9 +2758,193 @@ class PE32Writer:
         self.text.append(0xFF)
         self.text.append(0xD0 | reg_id)
     
+    def emit_push_data_label32(self, label):
+        sym_index = self.find_or_add_symbol(label)
+
+        self.text.append(0x68)  # push imm32
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+    
+    def emit_fstp_qword_ptr_esp(self):
+        # fstp qword [esp]
+        self.text += b"\xDD\x1C\x24"
+    
+    def emit_movsd_qword_ptr_esp_xmm0(self):
+        # movsd qword [esp], xmm0
+        self.text += b"\xF2\x0F\x11\x04\x24"
+    
+    def add_data_double(self, name, value):
+        bits = double_to_bits(value)
+        return self.add_data_bytes(
+            name,
+            int(bits).to_bytes(8, "little", signed=False),
+            alignment=8
+        )
+
+    def emit_movsd_xmm0_data_label32(self, label):
+        sym_index = self.find_or_add_symbol(label)
+
+        # movsd xmm0, qword ptr [imm32]
+        self.text += b"\xF2\x0F\x10\x05"
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+    
+    def _xmm_id(self, reg):
+        xmm = {
+            "xmm0": 0,
+            "xmm1": 1,
+        }
+        if reg not in xmm:
+            raise RuntimeError(f"unsupported NT32 xmm register: {reg}")
+        return xmm[reg]
+
+    def emit_movsd_store32(self, base, offset, src):
+        src_id = self._xmm_id(src)
+        self.text += b"\xF2\x0F\x11"
+        self._emit_modrm_mem32(src_id, self._reg_id(base), offset)
+
+    def emit_movsd_load32(self, dst, base, offset=0):
+        dst_id = self._xmm_id(dst)
+        self.text += b"\xF2\x0F\x10"
+        self._emit_modrm_mem32(dst_id, self._reg_id(base), offset)
+    
+    def emit_cvtsi2sd32(self, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._reg_id(src)
+
+        # cvtsi2sd xmm, r/m32
+        self.text += b"\xF2\x0F\x2A"
+        self.text.append(0xC0 | (dst_id << 3) | src_id)
+
+    def emit_sse2_xmm_xmm32(self, opcode, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._xmm_id(src)
+
+        # addsd/subsd/mulsd/divsd xmm, xmm
+        self.text += b"\xF2\x0F"
+        self.text.append(opcode)
+        self.text.append(0xC0 | (dst_id << 3) | src_id)
+
+    def emit_mov_reg_from_data_label32(self, reg, label):
+        reg_id    = self._reg_id(reg)
+        sym_index = self.find_or_add_symbol(label)
+
+        # mov r32, dword ptr [imm32]
+        self.text.append(0x8B)
+        self.text.append(0x05 | (reg_id << 3))
+
+        reloc_offset = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        self.text_relocations.append({
+            "offset": reloc_offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+
+    def emit_lea_reg_data_label(self, reg, label):
+        # NT32: Adresse eines Datenlabels in Register laden
+        # mov reg, imm32 + DIR32 relocation
+        self.emit_mov_reg_data_label32(reg, label)
+
+    def add_data_i32_symbol_ref(self, target_symbol):
+        sym_index = self.find_or_add_symbol(target_symbol)
+        offset = len(self.data)
+        self.data += b"\x00\x00\x00\x00"
+
+        self.data_relocations.append({
+            "offset": offset,
+            "symbol_index": sym_index,
+            "type": IMAGE_REL_I386_DIR32
+        })
+
+        return offset
+
+    #def has_symbol(self, name):
+    #    for sym in self.symbols:
+    #        if sym.name == name:
+    #            return True
+    #    return False
+    
+    def has_symbol(self, name):
+        for sym in self.symbols:
+            if isinstance(sym, dict):
+                if sym.get("name") == name:
+                    return True
+            else:
+                if getattr(sym, "name", None) == name:
+                    return True
+        return False
+
+    def add_data_label(self, name):
+        self.add_symbol(
+            name,
+            2, #self.data_section_number,
+            len(self.data)
+        )
+
+    def ensure_data_symbol_block(self, name, size):
+        if not self.has_symbol(name):
+            self.add_data_bytes(name, b"\x00" * size, alignment=4)
+        
+    def add_jit_context32(self, name="ctx"):
+        #self.ensure_data_symbol_block("int_vars",    4 * max( 1, self.required_int_slots))
+        #self.ensure_data_symbol_block("double_vars", 8 * max( 1, self.required_double_slots))
+        #self.ensure_data_symbol_block("string_vars", 4 * max( 1, self.required_string_slots))
+        #self.ensure_data_symbol_block("record_vars",     max(16, self.required_record_bytes))
+        #self.ensure_data_symbol_block("arrays_vars",     max(16, self.required_array_bytes))
+        #self.ensure_data_symbol_block("pointr_vars", 4 * max( 1, self.required_pointer_slots))
+        
+        self.ensure_data_symbol_block("int_vars", 16)
+        self.ensure_data_symbol_block("double_vars", 16)
+        self.ensure_data_symbol_block("string_vars", 16)
+        self.ensure_data_symbol_block("record_vars", 64)
+        self.ensure_data_symbol_block("arrays_vars", 64)
+        self.ensure_data_symbol_block("pointr_vars", 16)
+
+        self.align_data(4)
+        ctx_offset = len(self.data)
+
+        self.add_symbol(
+            name=name,
+            value=ctx_offset,
+            section_number=2
+        )
+
+        self.add_data_i32_symbol_ref("int_vars")
+        self.add_data_i32_symbol_ref("double_vars")
+        self.add_data_i32_symbol_ref("string_vars")
+        self.add_data_i32_symbol_ref("record_vars")
+        self.add_data_i32_symbol_ref("arrays_vars")
+        self.add_data_i32_symbol_ref("pointr_vars")
+
+        self.data += b"\x00" * 4   # print_int_tmp
+        self.data += b"\x00" * 8   # print_double_tmp
+
+        return ctx_offset
+
+    def pointer_slot_size(self):
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                return 4
+            return 8
+
     def write(self, filename):
         NTWriter32(self).write(filename)
-        
+
 # ---------------------------------------------------------------------------
 # Windows 64-Bit PE coff writer ...
 # ---------------------------------------------------------------------------
@@ -2631,6 +2979,11 @@ class PE64CoffWriter:
         
         self.string_table       = bytearray()
         self.string_offsets     = {}
+
+    def pointer_slot_size(self):
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            return 4
+        return 8
     
     def begin_function(self, name, local_size=0, public=True):
         offset = len(self.text)
@@ -5213,12 +5566,35 @@ class NTWriter32:
             "user32.dll": [
                 "MessageBoxA",
             ],
-            "dbase2many.32.dll": [
+            "libdbase2many.32.dll": [
+                "_jit_print_int",
                 "_jit_print_text",
                 "_jit_print_newline",
-                "_jit_print_int",
-                "_jit_print_char",
                 "_jit_print_double",
+                "_jit_print_char",
+
+                "_jit_new_memory",
+                "_jit_dispose_memory",
+
+                "_jit_debug_break",
+
+                "_jit_runtime_error",
+                "_jit_array_bounds_error",
+                "_jit_string_range_error",
+                "_jit_nil_pointer_error",
+                "_jit_out_of_memory_error",
+
+                "_jit_dynarray_setlength",
+                "_jit_dynstring_setlength",
+                "_jit_dynstring_from_cstr",
+                "_jit_dynstring_length",
+                "_jit_dynstring_concat",
+                "_jit_dynstring_copy",
+                "_jit_dynstring_pos",
+
+                "_jit_set_exception",
+                "_jit_read_int",
+                "_jit_read_string"
             ],
         }
 
@@ -5357,7 +5733,7 @@ class NTWriter32:
 
             patch_pos = reloc["offset"]
             target_rva = self.symbol_rva(sym, text_rva, data_rva)
-
+            
             if reloc["type"] == IMAGE_REL_I386_REL32:
                 next_rva = text_rva + patch_pos + 4
                 rel32 = target_rva - next_rva
@@ -5369,6 +5745,18 @@ class NTWriter32:
 
             else:
                 raise RuntimeError(f"unsupported text relocation type: {reloc['type']}")
+                
+        for reloc in self.coff.data_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            patch_pos  = reloc["offset"]
+            target_rva = self.symbol_rva(sym, text_rva, data_rva)
+
+            if reloc["type"] == IMAGE_REL_I386_DIR32:
+                target_va = self.IMAGE_BASE + target_rva
+                data_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
+            else:
+                raise RuntimeError(f"unsupported data relocation type: {reloc['type']}")
 
     def patch_external_call_relocations(self, text_image, text_rva):
         for reloc in self.coff.text_relocations:
@@ -5475,7 +5863,7 @@ class NTWriter32:
         optional_header += struct.pack("<I", headers_size)
         optional_header += struct.pack("<I", 0)
 
-        optional_header += struct.pack("<HH", 2, 0)
+        optional_header += struct.pack("<HH", 3, 0)  # 2 = gui, 3 = console
 
         optional_header += struct.pack(
             "<IIIIII",
@@ -5575,7 +5963,7 @@ class PE64Writer:
             "kernel32.dll": [
                 "ExitProcess"
             ],
-            "dbase2many.64.dll": [
+            "libdbase2many.64.dll": [
                 "_jit_print_int",
                 "_jit_print_text",
                 "_jit_print_newline",
@@ -6612,6 +7000,29 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "max": index_max
                 }
             ]
+
+        resolved_type = self.resolve_type(element_type)
+
+        if resolved_type == "integer":
+            element_size = 4
+
+        elif resolved_type == "double":
+            element_size = 8
+
+        elif resolved_type == "string":
+            element_size = self.pointer_slot_size()
+
+        elif isinstance(resolved_type, str) and resolved_type.startswith("^"):
+            element_size = self.pointer_slot_size()
+
+        elif isinstance(resolved_type, str) and resolved_type in self.records:
+            element_size = self.records[resolved_type].size
+
+        elif isinstance(resolved_type, str) and resolved_type in self.classes:
+            element_size = self.pointer_slot_size()
+
+        else:
+            raise CompileError(ctx, "E0004", name=resolved_type)
 
         count = 1
         for dim in dimensions:
@@ -8099,17 +8510,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_soft_runtime_error(self, message):
         except_label = self.current_except_label()
+        label = self.get_or_add_runtime_error_string(message)
+        #label = self.add_string_literal(message)
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if except_label is None:
+                self.backend.emit_push_data_label32(label)
+                self.emit_call("_jit_runtime_error")
+                self.backend.emit_cleanup_stack(4)
+                return
+
+            frame = self.try_except_stack[-1]
+            esp_symbol = frame.get("esp_symbol")
+
+            if esp_symbol:
+                self.writer.emit_mov_reg_from_data_label32("esp", esp_symbol)
+
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+            self.emit_jmp(except_label)
+            return
 
         if except_label is None:
-            label = self.add_string_literal(message)
             self.emit_mov_imm("rcx", label)
             self.emit_mov_imm("rax", "&_jit_runtime_error")
             self.emit_call("rax")
             return
 
-        label = self.add_string_literal(message)
-
-        self.emit_mov("rcx", "r12", comment='ctx')
+        self.emit_mov("rcx", "r12", comment="ctx")
         self.emit_mov_imm("rdx", label)
         self.emit_mov_imm("rax", "&_jit_set_exception")
         self.emit_call("rax")
@@ -8229,11 +8656,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if len(actuals) != 1:
             raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
 
-        ref  = self.actual_param_variable_ref(ctx, actuals[0])
+        ref = self.actual_param_variable_ref(ctx, actuals[0])
 
         name = ref.IDENT().getText()
         info = self.find_local_var(name)
-        
         is_local = info is not None
 
         if info is None:
@@ -8247,16 +8673,32 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         base_type = ptr_type[1:]
         size = self.type_size(ctx, base_type)
 
-        self.emit_mov("rcx", size)
-        self.emit_mov_imm("rax", "&_jit_new_memory")
-        self.emit_call("rax")
-
-        if is_local:
-            self.emit_store_local_var(ctx, name, ptr_type)
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.backend.writer.emit_push_imm32(size)
+            self.emit_call("_jit_new_memory")
+            self.backend.emit_cleanup_stack(4)
+            
+            # wichtig: Runtime-Call kann ESI verändert haben
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+            
+            if is_local:
+                self.emit_store_local_var(ctx, name, ptr_type)
+            else:
+                slot = info["slot"]
+                self.emit_mov_qword("rdx", "r12", "pointr_vars")
+                self.emit_mov_qword_ptr_store("rdx", slot * 4, "rax")
+            return None
         else:
-            self.emit_store_var(ctx, name, info)
-        
-        return None
+            self.emit_mov("rcx", size)
+            self.emit_mov_imm("rax", "&_jit_new_memory")
+            self.emit_call("rax")
+
+            if is_local:
+                self.emit_store_local_var(ctx, name, ptr_type)
+            else:
+                self.emit_store_var(ctx, name, info)
+
+            return None
     
     def emit_builtin_length(self, ctx):
         actuals = []
@@ -8545,6 +8987,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         #self.emit_mov("eax", "ebx", comment='final linear index')
         self.emit_mov_eax_ebx()
 
+    def get_or_add_runtime_error_string(self, text):
+        if not hasattr(self, "runtime_error_strings"):
+            self.runtime_error_strings = {}
+
+        if text in self.runtime_error_strings:
+            return self.runtime_error_strings[text]
+
+        label = self.add_string_literal(text)
+        self.runtime_error_strings[text] = label
+        return label
+
     def emit_array_bounds_check_dimension(self, ctx, var_name, min_value, max_value):
         ok_label    = self.new_named_label("array_bounds_ok")
         fail_label  = self.new_named_label("array_bounds_fail")
@@ -8561,15 +9014,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_jmp(ok_label)
 
         self.emit_bind_label(fail_label)
-        self.emit_mov_imm("rcx", array_label)
-        self.emit_mov("edx", "r10d")
-        self.emit_mov("r8d", min_value)
-        self.emit_mov("r9d", max_value)
-        self.emit_mov_imm("rax", "&_jit_array_bounds_error")
-        self.emit_call("rax")
+        
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_bind_label(fail_label)
+            msg = (
+                f"Array bounds error: {var_name} index out of range "
+                f"allowed range {min_value}..{max_value}"
+            )
 
-        self.emit_bind_label(ok_label)
-        self.emit_mov("eax", "r10d", comment = "restore dimension index")
+            self.emit_soft_runtime_error(msg)
+
+            self.emit_bind_label(ok_label)
+            self.emit_mov("eax", "r10d", comment="restore dimension index")
+        else:
+            self.emit_mov_imm("rcx", array_label)
+            self.emit_mov("edx", "r10d")
+            self.emit_mov("r8d", min_value)
+            self.emit_mov("r9d", max_value)
+            self.emit_mov_imm("rax", "&_jit_array_bounds_error")
+            self.emit_call("rax")
+
+            self.emit_bind_label(ok_label)
+            self.emit_mov("eax", "r10d", comment = "restore dimension index")
     
     def emit_array_bounds_check_for_dimension(self, dim):
         min_value = dim["min"]
@@ -8629,22 +9095,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ == "integer":
             self.emit_mov_qword("rax", "r12", "int_vars")
-            self.emit_add("rax", slot * 4, comment=f"@{name}")
+            self.emit_add("rax", slot * self.pointer_slot_size(), comment=f"@{name}")
             return "^integer"
 
         if typ == "double":
             self.emit_mov_qword("rax", "r12", "double_vars")
-            self.emit_add("rax", slot * 8, comment=f"@{name}")
+            self.emit_add("rax", slot * self.pointer_slot_size(), comment=f"@{name}")
             return "^double"
 
         if typ == "string":
             self.emit_mov_qword("rax", "r12", "string_vars")
-            self.emit_add("rax", slot * 8, comment=f"@{name}")
+            self.emit_add("rax", slot * self.pointer_slot_size(), comment=f"@{name}")
             return "^string"
 
         if isinstance(typ, str) and typ.startswith("^"):
             self.emit_mov_qword("rax", "r12", "pointr_vars")
-            self.emit_add("rax", slot * 8, comment=f"@{name}")
+            self.emit_add("rax", slot * self.pointer_slot_size(), comment=f"@{name}")
             return "^" + typ
 
         if isinstance(typ, str) and typ in self.records:
@@ -8747,7 +9213,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         slot = info["slot"]
         self.emit_mov_qword("rax", "r12", "pointr_vars")
-        self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"object {name}")
+        self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"object {name}")
     
     def emit_load_string_char(self, ctx, name, index_exprs):
         if not isinstance(index_exprs, list):
@@ -8820,12 +9286,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_load_double_literal(self, value):
         value_text = str(value)
+        label = self.add_double_literal(value_text)
 
-        self.add_double_literal(value_text)
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if self.coff.find_symbol_index(label) is None:
+                self.coff.add_data_double(label, float(value_text))
+            self.backend.writer.emit_movsd_xmm0_data_label32(label)
+            return "double"
 
         self.emit_mov_imm("rax", double_to_bits(float(value_text)))
         self.emit_movq("xmm0", "rax")
-
         return "double"
     
     def emit_load_string_var_to_rax(self, ctx, name):
@@ -8833,14 +9303,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = var_info["slot"]
 
         self.emit_mov_qword("rax", "r12", "string_vars")
-        self.emit_mov_qword_ptr("rax", "rax", slot * 8)
+        self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size())
     
     def emit_load_pointer_var_to_rax(self, ctx, name):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
         self.emit_mov_qword("rax", "r12", "pointr_vars")
-        self.emit_mov_qword_ptr("rax", "rax", slot * 8)
+        self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size())
     
     def emit_load_pointer_deref(self, ctx, name):
         key = name.lower()
@@ -8953,7 +9423,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_load_local_var(ctx, ptr_name, ptr_info)
         else:
             self.emit_load_var(ptr_name, ptr_info)
-            
+        
+        #if CDATA.args_target not in ["nt35", "winnt", "win32"]:
         self.emit_nil_pointer_check(ptr_name)
         
         for index, field_name in enumerate(parts[1:]):
@@ -9111,7 +9582,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return
 
         self.emit_mov_qword("r11", "r12", "pointr_vars")
-        self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"object {name}")
+        self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"object {name}")
         return
     
     def emit_store_class_field(self, ctx, parts, expr_type):
@@ -9159,7 +9630,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         slot = var_info["slot"]
 
         self.emit_mov_qword("rdx", "r12", "string_vars")
-        self.emit_mov_qword_ptr_store("rdx", slot * 8, "rax")
+        self.emit_mov_qword_ptr_store("rdx", slot * self.pointer_slot_size(), "rax")
     
     def emit_store_string_char(self, ctx, name, index_exprs, expr_type):
         if not isinstance(index_exprs, list):
@@ -9223,12 +9694,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_add("r11", "rax")
         self.emit_mov_byte_ptr_store("r11", 0, "bl", comment="s[index] :=")
     
+    def pointer_slot_size(self):
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            return 4
+        return 8
+    
     def emit_store_pointer_var_from_rax(self, ctx, name):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
 
         self.emit_mov_qword("rdx", "r12", "pointr_vars")
-        self.emit_mov_qword_ptr_store("rdx", slot * 8, "rax")
+        self.emit_mov_qword_ptr_store("rdx", slot * self.pointer_slot_size(), "rax")
     
     def emit_store_pointer_deref(self, ctx, name, expr_type):
         key = name.lower()
@@ -9384,8 +9860,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_load_local_var(ctx, ptr_name, ptr_info)
         else:
             self.emit_load_var(ptr_name, ptr_info)
-            
-        self.emit_nil_pointer_check(ptr_name)
+        
+        if CDATA.args_target not in ["nt35", "winnt", "win32"]:
+            self.emit_nil_pointer_check(ptr_name)
 
         if field_offset != 0:
             self.emit_add("rax", field_offset, comment="field offset")
@@ -9457,7 +9934,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
                 self.emit_movsd_store("r11", 0, "xmm0")
                 return
-
+                
+            # AsmJitGenerator
             if array_info.element_type == "string":
                 self.emit_pop("rax")
                 self.emit_mov_qword_ptr_store("r11", 0, "rax")
@@ -9502,6 +9980,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_movsd_store("r11", 0, "xmm0")
             return
 
+        # AsmJitGenerator
         if array_info.element_type == "string":
             self.emit_pop("rax")
             self.emit_mov_qword_ptr_store("r11", 0, "rax")
@@ -9544,6 +10023,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_movsd_load("xmm0", "r11")
                 return "double"
 
+            # AsmJitGenerator
             if array_info.element_type == "string":
                 self.emit_mov_reg_qword("rax", "r11")
                 return "string"
@@ -9851,8 +10331,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_call_rax(self):
         self.backend.emit_call("rax")
     
+    def emit_load_pointer_var_to_rax(self, name, info):
+        slot = info["slot"]
+
+        self.emit_mov_qword("rax", "r12", "pointr_vars")
+        self.emit_mov_qword_ptr(
+            "rax",
+            "rax",
+            slot * self.pointer_slot_size()
+        )
+    
     def emit_load_var(self, name, info):
-        typ  = info["type"]
+        typ  = self.resolve_type(info["type"])
         slot = info["slot"]
         
         if CDATA.args_target in ["dos", "dos16"]:
@@ -9877,7 +10367,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 self.backend.emit_load_far_pointer_var(symbol)
                 return var_type
-        
+                
+        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.emit_mov_qword("rax", "r12", "pointr_vars")
+                self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size())
+                return typ
+            
+            var_type = self.resolve_type(info["type"])
+            if var_type == "integer":
+                symbol = info.get("symbol")
+                if not symbol:
+                    symbol = f"_var_{info['name']}"
+                    info["symbol"] = symbol
+                    
+                self.backend.writer.emit_mov_reg_from_data_label32("eax", symbol)
+                return "integer"
+                
         # -------------------------------------------------
         # Neues COFF-Backend:
         # direkte globale Variable per Symbol laden
@@ -9906,7 +10412,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         # -------------------------------------------------
         if isinstance(typ, str) and typ.startswith("^"):
             self.emit_mov_qword("rax", "r12", "pointr_vars")
-            self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"{name}")
+            self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"{name}")
             return
         
         if isinstance(typ, str) and typ in self.classes:
@@ -9917,22 +10423,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             if getattr(array_info, "is_dynamic", False):
                 self.emit_mov_qword("rax", "r12", "pointr_vars")
-                self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"dynamic array {name}")
+                self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"dynamic array {name}")
                 return
         
         if typ == "integer":
             self.emit_mov_qword("rax", "r12", "int_vars")
-            self.emit_mov_dword_ptr("eax", "rax", slot * 4, comment=f"{name}")
+            self.emit_mov_dword_ptr("eax", "rax", slot * self.pointer_slot_size(), comment=f"{name}")
             return
         
         if typ == "double":
             self.emit_mov_qword("rax", "r12", "double_vars")
-            self.emit_movsd_load("xmm0", "rax", slot * 8, comment=f"{name}")
+            self.emit_movsd_load("xmm0", "rax", slot * self.pointer_slot_size(), comment=f"{name}")
             return
         
         if typ == "string":
             self.emit_mov_qword("rax", "r12", "string_vars")
-            self.emit_mov_qword_ptr("rax", "rax", slot * 8, comment=f"{name}")
+            self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"{name}")
             return
         
         raise CompileError(None, "E0014", var_type=typ)
@@ -10014,7 +10520,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(ctx, "E0014", var_type=field.type)
     
     def emit_store_var(self, ctx, name, info):
-        typ  = info["type"]
+        typ  = self.resolve_type(info["type"])
         slot = info["slot"]
 
         if hasattr(self, "coff") and "symbol" in info:
@@ -10041,20 +10547,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ.startswith("^"):
             if hasattr(self, "coff") and CDATA.args_target in ["winnt", "nt35", "win32"]:
-                symbol = info.get("symbol")
-
-                if not symbol:
-                    symbol = f"_var_{name}"
-                    info["symbol"] = symbol
-
-                    if self.coff.find_symbol_index(symbol) is None:
-                        self.coff.add_data_i32(symbol, 0)
-
-                self.coff.emit_mov_data_label_r32(symbol, "eax")
+                #symbol = info.get("symbol")
+                #
+                #if not symbol:
+                #    symbol = f"_var_{name}"
+                #    info["symbol"] = symbol
+                #
+                #    if self.coff.find_symbol_index(symbol) is None:
+                #        self.coff.add_data_i32(symbol, 0)
+                #
+                #self.coff.emit_mov_data_label_r32(symbol, "eax")
+                self.emit_mov_qword("r11", "r12", "pointr_vars")
+                self.emit_mov_qword_ptr_store(
+                    "r11",
+                    slot * self.pointer_slot_size(),
+                    "rax",
+                    comment=f"{name}"
+                )
                 return
 
             self.emit_mov_qword("r11", "r12", "pointr_vars")
-            self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"{name}")
+            self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"{name}")
             return
 
         if isinstance(typ, str) and typ in self.arrays:
@@ -10062,7 +10575,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             if getattr(array_info, "is_dynamic", False):
                 self.emit_mov_qword("r11", "r12", "pointr_vars")
-                self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"dynamic array {name}")
+                self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"dynamic array {name}")
                 return
                 
         if typ == "integer":
@@ -10092,17 +10605,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
             self.emit_mov("ebx", "eax")
             self.emit_mov_qword("rax", "r12", "int_vars")
-            self.emit_mov_dword_ptr_store("rax", slot * 4, "ebx", comment=f"{name}")
+            self.emit_mov_dword_ptr_store("rax", slot * self.pointer_slot_size(), "ebx", comment=f"{name}")
             return
 
         if typ == "double":
             self.emit_mov_qword("r11", "r12", "double_vars")
-            self.emit_movsd_store("r11", slot * 8, "xmm0", comment=f"{name}")
+            self.emit_movsd_store("r11", slot * self.pointer_slot_size(), "xmm0", comment=f"{name}")
             return
 
         if typ == "string":
             self.emit_mov_qword("r11", "r12", "string_vars")
-            self.emit_mov_qword_ptr_store("r11", slot * 8, "rax", comment=f"{name}")
+            self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"{name}")
             return
 
         raise CompileError(ctx, "E0013", var_type=typ)
@@ -10576,9 +11089,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_jg(end_name)
             else:
                 self.emit_jl(end_name)
-        if target in ["winnt", "nt35", "win32"]:
-            self.coff.emit_mov_r32_data_label("ebx", "__for_end_tmp")
+                
+        elif target in ["winnt", "nt35", "win32"]:
+            self.coff.emit_mov_reg_from_data_label32("ebx", "__for_end_tmp")
             self.emit_cmp("eax", "ebx")
+
+            if direction == "to":
+                self.emit_jg(end_name)
+            else:
+                self.emit_jl(end_name)
         else:
             if direction == "to":
                 self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
@@ -10778,6 +11297,158 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return super().visit(tree)
     
+    def visitIncStatement(self, ctx):
+        ref = ctx.variableRef()
+
+        if ref is None:
+            raise CompileError(ctx, "E0001", name="Inc")
+
+        name = ref.IDENT().getText()
+
+        info = self.lookup_var(name)
+        typ  = self.resolve_type(info["type"])
+
+        #
+        # Schrittweite
+        #
+        step = 1
+
+        if len(ctx.expr()) == 2:
+            step_type = self.visit(ctx.expr(1))
+
+            if step_type != "integer":
+                raise CompileError(ctx, "E0005",
+                    got=step_type,
+                    expected="integer")
+
+            self.emit_mov("ebx", "eax")
+        else:
+            self.emit_mov_imm("ebx", 1)
+
+        #
+        # Variable laden
+        #
+        self.emit_load_var(ctx, name)
+
+        if typ == "integer":
+            self.emit_add("eax", "ebx")
+            self.emit_store_var(ctx, name, "integer")
+            return None
+
+        #
+        # Pointer
+        #
+        if typ.startswith("^"):
+
+            base = self.resolve_type(typ[1:])
+
+            if base == "integer":
+                size = 4
+
+            elif base == "double":
+                size = 8
+
+            elif base == "string":
+                size = self.pointer_slot_size()
+
+            elif base in self.records:
+                size = self.records[base].size
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0004",
+                    name=base
+                )
+
+            if size != 1:
+                self.emit_imul("ebx", "ebx", size)
+
+            self.emit_add("eax", "ebx")
+            self.emit_store_var(ctx, name, typ)
+
+            return None
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=typ,
+            expected="integer or pointer"
+        )
+
+    def visitDecStatement(self, ctx):
+        ref = ctx.variableRef()
+
+        if ref is None:
+            raise CompileError(ctx, "E0001", name="Dec")
+
+        name = ref.IDENT().getText()
+
+        info = self.lookup_var(name)
+        typ  = self.resolve_type(info["type"])
+
+        step = 1
+
+        if len(ctx.expr()) == 2:
+            step_type = self.visit(ctx.expr(1))
+
+            if step_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=step_type,
+                    expected="integer"
+                )
+
+            self.emit_mov("ebx", "eax")
+        else:
+            self.emit_mov_imm("ebx", 1)
+
+        self.emit_load_var(ctx, name)
+
+        if typ == "integer":
+            self.emit_sub("eax", "ebx")
+            self.emit_store_var(ctx, name, "integer")
+            return None
+
+        if typ.startswith("^"):
+
+            base = self.resolve_type(typ[1:])
+
+            if base == "integer":
+                size = 4
+
+            elif base == "double":
+                size = 8
+
+            elif base == "string":
+                size = self.pointer_slot_size()
+
+            elif base in self.records:
+                size = self.records[base].size
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0004",
+                    name=base
+                )
+
+            if size != 1:
+                self.emit_imul("ebx", "ebx", size)
+
+            self.emit_sub("eax", "ebx")
+            self.emit_store_var(ctx, name, typ)
+
+            return None
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=typ,
+            expected="integer or pointer"
+        )
+    
     def visit_actual_param_expr(self, arg):
         if arg is None:
             return None
@@ -10794,9 +11465,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if len(value) == 1:
                 return "char"
 
-            self.emit_mov("rcx", "rax")
-            self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
-            self.emit_call_rax()
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_push("rax")
+                self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
+                self.emit_call_rax()
+                self.backend.emit_cleanup_stack(4)
+
+                # Runtime kann ESI zerstören
+                self.coff.emit_lea_reg_data_label("esi", "ctx")
+            else:
+                self.emit_mov("rcx", "rax")
+                self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
+                self.emit_call_rax()
 
             return "string"
 
@@ -11655,10 +12335,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             except_label = self.new_named_label("except")
             end_label    = self.new_named_label("endtry")
 
-            self.try_except_stack.append({
+            try_esp_symbol = None
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                try_esp_symbol = self.new_named_label("__try_esp")
+                self.writer.add_data_i32(try_esp_symbol, 0)
+                self.writer.emit_mov_data_label_r32(try_esp_symbol, "esp")
+
+            frame = {
                 "except_label": except_label,
-                "end_label": end_label
-            })
+                "end_label": end_label,
+                "esp_symbol": try_esp_symbol,
+            }
+
+            self.try_except_stack.append(frame)
 
             # try-block
             self.visit(ctx.statementList(0))
@@ -11670,9 +12360,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             # except-block
             self.emit_bind_label(except_label)
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                if try_esp_symbol:
+                    self.writer.emit_mov_reg_from_data_label32("esp", try_esp_symbol)
+
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
             self.visit(ctx.statementList(1))
 
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
             self.emit_bind_label(end_label)
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
             return None
 
         return None
@@ -12364,6 +13068,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 result_type = "double"
 
         return result_type
+    ## ääää
+    def emit_address_of_array_element(self, ctx, var_name, index_expr_ctx):
+        index_exprs = index_expr_ctx
+        if not isinstance(index_exprs, list):
+            index_exprs = [index_exprs]
+
+        var_info, array_info = self.get_array_info(ctx, var_name)
+
+        self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
+
+        self.emit_imul("eax", "eax", array_info.element_size)
+        self.emit_add("eax", var_info["slot"])
+
+        self.emit_mov_qword("r11", "r12", "arrays_vars")
+        self.emit_movsxd("rax", "eax")
+        self.emit_add("r11", "rax")
+
+        # Ergebnis von @A[i]
+        self.emit_mov("rax", "r11")
+
+        return "^" + array_info.element_type
     
     def visitFactor(self, ctx):
         text = ctx.getText()
@@ -12606,17 +13331,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             if CDATA.args_target in ["dos", "dos16"]:
                 self.backend.writer.emit_mov_dx_label(label)
-
                 if len(value) == 1:
                     return "char"
-
                 return "string"
 
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_imm("rax", label)
+                if len(value) == 1:
+                    return "char"
+                return "string"
+            
             self.emit_mov_imm("rax", label)
-
+            
             if len(value) == 1:
                 return "char"
-
+                
             self.emit_mov("rcx", "rax")
             self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
             self.emit_call_rax()
@@ -13044,6 +13773,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitForStatement(self, ctx):
         return self.emit_for_statement(ctx)
     
+    
+    def emit_nt32_call_cdecl(self, name, arg_bytes):
+        self.backend.emit_call(name)
+        if arg_bytes:
+            self.emit_add("esp", arg_bytes)
+    
+    
     def visitWriteLnStatement(self, ctx):
         args = ctx.writeArgList()
         
@@ -13052,11 +13788,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if arg.STRING():
                     value = arg.STRING().getText()[1:-1]
                     label = self.add_string_literal(value)
-
-                    self.emit_mov_imm("rcx", f"{label}")
-                    self.emit_mov_imm("rax", "&_jit_print_text")
-                    self.emit_call_rax()
                     
+                    if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                        self.backend.writer.emit_push_data_label32(label)
+                        self.emit_nt32_call_cdecl("_jit_print_text", 4)
+                    else:
+                        self.emit_mov_imm("rcx", f"{label}")
+                        self.emit_mov_imm("rax", "&_jit_print_text")
+                        self.emit_call_rax()
                 else:
                     if arg.expr() and arg.expr().getText().lower() in self.current_proc_params:
                         pname = arg.expr().getText().lower()
@@ -13072,9 +13811,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             
                         if pinfo["type"] == "string":
                             offset = pinfo["stack_offset"]
-                            self.emit_mov_qword_ptr("rcx", "rbp", offset, comment=f"load string parameter")
-                            self.emit_mov_imm("rax", "&_jit_print_text")
-                            self.emit_call_rax()
+                            self.emit_mov_qword_ptr("rax", "rbp", offset, comment="load string parameter")
+
+                            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                                self.emit_push("rax")
+                                self.emit_nt32_call_cdecl("_jit_print_text", 4)
+                            else:
+                                self.emit_mov("rcx", "rax")
+                                self.emit_mov_imm("rax", "&_jit_print_text")
+                                self.emit_call_rax()
+
                             continue
                     
                     expr_type = self.visit(arg.expr())
@@ -13088,23 +13834,38 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         if CDATA.args_target in ["dos", "dos16"]:
                             # DX enthält bereits Offset auf $-String
                             self.backend.writer.emit_print_string_current_dx()
+                        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                            self.emit_push("rax")
+                            self.emit_nt32_call_cdecl("_jit_print_text", 4)
                         else:
                             self.emit_mov("rcx", "rax")
                             self.emit_mov_imm("rax", "&_jit_print_text")
                             self.emit_call_rax()
                     
                     if expr_type == "integer":
-                        self.emit_mov("ecx", "eax")
-                        self.emit_mov_imm("rax", "&_jit_print_int")
-                        self.emit_call_rax()
+                        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                            self.emit_push("eax")
+                            self.emit_nt32_call_cdecl("_jit_print_int", 4)
+                        else:
+                            self.emit_mov("ecx", "eax")
+                            self.emit_mov_imm("rax", "&_jit_print_int")
+                            self.emit_call_rax()
                     
                     elif expr_type == "double":
-                        # Windows x64: double-Argument liegt in xmm0
-                        self.emit_mov_imm("rax", "&_jit_print_double")
-                        self.emit_call_rax()
+                        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                            self.backend.writer.emit_sub_reg_imm32("esp", 8)
+                            self.backend.writer.emit_movsd_qword_ptr_esp_xmm0()
+                            self.emit_nt32_call_cdecl("_jit_print_double", 8)
+                        else:
+                            # Windows x64: double-Argument liegt in xmm0
+                            self.emit_mov_imm("rax", "&_jit_print_double")
+                            self.emit_call_rax()
         
-        self.emit_mov_imm("rax", "&_jit_print_newline")
-        self.emit_call_rax()
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_nt32_call_cdecl("_jit_print_newline", 0)
+        else:
+            self.emit_mov_imm("rax", "&_jit_print_newline")
+            self.emit_call_rax()
         
         return None
     
@@ -13681,10 +14442,20 @@ class GeneratorClass(AsmJitGenerator):
         else:
             raise RuntimeError(f"unsupported generator writer: {type(writer)}")
 
+    def emit_mov_eax_ebx(self):
+        self.emit_mov("eax", "ebx")
+
+    def emit_mov_ebx_eax(self):
+        self.emit_mov("ebx", "eax")
+
     def write_string_literals_to_coff(self):
         for label, text in self.string_literals:
             if self.writer.find_symbol_index(label) is None:
                 self.writer.add_data_string(label, text)
+
+    def write_double_literals_to_coff(self):
+        for name, value in self.double_literals:
+            self.writer.add_data_double(name, float(value))
 
     def visitProgramFile(self, ctx):
         self.program_name = ctx.IDENT().getText()
@@ -13716,8 +14487,7 @@ class GeneratorClass(AsmJitGenerator):
                 
                 if target in ["winnt", "nt35", "win32"]:
                     # NT32: kein r12, kein Win64-Context, kein Shadow-Space
-                    pass
-                
+                    self.writer.emit_lea_reg_data_label("esi", "ctx")
                 else:
                     self.emit_push("r12")
                     self.emit_push("rbx")
@@ -13767,8 +14537,8 @@ class GeneratorClass(AsmJitGenerator):
         target = CDATA.args_target.lower()
         
         if target in ["winnt", "nt35", "win32"]:
-            # NT32: JitContext später separat aufbauen.
-            # Für den ersten MessageBox/Fenster-Test noch überspringen.
+            self.writer.add_jit_context32("ctx")
+            self.coff_context_done = True
             return
         
         self.writer.add_jit_context(
@@ -13925,8 +14695,8 @@ def main():
                 # Testcode erzeugen
                 #writer.begin_function("_main", local_size=0)
                 
-                writer.emit_push_imm32(99)
-                writer.emit_call_external("ExitProcess")
+                #writer.emit_push_imm32(99)
+                #writer.emit_call_external("ExitProcess")
                 
                 #writer.end_function()
                 
@@ -14051,14 +14821,19 @@ def main():
                         target_obj.write(CDATA.exe_file)
                 else:   target_obj.write(CDATA.exe_file)
         
-        elif CDATA.args_target.lower() in ["nt35", "winnt"]:
+        elif CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
             if CDATA.args_backend.lower() == BACKEND_EXEFILE:
                 outfile = Path(CDATA.exe_file)
                 if outfile.exists():
                     check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
                     if check in ('j', 'y'):
-                        writer.write(CDATA.exe_file)  #target_obj.write(CDATA.exe_file)
-                else:   writer.write(CDATA.exe_file)  #target_obj.write(CDATA.exe_file)
+                        generator.write_string_literals_to_coff()
+                        generator.write_double_literals_to_coff()
+                        writer.write(CDATA.exe_file)
+                else:
+                    generator.write_string_literals_to_coff()
+                    generator.write_double_literals_to_coff()
+                    writer.write(CDATA.exe_file)
                 
         elif CDATA.args_target.lower() == "win64":
             if CDATA.BackEnd.current == BACKEND_ASMJIT:
@@ -14140,12 +14915,16 @@ def main():
         return 2
     except AttributeError as e:
         print(f"Error: Attribute Error")
-        print(f"Text : {e.message}")
+        print(f"Text : {str(e)}")
         return 2
     except FileNotFoundError as e:
         print(f"Error: File not found '{e.filename}'")
         print(f"Text : {e.strerror}")
         print(f"Code : {e.errno}")
+        return 2
+    except TypeError as e:
+        print(f"Error: Type error")
+        print(f"Text : {str(e)}")
         return 2
     except ArithmeticError as e:
         print(f"Error: Arithmetic Error")

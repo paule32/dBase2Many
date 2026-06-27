@@ -330,6 +330,8 @@ statement
     | whileStatement
     | repeatStatement
     | forStatement
+    | incstatement
+    | decstatement
     | breakStatement
     | continueStatement
     | caseStatement
@@ -337,6 +339,14 @@ statement
     | inheritedStatement
     | exitStatement
     | compoundStatement
+    ;
+
+incstatement
+    : INC LPAREN expr (COMMA expr)? RPAREN
+    ;
+
+decstatement
+    : DEC LPAREN expr (COMMA expr)? RPAREN
     ;
 
 caseStatement

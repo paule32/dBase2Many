@@ -4,6 +4,10 @@
 :: all rights reserved.
 :: ----------------------------------------------------------------------------
 @echo off
+python -m compileall pas2asmjit.py
+python pas2asmjit.py -Twinnt --backend exe testsrc/testnt35.pas
+exit 0
+:: ----------------------------------------------------------------------------
 :: first, set the current working directory, if you want to execute the created
 :: example Windows files (external). So the executables can find the libasmjit
 :: library file (libasmjit.dll)

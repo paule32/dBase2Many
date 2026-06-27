@@ -1,5 +1,5 @@
 @echo off
-
+set path=..\runtime\win32;%path%
 testnt35.exe
 
 if errorlevel 100 goto err100

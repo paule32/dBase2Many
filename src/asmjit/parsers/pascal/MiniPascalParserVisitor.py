@@ -344,6 +344,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#incstatement.
+    def visitIncstatement(self, ctx:MiniPascalParser.IncstatementContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#decstatement.
+    def visitDecstatement(self, ctx:MiniPascalParser.DecstatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#caseStatement.
     def visitCaseStatement(self, ctx:MiniPascalParser.CaseStatementContext):
         return self.visitChildren(ctx)
