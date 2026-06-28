@@ -503,6 +503,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#functionName.
+    def enterFunctionName(self, ctx:MiniPascalParser.FunctionNameContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#functionName.
+    def exitFunctionName(self, ctx:MiniPascalParser.FunctionNameContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#functionCallExpr.
     def enterFunctionCallExpr(self, ctx:MiniPascalParser.FunctionCallExprContext):
         pass

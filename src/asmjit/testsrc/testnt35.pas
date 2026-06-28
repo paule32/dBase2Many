@@ -1,19 +1,23 @@
 program testnt35;
 
 type
-    TIntArray = array[0..9] of Integer;
-    PInteger  = ^Integer;
+    TDoubleArray = array of Double;
 
 var
-    A : TIntArray;
-    P1,P2 : PInteger;
+    A : TDoubleArray;
 
 begin
-    A[0] := 1234;
+    SetLength(A, 3);
 
-    P1 := @A[0];
-    P2 := P1;
+    A[0] := 1.5;
+    A[1] := 2.5;
+    A[2] := 3.5;
 
-    WriteLn(P1^);
-    WriteLn(P2^);
+    WriteLn(Low(A));
+    WriteLn(High(A));
+    WriteLn(Length(A));
+
+    WriteLn(A[0]);
+    WriteLn(A[1]);
+    WriteLn(A[2]);
 end.

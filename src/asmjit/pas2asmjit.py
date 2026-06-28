@@ -172,6 +172,47 @@ class CommonData():
         self.ExeOutputDir        : str  = ""
         self.InputFiles          : list = []
         self.IncludeDirs         : list = []
+        
+        self.imports = {
+            "kernel32.dll": [
+                "ExitProcess",
+            ],
+            "user32.dll": [
+                "MessageBoxA",
+            ],
+            "libdbase2many.32.dll": [
+                ( "_jit_print_int",                   20 ),
+                ( "_jit_print_text",                  21 ),
+                ( "_jit_print_newline",               22 ),
+                ( "_jit_print_double",                23 ),
+                ( "_jit_print_char",                  24 ),
+
+                ( "_jit_new_memory",                 200 ),
+                ( "_jit_dispose_memory",             201 ),
+
+                ( "_jit_debug_break",                300 ),
+
+                ( "_jit_runtime_error",              400 ),
+                ( "_jit_array_bounds_error",         401 ),
+                ( "_jit_string_range_error",         402 ),
+                ( "_jit_nil_pointer_error",          403 ),
+                ( "_jit_out_of_memory_error",        404 ),
+
+                ( "_jit_dynarray_setlength",        1000 ),
+                
+                ( "_jit_dynstring_setlength",       2000 ),
+                ( "_jit_dynstring_from_cstr",       2001 ),
+                ( "_jit_dynstring_length",          2002 ),
+                ( "_jit_dynstring_concat",          2003 ),
+                ( "_jit_dynstring_copy",            2004 ),
+                ( "_jit_dynstring_pos",             2005 ),
+
+                ( "_jit_set_exception",             4000 ),
+                
+                ( "_jit_read_int",                  5000 ),
+                ( "_jit_read_string",               5001 ),
+            ],
+        }
 
 global CDATA
 CDATA = CommonData()
@@ -305,35 +346,38 @@ class TranslationManager:
     def _langSwitch(self, lang: str):
         self.lang = lang
         self.translations.clear()
-        self.filename = f"locales/{lang}/pascal.mo"
+        self.filename = f"locales/{lang}s/pascal.mo"
         try:
-            self.trans = self.load_mo(self.filename)
-            self.add_trans(self.trans)
+            if not os.path.isfile(self.filename):
+                print("language file not found, fail back to english.")
+            else:
+                self.trans = self.load_mo(self.filename)
+                self.add_trans(self.trans)
             
         except FileNotFoundError as e:
             app = self.ensure_app()
-            print(f"File not found Error:")
-            print(f"The requested file: {self.filename} could not be found.")
+            print(f"{_tr('File not found Error')}:")
+            print(f"{_tr('The requested file')}: {self.filename} {tr('could not be found')}.")
             return
             
         except PermissionError as e:
-            print(f"File Permission Error:")
-            print(f"You have not enough permissions to open file: {self.filename}.")
+            print(f"{_tr('File Permission Error')}:")
+            print(f"{_tr('You have not enough permissions to open file')}: {self.filename}.")
             return
             
         except RuntimeError as e:
-            print(f"Runtime Error:")
-            print(f"The Python Library throws a Runtime Error on opening file: {self.filename}.")
+            print(f"{_tr('Runtime Error')}:")
+            print(f"{_tr('The Python Library throws a Runtime Error on opening file')}: {self.filename}.")
             return
             
         except OSError as e:
-            print(f"Operating System Error:")
-            print(f"The System is not able to open file: {self.filename}.")
+            print(f"{_tr('Operating System Error')}:")
+            print(f"{_tr('The System is not able to open file')}: {self.filename}.")
             return
             
         except Exception as e:
-            print(f"Common Exception Error:")
-            print(f"Common Exception throwed on open file: {self.filename}.")
+            print(f"{_tr('Common Exception Error')}:")
+            print(f"{_tr('Common Exception throwed on open file')}: {self.filename}.")
             return
         return
     
@@ -383,7 +427,7 @@ def ask_yes_no(question, default=False):
         if answer == "":
             return default
         
-        print("Enter [Y]es or [N]o .")
+        print(tr("Enter [Y]es or [N]o ."))
 
 def is_windows_drive(path: Path) -> bool:
     resolved = path.resolve()
@@ -425,19 +469,19 @@ def validate_output_path(value: str):
     # Existierendes Verzeichnis
     if path.exists() and path.is_dir():
         if not path.drive and os.name == "nt":
-            raise RuntimeError("no drive given.")
+            raise RuntimeError(tr("no drive given."))
 
         if not path.exists():
             CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-            raise RuntimeError("directory does not exists.")
+            raise RuntimeError(tr("directory does not exists."))
 
         if not os.access(path, os.R_OK):
             CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-            raise RuntimeError("directory not readable.")
+            raise RuntimeError(tr("directory not readable."))
 
         if not os.access(path, os.W_OK):
             CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-            raise RuntimeError("directory not writeable.")
+            raise RuntimeError(tr("directory not writeable."))
 
         #print(">>",path)
         return {
@@ -450,32 +494,32 @@ def validate_output_path(value: str):
     
     if not parent.exists():
         CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-        raise RuntimeError(f"target directory does not exists: {parent}")
+        raise RuntimeError(f"{tr('target directory does not exists')}: {parent}")
     
     if not parent.is_dir():
         CDATA.LastErrorCode = LastError.PATH_NO_DIRECTORY
-        raise RuntimeError(f"target path is not a directory: {parent}")
+        raise RuntimeError(f"{tr('target path is not a directory')}: {parent}")
     
     if not os.access(parent, os.R_OK):
         CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-        raise RuntimeError(f"target directory is not readable: {parent}")
+        raise RuntimeError(f"{tr('target directory is not readable')}: {parent}")
     
     if not os.access(parent, os.W_OK):
         CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-        raise RuntimeError(f"target directory is not writeable: {parent}")
+        raise RuntimeError(f"{tr('target directory is not writeable')}: {parent}")
     
     if path.exists():
         if path.is_dir():
             CDATA.LastErrorCode = LastError.IS_DIRECTORY
-            raise RuntimeError("target is a directory, not a file.")
+            raise RuntimeError(tr("target is a directory, not a file."))
         
         if not path.is_file():
             CDATA.LastErrorCode = LastError.NO_FILE_OR_DIRECTORY
-            raise RuntimeError("target exists, but it is not a normal file.")
+            raise RuntimeError(tr("target exists, but it is not a normal file."))
         
         if not ask_yes_no(f"file '{path}' already exists. Overwrite?"):
             CDATA.LastErrorCode = LastError.FILE_EXISTS
-            raise RuntimeError("Canceled.")
+            raise RuntimeError(tr("Canceled."))
         
         if not can_write_file(path):
             CDATA.LastErrorCode = LastError.FILE_LOCKED
@@ -495,21 +539,21 @@ def validate_output_path(value: str):
 def args_func():
     args_parser     = ThrowingArgumentParser(
         prog        = "pas2asmjit",
-        description = "Pascal to AsmJit/NASM compiler"
+        description = tr("Pascal to AsmJit/NASM compiler")
     )
     
     args_parser.add_argument(
         "source",
         nargs   = "?",
         default = None,
-        help    = "Pascal source file (.pas/.pp)"
+        help    = tr("Pascal source file (.pas/.pp)")
     )
     
     args_parser.add_argument(
         "-o",
         "--output",
         default = None,
-        help    = "Output directory"
+        help    = tr("Output directory")
     )
     
     # -------------------------------------------------------------
@@ -519,7 +563,7 @@ def args_func():
         "--asm",
         action  = "store_true",
         dest    = "asmoutput",
-        help    = "Generate NASM compatible assembly output"
+        help    = tr("Generate NASM compatible assembly output")
     )
     
     # -------------------------------------------------------------
@@ -529,7 +573,7 @@ def args_func():
         "--asmjit",
         action  = "store_true",
         dest    = "asmjitoutput",
-        help    = "Generate AsmJIT C++ output"
+        help    = tr("Generate AsmJIT C++ output")
     )
     
     # -------------------------------------------------------------
@@ -539,7 +583,7 @@ def args_func():
         "--dll",
         action  = "store_true",
         dest    = "dlloutputt",
-        help    = "Build as DLL"
+        help    = tr("Build as DLL")
     )
     
     # -------------------------------------------------------------
@@ -549,7 +593,7 @@ def args_func():
         "--exe",
         action  = "store_true",
         dest    = "exeoutput",
-        help    = "Build EXE file"
+        help    = tr("Build EXE file")
     )
     
     # -------------------------------------------------------------
@@ -562,7 +606,7 @@ def args_func():
         dest    = "define",
         action  = "append",
         default = [],
-        help    = "Define preprocessor symbol, e.g. -D DLL_API"
+        help    = tr("Define preprocessor symbol, e.g. -D DLL_API")
     )
 
     # -------------------------------------------------------------
@@ -584,7 +628,7 @@ def args_func():
                     "win64"     , # compile for Windows        64-bit
         ],
         default = "win64",
-        help    = "Target OS Platform"
+        help    = tr("Target OS Platform")
     )
     
     # -------------------------------------------------------------
@@ -595,8 +639,8 @@ def args_func():
         "--signature",
         default = "PAS 0.0.1 win64",
         dest    = "signature",
-        help    = ("Replace the ident string in the .fpc_version section "
-                   "of produced object.")
+        help    = tr("Replace the ident string in the .fpc_version "
+                     "section of produced object.")
     )
     
     # -------------------------------------------------------------
@@ -620,8 +664,8 @@ def args_func():
     args_parser.add_argument(
         "--linkerversion",
         dest    = "linkerversion",
-        help    = ("Sets the minimum OS version fields in the PE optional "
-                   "header."),
+        help    = tr("Sets the minimum OS version fields in the "
+                     "PE optional header."),
         choices = [ "3"   , "3.1" , "3.11",
                     "4"   , "4.0" , "4.10", "4.90" ,
                     "5"   , "5.0" , "5.1" , "5.2"  ,
@@ -651,7 +695,7 @@ def args_func():
                     "exe", "exefile",
         ],
         default  =  "asmjit",
-        help     =  "Code backend: asmjit, nasm, objfile."
+        help     =  tr("Code backend: asmjit, nasm, objfile.")
     )
     
     # -------------------------------------------------------------
@@ -662,7 +706,7 @@ def args_func():
         dest    = "includepath",
         action  = "append",
         default = [],
-        help    = "Add include file search path."
+        help    = tr("Add include file search path.")
     )
     
     # -------------------------------------------------------------
@@ -672,7 +716,7 @@ def args_func():
         "-FE",
         dest    = "exe_output_dir",
         default = ".",
-        help    = "Set output directory for executables."
+        help    = tr("Set output directory for executables.")
     )
     
     # -------------------------------------------------------------
@@ -691,7 +735,7 @@ def args_func():
                     "TP"
         ],
         default = None,
-        help    = "Help informations about the compiler"
+        help    = tr("Help informations about the compiler")
     )
     return args_parser
 
@@ -705,7 +749,7 @@ def handle_args(args):
         return args
     if result["kind"] == "file":
         CDATA.LastErrorCode = LastError.NO_DIRECTORY
-        raise Exception("executable output is not a directory or does not exists.")
+        raise Exception(tr("executable output is not a directory or does not exists."))
             
     if args.info is not None:
         if args.info == "":
@@ -715,7 +759,7 @@ def handle_args(args):
         elif args.info == "W":
             print("Warning")
         elif args.info == "TP":
-            print("Target platform")
+            print(tr("Target platform"))
     
     return args
 
@@ -844,6 +888,22 @@ class AsmJitBackend(CodeBackend):
             f"Label {name} = a.new_label();{self.make_comment(comment)}"
         )
     
+    def collect_array_suffix_exprs(self, suffixes):
+        index_exprs = []
+        rest_suffixes = []
+
+        in_array_part = True
+
+        for s in suffixes:
+            if in_array_part and s.LBRACK():
+                index_exprs.extend(list(s.expr()))
+                continue
+
+            in_array_part = False
+            rest_suffixes.append(s)
+
+        return index_exprs, rest_suffixes
+    
     def _imm(self, value):
         s = str(value)
         if s.startswith("imm("):
@@ -935,7 +995,7 @@ class AsmJitBackend(CodeBackend):
 
     def emit_movzx(self, dst, src, comment=""):
         s = str(src)
-        if s.startswith("byte_ptr(") and s.endswith(")"):
+        if s.startswith ("byte_ptr(") and s.endswith(")"):
             base = s[len("byte_ptr("):-1]
             self.emit(f"a.movzx(x86::{dst}, x86::byte_ptr(x86::{base}));{self.make_comment(comment)}")
         else:
@@ -1024,7 +1084,7 @@ class NasmBackend(CodeBackend):
         s = str(value)
         if s.startswith("&"):
             return s[1:]
-        if s.startswith("imm((uint64_t)&") and s.endswith(")"):
+        if s.startswith ("imm((uint64_t)&") and s.endswith(")"):
             return s[len("imm((uint64_t)&"):-1]
         return s
 
@@ -1040,14 +1100,14 @@ class NasmBackend(CodeBackend):
     def emit_cmp_dword(self, dst, base, field, comment=""):
         self.emit(f"cmp {dst}, dword [{base} + JitContext.{field}]{self.make_comment(comment)}")
 
-    def emit_jl(self, label, comment=""): self.emit(f"jl {label}{self.make_comment(comment)}")
-    def emit_jg(self, label, comment=""): self.emit(f"jg {label}{self.make_comment(comment)}")
-    def emit_jz(self, label, comment=""): self.emit(f"jz {label}{self.make_comment(comment)}")
-    def emit_jb(self, label, comment=""): self.emit(f"jb {label}{self.make_comment(comment)}")
-    def emit_ja(self, label, comment=""): self.emit(f"ja {label}{self.make_comment(comment)}")
+    def emit_jl (self, label, comment=""): self.emit(f"jl  {label}{self.make_comment(comment)}")
+    def emit_jg (self, label, comment=""): self.emit(f"jg  {label}{self.make_comment(comment)}")
+    def emit_jz (self, label, comment=""): self.emit(f"jz  {label}{self.make_comment(comment)}")
+    def emit_jb (self, label, comment=""): self.emit(f"jb  {label}{self.make_comment(comment)}")
+    def emit_ja (self, label, comment=""): self.emit(f"ja  {label}{self.make_comment(comment)}")
     def emit_jae(self, label, comment=""): self.emit(f"jae {label}{self.make_comment(comment)}")
     def emit_jbe(self, label, comment=""): self.emit(f"jbe {label}{self.make_comment(comment)}")
-    def emit_je(self, label, comment=""): self.emit(f"je {label}{self.make_comment(comment)}")
+    def emit_je (self, label, comment=""): self.emit(f"je  {label}{self.make_comment(comment)}")
     def emit_jle(self, label, comment=""): self.emit(f"jle {label}{self.make_comment(comment)}")
     def emit_jge(self, label, comment=""): self.emit(f"jge {label}{self.make_comment(comment)}")
     def emit_jne(self, label, comment=""): self.emit(f"jne {label}{self.make_comment(comment)}")
@@ -1094,7 +1154,7 @@ class NasmBackend(CodeBackend):
         self.emit(f"mov {dst}, {self._symbol(value)}{self.make_comment(comment)}")
     def emit_movzx(self, dst, src, comment=""):
         s = str(src)
-        if s.startswith("byte_ptr(") and s.endswith(")"):
+        if s.startswith ("byte_ptr(") and s.endswith(")"):
             base = s[len("byte_ptr("):-1]
             self.emit(f"movzx {dst}, byte [{base}]{self.make_comment(comment)}")
         else:
@@ -1298,7 +1358,7 @@ class Coff32Backend(CodeBackend):
         }
 
         if cc not in opcodes:
-            raise RuntimeError(f"unsupported PE32 condition jump: {cc}")
+            raise RuntimeError(f"{tr('unsupported PE32 condition jump')}: {cc}")
 
         self.text += opcodes[cc]
 
@@ -1338,7 +1398,7 @@ class Coff32Backend(CodeBackend):
         }
         
         if reg not in reg_map:
-            raise RuntimeError(f"unsupported NT32 register: {reg}")
+            raise RuntimeError(f"{tr('unsupported NT32 register')}: {reg}")
         
         return reg_map[reg]
 
@@ -1411,7 +1471,7 @@ class Coff32Backend(CodeBackend):
             )
             return
 
-        raise RuntimeError(f"unsupported NT32 add value: {value}")
+        raise RuntimeError(f"{tr('unsupported NT32 add value')}: {value}")
         
     def emit_mov_imm(self, dst, value, comment=""):
         dst32 = self.map_reg32(dst)
@@ -1443,6 +1503,20 @@ class Coff32Backend(CodeBackend):
             self.map_reg32(src)
         )
 
+    def emit_movsd_load_field(self, dst, base, field, comment=""):
+        self.writer.emit_movsd_load32(
+            dst,
+            self.map_reg32(base),
+            self.JIT_CONTEXT_OFFSETS32[field]
+        )
+    
+    def emit_movsd_store_field(self, base, field, src, comment=""):
+        self.writer.emit_movsd_store32(
+            self.map_reg32(base),
+            self.JIT_CONTEXT_OFFSETS32[field],
+            src
+        )
+
     def resolve_offset32(self, offset):
         if isinstance(offset, int):
             return offset
@@ -1451,11 +1525,11 @@ class Coff32Backend(CodeBackend):
             if offset.lstrip("-").isdigit():
                 return int(offset)
 
-            if offset.startswith("offsetof(JitContext, ") and offset.endswith(")"):
+            if offset.startswith  ("offsetof(JitContext, ") and offset.endswith(")"):
                 field = offset[len("offsetof(JitContext, "):-1]
                 return self.JIT_CONTEXT_OFFSETS32[field]
 
-        raise RuntimeError(f"unsupported NT32 offset: {offset}")
+        raise RuntimeError(f"{tr('unsupported NT32 offset')}: {offset}")
 
     def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
         self.writer.emit_mov_mem_reg32(
@@ -1528,7 +1602,7 @@ class Coff32Backend(CodeBackend):
         }
 
         if reg not in reg_map:
-            raise RuntimeError(f"unsupported NT32 8-bit register: {reg}")
+            raise RuntimeError(f"{tr('unsupported NT32 8-bit register')}: {reg}")
 
         return reg_map[reg]
     
@@ -1557,7 +1631,7 @@ class Coff32Backend(CodeBackend):
     def emit_movsd_store(self, base, offset, src, comment=""):
         self.writer.emit_movsd_store32(
             self.map_reg32(base),
-            int(offset),
+            self.resolve_offset32(offset),
             src
         )
 
@@ -1565,23 +1639,16 @@ class Coff32Backend(CodeBackend):
         self.writer.emit_movsd_load32(
             dst,
             self.map_reg32(base),
-            int(offset)
+            self.resolve_offset32(offset)
         )
-        
+    
     def emit_cvtsi2sd(self, dst, src, comment=""):
         self.writer.emit_cvtsi2sd32(dst, self.map_reg32(src))
     
-    def emit_addsd(self, dst, src, comment=""):
-        self.writer.emit_sse2_xmm_xmm32(0x58, dst, src)
-
-    def emit_subsd(self, dst, src, comment=""):
-        self.writer.emit_sse2_xmm_xmm32(0x5C, dst, src)
-
-    def emit_mulsd(self, dst, src, comment=""):
-        self.writer.emit_sse2_xmm_xmm32(0x59, dst, src)
-
-    def emit_divsd(self, dst, src, comment=""):
-        self.writer.emit_sse2_xmm_xmm32(0x5E, dst, src)
+    def emit_addsd(self, dst, src, comment=""): self.writer.emit_sse2_xmm_xmm32(0x58, dst, src)
+    def emit_subsd(self, dst, src, comment=""): self.writer.emit_sse2_xmm_xmm32(0x5C, dst, src)
+    def emit_mulsd(self, dst, src, comment=""): self.writer.emit_sse2_xmm_xmm32(0x59, dst, src)
+    def emit_divsd(self, dst, src, comment=""): self.writer.emit_sse2_xmm_xmm32(0x5E, dst, src)
     
     def emit_mov_qword(self, dst, base, field, comment=""):
         # NT32: qword aus gemeinsamem Generator bedeutet hier Pointer-Feld,
@@ -1628,7 +1695,7 @@ class Coff32Backend(CodeBackend):
         )
 
     def emit_mov_reg_byte(self, dst, base, comment=""):
-        raise NotImplementedError("NT32 byte load is not implemented yet")
+        raise NotImplementedError(tr("NT32 byte load is not implemented yet"))
     
     def write(self, filename):
         NTWriter32(self).write(filename)
@@ -1641,7 +1708,7 @@ class Coff64Backend(CodeBackend):
         super().__init__("nt35")
         
         if writer is None:
-            raise Exception("no writer given.")
+            raise Exception(tr("no writer given."))
             
         self.writer              = writer
         self.pending_call_symbol = None
@@ -1739,8 +1806,7 @@ class Coff64Backend(CodeBackend):
                 self.writer.emit_lea_reg_data_label(dst, name)
                 return
 
-            if (
-                value.startswith("str_")
+            if (   value.startswith("str_")
                 or value.startswith("dbl_")
                 or value.startswith("_var_")
             ):
@@ -1760,36 +1826,19 @@ class Coff64Backend(CodeBackend):
 
     def emit_cmp(self, dst, src, comment=""):
         self.writer.emit_cmp(dst, src)
-
+        
     def emit_test(self, a, b, comment=""):
         self.writer.emit_test(a, b)
-
-    def emit_jmp(self, label, comment=""):
-        self.writer.emit_jmp(label)
-
-    def emit_je(self, label, comment=""):
-        self.writer.emit_je(label)
-
-    def emit_jne(self, label, comment=""):
-        self.writer.emit_jne(label)
-
-    def emit_jz(self, label, comment=""):
-        self.writer.emit_jz(label)
-
-    def emit_jnz(self, label, comment=""):
-        self.writer.emit_jnz(label)
-
-    def emit_jl(self, label, comment=""):
-        self.writer.emit_jl(label)
-
-    def emit_jle(self, label, comment=""):
-        self.writer.emit_jle(label)
-
-    def emit_jg(self, label, comment=""):
-        self.writer.emit_jg(label)
-
-    def emit_jge(self, label, comment=""):
-        self.writer.emit_jge(label)
+        
+    def emit_jmp(self, label, comment=""): self.writer.emit_jmp(label)
+    def emit_je (self, label, comment=""): self.writer.emit_je (label)
+    def emit_jne(self, label, comment=""): self.writer.emit_jne(label)
+    def emit_jz (self, label, comment=""): self.writer.emit_jz (label)
+    def emit_jnz(self, label, comment=""): self.writer.emit_jnz(label)
+    def emit_jl (self, label, comment=""): self.writer.emit_jl (label)
+    def emit_jle(self, label, comment=""): self.writer.emit_jle(label)
+    def emit_jg (self, label, comment=""): self.writer.emit_jg (label)
+    def emit_jge(self, label, comment=""): self.writer.emit_jge(label)
 
     def emit_call_lbl(self, target, comment=""):
         # internes Label: normaler rel32-call, KEIN Runtime-/Import-call
@@ -1945,7 +1994,7 @@ class DosBackend(CodeBackend):
             self.writer.emit_mov_ax_imm16(value)
             return
 
-        raise NotImplementedError(f"DOS emit_mov_imm {dst}, {value}")
+        raise NotImplementedError(f"{tr('DOS emit_mov_imm')} {dst}, {value}")
 
     def emit_store_word_var(self, name, src="ax"):
         self.writer.emit_mov_mem16_reg16(name, self.map_reg(src))
@@ -1990,7 +2039,7 @@ class DosBackend(CodeBackend):
             self.writer.emit_call_label(target)
             return
         
-        raise NotImplementedError(f"DOS call not supported yet: {target}")
+        raise NotImplementedError(f"{tr('DOS call not supported yet')}: {target}")
 
     def emit_cmp(self, dst, value, comment=""):
         dst = self.map_reg(dst)
@@ -2013,7 +2062,7 @@ class DosBackend(CodeBackend):
 
     def map_reg(self, reg):
         if reg not in self.REG_MAP:
-            raise NotImplementedError(f"DOS unsupported register: {reg}")
+            raise NotImplementedError(f"{tr('DOS unsupported register')}: {reg}")
         return self.REG_MAP[reg]
 
     def emit_setne(self, reg, comment=""):
@@ -2096,7 +2145,7 @@ class DosBackend(CodeBackend):
         if dst16 == "ax" and src == "al":
             return
 
-        raise NotImplementedError(f"DOS emit_movzx {dst}, {src}")
+        raise NotImplementedError(f"{tr('DOS emit_movzx')} {dst}, {src}")
     
     def emit_store_for_end_ax(self):
         self.writer.emit_mov_mem16_reg16(
@@ -2194,7 +2243,7 @@ class DosBackend(CodeBackend):
         self.writer.bind_label(fail_label)
 
         msg_label = "__msg_out_of_memory"
-        self.writer.add_dos_string(msg_label, "Out of memory")
+        self.writer.add_dos_string(msg_label, tr("Out of memory"))
 
         self.writer.emit_mov_dx_label(msg_label)
         self.writer.emit_print_string_current_dx()
@@ -2278,7 +2327,7 @@ class PE32Writer:
 
     def _reg_id(self, reg):
         if reg not in self.regs:
-            raise RuntimeError(f"unsupported 32-bit register: {reg}")
+            raise RuntimeError(f"{tr('unsupported 32-bit register')}: {reg}")
         return self.regs[reg]
 
     def bind_label(self, name):
@@ -2381,7 +2430,7 @@ class PE32Writer:
         }
 
         if cc not in opcodes:
-            raise RuntimeError(f"unsupported PE32 condition jump: {cc}")
+            raise RuntimeError(f"{tr('unsupported PE32 condition jump')}: {cc}")
 
         self.text += opcodes[cc]
 
@@ -2405,7 +2454,7 @@ class PE32Writer:
     
     def emit_call_external(self, symbol_name):
         if symbol_name in ["rax", "eax", "rbx", "ebx", "rcx", "ecx", "rdx", "edx"]:
-            raise RuntimeError(f"register passed to emit_call_external: {symbol_name}")
+            raise RuntimeError(f"{tr('register passed to emit_call_external')}: {symbol_name}")
         
         sym_index = self.find_or_add_external(symbol_name)
 
@@ -2447,7 +2496,7 @@ class PE32Writer:
         index = self.find_symbol_index(name)
 
         if index is None:
-            raise RuntimeError(f"Symbol not defined: {name}")
+            raise RuntimeError(f"{tr('Symbol not defined')}: {name}")
 
         return index
 
@@ -2687,7 +2736,7 @@ class PE32Writer:
     
     def emit_setne(self, reg):
         if reg != "al":
-            raise RuntimeError("PE32Writer.emit_setne currently supports only al")
+            raise RuntimeError(tr("PE32Writer.emit_setne currently supports only al"))
 
         # setne al
         self.text += b"\x0F\x95\xC0"
@@ -2709,7 +2758,7 @@ class PE32Writer:
         }
 
         if src not in reg8:
-            raise RuntimeError(f"unsupported 8-bit source register: {src}")
+            raise RuntimeError(f"{tr('unsupported 8-bit source register')}: {src}")
 
         # movzx r32, r/m8
         self.text += b"\x0F\xB6"
@@ -2809,7 +2858,7 @@ class PE32Writer:
             "xmm1": 1,
         }
         if reg not in xmm:
-            raise RuntimeError(f"unsupported NT32 xmm register: {reg}")
+            raise RuntimeError(f"{tr('unsupported NT32 xmm register')}: {reg}")
         return xmm[reg]
 
     def emit_movsd_store32(self, base, offset, src):
@@ -3112,24 +3161,24 @@ class PE64CoffWriter:
     
     def _reg_id(self, reg):
         if reg not in self.regs:
-            raise RuntimeError(f"unsupported register: {reg}")
+            raise RuntimeError(f"{tr('unsupported register')}: {reg}")
         return self.regs[reg]
     
     def _xmm_id(self, reg):
         if not isinstance(reg, str):
-            raise RuntimeError(f"unsupported xmm register: {reg}")
+            raise RuntimeError(f"{tr('unsupported xmm register')}: {reg}")
 
         reg = reg.lower()
 
         if not reg.startswith("xmm"):
-            raise RuntimeError(f"unsupported xmm register: {reg}")
+            raise RuntimeError(f"{tr('unsupported xmm register')}: {reg}")
         try:
             n = int(reg[3:])
         except ValueError:
-            raise RuntimeError(f"unsupported xmm register: {reg}")
+            raise RuntimeError(f"{tr('unsupported xmm register')}: {reg}")
 
         if n < 0 or n > 15:
-            raise RuntimeError(f"unsupported xmm register: {reg}")
+            raise RuntimeError(f"{tr('unsupported xmm register')}: {reg}")
 
         return n
     
@@ -3713,7 +3762,7 @@ class PE64CoffWriter:
         }
 
         if op not in set_map:
-            raise RuntimeError(f"unsupported compare operator: {op}")
+            raise RuntimeError(f"{tr('unsupported compare operator')}: {op}")
 
         self.emit_setcc_al(set_map[op])
         self.emit_movzx_eax_al()
@@ -3752,7 +3801,7 @@ class PE64CoffWriter:
     def check_unresolved_labels(self):
         if self.fixups:
             names = ", ".join(f["label"] for f in self.fixups)
-            raise RuntimeError(f"Unresolved labels: {names}")
+            raise RuntimeError(f"{tr('Unresolved labels')}: {names}")
     
     def emit_cmp(self, left, right):
         if isinstance(right, int):
@@ -3892,7 +3941,7 @@ class PE64CoffWriter:
         }
 
         if cc not in opcodes:
-            raise RuntimeError(f"unsupported condition jump: {cc}")
+            raise RuntimeError(f"{tr('unsupported condition jump')}: {cc}")
 
         self.text += opcodes[cc]
 
@@ -3915,7 +3964,7 @@ class PE64CoffWriter:
         }
 
         if op not in jump_map:
-            raise RuntimeError(f"unsupported jump op: {op}")
+            raise RuntimeError(f"{tr('unsupported jump op')}: {op}")
 
         self.emit_jcc_label(jump_map[op], label)
     
@@ -4273,7 +4322,7 @@ class PE64CoffWriter:
             return
 
         if dst.startswith("xmm"):
-            raise RuntimeError("use XMM-specific mov methods")
+            raise RuntimeError(tr("use XMM-specific mov methods"))
 
         if dst.startswith("r") and not dst.endswith("d") and src.startswith("r") and not src.endswith("d"):
             self.emit_mov_r64_r64(dst, src)
@@ -4295,7 +4344,7 @@ class PE64CoffWriter:
 
     def emit_setne(self, reg):
         if reg != "al":
-            raise RuntimeError("currently only setne al supported")
+            raise RuntimeError(tr("currently only setne al supported"))
         self.emit_setcc_al("setne")
 
     def emit_sub(self, dst, src):
@@ -4343,7 +4392,7 @@ class PE64CoffWriter:
         }
 
         if cc not in opcodes:
-            raise RuntimeError(f"unsupported setcc: {cc}")
+            raise RuntimeError(f"{tr('unsupported setcc')}: {cc}")
 
         self.text += opcodes[cc]
         self.text.append(0xC0)  # al
@@ -4499,7 +4548,7 @@ class PE64CoffWriter:
         index = self.find_symbol_index(name)
 
         if index is None:
-            raise RuntimeError(f"Symbol not defined: {name}")
+            raise RuntimeError(f"{tr('Symbol not defined')}: {name}")
 
         return index
     
@@ -4824,7 +4873,7 @@ class MZ16Writer:
             if fix.get("kind") == "data16_disp":
                 label = fix["label"]
                 if label not in self.labels:
-                    raise RuntimeError(f"unknown DOS data label: {label}")
+                    raise RuntimeError(f"{tr('unknown DOS data label')}: {label}")
                 
                 value = data_base + self.labels[label] + fix.get("disp", 0)
                 self.code[fix["patch_pos"]:fix["patch_pos"] + 2] = int(value).to_bytes(
@@ -4839,7 +4888,7 @@ class MZ16Writer:
             
             label = fix["label"]
             if label not in self.labels:
-                raise RuntimeError(f"unknown DOS data label: {label}")
+                raise RuntimeError(f"{tr('unknown DOS data label')}: {label}")
             
             value = data_base + self.labels[label]
 
@@ -4862,7 +4911,7 @@ class MZ16Writer:
         }
 
         if reg not in regs:
-            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+            raise RuntimeError(f"{tr('unsupported 16-bit register')}: {reg}")
 
         return regs[reg]
     
@@ -4879,7 +4928,7 @@ class MZ16Writer:
         }
 
         if reg not in op:
-            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+            raise RuntimeError(f"{tr('unsupported 16-bit register')}: {reg}")
 
         self.code.append(op[reg])
 
@@ -4896,7 +4945,7 @@ class MZ16Writer:
         }
 
         if reg not in op:
-            raise RuntimeError(f"unsupported 16-bit register: {reg}")
+            raise RuntimeError(f"{tr('unsupported 16-bit register')}: {reg}")
 
         self.code.append(op[reg])
 
@@ -4913,10 +4962,10 @@ class MZ16Writer:
         }
 
         if dst not in reg_id:
-            raise RuntimeError(f"unsupported dst register: {dst}")
+            raise RuntimeError(f"{tr('unsupported dst register')}: {dst}")
 
         if src not in reg_id:
-            raise RuntimeError(f"unsupported src register: {src}")
+            raise RuntimeError(f"{tr('unsupported src register')}: {src}")
 
         # mov r/m16, r16
         self.code.append(0x89)
@@ -4933,7 +4982,7 @@ class MZ16Writer:
         }
 
         if cc not in opcodes:
-            raise RuntimeError(f"unsupported DOS jcc: {cc}")
+            raise RuntimeError(f"{tr('unsupported DOS jcc')}: {cc}")
 
         self.code += opcodes[cc]
 
@@ -5087,7 +5136,7 @@ class MZ16Writer:
         elif base == "bp":
             rm = 0x06          # [bp + disp]
         else:
-            raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
+            raise RuntimeError(f"{tr('DOS16 memory base not supported yet')}: {base}")
 
         # mov r16, r/m16
         self.code.append(0x8B)
@@ -5105,7 +5154,7 @@ class MZ16Writer:
     
     def emit_mov_reg16_mem16_disp(self, reg, label, disp):
         if not isinstance(label, str):
-            raise RuntimeError(f"emit_mov_reg16_mem16_disp: label must be str, got {label!r}")
+            raise RuntimeError(f"{tr('emit_mov_reg16_mem16_disp: label must be str, got')} {label!r}")
             
         reg_id = self._reg16_id(reg)
 
@@ -5187,7 +5236,7 @@ class MZ16Writer:
     def emit_mov_mem16_reg16_disp(self, label, disp, reg):
         if not isinstance(label, str):
             raise RuntimeError(
-                f"emit_mov_mem16_reg16_disp: label must be str, got {label!r}"
+                f"{tr('emit_mov_mem16_reg16_disp: label must be str, got')} {label!r}"
             )
         reg_id = self._reg16_id(reg)
 
@@ -5213,7 +5262,7 @@ class MZ16Writer:
         elif base == "bp":
             rm = 0x06          # [bp + disp]
         else:
-            raise RuntimeError(f"DOS16 memory base not supported yet: {base}")
+            raise RuntimeError(f"{tr('DOS16 memory base not supported yet')}: {base}")
 
         self.code.append(0x89) # mov r/m16, r16
 
@@ -5559,45 +5608,8 @@ class NTWriter32:
 
     def __init__(self, coff):
         self.coff = coff
-        self.imports = {
-            "kernel32.dll": [
-                "ExitProcess",
-            ],
-            "user32.dll": [
-                "MessageBoxA",
-            ],
-            "libdbase2many.32.dll": [
-                "_jit_print_int",
-                "_jit_print_text",
-                "_jit_print_newline",
-                "_jit_print_double",
-                "_jit_print_char",
-
-                "_jit_new_memory",
-                "_jit_dispose_memory",
-
-                "_jit_debug_break",
-
-                "_jit_runtime_error",
-                "_jit_array_bounds_error",
-                "_jit_string_range_error",
-                "_jit_nil_pointer_error",
-                "_jit_out_of_memory_error",
-
-                "_jit_dynarray_setlength",
-                "_jit_dynstring_setlength",
-                "_jit_dynstring_from_cstr",
-                "_jit_dynstring_length",
-                "_jit_dynstring_concat",
-                "_jit_dynstring_copy",
-                "_jit_dynstring_pos",
-
-                "_jit_set_exception",
-                "_jit_read_int",
-                "_jit_read_string"
-            ],
-        }
-
+        self.imports = CDATA.imports
+        
     @property
     def text(self): return self.coff.text
 
@@ -5615,12 +5627,13 @@ class NTWriter32:
         for sym in self.coff.symbols:
             if sym["name"] in ("test", "main", "_main"):
                 return sym["value"]
-        raise RuntimeError("entry point not found: main/_main")
+        raise RuntimeError(tr("entry point not found: main/_main"))
 
     def all_import_functions(self):
         funcs = []
         for dll_name, names in self.imports.items():
-            for name in names:
+            for item in names:
+                name = item[0] if isinstance(item, tuple) else item
                 if name not in funcs:
                     funcs.append(name)
         return funcs
@@ -5637,7 +5650,25 @@ class NTWriter32:
 
         return text_image
 
-    def build_import_section(self, idata_rva):
+    def import_internal_name(self, func):
+        if isinstance(func, tuple):
+            return func[0]
+        return func
+
+    def import_lookup_value(self, func, idata_rva, cursor):
+        IMAGE_ORDINAL_FLAG32 = 0x80000000
+
+        if isinstance(func, int):
+            return IMAGE_ORDINAL_FLAG32 | (func & 0xFFFF)
+
+        if isinstance(func, tuple):
+            name, ordinal = func
+            return IMAGE_ORDINAL_FLAG32 | (ordinal & 0xFFFF)
+
+        return None
+
+    # NTWriter32
+    def build_import_section_by_name(self, idata_rva):
         self.import_iat_rvas = {}
 
         descriptor_size  = 20
@@ -5707,6 +5738,117 @@ class NTWriter32:
 
         return data
 
+    def collect_used_external_symbols(self):
+        used = set()
+
+        for reloc in self.coff.text_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            if sym["section"] == 0:
+                used.add(sym["name"])
+
+        return used
+
+    def filtered_imports(self):
+        used = self.collect_used_external_symbols()
+
+        result = {}
+
+        for dll_name, funcs in self.imports.items():
+            selected = []
+
+            for func in funcs:
+                internal_name = self.import_internal_name(func)
+
+                if internal_name in used:
+                    selected.append(func)
+
+            if selected:
+                result[dll_name] = selected
+
+        return result
+
+    # NTWriter32
+    def build_import_section_by_ord(self, idata_rva):
+        self.import_iat_rvas = {}
+
+        descriptor_size  = 20
+        descriptors_size = (len(self.imports) + 1) * descriptor_size
+
+        data = bytearray(b"\x00" * descriptors_size)
+        cursor = descriptors_size
+        descriptors = []
+
+        for dll_name, funcs in self.imports.items():
+            ilt_rva = idata_rva + cursor
+            ilt_offsets = []
+
+            for func in funcs:
+                ilt_offsets.append(cursor)
+                data += b"\x00" * 4
+                cursor += 4
+
+            data += b"\x00" * 4
+            cursor += 4
+
+            iat_rva = idata_rva + cursor
+            iat_offsets = []
+
+            for func in funcs:
+                internal_name = self.import_internal_name(func)
+
+                iat_offsets.append(cursor)
+                self.import_iat_rvas[internal_name] = idata_rva + cursor
+
+                data += b"\x00" * 4
+                cursor += 4
+
+            data += b"\x00" * 4
+            cursor += 4
+
+            lookup_values = []
+
+            for func in funcs:
+                ordinal_value = self.import_lookup_value(func, idata_rva, cursor)
+
+                if ordinal_value is not None:
+                    lookup_values.append(ordinal_value)
+                    continue
+
+                # Import by name
+                hint_name_rva = idata_rva + cursor
+                lookup_values.append(hint_name_rva)
+
+                data += struct.pack("<H", 0)
+                data += func.encode("ascii") + b"\x00"
+                cursor = len(data)
+
+            dll_name_rva = idata_rva + cursor
+            data += dll_name.encode("ascii") + b"\x00"
+            cursor = len(data)
+
+            for off, value in zip(ilt_offsets, lookup_values):
+                struct.pack_into("<I", data, off, value)
+
+            for off, value in zip(iat_offsets, lookup_values):
+                struct.pack_into("<I", data, off, value)
+
+            descriptors.append((ilt_rva, dll_name_rva, iat_rva))
+
+        for index, (ilt_rva, dll_name_rva, iat_rva) in enumerate(descriptors):
+            struct.pack_into(
+                "<IIIII",
+                data,
+                index * descriptor_size,
+                ilt_rva,
+                0,
+                0,
+                dll_name_rva,
+                iat_rva
+            )
+
+        return data
+    
     def patch_import_thunks(self, text_image):
         for name, thunk_off in self.import_thunk_offsets.items():
             iat_va = self.IMAGE_BASE + self.import_iat_rvas[name]
@@ -5722,7 +5864,7 @@ class NTWriter32:
             return text_rva + sym["value"]
         if sym["section"] == 2:
             return data_rva + sym["value"]
-        raise RuntimeError(f"unsupported symbol section: {sym}")
+        raise RuntimeError(f"{tr('unsupported symbol section')}: {sym}")
 
     def patch_internal_relocations(self, text_image, data_image, text_rva, data_rva):
         for reloc in self.coff.text_relocations:
@@ -5744,7 +5886,7 @@ class NTWriter32:
                 text_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
 
             else:
-                raise RuntimeError(f"unsupported text relocation type: {reloc['type']}")
+                raise RuntimeError(f"{tr('unsupported text relocation type')}: {reloc['type']}")
                 
         for reloc in self.coff.data_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
@@ -5756,7 +5898,7 @@ class NTWriter32:
                 target_va = self.IMAGE_BASE + target_rva
                 data_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
             else:
-                raise RuntimeError(f"unsupported data relocation type: {reloc['type']}")
+                raise RuntimeError(f"{tr('unsupported data relocation type')}: {reloc['type']}")
 
     def patch_external_call_relocations(self, text_image, text_rva):
         for reloc in self.coff.text_relocations:
@@ -5768,7 +5910,7 @@ class NTWriter32:
             name = sym["name"]
 
             if name not in self.import_thunk_offsets:
-                raise RuntimeError(f"external call not imported: {name}")
+                raise RuntimeError(f"{tr('external call not imported')}: {name}")
 
             patch_pos = reloc["offset"]
             thunk_off = self.import_thunk_offsets[name]
@@ -5779,9 +5921,30 @@ class NTWriter32:
 
             text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
 
+    def validate_imports_complete(self):
+        used = self.collect_used_external_symbols()
+
+        known = set()
+        for dll_name, funcs in self.imports.items():
+            for func in funcs:
+                known.add(self.import_internal_name(func))
+
+        missing = used - known
+
+        if missing:
+            raise RuntimeError(
+                "external symbols not listed in imports: " +
+                ", ".join(sorted(missing))
+            )
+
     def write(self, filename):
         print("NTWriter32.write called")
         print(self.imports)
+        
+        self.validate_imports_complete()
+        self.imports = self.filtered_imports()
+        print("used imports:", self.imports)
+        
         
         dos_header = bytearray(64)
         dos_header[0:2] = b"MZ"
@@ -5829,7 +5992,7 @@ class NTWriter32:
         idata_rva  = self.align(data_rva + data_virtual_size, self.SECTION_ALIGN)
         idata_raw  = data_raw + data_raw_size
         
-        idata      = self.build_import_section(idata_rva)
+        idata      = self.build_import_section_by_ord(idata_rva)
         data_image = bytearray(self.data)
 
         self.patch_internal_relocations(text_image, data_image, text_rva, data_rva)
@@ -5880,7 +6043,7 @@ class NTWriter32:
         optional_header += data_directories
 
         if len(optional_header) != size_of_optional_header:
-            raise RuntimeError(f"optional header size: {len(optional_header)}")
+            raise RuntimeError(f"{tr('optional header size')}: {len(optional_header)}")
 
         text_section_header = struct.pack(
             "<8sIIIIIIHHI",
@@ -5957,43 +6120,8 @@ class PE64Writer:
     SECTION_ALIGN  = 0x1000
 
     def __init__(self, coff):
-        self.coff = coff
-        
-        self.imports = {
-            "kernel32.dll": [
-                "ExitProcess"
-            ],
-            "libdbase2many.64.dll": [
-                "_jit_print_int",
-                "_jit_print_text",
-                "_jit_print_newline",
-                "_jit_print_double",
-                "_jit_print_char",
-
-                "_jit_new_memory",
-                "_jit_dispose_memory",
-
-                "_jit_debug_break",
-
-                "_jit_runtime_error",
-                "_jit_array_bounds_error",
-                "_jit_string_range_error",
-                "_jit_nil_pointer_error",
-                "_jit_out_of_memory_error",
-
-                "_jit_dynarray_setlength",
-                "_jit_dynstring_setlength",
-                "_jit_dynstring_from_cstr",
-                "_jit_dynstring_length",
-                "_jit_dynstring_concat",
-                "_jit_dynstring_copy",
-                "_jit_dynstring_pos",
-
-                "_jit_set_exception",
-                "_jit_read_int",
-                "_jit_read_string"
-            ]
-        }
+        self.coff    = coff
+        self.imports = CDATA.imports
 
     @property
     def text(self):
@@ -6011,7 +6139,7 @@ class PE64Writer:
         for sym in self.coff.symbols:
             if sym["name"] in ("test", "main", "_main"):
                 return sym["value"]
-        raise RuntimeError("entry point not found: main/_main")
+        raise RuntimeError(tr("entry point not found: main/_main"))
 
     def align(self, value, alignment):
         return (value + alignment - 1) & ~(alignment - 1)
@@ -6053,7 +6181,7 @@ class PE64Writer:
                 continue
 
             if name not in self.import_thunk_offsets:
-                raise RuntimeError(f"external call not imported: {name}")
+                raise RuntimeError(f"{tr('external call not imported')}: {name}")
 
             patch_pos = reloc["offset"]
             thunk_off = self.import_thunk_offsets[name]
@@ -6067,7 +6195,7 @@ class PE64Writer:
     def patch_import_thunks(self, text_image, text_rva):
         for name, thunk_off in self.import_thunk_offsets.items():
             if name not in self.import_iat_rvas:
-                raise RuntimeError(f"IAT RVA missing for import: {name}")
+                raise RuntimeError(f"{tr('IAT RVA missing for import')}: {name}")
 
             iat_rva = self.import_iat_rvas[name]
 
@@ -6088,7 +6216,7 @@ class PE64Writer:
         if sym["section"] == 2:
             return data_rva + sym["value"]
 
-        raise RuntimeError(f"unsupported symbol section: {sym}")
+        raise RuntimeError(f"{tr('unsupported symbol section')}: {sym}")
 
     def patch_internal_relocations(self, text_image, data_image, text_rva, data_rva):
         # .text Relocations, z.B. lea rcx, [rel str_0]
@@ -6112,7 +6240,7 @@ class PE64Writer:
                     signed=True
                 )
             else:
-                raise RuntimeError(f"unsupported text relocation type: {reloc['type']}")
+                raise RuntimeError(f"{tr('unsupported text relocation type')}: {reloc['type']}")
 
         # .data Relocations, z.B. ctx enthält qword-Adresse von int_vars
         for reloc in self.coff.data_relocations:
@@ -6128,7 +6256,7 @@ class PE64Writer:
                     signed=False
                 )
             else:
-                raise RuntimeError(f"unsupported data relocation type: {reloc['type']}")
+                raise RuntimeError(f"{tr('unsupported data relocation type')}: {reloc['type']}")
 
     def build_import_section(self, idata_rva):
         imports = self.imports
@@ -6936,9 +7064,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             ctx,
                             "E0019",
                             text = (
-                                f"class {cls.name} method "
+                                f"{tr('class')} {cls.name} {tr('method')} "
                                 f"{method.name}{self.format_method_signature(method.params)} "
-                                f"is declared but not implemented"
+                                f"{tr('is declared but not implemented')}"
                             )
                         )
     
@@ -8709,7 +8837,43 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if len(actuals) != 1:
             raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
 
-        expr_type = self.visit(actuals[0])
+        arg_ctx = actuals[0]
+        name = arg_ctx.getText()
+
+        # dynamisches Array: Length(A)
+        try:
+            var_info = self.var_info(ctx, name)
+            var_type = var_info["type"]
+
+            if isinstance(var_type, str) and var_type in self.arrays:
+                array_info = self.arrays[var_type]
+
+                if getattr(array_info, "is_dynamic", False):
+                    self.emit_load_var(name, var_info)      # eax = data pointer
+
+                    done_label = self.new_named_label("dyn_len_done")
+                    nil_label  = self.new_named_label("dyn_len_nil")
+
+                    self.emit_test("eax", "eax")
+                    self.emit_jz(nil_label)
+
+                    # Header liegt direkt vor data pointer:
+                    # [data - 12] = length
+                    self.emit_sub("eax", 12)
+                    self.emit_mov_reg_dword("eax", "eax")
+                    self.emit_jmp(done_label)
+
+                    self.emit_bind_label(nil_label)
+                    self.emit_mov("eax", 0)
+
+                    self.emit_bind_label(done_label)
+                    return "integer"
+
+        except Exception:
+            pass
+
+        # String wie bisher
+        expr_type = self.visit(arg_ctx)
 
         if expr_type != "string":
             raise CompileError(ctx, "E0005", got=expr_type, expected="string")
@@ -8931,8 +9095,36 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         var_info = self.var_info(ctx, name)
         array_info = self.arrays[var_info["type"]]
 
+        # length berechnen
         self.visit(length_ctx)
 
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            # Länge sichern
+            self.emit_push("eax")
+
+            # old array pointer laden
+            self.emit_load_var(name, var_info)
+
+            # cdecl: Argumente rechts nach links pushen
+            # _jit_dynarray_setlength(old_ptr, length, element_size)
+            self.backend.writer.emit_push_imm32(array_info.element_size)
+
+            self.emit_pop("ebx")      # ebx = length
+            self.emit_push("ebx")
+
+            self.emit_push("eax")     # old pointer
+
+            self.emit_call("_jit_dynarray_setlength")
+            self.backend.emit_cleanup_stack(12)
+
+            # Runtime-Call kann ESI/ctx zerstören
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            # Rückgabe eax = neuer array pointer
+            self.emit_store_var(ctx, name, var_info)
+            return None
+
+        # Win64 wie bisher
         self.emit_movsxd("rdx", "eax")
         self.emit_mov("r8", array_info.element_size)
 
@@ -12244,7 +12436,25 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         dimensions   = array_type["dimensions"]
         element_type = array_type["element_type"]
+        
+        if not dimensions:
+            resolved_type = self.resolve_type(element_type)
+            element_size  = self.type_size(ctx, resolved_type)
 
+            self.arrays[array_name.lower()] = ArrayInfo(
+                name         = array_name,
+                index_min    = 0,
+                index_max    = -1,
+                element_type = resolved_type,
+                element_size = element_size,
+                size         = 0,
+                init_values  = [],
+                dimensions   = [],
+                is_dynamic   = True
+            )
+
+            return None
+            
         # vorerst Kompatibilität für alte eindimensionale Funktionen
         index_min = dimensions[0]["min"]
         index_max = dimensions[0]["max"]
@@ -12813,6 +13023,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if first.LBRACK():
                 var_name = target_ctx.IDENT().getText()
                 
+                index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
+                
                 # dynamisches Array: a[0] := ...
                 arr_info = self.var_info(ctx, var_name)
                 arr_type = arr_info["type"]
@@ -12822,16 +13034,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_store_string_char(
                         ctx,
                         var_name,
-                        list(first.expr()),
+                        index_exprs,
                         expr_type
                     )
                     return None
                 
                 # points[0].X
-                if len(suffixes) > 1 and suffixes[1].DOT():
+                if rest_suffixes and rest_suffixes[0].DOT():
                     field_parts = []
 
-                    for s in suffixes[1:]:
+                    for s in rest_suffixes:
                         if s.DOT():
                             field_parts.append(s.IDENT().getText())
 
@@ -12841,7 +13053,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         self.emit_store_dynamic_array_record_field(
                             ctx,
                             var_name,
-                            list(first.expr()),
+                            index_exprs,
                             field_parts,
                             expr_type
                         )
@@ -12850,7 +13062,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_store_array_record_field(
                         ctx,
                         var_name,
-                        list(first.expr()),
+                        index_exprs,
                         field_parts,
                         expr_type
                     )
@@ -12861,7 +13073,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_store_dynamic_array_element(
                         ctx,
                         var_name,
-                        list(first.expr()),
+                        index_exprs,
                         expr_type
                     )
                     return None
@@ -12870,7 +13082,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_store_array_element(
                     ctx,
                     var_name,
-                    list(first.expr()),
+                    index_exprs,
                     expr_type
                 )
                 return None
@@ -13094,6 +13306,34 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         text = ctx.getText()
         key  = text.lower()
         
+        if ctx.MINUS():
+            expr_type = self.visit(ctx.factor())
+
+            if expr_type == "integer":
+                self.emit_mov("ebx", "eax")
+                self.emit_xor("eax", "eax")
+                self.emit_sub("eax", "ebx")
+                return "integer"
+
+            if expr_type == "double":
+                # 0.0 - xmm0
+                self.emit_sub("rsp", 8)
+                self.emit_movsd_store("rsp", 0, "xmm0")
+
+                self.emit_mov("eax", 0)
+                self.emit_cvtsi2sd("xmm0", "eax")
+
+                self.emit_movsd_load("xmm1", "rsp", 0)
+                self.emit_add("rsp", 8)
+
+                self.emit_subsd("xmm0", "xmm1")
+                return "double"
+
+            raise CompileError(ctx, "E0005", got=expr_type, expected="integer/double")
+
+        if ctx.PLUS():
+            return self.visit(ctx.factor())
+        
         if ctx.NOT():
             expr_type = self.visit(ctx.factor())
             
@@ -13132,10 +13372,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 first = suffixes[0]
                 
                 if first.LBRACK():
+                    index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
                     return self.emit_address_of_array_element(
                         ctx,
                         name,
-                        list(first.expr())
+                        index_exprs
                     )
             
             return self.emit_address_of_var(ctx, name)
@@ -13182,6 +13423,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     var_info = self.var_info(ctx, var_name)
                     var_type = var_info["type"]
                     
+                    index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
+                    
                     # Spezialfall: s[0] = ganzer String
                     if var_type == "string":
                         index_exprs = list(first.expr())
@@ -13197,10 +13440,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         )
                     
                     # points[0].X
-                    if len(suffixes) > 1 and suffixes[1].DOT():
+                    if rest_suffixes and rest_suffixes[0].DOT():
                         field_parts = []
                         
-                        for s in suffixes[1:]:
+                        for s in rest_suffixes:
                             if s.DOT():
                                 field_parts.append(s.IDENT().getText())
                         
@@ -13210,14 +13453,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             return self.emit_load_dynamic_array_record_field(
                                 ctx,
                                 var_name,
-                                list(first.expr()),
+                                index_exprs,
                                 field_parts
                             )
                         
                         return self.emit_load_array_record_field(
                             ctx,
                             var_name,
-                            list(first.expr()),
+                            index_exprs,
                             field_parts
                         )
                     
@@ -13225,7 +13468,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     return self.emit_load_array_element(
                         ctx,
                         var_name,
-                        list(first.expr())
+                        index_exprs
                     )
                 
                 if first.DOT():
@@ -13418,15 +13661,73 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         raise CompileError(ctx, "E0015", text=text)
     
-    def visitFunctionCallExpr(self, ctx):
-        idents = ctx.IDENT()
-        
-        if isinstance(idents, list):
-            name = idents[0].getText()
-        else:
-            name = idents.getText()
+    def get_single_builtin_arg(self, ctx):
+        actuals = []
 
-        if len(idents) >= 2:
+        if ctx.argumentList():
+            actuals = list(ctx.argumentList().expr())
+
+        #if ctx.actualParamList():
+        #    actuals = [p.expr() for p in ctx.actualParamList().actualParam()]
+
+        if len(actuals) != 1:
+            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected="1")
+
+        return actuals[0]
+        
+    def emit_builtin_low(self, ctx):
+        arg_ctx = self.get_single_builtin_arg(ctx)
+        name = arg_ctx.getText()
+
+        var_info = self.var_info(ctx, name)
+        var_type = self.resolve_type(var_info["type"])
+
+        if isinstance(var_type, str) and var_type in self.arrays:
+            array_info = self.arrays[var_type]
+
+            # Dynamische Arrays: immer 0
+            if getattr(array_info, "is_dynamic", False):
+                self.emit_mov("eax", 0)
+                return "integer"
+
+            # Statische Arrays: index_min
+            self.emit_mov("eax", array_info.index_min)
+            return "integer"
+
+        raise CompileError(ctx, "E0005", got=var_type, expected="array")
+
+    def emit_builtin_high(self, ctx):
+        arg_ctx = self.get_single_builtin_arg(ctx)
+        name = arg_ctx.getText()
+
+        var_info = self.var_info(ctx, name)
+        var_type = self.resolve_type(var_info["type"])
+
+        if isinstance(var_type, str) and var_type in self.arrays:
+            array_info = self.arrays[var_type]
+
+            # Dynamische Arrays:
+            # High(A) = Length(A) - 1
+            if getattr(array_info, "is_dynamic", False):
+                self.emit_builtin_length(ctx)
+                self.emit_sub("eax", 1)
+                return "integer"
+
+            # Statische Arrays
+            self.emit_mov("eax", array_info.index_max)
+            return "integer"
+
+        raise CompileError(ctx, "E0005", got=var_type, expected="array")
+    
+    def visitFunctionCallExpr(self, ctx):
+        names  = list(ctx.functionName())
+
+        if not names:
+            raise CompileError(ctx, "E0015", text=ctx.getText())
+        
+        name = names[0].getText()
+        
+        if len(names) >= 2:
             left_name   = idents[0].getText()
             method_name = idents[1].getText()
 
@@ -13436,8 +13737,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     left_name,
                     method_name
                 )
+            name = method_name
         
-        #name = ctx.IDENT().getText()
         key  = name.lower()
         
         if key == "assigned":
@@ -13451,6 +13752,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if key == "pos":
             return self.emit_builtin_pos(ctx)
+            
+        if key == "low" : return self.emit_builtin_low (ctx)
+        if key == "high": return self.emit_builtin_high(ctx)
         
         func = self.find_function(name)
 
@@ -14448,6 +14752,22 @@ class GeneratorClass(AsmJitGenerator):
     def emit_mov_ebx_eax(self):
         self.emit_mov("ebx", "eax")
 
+    def collect_array_suffix_exprs(self, suffixes):
+        index_exprs = []
+        rest_suffixes = []
+
+        in_array_part = True
+
+        for s in suffixes:
+            if in_array_part and s.LBRACK():
+                index_exprs.extend(list(s.expr()))
+                continue
+
+            in_array_part = False
+            rest_suffixes.append(s)
+
+        return index_exprs, rest_suffixes
+
     def write_string_literals_to_coff(self):
         for label, text in self.string_literals:
             if self.writer.find_symbol_index(label) is None:
@@ -14642,20 +14962,20 @@ def main():
         # -----------------------------------------
         if not args.source:
             CDATA.LastErrorCode = LastError.NO_SOURCE
-            raise Exception("no source file given.")
+            raise Exception(tr("no source file given."))
         
         # -----------------------------------------
         # get target platform ...
         # -----------------------------------------
         if not args.target:
             CDATA.LastErrorCode = LastError.NO_TARGET
-            raise Exception("no target platform given.")
+            raise Exception(tr("no target platform given."))
         
         if args.target in ["dos", "dos16", "nt35", "winnt", "win32", "win64"]:
             CDATA.args_target = args.target
         else:
             CDATA.LastErrorCode = LastError.NO_TARGET
-            raise Exception("given target is not supported.")
+            raise Exception(tr("given target is not supported."))
         
         # -----------------------------------------
         # set backend
@@ -14689,18 +15009,6 @@ def main():
                 writer     = PE32Writer()
                 target_obj = NTWriter32(writer)
                 backend    = Coff32Backend(writer)
-                #writer     = target_obj
-                
-                
-                # Testcode erzeugen
-                #writer.begin_function("_main", local_size=0)
-                
-                #writer.emit_push_imm32(99)
-                #writer.emit_call_external("ExitProcess")
-                
-                #writer.end_function()
-                
-                #writer.write("test.exe")
             
             elif args.target in ["dos", "dos16"]:
                 target_obj = MZ16Writer()
@@ -14713,11 +15021,11 @@ def main():
                 writer     = PE64ExeWriter(target_obj)
         else:
             CDATA.LastErrorCode = LastError.NO_BACKEND
-            raise Exception("backend not supported.")
+            raise Exception(tr("backend not supported."))
             
         if backend is None:
             CDATA.LastErrorCode = LastError.NO_BACKEND
-            raise Exception("could not create backend")
+            raise Exception(tr("could not create backend"))
         
         source_file = args.source
         name, ext   = os.path.splitext(source_file)
@@ -14790,7 +15098,7 @@ def main():
         
         if parser.getNumberOfSyntaxErrors() > 0:
             return 1
-            raise Exception("source code have syntax errors.")
+            raise Exception(tr("source code have syntax errors."))
         
         # -----------------------------------------
         # 4. generate asmjit c++ / nasm code  ...
@@ -14893,7 +15201,7 @@ def main():
                     #    f.close()
         else:
             #print(text)
-            raise Exception("backend not given or not supported.")
+            raise Exception(tr("backend not given or not supported."))
         
         return 0
     
@@ -14905,33 +15213,33 @@ def main():
             print(e, file = sys.stderr)
             return 3
     except PermissionError as e:
-        print(f"Error: Permission Error")
+        print(f"{tr('Error')}: {tr('Permission Error')}")
         print(f"Text : {e.message}")
         return 2
     except ArgumentParserError as e:
-        print(f"Error: Invalid argument(s)")
+        print(f"{tr('Error')}: {tr('Invalid argument(s)')}")
         print(f"Text : {e.message}")
         #print(f"Code : {e.errno}")
         return 2
     except AttributeError as e:
-        print(f"Error: Attribute Error")
+        print(f"{tr('Error')}: {tr('Attribute Error')}")
         print(f"Text : {str(e)}")
         return 2
     except FileNotFoundError as e:
-        print(f"Error: File not found '{e.filename}'")
+        print(f"{tr('Error')}: {tr('File not found')} '{e.filename}'")
         print(f"Text : {e.strerror}")
         print(f"Code : {e.errno}")
         return 2
     except TypeError as e:
-        print(f"Error: Type error")
+        print(f"{tr('Error')}: {tr('Type error')}")
         print(f"Text : {str(e)}")
         return 2
     except ArithmeticError as e:
-        print(f"Error: Arithmetic Error")
-        print(f"Text : Division through 0")
+        print(f"{tr('Error')}: {tr('Arithmetic Error')}")
+        print(f"Text : {tr('Division through 0')}")
         return 2
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"{tr('Error')}: {str(e)}")
         import traceback
         traceback.print_exc()
         return 1

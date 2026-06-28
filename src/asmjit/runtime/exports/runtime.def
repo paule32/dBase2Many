@@ -1,0 +1,10 @@
+; ---------------------------------------------------------------------------
+; File: runtime.def
+; Copyright (c) 2026 by Jens Kallup - paule32
+; All rights reserved.
+; ---------------------------------------------------------------------------
+_jit_print_int                   @20
+_jit_print_text                  @21
+_jit_print_newline               @22
+_jit_print_double                @23
+_jit_print_char                  @24

@@ -1,0 +1,10 @@
+; ---------------------------------------------------------------------------
+; File: error.def
+; Copyright (c) 2026 by Jens Kallup - paule32
+; All rights reserved.
+; ---------------------------------------------------------------------------
+_jit_runtime_error              @400
+_jit_array_bounds_error         @401
+_jit_string_range_error         @402
+_jit_nil_pointer_error          @403
+_jit_out_of_memory_error        @404

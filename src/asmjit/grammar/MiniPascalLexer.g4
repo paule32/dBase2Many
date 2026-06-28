@@ -49,6 +49,14 @@ DOWNTO              : [Dd][Oo][Ww][Nn][Tt][Oo] ;
 INC                 : [Ii][Nn][Cc] ;
 DEC                 : [Dd][Ee][Cc] ;
 
+LOW                 : [Ll][Oo][Ww] ;
+HIGH                : [Hh][Ii][Gg][Hh] ;
+
+POS                 : [Pp][Oo][Ss] ;
+COPY                : [Cc][Oo][Pp][Yy] ;
+LENGTH              : [Ll][Ee][Nn][Gg][Tt][Hh] ;
+ASSIGNED            : [Aa][Ss][Ss][Ii][Gg][Nn][Ee][Dd] ;
+
 PROCEDURE           : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 FUNCTION            : [Ff][Uu][Nn][Cc][Tt][Ii][Oo][Nn] ;
 RESULT              : [Rr][Ee][Ss][Uu][Ll][Tt] ;

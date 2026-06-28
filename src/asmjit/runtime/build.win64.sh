@@ -38,6 +38,8 @@ if [ "$TARGET" = "x86_64-w64-mingw32" ]; then
 
   gendef     libdbase2many.64.dll
   dlltool -d libdbase2many.64.def -l libdbase2many.64.dll.a
+  
+  strip libdbase2many.32.dll
 
   cp libdbase2many.64.def   win64/libdbase2many.64.def
   cp libdbase2many.64.dll   win64/libdbase2many.64.dll

@@ -272,9 +272,19 @@ declaration
     | functionDeclaration
     ;
 
+functionName
+    : IDENT
+    | LENGTH
+    | LOW
+    | HIGH
+    | COPY
+    | POS
+    | ASSIGNED
+    ;
+
 functionCallExpr
-    : IDENT (DOT IDENT)? LPAREN argumentList? RPAREN
-    | IDENT DOT IDENT
+    : functionName (DOT functionName)? LPAREN argumentList? RPAREN
+    | functionName DOT functionName
     ;
 
 procedureCallStatement
@@ -468,7 +478,9 @@ term
     ;
 
 factor
-    : NOT factor
+    : PLUS factor
+    | MINUS factor
+    | NOT factor
     | AT variableRef
     | variableRef
     | functionCallExpr

@@ -284,6 +284,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#functionName.
+    def visitFunctionName(self, ctx:MiniPascalParser.FunctionNameContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#functionCallExpr.
     def visitFunctionCallExpr(self, ctx:MiniPascalParser.FunctionCallExprContext):
         return self.visitChildren(ctx)
