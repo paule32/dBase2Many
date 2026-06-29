@@ -6,6 +6,8 @@
 from __future__  import annotations
 from dataclasses import dataclass
 
+import argparse
+
 @dataclass
 class LastError:
     NO_ERROR                : int =    0

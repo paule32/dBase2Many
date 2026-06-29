@@ -332,3 +332,5 @@ src/asmjit/runtime/win64/libdbase2many.64.def
 src/asmjit/runtime/win64/libdbase2many.64.dll
 src/asmjit/runtime/win64/libgcc_s_dw2-1.dll
 src/asmjit/runtime/win64/libgcc_s_seh-1.dll
+/src/asmjit/runtime/1
+/src/asmjit/runtime/1

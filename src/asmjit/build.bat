@@ -6,6 +6,67 @@
 @echo off
 python -m compileall pas2asmjit.py
 ::python pas2asmjit.py -Twinnt --backend exe testsrc/testnt35.pas
+
+:: ----------------------------------------------------------------------------
+:: hash algos
+:: ----------------------------------------------------------------------------
+python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc16.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc32.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc32c.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc64.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testmd5.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha1.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha3.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha224.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha256.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha384.pas
+python pas2asmjit.py -Twinnt --backend exe testsrc/testsha512.pas
+
+echo @echo off> x32/testcrc16.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc16.bat
+echo testcrc16.exe>> x32/testcrc16.bat
+
+echo @echo off> x32/testcrc32.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc32.bat
+echo testcrc32.exe>> x32/testcrc32.bat
+
+echo @echo off> x32/testcrc32c.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc32c.bat
+echo testcrc32c.exe>> x32/testcrc32c.bat
+
+echo @echo off> x32/testcrc64.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc64.bat
+echo testcrc64.exe>> x32/testcrc64.bat
+
+echo @echo off> x32/testmd5.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testmd5.bat
+echo testmd5.exe>> x32/testmd5.bat
+
+echo @echo off> x32/testsha1.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha1.bat
+echo testsha1.exe>> x32/testsha1.bat
+
+echo @echo off> x32/testsha3.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha3.bat
+echo testsha3.exe>> x32/testsha3.bat
+
+echo @echo off> x32/testsha224.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha224.bat
+echo testsha224.exe>> x32/testsha224.bat
+
+echo @echo off> x32/testsha256.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha256.bat
+echo testsha256.exe>> x32/testsha256.bat
+
+echo @echo off> x32/testsha384.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha384.bat
+echo testsha384.exe>> x32/testsha384.bat
+
+echo @echo off> x32/testsha512.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha512.bat
+echo testsha512.exe>> x32/testsha512.bat
+
+:: ----------------------------------------------------------------------------
 exit 0
 :: ----------------------------------------------------------------------------
 :: first, set the current working directory, if you want to execute the created

@@ -5,6 +5,17 @@
 # ---------------------------------------------------------------------------
 from __future__  import annotations
 
+from compiler.common.constants import *
+from compiler.writer.nt32      import *
+
+import struct
+
+def double_to_bits(value):
+    return struct.unpack(
+        "<Q",
+        struct.pack("<d", float(value))
+    )[0]
+
 # ---------------------------------------------------------------------------
 # Windows NT 3.5 PE COFF object/code writer
 # ---------------------------------------------------------------------------
@@ -729,4 +740,4 @@ class PE32Writer:
             return 8
 
     def write(self, filename):
-        NTWriter32(self).write(filename)
+        NT32Writer(self).write(filename)

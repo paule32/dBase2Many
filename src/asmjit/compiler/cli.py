@@ -4,6 +4,14 @@
 # All rights reserved
 # ---------------------------------------------------------------------------
 from __future__  import annotations
+from pathlib     import PureWindowsPath, Path
+
+from compiler.common.types     import *
+from compiler.common.locale    import *
+from compiler.common.error     import *
+
+import sys
+import os
 
 # ---------------------------------------------------------------------------
 # console argument parser from overgiven application command arguments ...
@@ -224,6 +232,115 @@ def args_func():
         help    = tr("Help informations about the compiler")
     )
     return args_parser
+
+def validate_output_path(value: str):
+    if value == ".":
+        if sys.platform.startswith("win"):
+            if CDATA.args_target in ["dos", "dos16"]:
+                value = os.getcwd() + r"\x16"
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                value = os.getcwd() + r"\x32"
+            elif CDATA.args_target in ["win64"]:
+                value = os.getcwd() + r"\win64"
+                
+        elif sys.platform.startswith("linux"):
+            if CDATA.args_target in ["dos", "dos16"]:
+                value = os.getcwd() + r"/x16"
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                value = os.getcwd() + "r/x32"
+            elif CDATA.args_target in ["win64"]:
+                value = os.getcwd() + "/x64"
+    else:
+        if sys.platform.startswith("win"):
+            if CDATA.args_target in ["dos", "dos16"]:
+                value += r"\x16"
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                value += r"\x32"
+            elif CDATA.args_target in ["win64"]:
+                value += r"\x64"
+        elif sys.platform.startswith("linux"):
+            if CDATA.args_target in ["dos", "dos16"]:
+                value += r"/x16"
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                value += r"/x32"
+            elif CDATA.args_target in ["win64"]:
+                value += r"/x64"
+    
+    output_dir = Path(value)
+    output_dir.mkdir(parents=True, exist_ok=True)
+        
+    CDATA.CurrentWorkingDir = value
+    CDATA.exe_file = value
+    print(CDATA.CurrentWorkingDir)
+    path = Path(value)
+    #print(path)
+
+    # Existierendes Verzeichnis
+    if path.exists() and path.is_dir():
+        if not path.drive and os.name == "nt":
+            raise RuntimeError(tr("no drive given."))
+
+        if not path.exists():
+            CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
+            raise RuntimeError(tr("directory does not exists."))
+
+        if not os.access(path, os.R_OK):
+            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
+            raise RuntimeError(tr("directory not readable."))
+
+        if not os.access(path, os.W_OK):
+            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
+            raise RuntimeError(tr("directory not writeable."))
+
+        #print(">>",path)
+        return {
+            "kind": "directory",
+            "path": path
+        }
+    
+    # Datei oder noch nicht existierende Datei
+    parent = path.parent if path.parent != Path("") else Path(".")
+    
+    if not parent.exists():
+        CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
+        raise RuntimeError(f"{tr('target directory does not exists')}: {parent}")
+    
+    if not parent.is_dir():
+        CDATA.LastErrorCode = LastError.PATH_NO_DIRECTORY
+        raise RuntimeError(f"{tr('target path is not a directory')}: {parent}")
+    
+    if not os.access(parent, os.R_OK):
+        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
+        raise RuntimeError(f"{tr('target directory is not readable')}: {parent}")
+    
+    if not os.access(parent, os.W_OK):
+        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
+        raise RuntimeError(f"{tr('target directory is not writeable')}: {parent}")
+    
+    if path.exists():
+        if path.is_dir():
+            CDATA.LastErrorCode = LastError.IS_DIRECTORY
+            raise RuntimeError(tr("target is a directory, not a file."))
+        
+        if not path.is_file():
+            CDATA.LastErrorCode = LastError.NO_FILE_OR_DIRECTORY
+            raise RuntimeError(tr("target exists, but it is not a normal file."))
+        
+        if not ask_yes_no(f"{tr('file')} '{path}' {tr('already exists. Overwrite?')}"):
+            CDATA.LastErrorCode = LastError.FILE_EXISTS
+            raise RuntimeError(tr("Canceled."))
+        
+        if not can_write_file(path):
+            CDATA.LastErrorCode = LastError.FILE_LOCKED
+            raise RuntimeError(
+                f"{tr('File can not be overwrite')}. "
+                f"{tr('The file is blocked by other Process')}: {path}"
+            )
+    
+    return {
+        "kind": "file",
+        "path": path
+    }
 
 def handle_args(args):
     if args.exe_output_dir is not None:

@@ -11,6 +11,15 @@ from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
 from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
 
+from compiler.common.types     import *
+from compiler.common.constants import *
+
+from compiler.writer.nt32 import *
+from compiler.writer.pe32 import *
+from compiler.writer.pe64 import *
+
+from compiler.writer.pe64coff  import *
+
 # ---------------------------------------------------------------------------
 # the transpiler generator for Pascal->Assembly
 # ---------------------------------------------------------------------------
@@ -2349,6 +2358,63 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_add     (REG_RSP, 32)
 
         return "integer"
+    
+    def emit_builtin_func(self, ctx, func):
+        args = self.function_call_args(ctx)
+
+        if len(args) != 2:
+            raise CompileError(ctx, "E0005", got=str(len(args)), expected="2")
+
+        t1 = self.visit(args[0])
+        if t1 != "string":
+            raise CompileError(ctx, "E0005", got=t1, expected="string")
+
+        self.emit_push("rax", comment="string")
+
+        t2 = self.visit(args[1])
+        if t2 != "integer":
+            raise CompileError(ctx, "E0005", got=t2, expected="integer")
+
+        self.emit_push("rax", comment="length")
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_pop("ebx")      # length
+            self.emit_pop("eax")      # string
+
+            # cdecl: rechts nach links pushen
+            self.emit_push("ebx")     # len
+            self.emit_push("eax")     # string
+
+            self.emit_call(f"_jit_{func}")
+            self.backend.emit_cleanup_stack(8)
+
+            # Runtime-Call kann ESI/context zerstören
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+        else:
+            self.emit_pop("rdx")      # length
+            self.emit_pop("rcx")      # string
+
+            self.emit_sub("rsp", 32)
+            self.emit_mov_imm("rax", f"&_jit_{func}")
+            self.emit_call("rax")
+            self.emit_add("rsp", 32)
+
+        return "string"
+    
+    def emit_builtin_blake2(self, ctx): return self.emit_builtin_func(ctx, "blake2" )
+    def emit_builtin_blake3(self, ctx): return self.emit_builtin_func(ctx, "blake3" )
+    def emit_builtin_crc16 (self, ctx): return self.emit_builtin_func(ctx, "crc16"  )
+    def emit_builtin_crc32 (self, ctx): return self.emit_builtin_func(ctx, "crc32"  )
+    def emit_builtin_crc32c(self, ctx): return self.emit_builtin_func(ctx, "crc32c" )
+    def emit_builtin_crc64 (self, ctx): return self.emit_builtin_func(ctx, "crc64"  )
+    def emit_builtin_md5   (self, ctx): return self.emit_builtin_func(ctx, "md5"    )
+    def emit_builtin_sha1  (self, ctx): return self.emit_builtin_func(ctx, "sha1"   )
+    def emit_builtin_sha3  (self, ctx): return self.emit_builtin_func(ctx, "sha3"   )
+    def emit_builtin_sha224(self, ctx): return self.emit_builtin_func(ctx, "sha224" )
+    def emit_builtin_sha256(self, ctx): return self.emit_builtin_func(ctx, "sha256" )
+    def emit_builtin_sha384(self, ctx): return self.emit_builtin_func(ctx, "sha384" )
+    def emit_builtin_sha512(self, ctx): return self.emit_builtin_func(ctx, "sha512" )
     
     def add_double_literal(self, value):
         value_text = str(value)
@@ -7063,8 +7129,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = names[0].getText()
         
         if len(names) >= 2:
-            left_name   = idents[0].getText()
-            method_name = idents[1].getText()
+            left_name   = names[0].getText()
+            method_name = names[1].getText()
 
             if method_name.lower() == "create":
                 return self.emit_class_constructor_call(
@@ -7087,7 +7153,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if key == "pos":
             return self.emit_builtin_pos(ctx)
-            
+        
+        if key == "blake2": return self.emit_builtin_blake2(ctx)
+        if key == "blake3": return self.emit_builtin_blake3(ctx)
+        if key == "crc16" : return self.emit_builtin_crc16 (ctx)
+        if key == "crc32" : return self.emit_builtin_crc32 (ctx)
+        if key == "crc32c": return self.emit_builtin_crc32c(ctx)
+        if key == "crc64" : return self.emit_builtin_crc64 (ctx)
+        if key == "md5"   : return self.emit_builtin_md5   (ctx)
+        if key == "sha1"  : return self.emit_builtin_sha1  (ctx)
+        if key == "sha3"  : return self.emit_builtin_sha3  (ctx)
+        if key == "sha224": return self.emit_builtin_sha224(ctx)
+        if key == "sha256": return self.emit_builtin_sha256(ctx)
+        if key == "sha384": return self.emit_builtin_sha384(ctx)
+        if key == "sha512": return self.emit_builtin_sha512(ctx)
+        
         if key == "low" : return self.emit_builtin_low (ctx)
         if key == "high": return self.emit_builtin_high(ctx)
         
@@ -8066,7 +8146,7 @@ class GeneratorClass(AsmJitGenerator):
         self.writer = writer
 
         # EXE-Writer bekommen: echten COFF-Writer herausziehen
-        if isinstance(writer, NTWriter32):
+        if isinstance(writer, NT32Writer):
             self.coff = writer.coff
             self.writer = writer.coff
 

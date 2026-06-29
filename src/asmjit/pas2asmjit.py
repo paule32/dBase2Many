@@ -41,15 +41,24 @@ from compiler.backend.dos16    import *
 from compiler.backend.asmjit   import *
 from compiler.backend.nasm     import *
 
-from compiler.frontend.pascal.generator import AsmJitGenerator
+from compiler.frontend.pascal.generator import *
 from compiler.frontend.basic .generator import *
 from compiler.frontend.c     .generator import *
 from compiler.frontend.dbase .generator import *
 
+from compiler.writer.pe64coff    import *
+
 from compiler.writer.mz16 import *
 from compiler.writer.nt32 import *
 from compiler.writer.pe32 import *
-from compiler.writer.mz64 import *
+from compiler.writer.pe64 import *
+
+from compiler.cli import *
+from antlr4       import *
+
+from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
+from parsers.pascal.MiniPascalParser         import MiniPascalParser
+from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
 
 COMMENT_REPL = ('-' * 77)
 
@@ -83,126 +92,6 @@ def can_write_file(path: Path) -> bool:
         return False
     except OSError:
         return False
-
-def validate_output_path(value: str):
-    if value == ".":
-        if sys.platform.startswith("win"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value = os.getcwd() + r"\x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value = os.getcwd() + r"\x32"
-            elif CDATA.args_target in ["win64"]:
-                value = os.getcwd() + r"\win64"
-                
-        elif sys.platform.startswith("linux"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value = os.getcwd() + r"/x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value = os.getcwd() + "r/x32"
-            elif CDATA.args_target in ["win64"]:
-                value = os.getcwd() + "/x64"
-    else:
-        if sys.platform.startswith("win"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value += r"\x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value += r"\x32"
-            elif CDATA.args_target in ["win64"]:
-                value += r"\x64"
-        elif sys.platform.startswith("linux"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value += r"/x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value += r"/x32"
-            elif CDATA.args_target in ["win64"]:
-                value += r"/x64"
-    
-    output_dir = Path(value)
-    output_dir.mkdir(parents=True, exist_ok=True)
-        
-    CDATA.CurrentWorkingDir = value
-    CDATA.exe_file = value
-    print(CDATA.CurrentWorkingDir)
-    path = Path(value)
-    #print(path)
-
-    # Existierendes Verzeichnis
-    if path.exists() and path.is_dir():
-        if not path.drive and os.name == "nt":
-            raise RuntimeError(tr("no drive given."))
-
-        if not path.exists():
-            CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-            raise RuntimeError(tr("directory does not exists."))
-
-        if not os.access(path, os.R_OK):
-            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-            raise RuntimeError(tr("directory not readable."))
-
-        if not os.access(path, os.W_OK):
-            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-            raise RuntimeError(tr("directory not writeable."))
-
-        #print(">>",path)
-        return {
-            "kind": "directory",
-            "path": path
-        }
-    
-    # Datei oder noch nicht existierende Datei
-    parent = path.parent if path.parent != Path("") else Path(".")
-    
-    if not parent.exists():
-        CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-        raise RuntimeError(f"{tr('target directory does not exists')}: {parent}")
-    
-    if not parent.is_dir():
-        CDATA.LastErrorCode = LastError.PATH_NO_DIRECTORY
-        raise RuntimeError(f"{tr('target path is not a directory')}: {parent}")
-    
-    if not os.access(parent, os.R_OK):
-        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-        raise RuntimeError(f"{tr('target directory is not readable')}: {parent}")
-    
-    if not os.access(parent, os.W_OK):
-        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-        raise RuntimeError(f"{tr('target directory is not writeable')}: {parent}")
-    
-    if path.exists():
-        if path.is_dir():
-            CDATA.LastErrorCode = LastError.IS_DIRECTORY
-            raise RuntimeError(tr("target is a directory, not a file."))
-        
-        if not path.is_file():
-            CDATA.LastErrorCode = LastError.NO_FILE_OR_DIRECTORY
-            raise RuntimeError(tr("target exists, but it is not a normal file."))
-        
-        if not ask_yes_no(f"{tr('file')} '{path}' {tr('already exists. Overwrite?')}"):
-            CDATA.LastErrorCode = LastError.FILE_EXISTS
-            raise RuntimeError(tr("Canceled."))
-        
-        if not can_write_file(path):
-            CDATA.LastErrorCode = LastError.FILE_LOCKED
-            raise RuntimeError(
-                f"{tr('File can not be overwrite')}. "
-                f"{tr('The file is blocked by other Process')}: {path}"
-            )
-    
-    return {
-        "kind": "file",
-        "path": path
-    }
-
-# ---------------------------------------------------------------------------
-# currently, we support:
-# - asmjit for GNU C++ compatible Code
-# - nasm   for NASM Assembly Code
-# ---------------------------------------------------------------------------
-def double_to_bits(value):
-    return struct.unpack(
-        "<Q",
-        struct.pack("<d", float(value))
-    )[0]
 
 # ---------------------------------------------------------------------------
 # the pre-processor class ...
@@ -389,7 +278,7 @@ def main():
             CDATA.args_backend = BACKEND_EXEFILE
             if args.target in ["nt35", "winnt", "win32"]:
                 writer     = PE32Writer()
-                target_obj = NTWriter32(writer)
+                target_obj = NT32Writer(writer)
                 backend    = Coff32Backend(writer)
             
             elif args.target in ["dos", "dos16"]:
@@ -496,12 +385,6 @@ def main():
         generator.source_dir  = os.path.dirname(generator.source_file)
         
         text = generator.visit(tree)
-        
-        ##generator.write_string_literals_to_coff()
-        ##generator.write_fpc_import_unit()
-        ##coff.write()
-        ##pe = PEWriter64(coff)
-        ##pe.write(CDATA.exe_file)
         
         # -----------------------------------------
         # 5. finalize: create c++ output file ...
@@ -628,8 +511,8 @@ def main():
         return 2
     except Exception as e:
         print(f"{tr('Error')}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        #import traceback
+        #traceback.print_exc()
         return 1
     #except Exception as e:
     #    print(e, file=sys.stderr)

@@ -5,15 +5,7 @@
 # ---------------------------------------------------------------------------
 from __future__  import annotations
 
-# ---------------------------------------------------------------------------
-# backend assembly ...
-# ---------------------------------------------------------------------------
-class BackEndInfo():
-    def __init__(self):
-        self.asmjit  = BACKEND_ASMJIT
-        self.nasm    = BACKEND_NASM
-        self.lines   = ""
-        self.current = ""
+from compiler.common.types     import *
 
 class CodeBackend:
     def __init__(self, name: str = "asmjit"):

@@ -279,6 +279,18 @@ functionName
     | HIGH
     | COPY
     | POS
+    | BLAKE2
+    | CRC16
+    | CRC32
+    | CRC32C
+    | CRC64
+    | MD5
+    | SHA1
+    | SHA3
+    | SHA224
+    | SHA256
+    | SHA384
+    | SHA512
     | ASSIGNED
     ;
 

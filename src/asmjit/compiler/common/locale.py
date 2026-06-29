@@ -6,6 +6,13 @@
 from __future__  import annotations
 
 # ---------------------------------------------------------------------------
+# i18n / gettext (mo inside zip: <lang>/LC_MESSAGES/dbase.mo)
+# ---------------------------------------------------------------------------
+import locale
+import gettext
+import polib
+
+# ---------------------------------------------------------------------------
 # locales (gnu gettext) support ...
 # Loads GNU gettext .mo files from a zip and provides tr().
 # ---------------------------------------------------------------------------
@@ -40,7 +47,7 @@ class TranslationManager:
     def _langSwitch(self, lang: str):
         self.lang = lang
         self.translations.clear()
-        self.filename = f"locales/{lang}s/pascal.mo"
+        self.filename = f"locales/{lang}/pascal.mo"
         try:
             if not os.path.isfile(self.filename):
                 print("language file not found, fail back to english.")
@@ -50,28 +57,29 @@ class TranslationManager:
             
         except FileNotFoundError as e:
             app = self.ensure_app()
-            print(f"{_tr('File not found Error')}:")
-            print(f"{_tr('The requested file')}: {self.filename} {tr('could not be found')}.")
+            print(f"{self._tr('File not found Error')}:")
+            print(f"{self._tr('The requested file')}: {self.filename} {tr('could not be found')}.")
             return
             
         except PermissionError as e:
-            print(f"{_tr('File Permission Error')}:")
-            print(f"{_tr('You have not enough permissions to open file')}: {self.filename}.")
+            print(f"{self._tr('File Permission Error')}:")
+            print(f"{self._tr('You have not enough permissions to open file')}: {self.filename}.")
             return
             
         except RuntimeError as e:
-            print(f"{_tr('Runtime Error')}:")
-            print(f"{_tr('The Python Library throws a Runtime Error on opening file')}: {self.filename}.")
+            print(f"{self._tr('Runtime Error')}:")
+            print(f"{self._tr('The Python Library throws a Runtime Error on opening file')}: {self.filename}.")
             return
             
         except OSError as e:
-            print(f"{_tr('Operating System Error')}:")
-            print(f"{_tr('The System is not able to open file')}: {self.filename}.")
+            print(f"{self._tr('Operating System Error')}:")
+            print(f"{self._tr('The System is not able to open file')}: {self.filename}.")
             return
             
         except Exception as e:
-            print(f"{_tr('Common Exception Error')}:")
-            print(f"{_tr('Common Exception throwed on open file')}: {self.filename}.")
+            print(f"{self._tr('Common Exception Error')}:")
+            print(f"{self._tr('Common Exception throwed on open file')}: {self.filename}.")
+            print("default language is English.")
             return
         return
     

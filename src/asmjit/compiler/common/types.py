@@ -6,6 +6,18 @@
 from __future__  import annotations
 from dataclasses import dataclass
 
+from compiler.common.constants import *
+
+# ---------------------------------------------------------------------------
+# backend assembly ...
+# ---------------------------------------------------------------------------
+class BackEndInfo():
+    def __init__(self):
+        self.asmjit  = BACKEND_ASMJIT
+        self.nasm    = BACKEND_NASM
+        self.lines   = ""
+        self.current = ""
+
 class CommonData():
     def __init__(self):
         self.LastErrorCode       : int  = 0
@@ -60,6 +72,21 @@ class CommonData():
                 
                 ( "_jit_read_int",                  5000 ),
                 ( "_jit_read_string",               5001 ),
+                
+                ( "_jit_ExitProcess",               8000 ),
+                
+                ( "_jit_blake2", 9000 ),
+                ( "_jit_crc16" , 9002 ),
+                ( "_jit_crc32" , 9003 ),
+                ( "_jit_crc32c", 9004 ),
+                ( "_jit_crc64" , 9005 ),
+                ( "_jit_md5"   , 9006 ),
+                ( "_jit_sha1"  , 9007 ),
+                ( "_jit_sha3"  , 9008 ),
+                ( "_jit_sha224", 9009 ),
+                ( "_jit_sha256", 9010 ),
+                ( "_jit_sha384", 9011 ),
+                ( "_jit_sha512", 9012 ),
             ],
         }
 

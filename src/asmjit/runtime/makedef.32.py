@@ -7,6 +7,7 @@ from pathlib import Path
 
 imports_files = {
     "libdbase2many.32.dll": [
+        "crypto",
         "arrays",
         "strings",
         "console",
@@ -15,6 +16,7 @@ imports_files = {
         "exception",
         "debug",
         "error",
+        "kernel32"
     ]
 }
 
