@@ -77,6 +77,7 @@ PUBLIC              : [pP][uU][bB][lL][iI][cC] ;
 INHERITED           : [iI][nN][hH][eE][rR][iI][tT][eE][dD] ;
 
 WRITELN             : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
+
 BLAKE2              : [Bb][Ll][Aa][Kk][Ee]'2' ;
 CRC16               : [Cc][Rc][Cc]'16' ;
 CRC32               : [Cc][Rc][Cc]'32' ;
@@ -89,6 +90,14 @@ SHA224              : [Ss][Hh][Aa]'224' ;
 SHA256              : [Ss][Hh][Aa]'256' ;
 SHA384              : [Ss][Hh][Aa]'384' ;
 SHA512              : [Ss][Hh][Aa]'512' ;
+
+DISKFREE            : [dD][iI][sS][kK][fF][rR][eE][eE] ;
+DISKTOTAL           : [dD][iI][sS][kK][tT][oO][tT][aA][lL] ;
+DISKLABEL           : [dD][iI][sS][kK][lL][aA][bB][eE][lL] ;
+DISKSERIAL          : [dD][iI][sS][kK][sS][eE][rR][iI][aA][lL] ;
+DISKFILESYSTEM      : [dD][iI][sS][kK][fF][iI][lL][eE][sS][yY][sS][tT][eE][mM] ;
+DISKTYPE            : [dD][iI][sS][kK][tT][yY][pP][eE] ;
+DISKSHARE           : [dD][iI][sS][kK][sS][hH][aA][rR][eE] ;
 
 COMPILER_DIRECTIVE  : '{$' .*? '}' ;
     

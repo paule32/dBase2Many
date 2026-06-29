@@ -5,12 +5,16 @@
 # ---------------------------------------------------------------------------
 from __future__  import annotations
 
+import os
+import sys
+
 from antlr4      import *
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
 from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
 
+from compiler.common.error     import *
 from compiler.common.types     import *
 from compiler.common.constants import *
 
@@ -2402,6 +2406,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return "string"
     
+    def emit_builtin_disk_func(self, ctx, runtime_name):
+        args = self.function_call_args(ctx)
+
+        if len(args) != 1:
+            raise CompileError(ctx, "E0005", got=str(len(args)), expected="1")
+
+        t1 = self.visit(args[0])
+
+        if t1 not in ("char", "string"):
+            raise CompileError(ctx, "E0005", got=t1, expected="char/string")
+
+        self.emit_push("rax", comment="drive")
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_pop("eax")
+
+            self.emit_push("eax")
+            self.emit_call(runtime_name)
+            self.emit("add esp, 4")
+
+        return "string"
+    
     def emit_builtin_blake2(self, ctx): return self.emit_builtin_func(ctx, "blake2" )
     def emit_builtin_blake3(self, ctx): return self.emit_builtin_func(ctx, "blake3" )
     def emit_builtin_crc16 (self, ctx): return self.emit_builtin_func(ctx, "crc16"  )
@@ -2415,7 +2441,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_builtin_sha256(self, ctx): return self.emit_builtin_func(ctx, "sha256" )
     def emit_builtin_sha384(self, ctx): return self.emit_builtin_func(ctx, "sha384" )
     def emit_builtin_sha512(self, ctx): return self.emit_builtin_func(ctx, "sha512" )
-    
+
+    def emit_builtin_diskfree       (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_free")
+    def emit_builtin_disktotal      (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_total")
+    def emit_builtin_disklabel      (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_label")
+    def emit_builtin_diskserial     (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_serial")
+    def emit_builtin_diskfilesystem (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_filesystem")
+    def emit_builtin_disktype       (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_type")
+    def emit_builtin_diskshare      (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_share")
+    def emit_builtin_diskused       (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_used")
+    def emit_builtin_diskexists     (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_exists")
+    def emit_builtin_diskready      (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_ready")
+    def emit_builtin_diskiscdrom    (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_cdrom")
+    def emit_builtin_diskisnetwork  (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_network")
+    def emit_builtin_diskisremovable(self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_removable")
+    def emit_builtin_diskisfixed    (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_fixed")
+
+        
     def add_double_literal(self, value):
         value_text = str(value)
 
@@ -7167,6 +7209,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key == "sha256": return self.emit_builtin_sha256(ctx)
         if key == "sha384": return self.emit_builtin_sha384(ctx)
         if key == "sha512": return self.emit_builtin_sha512(ctx)
+        
+        if key == "diskfree"      : return self.emit_builtin_diskfree(ctx)
+        if key == "disktotal"     : return self.emit_builtin_disktotal(ctx)
+        if key == "disklabel"     : return self.emit_builtin_disklabel(ctx)
+        if key == "diskserial"    : return self.emit_builtin_diskserial(ctx)
+        if key == "diskfilesystem": return self.emit_builtin_diskfilesystem(ctx)
+        if key == "disktype"      : return self.emit_builtin_disktype(ctx)
+        if key == "diskshare"     : return self.emit_builtin_diskshare(ctx)
         
         if key == "low" : return self.emit_builtin_low (ctx)
         if key == "high": return self.emit_builtin_high(ctx)

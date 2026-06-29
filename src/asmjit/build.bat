@@ -22,6 +22,8 @@ python pas2asmjit.py -Twinnt --backend exe testsrc/testsha256.pas
 python pas2asmjit.py -Twinnt --backend exe testsrc/testsha384.pas
 python pas2asmjit.py -Twinnt --backend exe testsrc/testsha512.pas
 
+python pas2asmjit.py -Twinnt --backend exe testsrc/testdisk.pas
+
 echo @echo off> x32/testcrc16.bat
 echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc16.bat
 echo testcrc16.exe>> x32/testcrc16.bat
@@ -65,6 +67,11 @@ echo testsha384.exe>> x32/testsha384.bat
 echo @echo off> x32/testsha512.bat
 echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha512.bat
 echo testsha512.exe>> x32/testsha512.bat
+
+
+echo @echo off> x32/testdisk.bat
+echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testdisk.bat
+echo testdisk.exe>> x32/testdisk.bat
 
 :: ----------------------------------------------------------------------------
 exit 0

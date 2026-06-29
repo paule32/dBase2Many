@@ -511,8 +511,8 @@ def main():
         return 2
     except Exception as e:
         print(f"{tr('Error')}: {str(e)}")
-        #import traceback
-        #traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return 1
     #except Exception as e:
     #    print(e, file=sys.stderr)

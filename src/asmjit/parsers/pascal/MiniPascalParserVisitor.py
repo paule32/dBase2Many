@@ -284,6 +284,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#builtinDiskFunctionName.
+    def visitBuiltinDiskFunctionName(self, ctx:MiniPascalParser.BuiltinDiskFunctionNameContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#builtinHashFunctionName.
+    def visitBuiltinHashFunctionName(self, ctx:MiniPascalParser.BuiltinHashFunctionNameContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#functionName.
     def visitFunctionName(self, ctx:MiniPascalParser.FunctionNameContext):
         return self.visitChildren(ctx)

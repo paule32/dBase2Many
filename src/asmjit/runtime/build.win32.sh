@@ -36,6 +36,8 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   mkdir -p win32/obj/crypto/sha256
   mkdir -p win32/obj/crypto/sha384
   mkdir -p win32/obj/crypto/sha512
+  
+  mkdir -p win32/obj/diskio
 
   echo "compile: error.cc"  ; g++ -O2 -m32 -std=c++20 -shared \
   -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
@@ -126,6 +128,14 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   win32/obj/crypto/sha512/sha512.o crypto/sha512/sha512.cc
   
   # ----------------------------------------------
+  # disk informations input output
+  # ----------------------------------------------
+  echo "compile: diskio/diskio.cc"; g++ -O2 -m32 -std=c++20 -shared \
+  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
+  -I. -Idiskio -DDLL_EXPORT -fPIC -c -o  \
+  win32/obj/diskio/diskio.o diskio/diskio.cc
+          
+  # ----------------------------------------------
   # Windows 32-bit API stuff ...
   # ----------------------------------------------
   echo "compile: windows.cc"; g++ -O2 -m32 -std=c++20 -shared \
@@ -155,7 +165,8 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   win32/obj/crypto/sha256/*.o  \
   win32/obj/crypto/sha384/*.o  \
   win32/obj/crypto/sha512/*.o  \
-  libdbase2many.32.def -o libdbase2many.32.dll
+  win32/obj/diskio/*.o         \
+  libdbase2many.32.def -lmpr -o libdbase2many.32.dll
 
   echo "create dynamic .a rchive file"
   #gendef    libdbase2many.32.dll  > libdbase2many.32.dll.raw

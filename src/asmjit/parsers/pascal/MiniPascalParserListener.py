@@ -503,6 +503,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#builtinDiskFunctionName.
+    def enterBuiltinDiskFunctionName(self, ctx:MiniPascalParser.BuiltinDiskFunctionNameContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#builtinDiskFunctionName.
+    def exitBuiltinDiskFunctionName(self, ctx:MiniPascalParser.BuiltinDiskFunctionNameContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#builtinHashFunctionName.
+    def enterBuiltinHashFunctionName(self, ctx:MiniPascalParser.BuiltinHashFunctionNameContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#builtinHashFunctionName.
+    def exitBuiltinHashFunctionName(self, ctx:MiniPascalParser.BuiltinHashFunctionNameContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#functionName.
     def enterFunctionName(self, ctx:MiniPascalParser.FunctionNameContext):
         pass

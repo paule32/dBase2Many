@@ -41,6 +41,9 @@ class CommonData():
             "user32.dll": [
                 "MessageBoxA",
             ],
+            "mpr.dll": [
+                "WNetGetConnectionA@12"
+            ],
             "libdbase2many.32.dll": [
                 ( "_jit_print_int",                   20 ),
                 ( "_jit_print_text",                  21 ),
@@ -58,6 +61,21 @@ class CommonData():
                 ( "_jit_string_range_error",         402 ),
                 ( "_jit_nil_pointer_error",          403 ),
                 ( "_jit_out_of_memory_error",        404 ),
+
+                ( "_jit_disk_free",                  500 ),
+                ( "_jit_disk_total",                 501 ),
+                ( "_jit_disk_label",                 502 ),
+                ( "_jit_disk_serial",                503 ),
+                ( "_jit_disk_filesystem",            504 ),
+                ( "_jit_disk_type",                  505 ),
+                ( "_jit_disk_share",                 506 ),
+                ( "_jit_disk_used",                  507 ),
+                ( "_jit_disk_exists",                508 ),
+                ( "_jit_disk_ready",                 509 ),
+                ( "_jit_disk_iscdrom",               510 ),
+                ( "_jit_disk_isnetwork",             511 ),
+                ( "_jit_disk_isremovable",           512 ),
+                ( "_jit_disk_isfixed",               513 ),
 
                 ( "_jit_dynarray_setlength",        1000 ),
                 

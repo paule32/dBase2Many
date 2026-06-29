@@ -8,6 +8,8 @@ from pathlib import Path
 imports_files = {
     "libdbase2many.64.dll": [
         "arrays",
+        "crypto",
+        "diskio",
         "strings",
         "console",
         "runtime",

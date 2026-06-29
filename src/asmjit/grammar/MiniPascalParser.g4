@@ -272,14 +272,18 @@ declaration
     | functionDeclaration
     ;
 
-functionName
-    : IDENT
-    | LENGTH
-    | LOW
-    | HIGH
-    | COPY
-    | POS
-    | BLAKE2
+builtinDiskFunctionName
+    : DISKFREE
+    | DISKTOTAL
+    | DISKLABEL
+    | DISKSERIAL
+    | DISKFILESYSTEM
+    | DISKTYPE
+    | DISKSHARE
+    ;
+
+builtinHashFunctionName
+    : BLAKE2
     | CRC16
     | CRC32
     | CRC32C
@@ -291,6 +295,17 @@ functionName
     | SHA256
     | SHA384
     | SHA512
+    ;
+
+functionName
+    : IDENT
+    | LENGTH
+    | LOW
+    | HIGH
+    | COPY
+    | POS
+    | builtinHashFunctionName
+    | builtinDiskFunctionName
     | ASSIGNED
     ;
 
