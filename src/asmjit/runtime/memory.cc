@@ -3,7 +3,180 @@
 // \note Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
-# include "dbase2many.hpp"
+# include "iostream.h"
+# include "stddef.h"
+# include "memory.h"
+# include "windows.h"
+
+static malloc_fn    p_malloc    = nullptr;
+static realloc_fn   p_realloc   = nullptr;
+static free_fn      p_free      = nullptr;
+
+static memcpy_fn    p_memcpy    = nullptr;
+static memset_fn    p_memset    = nullptr;
+static memcmp_fn    p_memcmp    = nullptr;
+static memmove_fn   p_memmove   = nullptr;
+
+static vprintf_fn   p_vprintf   = nullptr;
+static printf_fn    p_printf    = nullptr;
+
+static snprintf_fn  p_snprintf  = nullptr;
+static vsnprintf_fn p_vsnprintf = nullptr;
+
+// ---------------------------------------------------------------------------
+// msvcrt.dll imports ...
+// ---------------------------------------------------------------------------
+struct CRTImport {
+    const char* name;
+    void**      target;
+};
+CRTImport crt_imports[] = {
+    { "malloc",    (void**)&p_malloc     },
+    { "realloc",   (void**)&p_realloc    },
+    { "free",      (void**)&p_free       },
+
+    { "memcpy",    (void**)&p_memcpy     },
+    { "memset",    (void**)&p_memset     },
+    { "memcmp",    (void**)&p_memcmp     },
+    { "memmove",   (void**)&p_memmove    },
+
+    { "printf",    (void**)&p_printf     },
+    { "vprintf",   (void**)&p_vprintf    },
+    
+    { "snprintf",  (void**)&p_snprintf   },
+    { "vsnprintf", (void**)&p_vsnprintf  },
+};
+
+// ---------------------------------------------------------------------------
+// kernel32.dll imports ...
+// ---------------------------------------------------------------------------
+struct KERNEL32Import {
+    const char* name;
+    void**      target;
+};
+KERNEL32Import kernel32_imports[] = {
+    { "ExitProcess",            (void**)&p_ExitProcess},
+    { "GetDriveTypeA",          (void**)&p_GetDriveTypeA},
+    { "GetDriveTypeExA",        (void**)&p_GetDriveTypeExA},
+    { "GetVolumeInformationA",  (void**)&p_GetVolumeInformationA},
+}
+
+// ---------------------------------------------------------------------------
+// user32.dll imports ...
+// ---------------------------------------------------------------------------
+struct USER32Import {
+    const char* name;
+    void**      target;
+};
+USER32Import user32_imports[] = {
+    { "MessageBoxA",     (void**)&p_MessageBoxA  },
+};
+
+// ---------------------------------------------------------------------------
+// mpr.dll imports ...
+// ---------------------------------------------------------------------------
+struct MPRImport {
+    const char* name;
+    void**      target;
+};
+MPRImport mpr_imports[] = {
+    { "WNetGetConnectionA", (void**)&p_WNetGetConnectionA},
+};
+
+static int init_msvcrt_heap(void)
+{
+    HMODULE h;
+    bool ok = true;
+
+    if (p_malloc && p_free) {
+        return 1;
+    }
+    
+    // msvcrt.dll
+    ok = true
+    if (!h = p_LoadLibraryA("msvcrt.dll")) {
+        p_MessageBoxA(0,
+            "Error",
+            "Error: msvcrt.dll could not load.",
+            0);
+        return 0;
+    }
+    
+    for (int i = 0; i < sizeof(crt_imports) / sizeof(crt_imports[0]); ++i) {
+        *crt_imports[i].target = (void*)p_GetProcAddress(h, crt_imports[i].name);
+        
+        if (!*crt_imports[i].target) {
+            std::cout << crt_imports[i].name << " ";
+            ok = false;
+        }
+    }
+    
+    // kernel32t.dll
+    ok = true
+    if (!h = LoadLibraryA("kernel32.dll")) {
+        MessageBoxA(0,
+            "Error",
+            "Error: kernel32.dll could not load.",
+            "Error",
+            0);
+        return 0;
+    }
+    
+    for (int i = 0; i < sizeof(kernel32_imports) / sizeof(kernel32_imports[0]); ++i) {
+        *kernel32_imports[i].target = (void*)GetProcAddress(h, kernel32_imports[i].name);
+        
+        if (!*kernel32_imports[i].target) {
+            std::cout << kernel32_imports[i].name << " ";
+            ok = false;
+        }
+    }
+    if (!ok) {
+        std::cout << "== null" << std::endl;
+        return 0;
+    }
+    
+    // user32.dll
+    ok = true
+    if (!h = LoadLibraryA("user32.dll")) {
+        MessageBoxA(0,
+            "Error",
+            "Error: user32.dll could not load.",
+            0);
+        return 0;
+    }
+    
+    for (int i = 0; i < sizeof(user32_imports) / sizeof(user32_imports[0]); ++i) {
+        *user32_imports[i].target = (void*)GetProcAddress(h, user32_imports[i].name);
+        
+        if (!*user32_imports[i].target) {
+            std::cout << user32_imports[i].name << " ";
+            ok = false;
+        }
+    }
+    
+    // user32.dll
+    ok = true
+    if (!h = LoadLibraryA("mpr.dll")) {
+        MessageBoxA(0,
+            "Error",
+            "Error: mpr.dll could not load.",
+            0);
+        return 0;
+    }
+    
+    for (int i = 0; i < sizeof(mpr_imports) / sizeof(mpr_imports[0]); ++i) {
+        *mpr_imports[i].target = (void*)GetProcAddress(h, mpr_imports[i].name);
+        
+        if (!*mpr_imports[i].target) {
+            std::cout << mpr_imports[i].name << " ";
+            ok = false;
+        }
+    }
+    if (!ok) {
+        std::cout << "== null" << std::endl;
+        return 0;
+    }   return 1;
+}
 
 static bool is_probably_dynstring(const char* data)
 {
@@ -32,8 +205,12 @@ dynstring_length_strict(
 
     const DynStringHeader* h = ((const DynStringHeader*)data) - 1;
 
-    if (h->magic != DYNSTRING_MAGIC)
-        throw JitRuntimeError("Invalid dynamic string");
+    if (h->magic != DYNSTRING_MAGIC) {
+        _jit_raise(
+            JIT_INVALIDE,
+            "Invalid dynamic string"
+        );
+    }
 
     return h->length;
 }
@@ -49,26 +226,29 @@ static uint64_t string_length_mixed(
         return h->length;
     }
 
-    return (uint64_t)std::strlen(data);
+    return (uint64_t)_jit_strlen(data);
 }
 
 DLL_API void*
-_jit_new_memory(uint64_t size)
+_jit_new_memory(uint32_t size)
 {
-    void* p = std::malloc(size);
+    void* p = _jit_malloc(size);
 
     if (!p) {
-        throw JitRuntimeError("Out of memory in New()");
+        _jit_raise(
+            JIT_OUT_OF_MEMORY,
+            "Out of memory in New()"
+        );
     }
 
-    std::memset(p, 0, size);
+    memset(p, 0, size);
     return p;
 }
 
 DLL_API void
 _jit_dispose_memory(void* p) {
     if (p) {
-        std::free(p);
+        _jit_free(p);
     }
 }
 
@@ -77,7 +257,7 @@ _jit_setlength_memory(
     void *   old_ptr,
     uint64_t new_size)
 {
-    void* p = realloc(old_ptr, new_size);
+    void* p = _jit_realloc(old_ptr, new_size);
 
     if (!p) {
         return nullptr;
@@ -102,10 +282,13 @@ _jit_dynarray_setlength(
         sizeof(DynArrayHeader) + length * element_size;
 
     DynArrayHeader* new_header =
-        (DynArrayHeader*)realloc(old_header, total_size);
+        (DynArrayHeader*)_jit_realloc(old_header, total_size);
 
     if (!new_header) {
-        throw JitRuntimeError("Out of memory in SetLength(array)");
+        _jit_raise(
+            JIT_OUT_OF_MEMORY,
+            "Out of memory in SetLength(array)"
+        );
     }
 
     new_header->length = length;
@@ -130,9 +313,9 @@ _jit_dynstring_setlength(
     
     size_t total = sizeof(DynStringHeader) + new_length + 1;
     
-    DynStringHeader* h = (DynStringHeader*)realloc(old_header, total);
+    DynStringHeader* h = (DynStringHeader*)_jit_realloc(old_header, total);
     if (!h) {
-        throw JitRuntimeError("Out of memory in SetLength(string)");
+        _jit_raise(JIT_OUT_OF_MEMORY, "Out of memory in SetLength(string)");
     }
     
     h->magic    = DYNSTRING_MAGIC;
@@ -142,7 +325,7 @@ _jit_dynstring_setlength(
     
     // neuen Bereich sauber mit 0 füllen
     if (new_length > old_length) {
-        std::memset(data + old_length, 0, new_length - old_length);
+        _jit_memset(data + old_length, 0, new_length - old_length);
     }
 
     // C-String-Terminator
@@ -170,12 +353,16 @@ _jit_dynstring_concat(
     uint64_t len_right = dynstring_length_strict(right);
     uint64_t new_len   = len_left + len_right;
 
-    DynStringHeader* h = (DynStringHeader*)std::malloc(
+    DynStringHeader* h = (DynStringHeader*)_jit_malloc(
         sizeof(DynStringHeader) + new_len + 1
     );
 
-    if (!h)
-        throw JitRuntimeError("Out of memory in string concat");
+    if (!h) {
+        _jit_raise(
+            JIT_OUT_OF_MEMORY,
+            "Out of memory in string concat"
+        );
+    }
 
     h->magic    = DYNSTRING_MAGIC;
     h->reserved = 0;
@@ -184,10 +371,10 @@ _jit_dynstring_concat(
     char* data = (char*)(h + 1);
 
     if (left)
-        std::memcpy(data, left, len_left);
+        _jit_memcpy(data, left, len_left);
 
     if (right)
-        std::memcpy(data + len_left, right, len_right);
+        _jit_memcpy(data + len_left, right, len_right);
 
     data[new_len] = 0;
 
@@ -201,13 +388,17 @@ _jit_dynstring_from_cstr(
     if (!text)
         text = "";
 
-    uint64_t len = (uint64_t)std::strlen(text);
+    uint64_t len = (uint64_t)_jit_strlen(text);
 
     DynStringHeader* h =
-        (DynStringHeader*)std::malloc(sizeof(DynStringHeader) + len + 1);
+        (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader) + len + 1);
 
-    if (!h)
-        throw JitRuntimeError("Out of memory in string literal");
+    if (!h) {
+        _jit_raise(
+            JIT_OUT_OF_MEMORY,
+            "Out of memory in string literal"
+        );
+    }
 
     h->magic    = DYNSTRING_MAGIC;
     h->reserved = 0;
@@ -215,8 +406,108 @@ _jit_dynstring_from_cstr(
 
     char* data = (char*)(h + 1);
 
-    std::memcpy(data, text, len);
+    _jit_memcpy(data, text, len);
     data[len] = 0;
 
     return data;
+}
+
+DLL_API void *
+_jit_malloc(uint32_t size)
+{
+    if (!init_msvcrt_heap()) {
+        std::cout << "heap error" << std::endl;
+        return nullptr;
+    }
+
+    return p_malloc(size);
+}
+
+DLL_API void *
+_jit_realloc(void *ptr, unsigned int new_size) {
+    return _jit_realloc(ptr, (size_t)new_size);
+}
+
+DLL_API void
+_jit_free(void *ptr) {
+    if (!ptr)
+        return;
+
+    if (!init_msvcrt_heap())
+        return;
+
+    p_free(ptr);
+}
+
+DLL_API size_t
+_jit_strlen(const char *s) {
+    const char *p = s;
+
+    if (!s) return 0;
+
+    while (*p) ++p;
+    return (size_t)(p - s);
+}
+
+DLL_API char *
+_jit_strdup(const char *s) {
+    char *p;
+    unsigned int len;
+
+    if (!s)
+        s = "";
+
+    if (!p_malloc || !p_memcpy) {
+        if (!init_msvcrt_heap())
+            return nullptr;
+    }
+    
+    len = (unsigned int)_jit_strlen(s);
+
+    p = (char *)_jit_malloc(len + 1);
+    if (!p)
+        return nullptr;
+
+    _jit_memcpy(p, s, len + 1);
+    return p;
+}
+
+DLL_API void * _jit_memcpy (void* dest, const void *src, size_t count) { return p_memcpy (dest, src  , count); }
+DLL_API void * _jit_memset (void* dest, int value, size_t count)       { return p_memset (dest, value, count); }
+DLL_API int    _jit_memcmp (void* buf1, void* buf2, size_t count)      { return p_memcmp (buf1, buf2 , count); }
+DLL_API void * _jit_memmove(void* dest, const void* src, size_t count) { return p_memmove(dest, src  , count); }
+
+DLL_API int  _jit_setjmp (JitJumpBuffer *env)            { return __jit_setjmp(env);         }
+DLL_API VOID _jit_longjmp(JitJumpBuffer *env, int value) {        __jit_longjmp(env, value); }
+
+DLL_API int  JIT_CDECL _jit_vprintf(const char *format, va_list args) {
+    return p_vprintf(format, args);
+}
+DLL_API int  JIT_CDECL _jit_printf(const char *format, ...) {
+    va_list args;
+    int result;
+
+    va_start(args, fmt);
+    result = _jit_vprintf(fmt, args);
+    va_end(args);
+
+    return result;
+}
+
+DLL_API int JIT_CDECL _jit_vsnprintf(char *buffer, size_t size, const char *fmt, va_list arg) {
+    return p_vsnprintf(buffer, size, fmt, arg);
+}
+DLL_API int JIT_CDECL _jit_snprintf (char *buffer, size_t size, const char *fmt, ...) {
+    va_list ap;
+    int result;
+
+    va_start(ap, fmt);
+    result = _jit_vsnprintf(
+        buffer,
+        size,
+        fmt,
+        ap);
+    va_end(ap);
+
+    return result;
 }

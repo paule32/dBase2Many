@@ -8,7 +8,10 @@ from __future__  import annotations
 import os
 import sys
 
+from dataclasses import dataclass, field
 from antlr4      import *
+
+from compiler.frontend.pascal.preprocessor   import PascalPreprocessor
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
@@ -23,6 +26,14 @@ from compiler.writer.pe32 import *
 from compiler.writer.pe64 import *
 
 from compiler.writer.pe64coff  import *
+
+class PropertyInfo:
+    def __init__(self, name, ptype, visibility, read_name=None, write_name=None):
+        self.name       = name
+        self.ptype      = ptype
+        self.visibility = visibility
+        self.read_name  = read_name
+        self.write_name = write_name
 
 # ---------------------------------------------------------------------------
 # the transpiler generator for Pascal->Assembly
@@ -122,6 +133,57 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         message  = template.format(**err.params)
         
         return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
+
+    def find_unit_file(self, ctx, unit_name):
+        print("----> ", unit_name)
+        candidates = [
+            unit_name + ".pas",
+            unit_name + ".pp",
+            unit_name.lower() + ".pas",
+            unit_name.lower() + ".pp"
+        ]
+
+        search_dirs = []
+
+        if self.source_dir:
+            search_dirs.append(self.source_dir)
+
+        search_dirs.append(os.getcwd())
+
+        for p in getattr(CDATA, "IncludePaths", []):
+            search_dirs.append(os.path.abspath(p))
+
+        for item in getattr(CDATA, "UnitFiles", []):
+            item_path = os.path.abspath(item)
+
+            if os.path.isfile(item_path):
+                base = os.path.splitext(os.path.basename(item_path))[0].lower()
+
+                if base == unit_name.lower():
+                    return item_path
+
+            elif os.path.isdir(item_path):
+                search_dirs.append(item_path)
+
+        seen = set()
+        for directory in search_dirs:
+            directory = os.path.abspath(directory)
+
+            if directory in seen:
+                continue
+            seen.add(directory)
+
+            for filename in candidates:
+                path = os.path.abspath(os.path.join(directory, filename))
+
+                if os.path.exists(path):
+                    return path
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"unit {unit_name} not found"
+        )
     
     def format_method_signature(self, params):
         if not params:
@@ -295,9 +357,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             size    = offset
         )
     
-    def declare_class(self, ctx, name, fields, methods, parent_name=None):
+    def declare_class(self, ctx, name, fields, methods, properties=None, parent_name=None):
         key = name.lower()
         
+        if properties is None:
+            properties  = {}
+            
         parent_key      = None
         parent_size     = 0
         parent_fields   = {}
@@ -390,12 +455,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if "destroy" not in class_methods:
             raise CompileError(ctx, "E0019", text = f"class {name} requires destructor Destroy")
         
+        class_properties = dict(properties)
+
+        if parent_name:
+            parent_properties = getattr(parent_cls, "properties", {})
+            class_properties = dict(parent_properties)
+            class_properties.update(properties)
+        
+        print("DECLARE CLASS:", name, "size=", offset)
+        print("FIELDS:", list(class_fields.keys()))
+
         self.classes[key] = ClassInfo(
-            name    = name,
-            fields  = class_fields,
-            methods = class_methods,
-            size    = offset,
-            parent  = parent_key
+            name       = name,
+            fields     = class_fields,
+            methods    = class_methods,
+            properties = class_properties,
+            size       = offset,
+            parent     = parent_key
         )
     
     def validate_class_methods(self, ctx):
@@ -1357,11 +1433,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         old_source_dir  = self.source_dir
         old_unit        = self.current_unit
 
+        with open(unit_file, "r", encoding="utf-8") as f:
+            raw_text = f.read()
+
+        pp = PascalPreprocessor(defines=getattr(CDATA, "Defines", []))
+        text = pp.process(raw_text)
+
         self.source_file  = unit_file
         self.source_dir   = os.path.dirname(unit_file)
         self.current_unit = unit_key
 
-        stream = FileStream(unit_file, encoding="utf-8")
+        stream = InputStream(text)
         lexer  = MiniPascalLexer(stream)
         tokens = CommonTokenStream(lexer)
         parser = MiniPascalParser(tokens)
@@ -1438,34 +1520,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return func
 
         return None
-    
-    def find_unit_file(self, ctx, unit_name):
-        candidates = [
-            unit_name + ".pas",
-            unit_name + ".pp",
-            unit_name.lower() + ".pas",
-            unit_name.lower() + ".pp"
-        ]
-        
-        search_dirs = []
-        
-        if self.source_dir:
-            search_dirs.append(self.source_dir)
-        
-        search_dirs.append(os.getcwd())
-        
-        for directory in search_dirs:
-            for filename in candidates:
-                path = os.path.abspath(os.path.join(directory, filename))
-                
-                if os.path.exists(path):
-                    return path
-        
-        raise CompileError(
-            ctx,
-            "E0019",
-            text=f"unit {unit_name} not found"
-        )
     
     def find_const(self, name):
         key = name.lower()
@@ -1829,6 +1883,79 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.backend.writer.bind_label(done_label)
 
             return class_key
+        
+        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+            actual_types = []
+
+            # Constructor-Argumente rechts-nach-links auswerten
+            for arg in reversed(args):
+                arg_type = self.visit(arg)
+                actual_types.insert(0, arg_type)
+
+                if arg_type in ("integer", "char"):
+                    self.emit_push("eax", comment="ctor int arg")
+
+                elif arg_type == "string":
+                    self.emit_push("eax", comment="ctor string arg")
+
+                elif isinstance(arg_type, str) and arg_type.startswith("^"):
+                    self.emit_push("eax", comment="ctor pointer arg")
+
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"unsupported NT32 constructor argument type {arg_type}"
+                    )
+
+            method, owner_cls = self.find_class_method_recursive(
+                ctx,
+                cls,
+                method_name,
+                actual_types
+            )
+
+            size = cls.size
+            #size = max(cls.size, self.pointer_slot_size())
+            
+            print("CTOR ALLOC:", class_name, "size=", size)
+
+            # _jit_new_memory(size)
+            self.backend.writer.emit_push_imm32(size)
+            #self.emit(f"push {size}")
+            
+            self.emit_call("_jit_new_memory")
+            self.backend.emit_cleanup_stack(4)
+            #self.emit("add esp, 4")
+
+            # Runtime-Call kann ESI zerstören
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            # EAX = neues Objekt
+            ok_label = self.new_named_label("class_alloc_ok")
+            self.emit_test("eax", "eax")
+            self.emit_jnz(ok_label)
+            self.emit_call("_jit_out_of_memory_error")
+            self.emit_bind_label(ok_label)
+
+            # Objekt für Rückgabe sichern
+            self.emit_push("eax", comment="save constructor result")
+
+            # Self als erster Parameter
+            self.emit_push("eax", comment="Self")
+
+            # Konstruktor aufrufen
+            self.emit_call(method.label)
+
+            # Stack bereinigen: Self + Constructor-Argumente
+            self.backend.emit_cleanup_stack((len(args) + 1) * 4)
+
+            # Rückgabewert wiederherstellen
+            self.emit_pop("eax", comment="constructor result")
+
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            return class_key
             
         else:
             # Argumente auswerten und pushen
@@ -2020,11 +2147,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_nil_pointer_check(self, ptr_name):
         ok_label = self.new_named_label("ptr_not_nil")
-        name_label = self.add_string_literal(ptr_name)
         
         if CDATA.args_target in ["dos", "dos16"]:
             # DOS Far Pointer: DX = Segment, AX = Offset
             self.emit_test("rdx", "rdx")
+        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_test("eax", "eax")
         else:
             self.emit_test("rax", "rax")
 
@@ -2815,10 +2943,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         field = cls.fields[key]
 
-        self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_mov_dword_ptr("eax", "ebp", -4, comment="Self")
+        else:
+            self.emit_mov_qword_ptr("rax", "rbp", -8, comment="Self")
 
         if field.type == "integer":
-            self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"Self.{name}")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr("eax", "eax", field.offset, comment="Self")
+            else:
+                self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"Self.{name}")
             return "integer"
 
         if field.type == "double":
@@ -2842,14 +2976,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.backend.emit_load_far_pointer_var(symbol)
             return info["type"]
         
+        # NT32 / Win32: Objektpointer ist 32-bit!
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            symbol = info.get("symbol")
+
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+
+            self.coff.emit_mov_reg_from_data_label32("eax", symbol)
+            return info["type"]
+
         if hasattr(self, "coff") and "symbol" in info:
             self.coff.emit_mov_r64_data_label("rax", info["symbol"])
-            return
-        
+            return info["type"]
+
         slot = info["slot"]
         self.emit_mov_qword("rax", "r12", "pointr_vars")
-        self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"object {name}")
-    
+        self.emit_mov_qword_ptr("rax","rax",
+            slot * self.pointer_slot_size(),
+            comment=f"object {name}"
+        )
+
+        return info["type"]
+        
     def emit_load_string_char(self, ctx, name, index_exprs):
         if not isinstance(index_exprs, list):
             index_exprs = [index_exprs]
@@ -2874,6 +3024,62 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         return "char"
     
+    def resolve_class_property(self, class_name, prop_name):
+        cls = self.classes[class_name.lower()]
+        props = getattr(cls, "properties", {})
+        return props.get(prop_name.lower())
+    
+    def emit_load_class_property(self, ctx, parts):
+        obj_name  = parts[0]
+        prop_name = parts[1]
+
+        var_info = self.var_info(ctx, obj_name)
+        class_type = self.resolve_type(var_info["type"])
+
+        if class_type not in self.classes:
+            return None
+
+        cls = self.classes[class_type]
+        prop = self.resolve_class_property(class_type, prop_name)
+
+        if prop is None:
+            return None
+
+        if prop.read_name is None:
+            raise CompileError(ctx, "E0006")
+
+        read_name = prop.read_name
+        read_key  = read_name.lower()
+
+        # property Value read FValue;
+        if read_key in cls.fields:
+            return self.emit_load_class_field(ctx, [obj_name, read_name])
+
+        # property Value read GetValue;
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            class_type,
+            read_name,
+            []
+        )
+
+        self.emit_load_object_var(ctx, obj_name, var_info)
+        self.emit_nil_pointer_check(obj_name)
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_push("eax", comment="Self")
+            self.emit_call(method.label)
+            self.backend.emit_cleanup_stack(4)
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+            return self.resolve_type(method.return_type)
+
+        self.emit_mov("rcx", "rax", comment="Self")
+        self.emit_sub("rsp", 32)
+        self.emit_call_lbl(method.label)
+        self.emit_add("rsp", 32)
+
+        return self.resolve_type(method.return_type)
+    
     def emit_load_class_field(self, ctx, parts):
         var_info, field = self.resolve_class_field_path(ctx, parts)
 
@@ -2883,7 +3089,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_nil_pointer_check(parts[0])
 
         if field.type == "integer":
-            self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"{path}")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr("eax", "eax", field.offset, comment=f"{path}")
+            else:
+                self.emit_mov_dword_ptr("eax", "rax", field.offset, comment=f"{path}")
             return "integer"
 
         if field.type == "double":
@@ -2985,6 +3194,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             
         typ    = self.resolve_type(param["type"])
         offset = param["stack_offset"]
+        
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if typ == "integer":
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                return "integer"
+
+            if typ == "string":
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                return "string"
+
+            if isinstance(typ, str) and typ.startswith("^"):
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                return typ
         
         if param.get("is_var", False):
             self.emit_mov_qword_ptr("r11", "rbp", offset, comment=f"var param address {name}")
@@ -3158,8 +3380,23 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if expr_type == "integer":
             self.emit_mov("ebx", "eax")
-            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
-            self.emit_mov_dword_ptr_store("rax", field.offset, "ebx", comment=f"Self.{name} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr("eax", "ebp", -4, comment="Self")
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    field.offset,
+                    "ebx",
+                    comment=f"Self.{name} :="
+                )
+            else:
+                self.emit_mov_qword_ptr("rax", "rbp", -8, comment="Self")
+                self.emit_mov_dword_ptr_store(
+                    "rax",
+                    field.offset,
+                    "ebx",
+                    comment=f"Self.{name} :="
+                )
+
             return True
 
         if expr_type == "double":
@@ -3220,6 +3457,72 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"object {name}")
         return
     
+    def emit_store_class_property(self, ctx, parts, expr_type):
+        obj_name  = parts[0]
+        prop_name = parts[1]
+
+        var_info = self.var_info(ctx, obj_name)
+        class_type = self.resolve_type(var_info["type"])
+
+        if class_type not in self.classes:
+            return False
+
+        cls = self.classes[class_type]
+        prop = self.resolve_class_property(class_type, prop_name)
+
+        if prop is None:
+            return False
+
+        if prop.write_name is None:
+            raise CompileError(ctx, "E0006")
+
+        if expr_type != prop.ptype:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=prop.ptype)
+
+        write_name = prop.write_name
+        write_key  = write_name.lower()
+
+        # Variante A:
+        # property Value: Integer read FValue write FValue;
+        if write_key in cls.fields:
+            self.emit_store_class_field(
+                ctx,
+                [obj_name, write_name],
+                expr_type
+            )
+            return True
+
+        # Variante B:
+        # property Value: Integer read GetValue write SetValue;
+        self.emit_push("rax", comment="property value")
+
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            class_type,
+            write_name,
+            [expr_type]
+        )
+
+        self.emit_load_object_var(ctx, obj_name, var_info)
+        self.emit_nil_pointer_check(obj_name)
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_pop("ebx")
+            self.emit_push("ebx", comment="property setter value")
+            self.emit_push("eax", comment="Self")
+            self.emit_call(method.label)
+            self.backend.emit_cleanup_stack(8)
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+            return True
+
+        self.emit_pop("rdx")
+        self.emit_mov("rcx", "rax", comment="Self")
+        self.emit_sub("rsp", 32)
+        self.emit_call_lbl(method.label)
+        self.emit_add("rsp", 32)
+
+        return True
+    
     def emit_store_class_field(self, ctx, parts, expr_type):
         var_info, field = self.resolve_class_field_path(ctx, parts)
         
@@ -3244,7 +3547,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_nil_pointer_check(parts[0])
         
         if field.type == "integer":
-            self.emit_mov_dword_ptr_store("rax", field.offset, "ebx", comment=f"{'.'.join(parts)} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr_store("eax", field.offset, "ebx", comment=f"{'.'.join(parts)} :=")
+            else:
+                self.emit_mov_dword_ptr_store("rax", field.offset, "ebx", comment=f"{'.'.join(parts)} :=")
             return
         
         if field.type == "double":
@@ -3722,17 +4028,29 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
 
-        if return_type == "integer":
-            self.emit_mov_dword_ptr_store("rbp", offset, "eax")
-            return None
-
-        if return_type == "string":
-            self.emit_mov_qword_ptr_store("rbp", offset, "rax")
-            return None
-
-        if return_type == "double":
-            self.emit_movsd_store("rbp", offset, "xmm0")
-            return None
+        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if return_type == "integer":
+                self.emit_mov_dword_ptr_store("ebp", offset, "eax")
+                return None
+                
+            elif return_type == "string":
+                self.emit_mov_dword_ptr_store("ebp", offset, "eax")
+                return None
+            
+            elif return_type == "double":
+                raise Exception(tr("double not implemented, yet"))
+        else:
+            if return_type == "integer":
+                self.emit_mov_dword_ptr_store("rbp", offset, "eax")
+                return None
+                
+            elif return_type == "string":
+                self.emit_mov_dword_ptr_store("rbp", offset, "rax")
+                return None
+                
+            elif return_type == "double":
+                self.emit_movsd_store("rbp", offset, "xmm0")
+                return None
         
     def emit_load_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
         index_exprs = index_expr_ctx
@@ -4302,7 +4620,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_add("rax", "r11", comment="@array[index]")
 
         return "^" + array_info.element_type
-    
+
     def emit_function_declaration(self, ctx, name, return_type):
         key    = name.lower()
         scoped = self.scoped_name(name)
@@ -4328,11 +4646,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_jmp(end_label)
         self.emit_bind_label(label)
 
-        self.emit_push("rbp", comment="function prolog")
-        self.emit_mov("rbp", "rsp", comment="stack frame")
-
-        if CDATA.args_target not in ["dos", "dos16"]:
-            self.emit_push("rbx", comment="preserve non-volatile RBX")
+        # -------------------------------------------------
+        # Prolog
+        # -------------------------------------------------
+        if CDATA.args_target in ["dos", "dos16"]:
+            self.backend.writer.emit_push_reg16("bp")
+            self.backend.writer.emit_mov_reg16_reg16("bp", "sp")
+        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_push("ebp", comment="function prolog")
+            self.emit_mov("ebp", "esp", comment="stack frame")
+            self.emit_push("ebx", comment="preserve EBX")
+        else:
+            self.emit_push("rbp", comment="function prolog")
+            self.emit_mov("rbp", "rsp", comment="stack frame")
+            self.emit_push("rbx", comment="preserve RBX")
 
         old_params   = self.current_proc_params
         old_function = self.current_function
@@ -4344,69 +4671,120 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "scoped_name": scoped
         }
 
-        for index, p in enumerate(params):
-            reg = param_regs[index]
-            pname = p["name"]
-
-            self.emit_push(reg, comment=f"save function param {pname}")
-
-            self.current_proc_params[pname.lower()] = {
-                "type": p["type"],
-                "reg": reg,
-                "stack_offset": -8 * (index + 2)
-            }
-
-        if CDATA.args_target not in ["dos", "dos16"]:
-            if len(params) % 2 == 0:
-                self.emit_sub("rsp", 8, comment="align stack in function")
-
+        # -------------------------------------------------
+        # Lokalen Scope zuerst anlegen
+        # -------------------------------------------------
         self.scope_stack.append(name)
-
-        # lokaler Stackbereich
-        if CDATA.args_target in ["dos", "dos16"]:
-            self.emit_sub("sp", 256, comment="local variables")
-        else:
-            self.emit_sub("rsp", 256, comment="local variables")
-
         self.push_local_scope()
         self.push_const_scope()
 
-        # WICHTIG:
-        # Result als echte lokale Variable anlegen.
-        # Dadurch bekommt Result einen festen Offset und S kommt danach.
+        # Result als echte lokale Variable
         self.declare_local_var(ctx, "Result", rt)
         result_var = self.find_local_var("Result")
         result_off = result_var["offset"]
 
+        # lokale var-Deklarationen vorab einsammeln,
+        # damit scope["next_offset"] die echte Stackgröße enthält
+        for child in ctx.children:
+            cname = type(child).__name__
+            if "VarSectionContext" in cname:
+                self.visit(child)
+
+        scope = self.current_local_scope()
+        local_size = scope["next_offset"]
+        local_size = (local_size + 15) & ~15
+
+        if local_size:
+            if CDATA.args_target in ["dos", "dos16"]:
+                self.emit_sub("sp", local_size, comment=f"{local_size} bytes locals")
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_sub("esp", local_size, comment=f"{local_size} bytes locals")
+            else:
+                self.emit_sub("rsp", local_size, comment=f"{local_size} bytes locals")
+
+        # -------------------------------------------------
+        # Parameter sichern / Offsets eintragen
+        # -------------------------------------------------
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            for index, p in enumerate(params):
+                pname = p["name"]
+
+                self.current_proc_params[pname.lower()] = {
+                    "type": p["type"],
+                    "reg": None,
+                    "stack_offset": 8 + index * 4
+                }
+
+        elif CDATA.args_target in ["dos", "dos16"]:
+            for index, p in enumerate(params):
+                pname = p["name"]
+
+                self.current_proc_params[pname.lower()] = {
+                    "type": p["type"],
+                    "reg": None,
+                    "stack_offset": 4 + index * 2
+                }
+
+        else:
+            for index, p in enumerate(params):
+                reg = param_regs[index]
+                pname = p["name"]
+
+                self.emit_push(reg, comment=f"save function param {pname}")
+
+                self.current_proc_params[pname.lower()] = {
+                    "type": p["type"],
+                    "reg": reg,
+                    "stack_offset": -8 * (index + 2)
+                }
+
+            if len(params) % 2 == 0:
+                self.emit_sub("rsp", 8, comment="align stack in function")
+
+        # -------------------------------------------------
+        # Funktionskörper
+        # -------------------------------------------------
         self.exit_label_stack.append(end_label)
         self.visit(ctx.block())
         self.exit_label_stack.pop()
 
         self.pop_const_scope()
         self.pop_local_scope()
-
         self.scope_stack.pop()
 
         self.current_function = old_function
         self.current_proc_params = old_params
 
+        # -------------------------------------------------
+        # Return-Wert laden
+        # -------------------------------------------------
         if CDATA.args_target in ["dos", "dos16"]:
             if rt == "string":
-                # Result ist Far-Pointer:
-                # [bp+result_off]     = Offset
-                # [bp+result_off + 2] = Segment
                 self.backend.writer.emit_mov_reg16_mem16_base_disp("dx", "bp", result_off)
                 self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off + 2)
-
             elif rt == "integer":
                 self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off)
-
             else:
                 raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
 
             self.backend.writer.emit_mov_reg16_reg16("sp", "bp")
             self.backend.writer.emit_pop_reg16("bp")
             self.backend.writer.emit_ret()
+
+            self.emit_bind_label(end_label)
+            return
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if rt == "string":
+                self.emit_mov_dword_ptr("eax", "ebp", result_off)
+            elif rt == "integer":
+                self.emit_mov_dword_ptr("eax", "ebp", result_off)
+            else:
+                raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+
+            self.emit_mov("esp", "ebp")
+            self.emit_pop("ebp")
+            self.emit_ret()
 
             self.emit_bind_label(end_label)
             return
@@ -4423,6 +4801,63 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_ret()
 
         self.emit_bind_label(end_label)
+    
+    def emit_try_except_statement(self, ctx):
+        except_label = self.new_named_label("except")
+        end_label    = self.new_named_label("endtry")
+
+        frame_size = 512
+
+        # ExceptionFrame auf Stack reservieren
+        self.emit_sub("esp", frame_size, comment="exception frame")
+        self.emit_mov("ebx", "esp", comment="frame ptr")
+
+        # _jit_push_exception(frame)
+        self.emit_push("ebx")
+        self.emit_call("_jit_push_exception")
+        self.backend.emit_cleanup_stack(4)
+
+        # setjmp(frame->env)
+        # frame beginnt direkt mit jmp_buf/env
+        self.emit_push("ebx")
+        self.emit_call("_setjmp")
+        self.backend.emit_cleanup_stack(4)
+
+        # setjmp == 0 -> try block
+        # setjmp != 0 -> except block
+        self.emit_cmp("eax", 0)
+        self.emit_jne(except_label)
+
+        # TRY-Block
+        self.visit(ctx.statementList(0))
+
+        # Kein Fehler: ExceptionFrame entfernen
+        self.emit_push("ebx")
+        self.emit_call("_jit_pop_exception")
+        self.backend.emit_cleanup_stack(4)
+
+        self.emit_add("esp", frame_size, comment="free exception frame")
+        self.emit_jmp(end_label)
+
+        # EXCEPT-Block
+        self.emit_bind_label(except_label)
+
+        # Nach longjmp ist esp wieder korrekt im setjmp-Kontext,
+        # EBX aber nicht garantiert. Frame liegt wieder bei ESP.
+        self.emit_mov("ebx", "esp", comment="restore frame ptr")
+
+        self.emit_push("ebx")
+        self.emit_call("_jit_pop_exception")
+        self.backend.emit_cleanup_stack(4)
+
+        self.visit(ctx.statementList(1))
+
+        self.emit_add("esp", frame_size, comment="free exception frame")
+
+        self.emit_bind_label(end_label)
+        self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+        return None
     
     def emit_self_method_call(self, ctx, method_name, actual_types=None):
         if actual_types is None:
@@ -5440,7 +5875,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         # rcx = Self
         self.emit_push("rbp")
         self.emit_mov("rbp", "rsp")
-        self.emit_push("rcx", comment = "Self")
+        
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            # cdecl:
+            # [ebp+4] = return address
+            # [ebp+8] = Self
+            self.emit_mov_dword_ptr("eax", "ebp", 8, comment="Self")
+            self.emit_push("eax", comment="Self")
+        else:
+            # Win64:
+            # rcx = Self
+            self.emit_push("rcx", comment="Self")
         
         old_params = self.current_proc_params
         self.current_proc_params = {
@@ -5452,39 +5897,58 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             }
         }
         
-        param_regs = ["rdx", "r8", "r9"]
-        
-        for index, p in enumerate(params):
-            pname = p["name"]
-            ptype = self.resolve_type(p["type"])
-            
-            if index < len(param_regs):
-                reg = param_regs[index]
-                self.emit_push(reg, comment=f"save class method param {pname}")
-                stack_offset = -8 * (index + 2)
-            else:
-                reg = None
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            for index, p in enumerate(params):
+                pname = p["name"]
+                ptype = self.resolve_type(p["type"])
+
+                # Nach push rbp / mov rbp,rsp gilt:
+                # [ebp+8]  = Self
+                # [ebp+12] = Param 1
+                # [ebp+16] = Param 2
+                self.current_proc_params[pname.lower()] = {
+                    "type": ptype,
+                    "reg": None,
+                    "stack_offset": 12 + index * 4,
+                    "is_var": p.get("is_var", False)
+                }
                 
-                # Win64:
-                # [rbp +  8] = return address
-                # [rbp + 16] = shadow rcx
-                # [rbp + 24] = shadow rdx
-                # [rbp + 32] = shadow r8
-                # [rbp + 40] = shadow r9
-                # [rbp + 48] = erster echter Stack-Parameter
-                stack_offset = 48 + ((index - len(param_regs)) * 8)
-            
-            self.current_proc_params[pname.lower()] = {
-                "type"          : ptype,
-                "reg"           : reg,
-                "stack_offset"  : stack_offset,
-                "is_var"        : p.get("is_var", False)
-            }
+            self.emit_sub("esp", 256, comment="class method locals")
+        else:
+            param_regs = ["rdx", "r8", "r9"]
+
+            for index, p in enumerate(params):
+                pname = p["name"]
+                ptype = self.resolve_type(p["type"])
+
+                if index < len(param_regs):
+                    reg = param_regs[index]
+                    self.emit_push(reg, comment=f"save class method param {pname}")
+                    stack_offset = -8 * (index + 2)
+                else:
+                    reg = None
+                    stack_offset = 48 + ((index - len(param_regs)) * 8)
+
+                self.current_proc_params[pname.lower()] = {
+                    "type": ptype,
+                    "reg": reg,
+                    "stack_offset": stack_offset,
+                    "is_var": p.get("is_var", False)
+                }
         
-        self.emit_sub("rsp", 256, comment = "class method locals")
+            self.emit_sub("rsp", 256, comment = "class method locals")
         
         self.push_local_scope()
         self.push_const_scope()
+        
+        # Self liegt bereits unterhalb von BP/RBP auf dem Stack.
+        # Lokale Variablen dürfen diesen Bereich nicht überschreiben.
+        scope = self.current_local_scope()
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            scope["next_offset"] = 4      # [ebp-4] = Self
+        else:
+            scope["next_offset"] = 8      # [rbp-8] = Self
         
         old_class    = self.current_class
         old_method   = self.current_method
@@ -5493,12 +5957,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.current_class  = class_key
         self.current_method = method
 
+        result_off = None
+
         if method.kind == "function":
+            rt = self.resolve_type(method.return_type)
+
             self.current_function = {
                 "name": method.name,
-                "return_type": method.return_type,
+                "return_type": rt,
                 "scoped_name": class_name + "_" + method.name
             }
+
+            self.declare_local_var(ctx, "Result", rt)
+            result_var = self.find_local_var("Result")
+            result_off = result_var["offset"]
         
         self.visit(ctx.block())
 
@@ -5511,9 +5983,34 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.current_proc_params = old_params
         
-        self.emit_mov("rsp", "rbp")
-        self.emit_pop("rbp")
-        self.emit_ret()
+        if method.kind == "function":
+            rt = self.resolve_type(method.return_type)
+
+            if rt == "string":
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    self.emit_mov_dword_ptr("eax", "ebp", result_off)
+                else:
+                    self.emit_mov_qword_ptr("rax", "rbp", result_off)
+                    
+            elif rt == "integer":
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    self.emit_mov_dword_ptr("eax", "ebp", result_off)
+                else:
+                    self.emit_mov_dword_ptr("eax", "rbp", result_off)
+                    
+            elif rt == "double":
+                self.emit_movsd_load("xmm0", "rbp", result_off)
+            else:
+                raise CompileError(ctx, "E0005", got=rt, expected="integer/string/double")
+        
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_mov("esp", "ebp")
+            self.emit_pop("ebp")
+            self.emit_ret()
+        else:
+            self.emit_mov("rsp", "rbp")
+            self.emit_pop("rbp")
+            self.emit_ret()
         
         self.emit_bind_label(skip_label)
         
@@ -5979,6 +6476,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return None
     
     def visitTryStatement(self, ctx):
+        if ctx.EXCEPT():
+            return self.emit_try_except_statement(ctx)
+
+        if ctx.FINALLY():
+            self.visit(ctx.statementList(0))
+            self.visit(ctx.statementList(1))
+            return None
+
+        return None
+        
+        
         if ctx.FINALLY():
             self.visit(ctx.statementList(0))
             self.visit(ctx.statementList(1))
@@ -6248,8 +6756,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitClassDeclaration(self, ctx):
         class_name = ctx.IDENT().getText()
         
-        fields  = []
-        methods = []
+        fields     = []
+        methods    = []
+        properties = {}
         
         parent_name         = None
         current_visibility  = "public"
@@ -6355,8 +6864,41 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "return_type": None,
                     "visibility" : current_visibility
                 })
+            
+            elif member.propertyDeclaration():
+                prop = member.propertyDeclaration()
+
+                prop_name = prop.IDENT().getText()
+                prop_type = self.resolve_type(prop.typeName().getText())
+
+                read_name = None
+                write_name = None
+
+                for acc in prop.propertyAccessor():
+                    acc_text = acc.getText().lower()
+                    acc_name = acc.IDENT().getText()
+
+                    if acc_text.startswith("read"):
+                        read_name = acc_name
+                    elif acc_text.startswith("write"):
+                        write_name = acc_name
+
+                properties[prop_name.lower()] = PropertyInfo(
+                    name       = prop_name,
+                    ptype      = prop_type,
+                    visibility = current_visibility,
+                    read_name  = read_name,
+                    write_name = write_name
+                )
         
-        self.declare_class(ctx, class_name, fields, methods, parent_name=parent_name)
+        self.declare_class(
+            ctx,
+            class_name,
+            fields,
+            methods,
+            properties,
+            parent_name=parent_name
+        )
         return None
     
     def visitTypeDeclaration(self, ctx):
@@ -6543,6 +7085,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 # Klasse: foo.field := ...
                 if isinstance(var_type, str) and var_type in self.classes:
+                    if self.emit_store_class_property(ctx, parts, expr_type):
+                        return None
+                    
                     self.emit_store_class_field(ctx, parts, expr_type)
                     return None
                 
@@ -6941,8 +7486,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     var_type = self.resolve_type(var_info["type"])
                     
                     if isinstance(var_type, str) and var_type in self.classes:
+                        prop_type = self.emit_load_class_property(ctx, parts)
+                        if prop_type:
+                            return prop_type
                         return self.emit_load_class_field(ctx, parts)
-                    
                     return self.emit_load_record_field(ctx, parts)
             
             name = ref.IDENT().getText()
@@ -7184,42 +7731,39 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         key  = name.lower()
         
-        if key == "assigned":
-            return self.emit_builtin_assigned(ctx)
+        self.builtin_functions = {
+            "assigned": self.emit_builtin_assigned,
+            "length": self.emit_builtin_length,
+            "low": self.emit_builtin_low,
+            "high": self.emit_builtin_high,
+            "copy": self.emit_builtin_copy,
+            "pos": self.emit_builtin_pos,
         
-        if key == "length":
-            return self.emit_builtin_length(ctx)
-        
-        if key == "copy":
-            return self.emit_builtin_copy(ctx)
-        
-        if key == "pos":
-            return self.emit_builtin_pos(ctx)
-        
-        if key == "blake2": return self.emit_builtin_blake2(ctx)
-        if key == "blake3": return self.emit_builtin_blake3(ctx)
-        if key == "crc16" : return self.emit_builtin_crc16 (ctx)
-        if key == "crc32" : return self.emit_builtin_crc32 (ctx)
-        if key == "crc32c": return self.emit_builtin_crc32c(ctx)
-        if key == "crc64" : return self.emit_builtin_crc64 (ctx)
-        if key == "md5"   : return self.emit_builtin_md5   (ctx)
-        if key == "sha1"  : return self.emit_builtin_sha1  (ctx)
-        if key == "sha3"  : return self.emit_builtin_sha3  (ctx)
-        if key == "sha224": return self.emit_builtin_sha224(ctx)
-        if key == "sha256": return self.emit_builtin_sha256(ctx)
-        if key == "sha384": return self.emit_builtin_sha384(ctx)
-        if key == "sha512": return self.emit_builtin_sha512(ctx)
-        
-        if key == "diskfree"      : return self.emit_builtin_diskfree(ctx)
-        if key == "disktotal"     : return self.emit_builtin_disktotal(ctx)
-        if key == "disklabel"     : return self.emit_builtin_disklabel(ctx)
-        if key == "diskserial"    : return self.emit_builtin_diskserial(ctx)
-        if key == "diskfilesystem": return self.emit_builtin_diskfilesystem(ctx)
-        if key == "disktype"      : return self.emit_builtin_disktype(ctx)
-        if key == "diskshare"     : return self.emit_builtin_diskshare(ctx)
-        
-        if key == "low" : return self.emit_builtin_low (ctx)
-        if key == "high": return self.emit_builtin_high(ctx)
+            "blake2": self.emit_builtin_blake2,
+            "blake3": self.emit_builtin_blake3,
+            "crc16": self.emit_builtin_crc16,
+            "crc32": self.emit_builtin_crc32,
+            "crc32c": self.emit_builtin_crc32c,
+            "crc64": self.emit_builtin_crc64,
+            "md5": self.emit_builtin_md5,
+            "sha1": self.emit_builtin_sha1,
+            "sha3": self.emit_builtin_sha3,
+            "sha224": self.emit_builtin_sha224,
+            "sha256": self.emit_builtin_sha256,
+            "sha384": self.emit_builtin_sha384,
+            "sha512": self.emit_builtin_sha512,
+            
+            "diskfree": self.emit_builtin_diskfree,
+            "disktotal": self.emit_builtin_disktotal,
+            "disklabel": self.emit_builtin_disklabel,
+            "diskserial": self.emit_builtin_diskserial,
+            "diskfilesystem": self.emit_builtin_diskfilesystem,
+            "disktype": self.emit_builtin_disktype,
+            "diskshare": self.emit_builtin_diskshare,
+        }
+        handler = self.builtin_functions.get(key)
+        if handler:
+            return handler(ctx)
         
         func = self.find_function(name)
 
@@ -7285,6 +7829,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.emit_jmp(skip_label)
         self.emit_bind_label(label)
+        
+        # external coff .o file label
+        self.backend.writer.add_symbol_alias(
+            "_" + name.lower(),
+            label
+        )
         
         self.emit_push("rbp")
         self.emit_mov("rbp", "rsp")

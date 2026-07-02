@@ -169,6 +169,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#propertyDeclaration.
+    def visitPropertyDeclaration(self, ctx:MiniPascalParser.PropertyDeclarationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#propertyAccessor.
+    def visitPropertyAccessor(self, ctx:MiniPascalParser.PropertyAccessorContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#classFunctionDeclaration.
     def visitClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
         return self.visitChildren(ctx)

@@ -7,6 +7,6 @@
 #define __DBASE2MANY_BLAKE3_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 #endif

@@ -204,6 +204,18 @@ def args_func():
     )
     
     # -------------------------------------------------------------
+    # search path for units ...
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "-Fu",
+        "--unit",
+        dest    = "unitfiles",
+        action  = "append",
+        default = [],
+        help    = tr("Add Pascal unit file or unit search directory.")
+    )
+    
+    # -------------------------------------------------------------
     # executable output path ...
     # -------------------------------------------------------------
     args_parser.add_argument(
@@ -231,6 +243,7 @@ def args_func():
         default = None,
         help    = tr("Help informations about the compiler")
     )
+    
     return args_parser
 
 def validate_output_path(value: str):
@@ -343,6 +356,10 @@ def validate_output_path(value: str):
     }
 
 def handle_args(args):
+    CDATA.IncludePaths = list(args.includepath or [])
+    CDATA.UnitFiles    = list(args.unitfiles   or [])
+    CDATA.Defines      = list(args.define      or [])
+    
     if args.exe_output_dir is not None:
         CDATA.ExeOutputDir = args.exe_output_dir
         #print("==> ", CDATA.CurrentWorkingDir)
@@ -353,7 +370,7 @@ def handle_args(args):
     if result["kind"] == "file":
         CDATA.LastErrorCode = LastError.NO_DIRECTORY
         raise Exception(tr("executable output is not a directory or does not exists."))
-            
+    
     if args.info is not None:
         if args.info == "":
             print("Common Info")

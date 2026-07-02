@@ -160,6 +160,7 @@ classBody
 
 classMember
     : visibilitySection
+    | propertyDeclaration
     | classFieldDeclaration
     | constructorDeclaration
     | destructorDeclaration
@@ -171,6 +172,16 @@ visibilitySection
     : PRIVATE
     | PROTECTED
     | PUBLIC
+    | PUBLISHED
+    ;
+
+propertyDeclaration
+    : PROPERTY IDENT COLON typeName propertyAccessor* SEMI
+    ;
+
+propertyAccessor
+    : READ IDENT
+    | WRITE IDENT
     ;
 
 classFunctionDeclaration

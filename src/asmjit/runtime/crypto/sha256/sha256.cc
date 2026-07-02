@@ -3,6 +3,8 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "stddef.h"
+# include "memory.h"
 # include "sha256.h"
 
 #define SHR(x,n)  ((x) >> (n))
@@ -112,7 +114,7 @@ sha256_update(SHA256_CTX *ctx, const void *data, size_t len)
     size_t i = 0;
 
     if (len >= part_len) {
-        memcpy(&ctx->buffer[index], input, part_len);
+        _jit_memcpy(&ctx->buffer[index], input, part_len);
         sha256_transform(ctx->state, ctx->buffer);
 
         for (i = part_len; i + 63 < len; i += 64)
@@ -121,7 +123,7 @@ sha256_update(SHA256_CTX *ctx, const void *data, size_t len)
         index = 0;
     }
 
-    memcpy(&ctx->buffer[index], &input[i], len - i);
+    _jit_memcpy(&ctx->buffer[index], &input[i], len - i);
 }
 
 DLL_API VOID
@@ -155,9 +157,9 @@ _jit_sha256(char *str, int len)
 
     static const char hex[] = "0123456789abcdef";
 
-    char *result = (char*)malloc(32 * 2 + 1);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(32 * 2 + 1);
+    if (result == nullptr)
+        return nullptr;
 
     sha256_init  (&ctx);
     sha256_update(&ctx, str, (size_t)len);

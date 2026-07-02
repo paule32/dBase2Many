@@ -16,6 +16,189 @@ def double_to_bits(value):
         struct.pack("<d", float(value))
     )[0]
 
+class Coff32Relocation:
+    def __init__(self, virtual_address, symbol_index, rel_type):
+        self.virtual_address = virtual_address
+        self.symbol_index = symbol_index
+        self.type = rel_type
+
+class Coff32Object:
+    def __init__(self):
+        self.sections        = []
+        self.symbols         = {}
+        self.relocations     = []
+        self.raw_symbols     = []
+        self.string_table    = b""
+
+class Coff32Section:
+    def __init__(self, name, data, characteristics):
+        self.name            = name
+        self.data            = bytearray(data)
+        self.characteristics = characteristics
+        self.relocations     = []
+        self.output_section  = None
+        self.output_offset   = 0
+        self.rva             = 0
+
+class Coff32Symbol:
+    def __init__(self, name, section_number, value, storage_class):
+        self.name            = name
+        self.section_number  = section_number
+        self.value           = value
+        self.storage_class   = storage_class
+        self.resolved_rva    = None
+
+# ---------------------------------------------------------------------------
+# Windows NT 3.5 PE COFF object/code reader
+# ---------------------------------------------------------------------------
+class Coff32Reader:
+    def __init__(self, filename):
+        self.filename     = filename
+        self.data         = None
+        self.obj          = Coff32Object()
+        self.string_table = b""
+
+    def read(self):
+        with open(self.filename, "rb") as f:
+            self.data = f.read()
+
+        self.read_header()
+        self.read_sections()
+        self.read_symbols()
+
+        return self.obj
+
+    def read_header(self):
+        (
+            self.machine,
+            self.number_of_sections,
+            self.time_date_stamp,
+            self.pointer_to_symbol_table,
+            self.number_of_symbols,
+            self.size_of_optional_header,
+            self.characteristics
+        ) = struct.unpack_from("<HHLLLHH", self.data, 0)
+
+        if self.machine != 0x014C:
+            raise RuntimeError("not a COFF32 i386 object file")
+
+        if self.size_of_optional_header != 0:
+            raise RuntimeError("COFF object should not have optional header")
+
+    def section_name(self, raw):
+        raw = raw.rstrip(b"\x00")
+        return raw.decode("ascii", errors="replace")
+
+    def read_sections(self):
+        offset = 20
+
+        for i in range(self.number_of_sections):
+            (
+                raw_name,
+                virtual_size,
+                virtual_address,
+                size_of_raw_data,
+                pointer_to_raw_data,
+                pointer_to_relocations,
+                pointer_to_linenumbers,
+                number_of_relocations,
+                number_of_linenumbers,
+                characteristics
+            ) = struct.unpack_from("<8sLLLLLLHHL", self.data, offset)
+
+            name = self.section_name(raw_name)
+
+            section_data = b""
+            if size_of_raw_data:
+                section_data = self.data[
+                    pointer_to_raw_data:
+                    pointer_to_raw_data + size_of_raw_data
+                ]
+
+            sec = Coff32Section(name, section_data, characteristics)
+
+            for r in range(number_of_relocations):
+                roff = pointer_to_relocations + r * 10
+
+                (
+                    virtual_address,
+                    symbol_index,
+                    rel_type
+                ) = struct.unpack_from("<LLH", self.data, roff)
+
+                sec.relocations.append(
+                    Coff32Relocation(
+                        virtual_address,
+                        symbol_index,
+                        rel_type
+                    )
+                )
+
+            self.obj.sections.append(sec)
+            offset += 40
+
+    def get_string_from_table(self, offset):
+        start = offset
+        end = self.string_table.find(b"\x00", start)
+
+        if end < 0:
+            end = len(self.string_table)
+
+        return self.string_table[start:end].decode("ascii", errors="replace")
+
+    def symbol_name(self, raw_name):
+        first4, second4 = struct.unpack("<LL", raw_name)
+
+        if first4 == 0:
+            return self.get_string_from_table(second4)
+
+        return raw_name.rstrip(b"\x00").decode("ascii", errors="replace")
+
+    def read_symbols(self):
+        symtab = self.pointer_to_symbol_table
+        strtab_offset = symtab + self.number_of_symbols * 18
+
+        if strtab_offset + 4 <= len(self.data):
+            size = struct.unpack_from("<L", self.data, strtab_offset)[0]
+            self.string_table = self.data[strtab_offset:strtab_offset + size]
+        else:
+            self.string_table = b"\x04\x00\x00\x00"
+
+        i = 0
+
+        while i < self.number_of_symbols:
+            off = symtab + i * 18
+
+            raw_name = self.data[off:off + 8]
+
+            (
+                value,
+                section_number,
+                symbol_type,
+                storage_class,
+                number_of_aux_symbols
+            ) = struct.unpack_from("<LhHBB", self.data, off + 8)
+
+            name = self.symbol_name(raw_name)
+
+            sym = Coff32Symbol(
+                name,
+                value,
+                section_number,
+                storage_class
+            )
+
+            self.obj.raw_symbols.append(sym)
+
+            if name:
+                self.obj.symbols[name] = sym
+
+            for _ in range(number_of_aux_symbols):
+                i += 1
+                self.obj.raw_symbols.append(None)
+
+            i += 1
+            
 # ---------------------------------------------------------------------------
 # Windows NT 3.5 PE COFF object/code writer
 # ---------------------------------------------------------------------------
@@ -44,7 +227,57 @@ class PE32Writer:
 
         self.string_table = bytearray()
         self.string_offsets = {}
+        
+        self.coff_objects = []
+        self.external_symbols = {}
 
+    def add_coff_object(self, filename):
+        obj = Coff32Reader(filename).read()
+        self.coff_objects.append(obj)
+        return obj
+    
+    def section_rva(self, name):
+        if name == ".text":
+            return self.text_rva
+
+        if name in [".data", ".rdata"]:
+            return self.data_rva
+
+        raise RuntimeError(f"unknown output section: {name}")
+        
+    def include_coff_objects(self):
+        for obj in self.coff_objects:
+            for sec in obj.sections:
+                if sec.name == ".text":
+                    sec.output_section = ".text"
+                    sec.output_offset  = len(self.text)
+                    self.text         += sec.data
+                
+                elif sec.name in [".data", ".rdata"]:
+                    sec.output_section = ".data"
+                    sec.output_offset  = len(self.data)
+                    self.data         += sec.data
+                
+                elif sec.name == ".bss":
+                    sec.output_section = ".bss"
+                    sec.output_offset  = self.bss_size
+                    self.bss_size     += len(sec.data)
+    
+    def add_symbol_alias(self, alias_name, target_name):
+        target_index = self.find_symbol_index(target_name)
+
+        if target_index is None:
+            raise RuntimeError(f"alias target symbol not found: {target_name}")
+
+        target = self.symbols[target_index]
+
+        if self.find_symbol_index(alias_name) is None:
+            self.add_symbol(
+                name=alias_name,
+                value=target["value"],
+                section_number=target["section"]
+            )
+    
     def begin_function(self, name, local_size=0, public=True):
         offset = len(self.text)
 
@@ -740,4 +973,7 @@ class PE32Writer:
             return 8
 
     def write(self, filename):
+        self.add_coff_object("math.o")
+        self.include_coff_objects()
+
         NT32Writer(self).write(filename)

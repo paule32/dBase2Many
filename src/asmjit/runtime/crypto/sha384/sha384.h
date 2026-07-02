@@ -7,14 +7,14 @@
 #define __DBASE2MANY_SHA384_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 typedef struct SHA384_CTX {
     uint64_t state[8];
     uint64_t bit_count_high;
     uint64_t bit_count_low;
     uint8_t  buffer[128];
-} SHA384_CTX;
+}   SHA384_CTX;
 
 extern "C" {
 DLL_API VOID sha384_init  (SHA384_CTX *ctx);

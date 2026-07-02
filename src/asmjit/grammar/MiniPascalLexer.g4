@@ -73,6 +73,10 @@ DESTRUCTOR          : [Dd][Ee][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;
 PRIVATE             : [pP][rR][iI][vV][aA][tT][eE] ;
 PROTECTED           : [pP][rR][oO][tT][eE][cC][tT][eE][dD] ;
 PUBLIC              : [pP][uU][bB][lL][iI][cC] ;
+PUBLISHED           : [Pp][Uu][Bb][Ll][Ii][Ss][Hh][Ee][Dd] ;
+PROPERTY            : [Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy] ;
+READ                : [rR][eE][aA][dD] ;
+WRITE               : [wW][rR][iI][tT][eE] ;
 
 INHERITED           : [iI][nN][hH][eE][rR][iI][tT][eE][dD] ;
 

@@ -3,7 +3,9 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
 # include "crc16.h"
+# include "memory.h"
 
 DLL_API VOID
 crc16_init(CRC16_CTX *ctx)
@@ -48,11 +50,11 @@ _jit_crc16(char *str, int len)
 {
     uint16_t crc = crc16_calc(str, (size_t)len);
 
-    char *result = (char*)malloc(5);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(5);
+    if (result == nullptr)
+        return nullptr;
 
-    snprintf(result, 5, "%04x", (unsigned int)crc);
+    _jit_snprintf(result, 5, "%04x", (unsigned int)crc);
 
     return result;
 }

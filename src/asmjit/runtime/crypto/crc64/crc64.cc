@@ -3,7 +3,9 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
 # include "crc64.h"
+# include "memory.h"
 
 #define CRC64_POLY 0x42F0E1EBA9EA3693ULL
 
@@ -52,11 +54,11 @@ _jit_crc64(char *str, int len)
 {
     uint64_t crc = crc64_calc(str, (size_t)len);
 
-    char *result = (char*)malloc(17);
+    char *result = (char*)_jit_malloc(17);
     if (result == nullptr)
         return nullptr;
 
-    snprintf(
+    _jit_snprintf(
         result,
         17,
         "%016llX",

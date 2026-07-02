@@ -7,13 +7,13 @@
 #define __DBASE2MANY_SHA1_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 typedef struct SHA1_CTX {
     uint32_t state[5];
     uint64_t bit_count;
     uint8_t  buffer[64];
-} SHA1_CTX;
+}   SHA1_CTX;
 
 extern "C" {
 DLL_API VOID sha1_init  (SHA1_CTX *ctx);

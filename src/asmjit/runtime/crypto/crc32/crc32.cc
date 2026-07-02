@@ -3,7 +3,9 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
 # include "crc32.h"
+# include "memory.h"
 
 static uint32_t crc32_table[256];
 static int crc32_initialized = 0;
@@ -38,17 +40,15 @@ crc32_init(CRC32_CTX *ctx)
 }
 
 DLL_API VOID
-crc32_update(CRC32_CTX *ctx,
-                  const void *data,
-                  size_t len)
-{
+crc32_update(
+    CRC32_CTX *ctx,
+    const void *data,
+    size_t len) {
+    
     const uint8_t *p = (const uint8_t *)data;
 
-    while (len--)
-    {
-        ctx->crc =
-            crc32_table[(ctx->crc ^ *p++) & 0xFF] ^
-            (ctx->crc >> 8);
+    while (len--) {
+        ctx->crc =  crc32_table[(ctx->crc ^ *p++) & 0xFF] ^ (ctx->crc >> 8);
     }
 }
 
@@ -73,11 +73,11 @@ _jit_crc32(char *str, int len)
 {
     uint32_t crc = crc32_calc(str, (size_t)len);
 
-    char *result = (char*)malloc(9);
+    char *result = (char*)_jit_malloc(9);
     if (result == nullptr)
         return nullptr;
 
-    snprintf(
+    _jit_snprintf(
         result,
         9,
         "%08x",

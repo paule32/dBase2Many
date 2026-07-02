@@ -3,7 +3,11 @@
 // \note Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
-# include "dbase2many.hpp"
+# include "iostream.h"
+# include "stddef.h"
+# include "memory.h"
+# include "string.h"
+# include "exception.h"
 
 using namespace std;
 
@@ -19,7 +23,7 @@ _jit_array_bounds_error(
     int min_value,
     int max_value) {
     
-    throw JitRuntimeError(
+    error = new JitRuntimeError(
         std::string("Array bounds error: ") +
         array_name + "[" +
         std::to_string(index) + "] allowed range " +
@@ -30,7 +34,10 @@ _jit_array_bounds_error(
 
 DLL_API void
 _jit_string_range_error() {
-    throw JitRuntimeError("String range check error");
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
+        "String range check error"
+    );
 }
 
 DLL_API void

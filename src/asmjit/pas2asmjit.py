@@ -22,7 +22,7 @@ import polib
 # ---------------------------------------------------------------------------
 from os          import linesep   as NL
 from datetime    import datetime  as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib     import PureWindowsPath, Path
 from typing      import Union
 
@@ -55,6 +55,8 @@ from compiler.writer.pe64 import *
 
 from compiler.cli import *
 from antlr4       import *
+
+from compiler.frontend.pascal.preprocessor   import PascalPreprocessor
 
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
@@ -495,6 +497,8 @@ def main():
     except AttributeError as e:
         print(f"{tr('Error')}: {tr('Attribute Error')}")
         print(f"Text : {str(e)}")
+        import traceback
+        traceback.print_exc()
         return 2
     except FileNotFoundError as e:
         print(f"{tr('Error')}: {tr('File not found')} '{e.filename}'")

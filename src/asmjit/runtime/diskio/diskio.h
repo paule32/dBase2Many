@@ -7,7 +7,7 @@
 #define __DBASE2MANY_BLAKE2_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 extern "C" {
 DLL_API char * _jit_disk_free         (const char *drive);

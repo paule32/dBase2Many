@@ -3,7 +3,8 @@
 // \note Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
-# include "dbase2many.hpp"
+# include "iostream.h"
+# include "stddef.h"
 
 DLL_API void _jit_print_text(const char* s)  { std::cout << s; }
 DLL_API void _jit_print_int(int v)           { std::cout << v; }
@@ -11,6 +12,29 @@ DLL_API void _jit_print_double(double v)     { std::cout << v; }
 DLL_API void _jit_print_newline()            { std::cout << std::endl; }
 DLL_API void _jit_print_char(int c)          { std::cout << static_cast<char>(c); }
 
+DLL_API int  _jit_snprintf(
+    char *buffer,
+    size_t size,
+    const char *fmt,
+    ...)
+{
+    va_list ap;
+    int result;
+
+    va_start(ap, fmt);
+
+    result = _jit_vsnprintf(
+        buffer,
+        size,
+        fmt,
+        ap);
+
+    va_end(ap);
+
+    return result;
+}
+
+#if 0
 DLL_API char *
 _jit_dynstring_copy(
     char* src,
@@ -95,3 +119,4 @@ _jit_dynstring_pos(
 
     return 0;
 }
+#endif

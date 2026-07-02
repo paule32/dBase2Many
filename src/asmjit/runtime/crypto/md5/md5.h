@@ -7,12 +7,13 @@
 #define __DBASE2MANY_MD5_H__
 
 #pragma once
+#include "stddef.h"
 
 typedef struct MD5_CTX {
     uint32_t state[4];
     uint64_t bit_count;
     uint8_t  buffer[64];
-} MD5_CTX;
+}   MD5_CTX;
 
 extern "C" {
 DLL_API VOID _jit_md5_init   (MD5_CTX *ctx);

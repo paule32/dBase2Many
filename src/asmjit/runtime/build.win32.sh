@@ -23,22 +23,112 @@ fi
 # ----------------------------------------------------------------------------
 if [ "$TARGET" = "i686-w64-mingw32" ]; then
   echo "Toolchain: 32-bit - ok."
-  mkdir -p win32/obj/crypto/blake2
-  mkdir -p win32/obj/crypto/blake3
-  mkdir -p win32/obj/crypto/crc16
-  mkdir -p win32/obj/crypto/crc32
-  mkdir -p win32/obj/crypto/crc32c
-  mkdir -p win32/obj/crypto/crc64
-  mkdir -p win32/obj/crypto/md5
-  mkdir -p win32/obj/crypto/sha1
-  mkdir -p win32/obj/crypto/sha3
-  mkdir -p win32/obj/crypto/sha224
-  mkdir -p win32/obj/crypto/sha256
-  mkdir -p win32/obj/crypto/sha384
-  mkdir -p win32/obj/crypto/sha512
-  
-  mkdir -p win32/obj/diskio
+  BASEDIR=$(pwd)
 
+  # ------------------------------
+  # compile crypto modules ...
+  # ------------------------------
+  CRYPTO_FILES=(
+    blake2 blake3
+    crc16  crc32  crc32c crc64 md5
+    sha1   sha3   sha224
+    sha256 sha384 sha512
+  )
+  for dir in "${CRYPTO_FILES[@]}"; do
+    mkdir -p "win32/obj/crypto/$dir"
+    echo "assemble: crypto/$dir/$dir.cc"
+    g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+    -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -S -o win32/obj/crypto/$dir/$dir.s crypto/$dir/$dir.cc
+    echo "sed:      win32/obj/crypto/$dir/$dir.s"
+    sed -i \
+      -e '/^[[:space:]]*\.ident/d'     \
+      -e '/^[[:space:]]*\.file/d'      \
+      -e '/^[[:space:]]*\.linkonce/d'  \
+      -e '/^[[:space:]]*\.def/d'       \
+      -e '/^[[:space:]]*\.cfi_/d'      \
+      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' \
+      win32/obj/crypto/$dir/$dir.s
+    echo "compile:  win32/obj/crypto/$dir/$dir.s"
+    g++ -o win32/obj/crypto/$dir/$dir.o -c win32/obj/crypto/$dir/$dir.s
+  done
+  
+  RUNTIME_FILES=(
+    loader allocator diskio/diskio exception iostream vector windows
+  )
+  mkdir -p win32/obj/diskio
+  for file in "${RUNTIME_FILES[@]}"; do
+    echo "assemble: $file.cc"
+    g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+    -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -S -o win32/obj/$file.s $file.cc
+    echo "sed:      $file.s"
+    sed -i \
+        -e '/^[[:space:]]*\.ident/d'     \
+        -e '/^[[:space:]]*\.file/d'      \
+        -e '/^[[:space:]]*\.linkonce/d'  \
+        -e '/^[[:space:]]*\.def/d'       \
+        -e '/^[[:space:]]*\.cfi_/d'      \
+        -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+        -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/$file.s
+    echo "compile:  $file.s"
+    g++ -o win32/obj/$file.o -c win32/obj/$file.s
+  done
+  
+  exit 0
+  echo "assemble: vector.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
+  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+  -S -o win32/obj/vector.s vector.cc
+  echo "sed:      vector.s"
+  sed -i \
+      -e '/^[[:space:]]*\.ident/d'     \
+      -e '/^[[:space:]]*\.file/d'      \
+      -e '/^[[:space:]]*\.linkonce/d'  \
+      -e '/^[[:space:]]*\.def/d'       \
+      -e '/^[[:space:]]*\.cfi_/d'      \
+      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/vector.s
+  echo "compile:  vector.s"
+  g++ -o win32/obj/vector.o -c win32/obj/vector.s
+
+  echo "assemble: iostream.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
+  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+  -S -o win32/obj/iostream.s iostream.cc
+  echo "sed:      iostream.s"
+  sed -i \
+      -e '/^[[:space:]]*\.ident/d'     \
+      -e '/^[[:space:]]*\.file/d'      \
+      -e '/^[[:space:]]*\.linkonce/d'  \
+      -e '/^[[:space:]]*\.def/d'       \
+      -e '/^[[:space:]]*\.cfi_/d'      \
+      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/iostream.s
+  echo "compile:  iostream.s"
+  g++ -o win32/obj/iostream.o -c win32/obj/iostream.s
+  
+  echo "assemble: print.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
+  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+  -S -o win32/obj/print.s print.cc
+  echo "sed:      print.s"
+  sed -i \
+      -e '/^[[:space:]]*\.ident/d'     \
+      -e '/^[[:space:]]*\.file/d'      \
+      -e '/^[[:space:]]*\.linkonce/d'  \
+      -e '/^[[:space:]]*\.def/d'       \
+      -e '/^[[:space:]]*\.cfi_/d'      \
+      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/print.s
+  echo "compile:  print.s"
+  g++ -o win32/obj/print.o -c win32/obj/print.s
+                                                          
+  exit 0
+  
+#  echo "compile: pascal/registry.pas"  ; ./pas2asmjit -Twinnt --backend exe pascal/registry.pas
+#  exit 0
+
+  nasm -fwin32 -o setjmp32.o setjmp32.asm
+  
   echo "compile: error.cc"  ; g++ -O2 -m32 -std=c++20 -shared \
   -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
   win32/obj/error.o   error.cc
@@ -182,6 +272,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
 
   echo "clean up"
   rm libdbase2many.32*
+  rm setjmp32.o
   
   echo "done."
 else

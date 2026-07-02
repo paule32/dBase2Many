@@ -5,3 +5,15 @@
 ; ---------------------------------------------------------------------------
 _jit_new_memory                 @200
 _jit_dispose_memory             @201
+
+_jit_malloc         @210
+_jit_realloc        @211
+_jit_free           @212
+
+_jit_memcpy         @220
+_jit_memset         @221
+_jit_memcmp         @222
+_jit_memmove        @223
+
+_jit_strdup         @230
+_jit_strlen         @231

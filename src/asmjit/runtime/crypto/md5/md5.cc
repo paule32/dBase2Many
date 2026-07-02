@@ -3,7 +3,8 @@
 // \note Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
-# include "dbase2many.hpp"
+# include "stddef.h"
+# include "memory.h"
 # include "md5.h"
 
 #define F(x,y,z) ((x & y) | (~x & z))
@@ -129,7 +130,7 @@ _jit_md5_update(MD5_CTX *ctx, const void *data, size_t len)
     size_t i = 0;
 
     if (len >= part_len) {
-        memcpy(&ctx->buffer[index], input, part_len);
+        _jit_memcpy(&ctx->buffer[index], input, part_len);
         md5_transform(ctx->state, ctx->buffer);
 
         for (i = part_len; i + 63 < len; i += 64)
@@ -138,7 +139,7 @@ _jit_md5_update(MD5_CTX *ctx, const void *data, size_t len)
         index = 0;
     }
 
-    memcpy(&ctx->buffer[index], &input[i], len - i);
+    _jit_memcpy(&ctx->buffer[index], &input[i], len - i);
 }
 
 DLL_API VOID
@@ -165,14 +166,13 @@ _jit_md5_final(MD5_CTX *ctx, uint8_t digest[16])
     }
 }
 
-// todo: split to file !!
 static char *bytes_to_hex_alloc(const uint8_t *data, size_t len)
 {
     static const char hex[] = "0123456789abcdef";
 
-    char *result = (char*)malloc(len * 2 + 1);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(len * 2 + 1);
+    if (result == nullptr)
+        return nullptr;
 
     for (size_t i = 0; i < len; i++) {
         result[i * 2 + 0] = hex[(data[i] >> 4) & 0x0F];

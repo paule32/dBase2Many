@@ -3,6 +3,8 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "stddef.h"
+# include "memory.h"
 # include "sha384.h"
 
 #define ROTR64(x,n) (((x) >> (n)) | ((x) << (64 - (n))))
@@ -163,7 +165,7 @@ sha384_update(SHA384_CTX *ctx, const void *data, size_t len)
     size_t i = 0;
 
     if (len >= part_len) {
-        memcpy(&ctx->buffer[index], input, part_len);
+        _jit_memcpy(&ctx->buffer[index], input, part_len);
         sha384_transform(ctx->state, ctx->buffer);
 
         for (i = part_len; i + 127 < len; i += 128)
@@ -172,7 +174,7 @@ sha384_update(SHA384_CTX *ctx, const void *data, size_t len)
         index = 0;
     }
 
-    memcpy(&ctx->buffer[index], &input[i], len - i);
+    _jit_memcpy(&ctx->buffer[index], &input[i], len - i);
 }
 
 DLL_API VOID
@@ -202,9 +204,9 @@ _jit_sha384(char *str, int len)
 
     static const char hex[] = "0123456789abcdef";
 
-    char *result = (char*)malloc(48 * 2 + 1);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(48 * 2 + 1);
+    if (result == nullptr)
+        return nullptr;
 
     sha384_init  (&ctx);
     sha384_update(&ctx, str, (size_t)len);

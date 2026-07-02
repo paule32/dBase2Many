@@ -6,6 +6,9 @@
 from __future__  import annotations
 
 from compiler.common.types     import *
+from compiler.common.locale    import *
+
+from compiler.backend.coff32   import Coff32Backend
 
 import time
 import struct
@@ -37,9 +40,9 @@ class NT32Writer:
 
     def find_entrypoint(self):
         for sym in self.coff.symbols:
-            if sym["name"] in ("test", "main", "_main"):
+            if sym["name"] in ["_start"]:  #("test", "main", "_main"):
                 return sym["value"]
-        raise RuntimeError(tr("entry point not found: main/_main"))
+        raise RuntimeError(tr("entry point not found: _start/main/_main"))
 
     def all_import_functions(self):
         funcs = []
@@ -346,15 +349,119 @@ class NT32Writer:
                 "external symbols not listed in imports: " +
                 ", ".join(sorted(missing))
             )
+    
+    def register_coff_symbols(self, text_rva, data_rva):
+        self.coff.external_symbols = {}
 
+        self.coff.external_symbols.update(
+            self.build_pascal_symbol_rvas(text_rva, data_rva)
+        )
+
+        for obj in self.coff.coff_objects:
+            for name, sym in obj.symbols.items():
+                if sym is None:
+                    continue
+
+                if sym.section_number <= 0:
+                    continue
+
+                sec = obj.sections[sym.section_number - 1]
+
+                if sec.output_section == ".text":
+                    base_rva = text_rva
+                elif sec.output_section in [".data", ".rdata", ".bss"]:
+                    base_rva = data_rva
+                else:
+                    raise RuntimeError(f"unknown COFF output section: {sec.output_section}")
+
+                sym.resolved_rva = base_rva + sec.output_offset + sym.value
+                self.coff.external_symbols[name] = sym.resolved_rva
+
+    def build_pascal_symbol_rvas(self, text_rva, data_rva):
+        result = {}
+
+        for sym in self.coff.symbols:
+            name = sym["name"]
+
+            if sym["section"] == 1:
+                rva = text_rva + sym["value"]
+            elif sym["section"] == 2:
+                rva = data_rva + sym["value"]
+            else:
+                continue
+
+            result[name] = rva
+
+            if not name.startswith("_"):
+                result["_" + name] = rva
+
+            if name.startswith("_"):
+                result[name[1:]] = rva
+
+        return result
+    
+    def patch_coff_relocations(self, text_image, data_image, text_rva, data_rva):
+        for obj in self.coff.coff_objects:
+            for sec in obj.sections:
+                if not sec.output_section:
+                    continue
+
+                if sec.output_section == ".text":
+                    buf = text_image
+                    section_rva = text_rva
+                elif sec.output_section in [".data", ".rdata", ".bss"]:
+                    buf = data_image
+                    section_rva = data_rva
+                else:
+                    raise RuntimeError(
+                        f"unknown COFF output section: {sec.output_section}"
+                    )
+
+                for rel in sec.relocations:
+                    symbol = obj.raw_symbols[rel.symbol_index]
+
+                    if symbol is None:
+                        raise RuntimeError("COFF relocation references AUX symbol")
+
+                    name = symbol.name
+
+                    if name not in self.coff.external_symbols:
+                        raise RuntimeError(f"unresolved COFF symbol: {name}")
+
+                    target_rva = self.coff.external_symbols[name]
+                    patch_offset = sec.output_offset + rel.virtual_address
+
+                    if rel.type == IMAGE_REL_I386_DIR32:
+                        value = self.IMAGE_BASE + target_rva
+                        buf[patch_offset:patch_offset + 4] = int(value).to_bytes(
+                            4,
+                            "little",
+                            signed=False
+                        )
+
+                    elif rel.type == IMAGE_REL_I386_REL32:
+                        source_rva = section_rva + patch_offset
+                        value = target_rva - (source_rva + 4)
+                        buf[patch_offset:patch_offset + 4] = int(value).to_bytes(
+                            4,
+                            "little",
+                            signed=True
+                        )
+
+                    else:
+                        raise RuntimeError(
+                            f"unsupported COFF relocation type: {rel.type:04X}"
+                        )
+                    
     def write(self, filename):
         print("NT32Writer.write called")
         print(self.imports)
         
+        Coff32Backend(self.coff).emit_program_entry()
+        
         self.validate_imports_complete()
         self.imports = self.filtered_imports()
         print("used imports:", self.imports)
-        
         
         dos_header = bytearray(64)
         dos_header[0:2] = b"MZ"
@@ -404,7 +511,13 @@ class NT32Writer:
         
         idata      = self.build_import_section_by_ord(idata_rva)
         data_image = bytearray(self.data)
-
+        
+        self.register_coff_symbols(text_rva, data_rva)
+        print("known symbols:")
+        for name in sorted(self.coff.external_symbols.keys()):
+            print(" ", name)
+        self.patch_coff_relocations(text_image, data_image, text_rva, data_rva)
+        
         self.patch_internal_relocations(text_image, data_image, text_rva, data_rva)
         self.patch_external_call_relocations(text_image, text_rva)
         self.patch_import_thunks(text_image)

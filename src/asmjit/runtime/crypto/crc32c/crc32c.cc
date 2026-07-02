@@ -3,7 +3,9 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
 # include "crc32c.h"
+# include "memory.h"
 
 static uint32_t crc32c_table[256];
 static int crc32c_initialized = 0;
@@ -73,11 +75,11 @@ _jit_crc32c(char *str, int len)
 {
     uint32_t crc = crc32c_calc(str, (size_t)len);
 
-    char *result = (char*)malloc(9);
+    char *result = (char*)_jit_malloc(9);
     if (result == nullptr)
         return nullptr;
 
-    snprintf(
+    _jit_snprintf(
         result,
         9,
         "%08x",

@@ -4,6 +4,7 @@
 //       all rights reserved.
 // ---------------------------------------------------------------------------
 # include "blake2.h"
+# include "memory.h"
 
 static const uint32_t blake2s_iv[8] = {
     0x6A09E667UL, 0xBB67AE85UL,
@@ -115,7 +116,7 @@ static void blake2s_compress(BLAKE2S_CTX *ctx, const uint8_t block[64])
 DLL_API VOID
 blake2s_init(BLAKE2S_CTX *ctx, size_t outlen)
 {
-    memset(ctx, 0, sizeof(*ctx));
+    _jit_memset(ctx, 0, sizeof(*ctx));
 
     if (outlen == 0 || outlen > BLAKE2S_OUTBYTES)
         outlen = BLAKE2S_OUTBYTES;
@@ -138,7 +139,7 @@ blake2s_update(BLAKE2S_CTX *ctx, const void *data, size_t len)
         size_t fill = BLAKE2S_BLOCKBYTES - left;
 
         if (len > fill) {
-            memcpy(ctx->buf + left, in, fill);
+            _jit_memcpy(ctx->buf + left, in, fill);
             ctx->buflen = 0;
 
             blake2s_increment_counter(ctx, BLAKE2S_BLOCKBYTES);
@@ -147,7 +148,7 @@ blake2s_update(BLAKE2S_CTX *ctx, const void *data, size_t len)
             in  += fill;
             len -= fill;
         } else {
-            memcpy(ctx->buf + left, in, len);
+            _jit_memcpy(ctx->buf + left, in, len);
             ctx->buflen = left + len;
             return;
         }
@@ -163,23 +164,23 @@ blake2s_final(BLAKE2S_CTX *ctx, uint8_t *out)
 
     ctx->f[0] = 0xFFFFFFFFUL;
 
-    memset(ctx->buf + ctx->buflen, 0, BLAKE2S_BLOCKBYTES - ctx->buflen);
+    _jit_memset(ctx->buf + ctx->buflen, 0, BLAKE2S_BLOCKBYTES - ctx->buflen);
 
     blake2s_compress(ctx, ctx->buf);
 
     for (int i = 0; i < 8; i++)
         store_le32(buffer + i * 4, ctx->h[i]);
 
-    memcpy(out, buffer, ctx->outlen);
+    _jit_memcpy(out, buffer, ctx->outlen);
 }
 
 void blake2s_calc(const void *data, size_t len, uint8_t out[32])
 {
     BLAKE2S_CTX ctx;
 
-    blake2s_init(&ctx, 32);
+    blake2s_init  (&ctx, 32);
     blake2s_update(&ctx, data, len);
-    blake2s_final(&ctx, out);
+    blake2s_final (&ctx, out);
 }
 
 DLL_API char*

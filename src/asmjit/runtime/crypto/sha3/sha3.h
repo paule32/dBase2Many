@@ -7,7 +7,7 @@
 #define __DBASE2MANY_SHA3_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 typedef struct SHA3_CTX {
     uint64_t state[25];
@@ -15,7 +15,7 @@ typedef struct SHA3_CTX {
     size_t   rate;
     size_t   pos;
     size_t   digest_len;
-} SHA3_CTX;
+}   SHA3_CTX;
 
 extern "C" {
 DLL_API VOID sha3_init  (SHA3_CTX *ctx, size_t rate, size_t digest_len);

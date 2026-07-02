@@ -296,6 +296,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#propertyDeclaration.
+    def enterPropertyDeclaration(self, ctx:MiniPascalParser.PropertyDeclarationContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#propertyDeclaration.
+    def exitPropertyDeclaration(self, ctx:MiniPascalParser.PropertyDeclarationContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#propertyAccessor.
+    def enterPropertyAccessor(self, ctx:MiniPascalParser.PropertyAccessorContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#propertyAccessor.
+    def exitPropertyAccessor(self, ctx:MiniPascalParser.PropertyAccessorContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#classFunctionDeclaration.
     def enterClassFunctionDeclaration(self, ctx:MiniPascalParser.ClassFunctionDeclarationContext):
         pass

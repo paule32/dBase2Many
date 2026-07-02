@@ -3,7 +3,12 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
+# include "stddef.h"
 # include "diskio.h"
+# include "memory.h"
+# include "string.h"
+# include "windows.h"
 
 static char *str_alloc(const char *s)
 {
@@ -13,13 +18,13 @@ static char *str_alloc(const char *s)
     if (!s)
         s = "";
 
-    len = strlen(s);
-    p = (char *)malloc(len + 1);
+    len = _jit_strlen(s);
+    p = (char *)_jit_malloc(len + 1);
 
     if (!p)
         return nullptr;
 
-    memcpy(p, s, len + 1);
+    _jit_memcpy(p, s, len + 1);
     return p;
 }
 
@@ -47,7 +52,7 @@ static char *uint64_to_string(unsigned long long value)
 #if defined(_MSC_VER)
     _snprintf(temp, sizeof(temp), "%I64u", value);
 #else
-    snprintf(temp, sizeof(temp), "%llu", value);
+    _jit_snprintf(temp, sizeof(temp), "%llu", value);
 #endif
 
     temp[sizeof(temp) - 1] = '\0';
@@ -62,7 +67,7 @@ uint32_to_dec(DWORD value)
 #if defined(_MSC_VER)
     _snprintf(temp, sizeof(temp), "%lu", (unsigned long)value);
 #else
-    snprintf(temp, sizeof(temp), "%lu", (unsigned long)value);
+    _jit_snprintf(temp, sizeof(temp), "%lu", (unsigned long)value);
 #endif
 
     temp[sizeof(temp) - 1] = '\0';
@@ -77,7 +82,7 @@ uint32_to_hex(DWORD value)
 #if defined(_MSC_VER)
     _snprintf(temp, sizeof(temp), "%08lX", (unsigned long)value);
 #else
-    snprintf(temp, sizeof(temp), "%08lX", (unsigned long)value);
+    _jit_snprintf(temp, sizeof(temp), "%08lX", (unsigned long)value);
 #endif
 
     temp[sizeof(temp) - 1] = '\0';
@@ -140,7 +145,7 @@ _jit_disk_total(const char *drive)
         &free_clusters,
         &total_clusters))
     {
-        return strdup("");
+        return _jit_strdup("");
     }
 
     unsigned long long total_bytes =
@@ -164,16 +169,16 @@ _jit_disk_label(const char *drive)
         root,
         label,
         sizeof(label),
-        NULL,
-        NULL,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         0))
     {
-        return strdup("");
+        return _jit_strdup("");
     }
 
-    return strdup(label);
+    return _jit_strdup(label);
 }
 
 DLL_API char *
@@ -187,15 +192,15 @@ _jit_disk_serial(const char *drive)
 
     if (!GetVolumeInformationA(
         root,
-        NULL,
+        nullptr,
         0,
         &serial,
-        NULL,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
+        nullptr,
         0))
     {
-        return strdup("");
+        return _jit_strdup("");
     }
 
     return uint32_to_hex(serial);
@@ -212,18 +217,18 @@ _jit_disk_filesystem(const char *drive)
 
     if (!GetVolumeInformationA(
         root,
-        NULL,
+        nullptr,
         0,
-        NULL,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
+        nullptr,
         fs,
         sizeof(fs)))
     {
-        return strdup("");
+        return _jit_strdup("");
     }
 
-    return strdup(fs);
+    return _jit_strdup(fs);
 }
 
 DLL_API char *
@@ -235,16 +240,16 @@ _jit_disk_type(const char *drive)
 
     switch (GetDriveTypeA(root))
     {
-        case DRIVE_UNKNOWN:     return strdup("UNKNOWN");
-        case DRIVE_NO_ROOT_DIR: return strdup("INVALID");
-        case DRIVE_REMOVABLE:   return strdup("REMOVABLE");
-        case DRIVE_FIXED:       return strdup("FIXED");
-        case DRIVE_REMOTE:      return strdup("REMOTE");
-        case DRIVE_CDROM:       return strdup("CDROM");
-        case DRIVE_RAMDISK:     return strdup("RAMDISK");
+        case DRIVE_UNKNOWN:     return _jit_strdup("UNKNOWN");
+        case DRIVE_NO_ROOT_DIR: return _jit_strdup("INVALID");
+        case DRIVE_REMOVABLE:   return _jit_strdup("REMOVABLE");
+        case DRIVE_FIXED:       return _jit_strdup("FIXED");
+        case DRIVE_REMOTE:      return _jit_strdup("REMOTE");
+        case DRIVE_CDROM:       return _jit_strdup("CDROM");
+        case DRIVE_RAMDISK:     return _jit_strdup("RAMDISK");
     }
 
-    return strdup("UNKNOWN");
+    return _jit_strdup("UNKNOWN");
 }
 
 DLL_API char *
@@ -263,10 +268,10 @@ _jit_disk_share(const char *drive)
         remote,
         &size) != NO_ERROR)
     {
-        return strdup("");
+        return _jit_strdup("");
     }
 
-    return strdup(remote);
+    return _jit_strdup(remote);
 }
 
 DLL_API char *

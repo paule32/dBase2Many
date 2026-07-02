@@ -4,7 +4,7 @@
 # All rights reserved
 # ---------------------------------------------------------------------------
 from __future__  import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from compiler.common.constants import *
 
@@ -32,7 +32,8 @@ class CommonData():
         self.args_backend        : str  = ""
         self.ExeOutputDir        : str  = ""
         self.InputFiles          : list = []
-        self.IncludeDirs         : list = []
+        self.UnitFiles           : list = []
+        self.IncludePaths        : list = []
         
         self.imports = {
             "kernel32.dll": [
@@ -53,6 +54,18 @@ class CommonData():
 
                 ( "_jit_new_memory",                 200 ),
                 ( "_jit_dispose_memory",             201 ),
+
+                ( "_jit_malloc",                     210 ),
+                ( "_jit_realloc",                    211 ),
+                ( "_jit_free",                       212 ),
+
+                ( "_jit_memcpy",                     220 ),
+                ( "_jit_memset",                     221 ),
+                ( "_jit_memcmp",                     222 ),
+                ( "_jit_memmove",                    223 ),
+
+                ( "_jit_strdup",                     230 ),
+                ( "_jit_strlen",                     231 ),
 
                 ( "_jit_debug_break",                300 ),
 
@@ -86,7 +99,10 @@ class CommonData():
                 ( "_jit_dynstring_copy",            2004 ),
                 ( "_jit_dynstring_pos",             2005 ),
 
-                ( "_jit_set_exception",             4000 ),
+                ( "_jit_exception_push",            4100 ),
+                ( "_jit_exception_pop",             4101 ),
+                ( "_jit_setjmp",                    4102 ),
+                ( "_jit_longjmp",                   4103 ),
                 
                 ( "_jit_read_int",                  5000 ),
                 ( "_jit_read_string",               5001 ),
@@ -164,3 +180,4 @@ class ClassInfo:
     methods     : dict[str, list[ClassMethodInfo]]
     size        : int
     parent      : str | None = None
+    properties  : dict = field(default_factory=dict)

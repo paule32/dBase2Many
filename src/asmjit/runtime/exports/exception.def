@@ -3,4 +3,13 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_set_exception             @4000
+_jit_exception_push             @4100
+_jit_exception_pop              @4101
+_jit_setjmp                     @4102
+_jit_longjmp                    @4103
+
+_jit_error_runtime              @4104
+_jit_error_out_of_memory        @4105
+_jit_error_nil_pointer          @4106
+_jit_error_array_bounds         @4107
+_jit_error_string_range         @4108

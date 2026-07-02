@@ -69,15 +69,14 @@ extern "C"
 
 DLL_API void  _jit_print_text(const char* s);
 DLL_API void  _jit_print_int(int v);
+DLL_API void  _jit_print_char(int c);
 DLL_API void  _jit_print_double(double v);
 DLL_API void  _jit_print_newline();
 
 DLL_API void* _jit_setlength_memory(void* old_ptr,uint64_t new_size);
 
-DLL_API void* _jit_new_memory(uint64_t size);
+DLL_API void* _jit_new_memory(uint32_t size);
 DLL_API void  _jit_dispose_memory(void* p);
-
-DLL_API void  _jit_print_char(int c);
 
 DLL_API char* _jit_dynstring_copy(char* src, int start, int count);
 DLL_API int   _jit_dynstring_pos(char* needle, char* haystack);

@@ -7,12 +7,12 @@
 #define __DBASE2MANY_CRC32C_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 typedef struct CRC32C_CTX
 {
     uint32_t crc;
-} CRC32C_CTX;
+}   CRC32C_CTX;
 
 extern "C" {
 DLL_API VOID crc32c_init  (CRC32C_CTX *ctx);

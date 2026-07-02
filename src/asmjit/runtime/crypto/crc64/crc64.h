@@ -7,15 +7,15 @@
 #define __DBASE2MANY_CRC64_H__
 
 # pragma once
-# include "dbase2many.hpp"
+# include "stddef.h"
 
 typedef struct CRC64_CTX
 {
     uint64_t crc;
-} CRC64_CTX;
+}   CRC64_CTX;
 
 extern "C" {
-DLL_API VOID crc64_init(CRC64_CTX *ctx);
+DLL_API VOID crc64_init  (CRC64_CTX *ctx);
 DLL_API VOID crc64_update(CRC64_CTX *ctx, const void *data, size_t len);
 
 uint64_t crc64_final(CRC64_CTX *ctx);

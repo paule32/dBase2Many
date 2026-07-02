@@ -3,6 +3,8 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "stddef.h"
+# include "memory.h"
 # include "sha1.h"
 
 #define SHA1_ROTL(x,n) (((x) << (n)) | ((x) >> (32 - (n))))
@@ -83,7 +85,7 @@ sha1_update(SHA1_CTX *ctx, const void *data, size_t len)
     size_t i = 0;
 
     if (len >= part_len) {
-        memcpy(&ctx->buffer[index], input, part_len);
+        _jit_memcpy(&ctx->buffer[index], input, part_len);
         sha1_transform(ctx->state, ctx->buffer);
 
         for (i = part_len; i + 63 < len; i += 64)
@@ -92,7 +94,7 @@ sha1_update(SHA1_CTX *ctx, const void *data, size_t len)
         index = 0;
     }
 
-    memcpy(&ctx->buffer[index], &input[i], len - i);
+    _jit_memcpy(&ctx->buffer[index], &input[i], len - i);
 }
 
 DLL_API VOID
@@ -123,9 +125,9 @@ static char *bytes_to_hex_alloc(const uint8_t *data, size_t len)
 {
     static const char hex[] = "0123456789abcdef";
 
-    char *result = (char*)malloc(len * 2 + 1);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(len * 2 + 1);
+    if (result == nullptr)
+        return nullptr;
 
     for (size_t i = 0; i < len; i++) {
         result[i * 2 + 0] = hex[(data[i] >> 4) & 0x0F];

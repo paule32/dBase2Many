@@ -3,6 +3,8 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "stddef.h"
+# include "memory.h"
 # include "sha3.h"
 
 #define ROTL64(x,n) (((x) << (n)) | ((x) >> (64 - (n))))
@@ -101,7 +103,7 @@ static void keccakf(uint64_t st[25])
 DLL_API VOID
 sha3_init(SHA3_CTX *ctx, size_t rate, size_t digest_len)
 {
-    memset(ctx, 0, sizeof(*ctx));
+    _jit_memset(ctx, 0, sizeof(*ctx));
 
     ctx->rate       = rate;
     ctx->digest_len = digest_len;
@@ -119,7 +121,7 @@ sha3_update(SHA3_CTX *ctx, const void *data, size_t len)
         if (n > len)
             n = len;
 
-        memcpy(ctx->buffer + ctx->pos, in, n);
+        _jit_memcpy(ctx->buffer + ctx->pos, in, n);
 
         ctx->pos += n;
         in       += n;
@@ -131,7 +133,7 @@ sha3_update(SHA3_CTX *ctx, const void *data, size_t len)
 
             keccakf(ctx->state);
 
-            memset(ctx->buffer, 0, ctx->rate);
+            _jit_memset(ctx->buffer, 0, ctx->rate);
             ctx->pos = 0;
         }
     }
@@ -153,7 +155,7 @@ sha3_final(SHA3_CTX *ctx, uint8_t *digest)
     for (int i = 0; i < 25; i++)
         store_le64(out + i * 8, ctx->state[i]);
 
-    memcpy(digest, out, ctx->digest_len);
+    _jit_memcpy(digest, out, ctx->digest_len);
 }
 
 DLL_API char*
@@ -164,9 +166,9 @@ _jit_sha3(char *str, int len)
 
     static const char hex[] = "0123456789abcdef";
 
-    char *result = (char*)malloc(32 * 2 + 1);
-    if (result == NULL)
-        return NULL;
+    char *result = (char*)_jit_malloc(32 * 2 + 1);
+    if (result == nullptr)
+        return nullptr;
 
     sha3_init  (&ctx, 136, 32);
     sha3_update(&ctx, str, (size_t)len);

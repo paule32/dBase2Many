@@ -490,5 +490,55 @@ class Coff32Backend(CodeBackend):
     def emit_mov_reg_byte(self, dst, base, comment=""):
         raise NotImplementedError(tr("NT32 byte load is not implemented yet"))
     
+    def emit_program_entry(self):
+        frame_size = 512
+
+        self.emit_bind_label("_start")
+
+        self.emit_push("ebp")
+        self.emit_mov("ebp", "esp")
+
+        self.emit_sub("esp", frame_size, comment="top exception frame")
+        self.emit_mov("ebx", "esp", comment="frame ptr")
+
+        self.emit_push("ebx")
+        self.emit_call("_jit_exception_push")
+        self.emit_cleanup_stack(4)
+
+        self.emit_push("ebx")
+        self.emit_call("_jit_setjmp")
+        self.emit_cleanup_stack(4)
+
+        except_label = "__top_except"
+        exit_label   = "__top_exit"
+
+        self.emit_cmp("eax", 0)
+        self.emit_jne(except_label)
+
+        self.emit_call("_main")
+
+        self.emit_push("ebx")
+        self.emit_call("_jit_exception_pop")
+        self.emit_cleanup_stack(4)
+
+        self.emit_mov("eax", 0)
+        self.emit_jmp(exit_label)
+
+        self.emit_bind_label(except_label)
+
+        self.emit_push("ebx")
+        self.emit_call("_jit_exception_pop")
+        self.emit_cleanup_stack(4)
+
+        self.emit_mov("eax", 1)
+
+        self.emit_bind_label(exit_label)
+
+        self.emit_mov("esp", "ebp")
+        self.emit_pop("ebp")
+        self.emit_ret()
+    
     def write(self, filename):
+        print("12121212121223");
+        self.emit_program_entry()
         NTWriter32(self).write(filename)
