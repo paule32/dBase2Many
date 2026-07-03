@@ -3,5 +3,5 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_read_int                  @5000
-_jit_read_string               @5001
+_jit_read_int                  @2
+_jit_read_string               @3

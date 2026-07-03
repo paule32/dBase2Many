@@ -1,3 +1,5 @@
+{$link math.o}
+
 program testregistry;
 
 uses Registry;
@@ -22,6 +24,8 @@ begin
         WriteLn('ValueB: ', R.ValueB);
         WriteLn('ValueC: ', R.ValueC);
     finally
+        WriteLn('The End.');
         R.Free;
     end;
+    WriteLn('fini');
 end.

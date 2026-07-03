@@ -47,8 +47,29 @@ struct IMAGE_OPTIONAL_HEADER32
     DWORD ImageBase;
     DWORD SectionAlignment;
     DWORD FileAlignment;
-    DWORD unused[10];
+
+    WORD  MajorOperatingSystemVersion;
+    WORD  MinorOperatingSystemVersion;
+    WORD  MajorImageVersion;
+    WORD  MinorImageVersion;
+    WORD  MajorSubsystemVersion;
+    WORD  MinorSubsystemVersion;
+
+    DWORD Win32VersionValue;
+    DWORD SizeOfImage;
+    DWORD SizeOfHeaders;
+    DWORD CheckSum;
+
+    WORD  Subsystem;
+    WORD  DllCharacteristics;
+
+    DWORD SizeOfStackReserve;
+    DWORD SizeOfStackCommit;
+    DWORD SizeOfHeapReserve;
+    DWORD SizeOfHeapCommit;
+    DWORD LoaderFlags;
     DWORD NumberOfRvaAndSizes;
+
     IMAGE_DATA_DIRECTORY DataDirectory[16];
 };
 
@@ -118,9 +139,7 @@ struct PEB32
     PEB_LDR_DATA32 *Ldr;
 };
 
-PFN_LoadLibraryA   p_LoadLibraryA   = nullptr;
-PFN_GetProcAddress p_GetProcAddress = nullptr;
-PFN_MessageBoxA    p_MessageBoxA    = nullptr;
+PFN_LoadLibraryA p_LoadLibraryA = nullptr;
 
 extern "C" PEB32* get_peb32()
 {
@@ -188,10 +207,11 @@ FARPROC find_export(HMODULE module, const char *name)
     if (nt->Signature != 0x00004550) // PE\0\0
         return 0;
 
-    DWORD export_rva = nt->OptionalHeader.DataDirectory[0].VirtualAddress;
+    DWORD export_rva  = nt->OptionalHeader.DataDirectory[0].VirtualAddress;
+    DWORD export_size = nt->OptionalHeader.DataDirectory[0].Size;
 
-    if (!export_rva)
-        return 0;
+    if (!export_rva || !export_size)
+    return 0;
 
     IMAGE_EXPORT_DIRECTORY *exp = (IMAGE_EXPORT_DIRECTORY*)(base + export_rva);
 
@@ -251,9 +271,13 @@ extern "C" int init_loader()
 
     p_LoadLibraryA   = (PFN_LoadLibraryA)   find_export(kernel32, "LoadLibraryA");
     p_GetProcAddress = (PFN_GetProcAddress) find_export(kernel32, "GetProcAddress");
-
+    
     if (!p_LoadLibraryA || !p_GetProcAddress)
     return 0;
+
+    p_GetStdHandle = (PFN_GetStdHandle) p_GetProcAddress(kernel32, "GetStdHandle");
+    p_WriteFile    = (PFN_WriteFile)    p_GetProcAddress(kernel32, "WriteFile");
+
 
     HMODULE user32 = p_LoadLibraryA("user32.dll");
     if (!user32)

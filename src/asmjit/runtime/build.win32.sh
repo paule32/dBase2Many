@@ -39,6 +39,9 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     echo "assemble: crypto/$dir/$dir.cc"
     g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
     -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -fno-builtin-memset  \
+    -fno-builtin-memcpy  \
+    -fno-builtin-memmove \
     -S -o win32/obj/crypto/$dir/$dir.s crypto/$dir/$dir.cc
     echo "sed:      win32/obj/crypto/$dir/$dir.s"
     sed -i \
@@ -55,13 +58,18 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   done
   
   RUNTIME_FILES=(
-    loader allocator diskio/diskio exception iostream vector windows
+    loader allocator diskio/diskio error exception iostream memory print
+    string vector windows
+    dllmain
   )
   mkdir -p win32/obj/diskio
   for file in "${RUNTIME_FILES[@]}"; do
     echo "assemble: $file.cc"
     g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
     -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -fno-builtin-memset  \
+    -fno-builtin-memcpy  \
+    -fno-builtin-memmove \
     -S -o win32/obj/$file.s $file.cc
     echo "sed:      $file.s"
     sed -i \
@@ -76,66 +84,49 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     g++ -o win32/obj/$file.o -c win32/obj/$file.s
   done
   
-  exit 0
-  echo "assemble: vector.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
-  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
-  -S -o win32/obj/vector.s vector.cc
-  echo "sed:      vector.s"
-  sed -i \
-      -e '/^[[:space:]]*\.ident/d'     \
-      -e '/^[[:space:]]*\.file/d'      \
-      -e '/^[[:space:]]*\.linkonce/d'  \
-      -e '/^[[:space:]]*\.def/d'       \
-      -e '/^[[:space:]]*\.cfi_/d'      \
-      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
-      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/vector.s
-  echo "compile:  vector.s"
-  g++ -o win32/obj/vector.o -c win32/obj/vector.s
-
-  echo "assemble: iostream.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
-  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
-  -S -o win32/obj/iostream.s iostream.cc
-  echo "sed:      iostream.s"
-  sed -i \
-      -e '/^[[:space:]]*\.ident/d'     \
-      -e '/^[[:space:]]*\.file/d'      \
-      -e '/^[[:space:]]*\.linkonce/d'  \
-      -e '/^[[:space:]]*\.def/d'       \
-      -e '/^[[:space:]]*\.cfi_/d'      \
-      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
-      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/iostream.s
-  echo "compile:  iostream.s"
-  g++ -o win32/obj/iostream.o -c win32/obj/iostream.s
+  nasm -fwin32 -o win32/obj/setjmp32.o setjmp32.asm
   
-  echo "assemble: print.cc"; g++ -O2 -m32 -std=c++20 -shared -DDLL_BUILD -fPIC \
-  -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
-  -S -o win32/obj/print.s print.cc
-  echo "sed:      print.s"
-  sed -i \
-      -e '/^[[:space:]]*\.ident/d'     \
-      -e '/^[[:space:]]*\.file/d'      \
-      -e '/^[[:space:]]*\.linkonce/d'  \
-      -e '/^[[:space:]]*\.def/d'       \
-      -e '/^[[:space:]]*\.cfi_/d'      \
-      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
-      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/print.s
-  echo "compile:  print.s"
-  g++ -o win32/obj/print.o -c win32/obj/print.s
-                                                          
+  RUNTIME_OBJECTS=("${RUNTIME_FILES[@]/#/win32/obj/}")
+  RUNTIME_OBJECTS=("${RUNTIME_OBJECTS[@]/%/.o}")
+  
+  ld -r -o win32/obj/runtime_all.o "${RUNTIME_OBJECTS[@]}" win32/obj/setjmp32.o
+  nm win32/obj/runtime_all.o > win32/obj/1
+  
+  echo "create export .def initions file..."
+  python makedef.32.py
+  
+  echo "create 32-bit dll fil..."
+  g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
+  -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
+  win32/obj/runtime_all.o      \
+  win32/obj/crypto/blake2/*.o  \
+  win32/obj/crypto/blake3/*.o  \
+  win32/obj/crypto/crc16/*.o   \
+  win32/obj/crypto/crc32/*.o   \
+  win32/obj/crypto/crc32c/*.o  \
+  win32/obj/crypto/crc64/*.o   \
+  win32/obj/crypto/md5/*.o     \
+  win32/obj/crypto/sha1/*.o    \
+  win32/obj/crypto/sha3/*.o    \
+  win32/obj/crypto/sha224/*.o  \
+  win32/obj/crypto/sha256/*.o  \
+  win32/obj/crypto/sha384/*.o  \
+  win32/obj/crypto/sha512/*.o  \
+  win32/libdbase2many.32.def   \
+  -Wl,--out-implib,win32/libdbase2many.32.dll.a
+
+  echo "strip debug informations..."
+  strip win32/libdbase2many.32.dll
+  
+  echo "done."
   exit 0
   
 #  echo "compile: pascal/registry.pas"  ; ./pas2asmjit -Twinnt --backend exe pascal/registry.pas
 #  exit 0
-
-  nasm -fwin32 -o setjmp32.o setjmp32.asm
   
   echo "compile: error.cc"  ; g++ -O2 -m32 -std=c++20 -shared \
   -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
   win32/obj/error.o   error.cc
-  
-  echo "compile: print.cc"  ; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/print.o   print.cc
   
   echo "compile: mapping.cc"; g++ -O2 -m32 -std=c++20 -shared \
   -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
@@ -144,87 +135,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   echo "compile: misc.cc"   ; g++ -O2 -m32 -std=c++20 -shared \
   -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
   win32/obj/misc.o    misc.cc
-  
-  echo "compile: memory.cc" ; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/memory.o  memory.cc
-  
-  # ----------------------------------------------
-  # hash algorythms ...
-  # ----------------------------------------------
-  echo "compile: crypto/blake2/blake2.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/blake2  -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/blake2/blake2.o crypto/blake2/blake2.cc
-  
-  echo "compile: crypto/blake3/blake3.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/blake3 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/blake3/blake3.o crypto/blake3/blake3.cc
-  
-  echo "compile: crypto/crc16/crc16.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/crc16 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/crc16/crc16.o crypto/crc16/crc16.cc
-  
-  echo "compile: crypto/crc32/crc32.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/crc32  -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/crc32/crc32.o crypto/crc32/crc32.cc
-  
-  echo "compile: crypto/crc32c/crc32c.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/crc32c  -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/crc32c/crc32c.o crypto/crc32c/crc32c.cc
-  
-  echo "compile: crypto/crc64/crc64.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/crc64 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/crc64/crc64.o crypto/crc64/crc64.cc
-  
-  echo "compile: crypto/md5/md5.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/md5 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/md5/md5.cc.o crypto/md5/md5.cc
-  
-  echo "compile: crypto/sha1/sha1.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha1  -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha1/sha1.o crypto/sha1/sha1.cc
-  
-  echo "compile: crypto/sha3/sha3.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha3  -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha3/sha3.o crypto/sha3/sha3.cc
-    
-  echo "compile: crypto/sha224/sha224.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha224 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha224/sha224.o crypto/sha223/sha224.cc
-  
-  echo "compile: crypto/sha256/sha256.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha256 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha256/sha256.o crypto/sha256/sha256.cc
-  
-  echo "compile: crypto/sha384/sha384.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha384 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha384/sha384.o crypto/sha384/sha384.cc
-  
-  echo "compile: crypto/sha512/sha512.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Icrypto/sha512 -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/crypto/sha512/sha512.o crypto/sha512/sha512.cc
-  
-  # ----------------------------------------------
-  # disk informations input output
-  # ----------------------------------------------
-  echo "compile: diskio/diskio.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF \
-  -I. -Idiskio -DDLL_EXPORT -fPIC -c -o  \
-  win32/obj/diskio/diskio.o diskio/diskio.cc
-          
+   
   # ----------------------------------------------
   # Windows 32-bit API stuff ...
   # ----------------------------------------------

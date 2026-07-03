@@ -3,9 +3,9 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_dynstring_setlength       @2000
-_jit_dynstring_from_cstr       @2001
-_jit_dynstring_length          @2002
-_jit_dynstring_concat          @2003
-_jit_dynstring_copy            @2004
-_jit_dynstring_pos             @2005
+_jit_dynstring_setlength       @57
+_jit_dynstring_from_cstr       @58
+_jit_dynstring_length          @59
+_jit_dynstring_concat          @60
+_jit_dynstring_copy            @61
+_jit_dynstring_pos             @62

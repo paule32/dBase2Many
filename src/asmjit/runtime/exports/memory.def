@@ -3,17 +3,17 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_new_memory                 @200
-_jit_dispose_memory             @201
+_jit_new_memory                 @41
+_jit_dispose_memory             @42
 
-_jit_malloc         @210
-_jit_realloc        @211
-_jit_free           @212
+_jit_malloc         @43
+_jit_realloc        @44
+_jit_free           @45
 
-_jit_memcpy         @220
-_jit_memset         @221
-_jit_memcmp         @222
-_jit_memmove        @223
+_jit_memcpy         @46
+_jit_memset         @47
+_jit_memcmp         @48
+_jit_memmove        @49
 
-_jit_strdup         @230
-_jit_strlen         @231
+_jit_strdup         @50
+_jit_strlen         @51

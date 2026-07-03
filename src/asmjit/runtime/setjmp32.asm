@@ -1,8 +1,10 @@
 ; ---------------------------------------------------------------------------
 ; int __cdecl _jit_setjmp(JitJumpBuffer *env)
 ; ---------------------------------------------------------------------------
-global _jit_setjmp
-_jit_setjmp:
+bits 32
+section .text
+global ___jit_setjmp
+___jit_setjmp:
     mov     edx, [esp + 4]      ; env
 
     mov     [edx + 0], ebx
@@ -23,8 +25,8 @@ _jit_setjmp:
 ; ---------------------------------------------------------------------------
 ; void __cdecl _jit_longjmp(JitJumpBuffer *env, int value)
 ; ---------------------------------------------------------------------------
-global _jit_longjmp
-_jit_longjmp:
+global ___jit_longjmp
+___jit_longjmp:
     mov     edx, [esp + 4]      ; env
     mov     eax, [esp + 8]      ; value
 

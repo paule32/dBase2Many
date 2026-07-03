@@ -226,6 +226,32 @@ def args_func():
     )
     
     # -------------------------------------------------------------
+    # Linker .o bject file search path for {$link foo.o}
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "-Fo",
+        "--objpath",
+        dest    = "objpath",
+        action  = "append",
+        default = ["."],
+        metavar = "PATH",
+        help    = tr("Object file search path")
+    )
+
+    # -------------------------------------------------------------
+    # Linker .a rchive file search path for {$linklib libfoo.a}
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "-Fl",
+        "--libpath",
+        dest    = "libpath",
+        action  = "append",
+        default = [],
+        metavar = "PATH",
+        help    = tr("Library file search path")
+    )
+    
+    # -------------------------------------------------------------
     # --info V  -> informations about the compiler
     # Example: pas.exe --info V
     # -------------------------------------------------------------
@@ -370,6 +396,18 @@ def handle_args(args):
     if result["kind"] == "file":
         CDATA.LastErrorCode = LastError.NO_DIRECTORY
         raise Exception(tr("executable output is not a directory or does not exists."))
+    
+    if args.objpath:
+        for path in args.Fo:
+            CDATA.link_object_paths.append(
+                os.path.normpath(path)
+            )
+
+    if args.libpath:
+        for path in args.Fl:
+            CDATA.link_library_paths.append(
+                os.path.normpath(path)
+            )
     
     if args.info is not None:
         if args.info == "":

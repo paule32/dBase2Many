@@ -53,6 +53,13 @@ class PE64Writer:
                     funcs.append(name)
         return funcs
 
+    def emit_ucomisd64(self, left, right):
+        left_id  = self._xmm_id(left)
+        right_id = self._xmm_id(right)
+
+        self.text += b"\x66\x0F\x2E"
+        self.text.append(0xC0 | (left_id << 3) | right_id)
+
     def build_text_with_import_thunks(self):
         text_image = bytearray(self.text)
         self.import_thunk_offsets = {}

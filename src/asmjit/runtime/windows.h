@@ -31,6 +31,24 @@ constexpr DWORD ERROR_SHARING_VIOLATION = 32;
 constexpr DWORD ERROR_FILE_EXISTS       = 80;
 
 // --------------------------------------------------------------------
+// dll loader main
+// --------------------------------------------------------------------
+constexpr DWORD DLL_PROCESS_DETACH = 0;
+constexpr DWORD DLL_PROCESS_ATTACH = 1;
+constexpr DWORD DLL_THREAD_ATTACH  = 2;
+constexpr DWORD DLL_THREAD_DETACH  = 3;
+
+DLL_API BOOL JIT_STDCALL DllMain(
+    HINSTANCE hinstDLL,
+    DWORD     fdwReason,
+    LPVOID    lpvReserved);
+
+DLL_API BOOL JIT_STDCALL DllMainCRTStartup(
+    HINSTANCE hinstDLL,
+    DWORD     fdwReason,
+    LPVOID    lpvReserved);
+
+// --------------------------------------------------------------------
 // GetDriveType()
 // --------------------------------------------------------------------
 enum DriveType {
@@ -61,6 +79,11 @@ constexpr DWORD FILE_NAMED_STREAMS            = 0x00040000;
 constexpr DWORD FILE_READ_ONLY_VOLUME         = 0x00080000;
 
 // --------------------------------------------------------------------
+// console handle's ...
+// --------------------------------------------------------------------
+constexpr DWORD STD_OUTPUT_HANDLE = -11;
+
+// --------------------------------------------------------------------
 // pre-loader stuff ...
 // --------------------------------------------------------------------
 typedef HMODULE (JIT_STDCALL *PFN_LoadLibraryA)(LPCSTR);
@@ -71,6 +94,9 @@ typedef int     (JIT_STDCALL *PFN_MessageBoxA)(HANDLE, LPCSTR, LPCSTR, UINT);
 
 typedef DWORD   (JIT_STDCALL *PFN_GetLastError)();
 typedef VOID    (JIT_STDCALL *PFN_SetLastError)(DWORD error);
+
+typedef HANDLE  (JIT_STDCALL *PFN_GetStdHandle)(DWORD);
+typedef BOOL    (JIT_STDCALL *PFN_WriteFile)(HANDLE, const void *, DWORD, DWORD *, void *);
 
 typedef UINT    (JIT_STDCALL *PFN_GetDriveTypeA)(const char *rootPath);
 typedef BOOL    (JIT_STDCALL *PFN_GetDiskFreeSpaceExA)(
@@ -110,12 +136,15 @@ extern PFN_ExitProcess    p_ExitProcess;
 extern PFN_GetLastError   p_GetLastError;
 extern PFN_SetLastError   p_SetLastError;
 
+extern PFN_GetStdHandle   p_GetStdHandle;
+extern PFN_WriteFile      p_WriteFile;
+
 extern PFN_MessageBoxA    p_MessageBoxA;
 extern PFN_GetDriveTypeA  p_GetDriveTypeA;
 
 extern PFN_GetDiskFreeSpaceExA   p_GetDiskFreeSpaceExA;
 extern PFN_GetDiskFreeSpaceA     p_GetDiskFreeSpaceA;
-extern PFN_GetVolumeInformationA p_GetVolumeInformation;
+extern PFN_GetVolumeInformationA p_GetVolumeInformationA;
 
 extern PFN_WNetGetConnectionA    p_WNetGetConnectionA;
 

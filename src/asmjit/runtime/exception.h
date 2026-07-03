@@ -73,7 +73,7 @@ DLL_API VOID _jit_exception_pop (void);
 DLL_API VOID _jit_raise(JitExceptionCode code, const char *message);
 
 DLL_API VOID _jit_error_runtime      (const char *msg);
-DLL_API VOID _jit_error_out_of_memory(void);
+DLL_API VOID _jit_error_out_of_memory(const char *msg);
 DLL_API VOID _jit_error_nil_pointer  (void);
 DLL_API VOID _jit_error_array_bounds (void);
 DLL_API VOID _jit_error_string_range (void);

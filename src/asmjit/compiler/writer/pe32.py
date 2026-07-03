@@ -9,6 +9,7 @@ from compiler.common.constants import *
 from compiler.writer.nt32      import *
 
 import struct
+import os
 
 def double_to_bits(value):
     return struct.unpack(
@@ -16,6 +17,131 @@ def double_to_bits(value):
         struct.pack("<d", float(value))
     )[0]
 
+# ---------------------------------------------------------------------------
+# members used to include external coff32 .a rchive files into the exe image:
+# ---------------------------------------------------------------------------
+class ArMember:
+    def __init__(self, name, data, offset=0):
+        self.name = name
+        self.data = data
+        self.offset = offset
+
+        self.loaded = False
+        self.defined_symbols = []
+
+class ArArchiveReader:
+    MAGIC = b"!<arch>\n"
+
+    def __init__(self, filename=None):
+        self.filename = filename
+        self.members = []
+        self.long_names = b""
+        self.symbol_index = {}
+
+    @classmethod
+    def read(cls, filename):
+        ar = cls(filename)
+
+        with open(filename, "rb") as f:
+            data = f.read()
+
+        if not data.startswith(cls.MAGIC):
+            raise RuntimeError(f"not an ar archive: {filename}")
+
+        pos = len(cls.MAGIC)
+
+        while pos + 60 <= len(data):
+            header = data[pos:pos + 60]
+            member_offset = pos
+            pos += 60
+
+            raw_name = header[0:16].decode("ascii", errors="replace")
+            raw_size = header[48:58].decode("ascii", errors="replace").strip()
+
+            if not raw_size:
+                break
+
+            size = int(raw_size)
+
+            member_data = data[pos:pos + size]
+            pos += size
+
+            if pos & 1:
+                pos += 1
+
+            name = ar.decode_member_name(raw_name)
+
+            if name == "//":
+                ar.long_names = member_data
+                continue
+
+            if name == "/":
+                continue
+
+            member = ArMember(
+                name=name,
+                data=member_data,
+                offset=member_offset
+            )
+
+            ar.members.append(member)
+
+        return ar
+
+    def decode_member_name(self, raw_name):
+        name = raw_name.strip()
+
+        if name == "/":
+            return "/"
+
+        if name == "//":
+            return "//"
+
+        if name.startswith("/") and name[1:].isdigit():
+            return self.get_long_name(int(name[1:]))
+
+        if name.endswith("/"):
+            name = name[:-1]
+
+        return name
+
+    def get_long_name(self, offset):
+        if not self.long_names:
+            return f"/{offset}"
+
+        end = self.long_names.find(b"\n", offset)
+
+        if end < 0:
+            end = len(self.long_names)
+
+        name = self.long_names[offset:end]
+        name = name.rstrip(b"/")
+        name = name.rstrip(b"\r\n")
+
+        return name.decode("ascii", errors="replace")
+
+    def build_symbol_index(self, coff_reader_class):
+        self.symbol_index.clear()
+
+        for member in self.members:
+            try:
+                coff = coff_reader_class.from_bytes(member.data)
+            except Exception:
+                continue
+
+            symbols = coff.get_defined_symbols()
+
+            member.defined_symbols = symbols
+
+            for sym in symbols:
+                self.symbol_index.setdefault(sym, []).append(member)
+
+    def find_members_for_symbol(self, symbol):
+        return self.symbol_index.get(symbol, [])
+
+# ---------------------------------------------------------------------------
+# members used to include external coff32 .o bject files into exe image link:
+# ---------------------------------------------------------------------------
 class Coff32Relocation:
     def __init__(self, virtual_address, symbol_index, rel_type):
         self.virtual_address = virtual_address
@@ -29,6 +155,30 @@ class Coff32Object:
         self.relocations     = []
         self.raw_symbols     = []
         self.string_table    = b""
+    
+    def get_defined_symbols(self):
+        result = []
+
+        for sym in self.symbols.values():
+            if not sym.name:
+                continue
+             
+            if sym.section_number > 0:
+                result.append(sym.name)
+
+        return result
+
+    def get_undefined_symbols(self):
+        result = []
+
+        for sym in self.symbols.values():
+            if not sym.name:
+                continue
+
+            if sym.section_number == 0:
+                result.append(sym.name)
+
+        return result
 
 class Coff32Section:
     def __init__(self, name, data, characteristics):
@@ -58,6 +208,17 @@ class Coff32Reader:
         self.obj          = Coff32Object()
         self.string_table = b""
 
+    @classmethod
+    def from_bytes(cls, data):
+        reader = cls(None)
+        reader.data = data
+
+        reader.read_header()
+        reader.read_sections()
+        reader.read_symbols()
+
+        return reader.obj
+    
     def read(self):
         with open(self.filename, "rb") as f:
             self.data = f.read()
@@ -183,8 +344,8 @@ class Coff32Reader:
 
             sym = Coff32Symbol(
                 name,
-                value,
                 section_number,
+                value,
                 storage_class
             )
 
@@ -198,7 +359,7 @@ class Coff32Reader:
                 self.obj.raw_symbols.append(None)
 
             i += 1
-            
+
 # ---------------------------------------------------------------------------
 # Windows NT 3.5 PE COFF object/code writer
 # ---------------------------------------------------------------------------
@@ -228,13 +389,185 @@ class PE32Writer:
         self.string_table = bytearray()
         self.string_offsets = {}
         
-        self.coff_objects = []
-        self.external_symbols = {}
+        # search path's:
+        #self.link_object_files  = []
+        #self.link_archive_files = []
+        
+        #self.library_paths      = ["."]
+        #self.object_paths       = ["."]
 
-    def add_coff_object(self, filename):
-        obj = Coff32Reader(filename).read()
+        # external .o bject file's
+        self.coff_objects       = []
+        
+        # external .a rchive file's
+        self.archive_files      = []
+        self.archives           = []
+
+    def archive_name_candidates(self, name):
+        name = self.normalize_link_path(name)
+
+        directory = os.path.dirname(name)
+        base      = os.path.basename(name)
+
+        root, ext = os.path.splitext(base)
+
+        candidates = []
+
+        def add_candidate(filename):
+            full = os.path.join(directory, filename) if directory else filename
+
+            if full not in candidates:
+                candidates.append(full)
+
+        if ext:
+            add_candidate(base)
+
+            if not root.startswith("lib"):
+                add_candidate("lib" + root + ext)
+        else:
+            add_candidate(base + ".a")
+
+            if base.startswith("lib"):
+                add_candidate(base + ".a")
+            else:
+                add_candidate("lib" + base + ".a")
+
+        return candidates
+    
+    def resolve_link_archive_name(self, name):
+        name       = self.normalize_link_path(name)
+        candidates = self.archive_name_candidates(name)
+
+        # absolute oder mit Pfad
+        if os.path.isabs(name) or os.path.dirname(name):
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    return candidate
+
+            raise RuntimeError(
+                "archive file not found: " + ", ".join(candidates)
+            )
+
+        # Suchpfade
+        for path in CDATA.link_library_paths:
+            for candidate in candidates:
+                full = os.path.join(path, candidate)
+
+                if os.path.exists(full):
+                    return full
+
+        raise RuntimeError(
+            "archive file not found: " + ", ".join(candidates)
+        )
+
+    def resolve_archive_objects(self):
+        self.load_archives()
+
+        changed = True
+
+        while changed:
+            changed = False
+
+            unresolved = self.collect_unresolved_symbols()
+
+            if not unresolved:
+                break
+
+            for archive in self.archives:
+                for symbol in list(unresolved):
+                    members = archive.find_members_for_symbol(symbol)
+
+                    for member in members:
+                        if member.loaded:
+                            continue
+
+                        obj = Coff32Reader.from_bytes(member.data)
+
+                        self.add_coff_object(obj)
+
+                        member.loaded = True
+                        changed = True
+    
+    def normalize_link_path(self, name):
+        name = name.strip()
+
+        if (
+            (name.startswith("'") and name.endswith("'")) or
+            (name.startswith('"') and name.endswith('"'))
+        ):
+            name = name[1:-1]
+
+        name = name.replace("\\", os.sep).replace("/", os.sep)
+
+        return os.path.normpath(name)
+
+    def add_object_search_path(self, path):
+        path = self.normalize_link_path(path)
+
+        if path not in CDATA.link_object_paths:
+            CDATA.link_object_paths.append(path)
+
+    def add_library_search_path(self, path):
+        path = self.normalize_link_path(path)
+
+        if path not in CDATA.link_library_paths:
+            CDATA.link_library_paths.append(path)
+
+    def add_link_object(self, name):
+        filename = self.resolve_link_object_name(name)
+
+        if filename not in CDATA.link_object_files:
+            CDATA.link_object_files.append(filename)
+
+    def add_link_archive(self, name):
+        filename = self.resolve_link_archive_name(name)
+
+        if filename not in CDATA.link_archive_files:
+            CDATA.link_archive_files.append(filename)
+            self.add_archive_file(filename)
+    
+    def add_archive_file(self, filename):
+        self.archive_files.append(filename)
+
+    def add_coff_object(self, source):
+        if isinstance(source, Coff32Object):
+            obj = source
+        else:
+            obj = Coff32Reader(source).read()
+
         self.coff_objects.append(obj)
         return obj
+    
+    def resolve_link_object_name(self, name):
+        name      = self.normalize_link_path(name)
+        root, ext = os.path.splitext(name)
+
+        if not ext:
+            name = name + ".o"
+
+        # absolute oder explizite Pfadangabe
+        if os.path.isabs(name) or os.path.dirname(name):
+            if os.path.exists(name):
+                return name
+
+            raise RuntimeError(f"object file not found: {name}")
+
+        # Suchpfade
+        for path in CDATA.link_object_paths:
+            candidate = os.path.join(path, name)
+
+            if os.path.exists(candidate):
+                return candidate
+
+        raise RuntimeError(f"object file not found: {name}")
+    
+    def load_archives(self):
+        self.archives = []
+
+        for filename in self.archive_files:
+            ar = ArArchiveReader.read(filename)
+            ar.build_symbol_index(Coff32Reader)
+            self.archives.append(ar)
     
     def section_rva(self, name):
         if name == ".text":
@@ -277,6 +610,39 @@ class PE32Writer:
                 value=target["value"],
                 section_number=target["section"]
             )
+    
+    def collect_defined_symbols(self):
+        defined = set()
+
+        for obj in self.coff_objects:
+            for sym in obj.get_defined_symbols():
+                defined.add(sym)
+
+        for sym in self.symbols:
+            if isinstance(sym, dict):
+                if sym.get("section", 0) > 0:
+                    defined.add(sym.get("name"))
+
+        return defined
+    
+    def collect_unresolved_symbols(self):
+        defined = self.collect_defined_symbols()
+        unresolved = set()
+
+        for obj in self.coff_objects:
+            for sym in obj.get_undefined_symbols():
+                if sym not in defined:
+                    unresolved.add(sym)
+
+        for sym in self.symbols:
+            if isinstance(sym, dict):
+                name = sym.get("name")
+                section = sym.get("section", 0)
+
+                if section == 0 and name not in defined:
+                    unresolved.add(name)
+
+        return unresolved
     
     def begin_function(self, name, local_size=0, public=True):
         offset = len(self.text)
@@ -386,6 +752,14 @@ class PE32Writer:
                 "label": label
             })
     
+    def emit_movapd32(self, dst, src):
+        dst_id = self._xmm_id(dst)
+        src_id = self._xmm_id(src)
+
+        # movapd xmm, xmm
+        self.text += b"\x66\x0F\x28"
+        self.text.append(0xC0 | (dst_id << 3) | src_id)
+    
     def emit_jmp(self, label):
         self.text.append(0xE9)
 
@@ -408,6 +782,11 @@ class PE32Writer:
             "jle": b"\x0F\x8E",
             "jg":  b"\x0F\x8F",
             "jge": b"\x0F\x8D",
+
+            "jb":  b"\x0F\x82",
+            "jbe": b"\x0F\x86",
+            "ja":  b"\x0F\x87",
+            "jae": b"\x0F\x83",
         }
 
         if cc not in opcodes:
@@ -426,14 +805,56 @@ class PE32Writer:
                 "label": label
             })
 
-    def emit_je(self, label):  self.emit_jcc("je",  label)
+    def emit_jcc(self, cc, label):
+        opcodes = {
+            "je":  b"\x0F\x84",
+            "jne": b"\x0F\x85",
+            "jl":  b"\x0F\x8C",
+            "jle": b"\x0F\x8E",
+            "jg":  b"\x0F\x8F",
+            "jge": b"\x0F\x8D",
+
+            "jb":  b"\x0F\x82",
+            "jbe": b"\x0F\x86",
+            "ja":  b"\x0F\x87",
+            "jae": b"\x0F\x83",
+        }
+
+        if cc not in opcodes:
+            raise RuntimeError(f"{tr('unsupported PE32 condition jump')}: {cc}")
+
+        self.text += opcodes[cc]
+
+        patch_pos = len(self.text)
+        self.text += b"\x00\x00\x00\x00"
+
+        if label in self.labels:
+            self.patch_rel32(patch_pos, self.labels[label])
+        else:
+            self.fixups.append({
+                "patch_pos": patch_pos,
+                "label": label
+            })
+
+
+    def emit_jb(self, label):  self.emit_jcc("jb", label)
+    def emit_jbe(self, label): self.emit_jcc("jbe", label)
+    def emit_ja(self, label):  self.emit_jcc("ja", label)
+    def emit_jae(self, label): self.emit_jcc("jae", label)
+
+    def emit_je (self, label): self.emit_jcc("je",  label)
     def emit_jne(self, label): self.emit_jcc("jne", label)
-    def emit_jl(self, label):  self.emit_jcc("jl",  label)
+    def emit_jl (self, label): self.emit_jcc("jl",  label)
     def emit_jle(self, label): self.emit_jcc("jle", label)
-    def emit_jg(self, label):  self.emit_jcc("jg",  label)
+    def emit_jg (self, label): self.emit_jcc("jg",  label)
     def emit_jge(self, label): self.emit_jcc("jge", label)
     
     def emit_call_external(self, symbol_name):
+        #if symbol_name in self.labels:
+        #    return self.emit_call_label(symbol_name)
+        if symbol_name == "_main":
+            return self.emit_call_label(symbol_name)
+        
         if symbol_name in ["rax", "eax", "rbx", "ebx", "rcx", "ecx", "rdx", "edx"]:
             raise RuntimeError(f"{tr('register passed to emit_call_external')}: {symbol_name}")
         
@@ -578,6 +999,14 @@ class PE32Writer:
                 return index
 
         return None
+
+    def emit_ucomisd32(self, left, right):
+        left_id  = self._xmm_id(left)
+        right_id = self._xmm_id(right)
+
+        # 66 0F 2E /r
+        self.text += b"\x66\x0F\x2E"
+        self.text.append(0xC0 | (left_id << 3) | right_id)
     
     def emit_mov_reg_data_label32(self, reg, label):
         reg_id    = self._reg_id(reg)
@@ -837,6 +1266,12 @@ class PE32Writer:
         xmm = {
             "xmm0": 0,
             "xmm1": 1,
+            "xmm2": 2,
+            "xmm3": 3,
+            "xmm4": 4,
+            "xmm5": 5,
+            "xmm6": 6,
+            "xmm7": 7,
         }
         if reg not in xmm:
             raise RuntimeError(f"{tr('unsupported NT32 xmm register')}: {reg}")
@@ -973,7 +1408,22 @@ class PE32Writer:
             return 8
 
     def write(self, filename):
-        self.add_coff_object("math.o")
+        #self.add_coff_object("math.o")
+        #self.add_archive_file("libmath.a")
+        #self.add_archive_file("libruntime.a")
+        
+        # {$link foo.o}
+        for obj in CDATA.link_object_files:
+            self.add_coff_object(obj)
+        
+        # {$linklib libfoo.a}
+        for lib in CDATA.link_archive_files:
+            self.add_link_archive(lib)
+        
+        # 1. Archive nach offenen Symbolen durchsuchen
+        self.resolve_archive_objects()
+        
+        # 2. Alle gefundenen .o-Objekte einfügen
         self.include_coff_objects()
 
         NT32Writer(self).write(filename)

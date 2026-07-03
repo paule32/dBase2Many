@@ -3,4 +3,4 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_debug_break                @300
+_jit_debug_break                @16

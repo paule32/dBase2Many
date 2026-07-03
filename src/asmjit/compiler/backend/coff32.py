@@ -5,6 +5,7 @@
 # ---------------------------------------------------------------------------
 from __future__  import annotations
 
+from compiler.common.locale    import *
 from compiler.backend.code     import *
 
 # ---------------------------------------------------------------------------
@@ -26,6 +27,36 @@ class Coff32Backend(CodeBackend):
             "print_int_tmp": 24,
             "print_double_tmp": 28,
         }
+
+    def emit_jb(self, label, comment=""):
+        self.writer.emit_jb(label)
+
+    def emit_jbe(self, label, comment=""):
+        self.writer.emit_jbe(label)
+
+    def emit_ja(self, label, comment=""):
+        self.writer.emit_ja(label)
+
+    def emit_jae(self, label, comment=""):
+        self.writer.emit_jae(label)
+    
+    def emit_ucomisd(self, left, right, comment=""):
+        self.writer.emit_ucomisd32(left, right)
+    
+    def emit_movapd(self, dst, src, comment=""):
+        self.writer.emit_movapd32(dst, src)
+    
+    def emit_addsd(self, dst, src, comment=""):
+        self.writer.emit_addsd32(dst, src)
+
+    def emit_subsd(self, dst, src, comment=""):
+        self.writer.emit_subsd32(dst, src)
+
+    def emit_mulsd(self, dst, src, comment=""):
+        self.writer.emit_mulsd32(dst, src)
+
+    def emit_divsd(self, dst, src, comment=""):
+        self.writer.emit_divsd32(dst, src)
 
     def pointer_slot_size(self):
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
@@ -85,33 +116,6 @@ class Coff32Backend(CodeBackend):
             return
 
         self.writer.emit_call_external(target)
-    
-    def emit_jmp(self, label, comment=""):
-        self.writer.emit_jmp(label)
-
-    def emit_je(self, label, comment=""):
-        self.writer.emit_je(label)
-
-    def emit_jne(self, label, comment=""):
-        self.writer.emit_jne(label)
-
-    def emit_jz(self, label, comment=""):
-        self.writer.emit_je(label)
-
-    def emit_jnz(self, label, comment=""):
-        self.writer.emit_jne(label)
-
-    def emit_jl(self, label, comment=""):
-        self.writer.emit_jl(label)
-
-    def emit_jle(self, label, comment=""):
-        self.writer.emit_jle(label)
-
-    def emit_jg(self, label, comment=""):
-        self.writer.emit_jg(label)
-
-    def emit_jge(self, label, comment=""):
-        self.writer.emit_jge(label)
 
     def emit_jmp(self, label, comment=""):
         self.writer.emit_jmp(label)
@@ -140,32 +144,33 @@ class Coff32Backend(CodeBackend):
     def emit_jge(self, label, comment=""):
         self.writer.emit_jge(label)
 
-    def emit_jcc(self, cc, label):
-        opcodes = {
-            "je":  b"\x0F\x84",
-            "jne": b"\x0F\x85",
-            "jl":  b"\x0F\x8C",
-            "jle": b"\x0F\x8E",
-            "jg":  b"\x0F\x8F",
-            "jge": b"\x0F\x8D",
-        }
+    def emit_jmp(self, label, comment=""):
+        self.writer.emit_jmp(label)
 
-        if cc not in opcodes:
-            raise RuntimeError(f"{tr('unsupported PE32 condition jump')}: {cc}")
+    def emit_je(self, label, comment=""):
+        self.writer.emit_je(label)
 
-        self.text += opcodes[cc]
+    def emit_jne(self, label, comment=""):
+        self.writer.emit_jne(label)
 
-        patch_pos = len(self.text)
-        self.text += b"\x00\x00\x00\x00"
+    def emit_jz(self, label, comment=""):
+        self.writer.emit_je(label)
 
-        if label in self.labels:
-            self.patch_rel32(patch_pos, self.labels[label])
-        else:
-            self.fixups.append({
-                "patch_pos": patch_pos,
-                "label": label
-            })
-    
+    def emit_jnz(self, label, comment=""):
+        self.writer.emit_jne(label)
+
+    def emit_jl(self, label, comment=""):
+        self.writer.emit_jl(label)
+
+    def emit_jle(self, label, comment=""):
+        self.writer.emit_jle(label)
+
+    def emit_jg(self, label, comment=""):
+        self.writer.emit_jg(label)
+
+    def emit_jge(self, label, comment=""):
+        self.writer.emit_jge(label)
+
     def map_reg32(self, reg):
         reg_map = {
             "rax" : "eax", "eax": "eax",

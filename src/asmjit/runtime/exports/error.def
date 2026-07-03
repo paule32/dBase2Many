@@ -3,8 +3,8 @@
 ; Copyright (c) 2026 by Jens Kallup - paule32
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
-_jit_runtime_error              @400
-_jit_array_bounds_error         @401
-_jit_string_range_error         @402
-_jit_nil_pointer_error          @403
-_jit_out_of_memory_error        @404
+_jit_error_runtime              @31
+_jit_error_array_bounds         @32
+_jit_error_string_range         @33
+_jit_error_nil_pointer          @34
+_jit_error_out_of_memory        @35

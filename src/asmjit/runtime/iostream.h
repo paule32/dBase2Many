@@ -10,11 +10,11 @@
 # include "stddef.h"
 
 extern "C" {
-# define va_start(ap, last) (ap = (va_list)(&last + 1))
-# define va_arg  (ap, type) (*(type *)((ap += sizeof(type)) - sizeof(type)))
-# define va_end  (ap)       ((void)(ap = (va_list)0))
-
 typedef char* va_list;
+
+# define va_start(ap, last) (ap = (va_list)(&last + 1))
+# define va_arg(  ap, type) (*(type *)((ap += sizeof(type)) - sizeof(type)))
+# define va_end(  ap)       ((void)(ap = (va_list)0))
 
 typedef int (JIT_CDECL *printf_fn  )(const char *format, ...);
 typedef int (JIT_CDECL *vprintf_fn )(const char *format, ...);

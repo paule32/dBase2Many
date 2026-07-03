@@ -41,6 +41,12 @@
 # endif
 
 // ---------------------------------------------------------------------------
+// atomic constant's ...
+// ---------------------------------------------------------------------------
+constexpr int TRUE  = 1;
+constexpr int FALSE = 0;
+
+// ---------------------------------------------------------------------------
 // platform independent type definition's ...
 // ---------------------------------------------------------------------------
 typedef unsigned char        uint8_t;
@@ -60,6 +66,7 @@ typedef uint32_t size_t;
 // ---------------------------------------------------------------------------
 // widely used Windows 32-bit used type definition's ...
 // ---------------------------------------------------------------------------
+typedef int                 BOOL;
 typedef void                VOID;
 typedef void *              PVOID;
 typedef PVOID               LPVOID;
@@ -77,8 +84,30 @@ typedef PVOID               HMODULE;
 typedef PVOID               HANDLE;
 typedef       char *        LPSTR;
 typedef const char *        LPCSTR;
+typedef void       *        HINSTANCE;
 
 typedef VOID (*FARPROC)(VOID);
+
+// ---------------------------------------------------------------------------
+// asmjit context for various structures ...
+// ---------------------------------------------------------------------------
+struct JitContext {
+    int         *  int_vars;
+
+    double      *  double_vars;
+    char        ** string_vars;
+    uint8_t     *  record_vars;
+    uint8_t     *  arrays_vars;
+    uint64_t    *  pointr_vars;
+
+    int            print_int_tmp;
+    double         print_double_tmp;
+
+    int            exception_active;
+    const char  *  exception_message;
+};
+
+typedef void (*JitFunc)(JitContext* ctx);
 
 // ---------------------------------------------------------------------------
 // build 64-bit arith for 32-bit systems through two long types ...

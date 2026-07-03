@@ -11,6 +11,13 @@
 # include "exception.h"
 
 extern "C" {
+// ---------------------------------------------------------------------------
+// dynamic array - SetLength ...
+// ---------------------------------------------------------------------------
+struct DynArrayHeader {
+    uint64_t length;
+    uint64_t element_size;
+};
 
 typedef void * (JIT_CDECL *malloc_fn)(size_t size);
 typedef void * (JIT_CDECL *realloc_fn)(void *ptr, size_t size);
@@ -27,6 +34,7 @@ DLL_API void   _jit_free(void *ptr);
 
 DLL_API void * _jit_memcpy (void* dest, const void *src, size_t count);
 DLL_API void * _jit_memset (void* dest, int value, size_t count);
+DLL_API void *      memset (void* dest, int value, size_t count);
 DLL_API int    _jit_memcmp (void* buf1, void* buf2, size_t count);
 DLL_API void * _jit_memmove(void* dest, const void* src, size_t count);
 

@@ -83,11 +83,12 @@ _jit_raise(
     _jit_longjmp(frame->env, 1);
 }
 
+/*
 DLL_API VOID
 _jit_error_runtime(const char *msg) {
     _jit_raise(JIT_RUNTIME_ERROR, msg);
 }
-
+*/
 DLL_API VOID
 _jit_error_out_of_memory(void) {
     _jit_raise(
@@ -108,10 +109,11 @@ _jit_error_array_bounds(void) {
         JIT_ARRAY_BOUNDS,
         "Array bounds exceeded");
 }
-
+/*
 DLL_API VOID
 _jit_error_string_range(void) {
     _jit_raise(
         JIT_STRING_RANGE,
         "String range exceeded");
 }
+*/

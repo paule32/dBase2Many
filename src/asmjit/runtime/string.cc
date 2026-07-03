@@ -8,6 +8,7 @@
 # include "string.h"
 # include "memory.h"
 
+namespace std {
 string::string() {}
 string::string(const char* s)
 {
@@ -17,10 +18,11 @@ string::string(const char* s)
     _jit_memcpy(data_, s, len_ + 1);
 }
 
-string~JitString() { _jit_free(data_); }
+string::~string() { _jit_free(data_); }
 
 const    char* string::c_str () const { return data_ ? data_ : ""; }
 unsigned int   string::length() const { return len_; }
+}   // namespace: std
 
 DLL_API
 char* _jit_strncpy(
@@ -40,4 +42,8 @@ char* _jit_strncpy(
         i++;
     }
     return dest;
+}
+
+DLL_API size_t strlen(const char* str) {
+    return _jit_strlen(str);
 }

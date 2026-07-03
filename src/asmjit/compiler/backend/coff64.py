@@ -20,6 +20,9 @@ class Coff64Backend(CodeBackend):
         self.writer              = writer
         self.pending_call_symbol = None
 
+    def emit_ucomisd(self, left, right, comment=""):
+        self.writer.emit_ucomisd64(left, right)
+    
     def emit_mov_dword_ptr_store(self, base, offset, src, comment=""):
         self.writer.emit_mov_mem_r32(base, offset, src)
 

@@ -11,29 +11,29 @@
 
 using namespace std;
 
-JitRuntimeError::JitRuntimeError(
-    const std::string& msg):
-    std::runtime_error(msg)
-    {}
-
 DLL_API void
-_jit_array_bounds_error(
+_jit_error_array_bounds(
     const char* array_name,
     int index,
     int min_value,
     int max_value) {
     
-    error = new JitRuntimeError(
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
+        "Array bounds error: "
+    );
+    
+    /*error = new JitRuntimeError(
         std::string("Array bounds error: ") +
         array_name + "[" +
         std::to_string(index) + "] allowed range " +
         std::to_string(min_value) + ".." +
         std::to_string(max_value)
-    );
+    );*/
 }
 
 DLL_API void
-_jit_string_range_error() {
+_jit_error_string_range() {
     _jit_raise(
         JIT_RUNTIME_ERROR,
         "String range check error"
@@ -41,20 +41,22 @@ _jit_string_range_error() {
 }
 
 DLL_API void
-_jit_nil_pointer_error(const char* name)
+_jit_error_nil_pointer(const char* name)
 {
-    throw JitRuntimeError(
-        std::string("Nil pointer error: ") +
-        (name ? name : "<unknown>")
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
+        "Nil pointer error: "
+        //(name ? name : "<unknown>")
     );
 }
 
 DLL_API void
-_jit_out_of_memory_error(const char* what)
+_jit_error_out_of_memory(const char* what)
 {
-    throw JitRuntimeError(
-        std::string("Out of memory: ") +
-        (what ? what : "<unknown>")
+    std::cout << what << std::endl;
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
+        "Out of memory: "
     );
 }
 
@@ -72,9 +74,10 @@ _jit_set_exception(
 }
 
 DLL_API void
-_jit_runtime_error(const char* message)
+_jit_error_runtime(const char* message)
 {
-    throw JitRuntimeError(
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
         message ? message : "Runtime error"
     );
 }

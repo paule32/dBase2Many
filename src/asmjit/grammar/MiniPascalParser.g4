@@ -5,9 +5,11 @@ options {
 }
 
 sourceFile
-    : programFile
+    : compilerDirective*
+    ( programFile
     | unitFile
     | libraryFile
+    ) EOF
     ;
 
 programFile
@@ -278,7 +280,8 @@ formalParam
     ;
 
 declaration
-    : varSection
+    : compilerDirective*
+    | varSection
     | procedureDeclaration
     | functionDeclaration
     ;

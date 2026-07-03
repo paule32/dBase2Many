@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 # include "iostream.h"
 # include "stddef.h"
+# include "string.h"
 # include "memory.h"
 # include "windows.h"
 
@@ -20,7 +21,7 @@ static memmove_fn   p_memmove   = nullptr;
 static vprintf_fn   p_vprintf   = nullptr;
 static printf_fn    p_printf    = nullptr;
 
-static snprintf_fn  p_snprintf  = nullptr;
+//static snprintf_fn  p_snprintf  = nullptr;
 static vsnprintf_fn p_vsnprintf = nullptr;
 
 // ---------------------------------------------------------------------------
@@ -43,7 +44,7 @@ CRTImport crt_imports[] = {
     { "printf",    (void**)&p_printf     },
     { "vprintf",   (void**)&p_vprintf    },
     
-    { "snprintf",  (void**)&p_snprintf   },
+    //{ "snprintf",  (void**)&p_snprintf   },
     { "vsnprintf", (void**)&p_vsnprintf  },
 };
 
@@ -57,9 +58,8 @@ struct KERNEL32Import {
 KERNEL32Import kernel32_imports[] = {
     { "ExitProcess",            (void**)&p_ExitProcess},
     { "GetDriveTypeA",          (void**)&p_GetDriveTypeA},
-    { "GetDriveTypeExA",        (void**)&p_GetDriveTypeExA},
     { "GetVolumeInformationA",  (void**)&p_GetVolumeInformationA},
-}
+};
 
 // ---------------------------------------------------------------------------
 // user32.dll imports ...
@@ -83,9 +83,9 @@ MPRImport mpr_imports[] = {
     { "WNetGetConnectionA", (void**)&p_WNetGetConnectionA},
 };
 
-static int init_msvcrt_heap(void)
+static int init_msvcrt(void)
 {
-    HMODULE h;
+    HMODULE h1, h2, h3, h4;
     bool ok = true;
 
     if (p_malloc && p_free) {
@@ -93,8 +93,9 @@ static int init_msvcrt_heap(void)
     }
     
     // msvcrt.dll
-    ok = true
-    if (!h = p_LoadLibraryA("msvcrt.dll")) {
+    ok = true;
+    h1 = p_LoadLibraryA("msvcrt.dll");
+    if (!h1) {
         p_MessageBoxA(0,
             "Error",
             "Error: msvcrt.dll could not load.",
@@ -103,7 +104,7 @@ static int init_msvcrt_heap(void)
     }
     
     for (int i = 0; i < sizeof(crt_imports) / sizeof(crt_imports[0]); ++i) {
-        *crt_imports[i].target = (void*)p_GetProcAddress(h, crt_imports[i].name);
+        *crt_imports[i].target = (void*)p_GetProcAddress(h1, crt_imports[i].name);
         
         if (!*crt_imports[i].target) {
             std::cout << crt_imports[i].name << " ";
@@ -112,18 +113,18 @@ static int init_msvcrt_heap(void)
     }
     
     // kernel32t.dll
-    ok = true
-    if (!h = LoadLibraryA("kernel32.dll")) {
+    ok = true;
+    h2 = LoadLibraryA("kernel32.dll");
+    if (!h2) {
         MessageBoxA(0,
             "Error",
             "Error: kernel32.dll could not load.",
-            "Error",
             0);
         return 0;
     }
     
     for (int i = 0; i < sizeof(kernel32_imports) / sizeof(kernel32_imports[0]); ++i) {
-        *kernel32_imports[i].target = (void*)GetProcAddress(h, kernel32_imports[i].name);
+        *kernel32_imports[i].target = (void*)GetProcAddress(h2, kernel32_imports[i].name);
         
         if (!*kernel32_imports[i].target) {
             std::cout << kernel32_imports[i].name << " ";
@@ -136,8 +137,9 @@ static int init_msvcrt_heap(void)
     }
     
     // user32.dll
-    ok = true
-    if (!h = LoadLibraryA("user32.dll")) {
+    ok = true;
+    h3 = LoadLibraryA("user32.dll");
+    if (!h3) {
         MessageBoxA(0,
             "Error",
             "Error: user32.dll could not load.",
@@ -146,7 +148,7 @@ static int init_msvcrt_heap(void)
     }
     
     for (int i = 0; i < sizeof(user32_imports) / sizeof(user32_imports[0]); ++i) {
-        *user32_imports[i].target = (void*)GetProcAddress(h, user32_imports[i].name);
+        *user32_imports[i].target = (void*)GetProcAddress(h3, user32_imports[i].name);
         
         if (!*user32_imports[i].target) {
             std::cout << user32_imports[i].name << " ";
@@ -155,8 +157,9 @@ static int init_msvcrt_heap(void)
     }
     
     // user32.dll
-    ok = true
-    if (!h = LoadLibraryA("mpr.dll")) {
+    ok = true;
+    h4 = LoadLibraryA("mpr.dll");
+    if (!h4) {
         MessageBoxA(0,
             "Error",
             "Error: mpr.dll could not load.",
@@ -165,7 +168,7 @@ static int init_msvcrt_heap(void)
     }
     
     for (int i = 0; i < sizeof(mpr_imports) / sizeof(mpr_imports[0]); ++i) {
-        *mpr_imports[i].target = (void*)GetProcAddress(h, mpr_imports[i].name);
+        *mpr_imports[i].target = (void*)GetProcAddress(h4, mpr_imports[i].name);
         
         if (!*mpr_imports[i].target) {
             std::cout << mpr_imports[i].name << " ";
@@ -228,7 +231,9 @@ static uint64_t string_length_mixed(
 
     return (uint64_t)_jit_strlen(data);
 }
-
+extern "C" {
+    
+/*
 DLL_API void*
 _jit_new_memory(uint32_t size)
 {
@@ -241,15 +246,34 @@ _jit_new_memory(uint32_t size)
         );
     }
 
-    memset(p, 0, size);
+    p_memset(p, 0, size);
+    return p;
+}*/
+
+DLL_API void *
+_jit_new_memory(uint32_t size)
+{
+    void *p = _jit_malloc(size);
+
+    if (!p) {
+        _jit_error_out_of_memory("Out of memory in New()");
+        return 0;
+    }
+
+    _jit_memset(p, 0, size);
     return p;
 }
 
 DLL_API void
-_jit_dispose_memory(void* p) {
-    if (p) {
-        _jit_free(p);
+_jit_dispose_memory(void* p)
+{
+    if (!p) return;
+    if (!p_free)  {
+        if (!init_msvcrt())
+            return;
     }
+
+    p_free((JitJumpBuffer*)p);
 }
 
 DLL_API void *
@@ -257,7 +281,7 @@ _jit_setlength_memory(
     void *   old_ptr,
     uint64_t new_size)
 {
-    void* p = _jit_realloc(old_ptr, new_size);
+    void* p = p_realloc(old_ptr, new_size);
 
     if (!p) {
         return nullptr;
@@ -325,7 +349,7 @@ _jit_dynstring_setlength(
     
     // neuen Bereich sauber mit 0 füllen
     if (new_length > old_length) {
-        _jit_memset(data + old_length, 0, new_length - old_length);
+        p_memset(data + old_length, 0, new_length - old_length);
     }
 
     // C-String-Terminator
@@ -415,7 +439,7 @@ _jit_dynstring_from_cstr(
 DLL_API void *
 _jit_malloc(uint32_t size)
 {
-    if (!init_msvcrt_heap()) {
+    if (!init_msvcrt()) {
         std::cout << "heap error" << std::endl;
         return nullptr;
     }
@@ -433,10 +457,10 @@ _jit_free(void *ptr) {
     if (!ptr)
         return;
 
-    if (!init_msvcrt_heap())
+    if (!init_msvcrt())
         return;
 
-    p_free(ptr);
+    _jit_free(ptr);
 }
 
 DLL_API size_t
@@ -458,7 +482,7 @@ _jit_strdup(const char *s) {
         s = "";
 
     if (!p_malloc || !p_memcpy) {
-        if (!init_msvcrt_heap())
+        if (!init_msvcrt())
             return nullptr;
     }
     
@@ -474,6 +498,7 @@ _jit_strdup(const char *s) {
 
 DLL_API void * _jit_memcpy (void* dest, const void *src, size_t count) { return p_memcpy (dest, src  , count); }
 DLL_API void * _jit_memset (void* dest, int value, size_t count)       { return p_memset (dest, value, count); }
+DLL_API void *      memset (void* dest, int value, size_t count)       { return p_memset (dest, value, count); }
 DLL_API int    _jit_memcmp (void* buf1, void* buf2, size_t count)      { return p_memcmp (buf1, buf2 , count); }
 DLL_API void * _jit_memmove(void* dest, const void* src, size_t count) { return p_memmove(dest, src  , count); }
 
@@ -487,8 +512,8 @@ DLL_API int  JIT_CDECL _jit_printf(const char *format, ...) {
     va_list args;
     int result;
 
-    va_start(args, fmt);
-    result = _jit_vprintf(fmt, args);
+    va_start(args, format);
+    result = _jit_vprintf(format, args);
     va_end(args);
 
     return result;
@@ -511,3 +536,8 @@ DLL_API int JIT_CDECL _jit_snprintf (char *buffer, size_t size, const char *fmt,
 
     return result;
 }
+
+DLL_API int  JIT_CDECL _jit_read_int()    { return 9; }
+DLL_API int  JIT_CDECL _jit_read_string() { return 0; }
+DLL_API void JIT_CDECL _jit_debug_break() { }
+};

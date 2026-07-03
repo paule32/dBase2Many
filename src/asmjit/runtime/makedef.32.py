@@ -64,6 +64,6 @@ def write_merged_def_file(output_file, base_dir="."):
 
 if __name__ == "__main__":
     write_merged_def_file(
-        "libdbase2many.32.def",
+        "win32/libdbase2many.32.def",
         base_dir = "exports"
     )
