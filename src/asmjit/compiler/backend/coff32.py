@@ -117,6 +117,15 @@ class Coff32Backend(CodeBackend):
 
         self.writer.emit_call_external(target)
 
+    def emit_dec(self, reg, comment=""):
+        reg = self.map_reg32(reg)
+
+        line = f"dec {reg}"
+        if comment:
+            line += f" ; {comment}"
+
+        self.emit(line)
+        
     def emit_jmp(self, label, comment=""):
         self.writer.emit_jmp(label)
 
@@ -199,6 +208,22 @@ class Coff32Backend(CodeBackend):
             raise RuntimeError(f"{tr('unsupported NT32 register')}: {reg}")
         
         return reg_map[reg]
+
+    def emit_mov_byte_ptr(self, dst, base, offset=0, comment=""):
+        dst = self.map_reg8(dst)
+        base = self.map_reg32(base)
+
+        if offset == 0:
+            line = f"mov {dst}, byte ptr [{base}]"
+        elif offset > 0:
+            line = f"mov {dst}, byte ptr [{base}+{offset}]"
+        else:
+            line = f"mov {dst}, byte ptr [{base}{offset}]"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.emit(line)
 
     def emit_push(self, reg, comment=""):
         self.writer.emit_push_reg32(self.map_reg32(reg))
@@ -380,11 +405,25 @@ class Coff32Backend(CodeBackend):
 
         self.writer.emit_cmp_reg_imm32(dst32, value)
     
+    #def emit_xor(self, dst, src, comment=""):
+    #    self.writer.emit_xor_reg_reg(
+    #        self.map_reg32(dst),
+    #        self.map_reg32(src)
+    #    )
+    
     def emit_xor(self, dst, src, comment=""):
-        self.writer.emit_xor_reg_reg(
-            self.map_reg32(dst),
-            self.map_reg32(src)
-        )
+        dst = self.map_reg32(dst)
+
+        if isinstance(src, int):
+            line = f"xor {dst}, {src}"
+        else:
+            src = self.map_reg32(src)
+            line = f"xor {dst}, {src}"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.emit(line)
     
     def emit_setne(self, reg, comment=""):
         self.writer.emit_setne(

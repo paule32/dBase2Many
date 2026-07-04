@@ -45,6 +45,7 @@ public:
     ostream();
 
     ostream& operator<<(int value);
+    ostream& operator<<(uint32_t value);
     ostream& operator<<(double value);
     ostream& operator<<(char value);
     ostream& operator<<(const char* text);

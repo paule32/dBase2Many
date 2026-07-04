@@ -33,10 +33,11 @@ constexpr DWORD DYNSTRING_MAGIC = 0x44535452;  // 'DSTR'
 struct DynStringHeader {
     uint32_t magic;
     uint32_t reserved;
-    uint64_t length;
+    uint32_t length;
+    char   * data;
 };
 
-DLL_API void * jit_dynstring_setlength(void * data, uint64_t length);
+DLL_API void * jit_dynstring_setlength(void * data, uint32_t length);
 DLL_API int    jit_dynstring_length(const char * data);
 DLL_API char * jit_dynstring_concat(const char* left, const char* right);
 DLL_API char * jit_dynstring_from_cstr(const char* text);

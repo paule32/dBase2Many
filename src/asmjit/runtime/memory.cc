@@ -293,8 +293,8 @@ _jit_setlength_memory(
 DLL_API void *
 _jit_dynarray_setlength(
     void *   data,
-    uint64_t length,
-    uint64_t element_size) {
+    uint32_t length,
+    uint32_t element_size) {
     
     DynArrayHeader* old_header = nullptr;
 
@@ -302,11 +302,12 @@ _jit_dynarray_setlength(
         old_header = ((DynArrayHeader*)data) - 1;
     }
 
-    uint64_t total_size =
+    uint32_t total_size =
         sizeof(DynArrayHeader) + length * element_size;
 
     DynArrayHeader* new_header =
-        (DynArrayHeader*)_jit_realloc(old_header, total_size);
+        //(DynArrayHeader*)p_realloc(old_header, total_size);
+        (DynArrayHeader*)_jit_malloc(total_size);
 
     if (!new_header) {
         _jit_raise(
@@ -324,38 +325,62 @@ _jit_dynarray_setlength(
 DLL_API void *
 _jit_dynstring_setlength(
     void *   old_data,
-    uint64_t new_length) {
+    uint32_t new_length) {
 
-    uint64_t old_length = 0;
-    
+    if (!new_length) {
+        _jit_raise(
+            JIT_RUNTIME_ERROR,
+            "negative index value not allowed for dynstring."
+        );
+    }
+
     DynStringHeader* old_header = nullptr;
-    
+    DynStringHeader* new_header = nullptr;
+
     if (old_data) {
-        old_header = ((DynStringHeader*)old_data) - 1;
-        old_length = old_header->length;
+        old_header = ((DynStringHeader*)old_data);
+        new_header =  (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader));
+        new_header->magic = DYNSTRING_MAGIC;
+        
+        if (new_length > old_header->length) {
+            new_header->data   = (char*)_jit_realloc(old_header->data, new_length);
+            if (!new_header->data)
+                _jit_raise(
+                JIT_RUNTIME_ERROR,
+                "dynstring header memory error."
+                );
+            new_header->length = new_length;
+            
+            _jit_memset(new_header->data, 0, new_length - 1);
+            _jit_memcpy(new_header->data, old_header->data, old_header->length);
+        }
+        else if (new_length < old_header->length) {
+            new_header->data   = (char*)_jit_realloc(old_header->data, new_length);
+            if (!new_header->data)
+                _jit_raise(
+                JIT_RUNTIME_ERROR,
+                "dynstring header memory error."
+                );
+            new_header->length = new_length;
+            
+            _jit_memset(new_header->data, 0, new_length - 1);
+            _jit_memcpy(new_header->data, old_header->data, new_length);
+        }
+    }
+    else {
+        old_header = ((DynStringHeader*)old_data);
+        new_header = (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader));
+        new_header->magic  = DYNSTRING_MAGIC;
+        
+        new_header->data   = (char*)_jit_malloc(new_length);
+        new_header->length = new_length;
+        
+        _jit_memset(new_header, 0, new_length - 1);
     }
     
-    size_t total = sizeof(DynStringHeader) + new_length + 1;
-    
-    DynStringHeader* h = (DynStringHeader*)_jit_realloc(old_header, total);
-    if (!h) {
-        _jit_raise(JIT_OUT_OF_MEMORY, "Out of memory in SetLength(string)");
-    }
-    
-    h->magic    = DYNSTRING_MAGIC;
-    h->length   = new_length;
-    
-    char * data = (char*)(h + 1);
-    
-    // neuen Bereich sauber mit 0 füllen
-    if (new_length > old_length) {
-        p_memset(data + old_length, 0, new_length - old_length);
-    }
+    old_data = ((DynStringHeader*)new_header);
 
-    // C-String-Terminator
-    data[new_length] = 0;
-
-    return data;
+    return ((DynStringHeader*)new_header);
 }
 
 DLL_API int
@@ -449,7 +474,7 @@ _jit_malloc(uint32_t size)
 
 DLL_API void *
 _jit_realloc(void *ptr, unsigned int new_size) {
-    return _jit_realloc(ptr, (size_t)new_size);
+    return p_realloc(ptr, (size_t)new_size);
 }
 
 DLL_API void

@@ -14,6 +14,11 @@ ostream& ostream::operator<<(int value) {
     return *this;
 }
 
+ostream& ostream::operator<<(uint32_t value) {
+    _jit_print_int(value);
+    return *this;
+}
+
 ostream& ostream::operator<<(double value) {
     _jit_print_double(value);
     return *this;

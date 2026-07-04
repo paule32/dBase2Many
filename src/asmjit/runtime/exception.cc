@@ -71,11 +71,7 @@ _jit_raise(
     frame->code = code;
 
     if (message) {
-        _jit_strncpy(
-            frame->message,
-            message,
-            sizeof(frame->message)-1);
-        frame->message[sizeof(frame->message)-1] = 0;
+        std::cout << message << std::endl;
     }   else {
         frame->message[0] = 0;
     }

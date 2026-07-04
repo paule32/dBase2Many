@@ -774,6 +774,73 @@ class PE32Writer:
                 "label": label
             })
 
+    def emit_mov_byte_ptr_reg8(self, base, offset, src):
+        reg32 = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7,
+        }
+
+        reg8 = {
+            "al": 0,
+            "cl": 1,
+            "dl": 2,
+            "bl": 3,
+        }
+
+        if base not in reg32:
+            raise RuntimeError(f"unsupported base register: {base}")
+
+        if src not in reg8:
+            raise RuntimeError(f"unsupported 8-bit src register: {src}")
+
+        # mov byte ptr [base+offset], src
+        self.text += b"\x88"
+
+        if offset == 0 and base != "ebp":
+            self.text.append(0x00 | (reg8[src] << 3) | reg32[base])
+        elif -128 <= int(offset) <= 127:
+            self.text.append(0x40 | (reg8[src] << 3) | reg32[base])
+            self.text.append(int(offset) & 0xFF)
+        else:
+            self.text.append(0x80 | (reg8[src] << 3) | reg32[base])
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+
+    def emit_movzx_r32_byte_ptr(self, dst, base, offset=0):
+        reg = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7,
+        }
+
+        if dst not in reg:
+            raise RuntimeError(f"unsupported dst register: {dst}")
+
+        if base not in reg:
+            raise RuntimeError(f"unsupported base register: {base}")
+
+        # movzx r32, byte ptr [base+disp]
+        self.text += b"\x0F\xB6"
+
+        if offset == 0 and base != "ebp":
+            self.text.append(0x00 | (reg[dst] << 3) | reg[base])
+        elif -128 <= int(offset) <= 127:
+            self.text.append(0x40 | (reg[dst] << 3) | reg[base])
+            self.text.append(int(offset) & 0xFF)
+        else:
+            self.text.append(0x80 | (reg[dst] << 3) | reg[base])
+            self.text += int(offset).to_bytes(4, "little", signed=True)
+
     def emit_jcc(self, cc, label):
         opcodes = {
             "je":  b"\x0F\x84",
