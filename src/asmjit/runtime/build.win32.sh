@@ -117,6 +117,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
 
   echo "strip debug informations..."
   strip win32/libdbase2many.32.dll
+  cp    win32/libdbase2many.32.dll ../x32/libdbase2many.32.dll
   
   echo "done."
   exit 0

@@ -241,6 +241,7 @@ simpleType
     | INTEGER
     | DOUBLE
     | STRING
+    | BOOLEAN
     ;
 
 enumDeclaration
@@ -522,6 +523,8 @@ factor
     : PLUS factor
     | MINUS factor
     | NOT factor
+    | FALSE
+    | TRUE
     | AT variableRef
     | variableRef
     | functionCallExpr

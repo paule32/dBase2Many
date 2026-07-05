@@ -402,7 +402,7 @@ class PE32Writer:
         # external .a rchive file's
         self.archive_files      = []
         self.archives           = []
-
+        
     def archive_name_candidates(self, name):
         name = self.normalize_link_path(name)
 

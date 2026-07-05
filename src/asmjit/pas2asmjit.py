@@ -388,6 +388,8 @@ def main():
         
         text = generator.visit(tree)
         
+        print(generator.backend.asm_lines)
+        
         # -----------------------------------------
         # 5. finalize: create c++ output file ...
         # -----------------------------------------

@@ -181,6 +181,8 @@ static int init_msvcrt(void)
     }   return 1;
 }
 
+extern "C" DLL_API char* _jit_dynstring_from_cstr(const char* text);
+
 static bool is_probably_dynstring(const char* data)
 {
     if (!data)
@@ -322,65 +324,50 @@ _jit_dynarray_setlength(
     return (void*)(new_header + 1);
 }
 
-DLL_API void *
+DLL_API void*
 _jit_dynstring_setlength(
-    void *   old_data,
-    uint32_t new_length) {
-
-    if (!new_length) {
-        _jit_raise(
-            JIT_RUNTIME_ERROR,
-            "negative index value not allowed for dynstring."
-        );
-    }
-
-    DynStringHeader* old_header = nullptr;
-    DynStringHeader* new_header = nullptr;
+    void*    old_data,
+    uint32_t new_length)
+{
+    DynStringHeader* old_h = nullptr;
 
     if (old_data) {
-        old_header = ((DynStringHeader*)old_data);
-        new_header =  (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader));
-        new_header->magic = DYNSTRING_MAGIC;
-        
-        if (new_length > old_header->length) {
-            new_header->data   = (char*)_jit_realloc(old_header->data, new_length);
-            if (!new_header->data)
-                _jit_raise(
-                JIT_RUNTIME_ERROR,
-                "dynstring header memory error."
-                );
-            new_header->length = new_length;
-            
-            _jit_memset(new_header->data, 0, new_length - 1);
-            _jit_memcpy(new_header->data, old_header->data, old_header->length);
-        }
-        else if (new_length < old_header->length) {
-            new_header->data   = (char*)_jit_realloc(old_header->data, new_length);
-            if (!new_header->data)
-                _jit_raise(
-                JIT_RUNTIME_ERROR,
-                "dynstring header memory error."
-                );
-            new_header->length = new_length;
-            
-            _jit_memset(new_header->data, 0, new_length - 1);
-            _jit_memcpy(new_header->data, old_header->data, new_length);
-        }
-    }
-    else {
-        old_header = ((DynStringHeader*)old_data);
-        new_header = (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader));
-        new_header->magic  = DYNSTRING_MAGIC;
-        
-        new_header->data   = (char*)_jit_malloc(new_length);
-        new_header->length = new_length;
-        
-        _jit_memset(new_header, 0, new_length - 1);
-    }
-    
-    old_data = ((DynStringHeader*)new_header);
+        old_h = ((DynStringHeader*)old_data) - 1;
 
-    return ((DynStringHeader*)new_header);
+        if (old_h->magic != DYNSTRING_MAGIC)
+            _jit_raise(JIT_RUNTIME_ERROR, "Invalid dynamic string");
+    }
+
+    DynStringHeader* h =
+        (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader) + new_length + 1);
+
+    if (!h)
+        _jit_raise(JIT_OUT_OF_MEMORY, "Out of memory.");
+
+    h->magic    = DYNSTRING_MAGIC;
+    h->reserved = 0;
+    h->length   = new_length;
+
+    char* data = (char*)(h + 1);
+
+    uint32_t copy_len = 0;
+
+    if (old_h) {
+        copy_len = old_h->length;
+
+        if (copy_len > new_length)
+            copy_len = new_length;
+
+        if (copy_len > 0)
+            _jit_memcpy(data, old_data, copy_len);
+    }
+
+    if (new_length > copy_len)
+        _jit_memset(data + copy_len, 0, new_length - copy_len);
+
+    data[new_length] = 0;
+
+    return data;
 }
 
 DLL_API int
@@ -393,61 +380,60 @@ _jit_dynstring_length(const char* data)
     return (int)h->length;
 }
 
+static DynStringHeader* _jit_dynstring_header_from_data(void* p) {
+    if (!p)
+    return nullptr;
+    return ((DynStringHeader*)p) - 1;
+}
+
 DLL_API char*
-_jit_dynstring_concat(
-    const char* left,
-    const char* right)
+_jit_dynstring_concat(void* left, void* right)
 {
-    uint64_t len_left  = dynstring_length_strict(left);
-    uint64_t len_right = dynstring_length_strict(right);
-    uint64_t new_len   = len_left + len_right;
+    DynStringHeader* lhs = _jit_dynstring_header_from_data(left);
+    DynStringHeader* rhs = _jit_dynstring_header_from_data(right);
 
-    DynStringHeader* h = (DynStringHeader*)_jit_malloc(
-        sizeof(DynStringHeader) + new_len + 1
-    );
+    if (!lhs || lhs->magic != DYNSTRING_MAGIC)
+        _jit_raise(JIT_RUNTIME_ERROR, "Invalid dynamic string 1");
 
-    if (!h) {
-        _jit_raise(
-            JIT_OUT_OF_MEMORY,
-            "Out of memory in string concat"
-        );
-    }
+    if (!rhs || rhs->magic != DYNSTRING_MAGIC)
+        _jit_raise(JIT_RUNTIME_ERROR, "Invalid dynamic string 2");
 
-    h->magic    = DYNSTRING_MAGIC;
-    h->reserved = 0;
-    h->length   = new_len;
+    uint32_t lhs_size = lhs->length;
+    uint32_t rhs_size = rhs->length;
+    uint32_t total    = lhs_size + rhs_size;
 
-    char* data = (char*)(h + 1);
+    DynStringHeader* out =
+        (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader) + total + 1);
 
-    if (left)
-        _jit_memcpy(data, left, len_left);
+    if (!out)
+        _jit_raise(JIT_OUT_OF_MEMORY, "Out of memory.");
 
-    if (right)
-        _jit_memcpy(data + len_left, right, len_right);
+    out->magic    = DYNSTRING_MAGIC;
+    out->reserved = 0;
+    out->length   = total;
 
-    data[new_len] = 0;
+    char* data = (char*)(out + 1);
+
+    _jit_memcpy(data, left, lhs_size);
+    _jit_memcpy(data + lhs_size, right, rhs_size);
+    data[total] = 0;
 
     return data;
 }
 
 DLL_API char*
-_jit_dynstring_from_cstr(
-    const char* text) {
-    
+_jit_dynstring_from_cstr(const char* text)
+{
     if (!text)
         text = "";
 
-    uint64_t len = (uint64_t)_jit_strlen(text);
+    uint32_t len = (uint32_t)_jit_strlen(text);
 
     DynStringHeader* h =
         (DynStringHeader*)_jit_malloc(sizeof(DynStringHeader) + len + 1);
 
-    if (!h) {
-        _jit_raise(
-            JIT_OUT_OF_MEMORY,
-            "Out of memory in string literal"
-        );
-    }
+    if (!h)
+        _jit_raise(JIT_OUT_OF_MEMORY, "Out of memory.");
 
     h->magic    = DYNSTRING_MAGIC;
     h->reserved = 0;

@@ -31,6 +31,9 @@ class CommonData():
         self.args_target         : str  = ""
         self.args_backend        : str  = ""
         self.ExeOutputDir        : str  = ""
+        
+        self.asm_lines           : list = []
+        
         self.InputFiles          : list = []
         self.UnitFiles           : list = []
         self.IncludePaths        : list = []

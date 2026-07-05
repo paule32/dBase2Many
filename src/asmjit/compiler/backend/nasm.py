@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# File: nasm.py - backend for AsmJIT
+# File: nasm.py - backend for NASM
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
@@ -13,6 +13,7 @@ from compiler.backend.code     import *
 class NasmBackend(CodeBackend):
     def __init__(self, name: str = "nasm"):
         super().__init__(name)
+        self.lines = ["nasm"]
 
     def make_comment(self, comment):
         return f"  ; {comment}" if comment else ""
@@ -162,3 +163,7 @@ class NasmBackend(CodeBackend):
         self.emit(f"ret{self.make_comment(comment)}")
     def emit_bind_label(self, label, comment=""):
         self.lines.append(f"{label}:{self.make_comment(comment)}")
+
+    def write(self, filename):
+        print(self.lines)
+        

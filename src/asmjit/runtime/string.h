@@ -34,7 +34,7 @@ struct DynStringHeader {
     uint32_t magic;
     uint32_t reserved;
     uint32_t length;
-    char   * data;
+    ///char   * data;
 };
 
 DLL_API void * jit_dynstring_setlength(void * data, uint32_t length);

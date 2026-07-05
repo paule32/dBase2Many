@@ -22,8 +22,9 @@ class NT32Writer:
     SECTION_ALIGN  = 0x1000
 
     def __init__(self, coff):
-        self.coff = coff
+        self.coff    = coff
         self.imports = CDATA.imports
+        #self.lines   = ["sss"]
         
     @property
     def text(self): return self.coff.text
@@ -455,13 +456,13 @@ class NT32Writer:
                     
     def write(self, filename):
         print("NT32Writer.write called")
-        print(self.imports)
+        #print(self.imports)
         
         Coff32Backend(self.coff).emit_program_entry()
         
         self.validate_imports_complete()
         self.imports = self.filtered_imports()
-        print("used imports:", self.imports)
+        #print("used imports:", self.imports)
         
         dos_header = bytearray(64)
         dos_header[0:2] = b"MZ"
@@ -513,9 +514,9 @@ class NT32Writer:
         data_image = bytearray(self.data)
         
         self.register_coff_symbols(text_rva, data_rva)
-        print("known symbols:")
-        for name in sorted(self.coff.external_symbols.keys()):
-            print(" ", name)
+        #print("known symbols:")
+        #for name in sorted(self.coff.external_symbols.keys()):
+        #    print(" ", name)
         self.patch_coff_relocations(text_image, data_image, text_rva, data_rva)
         
         self.patch_internal_relocations(text_image, data_image, text_rva, data_rva)

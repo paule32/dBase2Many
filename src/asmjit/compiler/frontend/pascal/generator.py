@@ -110,13 +110,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.constants["true"] = {
             "name": "True",
-            "type": "integer",
+            "type": "boolean",
             "value": 1
         }
 
         self.constants["false"] = {
             "name": "False",
-            "type": "integer",
+            "type": "boolean",
             "value": 0
         }
 
@@ -280,6 +280,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         if isinstance(typ, str) and typ.startswith("^"):
             return 8
+        
+        if typ == "boolean":
+            return 4
         
         if typ == "integer":
             return 4
@@ -553,7 +556,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 }
             ]
 
-        if resolved_type == "integer":
+        if resolved_type == "boolean":
+            element_size = 4
+            
+        elif resolved_type == "integer":
             element_size = 4
 
         elif resolved_type == "double":
@@ -653,8 +659,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key in scope["vars"]:
             raise CompileError(ctx, "E0002", name=name)
         
-        if typ == "integer":
-            size = 8
+        if typ in ("integer", "boolean"):
+            if CDATA.args_target in ["dos", "dos16"]:
+                site = 4
+            else:
+                size = 8
         
         elif typ == "double":
             size = 8
@@ -690,7 +699,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 ctx,
                 "E0005",
                 got=typ,
-                expected="integer/double/string/pointer/record/array/enum"
+                expected="integer/boolean/double/string/pointer/record/array/enum"
             )
         
         scope["next_offset"] += size
@@ -740,24 +749,48 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif typ == "string":
             slot = self.next_string_slot
             self.next_string_slot += 1
-            
-            if use_direct_coff_globals:
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                symbol = f"_var_{name}"
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_i32(symbol, 0)
+
+            elif use_direct_coff_globals:
                 symbol = f"_var_{name}"
                 self.coff.add_data_qword(symbol)
         
         elif isinstance(typ, str) and typ in self.records:
             slot = self.next_record_slot
             self.next_record_slot += self.records[typ].size
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                symbol = f"_var_{name}"
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_zeros(
+                        symbol,
+                        self.records[typ].size,
+                        alignment=4
+                    )
         
         elif isinstance(typ, str) and typ in self.arrays:
             array_info = self.arrays[typ]
-            
+
             if getattr(array_info, "is_dynamic", False):
                 slot = self.next_pointr_slot
                 self.next_pointr_slot += 1
+
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    symbol = f"_var_{name}"
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_i32(symbol, 0)
             else:
                 slot = self.next_arrays_slot
                 self.next_arrays_slot += array_info.size
+
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    symbol = f"_var_{name}"
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_zeros(symbol, array_info.size, alignment=4)
         
         elif isinstance(typ, str) and typ in self.classes:
             slot = self.next_pointr_slot
@@ -1384,21 +1417,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ.startswith("^"):
             base = typ[1:]
-            
+
             while base in self.type_aliases:
                 base = self.type_aliases[base].lower()
-                
+
                 if base.startswith("^"):
                     return base
-                    
+
             return "^" + base
 
         while typ in self.type_aliases:
             typ = self.type_aliases[typ].lower()
 
+        # WICHTIG: Boolean NICHT zu integer machen
         if typ == "boolean":
-            return "integer"
-        
+            return "boolean"
+
         if typ in self.enums:
             return "integer"
 
@@ -2106,6 +2140,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return None
     
+    def emit_sete(self, reg, comment=""):
+        self.backend.emit_sete(reg, comment)
+        
     def emit_setne(self, reg, comment=""):
         self.backend.emit_setne(reg, comment)
     
@@ -2733,7 +2770,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 expected=str(len(dims))
             )
 
-        self.emit_xor("ebx", "ebx", comment="linear array index")
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_mov("ebx", 0, comment="linear array index")
+        else:
+            self.emit_xor("ebx", "ebx", comment="linear array index")
 
         for i, expr in enumerate(index_exprs):
             index_type = self.visit(expr)
@@ -3241,6 +3281,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ = c["type"]
         val = c["value"]
 
+        if typ == "boolean":
+            self.emit_mov("eax", val)
+            return "boolean"
+            
         if typ == "integer":
             self.emit_mov("eax", val)
             return "integer"
@@ -3339,6 +3383,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_mov_dword_ptr("eax", "ebx", 0)
                     return typ
 
+            if typ in ("integer", "boolean"):
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+
+                if typ == "boolean":
+                    self.emit_and("eax", 1)
+
+                return typ
+                
             if typ == "integer":
                 self.emit_mov_dword_ptr("eax", "ebp", offset)
                 return "integer"
@@ -3382,11 +3434,36 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_load_record_field(self, ctx, parts):
         field_offset, field = self.resolve_record_path(ctx, parts)
         path = ".".join(parts)
+        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+
+        if is_nt32:
+            base_name = parts[0]
+            info = self.var_info(ctx, base_name)
+            symbol = info.get("symbol") or f"_var_{info['name']}"
+            info["symbol"] = symbol
+
+            self.writer.emit_lea_reg_data_label("edx", symbol)
+
+            if field.type in ("integer", "boolean"):
+                self.emit_mov_dword_ptr("eax", "edx", field_offset, comment=path)
+
+                if field.type == "boolean":
+                    self.emit_and("eax", 1)
+                    return "boolean"
+
+                return "integer"
+
+            raise CompileError(ctx, "E0014", var_type=field.type)
 
         self.emit_mov_qword("r11", "r12", "record_vars")
 
-        if field.type == "integer":
-            self.emit_mov_dword_ptr("eax", "r11", field_offset, comment=f"{path}")
+        if field.type in ("integer", "boolean"):
+            self.emit_mov_dword_ptr("eax", "r11", field_offset, comment=path)
+
+            if field.type == "boolean":
+                self.emit_and("eax", 1)
+                return "boolean"
+
             return "integer"
 
         if field.type == "double":
@@ -3394,7 +3471,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return "double"
 
         if field.type == "string":
-            self.emit_mov_qword_ptr("rax", "r11", field_offset, comment=f"{path}")
+            self.emit_mov_qword_ptr("rax", "r11", field_offset, comment=path)
             return "string"
 
         return field.type
@@ -3477,9 +3554,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ    = var["type"]
         offset = var["offset"]
 
-        if typ == "integer":
-            self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"local {name}")
-            return "integer"
+        if typ in ("integer", "boolean"):
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr("eax", "ebp", offset, comment=f"local {name}")
+                if typ == "boolean":
+                    self.emit_and("eax", 1)
+                return typ
+            else:
+                self.emit_mov_dword_ptr("eax", "rbp", offset, comment=f"local {name}")
+                return "integer"
 
         if typ == "string":
             if CDATA.args_target in ["dos", "dos16"]:
@@ -3819,7 +3902,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
 
         if is_nt32:
-            # char value aus Stringliteral laden: eax zeigt auf Literal
+            # eax zeigt auf Char-Literal, Zeichen sichern
             self.backend.writer.emit_movzx_r32_byte_ptr("ebx", "eax", 0)
 
             # Index berechnen -> eax
@@ -3827,34 +3910,39 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if index_type != "integer":
                 raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-            # ecx = Pascal index
             self.emit_mov("ecx", "eax", comment="pascal string index")
 
-            # String-Header laden -> eax
+            # String laden:
+            # Bei Inline-Data-Modell zeigt S auf data, nicht auf Header.
             var_info = self.var_info(ctx, name)
             self.emit_load_var(name, var_info)
 
-            # edx = DynStringHeader*
-            self.emit_mov("edx", "eax", comment="string header")
+            # edx = data pointer
+            self.emit_mov("edx", "eax", comment="string data")
 
-            # nil check
             ok_not_nil = self.new_named_label("string_not_nil")
             self.emit_test("edx", "edx")
             self.emit_jnz(ok_not_nil)
             self.emit_call("_jit_error_string_range")
             self.emit_bind_label(ok_not_nil)
 
-            # length = [header + 8]
-            self.emit_mov_dword_ptr("eax", "edx", 8, comment="string length")
+            # header = data - sizeof(DynStringHeader)
+            # Layout:
+            # +0 magic
+            # +4 reserved
+            # +8 length
+            self.emit_mov("edi", "edx", comment="string data")
+            self.emit_sub("edi", 12, comment="string header")
 
-            ok_label = self.new_named_label("string_index_ok")
+            # length = [header + 8]
+            self.emit_mov_dword_ptr("eax", "edi", 8, comment="string length")
+
+            ok_label   = self.new_named_label("string_index_ok")
             fail_label = self.new_named_label("string_index_fail")
 
-            # index < 1 ?
             self.emit_cmp("ecx", 1)
             self.emit_jl(fail_label)
 
-            # index > length ?
             self.emit_cmp("ecx", "eax")
             self.emit_jg(fail_label)
 
@@ -3865,34 +3953,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             self.emit_bind_label(ok_label)
 
-            # ecx = index - 1
-            self.emit_sub("ecx", 1)
-
-            # data pointer = [header + 12]
-            self.emit_mov_dword_ptr("edi", "edx", 12, comment="string data")
-
-            # edi = data + index - 1
-            self.emit_add("edi", "ecx", comment="string char address")
-
             # data[index - 1] = bl
-            self.backend.writer.emit_mov_byte_ptr_reg8("edi", 0, "bl")
+            self.emit_sub("ecx", 1)
+            self.emit_add("edx", "ecx", comment="string char address")
+
+            self.backend.writer.emit_mov_byte_ptr_reg8("edx", 0, "bl")
             return None
 
-        # Win64-Pfad
+        # Win64-Pfad, ebenfalls Inline-Data-Modell
         self.emit_movzx("ebx", "byte_ptr(rax)", comment="char value")
 
         index_type = self.visit(index_exprs[0])
         if index_type != "integer":
             raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-        # ecx = Pascal index
         self.emit_mov("ecx", "eax", comment="pascal string index")
 
         var_info = self.var_info(ctx, name)
         self.emit_load_var(name, var_info)
 
-        # rdx = DynStringHeader*
-        self.emit_mov("rdx", "rax", comment="string header")
+        # rdx = data pointer
+        self.emit_mov("rdx", "rax", comment="string data")
 
         ok_not_nil = self.new_named_label("string_not_nil")
         self.emit_test("rdx", "rdx")
@@ -3903,10 +3984,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit_bind_label(ok_not_nil)
 
-        # length = [header + 8]
-        self.emit_mov_reg_dword("eax", "rdx", 8, comment="string length")
+        # r11 = header = data - 12
+        self.emit_mov("r11", "rdx", comment="string data")
+        self.emit_sub("r11", 12, comment="string header")
 
-        ok_label = self.new_named_label("string_index_ok")
+        # length = [header + 8]
+        self.emit_mov_reg_dword("eax", "r11", 8, comment="string length")
+
+        ok_label   = self.new_named_label("string_index_ok")
         fail_label = self.new_named_label("string_index_fail")
 
         self.emit_cmp("ecx", 1)
@@ -3923,16 +4008,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.emit_bind_label(ok_label)
 
-        # ecx = index - 1
         self.emit_sub("ecx", 1)
-
-        # r11 = data pointer [header + 12]
-        self.emit_mov_reg_qword("r11", "rdx", 12, comment="string data")
-
         self.emit_movsxd("rcx", "ecx")
-        self.emit_add("r11", "rcx")
+        self.emit_add("rdx", "rcx", comment="string char address")
 
-        self.emit_mov_byte_ptr_store("r11", 0, "bl", comment="s[index] :=")
+        self.emit_mov_byte_ptr_store("rdx", 0, "bl", comment="s[index] :=")
         return None
     
     def pointer_slot_size(self):
@@ -3993,19 +4073,37 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
     def emit_store_record_field(self, ctx, parts, expr_type):
         field_offset, field = self.resolve_record_path(ctx, parts)
+        path = ".".join(parts)
+        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
 
         if field.type == "double" and expr_type == "integer":
             self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
-        if field.type != expr_type:
+        if field.type == "boolean":
+            if expr_type != "boolean":
+                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean")
+            self.emit_and("eax", 1)
+        elif field.type != expr_type:
             raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
-        path = ".".join(parts)
+        if is_nt32:
+            base_name = parts[0]
+            info = self.var_info(ctx, base_name)
+            symbol = info.get("symbol") or f"_var_{info['name']}"
+            info["symbol"] = symbol
+
+            self.writer.emit_lea_reg_data_label("edx", symbol)
+
+            if field.type in ("integer", "boolean"):
+                self.emit_mov_dword_ptr_store("edx", field_offset, "eax", comment=path)
+                return
+
+            raise CompileError(ctx, "E0013", var_type=field.type)
 
         self.emit_mov_qword("r11", "r12", "record_vars")
 
-        if field.type == "integer":
+        if field.type in ("integer", "boolean"):
             self.emit_mov_dword_ptr_store("r11", field_offset, "eax", comment=path)
             return
 
@@ -4214,84 +4312,186 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         raise CompileError(ctx, "E0013", var_type=field.type)
     
+
     def emit_store_array_element(self, ctx, var_name, index_expr_ctx, expr_type):
         index_exprs = index_expr_ctx
         if not isinstance(index_exprs, list):
             index_exprs = [index_exprs]
-            
+
         var_info, array_info = self.get_array_info(ctx, var_name)
-        
-        if getattr(array_info, "is_dynamic", False):
-            if array_info.element_type == "double" and expr_type == "integer":
-                self.emit_cvtsi2sd("xmm0", "eax")
-                expr_type = "double"
+        elem_type = self.normalize_array_element_type(array_info.element_type)
 
-            if array_info.element_type != expr_type:
-                raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
+        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
 
-            if expr_type == "integer":
-                self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
-            elif expr_type == "double":
-                self.emit_movsd_store("r12", "offsetof(JitContext, print_double_tmp)", "xmm0")
-            elif expr_type == "string":
-                self.emit_push("rax")
+        # ------------------------------------------------------------
+        # Boolean wird wie 32-bit Integer gespeichert,
+        # bleibt aber vom Sprachtyp her boolean.
+        # ------------------------------------------------------------
+        if elem_type == "boolean":
+            if expr_type != "boolean":
+                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean")
 
-            index_exprs = index_expr_ctx
-            if not isinstance(index_exprs, list):
-                index_exprs = [index_exprs]
+            self.emit_and("eax", 1, comment="normalize boolean")
 
-            if len(index_exprs) != 1:
-                raise CompileError(ctx, "E0005", got=str(len(index_exprs)), expected="1")
-
-            index_type = self.visit(index_exprs[0])
-
-            if index_type != "integer":
-                raise CompileError(ctx, "E0005", got=index_type, expected="integer")
-
-            self.emit_imul("eax", "eax", array_info.element_size)
-            self.emit_mov("r10d", "eax", comment='save dynamic array byte offset')
-
-            self.emit_load_var(var_name, var_info)   # RAX = data pointer
-            self.emit_movsxd("r11", "r10d")
-            self.emit_add("r11", "rax", comment="dynamic array element address")
-
-            if array_info.element_type == "integer":
-                self.emit_mov_dword("eax", "r12", "print_int_tmp")
-                self.emit_mov_dword_ptr_store("r11", 0, "eax")
-                return
-
-            if array_info.element_type == "double":
-                self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
-                self.emit_movsd_store("r11", 0, "xmm0")
-                return
-                
-            # AsmJitGenerator
-            if array_info.element_type == "string":
-                self.emit_pop("rax")
-                self.emit_mov_qword_ptr_store("r11", 0, "rax")
-                return
-
-            raise CompileError(ctx, "E0013", var_type=array_info.element_type)
-
-        if array_info.element_type == "double" and expr_type == "integer":
+        elif elem_type == "double" and expr_type == "integer":
             self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
 
-        if array_info.element_type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=array_info.element_type)
+        elif elem_type != expr_type:
+            raise CompileError(ctx, "E0005", got=expr_type, expected=elem_type)
 
-        if expr_type == "integer":
-            self.emit_mov_dword_ptr_store("r12", "offsetof(JitContext, print_int_tmp)", "eax")
+        # ------------------------------------------------------------
+        # Dynamic array
+        # ------------------------------------------------------------
+        if getattr(array_info, "is_dynamic", False):
+            if len(index_exprs) != 1:
+                raise CompileError(ctx, "E0005", got=str(len(index_exprs)), expected="1")
 
-        elif expr_type == "double":
-            self.emit_sub("rsp", 8)
-            self.emit_movsd_store("rsp", 0, "xmm0")
+            # Wert sichern
+            if elem_type in ("integer", "boolean"):
+                if is_nt32:
+                    self.emit_push("eax", comment="save array value")
+                else:
+                    self.emit_mov_dword_ptr_store(
+                        "r12",
+                        "offsetof(JitContext, print_int_tmp)",
+                        "eax"
+                    )
 
-        elif expr_type == "string":
-            self.emit_push("rax")
+            elif elem_type == "double":
+                if is_nt32:
+                    self.emit_sub("esp", 8)
+                    self.emit_movsd_store("esp", 0, "xmm0")
+                else:
+                    self.emit_movsd_store(
+                        "r12",
+                        "offsetof(JitContext, print_double_tmp)",
+                        "xmm0"
+                    )
+
+            elif elem_type == "string":
+                self.emit_push("eax" if is_nt32 else "rax")
+
+            else:
+                raise CompileError(ctx, "E0013", var_type=elem_type)
+
+            # Index berechnen
+            index_type = self.visit(index_exprs[0])
+            if index_type != "integer":
+                raise CompileError(ctx, "E0005", got=index_type, expected="integer")
+
+            if is_nt32:
+                self.emit_imul("eax", "eax", array_info.element_size)
+                self.emit_mov("edx", "eax", comment="dynamic array byte offset")
+
+                self.emit_load_var(var_name, var_info)   # eax = data pointer
+                self.emit_add("eax", "edx", comment="dynamic array element address")
+
+                if elem_type in ("integer", "boolean"):
+                    self.emit_pop("ebx", comment="restore array value")
+                    self.emit_mov_dword_ptr_store("eax", 0, "ebx")
+                    return None
+
+                if elem_type == "double":
+                    self.emit_movsd_load("xmm0", "esp")
+                    self.emit_add("esp", 8)
+                    self.emit_movsd_store("eax", 0, "xmm0")
+                    return None
+
+                if elem_type == "string":
+                    self.emit_pop("ebx")
+                    self.emit_mov_dword_ptr_store("eax", 0, "ebx")
+                    return None
+
+            # Win64 dynamic
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_mov("r10d", "eax", comment="save dynamic array byte offset")
+
+            self.emit_load_var(var_name, var_info)   # rax = data pointer
+            self.emit_movsxd("r11", "r10d")
+            self.emit_add("r11", "rax", comment="dynamic array element address")
+
+            if elem_type in ("integer", "boolean"):
+                self.emit_mov_dword("eax", "r12", "print_int_tmp")
+                self.emit_mov_dword_ptr_store("r11", 0, "eax")
+                return None
+
+            if elem_type == "double":
+                self.emit_movsd_load_field("xmm0", "r12", "print_double_tmp")
+                self.emit_movsd_store("r11", 0, "xmm0")
+                return None
+
+            if elem_type == "string":
+                self.emit_pop("rax")
+                self.emit_mov_qword_ptr_store("r11", 0, "rax")
+                return None
+
+            raise CompileError(ctx, "E0013", var_type=elem_type)
+
+        # ------------------------------------------------------------
+        # Static array
+        # ------------------------------------------------------------
+
+        # Wert sichern
+        if elem_type in ("integer", "boolean"):
+            if is_nt32:
+                self.emit_push("eax", comment="save array value")
+            else:
+                self.emit_mov_dword_ptr_store(
+                    "r12",
+                    "offsetof(JitContext, print_int_tmp)",
+                    "eax"
+                )
+
+        elif elem_type == "double":
+            if is_nt32:
+                self.emit_sub("esp", 8)
+                self.emit_movsd_store("esp", 0, "xmm0")
+            else:
+                self.emit_sub("rsp", 8)
+                self.emit_movsd_store("rsp", 0, "xmm0")
+
+        elif elem_type == "string":
+            self.emit_push("eax" if is_nt32 else "rax")
+
+        else:
+            raise CompileError(ctx, "E0013", var_type=elem_type)
 
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
+        if is_nt32:
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_add("eax", var_info["slot"])
+
+            self.emit_mov("edx", "eax", comment="array byte offset")
+
+            symbol = var_info.get("symbol")
+            if not symbol:
+                symbol = f"_var_{var_info['name']}"
+                var_info["symbol"] = symbol
+
+            self.writer.emit_lea_reg_data_label("eax", symbol)
+            self.emit_add("eax", "edx", comment="array element address")
+
+            if elem_type in ("integer", "boolean"):
+                self.emit_pop("ebx", comment="restore array value")
+                self.emit_mov_dword_ptr_store("eax", 0, "ebx")
+                return None
+
+            if elem_type == "double":
+                self.emit_movsd_load("xmm0", "esp")
+                self.emit_add("esp", 8)
+                self.emit_movsd_store("eax", 0, "xmm0")
+                return None
+
+            if elem_type == "string":
+                self.emit_pop("ebx")
+                self.emit_mov_dword_ptr_store("eax", 0, "ebx")
+                return None
+
+            raise CompileError(ctx, "E0013", var_type=elem_type)
+
+        # Win64 static
         self.emit_imul("eax", "eax", array_info.element_size)
         self.emit_add("eax", var_info["slot"])
 
@@ -4299,69 +4499,152 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_movsxd("rax", "eax")
         self.emit_add("r11", "rax")
 
-        if array_info.element_type == "integer":
+        if elem_type in ("integer", "boolean"):
             self.emit_mov_dword("eax", "r12", "print_int_tmp")
             self.emit_mov_dword_ptr_store("r11", 0, "eax")
-            return
+            return None
 
-        if array_info.element_type == "double":
+        if elem_type == "double":
             self.emit_movsd_load("xmm0", "rsp")
             self.emit_add("rsp", 8)
             self.emit_movsd_store("r11", 0, "xmm0")
-            return
+            return None
 
-        # AsmJitGenerator
-        if array_info.element_type == "string":
+        if elem_type == "string":
             self.emit_pop("rax")
             self.emit_mov_qword_ptr_store("r11", 0, "rax")
-            return
+            return None
 
-        raise CompileError(ctx, "E0013", var_type=array_info.element_type)
+        raise CompileError(ctx, "E0013", var_type=elem_type)
 
+    def normalize_array_element_type(self, t):
+        raw = str(t).lower()
+
+        if raw == "boolean":
+            return "boolean"
+
+        resolved = self.resolve_type(t)
+
+        if str(resolved).lower() == "boolean":
+            return "boolean"
+
+        return resolved
+    
     def emit_load_array_element(self, ctx, var_name, index_expr_ctx):
         index_exprs = index_expr_ctx
         if not isinstance(index_exprs, list):
             index_exprs = [index_exprs]
-            
-        var_info, array_info = self.get_array_info(ctx, var_name)
-        
-        if getattr(array_info, "is_dynamic", False):
-            index_exprs = index_expr_ctx
-            if not isinstance(index_exprs, list):
-                index_exprs = [index_exprs]
 
+        var_info, array_info = self.get_array_info(ctx, var_name)
+        elem_type = self.normalize_array_element_type(array_info.element_type)
+
+        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+
+        # ------------------------------------------------------------
+        # Dynamic array
+        # ------------------------------------------------------------
+        if getattr(array_info, "is_dynamic", False):
             if len(index_exprs) != 1:
                 raise CompileError(ctx, "E0005", got=str(len(index_exprs)), expected="1")
 
             index_type = self.visit(index_exprs[0])
-
             if index_type != "integer":
                 raise CompileError(ctx, "E0005", got=index_type, expected="integer")
 
-            self.emit_imul("eax", "eax", array_info.element_size)
-            self.emit_mov("r10d", "eax", comment='save dynamic array byte offset')
+            if is_nt32:
+                self.emit_imul("eax", "eax", array_info.element_size)
+                self.emit_mov("edx", "eax", comment="dynamic array byte offset")
 
-            self.emit_load_var(var_name, var_info)   # RAX = data pointer
+                self.emit_load_var(var_name, var_info)   # eax = data pointer
+                self.emit_add("eax", "edx", comment="dynamic array element address")
+
+                if elem_type in ("integer", "boolean"):
+                    self.emit_mov_dword_ptr("eax", "eax", 0, comment="load array element")
+
+                    if elem_type == "boolean":
+                        self.emit_and("eax", 1)
+                        return "boolean"
+
+                    return "integer"
+
+                if elem_type == "double":
+                    self.emit_movsd_load("xmm0", "eax")
+                    return "double"
+
+                if elem_type == "string":
+                    self.emit_mov_dword_ptr("eax", "eax", 0, comment="load string pointer")
+                    return "string"
+
+                raise CompileError(ctx, "E0014", var_type=elem_type)
+
+            # Win64 dynamic array
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_mov("r10d", "eax", comment="save dynamic array byte offset")
+
+            self.emit_load_var(var_name, var_info)   # rax = data pointer
             self.emit_movsxd("r11", "r10d")
             self.emit_add("r11", "rax", comment="dynamic array element address")
 
-            if array_info.element_type == "integer":
+            if elem_type in ("integer", "boolean"):
                 self.emit_mov_reg_dword("eax", "r11")
+
+                if elem_type == "boolean":
+                    self.emit_and("eax", 1)
+                    return "boolean"
+
                 return "integer"
 
-            if array_info.element_type == "double":
+            if elem_type == "double":
                 self.emit_movsd_load("xmm0", "r11")
                 return "double"
 
-            # AsmJitGenerator
-            if array_info.element_type == "string":
+            if elem_type == "string":
                 self.emit_mov_reg_qword("rax", "r11")
                 return "string"
 
-            raise CompileError(ctx, "E0014", var_type=array_info.element_type)
+            raise CompileError(ctx, "E0014", var_type=elem_type)
 
+        # ------------------------------------------------------------
+        # Static array
+        # ------------------------------------------------------------
         self.emit_multi_array_index_offset(ctx, var_name, array_info, index_exprs)
 
+        if is_nt32:
+            # eax = linear index
+            self.emit_imul("eax", "eax", array_info.element_size)
+            self.emit_mov("edx", "eax", comment="array byte offset")
+
+            symbol = var_info.get("symbol")
+            if not symbol:
+                symbol = f"_var_{var_info['name']}"
+                var_info["symbol"] = symbol
+
+            # eax = &_var_flags
+            self.writer.emit_lea_reg_data_label("eax", symbol)
+
+            # eax = &_var_flags + byte_offset
+            self.emit_add("eax", "edx", comment="array element address")
+
+            if elem_type in ("integer", "boolean"):
+                self.emit_mov_dword_ptr("eax", "eax", 0, comment="load array element")
+
+                if elem_type == "boolean":
+                    self.emit_and("eax", 1)
+                    return "boolean"
+
+                return "integer"
+
+            if elem_type == "double":
+                self.emit_movsd_load("xmm0", "eax")
+                return "double"
+
+            if elem_type == "string":
+                self.emit_mov_dword_ptr("eax", "eax", 0, comment="load string pointer")
+                return "string"
+
+            raise CompileError(ctx, "E0014", var_type=elem_type)
+
+        # Win64 static array
         self.emit_imul("eax", "eax", array_info.element_size)
         self.emit_add("eax", var_info["slot"])
 
@@ -4369,19 +4652,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_movsxd("rax", "eax")
         self.emit_add("r11", "rax")
 
-        if array_info.element_type == "integer":
+        if elem_type in ("integer", "boolean"):
             self.emit_mov_reg_dword("eax", "r11")
+
+            if elem_type == "boolean":
+                self.emit_and("eax", 1)
+                return "boolean"
+
             return "integer"
 
-        if array_info.element_type == "double":
+        if elem_type == "double":
             self.emit_movsd_load("xmm0", "r11")
             return "double"
 
-        if array_info.element_type == "string":
+        if elem_type == "string":
             self.emit_mov_reg_qword("rax", "r11")
             return "string"
 
-        raise CompileError(ctx, "E0014", var_type=array_info.element_type)
+        raise CompileError(ctx, "E0014", var_type=elem_type)
         
     def emit_store_result(self, ctx, expr_type):
         if self.current_function is None:
@@ -4418,7 +4706,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
 
         elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if return_type == "integer":
+            if return_type in ("integer", "boolean"):
                 self.emit_mov_dword_ptr_store("ebp", offset, "eax")
                 return None
                 
@@ -4729,6 +5017,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return typ
             
             var_type = self.resolve_type(info["type"])
+            
+            if var_type == "string":
+                symbol = info.get("symbol")
+                if not symbol:
+                    symbol = f"_var_{info['name']}"
+                    info["symbol"] = symbol
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_i32(symbol, 0)
+
+                self.backend.writer.emit_mov_reg_from_data_label32("eax", symbol)
+                return "string"
+                
             if var_type == "integer":
                 symbol = info.get("symbol")
                 if not symbol:
@@ -4877,6 +5177,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ  = self.resolve_type(info["type"])
         slot = info["slot"]
 
+        if CDATA.args_target in ["nt35", "winnt", "win32"] and typ == "string":
+            symbol = info.get("symbol")
+            if not symbol:
+                symbol = f"_var_{info['name']}"
+                info["symbol"] = symbol
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_i32(symbol, 0)
+
+            self.coff.emit_mov_data_label_r32(symbol, "eax")
+            return
+    
         if hasattr(self, "coff") and "symbol" in info:
             symbol = info["symbol"]
 
@@ -5039,7 +5350,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         rt = return_type.lower()
 
-        if rt not in ["integer", "string", "double"]:
+        if rt not in ["integer", "string", "double", "boolean"]:
             raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
 
         self.emit_jmp(end_label)
@@ -5176,7 +5487,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             if rt == "string":
                 self.emit_mov_dword_ptr("eax", "ebp", result_off)
-            elif rt == "integer":
+            elif rt == "integer" or rt == "boolean":
                 self.emit_mov_dword_ptr("eax", "ebp", result_off)
             else:
                 raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
@@ -5213,13 +5524,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         # _jit_push_exception(frame)
         self.emit_push("ebx")
-        self.emit_call("_jit_push_exception")
+        self.emit_call("_jit_exception_push")
         self.backend.emit_cleanup_stack(4)
 
         # setjmp(frame->env)
         # frame beginnt direkt mit jmp_buf/env
         self.emit_push("ebx")
-        self.emit_call("_setjmp")
+        self.emit_call("_jit_setjmp")
         self.backend.emit_cleanup_stack(4)
 
         # setjmp == 0 -> try block
@@ -5232,7 +5543,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         # Kein Fehler: ExceptionFrame entfernen
         self.emit_push("ebx")
-        self.emit_call("_jit_pop_exception")
+        self.emit_call("_jit_exception_pop")
         self.backend.emit_cleanup_stack(4)
 
         self.emit_add("esp", frame_size, comment="free exception frame")
@@ -5246,7 +5557,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_mov("ebx", "esp", comment="restore frame ptr")
 
         self.emit_push("ebx")
-        self.emit_call("_jit_pop_exception")
+        self.emit_call("_jit_exception_pop")
         self.backend.emit_cleanup_stack(4)
 
         self.visit(ctx.statementList(1))
@@ -5352,8 +5663,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.compareOp() is None:
             expr_type = self.visit(ctx.expr(0))
 
-            if expr_type != "integer":
-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
+            if expr_type not in ("integer", "boolean"):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected="boolean/integer 6"
+                )
 
             self.normalize_bool_eax()
             self.emit_cmp("eax", 0)
@@ -5398,11 +5714,38 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             raise CompileError(ctx, "E0005", got=op, expected="= or <>")
 
-        if left_type == "integer":
+        if left_type == "boolean":
+            self.normalize_bool_eax()
+            self.emit_push("eax")
+
+            right_type = self.visit(right_ctx)
+
+            if right_type not in ("boolean", "integer"):
+                raise CompileError(ctx, "E0005", got=right_type, expected="boolean")
+
+            self.normalize_bool_eax()
+
+            self.emit_mov("ebx", "eax")
+            self.emit_pop("eax")
+            self.emit_cmp("eax", "ebx")
+
+            if op == "=":
+                self.emit_jne(false_label)
+                return
+
+            if op == "<>":
+                self.emit_je(false_label)
+                return
+
+            raise CompileError(ctx, "E0005", got=op, expected="= or <>")
+            
+        elif left_type == "integer":
             self.emit_push("rax")
+            
         elif left_type == "double":
             self.emit_sub("rsp", 8)
             self.emit_movsd_store("rsp", 0, "xmm0")
+            
         else:
             raise CompileError(ctx, "E0005", got=left_type, expected="integer/double")
 
@@ -5728,6 +6071,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def emit_call_reg(self, target, comment=""): self.backend.emit_call_reg(target, comment)
     def emit_call_lbl(self, target, comment=""): self.backend.emit_call_lbl(target, comment)
     
+    def emit_and(self, dst, src, comment=""):
+        self.backend.emit_and(dst, src, comment)
+        
     def emit_xor(self, dst, src, comment=""):
         self.backend.emit_xor(dst, src, comment)
     
@@ -6026,6 +6372,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.validate_class_methods(ctx)
         
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
             self.emit_push("ebx")
         else:
             self.emit_push("r12")
@@ -6617,88 +6964,104 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return None
     
-    def visitBoolOrExpr(self, ctx):
-        parts = list(ctx.boolXorExpr())
-
-        if len(parts) == 1:
-            return self.visit(parts[0])
-
-        true_label = self.new_named_label("or_true")
-        end_label  = self.new_named_label("or_end")
-
-        for part in parts:
-            expr_type = self.visit(part)
-
-            if expr_type != "integer":
-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
-
-            self.normalize_bool_eax()
-            self.emit_cmp("eax", 0)
-            self.emit_jne(true_label)
-
-        self.emit_xor("eax", "eax")
-        self.emit_jmp(end_label)
-
-        self.emit_bind_label(true_label)
-        self.emit_mov("eax", 1)
-
-        self.emit_bind_label(end_label)
-
-        return "integer"
-    
     def visitBoolXorExpr(self, ctx):
         result_type = self.visit(ctx.boolAndExpr(0))
 
-        for i in range(1, len(ctx.boolAndExpr())):
-            if result_type != "integer":
-                raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer")
+        # Kein XOR vorhanden: normalen Ausdruck durchreichen
+        if len(ctx.boolAndExpr()) == 1:
+            return result_type
 
-            self.normalize_bool_eax()
-            self.emit_push("rax")
+        if result_type not in ("boolean", "integer"):
+            raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer xor left")
+
+        self.normalize_bool_eax()
+
+        for i in range(1, len(ctx.boolAndExpr())):
+            self.emit_push("eax", comment="lhs xor boolean")
 
             right_type = self.visit(ctx.boolAndExpr(i))
 
-            if right_type != "integer":
-                raise CompileError(ctx, "E0005", got=right_type, expected="boolean/integer")
+            if right_type not in ("boolean", "integer"):
+                raise CompileError(ctx, "E0005", got=right_type, expected="boolean/integer xor right")
 
             self.normalize_bool_eax()
 
-            self.emit_pop("rbx")
-            self.emit_mov("eax", "ebx")
-            self.normalize_bool_eax()
+            self.emit_pop("ebx", comment="lhs xor boolean")
+            self.emit_xor("eax", "ebx")
+            self.emit_and("eax", 1)
 
-            result_type = "integer"
+            result_type = "boolean"
+
+        return result_type
+    
+    def visitBoolOrExpr(self, ctx):
+        result_type = self.visit(ctx.boolXorExpr(0))
+
+         # Kein OR vorhanden: normalen Ausdruck durchreichen
+        if len(ctx.boolXorExpr()) == 1:
+            return result_type
+
+        for i in range(1, len(ctx.boolXorExpr())):
+            if result_type != "boolean":
+                raise CompileError(ctx, "E0005", got=result_type, expected="boolean")
+
+            self.emit_push("eax")
+
+            right_type = self.visit(ctx.boolXorExpr(i))
+
+            if result_type not in ("boolean", "integer"):
+                raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer or left")
+
+            self.emit_pop("ebx")
+
+            self.emit_or("eax", "ebx")
+            self.emit_and("eax", 1)
+
+            result_type = "boolean"
 
         return result_type
     
     def visitBoolAndExpr(self, ctx):
-        parts = list(ctx.compareExpr())
+        result_type = self.visit(ctx.compareExpr(0))
+        
+        # Kein AND vorhanden: Typ einfach durchreichen,
+        # z.B. integer, boolean, string, ^nil, ^tnode ...
+        if len(ctx.compareExpr()) == 1:
+            return result_type
 
-        if len(parts) == 1:
-            return self.visit(parts[0])
+        if result_type not in ("boolean", "integer"):
+            raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer 2")
 
-        false_label = self.new_named_label("and_false")
-        end_label   = self.new_named_label("and_end")
+        self.normalize_bool_eax()
 
-        for part in parts:
-            expr_type = self.visit(part)
+        for i in range(1, len(ctx.compareExpr())):
+            self.emit_push("eax", comment="lhs boolean")
 
-            if expr_type != "integer":
-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
+            right_type = self.visit(ctx.compareExpr(i))
+
+            if right_type not in ("boolean", "integer"):
+                raise CompileError(ctx, "E0005", got=right_type, expected="boolean/integer 3")
 
             self.normalize_bool_eax()
-            self.emit_cmp("eax", 0)
-            self.emit_je(false_label)
 
-        self.emit_mov("eax", 1)
-        self.emit_jmp(end_label)
+            self.emit_pop("ebx", comment="lhs boolean")
+            self.emit_and("eax", "ebx")
+            self.emit_and("eax", 1)
 
-        self.emit_bind_label(false_label)
-        self.emit_xor("eax", "eax")
+        return "boolean"
+    
+    def visitUnaryNotExpr(self, ctx):
+        expr_type = self.visit(ctx.unaryExpr())
 
-        self.emit_bind_label(end_label)
+        if expr_type not in ("boolean", "integer"):
+            raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer 4")
 
-        return "integer"
+        self.emit_cmp("eax", 0)
+        self.emit_sete("al")
+        self.emit_movzx("eax", "al")
+
+        return "boolean"
+    
 
     def visitBreakStatement(self, ctx):
         if not self.break_label_stack:
@@ -7682,16 +8045,41 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 if op != "+":
                     raise CompileError(ctx, "E0005", got="string -", expected="string + string")
 
-                self.emit_push("rax", comment="save left string")
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    self.emit_push("eax", comment="save left DynString")
 
-                right_type = self.visit(ctx.term(i))
-                if right_type != "string":
-                    raise CompileError(ctx, "E0005", got=right_type, expected="string")
+                    right_type = self.visit(ctx.term(i))
+                    if right_type != "string":
+                        raise CompileError(ctx, "E0005", got=right_type, expected="string")
 
-                self.emit_mov("rdx", "rax", comment="right string")
-                self.emit_pop("rcx", comment="left string")
-                self.emit_mov_imm("rax", "&_jit_dynstring_concat")
-                self.emit_call_rax()
+                    # eax = right DynString
+                    self.emit_pop("ebx", comment="left DynString")
+
+                    # cdecl: push right, dann left
+                    self.emit_push("eax", comment="right DynString")
+                    self.emit_push("ebx", comment="left DynString")
+
+                    self.emit_call("_jit_dynstring_concat")
+                    self.backend.emit_cleanup_stack(8)
+
+                    # eax = neuer DynStringHeader*
+                    self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+                else:
+                    self.emit_push("rax", comment="save left DynString")
+
+                    right_type = self.visit(ctx.term(i))
+                    if right_type != "string":
+                        raise CompileError(ctx, "E0005", got=right_type, expected="string")
+
+                    # Win64: rcx = left, rdx = right
+                    self.emit_mov("rdx", "rax", comment="right DynString")
+                    self.emit_pop("rcx", comment="left DynString")
+
+                    self.emit_mov_imm("rax", "&_jit_dynstring_concat")
+                    self.emit_call_rax()
+
+                    # rax = neuer DynStringHeader*
 
                 result_type = "string"
                 continue
@@ -7865,34 +8253,36 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if ctx.PLUS():
             return self.visit(ctx.factor())
         
-        if ctx.NOT():
-            expr_type = self.visit(ctx.factor())
-            
-            if expr_type != "integer":
-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
-                
-            self.normalize_bool_eax()
-            self.emit_xor("eax", 1, comment = "not")
-            return "integer"
+        if ctx.TRUE():
+            self.emit_mov_imm("eax", 1)
+            return "boolean"
+
+        if ctx.FALSE():
+            self.emit_mov_imm("eax", 0)
+            return "boolean"
         
-        if key in self.constants:
-            c = self.constants[key]
-            
-            if c["type"] == "integer":
-                self.emit_mov("eax", f"{c['value']}")
-                return "integer"
-                
-            if c["type"] == "double":
-                return self.emit_load_double_literal(c["value"])
-                
-            if c["type"] == "string":
-                label = self.add_string_literal(c["value"])
-                if CDATA.args_target in ["dos", "dos16"]:
-                    self.backend.writer.emit_mov_dx_label(label)
-                    return "string"
-                else:
-                    self.emit_mov_imm("rax", label)
-                    return "string"
+        if ctx.NOT():
+            t = self.visit(ctx.factor())
+
+            if t != "boolean":
+                raise CompileError(ctx, "E0005", got=t, expected="boolean")
+
+            lbl_true = self.new_named_label("not_true")
+            lbl_end  = self.new_named_label("not_end")
+
+            self.emit_cmp("eax", 0)
+            self.emit_je(lbl_true)
+
+            # operand war TRUE -> FALSE
+            self.emit_mov("eax", 0)
+            self.emit_jmp(lbl_end)
+
+            self.emit_bind_label(lbl_true)
+            self.emit_mov("eax", 1)
+
+            self.emit_bind_label(lbl_end)
+
+            return "boolean"
         
         if ctx.AT():
             ref = ctx.variableRef()
@@ -8064,14 +8454,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             func = self.find_function(name)
             if func:
                 params = func.get("params", [])
-                
+
                 if len(params) == 0:
-                    self.emit_sub("rsp", 32, comment = "shadow space for parameterless function call")
-                    self.emit_call(f"{func['label']}")
-                    self.emit_add("rsp", 32)
-                    return func["return_type"].lower()
-                
-                raise CompileError(ctx, "E0005", got="0", expected=str(len(params)))
+                    if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                        self.emit_call_lbl(func["label"])
+                        return self.resolve_type(func["return_type"])
+                    else:
+                        self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
+                        self.emit_call_lbl(func["label"])
+                        self.emit_add("rsp", 32)
+                        return self.resolve_type(func["return_type"])
             
             raise CompileError(ctx, "E0001", name=name)
         
@@ -8105,29 +8497,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             value = ctx.STRING().getText()[1:-1]
             label = self.add_string_literal(value)
 
-            if CDATA.args_target in ["dos", "dos16"]:
-                self.backend.writer.emit_mov_dx_label(label)
-                if len(value) == 1:
-                    return "char"
-                return "string"
-
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                self.emit_mov_imm("rax", label)
-                if len(value) == 1:
-                    return "char"
-                return "string"
-            
-            self.emit_mov_imm("rax", label)
-            
+            # Erst Char prüfen!
             if len(value) == 1:
-                return "char"
-                
-            self.emit_mov("rcx", "rax")
-            self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
-            self.emit_call_rax()
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    self.writer.emit_lea_reg_data_label("eax", label)
+                else:
+                    self.emit_mov_imm("rax", label)
 
-            return "string"
-        
+                return "char"
+
+            # Nur echte Strings zu DynString machen
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.backend.writer.emit_push_data_label32(label)
+                self.emit_call("_jit_dynstring_from_cstr")
+                self.backend.emit_cleanup_stack(4)
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+            else:
+                self.emit_mov_imm("rcx", label)
+                self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
+                self.emit_call_rax()
+
+            return "string"        
+            
         # Identifier
         if ctx.IDENT():
             name = ctx.IDENT().getText()
@@ -8181,14 +8572,16 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             func = self.find_function(name)
             if func:
                 params = func.get("params", [])
-                
+
                 if len(params) == 0:
-                    self.emit_sub("rsp", 32, comment = "shadow space for parameterless function call")
-                    self.emit_call(f"{func['label']}")
-                    self.emit_add("rsp", 32)
-                    return func["return_type"].lower()
-                
-                raise CompileError(ctx, "E0005", got="0", expected=str(len(params)))
+                    if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                        self.emit_call_lbl(func["label"])
+                        return self.resolve_type(func["return_type"])
+                    else:
+                        self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
+                        self.emit_call_lbl(func["label"])
+                        self.emit_add("rsp", 32)
+                        return self.resolve_type(func["return_type"])
             
             raise CompileError(ctx, "E0001", name=name)
         
@@ -8339,6 +8732,14 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_push("eax", comment=f"function integer parameter {index + 1}")
                     arg_bytes += 4
                     continue
+                
+                if formal_type == "boolean":
+                    if expr_type not in ["boolean", "integer"]:
+                        raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer 1")
+
+                    self.emit_push("eax", comment=f"function boolean parameter {index + 1}")
+                    arg_bytes += 4
+                    continue
 
                 if formal_type == "string":
                     if expr_type != "string":
@@ -8351,7 +8752,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     ctx,
                     "E0005",
                     got=formal_type,
-                    expected="integer/string"
+                    expected="boolean/integer/string"
                 )
 
             self.emit_call_lbl(func["label"])
@@ -8597,6 +8998,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 
                 expr_type = self.visit_actual_param_expr(arg)
 
+                if formal_type == "boolean":
+                    if expr_type not in ("boolean", "integer"):
+                        raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
+                    self.emit_push("eax", comment=f"boolean parameter {index + 1}")
+                    arg_bytes += 4
+                    continue
+                    
                 if formal_type == "integer":
                     if expr_type != "integer":
                         raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
@@ -8817,7 +9225,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             self.emit_mov_imm("rax", "&_jit_print_text")
                             self.emit_call_rax()
                     
-                    elif expr_type == "integer":
+                    elif expr_type in ("integer", "boolean"):
                         if CDATA.args_target in ["nt35", "winnt", "win32"]:
                             self.emit_push("eax")
                             self.emit_nt32_call_cdecl("_jit_print_int", 4)
@@ -9417,6 +9825,7 @@ class GeneratorClass(AsmJitGenerator):
             raise RuntimeError(f"unsupported generator writer: {type(writer)}")
 
     def emit_mov_eax_ebx(self):
+        self.asm.append("mov eax, eax")
         self.emit_mov("eax", "ebx")
 
     def emit_mov_ebx_eax(self):

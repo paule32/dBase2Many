@@ -13,13 +13,22 @@ var
     flags: TFlags;
 
 begin
+    WriteLn('START');
+    
     flags[0] := True;
+    WriteLn('OK 1');
+    
     flags[1] := False;
+    WriteLn('OK 2');
+    
     flags[2] := not flags[1];
+    WriteLn('OK 3');
+    
     flags[3] := flags[0] xor flags[2];
+    WriteLn('OK 4');
 
-    WriteLn(flags[0]);
-    WriteLn(flags[1]);
-    WriteLn(flags[2]);
-    WriteLn(flags[3]);
+    WriteLn(flags[0]); WriteLn('OK A');
+    WriteLn(flags[1]); WriteLn('OK B');
+    WriteLn(flags[2]); WriteLn('OK C');
+    WriteLn(flags[3]); WriteLn('OK D');
 end.

@@ -82,6 +82,10 @@ INHERITED           : [iI][nN][hH][eE][rR][iI][tT][eE][dD] ;
 
 WRITELN             : [Ww][Rr][Ii][Tt][Ee][Ll][Nn] ;
 
+BOOLEAN             : [Bb][Oo][Oo][Ll][Ee][Aa][Nn] ;
+TRUE                : [Tt][Rr][Uu][Ee] ;
+FALSE               : [Ff][Aa][Ll][Ss][Ee] ;
+
 BLAKE2              : [Bb][Ll][Aa][Kk][Ee]'2' ;
 CRC16               : [Cc][Rc][Cc]'16' ;
 CRC32               : [Cc][Rc][Cc]'32' ;
