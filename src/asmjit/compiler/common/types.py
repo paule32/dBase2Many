@@ -23,13 +23,18 @@ class CommonData():
         self.LastErrorCode       : int  = 0
         self.BackEnd             = BackEndInfo()
         self.CurrentWorkingDir   : str  = ""
+        
         self.src_file            : str  = ""
         self.asm_file            : str  = ""
         self.cpp_file            : str  = ""
+        
         self.exe_file            : str  = ""
         self.obj_file            : str  = ""
+        self.pui_file            : str  = ""
+        
         self.args_target         : str  = ""
         self.args_backend        : str  = ""
+        
         self.ExeOutputDir        : str  = ""
         
         self.asm_lines           : list = []
@@ -37,6 +42,8 @@ class CommonData():
         self.InputFiles          : list = []
         self.UnitFiles           : list = []
         self.IncludePaths        : list = []
+        
+        self.force_write         : str  = ""
         
         self.link_object_files   = []
         self.link_archive_files  = []
@@ -60,6 +67,7 @@ class CommonData():
                 ( "_jit_print_newline",               54 ),
                 ( "_jit_print_double",                55 ),
                 ( "_jit_print_char",                  56 ),
+                ( "_jit_print_cstr",                  63 ),
 
                 ( "_jit_new_memory",                 41 ),
                 ( "_jit_dispose_memory",             42 ),

@@ -28,11 +28,18 @@ typedef int (JIT_CDECL *vsnprintf_fn)(char *buffer, size_t size, const char *fmt
 DLL_API int  JIT_CDECL _jit_snprintf (char *buffer, size_t size, const char *fmt, ...);
 DLL_API int  JIT_CDECL _jit_vsnprintf(char *buffer, size_t size, const char *fmt, va_list ap);
 
+DLL_API VOID _jit_print_cstr(const char *text);
 DLL_API VOID _jit_print_text(const char* s);
 DLL_API VOID _jit_print_char(int c);
 DLL_API VOID _jit_print_int(int v);
 DLL_API VOID _jit_print_double(double v);
 DLL_API VOID _jit_print_newline();
+
+DLL_API int   JIT_CDECL _jit_read_char();
+DLL_API char* JIT_CDECL _jit_read_string();
+DLL_API int   JIT_CDECL _jit_read_int();
+
+DLL_API void  JIT_CDECL _jit_debug_break();
 };
 
 namespace std {

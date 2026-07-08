@@ -154,13 +154,44 @@ class NT32Writer:
         return data
 
     def collect_used_external_symbols(self):
-        used = set()
+        """Collect real Windows imports used by primary code and linked .o files.
 
+        Symbols defined by the main Pascal stream or by any linked COFF object
+        are internal link targets. Only still-undefined symbols must be resolved
+        through the PE import table.
+        """
+        used = set()
+        defined = self.coff.collect_defined_symbols()
+
+        # Relocations emitted directly by the Pascal generator.
         for reloc in self.coff.text_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
 
-            if sym["section"] == 0:
+            if sym["section"] == 0 and sym["name"] not in defined:
                 used.add(sym["name"])
+
+        for reloc in self.coff.data_relocations:
+            sym = self.coff.symbols[reloc["symbol_index"]]
+
+            if sym["section"] == 0 and sym["name"] not in defined:
+                used.add(sym["name"])
+
+        # Relocations contained in linked Pascal-unit/native COFF objects.
+        for obj in self.coff.coff_objects:
+            for section in obj.sections:
+                for reloc in section.relocations:
+                    symbol = obj.raw_symbols[reloc.symbol_index]
+
+                    if symbol is None:
+                        raise RuntimeError(
+                            "COFF relocation references AUX symbol"
+                        )
+
+                    if (
+                        symbol.section_number == 0
+                        and symbol.name not in defined
+                    ):
+                        used.add(symbol.name)
 
         return used
 
@@ -280,39 +311,85 @@ class NT32Writer:
             return data_rva + sym["value"]
         raise RuntimeError(f"{tr('unsupported symbol section')}: {sym}")
 
-    def patch_internal_relocations(self, text_image, data_image, text_rva, data_rva):
+    def patch_internal_relocations(
+        self,
+        text_image,
+        data_image,
+        text_rva,
+        data_rva
+    ):
+        """Patch relocations resolved by this image or linked COFF objects."""
         for reloc in self.coff.text_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
+            name = sym["name"]
 
             if sym["section"] == 0:
-                continue
+                # Undefined in the primary stream, but possibly supplied by
+                # an included Pascal-unit object. register_coff_symbols() has
+                # already populated external_symbols at this point.
+                target_rva = self.coff.external_symbols.get(name)
+
+                if target_rva is None:
+                    continue
+            else:
+                target_rva = self.symbol_rva(
+                    sym,
+                    text_rva,
+                    data_rva
+                )
 
             patch_pos = reloc["offset"]
-            target_rva = self.symbol_rva(sym, text_rva, data_rva)
-            
+
             if reloc["type"] == IMAGE_REL_I386_REL32:
                 next_rva = text_rva + patch_pos + 4
                 rel32 = target_rva - next_rva
-                text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
+
+                text_image[patch_pos:patch_pos + 4] = int(
+                    rel32
+                ).to_bytes(4, "little", signed=True)
 
             elif reloc["type"] == IMAGE_REL_I386_DIR32:
                 target_va = self.IMAGE_BASE + target_rva
-                text_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
+
+                text_image[patch_pos:patch_pos + 4] = int(
+                    target_va
+                ).to_bytes(4, "little", signed=False)
 
             else:
-                raise RuntimeError(f"{tr('unsupported text relocation type')}: {reloc['type']}")
-                
+                raise RuntimeError(
+                    f"unsupported text relocation type: {reloc['type']}"
+                )
+
         for reloc in self.coff.data_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
+            name = sym["name"]
 
-            patch_pos  = reloc["offset"]
-            target_rva = self.symbol_rva(sym, text_rva, data_rva)
+            if sym["section"] == 0:
+                target_rva = self.coff.external_symbols.get(name)
+
+                if target_rva is None:
+                    raise RuntimeError(
+                        f"unresolved COFF data symbol: {name}"
+                    )
+            else:
+                target_rva = self.symbol_rva(
+                    sym,
+                    text_rva,
+                    data_rva
+                )
+
+            patch_pos = reloc["offset"]
 
             if reloc["type"] == IMAGE_REL_I386_DIR32:
                 target_va = self.IMAGE_BASE + target_rva
-                data_image[patch_pos:patch_pos + 4] = int(target_va).to_bytes(4, "little")
+
+                data_image[patch_pos:patch_pos + 4] = int(
+                    target_va
+                ).to_bytes(4, "little", signed=False)
             else:
-                raise RuntimeError(f"{tr('unsupported data relocation type')}: {reloc['type']}")
+                raise RuntimeError(
+                    f"unsupported data relocation type: {reloc['type']}"
+                )
 
     def patch_external_call_relocations(self, text_image, text_rva):
         for reloc in self.coff.text_relocations:
@@ -323,8 +400,15 @@ class NT32Writer:
 
             name = sym["name"]
 
+            # The symbol was supplied by a linked .o file and has already
+            # been patched by patch_internal_relocations().
+            if name in self.coff.external_symbols:
+                continue
+
             if name not in self.import_thunk_offsets:
-                raise RuntimeError(f"{tr('external call not imported')}: {name}")
+                raise RuntimeError(
+                    f"external call not imported: {name}"
+                )
 
             patch_pos = reloc["offset"]
             thunk_off = self.import_thunk_offsets[name]
@@ -333,7 +417,9 @@ class NT32Writer:
             next_rva   = text_rva + patch_pos + 4
             rel32      = target_rva - next_rva
 
-            text_image[patch_pos:patch_pos + 4] = int(rel32).to_bytes(4, "little", signed=True)
+            text_image[patch_pos:patch_pos + 4] = int(
+                rel32
+            ).to_bytes(4, "little", signed=True)
 
     def validate_imports_complete(self):
         used = self.collect_used_external_symbols()
@@ -401,64 +487,178 @@ class NT32Writer:
 
         return result
     
-    def patch_coff_relocations(self, text_image, data_image, text_rva, data_rva):
+    def linked_object_symbol_rva(
+        self,
+        obj,
+        symbol,
+        text_rva,
+        data_rva
+    ):
+        """Resolve a symbol defined in the same linked COFF object.
+
+        Local labels such as str_0 can occur in more than one unit. Resolving
+        them through the global name dictionary would make an earlier unit
+        accidentally reference the identically named symbol of a later unit.
+        """
+        if symbol.section_number <= 0:
+            return None
+
+        section = obj.sections[symbol.section_number - 1]
+
+        if section.output_section == ".text":
+            base_rva = text_rva
+        elif section.output_section in (".data", ".rdata", ".bss"):
+            base_rva = data_rva
+        else:
+            raise RuntimeError(
+                "unknown COFF output section: "
+                + str(section.output_section)
+            )
+
+        return base_rva + section.output_offset + symbol.value
+
+    def patch_coff_relocations(
+        self,
+        text_image,
+        data_image,
+        text_rva,
+        data_rva
+    ):
+        """Patch relocations located inside linked COFF32 object files.
+
+        Targets can be:
+          * symbols defined by the main Pascal object,
+          * symbols defined by another linked object,
+          * Windows imports reached through a generated import thunk.
+        """
         for obj in self.coff.coff_objects:
-            for sec in obj.sections:
-                if not sec.output_section:
+            for section in obj.sections:
+                if not section.output_section:
                     continue
 
-                if sec.output_section == ".text":
-                    buf = text_image
+                if section.output_section == ".text":
+                    buffer = text_image
                     section_rva = text_rva
-                elif sec.output_section in [".data", ".rdata", ".bss"]:
-                    buf = data_image
+
+                elif section.output_section in (
+                    ".data",
+                    ".rdata",
+                    ".bss"
+                ):
+                    buffer = data_image
                     section_rva = data_rva
+
                 else:
                     raise RuntimeError(
-                        f"unknown COFF output section: {sec.output_section}"
+                        "unknown COFF output section: "
+                        + str(section.output_section)
                     )
 
-                for rel in sec.relocations:
-                    symbol = obj.raw_symbols[rel.symbol_index]
+                for relocation in section.relocations:
+                    symbol = obj.raw_symbols[
+                        relocation.symbol_index
+                    ]
 
                     if symbol is None:
-                        raise RuntimeError("COFF relocation references AUX symbol")
-
-                    name = symbol.name
-
-                    if name not in self.coff.external_symbols:
-                        raise RuntimeError(f"unresolved COFF symbol: {name}")
-
-                    target_rva = self.coff.external_symbols[name]
-                    patch_offset = sec.output_offset + rel.virtual_address
-
-                    if rel.type == IMAGE_REL_I386_DIR32:
-                        value = self.IMAGE_BASE + target_rva
-                        buf[patch_offset:patch_offset + 4] = int(value).to_bytes(
-                            4,
-                            "little",
-                            signed=False
+                        raise RuntimeError(
+                            "COFF relocation references AUX symbol"
                         )
 
-                    elif rel.type == IMAGE_REL_I386_REL32:
+                    name = symbol.name
+                    patch_offset = (
+                        section.output_offset
+                        + relocation.virtual_address
+                    )
+
+                    # --------------------------------------------------
+                    # A symbol defined in this same object must be resolved
+                    # from that object's section. Names such as str_0 are
+                    # intentionally not globally unique.
+                    # --------------------------------------------------
+                    if symbol.section_number > 0:
+                        target_rva = self.linked_object_symbol_rva(
+                            obj,
+                            symbol,
+                            text_rva,
+                            data_rva
+                        )
+
+                    # --------------------------------------------------
+                    # Undefined in this object, but defined by the main
+                    # Pascal stream or another linked object.
+                    # --------------------------------------------------
+                    elif name in self.coff.external_symbols:
+                        target_rva = self.coff.external_symbols[name]
+
+                    # --------------------------------------------------
+                    # Imported function used by a linked .o file.
+                    # A REL32 call targets the JMP thunk in .text.
+                    # --------------------------------------------------
+                    elif (
+                        relocation.type == IMAGE_REL_I386_REL32
+                        and name in self.import_thunk_offsets
+                    ):
+                        target_rva = (
+                            text_rva
+                            + self.import_thunk_offsets[name]
+                        )
+
+                    else:
+                        raise RuntimeError(
+                            "unresolved COFF symbol: " + name
+                        )
+
+                    if relocation.type == IMAGE_REL_I386_REL32:
                         source_rva = section_rva + patch_offset
                         value = target_rva - (source_rva + 4)
-                        buf[patch_offset:patch_offset + 4] = int(value).to_bytes(
+
+                        buffer[
+                            patch_offset:patch_offset + 4
+                        ] = int(value).to_bytes(
                             4,
                             "little",
                             signed=True
                         )
 
+                    elif relocation.type == IMAGE_REL_I386_DIR32:
+                        value = self.IMAGE_BASE + target_rva
+
+                        buffer[
+                            patch_offset:patch_offset + 4
+                        ] = int(value).to_bytes(
+                            4,
+                            "little",
+                            signed=False
+                        )
+
                     else:
                         raise RuntimeError(
-                            f"unsupported COFF relocation type: {rel.type:04X}"
+                            "unsupported COFF relocation type: "
+                            f"{relocation.type:04X}"
                         )
-                    
+
     def write(self, filename):
         print("NT32Writer.write called")
         #print(self.imports)
         
         Coff32Backend(self.coff).emit_program_entry()
+
+        # A call to a PUI symbol must have been emitted as an external COFF
+        # relocation. If it accidentally went through emit_call_label(), the
+        # writer would retain a local fixup and the resulting executable could
+        # jump to an invalid displacement and appear to idle forever.
+        if self.coff.fixups:
+            unresolved = []
+
+            for fixup in self.coff.fixups:
+                unresolved.append(
+                    f"{fixup['label']} at text+0x{fixup['patch_pos']:08X}"
+                )
+
+            raise RuntimeError(
+                "unresolved local labels before PE link:\n"
+                + "\n".join(unresolved)
+            )
         
         self.validate_imports_complete()
         self.imports = self.filtered_imports()

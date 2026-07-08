@@ -39,6 +39,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     echo "assemble: crypto/$dir/$dir.cc"
     g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
     -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -Wno-write-strings   \
     -fno-builtin-memset  \
     -fno-builtin-memcpy  \
     -fno-builtin-memmove \
@@ -67,6 +68,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     echo "assemble: $file.cc"
     g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
     -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+    -Wno-write-strings   \
     -fno-builtin-memset  \
     -fno-builtin-memcpy  \
     -fno-builtin-memmove \
@@ -98,6 +100,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   echo "create 32-bit dll fil..."
   g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
   -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
+  -Wno-write-strings \
   win32/obj/runtime_all.o      \
   win32/obj/crypto/blake2/*.o  \
   win32/obj/crypto/blake3/*.o  \

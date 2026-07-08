@@ -7,7 +7,9 @@ from __future__  import annotations
 
 import os
 import sys
+import json
 
+from pathlib     import Path
 from dataclasses import dataclass, field
 from antlr4      import *
 
@@ -53,6 +55,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.source_dir        = None
         
         self.loaded_units      = {}
+        self.loaded_puis       = {}
         self.loading_units     = set()
         self.unit_init_labels  = []
         self.current_unit      = None
@@ -83,6 +86,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.records            = {}
         self.arrays             = {}
         self.classes            = {}
+        self.pui_class_units    = {}
         
         self.current_class  = None
         self.current_method = None
@@ -119,6 +123,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "type": "boolean",
             "value": 0
         }
+
+        # ------------------------------------------------------------------
+        # Root-Modul und PUI-Verwaltung
+        # ------------------------------------------------------------------
+        self.source_file_depth = 0
+
+        self.root_module_kind = None
+        self.root_unit_name   = None
+
+        self.root_link_objects  = []
+        self.root_link_archives = []
+
+        self.pending_pui = None
+        self.collect_pui_interface = False
 
         self.asm_file               = CDATA.asm_file
         self.emit_local_string_data = True
@@ -795,15 +813,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif isinstance(typ, str) and typ in self.classes:
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
-            
+
             if CDATA.args_target in ["dos", "dos16"]:
                 symbol = f"_var_{name}"
                 self.backend.writer.add_dword_var(symbol)
-            
-            if use_direct_coff_globals:
+
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                symbol = f"_var_{name}"
+
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_i32(symbol, 0)
+
+            elif use_direct_coff_globals:
                 symbol = f"_var_{name}"
                 self.coff.add_data_qword(symbol)
-            
+
         elif isinstance(typ, str) and typ.startswith("^"):
             slot = self.next_pointr_slot
             self.next_pointr_slot += 1
@@ -1444,8 +1468,811 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return typ
     
-    def load_unit(self, ctx, unit_name):
-        unit_key = unit_name.lower()
+    def unit_search_directories(self):
+        """Return all directories that may contain compiled Pascal units.
+
+        The compiler driver does not always set ``CDATA.output_dir``.  Unit
+        output is often written next to ``obj_file``/``exe_file`` or into the
+        conventional ``testout`` directory.  Therefore the search path is
+        derived from all known output filenames as well as the configured
+        include/object paths.
+        """
+        directories = []
+        seen = set()
+
+        def add(path, base_directory=None):
+            if not path:
+                return
+
+            try:
+                raw_path = os.fspath(path)
+            except TypeError:
+                return
+
+            raw_path = raw_path.strip()
+
+            if not raw_path:
+                return
+
+            if base_directory and not os.path.isabs(raw_path):
+                raw_path = os.path.join(base_directory, raw_path)
+
+            absolute_path = os.path.abspath(raw_path)
+            key = os.path.normcase(os.path.normpath(absolute_path))
+
+            if key in seen:
+                return
+
+            if os.path.isdir(absolute_path):
+                seen.add(key)
+                directories.append(absolute_path)
+
+        def add_parent(filename):
+            if not filename:
+                return
+
+            try:
+                filename = os.fspath(filename)
+            except TypeError:
+                return
+
+            filename = filename.strip()
+
+            if not filename:
+                return
+
+            absolute_filename = os.path.abspath(filename)
+            add(os.path.dirname(absolute_filename))
+
+        source_directory = self.source_dir
+
+        if not source_directory and self.source_file:
+            source_directory = os.path.dirname(
+                os.path.abspath(self.source_file)
+            )
+
+        current_directory = os.getcwd()
+
+        # Source and current working directory.
+        add(source_directory)
+        add(current_directory)
+
+        # Explicit compiler output directory.  Relative output directories
+        # are checked relative to both cwd and the source directory.
+        output_directory = getattr(CDATA, "output_dir", None)
+
+        add(output_directory, current_directory)
+        add(output_directory, source_directory)
+
+        # Conventional project output directory used by pas2asmjit.py.
+        add("testout", current_directory)
+        add("testout", source_directory)
+
+        # Derive directories from known output filenames.  Different driver
+        # versions use different attribute names, so inspect all common ones.
+        for attribute_name in (
+            "obj_file",
+            "object_file",
+            "pui_file",
+            "exe_file",
+            "dll_file",
+            "asm_file",
+            "output_file"
+        ):
+            add_parent(getattr(CDATA, attribute_name, None))
+
+        # Include/unit/object/library search paths.
+        for attribute_name in (
+            "IncludePaths",
+            "UnitPaths",
+            "link_object_paths",
+            "link_library_paths"
+        ):
+            for path in getattr(CDATA, attribute_name, []) or []:
+                add(path, current_directory)
+                add(path, source_directory)
+
+        # Explicit unit files or directories.
+        for item in getattr(CDATA, "UnitFiles", []) or []:
+            try:
+                item_path = os.path.abspath(os.fspath(item))
+            except TypeError:
+                continue
+
+            if os.path.isdir(item_path):
+                add(item_path)
+            elif os.path.isfile(item_path):
+                add(os.path.dirname(item_path))
+
+        # Already configured link objects can also reveal the unit output
+        # directory even when no separate output_dir option exists.
+        for item in getattr(CDATA, "link_object_files", []) or []:
+            add_parent(item)
+
+        return directories
+
+    def find_unit_pui_file(self, ctx, unit_name, required=True):
+        """Find the PUI belonging to *unit_name* without loading Pascal source."""
+        normalized = self.normalize_unit_name(unit_name)
+        last_part  = unit_name.split(".")[-1]
+
+        candidate_names = []
+
+        def add_candidate(name):
+            if name and name not in candidate_names:
+                candidate_names.append(name)
+
+        add_candidate(unit_name + ".pui")
+        add_candidate(unit_name.lower() + ".pui")
+        add_candidate(normalized + ".pui")
+        add_candidate(normalized.lower() + ".pui")
+        add_candidate(last_part + ".pui")
+        add_candidate(last_part.lower() + ".pui")
+
+        search_dirs = self.unit_search_directories()
+
+        # Fast path: conventional filenames.
+        for directory in search_dirs:
+            for filename in candidate_names:
+                path = os.path.abspath(os.path.join(directory, filename))
+
+                if os.path.isfile(path):
+                    return path
+
+        # Fallback: inspect PUI headers. This also supports a source filename
+        # that differs from the qualified Pascal unit name.
+        wanted = normalized.lower()
+
+        for directory in search_dirs:
+            try:
+                entries = os.listdir(directory)
+            except OSError:
+                continue
+
+            for filename in entries:
+                if not filename.lower().endswith(".pui"):
+                    continue
+
+                path = os.path.join(directory, filename)
+
+                try:
+                    with open(path, "r", encoding="utf-8") as stream:
+                        data = json.load(stream)
+                except (OSError, ValueError, TypeError):
+                    continue
+
+                pui_unit = data.get("unit", {})
+                pui_name = pui_unit.get("normalized_name")
+
+                if not pui_name:
+                    pui_name = self.normalize_unit_name(
+                        pui_unit.get("name", "")
+                    )
+
+                if str(pui_name).lower() == wanted:
+                    return os.path.abspath(path)
+
+        if required:
+            searched = ", ".join(search_dirs)
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"compiled unit interface not found: {unit_name}.pui; "
+                    f"searched: {searched}"
+                )
+            )
+
+        return None
+
+    def validate_unit_pui(self, ctx, unit_name, pui_path, data):
+        if data.get("format") != "dBase2Many Pascal Unit Interface":
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"invalid PUI format: {pui_path}"
+            )
+
+        if int(data.get("version", 0)) != 1:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"unsupported PUI version in {pui_path}"
+            )
+
+        pui_unit = data.get("unit", {})
+        stored_name = pui_unit.get("name", "")
+
+        if (
+            self.normalize_unit_name(stored_name)
+            != self.normalize_unit_name(unit_name)
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"PUI unit mismatch: requested {unit_name}, "
+                    f"found {stored_name}"
+                )
+            )
+
+        target = data.get("target", {})
+        current_target = CDATA.args_target.lower()
+
+        nt32_targets = {"nt35", "winnt", "win32"}
+        pui_target = str(target.get("target", "")).lower()
+
+        if current_target in nt32_targets:
+            compatible = (
+                pui_target in nt32_targets
+                and target.get("object_format") == "coff32"
+                and target.get("machine") == "i386"
+                and int(target.get("pointer_size", 0)) == 4
+                and target.get("calling_convention") == "cdecl"
+            )
+        else:
+            compatible = pui_target == current_target
+
+        if not compatible:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"PUI target is incompatible with {current_target}: "
+                    f"{pui_path}"
+                )
+            )
+
+    def add_pui_link_object(self, filename):
+        filename = os.path.abspath(filename)
+        wanted   = os.path.normcase(os.path.normpath(filename))
+
+        for old in CDATA.link_object_files:
+            old_abs = os.path.abspath(os.fspath(old))
+            old_key = os.path.normcase(os.path.normpath(old_abs))
+
+            if old_key == wanted:
+                return
+
+        CDATA.link_object_files.append(filename)
+
+    def add_pui_link_archive(self, filename):
+        filename = os.path.abspath(filename)
+        wanted   = os.path.normcase(os.path.normpath(filename))
+
+        for old in CDATA.link_archive_files:
+            old_abs = os.path.abspath(os.fspath(old))
+            old_key = os.path.normcase(os.path.normpath(old_abs))
+
+            if old_key == wanted:
+                return
+
+        CDATA.link_archive_files.append(filename)
+
+    def resolve_pui_path(self, pui_directory, filename):
+        filename = os.fspath(filename)
+
+        if os.path.isabs(filename):
+            return os.path.normpath(filename)
+
+        return os.path.normpath(
+            os.path.join(pui_directory, filename)
+        )
+
+    def register_pui_classes(self, ctx, unit_name, class_items):
+        """
+        Registriert Klassen aus einer PUI, ohne den Pascal-Quelltext
+        der Unit erneut zu parsen.
+
+        Methoden aus der PUI besitzen kein lokales Generator-Label.
+        Ihr COFF-Symbol wird deshalb als externes Aufrufziel gespeichert.
+        """
+
+        if not class_items:
+            return
+
+        pending = {}
+
+        for class_item in class_items:
+            if not isinstance(class_item, dict):
+                continue
+
+            class_name = str(
+                class_item.get("name", "")
+            ).strip()
+
+            if not class_name:
+                continue
+
+            pending[class_name.lower()] = class_item
+
+        while pending:
+            progress = False
+
+            for class_key, class_item in list(pending.items()):
+                class_name = str(
+                    class_item["name"]
+                ).strip()
+
+                parent_name = class_item.get("parent")
+                parent_key = None
+
+                if parent_name:
+                    parent_key = str(parent_name).lower()
+
+                    if (
+                        parent_key not in self.classes
+                        and parent_key in pending
+                    ):
+                        continue
+
+                    if parent_key not in self.classes:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                f"PUI class {class_name} references "
+                                f"unknown parent class {parent_name}"
+                            )
+                        )
+
+                if class_key in self.classes:
+                    old_unit = self.pui_class_units.get(class_key)
+
+                    if old_unit == unit_name:
+                        del pending[class_key]
+                        progress = True
+                        continue
+
+                    raise CompileError(
+                        ctx,
+                        "E0002",
+                        name=class_name
+                    )
+
+                fields = {}
+
+                for field_item in class_item.get("fields", []):
+                    if not isinstance(field_item, dict):
+                        continue
+
+                    field_name = str(
+                        field_item.get("name", "")
+                    ).strip()
+
+                    if not field_name:
+                        continue
+
+                    field_type = self.resolve_type(
+                        field_item.get("type", "")
+                    )
+
+                    fields[field_name.lower()] = RecordFieldInfo(
+                        name=field_name,
+                        type=field_type,
+                        offset=int(field_item.get("offset", 0)),
+                        size=int(
+                            field_item.get(
+                                "size",
+                                self.pointer_slot_size()
+                            )
+                        ),
+                        visibility=field_item.get(
+                            "visibility",
+                            "public"
+                        )
+                    )
+
+                methods = {}
+
+                for method_item in class_item.get("methods", []):
+                    if not isinstance(method_item, dict):
+                        continue
+
+                    method_name = str(
+                        method_item.get("name", "")
+                    ).strip()
+
+                    symbol = str(
+                        method_item.get("symbol", "")
+                    ).strip()
+
+                    if not method_name or not symbol:
+                        continue
+
+                    params = []
+
+                    for param in method_item.get("params", []):
+                        params.append({
+                            "name": param.get("name", ""),
+                            "type": self.resolve_type(
+                                param.get("type", "")
+                            ),
+                            "is_var": bool(
+                                param.get("is_var", False)
+                            )
+                        })
+
+                    return_type = method_item.get("return_type")
+
+                    if return_type:
+                        return_type = self.resolve_type(return_type)
+
+                    method = ClassMethodInfo(
+                        name=method_name,
+                        kind=method_item.get("kind", "procedure"),
+                        label=None,
+                        params=params,
+                        owner=class_key,
+                        return_type=return_type,
+                        implemented=True,
+                        mangled=symbol,
+                        visibility=method_item.get(
+                            "visibility",
+                            "public"
+                        )
+                    )
+
+                    methods.setdefault(
+                        method_name.lower(),
+                        []
+                    ).append(method)
+
+                properties = {}
+
+                for prop_item in class_item.get("properties", []):
+                    if not isinstance(prop_item, dict):
+                        continue
+
+                    prop_name = str(
+                        prop_item.get("name", "")
+                    ).strip()
+
+                    if not prop_name:
+                        continue
+
+                    properties[prop_name.lower()] = PropertyInfo(
+                        name=prop_name,
+                        ptype=self.resolve_type(
+                            prop_item.get("type", "")
+                        ),
+                        visibility=prop_item.get(
+                            "visibility",
+                            "public"
+                        ),
+                        read_name=prop_item.get("read"),
+                        write_name=prop_item.get("write")
+                    )
+
+                class_info = ClassInfo(
+                    name=class_name,
+                    fields=fields,
+                    methods=methods,
+                    properties=properties,
+                    size=int(class_item.get("size", 0)),
+                    parent=parent_key
+                )
+
+                self.classes[class_key] = class_info
+                self.pui_class_units[class_key] = unit_name
+
+                del pending[class_key]
+                progress = True
+
+            if not progress:
+                unresolved = ", ".join(
+                    sorted(
+                        item.get("name", key)
+                        for key, item in pending.items()
+                    )
+                )
+
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "could not resolve PUI class inheritance: "
+                        + unresolved
+                    )
+                )
+
+    def emit_class_method_call(self, method, comment=""):
+        """
+        Ruft eine lokale Klassenmethode oder eine über PUI importierte
+        Klassenmethode auf.
+
+        Lokale Methoden besitzen method.label. Importierte PUI-Methoden
+        besitzen kein lokales Label; ihr COFF-Symbol steht in
+        method.mangled.
+        """
+
+        local_label = getattr(method, "label", None)
+        mangled = getattr(method, "mangled", None)
+
+        external = local_label is None
+        target = mangled if external else local_label
+
+        if not target:
+            raise RuntimeError(
+                "class method has no call target: "
+                + str(getattr(method, "name", "<unknown>"))
+            )
+
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            self.writer.emit_call_external(target)
+            return
+
+        if external:
+            raise RuntimeError(
+                "PUI class method imports are currently supported "
+                "only for COFF32 targets"
+            )
+
+        self.emit_call_lbl(target, comment=comment)
+
+    def register_pui_routines(self, ctx, unit_name, data):
+        symbols = data.get("symbols", {})
+        unit_prefix = self.normalize_unit_name(unit_name)
+
+        for item in symbols.get("functions", []):
+            name   = item["name"]
+            symbol = item["symbol"]
+            params = list(item.get("params", []))
+
+            info = {
+                "name": name,
+                "scoped_name": item.get(
+                    "scoped_name",
+                    unit_prefix + "_" + name
+                ),
+                "return_type": self.resolve_type(item["return_type"]),
+                "label": None,
+                "symbol": symbol,
+                "mangled": symbol,
+                "params": params,
+                "external": True,
+                "unit": unit_name,
+                "pui": True
+            }
+
+            scoped_key = info["scoped_name"].lower()
+            self.functions[scoped_key] = info
+
+            # Preserve the first unqualified symbol. A future qualified-name
+            # resolver can select the scoped entry when two units export the
+            # same Pascal identifier.
+            self.functions.setdefault(name.lower(), info)
+
+        for item in symbols.get("procedures", []):
+            name   = item["name"]
+            symbol = item["symbol"]
+            params = list(item.get("params", []))
+
+            info = {
+                "name": name,
+                "scoped_name": item.get(
+                    "scoped_name",
+                    unit_prefix + "_" + name
+                ),
+                "label": None,
+                "symbol": symbol,
+                "mangled": symbol,
+                "params": params,
+                "external": True,
+                "unit": unit_name,
+                "pui": True
+            }
+
+            scoped_key = info["scoped_name"].lower()
+            self.procedures[scoped_key] = info
+            self.procedures.setdefault(name.lower(), info)
+
+        classes = symbols.get("classes") or []
+        self.register_pui_classes(
+            ctx,
+            unit_name,
+            classes
+        )
+
+    def add_unit_initializer(self, symbol, external=False):
+        if not symbol:
+            return
+
+        for item in self.unit_init_labels:
+            if isinstance(item, dict):
+                old_symbol = item.get("symbol")
+            else:
+                old_symbol = item
+
+            if old_symbol == symbol:
+                return
+
+        self.unit_init_labels.append({
+            "symbol": symbol,
+            "external": bool(external)
+        })
+
+    def emit_unit_initializers(self):
+        """Emit unit initialization calls in dependency order.
+
+        Internal initializers are normal labels in the current code stream.
+        Initializers loaded from a PUI are external COFF symbols and must
+        therefore create a relocation instead of a local-label fixup.
+        """
+        for item in self.unit_init_labels:
+            if isinstance(item, dict):
+                symbol   = item["symbol"]
+                external = bool(item.get("external", False))
+            else:
+                symbol   = item
+                external = False
+
+            if external:
+                if CDATA.args_target in ("nt35", "winnt", "win32"):
+                    self.writer.emit_call_external(symbol)
+                else:
+                    self.emit_call(symbol, comment="external unit init")
+            else:
+                self.emit_call_lbl(symbol, comment="internal unit init")
+
+    def emit_registered_routine_call(self, routine, comment=""):
+        """Call a local routine label or a symbol imported through a PUI."""
+        if routine.get("external", False):
+            symbol = routine.get("symbol") or routine.get("mangled")
+
+            if not symbol:
+                raise RuntimeError(
+                    "external routine has no COFF symbol: "
+                    + str(routine.get("name"))
+                )
+
+            if CDATA.args_target in ("nt35", "winnt", "win32"):
+                self.writer.emit_call_external(symbol)
+            else:
+                self.emit_call(symbol, comment=comment)
+            return
+
+        label = routine.get("label")
+
+        if not label:
+            raise RuntimeError(
+                "internal routine has no label: "
+                + str(routine.get("name"))
+            )
+
+        self.emit_call_lbl(label, comment=comment)
+
+    def load_pui_unit(self, ctx, unit_name, pui_path):
+        unit_key = self.normalize_unit_name(unit_name)
+
+        if unit_key in self.loaded_units:
+            return
+
+        if unit_key in self.loading_units:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"circular unit reference detected: {unit_name}"
+            )
+
+        self.loading_units.add(unit_key)
+
+        try:
+            with open(pui_path, "r", encoding="utf-8") as stream:
+                data = json.load(stream)
+
+            self.validate_unit_pui(
+                ctx,
+                unit_name,
+                pui_path,
+                data
+            )
+
+            # Dependencies are loaded first. This gives the correct Pascal
+            # initialization order and adds all transitive object files.
+            uses = data.get("uses", {})
+
+            dependencies = []
+
+            for section_name in ("interface", "implementation"):
+                for dependency in uses.get(section_name, []):
+                    if dependency not in dependencies:
+                        dependencies.append(dependency)
+
+            for dependency in dependencies:
+                self.load_unit(ctx, dependency)
+
+            pui_directory = os.path.dirname(os.path.abspath(pui_path))
+
+            object_name = data.get("object", {}).get("file")
+
+            if not object_name:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=f"PUI does not name an object file: {pui_path}"
+                )
+
+            object_path = self.resolve_pui_path(
+                pui_directory,
+                object_name
+            )
+
+            if not os.path.isfile(object_path):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=f"unit object file not found: {object_path}"
+                )
+
+            self.add_pui_link_object(object_path)
+
+            link = data.get("link", {})
+
+            for object_name in link.get("objects", []):
+                path = self.resolve_pui_path(
+                    pui_directory,
+                    object_name
+                )
+
+                if not os.path.isfile(path):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"PUI linked object file not found: {path}"
+                    )
+
+                self.add_pui_link_object(path)
+
+            for archive_name in link.get("archives", []):
+                path = self.resolve_pui_path(
+                    pui_directory,
+                    archive_name
+                )
+
+                if not os.path.isfile(path):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=f"PUI linked archive not found: {path}"
+                    )
+
+                self.add_pui_link_archive(path)
+
+            self.register_pui_routines(
+                ctx,
+                unit_name,
+                data
+            )
+
+            init_symbol = data.get(
+                "initialization",
+                {}
+            ).get("symbol")
+
+            self.add_unit_initializer(
+                init_symbol,
+                external=True
+            )
+
+            self.loaded_puis[unit_key] = data
+            self.loaded_units[unit_key] = {
+                "kind": "pui",
+                "pui": os.path.abspath(pui_path),
+                "object": object_path
+            }
+
+        finally:
+            self.loading_units.discard(unit_key)
+
+    def load_unit_source(self, ctx, unit_name):
+        """Legacy source-unit loading; disabled unless explicitly requested."""
+        unit_key = self.normalize_unit_name(unit_name)
 
         if unit_key in self.loaded_units:
             return
@@ -1458,45 +2285,94 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             )
 
         unit_file = self.find_unit_file(ctx, unit_name)
-
         self.loading_units.add(unit_key)
 
         old_source_file = self.source_file
         old_source_dir  = self.source_dir
         old_unit        = self.current_unit
 
-        with open(unit_file, "r", encoding="utf-8") as f:
-            raw_text = f.read()
+        try:
+            with open(unit_file, "r", encoding="utf-8") as stream:
+                raw_text = stream.read()
 
-        pp = PascalPreprocessor(defines=getattr(CDATA, "Defines", []))
-        text = pp.process(raw_text)
-
-        self.source_file  = unit_file
-        self.source_dir   = os.path.dirname(unit_file)
-        self.current_unit = unit_key
-
-        stream = InputStream(text)
-        lexer  = MiniPascalLexer(stream)
-        tokens = CommonTokenStream(lexer)
-        parser = MiniPascalParser(tokens)
-
-        tree = parser.sourceFile()
-
-        if parser.getNumberOfSyntaxErrors() > 0:
-            raise CompileError(
-                ctx,
-                "E0019",
-                text=f"syntax error in unit {unit_name}"
+            pp = PascalPreprocessor(
+                defines=getattr(CDATA, "Defines", [])
             )
+            text = pp.process(raw_text)
 
-        self.visit(tree)
+            self.source_file  = unit_file
+            self.source_dir   = os.path.dirname(unit_file)
+            self.current_unit = unit_key
 
-        self.current_unit = old_unit
-        self.source_file  = old_source_file
-        self.source_dir   = old_source_dir
+            stream = InputStream(text)
+            lexer  = MiniPascalLexer(stream)
+            tokens = CommonTokenStream(lexer)
+            parser = MiniPascalParser(tokens)
+            tree   = parser.sourceFile()
 
-        self.loading_units.remove(unit_key)
-        self.loaded_units[unit_key] = unit_file
+            if parser.getNumberOfSyntaxErrors() > 0:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=f"syntax error in unit {unit_name}"
+                )
+
+            self.visit(tree)
+
+            self.loaded_units[unit_key] = {
+                "kind": "source",
+                "source": unit_file
+            }
+
+        finally:
+            self.current_unit = old_unit
+            self.source_file  = old_source_file
+            self.source_dir   = old_source_dir
+            self.loading_units.discard(unit_key)
+
+    def load_unit(self, ctx, unit_name):
+        """
+        Load a compiled unit interface.
+
+        By default source files are not parsed here. This prevents the unit
+        implementation from being emitted a second time into the program.
+        """
+        unit_key = self.normalize_unit_name(unit_name)
+
+        if unit_key in self.loaded_units:
+            return
+
+        pui_path = self.find_unit_pui_file(
+            ctx,
+            unit_name,
+            required=False
+        )
+
+        if pui_path:
+            self.load_pui_unit(
+                ctx,
+                unit_name,
+                pui_path
+            )
+            return
+
+        if getattr(CDATA, "allow_source_units", False):
+            self.load_unit_source(ctx, unit_name)
+            return
+
+        searched = ", ".join(
+            self.unit_search_directories()
+        )
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                f"compiled unit interface not found: {unit_name}.pui; "
+                f"searched: {searched}; "
+                f"compile the unit first or enable CDATA.allow_source_units"
+            )
+        )
 
     def find_current_class_field(self, name):
         if self.current_class is None:
@@ -1947,8 +2823,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 actual_types
             )
 
-            size = cls.size
-            #size = max(cls.size, self.pointer_slot_size())
+            # Auch eine Klasse ohne Felder benötigt eine gültige
+            # Objektadresse. malloc(0) ist dafür nicht geeignet.
+            size = max(
+                int(cls.size),
+                self.pointer_slot_size()
+            )
             
             print("CTOR ALLOC:", class_name, "size=", size)
 
@@ -1970,20 +2850,29 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_call("_jit_error_out_of_memory")
             self.emit_bind_label(ok_label)
 
-            # Objekt für Rückgabe sichern
-            self.emit_push("eax", comment="save constructor result")
+            # Objekt für Rückgabe sichern, aber NICHT auf dem Parameter-Stack
+            tmp_symbol = "__ctor_result_tmp"
+
+            if self.coff.find_symbol_index(tmp_symbol) is None:
+                self.coff.add_data_i32(tmp_symbol, 0)
+
+            self.coff.emit_mov_data_label_r32(tmp_symbol, "eax")
 
             # Self als erster Parameter
             self.emit_push("eax", comment="Self")
 
-            # Konstruktor aufrufen
-            self.emit_call(method.label)
+            # Konstruktor aufrufen. Bei einer PUI-Klasse zeigt das
+            # Ziel auf das externe COFF-Symbol aus der Unit-.o-Datei.
+            self.emit_class_method_call(
+                method,
+                comment=f"{class_name}.{method.name}"
+            )
 
             # Stack bereinigen: Self + Constructor-Argumente
             self.backend.emit_cleanup_stack((len(args) + 1) * 4)
 
             # Rückgabewert wiederherstellen
-            self.emit_pop("eax", comment="constructor result")
+            self.coff.emit_mov_reg_from_data_label32("eax", tmp_symbol)
 
             self.writer.emit_lea_reg_data_label("esi", "ctx")
 
@@ -2037,7 +2926,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_push("rcx", comment="save constructor result object")
             
             self.emit_sub("rsp", 32)
-            self.emit_call_lbl(method.label)
+            self.emit_class_method_call(
+                method,
+                comment=f"{class_name}.{method.name}"
+            )
             self.emit_add("rsp", 32)
             self.emit_pop("rax", comment = "constructor result")
             
@@ -2093,6 +2985,69 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             self.backend.writer.emit_jmp(end_label)
 
+            self.emit_bind_label(null_label)
+            self.emit_bind_label(end_label)
+
+            return None
+
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if class_type not in self.classes:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=class_type,
+                    expected="class"
+                )
+
+            cls = self.classes[class_type]
+
+            self.emit_load_object_var(ctx, obj_name, info)
+
+            null_label = self.new_named_label("free_nil")
+            end_label = self.new_named_label("free_end")
+
+            self.emit_test("eax", "eax")
+            self.emit_jz(null_label)
+
+            self.emit_push(
+                "eax",
+                comment="save object for dispose"
+            )
+
+            if "destroy" in cls.methods:
+                method, owner_cls = self.find_class_method_recursive(
+                    ctx,
+                    class_type,
+                    "Destroy",
+                    []
+                )
+
+                self.emit_push("eax", comment="Self")
+                self.emit_class_method_call(
+                    method,
+                    comment=f"{owner_cls.name}.{method.name}"
+                )
+                self.backend.emit_cleanup_stack(4)
+
+                if self.coff.find_symbol_index("ctx") is not None:
+                    self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            self.emit_pop("eax")
+
+            self.emit_push(
+                "eax",
+                comment="object for dispose"
+            )
+            self.emit_call("_jit_dispose_memory")
+            self.backend.emit_cleanup_stack(4)
+
+            if self.coff.find_symbol_index("ctx") is not None:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            self.emit_xor("eax", "eax")
+            self.emit_store_object_var(ctx, obj_name, info)
+
+            self.emit_jmp(end_label)
             self.emit_bind_label(null_label)
             self.emit_bind_label(end_label)
 
@@ -2196,6 +3151,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_bind_label(ok_label)
     
     def emit_builtin_debug_break(self):
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            self.emit_call("_jit_debug_break")
+
+            # Runtime-Aufrufe dürfen den Generator-Kontext nicht dauerhaft verlieren
+            if self.coff.find_symbol_index("ctx") is not None:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            return None
+
         self.emit_mov_imm("rax", "&_jit_debug_break")
         self.emit_call("rax")
         return None
@@ -2460,36 +3424,139 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         args = self.function_call_args(ctx)
 
         if len(args) != 3:
-            raise CompileError(ctx, "E0005", got=str(len(args)), expected="3")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="3"
+            )
 
-        t1 = self.visit(args[0])
-        if t1 != "string":
-            raise CompileError(ctx, "E0005", got=t1, expected="string")
+        # ---------------------------------------------------------
+        # NT32 / Win32
+        #
+        # Runtime:
+        # char* _jit_dynstring_copy(
+        #     char* src,
+        #     int   start,
+        #     int   count
+        # );
+        #
+        # cdecl:
+        # push count
+        # push start
+        # push src
+        # call
+        # ---------------------------------------------------------
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            source_type = self.visit(args[0])
 
-        self.emit_push("rax", comment='Copy source')
+            if source_type != "string":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="string"
+                )
 
-        t2 = self.visit(args[1])
-        if t2 != "integer":
-            raise CompileError(ctx, "E0005", got=t2, expected="integer")
+            self.emit_push("eax", comment="Copy source")
 
-        self.emit_movsxd(REG_RAX, REG_EAX)
-        self.emit_push  (REG_RAX, comment='Copy start')
+            start_type = self.visit(args[1])
 
-        t3 = self.visit(args[2])
-        if t3 != "integer":
-            raise CompileError(ctx, "E0005", got=t3, expected="integer")
+            if start_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=start_type,
+                    expected="integer"
+                )
 
-        self.emit_movsxd(REG_RAX, REG_EAX)
-        self.emit_push  (REG_RAX, comment='Copy count')
+            self.emit_push("eax", comment="Copy start")
 
-        self.emit_pop("r8")
-        self.emit_pop(REG_RBX)
-        self.emit_pop(REG_RCX)
+            count_type = self.visit(args[2])
 
-        self.emit_sub     (REG_RSP, 32)
-        self.emit_mov_imm (REG_RAX, "&_jit_dynstring_copy")
-        self.emit_call    (REG_RAX)
-        self.emit_add     (REG_RSP, 32)
+            if count_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=count_type,
+                    expected="integer"
+                )
+
+            self.emit_push("eax", comment="Copy count")
+
+            # Temporäre Werte zurückholen
+            self.emit_pop("ecx", comment="Copy count")
+            self.emit_pop("edx", comment="Copy start")
+            self.emit_pop("eax", comment="Copy source")
+
+            # cdecl: Argumente rechts nach links
+            self.emit_push("ecx", comment="count")
+            self.emit_push("edx", comment="start")
+            self.emit_push("eax", comment="source")
+
+            self.emit_call("_jit_dynstring_copy")
+            self.backend.emit_cleanup_stack(12)
+
+            # Runtime-Call darf den Kontext nicht dauerhaft verlieren
+            if self.coff.find_symbol_index("ctx") is not None:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            # EAX = neuer String-Datenpointer
+            return "string"
+
+        # ---------------------------------------------------------
+        # Win64
+        # ---------------------------------------------------------
+        source_type = self.visit(args[0])
+
+        if source_type != "string":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=source_type,
+                expected="string"
+            )
+
+        self.emit_push("rax", comment="Copy source")
+
+        start_type = self.visit(args[1])
+
+        if start_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=start_type,
+                expected="integer"
+            )
+
+        self.emit_movsxd("rax", "eax")
+        self.emit_push("rax", comment="Copy start")
+
+        count_type = self.visit(args[2])
+
+        if count_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=count_type,
+                expected="integer"
+            )
+
+        self.emit_movsxd("rax", "eax")
+        self.emit_push("rax", comment="Copy count")
+
+        # Windows-x64:
+        # RCX = source
+        # RDX = start
+        # R8  = count
+        self.emit_pop("r8",  comment="Copy count")
+        self.emit_pop("rdx", comment="Copy start")
+        self.emit_pop("rcx", comment="Copy source")
+
+        self.emit_sub("rsp", 32)
+        self.emit_mov_imm("rax", "&_jit_dynstring_copy")
+        self.emit_call("rax")
+        self.emit_add("rsp", 32)
 
         return "string"
     
@@ -2502,27 +3569,102 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         args = self.function_call_args(ctx)
 
         if len(args) != 2:
-            raise CompileError(ctx, "E0005", got=str(len(args)), expected="2")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="2"
+            )
 
-        t1 = self.visit(args[0])
-        if t1 != "string":
-            raise CompileError(ctx, "E0005", got=t1, expected="string")
+        # ---------------------------------------------------------
+        # NT32 / Win32
+        #
+        # Runtime:
+        # int _jit_dynstring_pos(
+        #     char* needle,
+        #     char* haystack
+        # );
+        #
+        # cdecl:
+        # push haystack
+        # push needle
+        # ---------------------------------------------------------
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            needle_type = self.visit(args[0])
 
-        self.emit_push(REG_RAX, comment='Pos needle')
+            if needle_type != "string":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=needle_type,
+                    expected="string"
+                )
 
-        t2 = self.visit(args[1])
-        if t2 != "string":
-            raise CompileError(ctx, "E0005", got=t2, expected="string")
+            self.emit_push("eax", comment="Pos needle")
 
-        self.emit_push("rax", comment='Pos haystack')
+            haystack_type = self.visit(args[1])
 
-        self.emit_pop(REG_RDX)
-        self.emit_pop(REG_RCX)
+            if haystack_type != "string":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=haystack_type,
+                    expected="string"
+                )
 
-        self.emit_sub     (REG_RSP, 32)
-        self.emit_mov_imm (REG_RAX, "&_jit_dynstring_pos")
-        self.emit_call    (REG_RAX)
-        self.emit_add     (REG_RSP, 32)
+            self.emit_push("eax", comment="Pos haystack")
+
+            # Temporäre Werte holen
+            self.emit_pop("edx", comment="Pos haystack")
+            self.emit_pop("eax", comment="Pos needle")
+
+            # cdecl: rechts nach links
+            self.emit_push("edx", comment="haystack")
+            self.emit_push("eax", comment="needle")
+
+            self.emit_call("_jit_dynstring_pos")
+            self.backend.emit_cleanup_stack(8)
+
+            if self.coff.find_symbol_index("ctx") is not None:
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            # EAX = Position oder 0
+            return "integer"
+
+        # ---------------------------------------------------------
+        # Win64
+        # ---------------------------------------------------------
+        needle_type = self.visit(args[0])
+
+        if needle_type != "string":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=needle_type,
+                expected="string"
+            )
+
+        self.emit_push("rax", comment="Pos needle")
+
+        haystack_type = self.visit(args[1])
+
+        if haystack_type != "string":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=haystack_type,
+                expected="string"
+            )
+
+        self.emit_push("rax", comment="Pos haystack")
+
+        self.emit_pop("rdx", comment="Pos haystack")
+        self.emit_pop("rcx", comment="Pos needle")
+
+        self.emit_sub("rsp", 32)
+        self.emit_mov_imm("rax", "&_jit_dynstring_pos")
+        self.emit_call("rax")
+        self.emit_add("rsp", 32)
 
         return "integer"
     
@@ -3235,7 +4377,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             self.emit_push("eax", comment="Self")
-            self.emit_call(method.label)
+            self.emit_class_method_call(
+                method,
+                comment=f"{owner_cls.name}.{method.name}"
+            )
             self.backend.emit_cleanup_stack(4)
             self.writer.emit_lea_reg_data_label("esi", "ctx")
             return self.resolve_type(method.return_type)
@@ -3749,10 +4894,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.backend.emit_store_far_pointer_var(symbol)
             return
             
-        if hasattr(self, "coff") and "symbol" in info:
-            self.coff.emit_mov_data_label_r64(info["symbol"], "rax")
-            return
-
         slot   = info["slot"]
         target = CDATA.args_target.lower()
 
@@ -3767,6 +4908,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.coff.add_data_i32(symbol, 0)
 
             self.coff.emit_mov_data_label_r32(symbol, "eax")
+            return
+
+        if hasattr(self, "coff") and "symbol" in info:
+            self.coff.emit_mov_data_label_r64(
+                info["symbol"],
+                "rax"
+            )
             return
 
         self.emit_mov_qword("r11", "r12", "pointr_vars")
@@ -3826,7 +4974,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_pop("ebx")
             self.emit_push("ebx", comment="property setter value")
             self.emit_push("eax", comment="Self")
-            self.emit_call(method.label)
+            self.emit_class_method_call(
+                method,
+                comment=f"{owner_cls.name}.{method.name}"
+            )
             self.backend.emit_cleanup_stack(8)
             self.writer.emit_lea_reg_data_label("esi", "ctx")
             return True
@@ -6100,30 +7251,61 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.label_id += 1
         return f"{prefix}_{self.label_id}"
     
-    # de-dupplizierer - doppelte Zeichen ignorieren
+    # ------------------------------------------------------------
+    # Bereits vorhandenes identisches Literal wiederverwenden
+    # ------------------------------------------------------------
     def add_string_literal(self, text):
+        for label, old_text in self.string_literals:
+            if old_text == text:
+                return label
+
         label = f"str_{len(self.string_literals)}"
         self.string_literals.append((label, text))
 
-        if CDATA.args_backend == BACKEND_EXEFILE\
-        or CDATA.args_backend == BACKEND_OBJFILE:
-            
-            target = CDATA.args_target.lower()
-            
-            if CDATA.args_target.lower() in ["dos", "dos16"]:
-                self.writer.add_dos_string(label, text)
-                return label
-                
-            elif target in ["win32", "win64", "winnt", "nt35"]:
-                if not hasattr(self, "coff") or self.coff is None:
-                    raise Exception("coff writer not installed")
-                    
-                if self.coff.find_symbol_index(label) is None:
-                    self.coff.add_data_string(label, text)
-                return label
-                
-            raise Exception("target not supported.")
-        raise Exception("backend not supported.")
+        target = CDATA.args_target.lower()
+
+        # ------------------------------------------------------------
+        # DOS
+        # ------------------------------------------------------------
+        if target in ["dos", "dos16"]:
+            if self.writer is None:
+                raise RuntimeError(
+                    "DOS writer not installed"
+                )
+
+            self.writer.add_dos_string(
+                label,
+                text
+            )
+
+            return label
+
+        # ------------------------------------------------------------
+        # Windows COFF32 / COFF64
+        #
+        # Gilt sowohl für:
+        #   - reine .o/.obj-Dateien
+        #   - spätere EXE-/DLL-Erzeugung
+        # ------------------------------------------------------------
+        if target in ["nt35", "winnt", "win32", "win64"]:
+            coff = getattr(self, "coff", None)
+
+            if coff is None:
+                raise RuntimeError(
+                    "COFF writer not installed"
+                )
+
+            if coff.find_symbol_index(label) is None:
+                coff.add_data_string(
+                    label,
+                    text
+                )
+
+            return label
+
+        raise RuntimeError(
+            f"string literal target not supported: {target}"
+        )
         
     def visit(self, tree):
         if tree is None:
@@ -6132,21 +7314,18 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return super().visit(tree)
     
     def visitCompilerDirective(self, ctx):
-        text  = ctx.getText()
-        text  = text[2:-1].strip()
-        parts = text.split(None, 1)
+        cmd, arg = self.compiler_directive_parts(ctx)
 
-        if len(parts) != 2:
+        if not cmd:
             return None
 
-        cmd = parts[0].lower()
-        arg = parts[1].strip()
-
         if cmd == "link":
-            CDATA.link_object_files.append(arg)
+            if arg not in CDATA.link_object_files:
+                CDATA.link_object_files.append(arg)
 
         elif cmd == "linklib":
-            CDATA.link_archive_files.append(arg)
+            if arg not in CDATA.link_archive_files:
+                CDATA.link_archive_files.append(arg)
 
         return None
     
@@ -6337,19 +7516,63 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         raise CompileError(arg, "E0015", text=arg.getText())
     
     def visitSourceFile(self, ctx):
-        for directive in ctx.compilerDirective():
-            self.visit(directive)
-        
-        if ctx.programFile():
-            return self.visit(ctx.programFile())
+        self.source_file_depth += 1
+        is_root_source = self.source_file_depth == 1
 
-        if ctx.unitFile():
-            return self.visit(ctx.unitFile())
-        
-        if ctx.libraryFile():
-            return self.visit(ctx.libraryFile())
+        try:
+            # ----------------------------------------------------------
+            # Typ des äußersten Moduls merken
+            # ----------------------------------------------------------
+            if is_root_source:
+                if ctx.programFile():
+                    self.root_module_kind = "program"
+                    self.root_unit_name   = None
 
-        return None
+                elif ctx.unitFile():
+                    self.root_module_kind = "unit"
+                    self.root_unit_name = (
+                        ctx.unitFile()
+                        .qualifiedIdent()
+                        .getText()
+                    )
+
+                elif ctx.libraryFile():
+                    self.root_module_kind = "library"
+                    self.root_unit_name   = None
+
+            # ----------------------------------------------------------
+            # Compiler-Direktiven dieser Quelldatei verarbeiten
+            # ----------------------------------------------------------
+            for directive in ctx.compilerDirective():
+                cmd, arg = self.compiler_directive_parts(directive)
+
+                if is_root_source and self.root_module_kind == "unit":
+                    if cmd == "link":
+                        if arg not in self.root_link_objects:
+                            self.root_link_objects.append(arg)
+
+                    elif cmd == "linklib":
+                        if arg not in self.root_link_archives:
+                            self.root_link_archives.append(arg)
+
+                self.visit(directive)
+
+            # ----------------------------------------------------------
+            # Modul besuchen
+            # ----------------------------------------------------------
+            if ctx.programFile():
+                return self.visit(ctx.programFile())
+
+            if ctx.unitFile():
+                return self.visit(ctx.unitFile())
+
+            if ctx.libraryFile():
+                return self.visit(ctx.libraryFile())
+
+            return None
+
+        finally:
+            self.source_file_depth -= 1
     
     def visitUsesClause(self, ctx):
         for ident in ctx.qualifiedIdentList().qualifiedIdent():
@@ -6380,8 +7603,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_sub("rsp", 8, comment="align stack")
             self.emit_mov("r12", "rcx", comment="ctx")
         
-        for init_label in self.unit_init_labels:
-            self.emit_call_lbl(init_label, comment="unit init")
+        self.emit_unit_initializers()
         
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
@@ -6412,8 +7634,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_sub("rsp", 8, comment="align stack")
         self.emit_mov("r12", "rcx", comment="ctx")
 
-        for init_label in self.unit_init_labels:
-            self.emit_call_lbl(init_label, comment="unit init")
+        self.emit_unit_initializers()
 
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
@@ -6426,37 +7647,119 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitUnitFile(self, ctx):
         unit_name = ctx.qualifiedIdent().getText()
         unit_key  = self.normalize_unit_name(unit_name)
-        old_unit  = self.current_unit
-        
-        old_kind        = self.module_kind
-        old_kind_value  = self.module_kind_value
-        
-        self.module_kind        = "unit"
-        self.module_kind_value  = 2
-        
-        self.current_unit       = unit_key
 
-        self.visit(ctx.interfaceSection())
-        self.visit(ctx.implementationSection())
+        old_unit       = self.current_unit
+        old_kind       = self.module_kind
+        old_kind_value = self.module_kind_value
+        old_collect    = self.collect_pui_interface
 
-        if ctx.unitInitBlock():
-            safe_unit_name = self.normalize_unit_name(unit_name)
+        is_root_unit = (
+            self.source_file_depth == 1
+            and self.root_module_kind == "unit"
+        )
 
-            init_label = self.new_named_label("unit_init_" + safe_unit_name)
-            skip_label = self.new_named_label("skip_unit_init_" + safe_unit_name)
+        self.module_kind       = "unit"
+        self.module_kind_value = 2
+        self.current_unit      = unit_key
 
-            self.unit_init_labels.append(init_label)
+        try:
+            # ------------------------------------------------------
+            # PUI nur für die äußerste, tatsächlich kompilierte Unit
+            # ------------------------------------------------------
+            if is_root_unit:
+                self.begin_unit_pui(unit_name)
+
+                interface_uses = ctx.interfaceSection().usesClause()
+
+                if interface_uses:
+                    self.pending_pui["uses"]["interface"] = [
+                        item.getText()
+                        for item in (
+                            interface_uses
+                            .qualifiedIdentList()
+                            .qualifiedIdent()
+                        )
+                    ]
+
+                implementation_uses = (
+                    ctx.implementationSection().usesClause()
+                )
+
+                if implementation_uses:
+                    self.pending_pui["uses"]["implementation"] = [
+                        item.getText()
+                        for item in (
+                            implementation_uses
+                            .qualifiedIdentList()
+                            .qualifiedIdent()
+                        )
+                    ]
+
+            # ------------------------------------------------------
+            # Interface: öffentliche Deklarationen sammeln
+            # ------------------------------------------------------
+            self.collect_pui_interface = is_root_unit
+            self.visit(ctx.interfaceSection())
+
+            # ------------------------------------------------------
+            # Implementation nicht als Interface exportieren
+            # ------------------------------------------------------
+            self.collect_pui_interface = False
+            self.visit(ctx.implementationSection())
+
+            self.validate_class_methods(ctx)
+
+            # ------------------------------------------------------
+            # Stabiles Unit-Initialisierungssymbol
+            #
+            # Dieses Symbol wird auch erzeugt, wenn kein expliziter
+            # initialization/begin-Block vorhanden ist.
+            # ------------------------------------------------------
+            init_symbol = (
+                f"_{self.fpc_mangle_unit(unit_name)}$$_INIT"
+            )
+
+            init_label = self.new_named_label(
+                "unit_init_" + unit_key
+            )
+
+            skip_label = self.new_named_label(
+                "skip_unit_init_" + unit_key
+            )
 
             self.emit_jmp(skip_label)
             self.emit_bind_label(init_label)
-            self.visit(ctx.unitInitBlock())
+
+            if ctx.unitInitBlock():
+                self.visit(ctx.unitInitBlock())
+
             self.emit_ret()
             self.emit_bind_label(skip_label)
 
-        self.module_kind        = old_kind
-        self.module_kind_value  = old_kind_value
-        self.current_unit       = old_unit
-        
+            if hasattr(self.backend.writer, "add_symbol_alias"):
+                self.backend.writer.add_symbol_alias(
+                    init_symbol,
+                    init_label
+                )
+
+            # Eigenes Initialisierungslabel ist innerhalb dieser COFF-Datei.
+            self.add_unit_initializer(
+                init_label,
+                external=False
+            )
+
+            if is_root_unit:
+                self.pending_pui["initialization"]["symbol"] = (
+                    init_symbol
+                )
+
+        finally:
+            self.collect_pui_interface = old_collect
+
+            self.module_kind       = old_kind
+            self.module_kind_value = old_kind_value
+            self.current_unit      = old_unit
+
         return None
     
     def visitInterfaceDeclarationPart(self, ctx):
@@ -6516,6 +7819,57 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return None
     
+    def write_unit_pui(self, object_file, pui_file=None):
+        if self.root_module_kind != "unit":
+            return None
+
+        if self.pending_pui is None:
+            raise RuntimeError(
+                "No PUI metadata was generated for the unit"
+            )
+
+        object_path = Path(object_file).resolve()
+
+        if pui_file is None:
+            pui_path = object_path.with_suffix(".pui")
+        else:
+            pui_path = Path(pui_file).resolve()
+
+        pui_path.parent.mkdir(
+            parents  = True,
+            exist_ok = True
+        )
+
+        self.pending_pui["object"]["file"] = object_path.name
+
+        # Pfade in {$link}/{$linklib} werden später relativ zum
+        # Verzeichnis der PUI-Datei ausgewertet.
+        self.pending_pui["link"]["base_directory"] = "pui"
+
+        temporary_path = Path(str(pui_path) + ".tmp")
+
+        with open(
+            temporary_path,
+            "w",
+            encoding="utf-8",
+            newline="\n"
+        ) as stream:
+            json.dump(
+                self.pending_pui,
+                stream,
+                ensure_ascii=False,
+                indent=4
+            )
+
+            stream.write("\n")
+
+        os.replace(
+            temporary_path,
+            pui_path
+        )
+
+        return str(pui_path)
+    
     def visitExitStatement(self, ctx):
         if not self.exit_label_stack:
             raise CompileError(ctx, "E0006")
@@ -6564,7 +7918,19 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_push("rax", comment="inherited integer arg")
             
             elif arg_type == "string":
-                self.emit_push("rax", comment="inherited string arg")
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    # Self aus lokalem Slot laden: wurde am Methodeneinstieg nach [ebp-4] gepusht
+                    self.emit_mov_dword_ptr("eax", "ebp", -4, comment="inherited Self")
+                    self.emit_push("eax", comment="Self")
+
+                    self.emit_call(method.label, comment=f"inherited {owner_cls.name}.{method.name}")
+
+                    self.backend.emit_cleanup_stack(4)
+                    self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+                    return None
+                else:
+                    self.emit_push("rax", comment="inherited string arg")
             
             elif isinstance(arg_type, str) and arg_type.startswith("^"):
                 self.emit_push("rax", comment="inherited pointer arg")
@@ -6663,49 +8029,98 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_jmp(skip_label)
         self.emit_bind_label(method.label)
         
-        # rcx = Self
-        self.emit_push("rbp")
-        self.emit_mov("rbp", "rsp")
-        
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            # cdecl:
-            # [ebp+4] = return address
-            # [ebp+8] = Self
-            self.emit_mov_dword_ptr("eax", "ebp", 8, comment="Self")
-            self.emit_push("eax", comment="Self")
-        else:
-            # Win64:
-            # rcx = Self
-            self.emit_push("rcx", comment="Self")
+        if (method.mangled
+            and hasattr(self.backend.writer, "add_symbol_alias")
+        ):
+            self.backend.writer.add_symbol_alias(
+                method.mangled,
+                method.label
+            )
         
         old_params = self.current_proc_params
-        self.current_proc_params = {
-            "self": {
-                "type"          : "^" + class_key,
-                "reg"           : "rcx",
-                "stack_offset"  : -8,
-                "is_var"        : False
-            }
-        }
         
+        # ------------------------------------------------------------
+        # NT32 / Windows NT 3.5
+        # ------------------------------------------------------------
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            # Stack beim Eintritt:
+            #
+            # [esp+0]  = Return-Adresse
+            # [esp+4]  = Self
+            # [esp+8]  = Parameter 1
+            # [esp+12] = Parameter 2
+            #
+            self.emit_push("ebp", comment="class method prolog")
+            self.emit_mov("ebp", "esp", comment="class method frame")
+
+            # Nach dem Prolog:
+            #
+            # [ebp+4]  = Return-Adresse
+            # [ebp+8]  = Self
+            # [ebp+12] = Parameter 1
+            # [ebp+16] = Parameter 2
+            #
+            self.emit_mov_dword_ptr(
+                "eax",
+                "ebp",
+                8,
+                comment="Self"
+            )
+
+            # Self als lokalen 32-Bit-Wert sichern:
+            # [ebp-4] = Self
+            self.emit_push("eax", comment="save Self")
+
+            self.current_proc_params = {
+                "self": {
+                    "type": "^" + class_key,
+                    "reg": None,
+                    "stack_offset": -4,
+                    "is_var": False
+                }
+            }
+
             for index, p in enumerate(params):
                 pname = p["name"]
                 ptype = self.resolve_type(p["type"])
 
-                # Nach push rbp / mov rbp,rsp gilt:
-                # [ebp+8]  = Self
-                # [ebp+12] = Param 1
-                # [ebp+16] = Param 2
                 self.current_proc_params[pname.lower()] = {
                     "type": ptype,
                     "reg": None,
                     "stack_offset": 12 + index * 4,
                     "is_var": p.get("is_var", False)
                 }
-                
-            self.emit_sub("esp", 256, comment="class method locals")
+
+            self.emit_sub(
+                "esp",
+                256,
+                comment="class method locals"
+            )
+        
+        # ------------------------------------------------------------
+        # Win64
+        # ------------------------------------------------------------
         else:
+            # Windows-x64:
+            # RCX = Self
+            # RDX = Parameter 1
+            # R8  = Parameter 2
+            # R9  = Parameter 3
+            self.emit_push("rbp", comment="class method prolog")
+            self.emit_mov("rbp", "rsp", comment="class method frame")
+
+            # [rbp-8] = Self
+            self.emit_push("rcx", comment="save Self")
+
+            self.current_proc_params = {
+                "self": {
+                    "type": "^" + class_key,
+                    "reg": "rcx",
+                    "stack_offset": -8,
+                    "is_var": False
+                }
+            }
+
             param_regs = ["rdx", "r8", "r9"]
 
             for index, p in enumerate(params):
@@ -6714,11 +8129,21 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 if index < len(param_regs):
                     reg = param_regs[index]
-                    self.emit_push(reg, comment=f"save class method param {pname}")
+
+                    self.emit_push(
+                        reg,
+                        comment=f"save class method param {pname}"
+                    )
+
                     stack_offset = -8 * (index + 2)
+
                 else:
                     reg = None
-                    stack_offset = 48 + ((index - len(param_regs)) * 8)
+
+                    # Return-Adresse + gespeichertes RBP + Shadow Space
+                    stack_offset = 48 + (
+                        (index - len(param_regs)) * 8
+                    )
 
                 self.current_proc_params[pname.lower()] = {
                     "type": ptype,
@@ -6726,8 +8151,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     "stack_offset": stack_offset,
                     "is_var": p.get("is_var", False)
                 }
+
+            self.emit_sub(
+                "rsp",
+                256,
+                comment="class method locals"
+            )
         
-            self.emit_sub("rsp", 256, comment = "class method locals")
         
         self.push_local_scope()
         self.push_const_scope()
@@ -6790,7 +8220,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     self.emit_mov_dword_ptr("eax", "rbp", result_off)
                     
             elif rt == "double":
-                self.emit_movsd_load("xmm0", "rbp", result_off)
+                if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    self.emit_movsd_load("xmm0", "ebp", result_off)
+                else:
+                    self.emit_movsd_load("xmm0", "rbp", result_off)
             else:
                 raise CompileError(ctx, "E0005", got=rt, expected="integer/string/double")
         
@@ -7559,39 +8992,217 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return self.visit(ctx.compoundStatement())
         
         return None
+
+    def compiler_directive_parts(self, ctx):
+        text = ctx.getText()
+
+        # {$link foo.o}
+        # {$linklib libfoo.a}
+        text = text[2:-1].strip()
+
+        parts = text.split(None, 1)
+
+        if len(parts) != 2:
+            return None, None
+
+        cmd = parts[0].strip().lower()
+        arg = parts[1].strip()
+
+        # Optional gesetzte Anführungszeichen entfernen
+        if (
+            len(arg) >= 2
+            and arg[0] == arg[-1]
+            and arg[0] in ("'", '"')
+        ):
+            arg = arg[1:-1]
+
+        return cmd, arg
+
+    def pui_target_info(self):
+        target = CDATA.args_target.lower()
+
+        if target in ("nt35", "winnt", "win32"):
+            return {
+                "target": target,
+                "object_format": "coff32",
+                "machine": "i386",
+                "pointer_size": 4,
+                "calling_convention": "cdecl"
+            }
+
+        if target == "win64":
+            return {
+                "target": target,
+                "object_format": "coff64",
+                "machine": "amd64",
+                "pointer_size": 8,
+                "calling_convention": "win64"
+            }
+
+        raise RuntimeError(
+            f"PUI target currently unsupported: {target}"
+        )
+
+    def pui_param_data(self, params):
+        result = []
+
+        for param in params:
+            result.append({
+                "name": param["name"],
+                "type": self.resolve_type(param["type"]),
+                "is_var": bool(param.get("is_var", False))
+            })
+
+        return result
+
+    def begin_unit_pui(self, unit_name):
+        target_info = self.pui_target_info()
+
+        self.pending_pui = {
+            "format": "dBase2Many Pascal Unit Interface",
+            "version": 1,
+
+            "unit": {
+                "name": unit_name,
+                "normalized_name": self.normalize_unit_name(unit_name)
+            },
+
+            "target": target_info,
+
+            # Wird nach erfolgreicher COFF-Ausgabe ergänzt
+            "object": {
+                "file": None,
+                "format": target_info["object_format"],
+                "machine": target_info["machine"]
+            },
+
+            "uses": {
+                "interface": [],
+                "implementation": []
+            },
+
+            # Zusätzliche native Abhängigkeiten aus Compiler-Direktiven
+            "link": {
+                "objects": list(self.root_link_objects),
+                "archives": list(self.root_link_archives)
+            },
+
+            "initialization": {
+                "symbol": None
+            },
+
+            "finalization": {
+                "symbol": None
+            },
+
+            "symbols": {
+                "functions": [],
+                "procedures": [],
+                "classes": []
+            }
+        }
+
+    def pui_add_symbol(self, section, item):
+        if self.pending_pui is None:
+            return
+
+        entries = self.pending_pui["symbols"][section]
+
+        if section == "classes":
+            key = str(item.get("name", "")).lower()
+
+            for old_item in entries:
+                if str(old_item.get("name", "")).lower() == key:
+                    return
+        else:
+            symbol = item.get("symbol")
+
+            for old_item in entries:
+                if old_item.get("symbol") == symbol:
+                    return
+
+        entries.append(item)
     
     def visitFunctionHeader(self, ctx):
-        name    = ctx.IDENT().getText()
-        scoped  = self.unit_scoped_name(name)
-        key     = name.lower()
+        name   = ctx.IDENT().getText()
+        scoped = self.unit_scoped_name(name)
+        key    = name.lower()
+
+        params = self.collect_formal_params(ctx)
+
+        return_type = self.resolve_type(
+            ctx.typeName().getText()
+        )
+
+        mangled = self.fpc_mangle_routine(
+            name,
+            params,
+            self.current_unit if self.current_unit else None
+        )
 
         if key not in self.functions:
             self.functions[key] = {
-                "name"       : name,
+                "name": name,
                 "scoped_name": scoped,
-                "return_type": self.resolve_type(ctx.typeName().getText()),
-                "label"      : None,
-                "params"     : self.collect_formal_params(ctx)
+                "return_type": return_type,
+                "label": None,
+                "mangled": mangled,
+                "params": params
             }
-        
-        # zusätzlich unqualifizierter Alias für uses
+
         self.functions[name.lower()] = self.functions[key]
+
+        if self.collect_pui_interface:
+            self.pui_add_symbol(
+                "functions",
+                {
+                    "name": name,
+                    "scoped_name": scoped,
+                    "symbol": mangled,
+                    "params": self.pui_param_data(params),
+                    "return_type": return_type,
+                    "calling_convention": "cdecl"
+                }
+            )
+
         return None
     
     def visitProcedureHeader(self, ctx):
-        name    = ctx.IDENT().getText()
-        scoped  = self.unit_scoped_name(name)
-        key     = name.lower()
+        name   = ctx.IDENT().getText()
+        scoped = self.unit_scoped_name(name)
+        key    = name.lower()
+
+        params = self.collect_formal_params(ctx)
+
+        mangled = self.fpc_mangle_routine(
+            name,
+            params,
+            self.current_unit if self.current_unit else None
+        )
 
         if key not in self.procedures:
             self.procedures[key] = {
                 "name"       : name,
                 "scoped_name": scoped,
                 "label"      : None,
-                "params"     : self.collect_formal_params(ctx)
+                "mangled"    : mangled,
+                "params"     : params
             }
-            
+
         self.procedures[name.lower()] = self.procedures[key]
+
+        if self.collect_pui_interface:
+            self.pui_add_symbol(
+                "procedures",
+                {
+                    "name"       : name,
+                    "scoped_name": scoped,
+                    "symbol"     : mangled,
+                    "params"     : self.pui_param_data(params),
+                    "calling_convention": "cdecl"
+                }
+            )
+
         return None
     
     def visitTypeSection(self, ctx):
@@ -7655,6 +9266,69 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.declare_var(ctx, name, vtype)
 
         return None
+    
+    def pui_add_class(self, class_name):
+        if self.pending_pui is None:
+            return
+
+        class_key = class_name.lower()
+        cls = self.classes[class_key]
+
+        fields = []
+
+        for field_name, field in cls.fields.items():
+            fields.append({
+                "name": field.name,
+                "type": self.resolve_type(field.type),
+                "offset": field.offset,
+                "size": field.size,
+                "visibility": getattr(field, "visibility", "public")
+            })
+
+        methods = []
+
+        for method_name, overloads in cls.methods.items():
+            for method in overloads:
+                # Geerbte Methoden nicht erneut als eigene Methoden speichern
+                if method.owner != class_key:
+                    continue
+
+                methods.append({
+                    "name": method.name,
+                    "kind": method.kind,
+                    "symbol": method.mangled,
+                    "params": self.pui_param_data(method.params),
+                    "return_type": (
+                        self.resolve_type(method.return_type)
+                        if method.return_type
+                        else None
+                    ),
+                    "visibility": method.visibility,
+                    "calling_convention": "cdecl"
+                })
+
+        properties = []
+
+        for prop_name, prop in getattr(cls, "properties", {}).items():
+            properties.append({
+                "name": prop.name,
+                "type": self.resolve_type(prop.ptype),
+                "visibility": prop.visibility,
+                "read": prop.read_name,
+                "write": prop.write_name
+            })
+
+        self.pui_add_symbol(
+            "classes",
+            {
+                "name": cls.name,
+                "parent": cls.parent,
+                "size": cls.size,
+                "fields": fields,
+                "methods": methods,
+                "properties": properties
+            }
+        )
     
     def visitClassDeclaration(self, ctx):
         class_name = ctx.IDENT().getText()
@@ -7802,6 +9476,10 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             properties,
             parent_name=parent_name
         )
+        
+        if self.collect_pui_interface:
+            self.pui_add_class(class_name)
+        
         return None
     
     def visitTypeDeclaration(self, ctx):
@@ -7862,6 +9540,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_function_declaration(ctx, name, return_type)
         self.current_function = old_function
         
+        if (CDATA.args_target in ["nt35", "winnt", "win32"]
+            and hasattr(self.backend.writer, "add_symbol_alias")):
+            
+            target_index = self.backend.writer.find_symbol_index(
+                asmjit_label
+            )
+
+            if target_index is None:
+                raise RuntimeError(
+                    "internal function symbol was not generated: "
+                    f"{asmjit_label}"
+                )
+
+            if self.backend.writer.find_symbol_index(fpc_name) is None:
+                self.backend.writer.add_symbol_alias(
+                    fpc_name,
+                    asmjit_label
+                )
         return None
     
     def visitAssignment(self, ctx):
@@ -8457,11 +10153,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 if len(params) == 0:
                     if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                        self.emit_call_lbl(func["label"])
+                        self.emit_registered_routine_call(func)
                         return self.resolve_type(func["return_type"])
                     else:
                         self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
-                        self.emit_call_lbl(func["label"])
+                        self.emit_registered_routine_call(func)
                         self.emit_add("rsp", 32)
                         return self.resolve_type(func["return_type"])
             
@@ -8575,11 +10271,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 if len(params) == 0:
                     if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                        self.emit_call_lbl(func["label"])
+                        self.emit_registered_routine_call(func)
                         return self.resolve_type(func["return_type"])
                     else:
                         self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
-                        self.emit_call_lbl(func["label"])
+                        self.emit_registered_routine_call(func)
                         self.emit_add("rsp", 32)
                         return self.resolve_type(func["return_type"])
             
@@ -8755,7 +10451,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     expected="boolean/integer/string"
                 )
 
-            self.emit_call_lbl(func["label"])
+            self.emit_registered_routine_call(func)
 
             if arg_bytes:
                 self.emit_add("esp", arg_bytes, comment="cdecl function cleanup")
@@ -8766,7 +10462,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             int_regs = ["ecx", "edx", "r8d", "r9d"]
             
             self.emit_sub("rsp", 32, comment = "shadow space for function call")
-            self.emit_call_lbl(func["label"])
+            self.emit_registered_routine_call(func)
             self.emit_add("rsp", 32)
 
             return func["return_type"].lower()
@@ -8784,12 +10480,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         old_params = self.current_proc_params
         self.current_proc_params = {}
 
-        self.procedures[key] = {
-            "name"  : name,
-            "label" : label,
-            "params": params
-        }
-
         param_regs = ["rcx", "rdx", "r8", "r9"]
         
         if len(params) > 64:
@@ -8804,9 +10494,30 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.emit_jmp(skip_label)
         self.emit_bind_label(label)
         
-        # external coff .o file label
+        scoped = self.unit_scoped_name(name)
+
+        mangled = self.fpc_mangle_routine(
+            name,
+            params,
+            self.current_unit if self.current_unit else None
+        )
+
+        self.procedures[key] = {
+            "name": name,
+            "scoped_name": scoped,
+            "label": label,
+            "mangled": mangled,
+            "params": params
+        }
+
+        if self.current_unit:
+            public_symbol = mangled
+        else:
+            # Rückwärtskompatibilität für normale Programm-Prozeduren
+            public_symbol = "_" + name.lower()
+
         self.backend.writer.add_symbol_alias(
-            "_" + name.lower(),
+            public_symbol,
             label
         )
         
@@ -8936,10 +10647,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             # Für jetzt: parameterlose Funktion als Statement erlauben.
             if len(params) == 0:
                 if CDATA.args_target in ["dos", "dos16"]:
-                    self.emit_call_lbl(func["label"])
+                    self.emit_registered_routine_call(func)
+                elif CDATA.args_target in ["nt35", "winnt", "win32"]:
+                    # cdecl/NT32 benötigt keinen Win64-Shadow-Space.
+                    self.emit_registered_routine_call(func)
                 else:
                     self.emit_sub("rsp", 32)
-                    self.emit_call_lbl(func["label"])
+                    self.emit_registered_routine_call(func)
                     self.emit_add("rsp", 32)
 
                 return None
@@ -9028,7 +10742,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
                 raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
 
-            self.emit_call(proc["label"])
+            self.emit_registered_routine_call(proc)
 
             if arg_bytes:
                 self.emit_add("esp", arg_bytes, comment="cdecl cleanup")
@@ -9118,8 +10832,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.emit_sub("rsp", 8, comment="align stack before procedure call")
             align_pad = 8
 
-        self.emit_sub("rsp", 32, comment = "Windows x64 shadow space")
-        self.emit_call(f"{proc['label']}")
+        self.emit_sub("rsp", 32, comment="Windows x64 shadow space")
+        self.emit_registered_routine_call(proc)
         self.emit_add("rsp", 32)
 
         if align_pad:
@@ -9189,12 +10903,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                                 continue
                             
                         if pinfo["type"] == "string":
-                            self.emit_mov_qword_ptr("rax", "rbp", offset, comment="load string parameter")
-
                             if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                                self.emit_push("rax")
+                                self.emit_mov_dword_ptr("eax", "ebp", offset, comment="load string parameter")
+                                self.emit_push("eax")
                                 self.emit_nt32_call_cdecl("_jit_print_text", 4)
                             else:
+                                self.emit_mov_qword_ptr("rax", "rbp", offset, comment="load string parameter")
                                 self.emit_mov("rcx", "rax")
                                 self.emit_mov_imm("rax", "&_jit_print_text")
                                 self.emit_call_rax()
@@ -9858,12 +11572,32 @@ class GeneratorClass(AsmJitGenerator):
 
     def visitProgramFile(self, ctx):
         self.program_name = ctx.IDENT().getText()
-        self.module_kind  = "program"
+        self.module_kind = "program"
         self.module_kind_value = 1
 
+        target = CDATA.args_target.lower()
+
+        # GeneratorClass arbeitet bei Windows-Zielen bereits direkt mit dem
+        # COFF-Writer. Die Erzeugung von _main darf deshalb nicht von
+        # CDATA.args_backend == BACKEND_EXEFILE/BACKEND_OBJFILE abhängen.
+        is_windows_coff = target in [
+            "nt35",
+            "winnt",
+            "win32",
+            "win64"
+        ]
+
+        is_dos_file = (
+            target in ["dos", "dos16"]
+            and CDATA.args_backend in [
+                BACKEND_OBJFILE,
+                BACKEND_EXEFILE
+            ]
+        )
+
         dos_main_label = None
-        if ((CDATA.args_backend == BACKEND_OBJFILE or CDATA.args_backend == BACKEND_EXEFILE)
-            and CDATA.args_target.lower() in ["dos", "dos16"]):
+
+        if is_dos_file:
             dos_main_label = "__dos_main_start"
             self.writer.emit_jmp(dos_main_label)
 
@@ -9876,57 +11610,78 @@ class GeneratorClass(AsmJitGenerator):
 
         self.validate_class_methods(ctx)
 
-        if  CDATA.args_backend == BACKEND_OBJFILE\
-        or  CDATA.args_backend == BACKEND_EXEFILE:
-            if CDATA.args_target.lower() in ["win32", "win64", "nt35", "winnt"]:
-                self.finalize_coff_context()
-                self.writer.begin_function("_main", local_size=0)
-                
-                target = CDATA.args_target.lower()
-                
-                if target in ["winnt", "nt35", "win32"]:
-                    # NT32: kein r12, kein Win64-Context, kein Shadow-Space
-                    self.writer.emit_lea_reg_data_label("esi", "ctx")
-                else:
-                    self.emit_push("r12")
-                    self.emit_push("rbx")
-                    self.emit_sub("rsp", 8)
+        # ------------------------------------------------------------
+        # Windows COFF program entry: _main
+        # ------------------------------------------------------------
+        if is_windows_coff:
+            self.finalize_coff_context()
+            self.writer.begin_function(
+                "_main",
+                local_size=0
+            )
 
-                    # PE-EXE hat keinen JIT-Aufrufer, also ctx direkt laden:
-                    self.writer.emit_lea_reg_data_label("r12", "ctx")
-        
-            elif CDATA.args_target.lower() in ["dos", "dos16"]:
-                self.writer.bind_label(dos_main_label)
-                self.writer.emit_startup()
-                self.backend.emit_heap_init(0x40)
+            if target in ["nt35", "winnt", "win32"]:
+                # NT32: ESI hält den JIT-Kontext.
+                self.writer.emit_lea_reg_data_label(
+                    "esi",
+                    "ctx"
+                )
+            else:
+                # Win64
+                self.emit_push("r12")
+                self.emit_push("rbx")
+                self.emit_sub("rsp", 8)
 
-        for init_label in self.unit_init_labels:
-            self.emit_call_lbl(init_label)
+                self.writer.emit_lea_reg_data_label(
+                    "r12",
+                    "ctx"
+                )
+
+        # ------------------------------------------------------------
+        # DOS program entry
+        # ------------------------------------------------------------
+        elif is_dos_file:
+            self.writer.bind_label(dos_main_label)
+            self.writer.emit_startup()
+            self.backend.emit_heap_init(0x40)
+
+        # Unit-Initialisierungen müssen innerhalb von _main liegen.
+        self.emit_unit_initializers()
 
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
-                self.emit_init_array_var(ctx, name, info)
+                self.emit_init_array_var(
+                    ctx,
+                    name,
+                    info
+                )
 
         self.visit(ctx.block())
 
-        if  CDATA.args_backend == BACKEND_OBJFILE\
-        or  CDATA.args_backend == BACKEND_EXEFILE:
-            target = CDATA.args_target.lower()
-
-            if target in ["winnt", "nt35", "win32"]:
-                # NT32 / PE32: stdcall, Parameter per Stack
+        # ------------------------------------------------------------
+        # Windows program exit
+        # ------------------------------------------------------------
+        if is_windows_coff:
+            if target in ["nt35", "winnt", "win32"]:
                 self.writer.emit_push_imm32(0)
-                self.writer.emit_call_external("ExitProcess")
+                self.writer.emit_call_external(
+                    "ExitProcess"
+                )
                 self.writer.end_function()
 
             elif target == "win64":
                 self.emit_mov("ecx", 0)
-                self.writer.emit_runtime_call("ExitProcess")
+                self.writer.emit_runtime_call(
+                    "ExitProcess"
+                )
                 self.writer.end_function()
-    
-            elif target in ["dos", "dos16"]:
-                self.writer.emit_exit(0)
-                
+
+        # ------------------------------------------------------------
+        # DOS program exit
+        # ------------------------------------------------------------
+        elif is_dos_file:
+            self.writer.emit_exit(0)
+
         return None
 
     def finalize_coff_context(self):

@@ -402,6 +402,35 @@ class PE32Writer:
         # external .a rchive file's
         self.archive_files      = []
         self.archives           = []
+    
+    def map_reg32(self, reg):
+        reg_map = {
+            "rax" : "eax", "eax": "eax",
+            "rbx" : "ebx", "ebx": "ebx",
+            "rcx" : "ecx", "ecx": "ecx",
+            "rdx" : "edx", "edx": "edx",
+            "rbp" : "ebp", "ebp": "ebp",
+            "rsp" : "esp", "esp": "esp",
+            "rsi" : "esi", "esi": "esi",
+            "rdi" : "edi", "edi": "edi",
+            
+            "r8"  : "ecx",
+            "r8d" : "ecx",
+            "r9"  : "edx",
+            "r9d" : "edx",
+
+            "r10" : "edi",
+            "r10d": "edi",
+            "r11" : "ebx",
+            "r11d": "ebx",
+            
+            "r12" : "esi",
+        }
+        
+        if reg not in reg_map:
+            raise RuntimeError(f"{tr('unsupported NT32 register')}: {reg}")
+        
+        return reg_map[reg]
         
     def archive_name_candidates(self, name):
         name = self.normalize_link_path(name)
@@ -714,6 +743,24 @@ class PE32Writer:
     def emit_push_imm32(self, value):
         self.text.append(0x68)
         self.text += int(value).to_bytes(4, "little", signed=True)
+        
+    def emit_mov_data_label_r8(self, label, reg8):
+        if reg8.lower() != "al":
+            raise ValueError("emit_mov_data_label_r8 supports only AL")
+
+        # Byte/Word vorerst über 32-bit Store ablegen.
+        # Da Byte/Word in .data klein angelegt sind, besser unten add_data_i32 nutzen.
+        self.emit_mov_data_label_r32(label, "eax")
+
+    def emit_mov_data_label_r16(self, label, reg16):
+        if reg16.lower() != "ax":
+            raise ValueError("emit_mov_data_label_r16 supports only AX")
+
+        self.emit_mov_data_label_r32(label, "eax")
+
+    def emit_movsd_data_label_xmm0_store(self, label):
+        self.emit_lea_reg_data_label("edx", label)
+        self.emit_movsd_store32("edx", 0, "xmm0")
 
     def emit_push_reg32(self, reg):
         reg_id = self._reg_id(reg)
@@ -1473,6 +1520,291 @@ class PE32Writer:
             if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 return 4
             return 8
+
+    def _coff_encode_symbol_name(
+        self,
+        name,
+        string_data,
+        string_offsets
+    ):
+        """
+        Kodiert einen COFF-Symbolnamen.
+
+        Namen mit maximal 8 Bytes werden direkt im Symbol-Eintrag
+        gespeichert. Laengere Namen werden in der COFF-Stringtabelle
+        abgelegt.
+        """
+        encoded_name = str(name).encode(
+            "ascii",
+            errors="replace"
+        )
+
+        if len(encoded_name) <= 8:
+            return encoded_name.ljust(8, b"\x00")
+
+        if name not in string_offsets:
+            # COFF-Offsets beziehen sich auf den Anfang der Stringtabelle.
+            # Die ersten vier Bytes enthalten deren Gesamtgroesse.
+            string_offsets[name] = 4 + len(string_data)
+            string_data += encoded_name + b"\x00"
+
+        return struct.pack(
+            "<II",
+            0,
+            string_offsets[name]
+        )
+
+    def build_object_image(self):
+        """
+        Erzeugt eine reine Microsoft COFF32-i386-Objektdatei.
+
+        Enthalten:
+            - IMAGE_FILE_HEADER
+            - .text-Section
+            - .data-Section
+            - Relocation-Tabellen
+            - Symboltabelle
+            - Stringtabelle
+
+        Nicht enthalten:
+            - DOS-MZ-Header
+            - PE-Signatur
+            - Optional Header
+            - Import-Tabelle
+            - Programmeinstieg
+        """
+        IMAGE_FILE_MACHINE_I386 = 0x014C
+
+        IMAGE_SCN_CNT_CODE             = 0x00000020
+        IMAGE_SCN_CNT_INITIALIZED_DATA = 0x00000040
+
+        IMAGE_SCN_ALIGN_4BYTES         = 0x00300000
+        IMAGE_SCN_ALIGN_16BYTES        = 0x00500000
+
+        IMAGE_SCN_MEM_EXECUTE          = 0x20000000
+        IMAGE_SCN_MEM_READ             = 0x40000000
+        IMAGE_SCN_MEM_WRITE            = 0x80000000
+
+        text_characteristics = (
+            IMAGE_SCN_CNT_CODE
+            | IMAGE_SCN_ALIGN_16BYTES
+            | IMAGE_SCN_MEM_EXECUTE
+            | IMAGE_SCN_MEM_READ
+        )
+
+        data_characteristics = (
+            IMAGE_SCN_CNT_INITIALIZED_DATA
+            | IMAGE_SCN_ALIGN_4BYTES
+            | IMAGE_SCN_MEM_READ
+            | IMAGE_SCN_MEM_WRITE
+        )
+
+        # Interne Vorwaertsreferenzen muessen vor dem Schreiben
+        # vollstaendig aufgeloest sein.
+        if self.fixups:
+            unresolved_labels = sorted({
+                fixup["label"]
+                for fixup in self.fixups
+            })
+
+            raise RuntimeError(
+                "unresolved internal COFF labels: "
+                + ", ".join(unresolved_labels)
+            )
+
+        if len(self.text_relocations) > 0xFFFF:
+            raise RuntimeError(
+                "too many .text relocations for COFF32"
+            )
+
+        if len(self.data_relocations) > 0xFFFF:
+            raise RuntimeError(
+                "too many .data relocations for COFF32"
+            )
+
+        sections = [
+            {
+                "name": b".text\x00\x00\x00",
+                "data": bytes(self.text),
+                "relocations": self.text_relocations,
+                "characteristics": text_characteristics
+            },
+            {
+                "name": b".data\x00\x00\x00",
+                "data": bytes(self.data),
+                "relocations": self.data_relocations,
+                "characteristics": data_characteristics
+            }
+        ]
+
+        number_of_sections = len(sections)
+
+        file_header_size    = 20
+        section_header_size = 40
+
+        cursor = (
+            file_header_size
+            + number_of_sections * section_header_size
+        )
+
+        # Datei-Offsets der Sektionsdaten und Relocations bestimmen.
+        for section in sections:
+            section_data = section["data"]
+            relocations  = section["relocations"]
+
+            if section_data:
+                section["raw_pointer"] = cursor
+                cursor += len(section_data)
+            else:
+                section["raw_pointer"] = 0
+
+            if relocations:
+                section["reloc_pointer"] = cursor
+                cursor += len(relocations) * 10
+            else:
+                section["reloc_pointer"] = 0
+
+        pointer_to_symbol_table = cursor
+
+        # Symbol- und Stringtabelle erzeugen.
+        symbol_table   = bytearray()
+        string_data    = bytearray()
+        string_offsets = {}
+
+        for symbol in self.symbols:
+            symbol_name = symbol["name"]
+
+            encoded_name = self._coff_encode_symbol_name(
+                symbol_name,
+                string_data,
+                string_offsets
+            )
+
+            value = int(
+                symbol.get("value", 0)
+            )
+
+            section_number = int(
+                symbol.get("section", 0)
+            )
+
+            symbol_type = int(
+                symbol.get("type", 0)
+            )
+
+            storage_class = int(
+                symbol.get(
+                    "storage",
+                    IMAGE_SYM_CLASS_EXTERNAL
+                )
+            )
+
+            number_of_aux_symbols = int(
+                symbol.get("aux", 0)
+            )
+
+            if number_of_aux_symbols != 0:
+                raise RuntimeError(
+                    "COFF auxiliary symbols are not supported yet: "
+                    + str(symbol_name)
+                )
+
+            symbol_table += encoded_name
+            symbol_table += struct.pack(
+                "<IhHBB",
+                value,
+                section_number,
+                symbol_type,
+                storage_class,
+                number_of_aux_symbols
+            )
+
+        number_of_symbols = len(self.symbols)
+
+        # Die ersten vier Bytes der COFF-Stringtabelle enthalten
+        # deren Gesamtgroesse einschliesslich des Laengenfeldes.
+        string_table = (
+            struct.pack(
+                "<I",
+                4 + len(string_data)
+            )
+            + string_data
+        )
+
+        # Reiner COFF-File-Header: kein Optional Header.
+        file_header = struct.pack(
+            "<HHIIIHH",
+            IMAGE_FILE_MACHINE_I386,
+            number_of_sections,
+            0,                          # TimeDateStamp
+            pointer_to_symbol_table,
+            number_of_symbols,
+            0,                          # SizeOfOptionalHeader
+            0                           # Characteristics
+        )
+
+        section_headers = bytearray()
+
+        for section in sections:
+            section_headers += struct.pack(
+                "<8sIIIIIIHHI",
+                section["name"],
+                0,                          # PhysicalAddress / VirtualSize
+                0,                          # VirtualAddress
+                len(section["data"]),       # SizeOfRawData
+                section["raw_pointer"],     # PointerToRawData
+                section["reloc_pointer"],   # PointerToRelocations
+                0,                          # PointerToLinenumbers
+                len(section["relocations"]),
+                0,                          # NumberOfLinenumbers
+                section["characteristics"]
+            )
+
+        image = bytearray()
+        image += file_header
+        image += section_headers
+
+        for section in sections:
+            image += section["data"]
+
+            for relocation in section["relocations"]:
+                image += struct.pack(
+                    "<IIH",
+                    int(relocation["offset"]),
+                    int(relocation["symbol_index"]),
+                    int(relocation["type"])
+                )
+
+        image += symbol_table
+        image += string_table
+
+        return image
+
+    def write_object(self, filename):
+        """Schreibt eine reine COFF32-i386-Objektdatei."""
+        output_path = os.path.abspath(filename)
+        output_dir  = os.path.dirname(output_path)
+
+        if output_dir:
+            os.makedirs(
+                output_dir,
+                exist_ok=True
+            )
+
+        image = self.build_object_image()
+
+        with open(output_path, "wb") as stream:
+            stream.write(image)
+
+        # Selbsttest mit dem bereits vorhandenen Reader.
+        obj = Coff32Reader(output_path).read()
+
+        if not obj.sections:
+            raise RuntimeError(
+                "written COFF32 object contains no sections"
+            )
+
+        return output_path
 
     def write(self, filename):
         #self.add_coff_object("math.o")

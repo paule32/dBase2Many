@@ -8,9 +8,31 @@ unit VCL.Windows;
 
 interface
 
+type
+    TZuZu = class
+    public
+        constructor Create;
+        destructor Destroy;
+    end;
+
 function GetNumber: Integer;
+procedure TestString(S: String);
 
 implementation
+
+constructor TZuZu.Create;
+begin
+    WriteLn('zuzu: Create');
+end;
+destructor TZuZu.Destroy;
+begin
+    WriteLn('zuzu: Destroy');
+end;
+
+procedure TestString(S: String);
+begin
+    WriteLn('Test: ', S);
+end;
 
 function GetNumber: Integer;
 begin

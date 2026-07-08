@@ -61,7 +61,10 @@ typedef   signed int         int32_t;
 typedef unsigned long long  uint64_t;
 typedef signed   long long   int64_t;
 
-typedef uint32_t size_t;
+typedef int                 intptr_t;
+typedef unsigned int       uintptr_t;
+
+typedef uint32_t              size_t;
 
 // ---------------------------------------------------------------------------
 // widely used Windows 32-bit used type definition's ...

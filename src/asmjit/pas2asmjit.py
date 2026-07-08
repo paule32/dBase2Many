@@ -226,9 +226,12 @@ def main():
         # -----------------------------------------
         args = args_parser.parse_args()
         
-        CDATA.args_target = args.target
+        CDATA.args_target  = args.target
+        CDATA.args_backend = args.backend
         
         args = handle_args(args)
+        
+        CDATA.force_write  = args.forcewrite
         
         # -----------------------------------------
         # get input source file
@@ -256,39 +259,41 @@ def main():
         backend    = None
         writer     = None
         target_obj = None
+        print("back: ", CDATA.args_backend)
         # -----------------------------------------
-        if   args.backend in ["c++", "asmjit"]:
-            CDATA.args_backend = BACKEND_ASMJIT
+        if CDATA.args_backend in ["c++", "asmjit"]:
             if args.target in ["win32", "win64"]:
                 backend    = AsmJitBackend()
                 writer     = CppOutputWriter()
                 
-        elif args.backend in ["asm", "nasm"]:
-            CDATA.args_backend = BACKEND_NASM
+        elif CDATA.args_backend in ["asm", "nasm"]:
             if args.target in ["win32", "win64"]:
                 backend    = NasmBackend()
                 writer     = NasmOutputWriter()
         
-        elif args.backend in ["obj", "objfile"]:
-            CDATA.args_backend = BACKEND_OBJFILE
-            if args.target in ["win32", "win64"]:
+        elif CDATA.args_backend in ["obj", "objfile"]:
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                writer     = PE32Writer()
+                backend    = Coff32Backend(writer)
+                target_obj = writer
+                
+            elif CDATA.args_target in ["win64"]:
                 target_obj = PE64CoffWriter()
                 backend    = Coff64Backend(target_obj)
                 writer     = CoffObjectWriter(target_obj)
         
-        elif args.backend in ["exe", "exefile"]:
-            CDATA.args_backend = BACKEND_EXEFILE
-            if args.target in ["nt35", "winnt", "win32"]:
+        elif CDATA.args_backend in ["exe", "exefile"]:
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 writer     = PE32Writer()
                 target_obj = NT32Writer(writer)
                 backend    = Coff32Backend(writer)
             
-            elif args.target in ["dos", "dos16"]:
+            elif CDATA.args_target in ["dos", "dos16"]:
                 target_obj = MZ16Writer()
                 backend    = DosBackend(target_obj)
                 writer     = DosExeWriter(target_obj)
             
-            elif args.target in ["win64"]:
+            elif CDATA.args_target in ["win64"]:
                 target_obj = PE64CoffWriter()
                 backend    = Coff64Backend(target_obj)
                 writer     = PE64ExeWriter(target_obj)
@@ -332,6 +337,7 @@ def main():
         CDATA.asm_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".asm")
         CDATA.cpp_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".cc" )
         CDATA.obj_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".o"  )
+        CDATA.pui_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".pui")
         CDATA.exe_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".exe")
         
         print("Compile-Run ...")
@@ -342,6 +348,7 @@ def main():
         print("nasm  : ", CDATA.asm_file)
         print("asmjit: ", CDATA.cpp_file)
         print("object: ", CDATA.obj_file)
+        print("pui32 : ", CDATA.pui_file)
         print("win64 : ", CDATA.exe_file)
         print("---------------------------")
         
@@ -382,7 +389,7 @@ def main():
         # -----------------------------------------
         # 4. generate asmjit c++ / nasm code  ...
         # -----------------------------------------
-        generator = GeneratorClass(backend, target_obj)
+        generator = GeneratorClass(backend, writer=target_obj)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
@@ -405,18 +412,49 @@ def main():
                 else:   target_obj.write(CDATA.exe_file)
         
         elif CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
-            if CDATA.args_backend.lower() == BACKEND_EXEFILE:
+            if CDATA.args_backend.lower() in ["exe", "exefile"]:
                 outfile = Path(CDATA.exe_file)
                 if outfile.exists():
-                    check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
-                    if check in ('j', 'y'):
+                    if not CDATA.force_write:
+                        check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
+                    else:
+                        check = ['j', 'y']
+                    if ('y' in check) or ('j' in check):
                         generator.write_string_literals_to_coff()
                         generator.write_double_literals_to_coff()
                         writer.write(CDATA.exe_file)
+                    else:
+                        print(tr("no files written"))
                 else:
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
                     writer.write(CDATA.exe_file)
+                    
+            elif CDATA.args_backend.lower() in ["obj", "objfile"]:
+                outfile = Path(CDATA.obj_file)
+                if outfile.exists():
+                    if CDATA.force_write == False:
+                        check = input(f"{CDATA.obj_file}: {overwrite}").strip().lower()
+                    else:
+                        check = ['j','y']
+                    if ('y' in check) or ('j' in check):
+                        generator.write_string_literals_to_coff()
+                        generator.write_double_literals_to_coff()
+                        writer.write_object(CDATA.obj_file)
+                        if generator.root_module_kind == "unit":
+                            CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
+                            print(f"COFF32 unit object: {CDATA.obj_file}")
+                            print(f"Pascal unit interface: {CDATA.pui_file}")
+                    else:
+                        print(tr("no files written"))
+                else:
+                    generator.write_string_literals_to_coff()
+                    generator.write_double_literals_to_coff()
+                    writer.write_object(CDATA.obj_file)
+                    if generator.root_module_kind == "unit":
+                        CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
+                        print(f"COFF32 unit object: {CDATA.obj_file}")
+                        print(f"Pascal unit interface: {CDATA.pui_file}")
                 
         elif CDATA.args_target.lower() == "win64":
             if CDATA.BackEnd.current == BACKEND_ASMJIT:
@@ -510,6 +548,8 @@ def main():
     except TypeError as e:
         print(f"{tr('Error')}: {tr('Type error')}")
         print(f"Text : {str(e)}")
+        import traceback
+        traceback.print_exc()
         return 2
     except ArithmeticError as e:
         print(f"{tr('Error')}: {tr('Arithmetic Error')}")

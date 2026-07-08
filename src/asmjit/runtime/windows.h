@@ -82,6 +82,15 @@ constexpr DWORD FILE_READ_ONLY_VOLUME         = 0x00080000;
 // console handle's ...
 // --------------------------------------------------------------------
 constexpr DWORD STD_OUTPUT_HANDLE = -11;
+constexpr DWORD STD_INPUT_HANDLE  = -10;
+
+// --------------------------------------------------------------------
+// handle constants ...
+// --------------------------------------------------------------------
+static const HANDLE INVALID_HANDLE_VALUE =
+    reinterpret_cast<HANDLE>(
+        static_cast<intptr_t>(-1)
+    );
 
 // --------------------------------------------------------------------
 // pre-loader stuff ...
@@ -97,6 +106,7 @@ typedef VOID    (JIT_STDCALL *PFN_SetLastError)(DWORD error);
 
 typedef HANDLE  (JIT_STDCALL *PFN_GetStdHandle)(DWORD);
 typedef BOOL    (JIT_STDCALL *PFN_WriteFile)(HANDLE, const void *, DWORD, DWORD *, void *);
+typedef BOOL    (JIT_STDCALL *PFN_ReadFile )(HANDLE, const void *, DWORD, DWORD *, void *);
 
 typedef UINT    (JIT_STDCALL *PFN_GetDriveTypeA)(const char *rootPath);
 typedef BOOL    (JIT_STDCALL *PFN_GetDiskFreeSpaceExA)(
@@ -138,6 +148,7 @@ extern PFN_SetLastError   p_SetLastError;
 
 extern PFN_GetStdHandle   p_GetStdHandle;
 extern PFN_WriteFile      p_WriteFile;
+extern PFN_ReadFile       p_ReadFile;
 
 extern PFN_MessageBoxA    p_MessageBoxA;
 extern PFN_GetDriveTypeA  p_GetDriveTypeA;
@@ -158,14 +169,27 @@ DLL_API HMODULE JIT_STDCALL LoadLibraryA(LPCSTR  lpLibFileName);
 DLL_API BOOL    JIT_STDCALL FreeLibrary (HMODULE hModule);
 DLL_API VOID    JIT_STDCALL ExitProcess (DWORD   uExitCode);
 
+// --------------------------------------------------------------------
+// Windows error handling
+// --------------------------------------------------------------------
 DLL_API DWORD   JIT_STDCALL GetLastError(void);
 DLL_API VOID    JIT_STDCALL SetLastError(DWORD error);
 
+// --------------------------------------------------------------------
+// Windows file input / output ...
+// --------------------------------------------------------------------
+DLL_API BOOL    JIT_STDCALL WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
+DLL_API BOOL    JIT_STDCALL ReadFile (HANDLE, const void *, DWORD, DWORD *, void *);
+
+DLL_API HANDLE  JIT_STDCALL GetStdHandle(DWORD);
 DLL_API FARPROC JIT_STDCALL GetProcAddress(
     HMODULE hModule,
     LPCSTR lpProcName
 );
 
+// --------------------------------------------------------------------
+// user notification
+// --------------------------------------------------------------------
 DLL_API int JIT_STDCALL MessageBoxA(
     HANDLE hwnd,
     const char* text,
@@ -173,6 +197,9 @@ DLL_API int JIT_STDCALL MessageBoxA(
     unsigned int type
 );
 
+// --------------------------------------------------------------------
+// disk information's ...
+// --------------------------------------------------------------------
 DLL_API UINT JIT_STDCALL GetDriveTypeA(const char *rootPath);
 DLL_API BOOL JIT_STDCALL GetDiskFreeSpaceExA(
     LPCSTR,

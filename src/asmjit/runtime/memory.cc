@@ -548,7 +548,84 @@ DLL_API int JIT_CDECL _jit_snprintf (char *buffer, size_t size, const char *fmt,
     return result;
 }
 
-DLL_API int  JIT_CDECL _jit_read_int()    { return 9; }
-DLL_API int  JIT_CDECL _jit_read_string() { return 0; }
-DLL_API void JIT_CDECL _jit_debug_break() { }
+int parse_integer(const char *s)
+{
+    int sign  = 1;
+    int value = 0;
+
+    if (*s == '-') {
+        sign = -1;
+        s++;
+    }
+
+    while (*s >= '0' && *s <= '9') {
+        value = value * 10 + (*s - '0');
+        s++;
+    }
+
+    return value * sign;
+}
+
+DLL_API int  JIT_CDECL _jit_read_int() {
+    char* buffer = (char*)_jit_malloc(256);
+    DWORD bytesRead;
+    HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
+    
+    ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
+    while (bytesRead &&
+      (buffer[  bytesRead-1] == '\r' ||
+       buffer[  bytesRead-1] == '\n' )) {
+       buffer[--bytesRead] = 0;
+    }
+    return parse_integer(buffer);
+}
+DLL_API char*  JIT_CDECL _jit_read_string() {
+    char* buffer = (char*)_jit_malloc(1024);
+    DWORD bytesRead;
+    HANDLE h = p_GetStdHandle(STD_INPUT_HANDLE);
+    
+    ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
+    while (bytesRead &&
+      (buffer[  bytesRead-1] == '\r' ||
+       buffer[  bytesRead-1] == '\n' )) {
+       buffer[--bytesRead] = 0;
+    }
+    return buffer;
+}
+DLL_API int JIT_CDECL _jit_read_char()
+{
+    char   buffer[16];
+    DWORD  bytesRead = 0;
+    HANDLE hInput;
+
+    if (!p_GetStdHandle || !p_ReadFile)
+        return -1;
+
+    hInput = p_GetStdHandle(STD_INPUT_HANDLE);
+
+    if (hInput == nullptr ||
+        hInput == INVALID_HANDLE_VALUE) {
+        return -1;
+    }
+
+    if (!p_ReadFile(
+        hInput,
+        buffer,
+        sizeof(buffer),
+        &bytesRead,
+        nullptr )) {
+        return -1;
+    }
+
+    if (bytesRead == 0)
+        return -1;
+
+    return static_cast<unsigned char>(buffer[0]);
+}
+
+DLL_API void JIT_CDECL _jit_debug_break() {
+    _jit_print_text("[DEBUG BREAK] press Enter...");
+    _jit_read_char();
+    _jit_print_text("\n");
+}
 };

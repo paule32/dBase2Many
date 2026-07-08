@@ -6,12 +6,20 @@
 
 program test55;
 
-uses VCL.Windows, System.Math;
+uses VCL.Windows;
 
 var
     x: Integer;
-
+    z: TZuZu;
+    
 begin
     x := GetNumber;
     WriteLn('x: ', x);
+    TestString('Hola');
+    
+    z := TZuZu.Create;
+    try
+    finally
+        z.Free;
+    end;
 end.

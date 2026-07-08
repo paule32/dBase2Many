@@ -698,3 +698,4 @@ class Coff32Backend(CodeBackend):
     def write(self, filename):
         self.emit_program_entry()
         NTWriter32(self).write(filename)
+        

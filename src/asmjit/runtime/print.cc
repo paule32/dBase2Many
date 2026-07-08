@@ -11,11 +11,9 @@
 # include "windows.h"
 
 extern "C" {
-//DLL_API void _jit_print_text(const char* s)  { std::cout << s; }
-//DLL_API void _jit_print_int(int v)           { std::cout << v; }
-//DLL_API void _jit_print_double(double v)     { std::cout << v; }
-DLL_API void _jit_print_newline()            { _jit_print_text("\n"); }
-//DLL_API void _jit_print_char(int c)          { std::cout << static_cast<char>(c); }
+
+DLL_API void  _jit_print_newline() { _jit_print_text("\n"); }
+DLL_API char* _jit_dynstring_from_cstr(const char* text);
 
 unsigned int utoa10(unsigned int value, char *buffer)
 {
@@ -96,8 +94,8 @@ _jit_dynstring_copy(
     int start,
     int count) {
     
-    //if (!src)
-    //    return _jit_dynstring_from_cstr("");
+    if (!src)
+        return _jit_dynstring_from_cstr("");
 
     DynStringHeader* h = (DynStringHeader*)(src - sizeof(DynStringHeader));
 
@@ -113,19 +111,21 @@ _jit_dynstring_copy(
     if (start < 1)
         start = 1;
 
-    if (count < 0)
-        count = 0;
-
-    //if (start > len)
-    //    return _jit_dynstring_from_cstr("");
+    if (count <= 0 || start > len)
+        return _jit_dynstring_from_cstr("");
 
     int zero_index = start - 1;
+    int available  = len - zero_index;
 
-    if (zero_index + count > len)
-        count = len - zero_index;
-
-    char* result = (char*)_jit_malloc(sizeof(DynStringHeader) + count + 1);
-
+    if (count > available)
+        count = available;
+    
+    char *result = static_cast<char *>(
+        _jit_malloc(
+            sizeof(DynStringHeader) + count + 1
+        )
+    );
+    
     if (!result) {
         _jit_raise(
             JIT_RUNTIME_ERROR,
@@ -133,14 +133,19 @@ _jit_dynstring_copy(
         );
     }
 
-    DynStringHeader* rh = (DynStringHeader*)result;
+    DynStringHeader* rh = reinterpret_cast<DynStringHeader*>(result);
     rh->magic    = DYNSTRING_MAGIC;
     rh->reserved = 0;
     rh->length   = count;
 
     char* data = result + sizeof(DynStringHeader);
 
-    _jit_memcpy(data, src + zero_index, count);
+    _jit_memcpy(
+        data,
+        src + zero_index,
+        count
+    );
+    
     data[count] = 0;
 
     return data;

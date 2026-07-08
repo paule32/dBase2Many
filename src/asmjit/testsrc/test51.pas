@@ -13,7 +13,7 @@ var
 
 begin
     s := 'Hallo Welt';
-
+    
     t := Copy(s, 1, 5);
     WriteLn(t);
 

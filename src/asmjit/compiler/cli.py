@@ -37,6 +37,16 @@ def args_func():
     )
     
     # -------------------------------------------------------------
+    # force overwriten old files with new content ...
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "--force",
+        dest    = "forcewrite",
+        action  = "store_true",
+        help    = tr("Force writen output (no interaction)")
+    )
+    
+    # -------------------------------------------------------------
     # emitter for nasm compatible assembly code
     # -------------------------------------------------------------
     args_parser.add_argument(
@@ -175,7 +185,7 @@ def args_func():
                     "exe", "exefile",
         ],
         default  =  "asmjit",
-        help     =  tr("Code backend: asmjit, nasm, objfile.")
+        help     =  tr("Code backend: asmjit, nasm, obj, exe.")
     )
     
     # -------------------------------------------------------------
@@ -386,6 +396,8 @@ def handle_args(args):
     CDATA.UnitFiles    = list(args.unitfiles   or [])
     CDATA.Defines      = list(args.define      or [])
     
+    CDATA.force_write  = args.forcewrite
+    
     if args.exe_output_dir is not None:
         CDATA.ExeOutputDir = args.exe_output_dir
         #print("==> ", CDATA.CurrentWorkingDir)
@@ -408,6 +420,8 @@ def handle_args(args):
             CDATA.link_library_paths.append(
                 os.path.normpath(path)
             )
+    
+    CDATA.backend = args.backend
     
     if args.info is not None:
         if args.info == "":

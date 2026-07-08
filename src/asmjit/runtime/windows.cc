@@ -13,11 +13,12 @@ PFN_GetLastError   p_GetLastError   = nullptr;
 PFN_SetLastError   p_SetLastError   = nullptr;
 
 PFN_GetProcAddress p_GetProcAddress = nullptr;
+PFN_GetStdHandle   p_GetStdHandle   = nullptr;
 PFN_ExitProcess    p_ExitProcess    = nullptr;
 
 PFN_MessageBoxA    p_MessageBoxA    = nullptr;
 
-PFN_GetStdHandle   p_GetStdHandle   = nullptr;
+PFN_ReadFile       p_ReadFile       = nullptr;
 PFN_WriteFile      p_WriteFile      = nullptr;
 // ---------------------------------------------------------------------------
 // disk drive proto types ...
@@ -65,6 +66,13 @@ SetLastError(DWORD error) {
     p_SetLastError(error);
 }
 
+DLL_API BOOL JIT_STDCALL WriteFile(HANDLE h, const void *b, DWORD l, DWORD *w, void *r) {
+    return p_WriteFile(h, b, l, w, r);
+}
+DLL_API BOOL JIT_STDCALL ReadFile (HANDLE h, const void *b, DWORD l, DWORD *w, void *r) {
+    return p_ReadFile (h, b, l, w, r);
+}
+
 static unsigned int _jit_strlen_local(const char *s)
 {
     unsigned int n = 0;
@@ -86,6 +94,10 @@ extern "C" void _jit_print_text(const char *s)
         &written,
         0
     );
+}
+
+DLL_API HANDLE  JIT_STDCALL GetStdHandle(DWORD h) {
+    return p_GetStdHandle(h);
 }
 
 DLL_API FARPROC JIT_STDCALL GetProcAddress(

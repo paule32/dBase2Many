@@ -277,6 +277,7 @@ extern "C" int init_loader()
 
     p_GetStdHandle = (PFN_GetStdHandle) p_GetProcAddress(kernel32, "GetStdHandle");
     p_WriteFile    = (PFN_WriteFile)    p_GetProcAddress(kernel32, "WriteFile");
+    p_ReadFile     = (PFN_ReadFile)     p_GetProcAddress(kernel32, "ReadFile");
 
 
     HMODULE user32 = p_LoadLibraryA("user32.dll");
