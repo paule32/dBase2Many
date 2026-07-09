@@ -4,22 +4,28 @@
 // All rights reserved
 // ---------------------------------------------------------------------------
 program testtypes;
-//var
-    //b : Byte;
-    //w : Word;
-    //r : Real;
-    //e : Extended;
+
+uses System.Types;
+    
+var
+    b : Boolean;
+    c : Byte;
+    w : Word;
+    r : Real;
+    e : Extended;
 
 begin
     writeln('START');
-//    b := 255;    writeln('B: OK');
-    //w := 65535;  writeln('W: OK');
-    //r := 3.14;   writeln('R: OK');
-    //e := 2.71;   writeln('E: OK');
+    b := False;
+    c := 255;    writeln('B: OK');
+    w := 65535;  writeln('W: OK');
+    r := 3.14;   writeln('R: OK');
+    e := 2.71;   writeln('E: OK');
 
-    //WriteLn('b: ', b);
-    //WriteLn('w: ', w);
-    //WriteLn('r: ', r);
-    //WriteLn('e: ', e);
+    writeLn('b: ', b);
+    writeLn('c: ', c);
+    writeLn('w: ', w);
+    writeLn('r: ', r);
+    writeLn('e: ', e);
 end.
                                                 

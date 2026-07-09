@@ -114,7 +114,7 @@ NAME                : [nN][aA][mM][eE] ;
 
 COMPILER_DIRECTIVE  : '{$' .*? '}' ;
     
-DOTDOT              : '..'  ;
+DOTDOT              : '..';
 DOT                 : '.'   ;
 
 ASSIGN              : ':='  ;

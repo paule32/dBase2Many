@@ -219,11 +219,12 @@ def args_func():
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-Fu",
-        "--unit",
-        dest    = "unitfiles",
+        "--unit-path",
+        dest    = "unit_paths",
         action  = "append",
         default = [],
-        help    = tr("Add Pascal unit file or unit search directory.")
+        metavar = "DIRECTORY",
+        help    = tr("Add Pascal unit search directory.")
     )
     
     # -------------------------------------------------------------
@@ -392,9 +393,34 @@ def validate_output_path(value: str):
         "path": path
     }
 
+def normalize_search_paths(paths):
+    result = []
+    seen = set()
+
+    for path in paths or []:
+        if not path:
+            continue
+
+        path = os.path.abspath(
+            os.path.expandvars(
+                os.path.expanduser(path)
+            )
+        )
+
+        key = os.path.normcase(
+            os.path.normpath(path)
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(path)
+
+    return result
+    
 def handle_args(args):
     CDATA.IncludePaths = list(args.includepath or [])
-    CDATA.UnitFiles    = list(args.unitfiles   or [])
     CDATA.Defines      = list(args.define      or [])
     
     CDATA.force_write  = args.forcewrite
@@ -423,6 +449,7 @@ def handle_args(args):
             )
     
     CDATA.args_backend = args.backend
+    CDATA.UnitPaths = normalize_search_paths(args.unit_paths)
     
     if args.info is not None:
         if args.info == "":

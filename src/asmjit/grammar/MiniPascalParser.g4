@@ -150,8 +150,14 @@ typeSection
     : TYPE typeDeclaration+
     ;
 
+typeIdentifier
+    : IDENT
+    | BOOLEAN
+    ;
+
 typeDeclaration
-    : IDENT EQ_OP typeName SEMI
+    : typeIdentifier EQ_OP typeName SEMI
+    | typeIdentifier EQ_OP subrangeType SEMI
     | enumDeclaration
     | recordDeclaration
     | arrayDeclaration
@@ -252,6 +258,14 @@ simpleType
     | DOUBLE
     | STRING
     | BOOLEAN
+    ;
+
+signedInteger
+    : (PLUS | MINUS)? NUMBER
+    ;
+
+subrangeType
+    : signedInteger DOTDOT signedInteger
     ;
 
 enumDeclaration

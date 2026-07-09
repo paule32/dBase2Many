@@ -46,6 +46,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.backend = backend or AsmJitBackend()   # default backend
         self.lines   = self.backend.lines
         
+        self.subrange_types     = {}
         self.vars               = {}
         self.next_slot          = 0
         self.program_name       = "Program"
@@ -157,54 +158,170 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
 
     def find_unit_file(self, ctx, unit_name):
-        print("----> ", unit_name)
+        unit_name = str(unit_name).strip()
+
+        if not unit_name:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="empty unit name"
+            )
+
+        dotted_name = unit_name
+
+        namespace_path = unit_name.replace(
+            ".",
+            os.sep
+        )
+
         candidates = [
-            unit_name + ".pas",
-            unit_name + ".pp",
-            unit_name.lower() + ".pas",
-            unit_name.lower() + ".pp"
+            dotted_name + ".pas",
+            dotted_name + ".pp",
+
+            dotted_name.lower() + ".pas",
+            dotted_name.lower() + ".pp",
+
+            namespace_path + ".pas",
+            namespace_path + ".pp",
+
+            namespace_path.lower() + ".pas",
+            namespace_path.lower() + ".pp"
         ]
 
+        # Doppelte Einträge entfernen
+        candidates = list(
+            dict.fromkeys(candidates)
+        )
+
         search_dirs = []
+        seen_dirs = set()
 
-        if self.source_dir:
-            search_dirs.append(self.source_dir)
+        def add_directory(path):
+            if not path:
+                return
 
-        search_dirs.append(os.getcwd())
+            try:
+                path = os.fspath(path)
+            except TypeError:
+                return
 
-        for p in getattr(CDATA, "IncludePaths", []):
-            search_dirs.append(os.path.abspath(p))
+            path = path.strip()
 
-        for item in getattr(CDATA, "UnitFiles", []):
-            item_path = os.path.abspath(item)
+            if not path:
+                return
+
+            path = os.path.abspath(
+                os.path.expandvars(
+                    os.path.expanduser(path)
+                )
+            )
+
+            if not os.path.isdir(path):
+                return
+
+            key = os.path.normcase(
+                os.path.normpath(path)
+            )
+
+            if key in seen_dirs:
+                return
+
+            seen_dirs.add(key)
+            search_dirs.append(path)
+
+        # Verzeichnis der aktuellen Quelldatei
+        add_directory(
+            self.source_dir
+        )
+
+        if self.source_file:
+            add_directory(
+                os.path.dirname(
+                    os.path.abspath(
+                        self.source_file
+                    )
+                )
+            )
+
+        # Aktuelles Arbeitsverzeichnis
+        add_directory(
+            os.getcwd()
+        )
+
+        # -Fu- und Include-Pfade
+        for attribute_name in (
+            "UnitPaths",
+            "IncludePaths"
+        ):
+            paths = getattr(
+                CDATA,
+                attribute_name,
+                []
+            ) or []
+
+            for path in paths:
+                add_directory(path)
+
+        # Explizit eingetragene Unit-Dateien
+        for item in getattr(
+            CDATA,
+            "UnitFiles",
+            []
+        ) or []:
+            try:
+                item_path = os.path.abspath(
+                    os.fspath(item)
+                )
+            except TypeError:
+                continue
 
             if os.path.isfile(item_path):
-                base = os.path.splitext(os.path.basename(item_path))[0].lower()
+                base_name = os.path.splitext(
+                    os.path.basename(item_path)
+                )[0]
 
-                if base == unit_name.lower():
+                normalized_base = (
+                    base_name
+                    .lower()
+                    .replace("_", ".")
+                )
+
+                normalized_unit = (
+                    unit_name
+                    .lower()
+                    .replace("_", ".")
+                )
+
+                if normalized_base == normalized_unit:
                     return item_path
 
             elif os.path.isdir(item_path):
-                search_dirs.append(item_path)
+                add_directory(item_path)
 
-        seen = set()
+        # Datei suchen
         for directory in search_dirs:
-            directory = os.path.abspath(directory)
+            for candidate in candidates:
+                filename = os.path.abspath(
+                    os.path.join(
+                        directory,
+                        candidate
+                    )
+                )
 
-            if directory in seen:
-                continue
-            seen.add(directory)
+                if os.path.isfile(filename):
+                    return filename
 
-            for filename in candidates:
-                path = os.path.abspath(os.path.join(directory, filename))
-
-                if os.path.exists(path):
-                    return path
+        searched = os.pathsep.join(
+            search_dirs
+        )
 
         raise CompileError(
             ctx,
             "E0019",
-            text=f"unit {unit_name} not found"
+            text=(
+                f"unit source {unit_name} not found; "
+                f"searched: {searched}"
+            )
         )
     
     def format_method_signature(self, params):
@@ -217,6 +334,112 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             types.append(self.resolve_type(p["type"]))
             
         return "(" + ", ".join(types) + ")"
+    
+    def infer_subrange_storage(self, min_value, max_value):
+        if min_value > max_value:
+            raise ValueError(
+                f"invalid subrange: {min_value}..{max_value}"
+            )
+
+        signed = min_value < 0
+
+        if signed:
+            if -128 <= min_value and max_value <= 127:
+                return 1, True
+
+            if -32768 <= min_value and max_value <= 32767:
+                return 2, True
+
+            if -2147483648 <= min_value and max_value <= 2147483647:
+                return 4, True
+
+        else:
+            if max_value <= 0xFF:
+                return 1, False
+
+            if max_value <= 0xFFFF:
+                return 2, False
+
+            if max_value <= 0xFFFFFFFF:
+                return 4, False
+
+        raise ValueError(
+            f"subrange does not fit into 32 bits: "
+            f"{min_value}..{max_value}"
+        )
+
+    def subrange_info(self, typ):
+        if not isinstance(typ, str):
+            return None
+
+        return self.subrange_types.get(
+            typ.lower()
+        )
+
+
+    def scalar_base_type(self, typ):
+        info = self.subrange_info(typ)
+
+        if info is not None:
+            return info.base_type
+
+        return self.resolve_type(typ)
+
+    def declare_subrange_type(
+        self,
+        ctx,
+        name,
+        min_value,
+        max_value
+    ):
+        key = name.lower()
+
+        if (
+            key in self.type_aliases
+            or key in self.subrange_types
+            or key in self.records
+            or key in self.arrays
+            or key in self.classes
+            or key in self.enums
+        ):
+            raise CompileError(
+                ctx,
+                "E0002",
+                name=name
+            )
+
+        try:
+            size, signed = self.infer_subrange_storage(
+                min_value,
+                max_value
+            )
+        except ValueError as exc:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=str(exc)
+            )
+
+        self.subrange_types[key] = SubrangeTypeInfo(
+            name=name,
+            base_type="integer",
+            min_value=min_value,
+            max_value=max_value,
+            size=size,
+            signed=signed
+        )
+
+    def parse_signed_integer(self, ctx):
+        text = ctx.getText()
+
+        try:
+            return int(text, 10)
+        except ValueError:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"invalid integer constant: {text}"
+            )
     
     def pascal_token_string(self, token):
         text = token.getText()
@@ -555,37 +778,124 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         )
     
     def type_size(self, ctx, typ):
+        range_info = self.subrange_info(typ)
+
+        if range_info is not None:
+            return range_info.size
+
         typ = self.resolve_type(typ)
-        
+
         if isinstance(typ, dict):
             if typ.get("kind") == "array":
                 return typ["size"]
-        
+
         if isinstance(typ, str) and typ in self.classes:
-            return typ
-        
+            return self.pointer_slot_size()
+
         if isinstance(typ, str) and typ.startswith("^"):
-            return 8
-        
+            return self.pointer_slot_size()
+
         if typ == "boolean":
             return 4
-        
+
         if typ == "integer":
             return 4
-            
+
         if typ == "double":
             return 8
-            
+
         if typ == "string":
-            return 8
+            return self.pointer_slot_size()
 
         if isinstance(typ, str) and typ in self.records:
             return self.records[typ].size
-        
+
         if isinstance(typ, str) and typ in self.arrays:
             return self.arrays[typ].size
 
-        raise CompileError(ctx, "E0004", name=typ)
+        raise CompileError(
+            ctx,
+            "E0004",
+            name=typ
+        )
+
+    def add_data_u8(self, name, value=0):
+        return self.add_data_bytes(
+            name,
+            bytes([value & 0xFF]),
+            alignment=1
+        )
+
+    def add_data_u16(self, name, value=0):
+        return self.add_data_bytes(
+            name,
+            int(value).to_bytes(
+                2,
+                "little",
+                signed=False
+            ),
+            alignment=2
+        )
+
+    def validate_subrange_constant(
+        self,
+        ctx,
+        declared_type,
+        value
+    ):
+        info = self.subrange_info(
+            declared_type
+        )
+
+        if info is None:
+            return
+
+        if not (
+            info.min_value
+            <= value
+            <= info.max_value
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"value {value} is outside "
+                    f"{info.name} range "
+                    f"{info.min_value}..{info.max_value}"
+                )
+            )
+
+    def emit_subrange_check(
+        self,
+        ctx,
+        declared_type,
+        value_reg="eax"
+    ):
+        info = self.subrange_info(declared_type)
+
+        if info is None:
+            return
+
+        fail_label = self.new_named_label("subrange_fail")
+        done_label = self.new_named_label("subrange_ok")
+
+        self.emit_cmp(value_reg, info.min_value)
+        self.emit_jl(fail_label)
+
+        self.emit_cmp(value_reg, info.max_value)
+        self.emit_jg(fail_label)
+        
+        self.emit_jmp(done_label)
+
+        self.emit_bind_label(fail_label)
+
+        self.emit_soft_runtime_error(
+            f"Range check error: value for "
+            f"{info.name} must be in "
+            f"{info.min_value}..{info.max_value}"
+        )
+
+        self.emit_bind_label(done_label)
 
     def actual_param_variable_ref(self, ctx, arg):
         expr = arg.expr()
@@ -1000,7 +1310,17 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def declare_var(self, ctx, name, vtype):
         key = name.lower()
-        typ = self.resolve_type(vtype)
+        #typ = self.resolve_type(vtype)
+        
+        declared_type = vtype.lower()
+        range_info = self.subrange_info(declared_type)
+        
+        if range_info is not None:
+            typ  = range_info.base_type
+            size = range_info.size
+        else:
+            typ  = self.resolve_type(vtype)
+            size = self.type_size(ctx, typ)
         
         if key in self.vars:
             raise CompileError(ctx, "E0002", name=name)
@@ -1027,10 +1347,33 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         elif typ == "double":
             slot = self.next_double_slot
             self.next_double_slot += 1
-            
-            if use_direct_coff_globals:
+
+            # NT32 verwendet direkte COFF-Datensymbole.
+            #
+            # Nicht von backend.name abhängig machen, weil bei einem
+            # DualBackend der Name nicht mit CDATA.args_backend
+            # übereinstimmen muss.
+            if CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
                 symbol = f"_var_{name}"
-                self.coff.add_data_double(symbol)
+
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_double(
+                        symbol,
+                        0.0
+                    )
+
+            elif use_direct_coff_globals:
+                symbol = f"_var_{name}"
+
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_double(
+                        symbol,
+                        0.0
+                    )
         
         elif typ == "string":
             slot = self.next_string_slot
@@ -1113,8 +1456,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
         self.vars[key] = {
             "name": name,
+
+            # Für bestehende Operationen:
             "type": typ,
-            "slot": slot,
+
+            # Für Größen- und Bereichsprüfung:
+            "declared_type": declared_type,
+
+            "size": size,
+            "slot": slot
         }
         
         if symbol is not None:
@@ -2511,6 +2861,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     )
 
                 self.add_pui_link_archive(path)
+
+            self.register_pui_types(
+                ctx,
+                unit_name,
+                data
+            )
 
             self.register_pui_routines(
                 ctx,
@@ -6422,40 +6778,76 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return var_type
                 
         elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if isinstance(typ, str) and typ.startswith("^"):
+            if (isinstance(typ, str) and typ.startswith("^")):
                 symbol = info.get("symbol")
 
                 if not symbol:
                     symbol = f"_var_{info['name']}"
                     info["symbol"] = symbol
-
                     if self.coff.find_symbol_index(symbol) is None:
-                        self.coff.add_data_i32(symbol, 0)
-
-                self.coff.emit_mov_reg_from_data_label32("eax", symbol)
+                        self.coff.add_data_i32(
+                            symbol,
+                            0
+                        )
+                self.coff.emit_mov_reg_from_data_label32(
+                    "eax",
+                    symbol
+                )
                 return typ
-            
-            var_type = self.resolve_type(info["type"])
-            
+                
+            var_type = self.resolve_type(
+                info["type"]
+            )
             if var_type == "string":
                 symbol = info.get("symbol")
                 if not symbol:
                     symbol = f"_var_{info['name']}"
                     info["symbol"] = symbol
                     if self.coff.find_symbol_index(symbol) is None:
-                        self.coff.add_data_i32(symbol, 0)
-
-                self.backend.writer.emit_mov_reg_from_data_label32("eax", symbol)
+                        self.coff.add_data_i32(
+                            symbol,
+                            0
+                        )
+                self.backend.writer.emit_mov_reg_from_data_label32(
+                    "eax",
+                    symbol
+                )
                 return "string"
-                
+
             if var_type == "integer":
                 symbol = info.get("symbol")
                 if not symbol:
                     symbol = f"_var_{info['name']}"
                     info["symbol"] = symbol
-                    
-                self.backend.writer.emit_mov_reg_from_data_label32("eax", symbol)
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_i32(
+                            symbol,
+                            0
+                        )
+                self.backend.writer.emit_mov_reg_from_data_label32(
+                    "eax",
+                    symbol
+                )
                 return "integer"
+
+            if var_type == "double":
+                symbol = info.get("symbol")
+
+                if not symbol:
+                    symbol = f"_var_{info['name']}"
+                    info["symbol"] = symbol
+
+                    if self.coff.find_symbol_index(symbol) is None:
+                        self.coff.add_data_double(
+                            symbol,
+                            0.0
+                        )
+
+                self.backend.writer.emit_movsd_xmm0_data_label32(
+                    symbol
+                )
+
+                return "double"
                 
         # -------------------------------------------------
         # Neues COFF-Backend:
@@ -6596,15 +6988,47 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         typ  = self.resolve_type(info["type"])
         slot = info["slot"]
 
+        # Deklarierter Typ muss erhalten bleiben, z. B. "byte".
+        # info["type"] kann für Rechenoperationen bereits "integer" sein.
+        declared_type = info.get(
+            "declared_type",
+            info["type"]
+        )
+
+        range_info = self.subrange_info(
+            declared_type
+        )
+
+        if range_info is not None:
+            if typ != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=typ,
+                    expected="integer subrange"
+                )
+
+            # EAX enthält zu diesem Zeitpunkt den zu speichernden Integerwert.
+            # Bei normalen Typen macht emit_subrange_check() nichts.
+            self.emit_subrange_check(
+                ctx,
+                declared_type,
+                "eax"
+            )
+
         if CDATA.args_target in ["nt35", "winnt", "win32"] and typ == "string":
             symbol = info.get("symbol")
             if not symbol:
                 symbol = f"_var_{info['name']}"
                 info["symbol"] = symbol
+
                 if self.coff.find_symbol_index(symbol) is None:
                     self.coff.add_data_i32(symbol, 0)
 
-            self.coff.emit_mov_data_label_r32(symbol, "eax")
+            self.coff.emit_mov_data_label_r32(
+                symbol,
+                "eax"
+            )
             return
     
         if hasattr(self, "coff") and "symbol" in info:
@@ -6615,7 +7039,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 return
 
             if typ == "double":
-                self.coff.emit_movsd_data_label_store(symbol, "xmm0")
+                self.coff.emit_movsd_data_label_xmm0_store(symbol)
                 return
 
             if typ == "string":
@@ -9432,12 +9856,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             "unit": {
                 "name": unit_name,
-                "normalized_name": self.normalize_unit_name(unit_name)
+                "normalized_name": self.normalize_unit_name(
+                    unit_name
+                )
             },
 
             "target": target_info,
 
-            # Wird nach erfolgreicher COFF-Ausgabe ergänzt
             "object": {
                 "file": None,
                 "format": target_info["object_format"],
@@ -9449,10 +9874,13 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 "implementation": []
             },
 
-            # Zusätzliche native Abhängigkeiten aus Compiler-Direktiven
             "link": {
-                "objects": list(self.root_link_objects),
-                "archives": list(self.root_link_archives)
+                "objects": list(
+                    self.root_link_objects
+                ),
+                "archives": list(
+                    self.root_link_archives
+                )
             },
 
             "initialization": {
@@ -9463,12 +9891,92 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 "symbol": None
             },
 
+            # Compile-Time-Typinformationen
+            "types": {
+                "aliases": [],
+                "subranges": []
+            },
+
+            # Linkbare Routinen und Klassen
             "symbols": {
                 "functions": [],
                 "procedures": [],
                 "classes": []
             }
         }
+
+    def pui_add_type_alias(
+        self,
+        name,
+        target_type
+    ):
+        if self.pending_pui is None:
+            return
+
+        type_section = self.pending_pui.setdefault(
+            "types",
+            {}
+        )
+
+        entries = type_section.setdefault(
+            "aliases",
+            []
+        )
+
+        key = str(name).lower()
+
+        for old_item in entries:
+            if (
+                str(old_item.get("name", "")).lower()
+                == key
+            ):
+                return
+
+        entries.append({
+            "kind": "alias",
+            "name": name,
+            "target_type": str(target_type).lower()
+        })
+
+    def pui_add_subrange_type(self, name):
+        if self.pending_pui is None:
+            return
+
+        key = str(name).lower()
+
+        info = self.subrange_types.get(key)
+
+        if info is None:
+            raise RuntimeError(
+                f"subrange type not registered: {name}"
+            )
+
+        type_section = self.pending_pui.setdefault(
+            "types",
+            {}
+        )
+
+        entries = type_section.setdefault(
+            "subranges",
+            []
+        )
+
+        for old_item in entries:
+            if (
+                str(old_item.get("name", "")).lower()
+                == key
+            ):
+                return
+
+        entries.append({
+            "kind": "subrange",
+            "name": info.name,
+            "base_type": info.base_type,
+            "min_value": int(info.min_value),
+            "max_value": int(info.max_value),
+            "size": int(info.size),
+            "signed": bool(info.signed)
+        })
 
     def pui_add_symbol(self, section, item):
         if self.pending_pui is None:
@@ -9849,25 +10357,285 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.pui_add_class(class_name)
         
         return None
+
+    def register_pui_types(
+        self,
+        ctx,
+        unit_name,
+        data
+    ):
+        types = data.get("types", {})
+
+        if not isinstance(types, dict):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"invalid type section in "
+                    f"PUI for unit {unit_name}"
+                )
+            )
+
+        # ------------------------------------------------------------
+        # Subranges zuerst registrieren.
+        #
+        # Aliases können anschließend auf diese Typen zeigen.
+        # ------------------------------------------------------------
+        for item in types.get(
+            "subranges",
+            []
+        ):
+            if not isinstance(item, dict):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid subrange entry "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            name = str(
+                item.get("name", "")
+            ).strip()
+
+            if not name:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"unnamed subrange type "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            try:
+                min_value = int(
+                    item["min_value"]
+                )
+
+                max_value = int(
+                    item["max_value"]
+                )
+
+            except (
+                KeyError,
+                TypeError,
+                ValueError
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid bounds for "
+                        f"subrange type {name}"
+                    )
+                )
+
+            self.declare_subrange_type(
+                ctx,
+                name,
+                min_value,
+                max_value
+            )
+
+            # Gespeicherte Größe gegen die für das aktuelle
+            # Target berechnete Typbeschreibung prüfen.
+            loaded_info = self.subrange_info(
+                name
+            )
+
+            stored_size = item.get("size")
+
+            if (
+                stored_size is not None
+                and int(stored_size)
+                != int(loaded_info.size)
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"PUI size mismatch for "
+                        f"{unit_name}.{name}: "
+                        f"stored {stored_size}, "
+                        f"calculated "
+                        f"{loaded_info.size}"
+                    )
+                )
+
+            stored_signed = item.get("signed")
+
+            if (
+                stored_signed is not None
+                and bool(stored_signed)
+                != bool(loaded_info.signed)
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"PUI signedness mismatch "
+                        f"for {unit_name}.{name}"
+                    )
+                )
+
+        # ------------------------------------------------------------
+        # Typaliases danach registrieren.
+        # ------------------------------------------------------------
+        for item in types.get(
+            "aliases",
+            []
+        ):
+            if not isinstance(item, dict):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid type alias entry "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            name = str(
+                item.get("name", "")
+            ).strip()
+
+            target_type = str(
+                item.get("target_type", "")
+            ).strip()
+
+            if not name or not target_type:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid type alias "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            self.declare_type_alias(
+                ctx,
+                name,
+                target_type
+            )
     
     def visitTypeDeclaration(self, ctx):
+        # ------------------------------------------------------------
+        # Deklarationen mit eigener Unterregel
+        # ------------------------------------------------------------
         if ctx.enumDeclaration():
-            return self.visit(ctx.enumDeclaration())
-        
+            return self.visit(
+                ctx.enumDeclaration()
+            )
+
         if ctx.recordDeclaration():
-            return self.visit(ctx.recordDeclaration())
-        
+            return self.visit(
+                ctx.recordDeclaration()
+            )
+
         if ctx.arrayDeclaration():
-            return self.visit(ctx.arrayDeclaration())
-        
+            return self.visit(
+                ctx.arrayDeclaration()
+            )
+
         if ctx.classDeclaration():
-            return self.visit(ctx.classDeclaration())
-        
-        type_name  = ctx.IDENT().getText()
-        alias_name = ctx.typeName().getText()
-        
-        self.declare_type_alias(ctx, type_name, alias_name)
-        return None
+            return self.visit(
+                ctx.classDeclaration()
+            )
+
+        # ------------------------------------------------------------
+        # Ab hier:
+        #
+        #     Byte = 0..255;
+        #     Boolean = 0..1;
+        #     MyInteger = Integer;
+        # ------------------------------------------------------------
+        type_identifier = ctx.typeIdentifier()
+
+        if type_identifier is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="type declaration has no type identifier"
+            )
+
+        name = type_identifier.getText()
+
+        # ------------------------------------------------------------
+        # Subrange-Typ
+        # ------------------------------------------------------------
+        if ctx.subrangeType():
+            range_ctx = ctx.subrangeType()
+
+            bounds = list(
+                range_ctx.signedInteger()
+            )
+
+            if len(bounds) != 2:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "subrange type requires "
+                        "two bounds"
+                    )
+                )
+
+            min_value = self.parse_signed_integer(
+                bounds[0]
+            )
+
+            max_value = self.parse_signed_integer(
+                bounds[1]
+            )
+
+            self.declare_subrange_type(
+                ctx,
+                name,
+                min_value,
+                max_value
+            )
+
+            # Nur öffentliche Typen aus dem Interface
+            # werden in die PUI übernommen.
+            if self.collect_pui_interface:
+                self.pui_add_subrange_type(
+                    name
+                )
+
+            return None
+
+        # ------------------------------------------------------------
+        # Normaler Typalias
+        #
+        # Beispiel:
+        #
+        #     MyInteger = Integer;
+        # ------------------------------------------------------------
+        if ctx.typeName():
+            target_type = ctx.typeName().getText()
+
+            self.declare_type_alias(
+                ctx,
+                name,
+                target_type
+            )
+
+            if self.collect_pui_interface:
+                self.pui_add_type_alias(
+                    name,
+                    target_type
+                )
+
+            return None
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"unsupported type declaration: {ctx.getText()}"
+        )
     
     def visitFunctionDeclaration(self, ctx):
         name = ctx.IDENT().getText()
@@ -10215,56 +10983,134 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         target     = target_ctx.getText()
         expr_type  = self.visit(ctx.expr())
 
+        # --------------------------------------------------------------
+        # Ausdruckstyp für Subrange-Zieltypen normalisieren.
+        #
+        # Beispiel:
+        #     Boolean = 0..1;
+        #     b := False;
+        #
+        # False liefert "boolean", die Subrange-Variable wird intern
+        # derzeit jedoch über den Basistyp "integer" gespeichert.
+        # --------------------------------------------------------------
+        def normalize_subrange_assignment(info, current_expr_type):
+            declared_type = info.get(
+                "declared_type",
+                info["type"]
+            )
+
+            range_info = self.subrange_info(declared_type)
+
+            if range_info is None:
+                return current_expr_type
+
+            if (
+                current_expr_type == "boolean"
+                and range_info.min_value == 0
+                and range_info.max_value == 1
+            ):
+                self.emit_and(
+                    "eax",
+                    1,
+                    comment="normalize boolean subrange"
+                )
+                return "integer"
+
+            if current_expr_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_expr_type,
+                    expected=declared_type
+                )
+
+            return "integer"
+
+        # --------------------------------------------------------------
+        # Funktionsrückgabewert
+        # --------------------------------------------------------------
         if target.lower() == "result":
             self.emit_store_result(ctx, expr_type)
             return None
-        
-        if "." not in target and "[" not in target and "^" not in target:
+
+        # --------------------------------------------------------------
+        # Implizites Self-Feld innerhalb einer Methode
+        # --------------------------------------------------------------
+        if (
+            "." not in target
+            and "[" not in target
+            and "^" not in target
+        ):
             if self.emit_store_self_field(ctx, target, expr_type):
                 return None
-        
+
+        # --------------------------------------------------------------
+        # VAR-Parameter
+        # --------------------------------------------------------------
         param = self.find_param(target)
+
         if param and param.get("is_var", False):
             self.emit_store_param(ctx, target, expr_type)
             return None
-        
-        suffixes = target_ctx.variableSuffix()
+
+        # --------------------------------------------------------------
+        # Variable mit Suffix: P^, P^.X, A[0], A[0].X, S[1], Obj.X
+        # --------------------------------------------------------------
+        suffixes = list(target_ctx.variableSuffix())
+
         if suffixes:
-            first     = suffixes[0]
+            first = suffixes[0]
+
             has_caret = any(s.CARET() for s in suffixes)
             has_dot   = any(s.DOT()   for s in suffixes)
-            
+
+            # Pointer auf Recordfeld: P^.Value := ...
             if has_caret and has_dot:
                 parts = [target_ctx.IDENT().getText()]
-                
                 after_caret = False
-                for s in suffixes:
-                    if s.CARET():
+
+                for suffix in suffixes:
+                    if suffix.CARET():
                         after_caret = True
                         continue
-                    
-                    if after_caret and s.DOT():
-                        parts.append(s.IDENT().getText())
-                
-                self.emit_store_pointer_record_field(ctx, parts, expr_type)
+
+                    if after_caret and suffix.DOT():
+                        ident = suffix.IDENT()
+
+                        if ident is not None:
+                            parts.append(ident.getText())
+
+                self.emit_store_pointer_record_field(
+                    ctx,
+                    parts,
+                    expr_type
+                )
                 return None
-                
+
+            # Einfacher Pointer-Dereferenzzugriff: P^ := ...
             if first.CARET():
                 var_name = target_ctx.IDENT().getText()
-                self.emit_store_pointer_deref(ctx, var_name, expr_type)
+
+                self.emit_store_pointer_deref(
+                    ctx,
+                    var_name,
+                    expr_type
+                )
                 return None
-            
+
+            # Array- oder Stringindex
             if first.LBRACK():
                 var_name = target_ctx.IDENT().getText()
-                
-                index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
-                
-                # dynamisches Array: a[0] := ...
-                arr_info = self.var_info(ctx, var_name)
-                arr_type = arr_info["type"]
-                
-                # String-Index
-                if arr_type == "string":
+
+                index_exprs, rest_suffixes = self.collect_array_suffix_exprs(
+                    suffixes
+                )
+
+                var_info = self.var_info(ctx, var_name)
+                var_type = self.resolve_type(var_info["type"])
+
+                # Stringzeichen: S[1] := 'A'
+                if var_type == "string":
                     self.emit_store_string_char(
                         ctx,
                         var_name,
@@ -10272,16 +11118,39 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         expr_type
                     )
                     return None
-                
-                # points[0].X
+
+                if (
+                    not isinstance(var_type, str)
+                    or var_type not in self.arrays
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=var_type,
+                        expected="array/string"
+                    )
+
+                var_info, array_info = self.get_array_info(ctx, var_name)
+
+                # Array von Records: Points[0].X := ...
                 if rest_suffixes and rest_suffixes[0].DOT():
                     field_parts = []
 
-                    for s in rest_suffixes:
-                        if s.DOT():
-                            field_parts.append(s.IDENT().getText())
+                    for suffix in rest_suffixes:
+                        if not suffix.DOT():
+                            continue
 
-                    var_info, array_info = self.get_array_info(ctx, var_name)
+                        ident = suffix.IDENT()
+
+                        if ident is not None:
+                            field_parts.append(ident.getText())
+
+                    if not field_parts:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text="record field missing after array index"
+                        )
 
                     if getattr(array_info, "is_dynamic", False):
                         self.emit_store_dynamic_array_record_field(
@@ -10301,18 +11170,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         expr_type
                     )
                     return None
-                
-                # dynamisches Array: a[0] := ...
-                if getattr(arr_type, "is_dynamic", False):
-                    self.emit_store_dynamic_array_element(
-                        ctx,
-                        var_name,
-                        index_exprs,
-                        expr_type
-                    )
-                    return None
-                
-                # statisches Array: a[0] := ...
+
+                # emit_store_array_element unterscheidet intern bereits
+                # zwischen statischen und dynamischen Arrays.
                 self.emit_store_array_element(
                     ctx,
                     var_name,
@@ -10320,63 +11180,151 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     expr_type
                 )
                 return None
-            
+
+            # Klassen- oder Recordfeld
             if first.DOT():
                 parts = [target_ctx.IDENT().getText()]
 
-                for s in suffixes:
-                    if s.DOT():
-                        parts.append(s.IDENT().getText())
+                for suffix in suffixes:
+                    if not suffix.DOT():
+                        continue
+
+                    ident = suffix.IDENT()
+
+                    if ident is not None:
+                        parts.append(ident.getText())
+
+                if len(parts) < 2:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text="field name missing after '.'"
+                    )
 
                 var_name = parts[0]
                 var_info = self.var_info(ctx, var_name)
                 var_type = self.resolve_type(var_info["type"])
 
-                # Klasse: foo.field := ...
-                if isinstance(var_type, str) and var_type in self.classes:
+                if (
+                    isinstance(var_type, str)
+                    and var_type in self.classes
+                ):
                     if self.emit_store_class_property(ctx, parts, expr_type):
                         return None
-                    
+
                     self.emit_store_class_field(ctx, parts, expr_type)
                     return None
-                
-                # Record: rec.field := ...
-                self.emit_store_record_field(ctx, parts, expr_type)
-                return None
-        
+
+                if (
+                    isinstance(var_type, str)
+                    and var_type in self.records
+                ):
+                    self.emit_store_record_field(ctx, parts, expr_type)
+                    return None
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=var_type,
+                    expected="class/record"
+                )
+
+        # --------------------------------------------------------------
+        # Konstanten dürfen nicht beschrieben werden
+        # --------------------------------------------------------------
         if self.find_const(target):
             raise CompileError(ctx, "E0010", name=target)
-        
+
+        # --------------------------------------------------------------
+        # Lokale Variable
+        # --------------------------------------------------------------
         local_var = self.find_local_var(target)
+
         if local_var:
-            self.emit_store_local_var(ctx, target, expr_type)
+            expr_type = normalize_subrange_assignment(
+                local_var,
+                expr_type
+            )
+
+            declared_type = local_var.get(
+                "declared_type",
+                local_var["type"]
+            )
+
+            if self.subrange_info(declared_type) is not None:
+                self.emit_subrange_check(
+                    ctx,
+                    declared_type,
+                    "eax"
+                )
+
+            self.emit_store_local_var(
+                ctx,
+                target,
+                expr_type
+            )
             return None
-        
+
+        # --------------------------------------------------------------
+        # Globale Variable
+        # --------------------------------------------------------------
         var_info = self.var_info(ctx, target)
-        var_type = var_info["type"]
-        
-        if isinstance(var_type, str) and var_type.startswith("^"):
-            if expr_type == var_type or expr_type == "^nil":
-                self.emit_store_var(ctx, target, var_info)
-                return None
-        
-        if var_type in self.classes:
+        var_type = self.resolve_type(var_info["type"])
+
+        expr_type = normalize_subrange_assignment(
+            var_info,
+            expr_type
+        )
+
+        # Pointer
+        if (
+            isinstance(var_type, str)
+            and var_type.startswith("^")
+        ):
+            if expr_type not in (var_type, "^nil"):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=var_type
+                )
+
+            self.emit_store_var(ctx, target, var_info)
+            return None
+
+        # Klassenvariable
+        if (
+            isinstance(var_type, str)
+            and var_type in self.classes
+        ):
             if expr_type != var_type:
-                raise CompileError(ctx, "E0005", got=expr_type, expected=var_type)
-            
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=var_type
+                )
+
             self.emit_store_object_var(ctx, target, var_info)
             return None
-        
+
+        # Implizite Integer-nach-Double-Konvertierung
         if var_type == "double" and expr_type == "integer":
             self.emit_cvtsi2sd("xmm0", "eax")
             expr_type = "double"
-            
-        if var_type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=var_type)
 
+        if var_type != expr_type:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=expr_type,
+                expected=var_type
+            )
+
+        # emit_store_var führt bei globalen Subrange-Variablen bereits
+        # emit_subrange_check aus.
         self.emit_store_var(ctx, target, var_info)
         return None
-    
     def visitExpr(self, ctx):
         return self.visit(ctx.boolOrExpr())
     

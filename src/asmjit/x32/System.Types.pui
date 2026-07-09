@@ -1,0 +1,129 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "System.Types",
+        "normalized_name": "system_types"
+    },
+    "target": {
+        "target": "winnt",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "System.Types.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [],
+        "implementation": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "base_directory": "pui"
+    },
+    "initialization": {
+        "symbol": "_SYSTEM_TYPES$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [
+            {
+                "kind": "alias",
+                "name": "UInt32",
+                "target_type": "dword"
+            },
+            {
+                "kind": "alias",
+                "name": "LongInt",
+                "target_type": "int32"
+            },
+            {
+                "kind": "alias",
+                "name": "Real",
+                "target_type": "double"
+            },
+            {
+                "kind": "alias",
+                "name": "Extended",
+                "target_type": "double"
+            }
+        ],
+        "subranges": [
+            {
+                "kind": "subrange",
+                "name": "Boolean",
+                "base_type": "integer",
+                "min_value": 0,
+                "max_value": 1,
+                "size": 1,
+                "signed": false
+            },
+            {
+                "kind": "subrange",
+                "name": "Byte",
+                "base_type": "integer",
+                "min_value": 0,
+                "max_value": 255,
+                "size": 1,
+                "signed": false
+            },
+            {
+                "kind": "subrange",
+                "name": "Word",
+                "base_type": "integer",
+                "min_value": 0,
+                "max_value": 65535,
+                "size": 2,
+                "signed": false
+            },
+            {
+                "kind": "subrange",
+                "name": "DWord",
+                "base_type": "integer",
+                "min_value": 0,
+                "max_value": 4294967295,
+                "size": 4,
+                "signed": false
+            },
+            {
+                "kind": "subrange",
+                "name": "ShortInt",
+                "base_type": "integer",
+                "min_value": -128,
+                "max_value": 127,
+                "size": 1,
+                "signed": true
+            },
+            {
+                "kind": "subrange",
+                "name": "SmallInt",
+                "base_type": "integer",
+                "min_value": -32768,
+                "max_value": 32767,
+                "size": 2,
+                "signed": true
+            },
+            {
+                "kind": "subrange",
+                "name": "Int32",
+                "base_type": "integer",
+                "min_value": -2147483648,
+                "max_value": 2147483647,
+                "size": 4,
+                "signed": true
+            }
+        ]
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": []
+    }
+}

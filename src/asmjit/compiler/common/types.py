@@ -18,6 +18,17 @@ class BackEndInfo():
         self.lines   = ""
         self.current = ""
 
+@dataclass
+class SubrangeTypeInfo:
+    name: str
+    base_type: str
+
+    min_value: int
+    max_value: int
+
+    size: int
+    signed: bool
+
 class CommonData():
     def __init__(self):
         self.LastErrorCode       : int  = 0

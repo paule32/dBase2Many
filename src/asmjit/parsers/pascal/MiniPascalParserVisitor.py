@@ -149,6 +149,11 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#typeIdentifier.
+    def visitTypeIdentifier(self, ctx:MiniPascalParser.TypeIdentifierContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#typeDeclaration.
     def visitTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
         return self.visitChildren(ctx)
@@ -251,6 +256,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#simpleType.
     def visitSimpleType(self, ctx:MiniPascalParser.SimpleTypeContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#signedInteger.
+    def visitSignedInteger(self, ctx:MiniPascalParser.SignedIntegerContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#subrangeType.
+    def visitSubrangeType(self, ctx:MiniPascalParser.SubrangeTypeContext):
         return self.visitChildren(ctx)
 
 

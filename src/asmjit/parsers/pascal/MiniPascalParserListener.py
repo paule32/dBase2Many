@@ -260,6 +260,15 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#typeIdentifier.
+    def enterTypeIdentifier(self, ctx:MiniPascalParser.TypeIdentifierContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#typeIdentifier.
+    def exitTypeIdentifier(self, ctx:MiniPascalParser.TypeIdentifierContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#typeDeclaration.
     def enterTypeDeclaration(self, ctx:MiniPascalParser.TypeDeclarationContext):
         pass
@@ -446,6 +455,24 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#simpleType.
     def exitSimpleType(self, ctx:MiniPascalParser.SimpleTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#signedInteger.
+    def enterSignedInteger(self, ctx:MiniPascalParser.SignedIntegerContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#signedInteger.
+    def exitSignedInteger(self, ctx:MiniPascalParser.SignedIntegerContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#subrangeType.
+    def enterSubrangeType(self, ctx:MiniPascalParser.SubrangeTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#subrangeType.
+    def exitSubrangeType(self, ctx:MiniPascalParser.SubrangeTypeContext):
         pass
 
 

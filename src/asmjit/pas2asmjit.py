@@ -441,12 +441,11 @@ def main():
                     
             elif CDATA.args_backend.lower() in ["obj", "objfile"]:
                 outfile = Path(CDATA.obj_file)
-                check   = []
+                check   = ['j','y']
                 if outfile.exists():
                     if CDATA.force_write == False:
+                        check = []
                         check = input(f"{CDATA.obj_file}: {overwrite}").strip().lower()
-                    else:
-                        check = ['j','y']
                 if ('y' in check) or ('j' in check):
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
