@@ -107,6 +107,11 @@ DISKFILESYSTEM      : [dD][iI][sS][kK][fF][iI][lL][eE][sS][yY][sS][tT][eE][mM] ;
 DISKTYPE            : [dD][iI][sS][kK][tT][yY][pP][eE] ;
 DISKSHARE           : [dD][iI][sS][kK][sS][hH][aA][rR][eE] ;
 
+CDECL               : [cC][dD][eE][cC][lL] ;
+STDCALL             : [sS][tT][dD][cC][aA][lL][lL] ;
+PASCAL              : [pP][aA][sS][cC][aA][lL] ;
+NAME                : [nN][aA][mM][eE] ;
+
 COMPILER_DIRECTIVE  : '{$' .*? '}' ;
     
 DOTDOT              : '..'  ;

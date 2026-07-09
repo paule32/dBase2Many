@@ -10,6 +10,7 @@ from compiler.writer.nt32      import *
 
 import struct
 import os
+from dataclasses import dataclass
 
 def double_to_bits(value):
     return struct.unpack(
@@ -361,6 +362,15 @@ class Coff32Reader:
             i += 1
 
 # ---------------------------------------------------------------------------
+# Export description used by the PE32 image writer.
+# ---------------------------------------------------------------------------
+@dataclass
+class PE32Export:
+    name: str
+    target_label: str
+    ordinal: int | None = None
+
+# ---------------------------------------------------------------------------
 # Windows NT 3.5 PE COFF object/code writer
 # ---------------------------------------------------------------------------
 class PE32Writer:
@@ -388,6 +398,15 @@ class PE32Writer:
 
         self.string_table = bytearray()
         self.string_offsets = {}
+        
+        self.image_kind = "exe"
+        self.image_name = None
+
+        self.exports: list[PE32Export] = []
+
+        # Optionaler DLL-Einstiegspunkt.
+        # None bedeutet AddressOfEntryPoint = 0.
+        self.dll_entry_label: str | None = None
         
         # search path's:
         #self.link_object_files  = []
@@ -431,7 +450,7 @@ class PE32Writer:
             raise RuntimeError(f"{tr('unsupported NT32 register')}: {reg}")
         
         return reg_map[reg]
-        
+    
     def archive_name_candidates(self, name):
         name = self.normalize_link_path(name)
 
@@ -701,6 +720,58 @@ class PE32Writer:
         self.emit_pop_reg32("ebp")
         self.emit_ret()
 
+    @property
+    def is_dll(self) -> bool:
+        return self.image_kind == "dll"
+
+    def configure_dll(
+        self,
+        filename: str,
+        entry_label: str | None = None
+    ) -> None:
+        filename  = os.path.abspath (filename)
+        root, ext = os.path.splitext(filename)
+
+        if ext.lower() != ".dll":
+            filename = root + ".dll"
+        
+        self.image_kind = "dll"
+        self.image_name = os.path.basename(filename)
+        self.dll_entry_label = entry_label
+
+    def add_export(
+        self,
+        name: str,
+        target_label: str,
+        ordinal: int | None = None
+    ) -> None:
+        if not name:
+            raise ValueError("export name must not be empty")
+
+        if ordinal is not None and ordinal < 1:
+            raise ValueError("export ordinal must be >= 1")
+
+        for item in self.exports:
+            if item.name == name:
+                raise ValueError(f"duplicate export name: {name}")
+
+            if (
+                ordinal is not None and
+                item.ordinal is not None and
+                item.ordinal == ordinal
+            ):
+                raise ValueError(
+                    f"duplicate export ordinal: {ordinal}"
+                )
+
+        self.exports.append(
+            PE32Export(
+                name=name,
+                target_label=target_label,
+                ordinal=ordinal
+            )
+        )
+
     def _reg_id(self, reg):
         if reg not in self.regs:
             raise RuntimeError(f"{tr('unsupported 32-bit register')}: {reg}")
@@ -784,6 +855,15 @@ class PE32Writer:
 
     def emit_ret(self):
         self.text.append(0xC3)
+
+    def emit_ret_imm16(self, stack_bytes):
+        stack_bytes = int(stack_bytes)
+
+        if not 0 <= stack_bytes <= 0xFFFF:
+            raise ValueError("RET stack size must fit into uint16")
+
+        self.text.append(0xC2)
+        self.text += stack_bytes.to_bytes(2, "little", signed=False)
 
     def emit_call_label(self, label):
         self.text.append(0xE8)
@@ -1517,9 +1597,9 @@ class PE32Writer:
         return ctx_offset
 
     def pointer_slot_size(self):
-            if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                return 4
-            return 8
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            return 4
+        return 8
 
     def _coff_encode_symbol_name(
         self,

@@ -17,6 +17,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#externalRoutineSpec.
+    def enterExternalRoutineSpec(self, ctx:MiniPascalParser.ExternalRoutineSpecContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#externalRoutineSpec.
+    def exitExternalRoutineSpec(self, ctx:MiniPascalParser.ExternalRoutineSpecContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#callingConvention.
+    def enterCallingConvention(self, ctx:MiniPascalParser.CallingConventionContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#callingConvention.
+    def exitCallingConvention(self, ctx:MiniPascalParser.CallingConventionContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#programFile.
     def enterProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
         pass

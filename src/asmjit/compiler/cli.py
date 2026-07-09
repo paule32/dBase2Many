@@ -182,10 +182,11 @@ def args_func():
         choices  = ["c++", "asmjit",
                     "asm", "nasm",
                     "obj", "objfile",
+                    "dll", "dllfile",
                     "exe", "exefile",
         ],
         default  =  "asmjit",
-        help     =  tr("Code backend: asmjit, nasm, obj, exe.")
+        help     =  tr("Code backend: asmjit, nasm, obj, dll, exe.")
     )
     
     # -------------------------------------------------------------
@@ -421,7 +422,7 @@ def handle_args(args):
                 os.path.normpath(path)
             )
     
-    CDATA.backend = args.backend
+    CDATA.args_backend = args.backend
     
     if args.info is not None:
         if args.info == "":

@@ -7,6 +7,7 @@ from __future__  import annotations
 
 import os
 import sys
+import re
 import json
 
 from pathlib     import Path
@@ -123,6 +124,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "type": "boolean",
             "value": 0
         }
+        
+        self.dll_import_symbols = {}
+        self.next_dll_import_id = 0
 
         # ------------------------------------------------------------------
         # Root-Modul und PUI-Verwaltung
@@ -213,6 +217,270 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             types.append(self.resolve_type(p["type"]))
             
         return "(" + ", ".join(types) + ")"
+    
+    def pascal_token_string(self, token):
+        text = token.getText()
+
+        if len(text) < 2:
+            return ""
+
+        quote = text[0]
+
+        if quote not in ("'", '"') or text[-1] != quote:
+            raise ValueError(f"invalid Pascal string token: {text}")
+
+        value = text[1:-1]
+
+        if quote == "'":
+            value = value.replace("''", "'")
+        else:
+            value = value.replace('""', '"')
+
+        return value
+    
+    def make_dll_import_symbol(self, dll_name, import_name):
+        key = (
+            dll_name.lower(),
+            import_name
+        )
+
+        old_symbol = self.dll_import_symbols.get(key)
+
+        if old_symbol:
+            return old_symbol
+
+        safe_dll = re.sub(
+            r"[^A-Za-z0-9_]",
+            "_",
+            dll_name
+        )
+
+        safe_name = re.sub(
+            r"[^A-Za-z0-9_]",
+            "_",
+            import_name
+        )
+
+        symbol = (
+            f"__dllimp_{self.next_dll_import_id}_"
+            f"{safe_dll}_{safe_name}"
+        )
+
+        self.next_dll_import_id += 1
+        self.dll_import_symbols[key] = symbol
+
+        return symbol
+
+    def register_external_routine(
+        self,
+        ctx,
+        kind,
+        name,
+        params,
+        return_type,
+        spec_ctx
+    ):
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "DLL imports are currently "
+                    "supported only for NT32"
+                )
+            )
+
+        convention = (
+            spec_ctx.callingConvention()
+            .getText()
+            .lower()
+        )
+
+        if convention == "c":
+            convention = "cdecl"
+
+        if convention not in (
+            "cdecl",
+            "stdcall",
+            "pascal"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "unsupported calling convention: "
+                    + convention
+                )
+            )
+
+        string_tokens = list(
+            spec_ctx.STRING()
+        )
+
+        if not string_tokens:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="DLL name is missing"
+            )
+
+        dll_name = self.pascal_token_string(
+            string_tokens[0]
+        )
+
+        if not dll_name:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="DLL name must not be empty"
+            )
+
+        dll_name = os.path.basename(
+            dll_name
+        )
+
+        if not os.path.splitext(dll_name)[1]:
+            dll_name += ".dll"
+
+        # Explizites NAME überschreibt das automatische Mangling.
+        if len(string_tokens) >= 2:
+            import_name = self.pascal_token_string(
+                string_tokens[1]
+            )
+        else:
+            import_name = (
+                self.fpc_mangle_external_routine(
+                    name,
+                    params
+                )
+            )
+
+        if not import_name:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="DLL import name must not be empty"
+            )
+
+        internal_symbol = self.make_dll_import_symbol(
+            dll_name,
+            import_name
+        )
+
+        import_item = {
+            # Name für COFF-Relocation und Import-Thunk
+            "symbol": internal_symbol,
+
+            # Echter Name in der DLL
+            "name": import_name
+        }
+
+        dll_imports = CDATA.imports.setdefault(
+            dll_name,
+            []
+        )
+
+        already_registered = any(
+            isinstance(item, dict)
+            and item.get("symbol") == internal_symbol
+            and item.get("name") == import_name
+            for item in dll_imports
+        )
+
+        if not already_registered:
+            dll_imports.append(
+                import_item
+            )
+
+        info = {
+            "name": name,
+            "scoped_name": self.unit_scoped_name(
+                name
+            ),
+
+            "symbol": internal_symbol,
+            "mangled": internal_symbol,
+
+            "dll": dll_name,
+            "import_name": import_name,
+
+            "calling_convention": convention,
+            "params": params,
+
+            "return_type": (
+                self.resolve_type(return_type)
+                if return_type is not None
+                else None
+            ),
+
+            "external": True,
+            "dll_import": True,
+            "pui": False
+        }
+
+        key = name.lower()
+
+        if kind == "function":
+            if key in self.functions:
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            self.functions[key] = info
+
+        elif kind == "procedure":
+            if key in self.procedures:
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            self.procedures[key] = info
+
+        else:
+            raise RuntimeError(
+                "invalid external routine kind: "
+                + str(kind)
+            )
+
+        return info
+    
+    def fpc_mangle_external_routine(
+        self,
+        name,
+        params=None
+    ):
+        """
+        Erstellt den Import-/Exportnamen einer globalen Pascal-Routine.
+
+        Im Gegensatz zu fpc_mangle_routine() wird self.current_unit
+        absichtlich nicht berücksichtigt. Die aktuelle EXE-Unit darf
+        den Namen einer Funktion in einer fremden DLL nicht verändern.
+
+        Beispiele:
+
+            TestString(String)
+                -> _TESTSTRING$ANSISTRING
+
+            Add(Integer, Integer)
+                -> _ADD$INTEGER$INTEGER
+
+            GetNumber()
+                -> _GETNUMBER
+        """
+        params = params or []
+
+        routine_name = str(name).upper()
+        param_suffix = self.fpc_mangle_params(params)
+
+        return f"_{routine_name}{param_suffix}"
     
     def current_except_label(self):
         if not self.try_except_stack:
@@ -7617,18 +7885,119 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.module_kind        = "library"
         self.module_kind_value  = 3
 
+        target = CDATA.args_target.lower()
+        is_nt32 = target in ["nt35", "winnt", "win32"]
+
+        if is_nt32:
+            dll_filename = (
+                getattr(CDATA, "exe_file", None)
+                or getattr(CDATA, "dll_file", None)
+                or (self.program_name.lower() + ".dll")
+            )
+
+            self.writer.configure_dll(
+                dll_filename,
+                entry_label=None
+            )
+
         if ctx.usesClause():
             self.visit(ctx.usesClause())
 
         for decl in ctx.declarationPart():
             if decl is not None:
                 self.visit(decl)
-        
+
         if ctx.exportsClause():
             self.visit(ctx.exportsClause())
-            
+
         self.validate_class_methods(ctx)
 
+        if is_nt32:
+            # Export targets are real COFF symbols.  The export name can be
+            # different from the internal code label; aliases created by the
+            # declaration visitors point both names to the same RVA.
+            for item in self.exports:
+                export_name = item.get("mangled")
+
+                if not export_name:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "DLL export has no mangled symbol: "
+                            + str(item.get("name"))
+                        )
+                    )
+
+                if self.writer.find_symbol_index(export_name) is None:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "DLL export target symbol not found: "
+                            + export_name
+                        )
+                    )
+
+                self.writer.add_export(
+                    name=export_name,
+                    target_label=export_name,
+                    ordinal=item.get("ordinal")
+                )
+
+            # The library owns a static JIT context.  Exported routines that
+            # use global data can therefore reference the same context as an
+            # executable generated by this compiler.
+            self.finalize_coff_context()
+
+            entry_label = self.new_named_label(
+                "dll_entry_" + self.program_name
+            )
+            done_label = self.new_named_label(
+                "dll_entry_done_" + self.program_name
+            )
+
+            self.writer.dll_entry_label = entry_label
+            self.writer.bind_label(entry_label)
+
+            # BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
+            # stdcall: callee removes 12 argument bytes.
+            self.writer.emit_push_reg32("ebp")
+            self.writer.emit_mov_reg_reg32("ebp", "esp")
+            self.writer.emit_push_reg32("ebx")
+            self.writer.emit_push_reg32("esi")
+
+            self.writer.emit_lea_reg_data_label("esi", "ctx")
+
+            # reason is the second argument: [ebp + 12].
+            self.writer.emit_mov_reg_mem32("eax", "ebp", 12)
+            self.writer.emit_cmp_reg_imm32("eax", 1)  # DLL_PROCESS_ATTACH
+            self.writer.emit_jne(done_label)
+
+            self.emit_unit_initializers()
+
+            for name, info in self.vars.items():
+                if info["type"] in self.arrays:
+                    self.emit_init_array_var(ctx, name, info)
+
+            # Pascal's library begin/end block is executed once when the DLL
+            # is attached to a process.
+            if ctx.block() is not None:
+                self.visit(ctx.block())
+
+            self.writer.bind_label(done_label)
+            self.writer.emit_mov_reg_imm32("eax", 1)  # TRUE
+
+            self.writer.emit_pop_reg32("esi")
+            self.writer.emit_pop_reg32("ebx")
+            self.writer.emit_mov_reg_reg32("esp", "ebp")
+            self.writer.emit_pop_reg32("ebp")
+            self.writer.emit_ret_imm16(12)
+
+            self.write_fpc_import_unit()
+            return None
+
+        # Existing non-NT32 path.
         self.emit_push("r12")
         self.emit_push("rbx")
         self.emit_sub("rsp", 8, comment="align stack")
@@ -7641,9 +8010,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.emit_init_array_var(ctx, name, info)
 
         self.visit(ctx.block())
-
         return self.render_cpp()
-    
+
     def visitUnitFile(self, ctx):
         unit_name = ctx.qualifiedIdent().getText()
         unit_key  = self.normalize_unit_name(unit_name)
@@ -9504,6 +9872,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def visitFunctionDeclaration(self, ctx):
         name = ctx.IDENT().getText()
 
+        if ctx.externalRoutineSpec():
+            params = self.collect_formal_params(ctx)
+
+            return_type = self.resolve_type(
+                ctx.typeName().getText()
+            )
+
+            self.register_external_routine(
+                ctx=ctx,
+                kind        = "function",
+                name        = name,
+                params      = params,
+                return_type = return_type,
+                spec_ctx    = ctx.externalRoutineSpec()
+            )
+
+            return None
+
         return_type = self.resolve_type(
             ctx.typeName().getText()
         )
@@ -9559,6 +9945,270 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     asmjit_label
                 )
         return None
+    
+    def routine_calling_convention(self, routine):
+        convention = routine.get(
+            "calling_convention",
+            "cdecl"
+        ).lower()
+
+        if convention not in (
+            "cdecl",
+            "stdcall",
+            "pascal"
+        ):
+            raise RuntimeError(
+                f"unsupported calling convention: {convention}"
+            )
+
+        return convention
+
+    def nt32_argument_order(self, routine, count):
+        convention = self.routine_calling_convention(
+            routine
+        )
+
+        if convention == "pascal":
+            return range(0, count)
+
+        # cdecl und stdcall
+        return range(count - 1, -1, -1)
+
+    def nt32_caller_cleans_stack(self, routine):
+        return (
+            self.routine_calling_convention(routine)
+            == "cdecl"
+        )
+    
+    def emit_nt32_routine_arguments(
+        self,
+        ctx,
+        routine,
+        actuals,
+        params,
+        actuals_are_wrapped=False
+    ):
+        if len(actuals) != len(params):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(actuals)),
+                expected=str(len(params))
+            )
+
+        arg_bytes = 0
+
+        for index in self.nt32_argument_order(
+            routine,
+            len(actuals)
+        ):
+            actual = actuals[index]
+            formal = params[index]
+
+            formal_type = self.resolve_type(
+                formal["type"]
+            )
+
+            # ------------------------------------------------------
+            # VAR-Parameter
+            # ------------------------------------------------------
+            if formal.get("is_var", False):
+                if not actuals_are_wrapped:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "var parameters in function expressions "
+                            "are not implemented yet"
+                        )
+                    )
+
+                ref = self.actual_param_variable_ref(
+                    ctx,
+                    actual
+                )
+
+                var_name = ref.IDENT().getText()
+
+                info = self.find_local_var(var_name)
+
+                if info is None:
+                    info = self.var_info(
+                        ctx,
+                        var_name
+                    )
+
+                actual_type = self.resolve_type(
+                    info["type"]
+                )
+
+                if actual_type != formal_type:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=actual_type,
+                        expected=formal_type
+                    )
+
+                self.emit_address_of_var(
+                    ctx,
+                    var_name
+                )
+
+                self.emit_push(
+                    "eax",
+                    comment=f"var parameter {index + 1}"
+                )
+
+                arg_bytes += 4
+                continue
+
+            # ------------------------------------------------------
+            # Wert auswerten
+            # ------------------------------------------------------
+            if actuals_are_wrapped:
+                actual_type = self.visit_actual_param_expr(
+                    actual
+                )
+            else:
+                actual_type = self.visit(actual)
+
+            actual_type = self.resolve_type(
+                actual_type
+            )
+
+            # ------------------------------------------------------
+            # 32-Bit-Werte und Pointer
+            # ------------------------------------------------------
+            if formal_type in (
+                "integer",
+                "boolean",
+                "char",
+                "string"
+            ):
+                valid = actual_type == formal_type
+
+                if (
+                    formal_type == "boolean"
+                    and actual_type == "integer"
+                ):
+                    valid = True
+
+                if not valid:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=actual_type,
+                        expected=formal_type
+                    )
+
+                self.emit_push(
+                    "eax",
+                    comment=f"parameter {index + 1}"
+                )
+
+                arg_bytes += 4
+                continue
+
+            # ------------------------------------------------------
+            # Pointer
+            # ------------------------------------------------------
+            if (
+                isinstance(formal_type, str)
+                and formal_type.startswith("^")
+            ):
+                if actual_type not in (
+                    formal_type,
+                    "^nil"
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=actual_type,
+                        expected=formal_type
+                    )
+
+                self.emit_push(
+                    "eax",
+                    comment=f"pointer parameter {index + 1}"
+                )
+
+                arg_bytes += 4
+                continue
+
+            # ------------------------------------------------------
+            # Klassen sind in NT32 Objektpointer
+            # ------------------------------------------------------
+            if formal_type in self.classes:
+                if actual_type != formal_type:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=actual_type,
+                        expected=formal_type
+                    )
+
+                self.emit_push(
+                    "eax",
+                    comment=f"object parameter {index + 1}"
+                )
+
+                arg_bytes += 4
+                continue
+
+            # ------------------------------------------------------
+            # Double: 8 Byte auf den Stack
+            # ------------------------------------------------------
+            if formal_type == "double":
+                if actual_type != "double":
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=actual_type,
+                        expected="double"
+                    )
+
+                self.emit_sub(
+                    "esp",
+                    8,
+                    comment=f"double parameter {index + 1}"
+                )
+
+                self.backend.emit_movsd_store(
+                    "esp",
+                    0,
+                    "xmm0"
+                )
+
+                arg_bytes += 8
+                continue
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=formal_type,
+                expected=(
+                    "integer/boolean/char/string/"
+                    "double/pointer/class"
+                )
+            )
+
+        return arg_bytes
+    
+    def finish_nt32_routine_call(
+        self,
+        routine,
+        arg_bytes
+    ):
+        if (
+            arg_bytes
+            and self.nt32_caller_cleans_stack(routine)
+        ):
+            self.emit_add(
+                "esp",
+                arg_bytes,
+                comment="cdecl caller cleanup"
+            )
     
     def visitAssignment(self, ctx):
         target_ctx = ctx.variableRef()
@@ -10471,6 +11121,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = ctx.IDENT().getText()
         key  = name.lower()
 
+        if ctx.externalRoutineSpec():
+            params = self.collect_formal_params(ctx)
+
+            self.register_external_routine(
+                ctx         = ctx,
+                kind        = "procedure",
+                name        = name,
+                params      = params,
+                return_type = None,
+                spec_ctx    = ctx.externalRoutineSpec()
+            )
+
+            return None
+
         label      = self.new_named_label("proc_"     + name)
         skip_label = self.new_named_label("skipproc_" + name)
         exit_label = self.new_named_label("exitproc_" + name)
@@ -10510,16 +11174,22 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "params": params
         }
 
-        if self.current_unit:
-            public_symbol = mangled
-        else:
-            # Rückwärtskompatibilität für normale Programm-Prozeduren
-            public_symbol = "_" + name.lower()
+        # Every procedure receives its stable FPC symbol.  Programs also
+        # retain the old lower-case alias for backward compatibility.
+        if self.backend.writer.find_symbol_index(mangled) is None:
+            self.backend.writer.add_symbol_alias(
+                mangled,
+                label
+            )
 
-        self.backend.writer.add_symbol_alias(
-            public_symbol,
-            label
-        )
+        if not self.current_unit:
+            legacy_symbol = "_" + name.lower()
+
+            if self.backend.writer.find_symbol_index(legacy_symbol) is None:
+                self.backend.writer.add_symbol_alias(
+                    legacy_symbol,
+                    label
+                )
         
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             self.emit_push("ebp")
@@ -10601,18 +11271,48 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return None
     
     def visitProcedureCallStatement(self, ctx):
-        idents     = list(ctx.IDENT())
-        name       = idents[0].getText()
-        key        = name.lower()
-        param_regs = ["rcx", "rdx", "r8", "r9"]
+        idents = list(ctx.IDENT())
 
+        if not idents:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="procedure or function name missing"
+            )
+
+        name = idents[0].getText()
+        key  = name.lower()
+
+        param_regs = [
+            "rcx",
+            "rdx",
+            "r8",
+            "r9"
+        ]
+
+        # ------------------------------------------------------------------
+        # Objektmethoden
+        # ------------------------------------------------------------------
         if ctx.DOT():
+            if len(idents) < 2:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text="method name missing after '.'"
+                )
+
             obj_name    = idents[0].getText()
             method_name = idents[1].getText()
 
             if method_name.lower() == "free":
-                return self.emit_class_free_call(ctx, obj_name)
-                
+                return self.emit_class_free_call(
+                    ctx,
+                    obj_name
+                )
+
+        # ------------------------------------------------------------------
+        # Eingebaute Prozeduren
+        # ------------------------------------------------------------------
         if key == "new":
             return self.emit_builtin_new(ctx)
 
@@ -10621,81 +11321,157 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if key == "setlength":
             return self.emit_builtin_setlength(ctx)
-        
+
         if key == "readln":
             return self.emit_builtin_readln(ctx)
-        
+
         if key == "__debug_break":
             return self.emit_builtin_debug_break()
-        
-        func = self.find_function(name)
-        if func:
-            params = func.get("params", [])
 
-            actuals = []
-            if ctx.actualParamList():
-                actuals = list(ctx.actualParamList().actualParam())
+        # ------------------------------------------------------------------
+        # Funktion oder Prozedur suchen
+        #
+        # Funktionen dürfen auch als Statement aufgerufen werden.
+        # Der Rückgabewert wird dann einfach verworfen.
+        # ------------------------------------------------------------------
+        routine = self.find_function(name)
 
-            if len(actuals) != len(params):
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=str(len(actuals)),
-                    expected=str(len(params))
-                )
+        if routine is None:
+            routine = self.procedures.get(key)
 
-            # Für jetzt: parameterlose Funktion als Statement erlauben.
-            if len(params) == 0:
-                if CDATA.args_target in ["dos", "dos16"]:
-                    self.emit_registered_routine_call(func)
-                elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    # cdecl/NT32 benötigt keinen Win64-Shadow-Space.
-                    self.emit_registered_routine_call(func)
-                else:
-                    self.emit_sub("rsp", 32)
-                    self.emit_registered_routine_call(func)
-                    self.emit_add("rsp", 32)
-
-                return None
-
+        if routine is None:
             raise CompileError(
                 ctx,
-                "E0019",
-                text="function calls with parameters as statement not supported yet"
+                "E0001",
+                name=name
             )
-        
-        if key not in self.procedures:
-            raise CompileError(ctx, "E0001", name=name)
-        
-        proc    = self.procedures[key]
-        params  = proc["params"]
+
+        params = routine.get("params", [])
+
         actuals = []
-        
+
         if ctx.actualParamList():
-            actuals = list(ctx.actualParamList().actualParam())
-        
+            actuals = list(
+                ctx.actualParamList().actualParam()
+            )
+
         if len(actuals) != len(params):
-            raise CompileError(ctx, "E0005", got=str(len(actuals)), expected=str(len(params)))
-        
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(actuals)),
+                expected=str(len(params))
+            )
+
+        # ==================================================================
+        # DOS16
+        # ==================================================================
+        if CDATA.args_target in ("dos", "dos16"):
+            if actuals:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "procedure/function calls with parameters "
+                        "are not implemented for DOS16 yet"
+                    )
+                )
+
+            self.emit_registered_routine_call(routine)
+            return None
+
+        # ==================================================================
+        # NT32 / Win32
+        # ==================================================================
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            convention = str(
+                routine.get(
+                    "calling_convention",
+                    "cdecl"
+                )
+            ).lower()
+
+            # Optionaler interner Alias.
+            if convention == "c":
+                convention = "cdecl"
+
+            if convention not in (
+                "cdecl",
+                "stdcall",
+                "pascal"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "unsupported NT32 calling convention: "
+                        + convention
+                    )
+                )
+
+            # --------------------------------------------------------------
+            # Reihenfolge der Parameter
+            #
+            # cdecl   : rechts nach links
+            # stdcall : rechts nach links
+            # pascal  : links nach rechts
+            # --------------------------------------------------------------
+            if convention == "pascal":
+                argument_indices = range(
+                    0,
+                    len(actuals)
+                )
+            else:
+                argument_indices = range(
+                    len(actuals) - 1,
+                    -1,
+                    -1
+                )
+
             arg_bytes = 0
 
-            # cdecl: rechts nach links pushen
-            for index in range(len(actuals) - 1, -1, -1):
-                arg         = actuals[index]
-                formal      = params[index]
-                formal_type = self.resolve_type(formal["type"])
-                
+            for index in argument_indices:
+                arg    = actuals[index]
+                formal = params[index]
+
+                formal_type = self.resolve_type(
+                    formal["type"]
+                )
+
+                # ----------------------------------------------------------
+                # VAR-Parameter
+                # ----------------------------------------------------------
                 if formal.get("is_var", False):
-                    ref = self.actual_param_variable_ref(ctx, arg)
+                    ref = self.actual_param_variable_ref(
+                        ctx,
+                        arg
+                    )
+
+                    if ref is None:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got="expression",
+                            expected="addressable variable"
+                        )
 
                     var_name = ref.IDENT().getText()
 
                     info = self.find_local_var(var_name)
-                    if info is None:
-                        info = self.var_info(ctx, var_name)
 
-                    actual_type = self.resolve_type(info["type"])
+                    if info is None:
+                        info = self.var_info(
+                            ctx,
+                            var_name
+                        )
+
+                    actual_type = self.resolve_type(
+                        info["type"]
+                    )
 
                     if actual_type != formal_type:
                         raise CompileError(
@@ -10705,57 +11481,266 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             expected=formal_type
                         )
 
-                    self.emit_address_of_var(ctx, var_name)
-                    self.emit_push("eax", comment=f"var parameter {index + 1}")
-                    arg_bytes += 4
-                    continue
-                
-                expr_type = self.visit_actual_param_expr(arg)
+                    self.emit_address_of_var(
+                        ctx,
+                        var_name
+                    )
 
-                if formal_type == "boolean":
-                    if expr_type not in ("boolean", "integer"):
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer")
-                    self.emit_push("eax", comment=f"boolean parameter {index + 1}")
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"var parameter {index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
-                    
+
+                # ----------------------------------------------------------
+                # Ausdruck auswerten
+                # ----------------------------------------------------------
+                expr_type = self.visit_actual_param_expr(
+                    arg
+                )
+
+                expr_type = self.resolve_type(
+                    expr_type
+                )
+
+                # ----------------------------------------------------------
+                # Boolean
+                # ----------------------------------------------------------
+                if formal_type == "boolean":
+                    if expr_type not in (
+                        "boolean",
+                        "integer"
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="boolean/integer"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"boolean parameter {index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                # ----------------------------------------------------------
+                # Integer
+                # ----------------------------------------------------------
                 if formal_type == "integer":
                     if expr_type != "integer":
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
-                    self.emit_push("eax", comment=f"integer parameter {index + 1}")
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="integer"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"integer parameter {index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
 
+                # ----------------------------------------------------------
+                # Char
+                # ----------------------------------------------------------
+                if formal_type == "char":
+                    if expr_type != "char":
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="char"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"char parameter {index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                # ----------------------------------------------------------
+                # String
+                # ----------------------------------------------------------
                 if formal_type == "string":
                     if expr_type != "string":
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="string")
-                    self.emit_push("eax", comment=f"string parameter {index + 1}")
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="string"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"string parameter {index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
 
-                if isinstance(formal_type, str) and formal_type.startswith("^"):
-                    if expr_type != formal_type and expr_type != "^nil":
-                        raise CompileError(ctx, "E0005", got=expr_type, expected=formal_type)
-                    self.emit_push("eax", comment=f"pointer parameter {index + 1}")
+                # ----------------------------------------------------------
+                # Double
+                #
+                # Das Ergebnis liegt in XMM0. Auf NT32 werden acht Byte
+                # direkt auf dem Stack reserviert und dort gespeichert.
+                # ----------------------------------------------------------
+                if formal_type == "double":
+                    if expr_type != "double":
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="double"
+                        )
+
+                    self.emit_sub(
+                        "esp",
+                        8,
+                        comment=(
+                            f"double parameter {index + 1}"
+                        )
+                    )
+
+                    self.backend.emit_movsd_store(
+                        "esp",
+                        0,
+                        "xmm0"
+                    )
+
+                    arg_bytes += 8
+                    continue
+
+                # ----------------------------------------------------------
+                # Pointer
+                # ----------------------------------------------------------
+                if (
+                    isinstance(formal_type, str)
+                    and formal_type.startswith("^")
+                ):
+                    if expr_type not in (
+                        formal_type,
+                        "^nil"
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected=formal_type
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"pointer parameter {index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
 
-                raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
+                # ----------------------------------------------------------
+                # Klasseninstanz
+                #
+                # Eine Klassenvariable ist unter NT32 ein 32-Bit-
+                # Objektpointer.
+                # ----------------------------------------------------------
+                if (
+                    isinstance(formal_type, str)
+                    and formal_type in self.classes
+                ):
+                    if expr_type != formal_type:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected=formal_type
+                        )
 
-            self.emit_registered_routine_call(proc)
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"object parameter {index + 1}"
+                        )
+                    )
 
-            if arg_bytes:
-                self.emit_add("esp", arg_bytes, comment="cdecl cleanup")
+                    arg_bytes += 4
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=formal_type,
+                    expected=(
+                        "integer/boolean/char/string/"
+                        "double/pointer/class"
+                    )
+                )
+
+            # --------------------------------------------------------------
+            # Externe oder lokale Routine aufrufen
+            # --------------------------------------------------------------
+            self.emit_registered_routine_call(
+                routine,
+                comment=name
+            )
+
+            # --------------------------------------------------------------
+            # Stackbereinigung
+            #
+            # cdecl:
+            #     Aufrufer räumt den Stack auf.
+            #
+            # stdcall / pascal:
+            #     Die aufgerufene Funktion verwendet RET n.
+            # --------------------------------------------------------------
+            if convention == "cdecl" and arg_bytes:
+                self.emit_add(
+                    "esp",
+                    arg_bytes,
+                    comment="cdecl caller cleanup"
+                )
 
             return None
-        
-        def emit_push_argument(index):
-            arg         = actuals[index]
-            formal      = params[index]
-            formal_type = self.resolve_type(formal["type"])
 
+        # ==================================================================
+        # Windows x64
+        # ==================================================================
+        def emit_push_argument(index):
+            arg    = actuals[index]
+            formal = params[index]
+
+            formal_type = self.resolve_type(
+                formal["type"]
+            )
+
+            # --------------------------------------------------------------
+            # VAR-Parameter
+            # --------------------------------------------------------------
             if formal.get("is_var", False):
-                ref = self.actual_param_variable_ref(ctx, arg)
+                ref = self.actual_param_variable_ref(
+                    ctx,
+                    arg
+                )
 
                 if ref is None:
                     raise CompileError(
@@ -10765,82 +11750,320 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         expected="addressable variable"
                     )
 
-                # einfache Variable: Head
-                var_name = ref.IDENT(0).getText()
+                var_name = ref.IDENT().getText()
 
                 info = self.find_local_var(var_name)
-                if info is None:
-                    info = self.var_info(ctx, var_name)
 
-                actual_type = self.resolve_type(info["type"])
+                if info is None:
+                    info = self.var_info(
+                        ctx,
+                        var_name
+                    )
+
+                actual_type = self.resolve_type(
+                    info["type"]
+                )
 
                 if actual_type != formal_type:
                     raise CompileError(
                         ctx,
                         "E0005",
-                        got      = actual_type,
-                        expected = formal_type
+                        got=actual_type,
+                        expected=formal_type
                     )
 
-                self.emit_address_of_var(ctx, var_name)
-                self.emit_push("rax", comment='var parameter')
+                self.emit_address_of_var(
+                    ctx,
+                    var_name
+                )
+
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"var parameter {index + 1}"
+                    )
+                )
+
                 return
 
-            expr_type = self.visit_actual_param_expr(arg)
+            # --------------------------------------------------------------
+            # Ausdruck auswerten
+            # --------------------------------------------------------------
+            expr_type = self.visit_actual_param_expr(
+                arg
+            )
 
+            expr_type = self.resolve_type(
+                expr_type
+            )
+
+            # --------------------------------------------------------------
+            # Integer
+            # --------------------------------------------------------------
             if formal_type == "integer":
                 if expr_type != "integer":
-                    raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected="integer"
+                    )
 
-                self.emit_movsxd("rax", "eax")
-                self.emit_push("rax", comment = "integer parameter")
+                self.emit_movsxd(
+                    "rax",
+                    "eax"
+                )
+
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"integer parameter {index + 1}"
+                    )
+                )
+
                 return
 
+            # --------------------------------------------------------------
+            # Boolean
+            # --------------------------------------------------------------
+            if formal_type == "boolean":
+                if expr_type not in (
+                    "boolean",
+                    "integer"
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected="boolean/integer"
+                    )
+
+                self.emit_movsxd(
+                    "rax",
+                    "eax"
+                )
+
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"boolean parameter {index + 1}"
+                    )
+                )
+
+                return
+
+            # --------------------------------------------------------------
+            # Char
+            # --------------------------------------------------------------
+            if formal_type == "char":
+                if expr_type != "char":
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected="char"
+                    )
+
+                self.emit_movsxd(
+                    "rax",
+                    "eax"
+                )
+
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"char parameter {index + 1}"
+                    )
+                )
+
+                return
+
+            # --------------------------------------------------------------
+            # String
+            # --------------------------------------------------------------
             if formal_type == "string":
                 if expr_type != "string":
-                    raise CompileError(ctx, "E0005", got=expr_type, expected="string")
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected="string"
+                    )
 
-                self.emit_push("rax", comment='string parameter')
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"string parameter {index + 1}"
+                    )
+                )
+
                 return
 
-            if isinstance(formal_type, str) and formal_type.startswith("^"):
-                if expr_type != formal_type and expr_type != "^nil":
-                    raise CompileError(ctx, "E0005", got=expr_type, expected=formal_type)
+            # --------------------------------------------------------------
+            # Pointer
+            # --------------------------------------------------------------
+            if (
+                isinstance(formal_type, str)
+                and formal_type.startswith("^")
+            ):
+                if expr_type not in (
+                    formal_type,
+                    "^nil"
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=formal_type
+                    )
 
-                self.emit_push("rax", comment='pointer parameter')
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"pointer parameter {index + 1}"
+                    )
+                )
+
                 return
 
-            raise CompileError(ctx, "E0005", got=formal_type, expected="integer/string/pointer")
+            # --------------------------------------------------------------
+            # Klasseninstanz
+            # --------------------------------------------------------------
+            if (
+                isinstance(formal_type, str)
+                and formal_type in self.classes
+            ):
+                if expr_type != formal_type:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=formal_type
+                    )
 
-        # Parameter 5..N rückwärts auf Stack legen
-        stack_count = 0
-        for index in range(len(actuals) - 1, 3, -1):
-            emit_push_argument(index)
-            stack_count += 1
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"object parameter {index + 1}"
+                    )
+                )
 
-        # Parameter 1..4 rückwärts auswerten und temporär sichern
-        reg_count = min(4, len(actuals))
-        for index in range(reg_count - 1, -1, -1):
-            emit_push_argument(index)
+                return
 
-        for index in range(reg_count):
-            self.emit_pop(param_regs[index], comment=f"load parameter {index + 1}")
+            # Double benötigt unter Win64 eine gesonderte Zuweisung
+            # an XMM0..XMM3 beziehungsweise einen Stack-Slot.
+            if formal_type == "double":
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "double parameters in Win64 procedure "
+                        "statements are not implemented yet"
+                    )
+                )
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=formal_type,
+                expected=(
+                    "integer/boolean/char/string/"
+                    "pointer/class"
+                )
+            )
+
+        # ------------------------------------------------------------------
+        # Parameter 5..N liegen auf dem Stack.
+        #
+        # Das Alignment-Padding muss VOR den Stackparametern angelegt
+        # werden. Andernfalls würde Parameter 5 nicht mehr an seiner
+        # vorgeschriebenen Position liegen.
+        # ------------------------------------------------------------------
+        stack_count = max(
+            0,
+            len(actuals) - 4
+        )
 
         align_pad = 0
 
         if stack_count % 2 == 1:
-            self.emit_sub("rsp", 8, comment="align stack before procedure call")
+            self.emit_sub(
+                "rsp",
+                8,
+                comment="align stack before stack arguments"
+            )
+
             align_pad = 8
 
-        self.emit_sub("rsp", 32, comment="Windows x64 shadow space")
-        self.emit_registered_routine_call(proc)
-        self.emit_add("rsp", 32)
+        # Parameter N..5 rückwärts pushen.
+        # Danach liegt Parameter 5 oben auf dem Stack.
+        for index in range(
+            len(actuals) - 1,
+            3,
+            -1
+        ):
+            emit_push_argument(index)
+
+        # ------------------------------------------------------------------
+        # Parameter 1..4 temporär auf den Stack legen und danach in
+        # RCX, RDX, R8 und R9 laden.
+        # ------------------------------------------------------------------
+        reg_count = min(
+            4,
+            len(actuals)
+        )
+
+        for index in range(
+            reg_count - 1,
+            -1,
+            -1
+        ):
+            emit_push_argument(index)
+
+        for index in range(reg_count):
+            self.emit_pop(
+                param_regs[index],
+                comment=(
+                    f"load parameter {index + 1}"
+                )
+            )
+
+        # ------------------------------------------------------------------
+        # Windows-x64 Shadow Space
+        # ------------------------------------------------------------------
+        self.emit_sub(
+            "rsp",
+            32,
+            comment="Windows x64 shadow space"
+        )
+
+        self.emit_registered_routine_call(
+            routine,
+            comment=name
+        )
+
+        self.emit_add(
+            "rsp",
+            32,
+            comment="remove Windows x64 shadow space"
+        )
+
+        # ------------------------------------------------------------------
+        # Stackparameter entfernen
+        # ------------------------------------------------------------------
+        if stack_count:
+            self.emit_add(
+                "rsp",
+                stack_count * 8,
+                comment="remove stack parameters"
+            )
 
         if align_pad:
-            self.emit_add("rsp", 8, comment = "remove stack alignment padding")
-
-        if stack_count > 0:
-            self.emit_add(f"rsp", {stack_count * 8}, comment = "remove stack parameters")
+            self.emit_add(
+                "rsp",
+                align_pad,
+                comment="remove stack alignment padding"
+            )
 
         return None
     

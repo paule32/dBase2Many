@@ -14,6 +14,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#externalRoutineSpec.
+    def visitExternalRoutineSpec(self, ctx:MiniPascalParser.ExternalRoutineSpecContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#callingConvention.
+    def visitCallingConvention(self, ctx:MiniPascalParser.CallingConventionContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#programFile.
     def visitProgramFile(self, ctx:MiniPascalParser.ProgramFileContext):
         return self.visitChildren(ctx)

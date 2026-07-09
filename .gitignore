@@ -336,3 +336,4 @@ src/asmjit/runtime/win64/libgcc_s_seh-1.dll
 /src/asmjit/runtime/1
 /src/asmjit/runtime/win32/obj
 src/asmjit/x32/libdbase2many.32.dll
+src/asmjit/x32/testdll.dll

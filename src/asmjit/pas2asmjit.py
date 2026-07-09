@@ -282,6 +282,15 @@ def main():
                 backend    = Coff64Backend(target_obj)
                 writer     = CoffObjectWriter(target_obj)
         
+        elif CDATA.args_backend in ["dll", "dllfile"]:
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                writer     = PE32Writer()
+                backend    = Coff32Backend(writer)
+                target_obj = writer
+                
+            elif CDATA.args_target in ["win64"]:
+                pass
+                
         elif CDATA.args_backend in ["exe", "exefile"]:
             if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 writer     = PE32Writer()
@@ -338,6 +347,7 @@ def main():
         CDATA.cpp_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".cc" )
         CDATA.obj_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".o"  )
         CDATA.pui_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".pui")
+        CDATA.dll_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".dll")
         CDATA.exe_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".exe")
         
         print("Compile-Run ...")
@@ -349,6 +359,7 @@ def main():
         print("asmjit: ", CDATA.cpp_file)
         print("object: ", CDATA.obj_file)
         print("pui32 : ", CDATA.pui_file)
+        print("dll32 : ", CDATA.dll_file)
         print("win64 : ", CDATA.exe_file)
         print("---------------------------")
         
@@ -414,40 +425,29 @@ def main():
         elif CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
             if CDATA.args_backend.lower() in ["exe", "exefile"]:
                 outfile = Path(CDATA.exe_file)
+                check   = ['j','y']
                 if outfile.exists():
-                    if not CDATA.force_write:
+                    if CDATA.force_write == False:
+                        check = []
                         check = input(f"{CDATA.exe_file}: {overwrite}").strip().lower()
                     else:
                         check = ['j', 'y']
-                    if ('y' in check) or ('j' in check):
-                        generator.write_string_literals_to_coff()
-                        generator.write_double_literals_to_coff()
-                        writer.write(CDATA.exe_file)
-                    else:
-                        print(tr("no files written"))
-                else:
+                if ('y' in check) or ('j' in check):
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
                     writer.write(CDATA.exe_file)
+                else:
+                    print(tr("no files written"))
                     
             elif CDATA.args_backend.lower() in ["obj", "objfile"]:
                 outfile = Path(CDATA.obj_file)
+                check   = []
                 if outfile.exists():
                     if CDATA.force_write == False:
                         check = input(f"{CDATA.obj_file}: {overwrite}").strip().lower()
                     else:
                         check = ['j','y']
-                    if ('y' in check) or ('j' in check):
-                        generator.write_string_literals_to_coff()
-                        generator.write_double_literals_to_coff()
-                        writer.write_object(CDATA.obj_file)
-                        if generator.root_module_kind == "unit":
-                            CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
-                            print(f"COFF32 unit object: {CDATA.obj_file}")
-                            print(f"Pascal unit interface: {CDATA.pui_file}")
-                    else:
-                        print(tr("no files written"))
-                else:
+                if ('y' in check) or ('j' in check):
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
                     writer.write_object(CDATA.obj_file)
@@ -455,38 +455,57 @@ def main():
                         CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
                         print(f"COFF32 unit object: {CDATA.obj_file}")
                         print(f"Pascal unit interface: {CDATA.pui_file}")
+                else:
+                    print(tr("no files written"))
+                    
+            elif CDATA.args_backend.lower() in ["dll", "dllfile"]:
+                outfile = Path(CDATA.dll_file)
+                check   = ['j','y']
+                if outfile.exists():
+                    if CDATA.force_write == False:
+                        check = []
+                        check = input(f"{CDATA.dll_file}: {overwrite}").strip().lower()
+                if ('y' in check) or ('j' in check):
+                    generator.write_string_literals_to_coff()
+                    generator.write_double_literals_to_coff()
+                    writer.write(CDATA.dll_file)
+                else:
+                    print(tr("no files written"))
                 
         elif CDATA.args_target.lower() == "win64":
-            if CDATA.BackEnd.current == BACKEND_ASMJIT:
+            if CDATA.args_backend in ["asmjit"]:
                 if not CDATA.cpp_file:
                     CDATA.cpp_file = "aout.cc"
                 outfile = Path(CDATA.cpp_file)
                 if outfile.exists():
-                    check = input(f"{cpp_file}: {overwrite}").strip().lower()
-                    if check in ('j', 'y'):
-                        with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
-                            f.write(text)
-                            f.close()
-                else:
+                    if CDATA.force_write == False:
+                        check = input(f"{CDATA.cpp_file}: {overwrite}").strip().lower()
+                    else:
+                        check = ['j','y']
+                if ('y' in check) or ('j' in check):
                     with open(CDATA.cpp_file, "w", encoding="utf-8") as f:
                         f.write(text)
                         f.close()
-            elif CDATA.BackEnd.current == BACKEND_NASM:
+                else:
+                    print(tr("no files written"))
+                    
+            elif CDATA.args_backend in ["asm", "nasm"]:
                 if not CDATA.asm_file:
                     CDATA.asm_file = "aout.asm"
                 outfile = Path(CDATA.asm_file)
                 if outfile.exists():
-                    check = input(f"{CDATA.asm_file}: {overwrite}").strip().lower()
-                    if check in ('j', 'y'):
-                        with open(CDATA.asm_file, "w", encoding="utf-8") as f:
-                            f.write(text)
-                            f.close()
-                        CDATA.BackEnd.current = CDATA.args_backend
-                else:
+                    if CDATA.force_write == False:
+                        check = input(f"{CDATA.asm_file}: {overwrite}").strip().lower()
+                    else:
+                        check = ['j','y']
+                if ('y' in check) or ('j' in check):
                     with open(CDATA.asm_file, "w", encoding="utf-8") as f:
                         f.write(text)
                         f.close()
-            elif CDATA.BackEnd.current == BACKEND_EXEFILE:
+                else:
+                    print(tr("no files written"))
+
+            elif CDATA.args_backend in ["exe", "exefile"]:
                 if not CDATA.obj_file:
                     CDATA.obj_file = "aout.o"
                 outfile = Path(CDATA.obj_file)

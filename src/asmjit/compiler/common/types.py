@@ -29,6 +29,8 @@ class CommonData():
         self.cpp_file            : str  = ""
         
         self.exe_file            : str  = ""
+        self.dll_file            : str  = ""
+        
         self.obj_file            : str  = ""
         self.pui_file            : str  = ""
         
@@ -198,3 +200,9 @@ class ClassInfo:
     size        : int
     parent      : str | None = None
     properties  : dict = field(default_factory=dict)
+
+@dataclass
+class PE32Export:
+    name         : str
+    target_label : str
+    ordinal      : int | None = None

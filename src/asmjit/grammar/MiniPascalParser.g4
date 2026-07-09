@@ -12,6 +12,16 @@ sourceFile
     ) EOF
     ;
 
+externalRoutineSpec
+    : callingConvention STRING (NAME STRING)? SEMI
+    ;
+
+callingConvention
+    : CDECL
+    | STDCALL
+    | PASCAL
+    ;
+
 programFile
     : PROGRAM IDENT SEMI usesClause? declarationPart* block DOT
     ;
@@ -265,11 +275,19 @@ recordFieldDeclaration
     ;
 
 functionDeclaration
-    : FUNCTION IDENT formalParamList? COLON typeName SEMI block SEMI?
+    : FUNCTION IDENT formalParamList? COLON typeName SEMI
+      (
+          externalRoutineSpec
+        | declarationPart* block SEMI
+      )
     ;
 
 procedureDeclaration
-    : PROCEDURE IDENT formalParamList? SEMI block SEMI?
+    : PROCEDURE IDENT formalParamList? SEMI
+      (
+          externalRoutineSpec
+        | declarationPart* block SEMI
+      )
     ;
 
 formalParamList
