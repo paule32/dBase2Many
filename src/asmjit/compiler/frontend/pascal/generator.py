@@ -38,6 +38,567 @@ class PropertyInfo:
         self.read_name  = read_name
         self.write_name = write_name
 
+def normalize_unit_name(
+    unit_name
+):
+    return (
+        str(unit_name)
+        .strip()
+        .lower()
+        .replace(".", "_")
+    )
+
+
+def pui_search_directories(
+    source_file
+):
+    """
+    Liefert alle Verzeichnisse, in denen PUI-Dateien gesucht werden.
+    """
+
+    directories = []
+    seen = set()
+
+    def add_directory(path):
+        if not path:
+            return
+
+        try:
+            path = os.fspath(path)
+        except TypeError:
+            return
+
+        path = path.strip()
+
+        if not path:
+            return
+
+        path = os.path.abspath(
+            os.path.expandvars(
+                os.path.expanduser(path)
+            )
+        )
+
+        if not os.path.isdir(path):
+            return
+
+        key = os.path.normcase(
+            os.path.normpath(path)
+        )
+
+        if key in seen:
+            return
+
+        seen.add(key)
+        directories.append(path)
+
+    def add_file_parent(filename):
+        if not filename:
+            return
+
+        try:
+            filename = os.fspath(filename)
+        except TypeError:
+            return
+
+        filename = filename.strip()
+
+        if not filename:
+            return
+
+        add_directory(
+            os.path.dirname(
+                os.path.abspath(filename)
+            )
+        )
+
+    # Verzeichnis der aktuell kompilierten Quelldatei.
+    if source_file:
+        add_file_parent(source_file)
+
+    # Aktuelles Arbeitsverzeichnis.
+    add_directory(
+        os.getcwd()
+    )
+
+    # Explizites Ausgabeverzeichnis.
+    output_directory = getattr(
+        CDATA,
+        "output_dir",
+        None
+    )
+
+    add_directory(
+        output_directory
+    )
+
+    # Konventionelles Projekt-Ausgabeverzeichnis.
+    add_directory(
+        os.path.join(
+            os.getcwd(),
+            "testout"
+        )
+    )
+
+    # Verzeichnisse bekannter Ausgabedateien.
+    for attribute_name in (
+        "obj_file",
+        "object_file",
+        "pui_file",
+        "exe_file",
+        "dll_file",
+        "asm_file",
+        "output_file"
+    ):
+        add_file_parent(
+            getattr(
+                CDATA,
+                attribute_name,
+                None
+            )
+        )
+
+    # Unit- und Include-Pfade.
+    for attribute_name in (
+        "UnitPaths",
+        "IncludePaths"
+    ):
+        paths = getattr(
+            CDATA,
+            attribute_name,
+            []
+        ) or []
+
+        for path in paths:
+            add_directory(path)
+
+    # Explizite Unit-Dateien oder Unit-Verzeichnisse.
+    for item in getattr(
+        CDATA,
+        "UnitFiles",
+        []
+    ) or []:
+        try:
+            item_path = os.path.abspath(
+                os.fspath(item)
+            )
+        except TypeError:
+            continue
+
+        if os.path.isdir(item_path):
+            add_directory(item_path)
+
+        elif os.path.isfile(item_path):
+            add_directory(
+                os.path.dirname(item_path)
+            )
+
+    return directories
+
+
+def find_unit_pui_for_preprocessor(
+    unit_name,
+    source_file
+):
+    """
+    Sucht die PUI einer Unit, bevor Lexer und Parser gestartet werden.
+    """
+
+    unit_name = str(
+        unit_name
+    ).strip()
+
+    normalized_name = normalize_unit_name(
+        unit_name
+    )
+
+    last_part = unit_name.split(".")[-1]
+
+    candidate_names = []
+
+    def add_candidate(name):
+        if name and name not in candidate_names:
+            candidate_names.append(name)
+
+    add_candidate(
+        unit_name + ".pui"
+    )
+
+    add_candidate(
+        unit_name.lower() + ".pui"
+    )
+
+    add_candidate(
+        normalized_name + ".pui"
+    )
+
+    add_candidate(
+        normalized_name.lower() + ".pui"
+    )
+
+    add_candidate(
+        last_part + ".pui"
+    )
+
+    add_candidate(
+        last_part.lower() + ".pui"
+    )
+
+    search_directories = pui_search_directories(
+        source_file
+    )
+
+    # Schneller Weg über bekannte Dateinamen.
+    for directory in search_directories:
+        for candidate_name in candidate_names:
+            candidate = os.path.abspath(
+                os.path.join(
+                    directory,
+                    candidate_name
+                )
+            )
+
+            if os.path.isfile(candidate):
+                return candidate
+
+    # Fallback: alle PUI-Dateien öffnen und Unit-Namen prüfen.
+    for directory in search_directories:
+        try:
+            entries = os.listdir(
+                directory
+            )
+        except OSError:
+            continue
+
+        for entry in entries:
+            if not entry.lower().endswith(".pui"):
+                continue
+
+            candidate = os.path.abspath(
+                os.path.join(
+                    directory,
+                    entry
+                )
+            )
+
+            try:
+                with open(
+                    candidate,
+                    "r",
+                    encoding="utf-8"
+                ) as stream:
+                    data = json.load(
+                        stream
+                    )
+
+            except (
+                OSError,
+                ValueError,
+                TypeError
+            ):
+                continue
+
+            unit_info = data.get(
+                "unit",
+                {}
+            )
+
+            if not isinstance(
+                unit_info,
+                dict
+            ):
+                continue
+
+            stored_name = unit_info.get(
+                "normalized_name"
+            )
+
+            if not stored_name:
+                stored_name = normalize_unit_name(
+                    unit_info.get(
+                        "name",
+                        ""
+                    )
+                )
+
+            if (
+                str(stored_name).lower()
+                == normalized_name.lower()
+            ):
+                return candidate
+
+    return None
+
+
+def load_pui_data(
+    pui_filename
+):
+    try:
+        with open(
+            pui_filename,
+            "r",
+            encoding="utf-8"
+        ) as stream:
+            data = json.load(
+                stream
+            )
+
+    except OSError as exc:
+        raise PascalPreprocessorError(
+            f"could not read PUI file "
+            f"{pui_filename}: {exc}"
+        ) from None
+
+    except (
+        ValueError,
+        TypeError
+    ) as exc:
+        raise PascalPreprocessorError(
+            f"invalid PUI file "
+            f"{pui_filename}: {exc}"
+        ) from None
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        raise PascalPreprocessorError(
+            f"invalid PUI root object: "
+            f"{pui_filename}"
+        )
+
+    return data
+
+
+def merge_imported_macro(
+    result,
+    owners,
+    macro_name,
+    macro_value,
+    unit_name
+):
+    """
+    Fügt ein PUI-Makro ein und erkennt Namenskonflikte.
+    """
+
+    name = str(
+        macro_name
+    ).strip().upper()
+
+    if not name:
+        raise PascalPreprocessorError(
+            f"empty macro name in unit "
+            f"{unit_name}"
+        )
+
+    if name in result:
+        old_value = result[name]
+
+        # Identische Definitionen sind unproblematisch.
+        if old_value == macro_value:
+            return
+
+        old_owner = owners.get(
+            name,
+            "<unknown>"
+        )
+
+        raise PascalPreprocessorError(
+            f"conflicting imported macro {name}: "
+            f"{old_owner} defines {old_value!r}, "
+            f"{unit_name} defines {macro_value!r}"
+        )
+
+    result[name] = macro_value
+    owners[name] = unit_name
+
+
+def collect_pui_macros_recursive(
+    unit_name,
+    source_file,
+    result,
+    owners,
+    visited,
+    loading
+):
+    """
+    Lädt Makros einer PUI und ihrer öffentlichen Interface-Abhängigkeiten.
+    """
+
+    unit_key = normalize_unit_name(
+        unit_name
+    )
+
+    if unit_key in visited:
+        return
+
+    if unit_key in loading:
+        chain = " -> ".join(
+            list(loading) + [unit_key]
+        )
+
+        raise PascalPreprocessorError(
+            f"circular PUI macro dependency: "
+            f"{chain}"
+        )
+
+    pui_filename = find_unit_pui_for_preprocessor(
+        unit_name,
+        source_file
+    )
+
+    if pui_filename is None:
+        # Die normale Unit-Auflösung erzeugt später eine genauere
+        # Meldung. Hier wird die Unit zunächst übersprungen.
+        return
+
+    loading.add(
+        unit_key
+    )
+
+    try:
+        data = load_pui_data(
+            pui_filename
+        )
+
+        # Nur öffentliche Interface-Abhängigkeiten rekursiv exportieren.
+        #
+        # Implementation-Units sind private Abhängigkeiten und sollen
+        # ihre Makros nicht an Benutzer dieser Unit weiterreichen.
+        uses_info = data.get(
+            "uses",
+            {}
+        )
+
+        if isinstance(
+            uses_info,
+            dict
+        ):
+            dependencies = uses_info.get(
+                "interface",
+                []
+            ) or []
+        else:
+            dependencies = []
+
+        for dependency in dependencies:
+            collect_pui_macros_recursive(
+                unit_name=dependency,
+                source_file=source_file,
+                result=result,
+                owners=owners,
+                visited=visited,
+                loading=loading
+            )
+
+        macros = data.get(
+            "macros",
+            {}
+        )
+
+        if macros is None:
+            macros = {}
+
+        if not isinstance(
+            macros,
+            dict
+        ):
+            raise PascalPreprocessorError(
+                f"invalid macros section in "
+                f"{pui_filename}"
+            )
+
+        for macro_name, macro_value in macros.items():
+            merge_imported_macro(
+                result=result,
+                owners=owners,
+                macro_name=macro_name,
+                macro_value=macro_value,
+                unit_name=unit_name
+            )
+
+        visited.add(
+            unit_key
+        )
+
+    finally:
+        loading.discard(
+            unit_key
+        )
+
+# ---------------------------------------------------------------------------
+# Liest einfache Pascal-USES-Klauseln vor dem eigentlichen Parser.
+#
+# Unterstützt beispielsweise:
+#
+#    uses System.Types;
+#    uses System.Types, VCL.Windows;
+# ---------------------------------------------------------------------------
+def extract_uses_units(source_text):
+    units = []
+
+    matches = re.finditer(
+        r"\buses\b(.*?);",
+        source_text,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    for match in matches:
+        content = match.group(1)
+
+        for item in content.split(","):
+            item = item.strip()
+
+            if not item:
+                continue
+
+            # Unterstützung für:
+            #
+            #     UnitName in 'datei.pas'
+            item = re.split(
+                r"\s+in\s+",
+                item,
+                maxsplit=1,
+                flags=re.IGNORECASE
+            )[0].strip()
+
+            if re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_.]*",
+                item
+            ):
+                units.append(item)
+
+    return units
+    
+# ----------------------------------------------------------------------
+# Sammelt alle Makros aus den PUIs der direkt verwendeten Units.
+# Dieser Schritt muss vor PascalPreprocessor.process() erfolgen.
+# ----------------------------------------------------------------------
+def collect_used_unit_macros(
+    raw_source,
+    source_file
+):
+    result = {}
+    owners = {}
+    visited = set()
+    loading = set()
+
+    unit_names = extract_uses_units(
+        raw_source
+    )
+
+    for unit_name in unit_names:
+        collect_pui_macros_recursive(
+            unit_name=unit_name,
+            source_file=source_file,
+            result=result,
+            owners=owners,
+            visited=visited,
+            loading=loading
+        )
+
+    return result
+    
 # ---------------------------------------------------------------------------
 # the transpiler generator for Pascal->Assembly
 # ---------------------------------------------------------------------------
@@ -145,6 +706,12 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.asm_file               = CDATA.asm_file
         self.emit_local_string_data = True
+        
+        self.pending_open_array_actual = None
+        
+        # Makros, die direkt in der aktuell kompilierten Unit
+        # durch {$DEFINE ...} festgelegt wurden.
+        self.unit_source_macros = {}
         
         self.module_kind        = "program"
         self.module_kind_value  = 1
@@ -327,12 +894,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def format_method_signature(self, params):
         if not params:
             return "()"
-            
+
         types = []
-        
+
         for p in params:
-            types.append(self.resolve_type(p["type"]))
-            
+            typ = p["type"]
+
+            if isinstance(typ, dict):
+                if typ.get("kind") == "open_array":
+                    element_type = self.resolve_type(
+                        typ["element_type"]
+                    )
+
+                    types.append(
+                        f"array of {element_type}"
+                    )
+                    continue
+
+            types.append(
+                str(self.resolve_type(typ))
+            )
+
         return "(" + ", ".join(types) + ")"
     
     def infer_subrange_storage(self, min_value, max_value):
@@ -375,7 +957,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         return self.subrange_types.get(
             typ.lower()
         )
-
 
     def scalar_base_type(self, typ):
         info = self.subrange_info(typ)
@@ -749,8 +1330,24 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return self.classes[key].size
     
+    def normalized_param_type(self, param):
+        typ = param["type"]
+        if isinstance(typ, dict):
+            if typ.get("kind") == "open_array":
+                element_type = self.resolve_type(
+                    typ["element_type"]
+                )
+                return (
+                    "open_array",
+                    element_type
+                )
+        return self.resolve_type(typ)
+
     def method_signature(self, params):
-        return tuple(self.resolve_type(p["type"]) for p in params)
+        return tuple(
+            self.normalized_param_type(p)
+            for p in params
+        )
     
     def sizeof_dos_pointed_type(self, ctx, ptr_type):
         ptr_type = self.resolve_type(ptr_type)
@@ -1061,8 +1658,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             class_properties = dict(parent_properties)
             class_properties.update(properties)
         
-        print("DECLARE CLASS:", name, "size=", offset)
-        print("FIELDS:", list(class_fields.keys()))
+        if CDATA.debug_mode:
+            print("DECLARE CLASS:", name, "size=", offset)
+            print("FIELDS:", list(class_fields.keys()))
 
         self.classes[key] = ClassInfo(
             name       = name,
@@ -1255,9 +1853,11 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if key in scope["vars"]:
             raise CompileError(ctx, "E0002", name=name)
         
-        if typ in ("integer", "boolean"):
+        if typ in ["integer", "boolean"]:
             if CDATA.args_target in ["dos", "dos16"]:
-                site = 4
+                site = 2
+            elif CDATA.args_target in ["nt35", "ntwin", "win32"]:
+                size = 4
             else:
                 size = 8
         
@@ -3234,14 +3834,53 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             return params
 
         for p in ctx.formalParamList().formalParam():
-            typ = self.resolve_type(p.typeName().getText())
-            is_var = p.VAR() is not None
+            modifier = None
+
+            if p.paramModifier():
+                modifier = p.paramModifier().getText().lower()
+
+            param_type_ctx = p.paramType()
+
+            if param_type_ctx.openArrayType():
+                element_type = self.resolve_type(
+                    param_type_ctx
+                    .openArrayType()
+                    .typeName()
+                    .getText()
+                )
+
+                typ = f"open_array:{element_type}"
+                is_open_array = True
+
+            elif param_type_ctx.typeName():
+                typ = self.resolve_type(
+                    param_type_ctx.typeName().getText()
+                )
+
+                element_type = None
+                is_open_array = False
+
+            else:
+                raise CompileError(
+                    p,
+                    "E0019",
+                    text=(
+                        "unsupported formal parameter type: "
+                        + param_type_ctx.getText()
+                    )
+                )
 
             for ident in p.identList().IDENT():
                 params.append({
-                    "name": ident.getText(),
-                    "type": typ,
-                    "is_var": is_var
+                    "name"          : ident.getText(),
+                    "type"          : typ,
+
+                    "modifier"      : modifier,
+                    "is_var"        : modifier == "var",
+                    "is_const"      : modifier == "const",
+
+                    "is_open_array" : is_open_array,
+                    "element_type"  : element_type
                 })
 
         return params
@@ -3454,7 +4093,8 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 self.pointer_slot_size()
             )
             
-            print("CTOR ALLOC:", class_name, "size=", size)
+            if CDATA.debug_mode:
+                print("CTOR ALLOC:", class_name, "size=", size)
 
             # _jit_new_memory(size)
             self.backend.writer.emit_push_imm32(size)
@@ -6702,9 +7342,28 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if typ == "integer":
             if expr_type != "integer":
-                raise CompileError(ctx, "E0005", got=expr_type, expected=typ)
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=typ
+                )
 
-            self.emit_mov_dword_ptr_store("rbp", offset, "eax", comment=f"local {name} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr_store(
+                    "ebp",
+                    offset,
+                    "eax",
+                    comment = f"local {name} :="
+                )
+            else:
+                self.emit_mov_dword_ptr_store(
+                    "rbp",
+                    offset,
+                    "eax",
+                    comment = f"local {name} :="
+                )
+
             return
 
         if typ == "string":
@@ -7236,14 +7895,47 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         result_var = self.find_local_var("Result")
         result_off = result_var["offset"]
 
-        # lokale var-Deklarationen vorab einsammeln,
-        # damit scope["next_offset"] die echte Stackgröße enthält
-        for child in ctx.children:
-            cname = type(child).__name__
-            if "VarSectionContext" in cname:
-                self.visit(child)
+        # -------------------------------------------------
+        # Lokale Deklarationen der Funktion einsammeln.
+        #
+        # Laut Grammar stehen diese direkt in:
+        #
+        #   functionDeclaration -> declarationPart*
+        #
+        # und nicht zwingend innerhalb von:
+        #
+        #   block -> localDeclaration*
+        # -------------------------------------------------
+        for declaration in ctx.declarationPart():
+            if declaration is None:
+                continue
 
+            var_section = declaration.varSection()
+
+            if var_section is not None:
+                self.visitVarSection(
+                    var_section
+                )
+                continue
+
+            const_section = declaration.constSection()
+
+            if const_section is not None:
+                self.visitConstSection(
+                    const_section
+                )
+                continue
+
+            type_section = declaration.typeSection()
+
+            if type_section is not None:
+                self.visitTypeSection(
+                    type_section
+                )
+                continue
+        
         scope = self.current_local_scope()
+
         local_size = scope["next_offset"]
         local_size = (local_size + 15) & ~15
 
@@ -7259,46 +7951,109 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         # Parameter sichern / Offsets eintragen
         # -------------------------------------------------
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            for index, p in enumerate(params):
-                pname = p["name"]
+            stack_offset = 8
 
-                self.current_proc_params[pname.lower()] = {
+            for p in params:
+                pname       = p["name"]
+                param_info  = {
                     "type": p["type"],
                     "reg": None,
-                    "stack_offset": 8 + index * 4
+
+                    # Bei einem offenen Array liegt hier der Datenpointer.
+                    "stack_offset": stack_offset,
+
+                    "is_var": p.get(
+                        "is_var",
+                        False
+                    ),
+
+                    "is_const": p.get(
+                        "is_const",
+                        False
+                    ),
+
+                    "is_open_array": p.get(
+                        "is_open_array",
+                        False
+                    ),
+
+                    "element_type": p.get(
+                        "element_type"
+                    )
                 }
 
+                if param_info["is_open_array"]:
+                    # Interne NT32-ABI:
+                    #
+                    # [ebp + stack_offset]     = data pointer
+                    # [ebp + stack_offset + 4] = High-Wert
+                    param_info["high_offset"] = (
+                        stack_offset + 4
+                    )
+
+                    stack_offset += 8
+
+                else:
+                    stack_offset += 4
+
+                self.current_proc_params[
+                    pname.lower()
+                ] = param_info
+        
         elif CDATA.args_target in ["dos", "dos16"]:
             for index, p in enumerate(params):
                 pname = p["name"]
 
                 self.current_proc_params[pname.lower()] = {
-                    "type": p["type"],
-                    "reg": None,
-                    "stack_offset": 4 + index * 2
-                }
+                    "type"          : p["type"],
+                    "reg"           : None,
+                    "stack_offset"  : 4 + index * 2,
 
+                    "is_var"        : p.get("is_var", False),
+                    "is_const"      : p.get("is_const", False),
+                    "is_open_array" : p.get("is_open_array", False),
+                    "element_type"  : p.get("element_type")
+                }
         else:
             for index, p in enumerate(params):
-                reg = param_regs[index]
+                reg   = param_regs[index]
                 pname = p["name"]
 
-                self.emit_push(reg, comment=f"save function param {pname}")
+                self.emit_push(
+                    reg,
+                    comment=f"save function param {pname}"
+                )
 
                 self.current_proc_params[pname.lower()] = {
-                    "type": p["type"],
-                    "reg": reg,
-                    "stack_offset": -8 * (index + 2)
+                    "type"          : p["type"],
+                    "reg"           : reg,
+                    "stack_offset"  : -8 * (index + 2),
+
+                    "is_var"        : p.get("is_var", False),
+                    "is_const"      : p.get("is_const", False),
+                    "is_open_array" : p.get("is_open_array", False),
+                    "element_type"  : p.get("element_type")
                 }
 
             if len(params) % 2 == 0:
                 self.emit_sub("rsp", 8, comment="align stack in function")
 
         # -------------------------------------------------
-        # Funktionskörper
+        # Nur den ausführbaren Funktionskörper besuchen.
+        #
+        # Die lokalen Deklarationen wurden oben bereits
+        # verarbeitet und dürfen nicht erneut besucht werden.
         # -------------------------------------------------
         self.exit_label_stack.append(end_label)
-        self.visit(ctx.block())
+
+        block_ctx = ctx.block()
+
+        if block_ctx is not None:
+            statement_list = block_ctx.statementList()
+
+            if statement_list is not None:
+                self.visit(statement_list)
+
         self.exit_label_stack.pop()
 
         self.pop_const_scope()
@@ -7699,37 +8454,137 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     
     def emit_for_statement(self, ctx):
         var_name = ctx.IDENT().getText()
-        info = self.var_info(ctx, var_name)
 
-        if info["type"] != "integer":
-            raise CompileError(ctx, "E0005", got=info["type"], expected="integer")
+        # ------------------------------------------------------------
+        # Schleifenvariable suchen:
+        # zuerst lokal, danach global
+        # ------------------------------------------------------------
+        info = self.find_local_var(var_name)
+        is_local = info is not None
 
-        start_name    = self.new_named_label("for")
-        continue_name = self.new_named_label("for_continue")
-        end_name      = self.new_named_label("endfor")
+        if info is None:
+            key = var_name.lower()
 
-        # Startwert auswerten
-        start_type = self.visit(ctx.expr(0))
+            if key not in self.vars:
+                raise CompileError(
+                    ctx,
+                    "E0001",
+                    name=var_name
+                )
 
-        if start_type != "integer":
-            raise CompileError(ctx, "E0005", got=start_type, expected="integer")
+            info = self.vars[key]
 
-        self.emit_store_var(ctx, var_name, info)
+        var_type = self.resolve_type(
+            info["type"]
+        )
 
-        # Endwert auswerten
-        end_type = self.visit(ctx.expr(1))
-
-        if end_type != "integer":
-            raise CompileError(ctx, "E0005", got=end_type, expected="integer")
+        if var_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=var_type,
+                expected="integer"
+            )
 
         target = CDATA.args_target.lower()
 
-        if target in ["winnt", "nt35", "win32"]:
-            # NT32: for-end-Wert erstmal in globaler Datenvariable speichern
-            if self.coff.find_symbol_index("__for_end_tmp") is None:
-                self.coff.add_data_i32("__for_end_tmp", 0)
+        start_name = self.new_named_label(
+            "for"
+        )
 
-            self.coff.emit_mov_data_label_r32("__for_end_tmp", "eax")
+        continue_name = self.new_named_label(
+            "for_continue"
+        )
+
+        end_name = self.new_named_label(
+            "endfor"
+        )
+
+        # ------------------------------------------------------------
+        # Hilfsfunktionen für lokale/globale Schleifenvariable
+        # ------------------------------------------------------------
+        def load_for_variable():
+            if is_local:
+                return self.emit_load_local_var(
+                    ctx,
+                    var_name,
+                    info
+                )
+
+            return self.emit_load_var(
+                var_name,
+                info
+            )
+
+        def store_for_variable():
+            if is_local:
+                return self.emit_store_local_var(
+                    ctx,
+                    var_name,
+                    "integer"
+                )
+
+            return self.emit_store_var(
+                ctx,
+                var_name,
+                info
+            )
+
+        # ------------------------------------------------------------
+        # Startwert:
+        #
+        # for I := start ...
+        # ------------------------------------------------------------
+        start_type = self.visit(
+            ctx.expr(0)
+        )
+
+        if start_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=start_type,
+                expected="integer"
+            )
+
+        store_for_variable()
+
+        # ------------------------------------------------------------
+        # Endwert nur einmal auswerten
+        # ------------------------------------------------------------
+        end_type = self.visit(
+            ctx.expr(1)
+        )
+
+        if end_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=end_type,
+                expected="integer"
+            )
+
+        # ------------------------------------------------------------
+        # Endwert sichern
+        # ------------------------------------------------------------
+        if target in ["dos", "dos16"]:
+            # Erwartet, dass das Backend den aktuellen AX-Wert
+            # als FOR-Endwert sichert.
+            self.backend.emit_store_for_end_ax()
+
+        elif target in ["winnt", "nt35", "win32"]:
+            if self.coff.find_symbol_index(
+                "__for_end_tmp"
+            ) is None:
+                self.coff.add_data_i32(
+                    "__for_end_tmp",
+                    0
+                )
+
+            self.coff.emit_mov_data_label_r32(
+                "__for_end_tmp",
+                "eax"
+            )
 
         else:
             self.emit_mov_dword_ptr_store(
@@ -7739,56 +8594,116 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 comment="for end value"
             )
 
-        self.emit_bind_label(start_name)
-        self.emit_load_var(var_name, info)
+        # ------------------------------------------------------------
+        # Schleifenanfang
+        # ------------------------------------------------------------
+        self.emit_bind_label(
+            start_name
+        )
 
-        direction = ctx.getChild(4).getText().lower()
+        load_for_variable()
 
-        target = CDATA.args_target.lower()
+        # Grammar:
+        #
+        # FOR IDENT ASSIGN expr (TO | DOWNTO) expr DO statement
+        #
+        # Der Richtungsoperator liegt bei dir aktuell an Child 4.
+        # ------------------------------------------------------------
+        direction = (
+            ctx.getChild(4)
+            .getText()
+            .lower()
+        )
 
+        if direction not in ("to", "downto"):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "invalid for-loop direction: "
+                    + direction
+                )
+            )
+
+        # ------------------------------------------------------------
+        # Schleifenbedingung prüfen
+        # ------------------------------------------------------------
         if target in ["dos", "dos16"]:
             self.backend.emit_load_for_end_bx()
-            self.emit_cmp("eax", "ebx")
+            self.emit_cmp(
+                "eax",
+                "ebx"
+            )
 
             if direction == "to":
                 self.emit_jg(end_name)
             else:
                 self.emit_jl(end_name)
-                
+
         elif target in ["winnt", "nt35", "win32"]:
-            self.coff.emit_mov_reg_from_data_label32("ebx", "__for_end_tmp")
-            self.emit_cmp("eax", "ebx")
+            self.coff.emit_mov_reg_from_data_label32(
+                "ebx",
+                "__for_end_tmp"
+            )
+
+            self.emit_cmp(
+                "eax",
+                "ebx"
+            )
 
             if direction == "to":
                 self.emit_jg(end_name)
             else:
                 self.emit_jl(end_name)
+
         else:
+            self.emit_cmp_dword(
+                "eax",
+                "r12",
+                "_print_int_tmp"
+            )
+
             if direction == "to":
-                self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
                 self.emit_jg(end_name)
             else:
-                self.emit_cmp_dword("eax", "r12", "_print_int_tmp")
                 self.emit_jl(end_name)
 
+        # ------------------------------------------------------------
+        # BREAK und CONTINUE für den Schleifenrumpf
+        # ------------------------------------------------------------
         self.break_label_stack.append(end_name)
         self.continue_label_stack.append(continue_name)
 
-        self.visit(ctx.statement())
+        try:
+            self.visit(ctx.statement())
+        finally:
+            self.continue_label_stack.pop()
+            self.break_label_stack.pop()
 
-        self.continue_label_stack.pop()
-        self.break_label_stack.pop()
+        # ------------------------------------------------------------
+        # CONTINUE springt hierher, damit die Schleifenvariable
+        # trotzdem erhöht beziehungsweise verringert wird.
+        # ------------------------------------------------------------
+        self.emit_bind_label(
+            continue_name
+        )
 
-        self.emit_bind_label(continue_name)
-
-        self.emit_load_var(var_name, info)
+        load_for_variable()
 
         if direction == "to":
-            self.emit_add("eax", 1)
+            self.emit_add(
+                "eax",
+                1,
+                comment="increment for variable"
+            )
         else:
-            self.emit_sub("eax", 1)
+            self.emit_sub(
+                "eax",
+                1,
+                comment="decrement for variable"
+            )
 
-        self.emit_store_var(ctx, var_name, info)
+        store_for_variable()
 
         self.emit_jmp(start_name)
         self.emit_bind_label(end_name)
@@ -8020,6 +8935,31 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 CDATA.link_archive_files.append(arg)
 
         return None
+    
+    def visitLocalDeclaration(self, ctx):
+        if ctx is None:
+            return None
+
+        if hasattr(ctx, "constSection") and ctx.constSection():
+            return self.visit(ctx.constSection())
+
+        if hasattr(ctx, "typeSection") and ctx.typeSection():
+            return self.visit(ctx.typeSection())
+
+        if hasattr(ctx, "varSection") and ctx.varSection():
+            return self.visit(ctx.varSection())
+
+        if (hasattr(ctx, "procedureDeclaration") and ctx.procedureDeclaration()):
+            return self.visit(
+                ctx.procedureDeclaration()
+            )
+
+        if (hasattr(ctx, "functionDeclaration") and ctx.functionDeclaration()):
+            return self.visit(
+                ctx.functionDeclaration()
+            )
+
+        return self.visitChildren(ctx)
     
     def visitIncStatement(self, ctx):
         ref = ctx.variableRef()
@@ -8611,7 +9551,58 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return None
     
-    def write_unit_pui(self, object_file, pui_file=None):
+    def load_pui_macros(
+        pui_filename
+    ):
+        with open(
+            pui_filename,
+            "r",
+            encoding="utf-8"
+        ) as stream:
+            data = json.load(stream)
+
+        macros = data.get(
+            "macros",
+            {}
+        )
+
+        if not isinstance(macros, dict):
+            raise RuntimeError(
+                f"invalid macros section in PUI: "
+                f"{pui_filename}"
+            )
+
+        return {
+            str(name).upper(): value
+            for name, value in macros.items()
+        }
+
+    # ------------------------------------------------------------
+    # Schreibt die PUI-Metadaten einer Pascal-Unit.
+    #
+    # Neben Typen, Routinen und Linkinformationen werden auch die
+    # innerhalb der Unit definierten Preprocessor-Makros gespeichert.
+    #
+    # Beispiel:
+    #
+    #    {$define VERSION 1}
+    #    {$define VERSION_TEXT '1.0.0'}
+    #
+    # ergibt in der PUI:
+    #
+    #    "macros": {
+    #        "VERSION": 1,
+    #        "VERSION_TEXT": "1.0.0"
+    #    }
+    # ------------------------------------------------------------
+    def write_unit_pui(
+        self,
+        object_file,
+        pui_file=None
+    ):
+        # ------------------------------------------------------------
+        # Nur Units erzeugen eine PUI-Datei
+        # ------------------------------------------------------------
         if self.root_module_kind != "unit":
             return None
 
@@ -8620,47 +9611,173 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 "No PUI metadata was generated for the unit"
             )
 
-        object_path = Path(object_file).resolve()
+        # ------------------------------------------------------------
+        # Objektdatei bestimmen
+        # ------------------------------------------------------------
+        object_path = Path(
+            object_file
+        ).resolve()
 
+        # ------------------------------------------------------------
+        # Zielpfad der PUI-Datei bestimmen
+        # ------------------------------------------------------------
         if pui_file is None:
-            pui_path = object_path.with_suffix(".pui")
+            pui_path = object_path.with_suffix(
+                ".pui"
+            )
         else:
-            pui_path = Path(pui_file).resolve()
+            pui_path = Path(
+                pui_file
+            ).resolve()
 
         pui_path.parent.mkdir(
-            parents  = True,
-            exist_ok = True
+            parents=True,
+            exist_ok=True
         )
 
-        self.pending_pui["object"]["file"] = object_path.name
+        # ------------------------------------------------------------
+        # PUI-Bereiche sicherstellen
+        # ------------------------------------------------------------
+        object_info = self.pending_pui.setdefault(
+            "object",
+            {}
+        )
 
-        # Pfade in {$link}/{$linklib} werden später relativ zum
+        link_info = self.pending_pui.setdefault(
+            "link",
+            {}
+        )
+
+        # ------------------------------------------------------------
+        # Name der zugehörigen Objektdatei
+        # ------------------------------------------------------------
+        object_info["file"] = object_path.name
+
+        # Pfade aus {$link} und {$linklib} werden später relativ zum
         # Verzeichnis der PUI-Datei ausgewertet.
-        self.pending_pui["link"]["base_directory"] = "pui"
+        link_info["base_directory"] = "pui"
 
-        temporary_path = Path(str(pui_path) + ".tmp")
+        # ------------------------------------------------------------
+        # Unit-Makros übernehmen
+        # ------------------------------------------------------------
+        source_macros = getattr(
+            self,
+            "unit_source_macros",
+            {}
+        )
 
-        with open(
-            temporary_path,
-            "w",
-            encoding="utf-8",
-            newline="\n"
-        ) as stream:
-            json.dump(
-                self.pending_pui,
-                stream,
-                ensure_ascii=False,
-                indent=4
+        if not source_macros:
+            source_macros = getattr(
+                CDATA,
+                "unit_source_macros",
+                {}
+            )
+    
+        if source_macros is None:
+            source_macros = {}
+
+        if not isinstance(source_macros, dict):
+            raise RuntimeError(
+                "Unit macro metadata must be a dictionary"
             )
 
-            stream.write("\n")
+        pui_macros = {}
 
-        os.replace(
-            temporary_path,
-            pui_path
+        for macro_name, macro_value in source_macros.items():
+            name = str(
+                macro_name
+            ).strip().upper()
+
+            if not name:
+                raise RuntimeError(
+                    "PUI macro name must not be empty"
+                )
+
+            if not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_]*",
+                name
+            ):
+                raise RuntimeError(
+                    f"Invalid PUI macro name: {name}"
+                )
+
+            # JSON-kompatible und vom Preprocessor unterstützte Werte.
+            if isinstance(
+                macro_value,
+                (
+                    bool,
+                    int,
+                    float,
+                    str
+                )
+            ):
+                value = macro_value
+
+            elif macro_value is None:
+                value = None
+
+            else:
+                raise RuntimeError(
+                    f"Unsupported value type for PUI macro "
+                    f"{name}: "
+                    f"{type(macro_value).__name__}"
+                )
+
+            pui_macros[name] = value
+
+        # Sortierte Ausgabe macht die PUI-Dateien reproduzierbarer.
+        self.pending_pui["macros"] = dict(
+            sorted(
+                pui_macros.items()
+            )
         )
 
-        return str(pui_path)
+        # ------------------------------------------------------------
+        # Temporäre Datei für atomisches Schreiben
+        # ------------------------------------------------------------
+        temporary_path = Path(
+            str(pui_path) + ".tmp"
+        )
+        
+        if CDATA.debug_mode:
+            print("PUI MACROS:", pui_macros)
+        try:
+            with open(
+                temporary_path,
+                "w",
+                encoding="utf-8",
+                newline="\n"
+            ) as stream:
+                json.dump(
+                    self.pending_pui,
+                    stream,
+                    ensure_ascii=False,
+                    indent=4
+                )
+
+                stream.write("\n")
+
+            # Die vorhandene PUI wird erst ersetzt, wenn die temporäre
+            # Datei vollständig geschrieben wurde.
+            os.replace(
+                temporary_path,
+                pui_path
+            )
+
+        except Exception:
+            # Eine möglicherweise unvollständige temporäre Datei entfernen.
+            try:
+                if temporary_path.exists():
+                    temporary_path.unlink()
+
+            except OSError:
+                pass
+
+            raise
+
+        return str(
+            pui_path
+        )
     
     def visitExitStatement(self, ctx):
         if not self.exit_label_stack:
@@ -11515,372 +12632,1669 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         return "^" + array_info.element_type
     
+    def variable_ref_name(self, ctx, ref):
+        if ref is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="missing variable reference"
+            )
+
+        # Normaler IDENT-Token
+        ident = ref.IDENT()
+
+        if ident is not None:
+            # Absicherung, falls ANTLR eine Liste zurückliefert
+            if isinstance(ident, list):
+                if ident:
+                    return ident[0].getText()
+            else:
+                return ident.getText()
+
+        # Falls die Grammar eine allgemeine identifier-Regel besitzt
+        if hasattr(ref, "identifier"):
+            identifier_ctx = ref.identifier()
+
+            if identifier_ctx is not None:
+                return identifier_ctx.getText()
+
+        # Sicherer Fallback: erster Token der variableRef
+        start_token = getattr(
+            ref,
+            "start",
+            None
+        )
+
+        if (
+            start_token is not None
+            and start_token.text
+        ):
+            return start_token.text
+
+        # Letzter Fallback
+        if ref.getChildCount() > 0:
+            return ref.getChild(0).getText()
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "could not determine variable name from "
+                + ref.getText()
+            )
+        )
+    
+    def emit_load_open_array_element(
+        self,
+        ctx,
+        name,
+        param,
+        index_exprs
+    ):
+        if not isinstance(
+            index_exprs,
+            list
+        ):
+            index_exprs = [
+                index_exprs
+            ]
+
+        if len(index_exprs) != 1:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(index_exprs)),
+                expected="1"
+            )
+
+        element_type = self.resolve_type(
+            param.get(
+                "element_type"
+            )
+        )
+
+        data_offset = param.get(
+            "stack_offset"
+        )
+
+        high_offset = param.get(
+            "high_offset"
+        )
+
+        if data_offset is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"open array parameter {name} "
+                    f"has no data offset"
+                )
+            )
+
+        if high_offset is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"open array parameter {name} "
+                    f"has no High offset"
+                )
+            )
+
+        index_type = self.visit(
+            index_exprs[0]
+        )
+
+        if index_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=index_type,
+                expected="integer"
+            )
+
+        # --------------------------------------------------------
+        # NT32
+        #
+        # [ebp + data_offset] = Datenpointer
+        # [ebp + high_offset] = High-Wert
+        # --------------------------------------------------------
+        if CDATA.args_target in [
+            "nt35",
+            "winnt",
+            "win32"
+        ]:
+            fail_label = self.new_named_label(
+                "open_array_bounds_fail"
+            )
+
+            ok_label = self.new_named_label(
+                "open_array_bounds_ok"
+            )
+
+            # ECX = Index
+            self.emit_mov(
+                "ecx",
+                "eax",
+                comment=f"{name} index"
+            )
+
+            # Index >= 0
+            self.emit_cmp(
+                "ecx",
+                0
+            )
+
+            self.emit_jl(
+                fail_label
+            )
+
+            # EDX = High(Values)
+            self.emit_mov_dword_ptr(
+                "edx",
+                "ebp",
+                high_offset,
+                comment=f"High({name})"
+            )
+
+            # Index <= High
+            self.emit_cmp(
+                "ecx",
+                "edx"
+            )
+
+            self.emit_jg(
+                fail_label
+            )
+
+            self.emit_jmp(
+                ok_label
+            )
+
+            self.emit_bind_label(
+                fail_label
+            )
+
+            self.emit_soft_runtime_error(
+                f"Array bounds error: {name}"
+            )
+
+            self.emit_bind_label(
+                ok_label
+            )
+
+            # EDX = Datenpointer
+            self.emit_mov_dword_ptr(
+                "edx",
+                "ebp",
+                data_offset,
+                comment=f"{name} data"
+            )
+
+            if element_type in (
+                "integer",
+                "boolean"
+            ):
+                element_size = 4
+
+            elif element_type == "double":
+                element_size = 8
+
+            elif element_type == "string":
+                element_size = 4
+
+            elif (
+                isinstance(element_type, str)
+                and element_type.startswith("^")
+            ):
+                element_size = 4
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0014",
+                    var_type=element_type
+                )
+
+            if element_size != 1:
+                self.emit_imul(
+                    "ecx",
+                    "ecx",
+                    element_size
+                )
+
+            self.emit_add(
+                "edx",
+                "ecx",
+                comment=f"{name}[index] address"
+            )
+
+            if element_type == "integer":
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "edx",
+                    0,
+                    comment=f"{name}[index]"
+                )
+
+                return "integer"
+
+            if element_type == "boolean":
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "edx",
+                    0,
+                    comment=f"{name}[index]"
+                )
+
+                self.emit_and(
+                    "eax",
+                    1
+                )
+
+                return "boolean"
+
+            if element_type == "double":
+                self.emit_movsd_load(
+                    "xmm0",
+                    "edx",
+                    0,
+                    comment=f"{name}[index]"
+                )
+
+                return "double"
+
+            if element_type == "string":
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "edx",
+                    0,
+                    comment=f"{name}[index]"
+                )
+
+                return "string"
+
+            if (
+                isinstance(element_type, str)
+                and element_type.startswith("^")
+            ):
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "edx",
+                    0,
+                    comment=f"{name}[index]"
+                )
+
+                return element_type
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "open array element access is currently "
+                "implemented only for NT32"
+            )
+        )
+    
+    def visitArrayConstructor(self, ctx):
+        elements = self.collect_array_constructor_elements(
+            ctx
+        )
+
+        if CDATA.debug_mode:
+            print(
+                "ARRAY CONSTRUCTOR:",
+                ctx.getText()
+            )
+
+            print(
+                "ARRAY ELEMENTS:",
+                [
+                    element.getText()
+                    for element in elements
+                ]
+            )
+
+        if not elements:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "array constructor contains no "
+                    "recognizable expression elements: "
+                    + ctx.getText()
+                )
+            )
+
+        if CDATA.args_target not in [
+            "nt35",
+            "winnt",
+            "win32"
+        ]:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "array constructors are currently "
+                    "implemented only for NT32"
+                )
+            )
+
+        literal_id = self.next_open_array_literal_id
+        self.next_open_array_literal_id += 1
+
+        data_label = (
+            f"__open_array_literal_{literal_id}"
+        )
+
+        # ------------------------------------------------------------
+        # Erstes Element auswerten und Elementtyp bestimmen
+        # ------------------------------------------------------------
+        element_type = self.visit(
+            elements[0]
+        )
+
+        element_type = self.resolve_type(
+            element_type
+        )
+
+        if element_type in (
+            "integer",
+            "boolean"
+        ):
+            element_size = 4
+
+        elif element_type == "double":
+            element_size = 8
+
+        elif element_type == "string":
+            element_size = 4
+
+        elif (
+            isinstance(element_type, str)
+            and element_type.startswith("^")
+        ):
+            element_size = 4
+
+        else:
+            raise CompileError(
+                elements[0],
+                "E0005",
+                got=element_type,
+                expected=(
+                    "integer/boolean/double/string/pointer"
+                )
+            )
+
+        total_size = (
+            len(elements)
+            * element_size
+        )
+
+        # ------------------------------------------------------------
+        # Speicherplatz für das Arrayliteral im COFF-Datenbereich
+        # ------------------------------------------------------------
+        if self.coff.find_symbol_index(
+            data_label
+        ) is None:
+            self.coff.add_data_zeros(
+                data_label,
+                total_size,
+                alignment=(
+                    8
+                    if element_size == 8
+                    else 4
+                )
+            )
+
+        # ------------------------------------------------------------
+        # Aktuell ausgewertetes Element speichern
+        # ------------------------------------------------------------
+        def store_element(index):
+            byte_offset = (
+                index
+                * element_size
+            )
+
+            # EDX = Basisadresse des Arrayliterals
+            self.writer.emit_lea_reg_data_label(
+                "edx",
+                data_label
+            )
+
+            if element_type in (
+                "integer",
+                "boolean"
+            ):
+                if element_type == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1,
+                        comment="normalize boolean array element"
+                    )
+
+                self.emit_mov_dword_ptr_store(
+                    "edx",
+                    byte_offset,
+                    "eax",
+                    comment=(
+                        f"array literal element {index}"
+                    )
+                )
+
+                return
+
+            if element_type == "double":
+                self.emit_movsd_store(
+                    "edx",
+                    byte_offset,
+                    "xmm0",
+                    comment=(
+                        f"array literal element {index}"
+                    )
+                )
+
+                return
+
+            if element_type == "string":
+                self.emit_mov_dword_ptr_store(
+                    "edx",
+                    byte_offset,
+                    "eax",
+                    comment=(
+                        f"array literal element {index}"
+                    )
+                )
+
+                return
+
+            if (
+                isinstance(element_type, str)
+                and element_type.startswith("^")
+            ):
+                self.emit_mov_dword_ptr_store(
+                    "edx",
+                    byte_offset,
+                    "eax",
+                    comment=(
+                        f"array literal element {index}"
+                    )
+                )
+
+                return
+
+            raise CompileError(
+                ctx,
+                "E0014",
+                var_type=element_type
+            )
+
+        # Erstes Element wurde bereits ausgewertet.
+        store_element(
+            0
+        )
+
+        # ------------------------------------------------------------
+        # Restliche Elemente auswerten
+        # ------------------------------------------------------------
+        for index in range(
+            1,
+            len(elements)
+        ):
+            current_type = self.visit(
+                elements[index]
+            )
+
+            current_type = self.resolve_type(
+                current_type
+            )
+
+            # Integer und Boolean nicht stillschweigend mischen.
+            if current_type != element_type:
+                raise CompileError(
+                    elements[index],
+                    "E0005",
+                    got=current_type,
+                    expected=element_type
+                )
+
+            store_element(
+                index
+            )
+
+        # ------------------------------------------------------------
+        # Ergebnisadresse laden
+        # ------------------------------------------------------------
+        self.writer.emit_lea_reg_data_label(
+            "eax",
+            data_label
+        )
+
+        # Metadaten müssen erst nach der Auswertung aller Elemente
+        # gesetzt werden, damit verschachtelte Visitor-Aufrufe sie
+        # nicht überschreiben.
+        self.pending_open_array_actual = {
+            "element_type": element_type,
+            "high": len(elements) - 1,
+            "count": len(elements),
+            "element_size": element_size,
+            "data_label": data_label,
+            "stack_bytes": 0
+        }
+
+        return (
+            f"open_array:{element_type}"
+        )
+    
     def visitFactor(self, ctx):
         text = ctx.getText()
-        key  = text.lower()
-        
+
+        # ------------------------------------------------------------
+        # Identifier einer variableRef sicher ermitteln.
+        #
+        # Bei reservierten Wörtern wie VALUES kann ref.IDENT() None
+        # liefern, obwohl der Name als erster Token vorhanden ist.
+        # ------------------------------------------------------------
+        def variable_ref_name(ref):
+            if ref is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text="missing variable reference"
+                )
+
+            if hasattr(ref, "IDENT"):
+                ident = ref.IDENT()
+
+                if isinstance(ident, list):
+                    if ident:
+                        return ident[0].getText()
+
+                elif ident is not None:
+                    return ident.getText()
+
+            if hasattr(ref, "identifier"):
+                ident_ctx = ref.identifier()
+
+                if ident_ctx is not None:
+                    return ident_ctx.getText()
+
+            start_token = getattr(
+                ref,
+                "start",
+                None
+            )
+
+            if (
+                start_token is not None
+                and getattr(start_token, "text", None)
+            ):
+                return start_token.text
+
+            if ref.getChildCount() > 0:
+                return ref.getChild(0).getText()
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "could not determine variable name from "
+                    + ref.getText()
+                )
+            )
+
+        # ------------------------------------------------------------
+        # Identifier hinter einem Punkt ermitteln:
+        #
+        #   Object.Field
+        #   Pointer^.Field
+        #
+        # Auch hier kann IDENT() bei reservierten Tokens None liefern.
+        # ------------------------------------------------------------
+        def suffix_identifier(suffix):
+            if suffix is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text="missing variable suffix"
+                )
+
+            if hasattr(suffix, "IDENT"):
+                ident = suffix.IDENT()
+
+                if isinstance(ident, list):
+                    if ident:
+                        return ident[0].getText()
+
+                elif ident is not None:
+                    return ident.getText()
+
+            if hasattr(suffix, "identifier"):
+                ident_ctx = suffix.identifier()
+
+                if ident_ctx is not None:
+                    return ident_ctx.getText()
+
+            # Bei ".Field" ist der letzte Child normalerweise Field.
+            count = suffix.getChildCount()
+
+            for index in range(count - 1, -1, -1):
+                value = suffix.getChild(index).getText()
+
+                if value not in (
+                    ".",
+                    "^",
+                    "[",
+                    "]",
+                    ","
+                ):
+                    return value
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "could not determine suffix identifier from "
+                    + suffix.getText()
+                )
+            )
+
+        # ------------------------------------------------------------
+        # Einfachen Identifier laden.
+        #
+        # Diese zentrale Funktion ersetzt die bisher mehrfach
+        # vorhandene Identifier-Auflösung.
+        # ------------------------------------------------------------
+        def load_plain_identifier(name):
+            # Lokale Variable hat höchste Priorität.
+            local_var = self.find_local_var(
+                name
+            )
+
+            if local_var is not None:
+                return self.emit_load_local_var(
+                    ctx,
+                    name,
+                    local_var
+                )
+
+            # Danach formaler Parameter.
+            param = self.find_param(
+                name
+            )
+
+            if param is not None:
+                # Ein offenes Array ohne Index wird als Datenpointer
+                # geladen. Das ist unter anderem für eine spätere
+                # Weitergabe an andere Routinen nützlich.
+                if param.get(
+                    "is_open_array",
+                    False
+                ):
+                    offset = param.get(
+                        "stack_offset"
+                    )
+
+                    if offset is None:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                f"open array parameter {name} "
+                                f"has no stack offset"
+                            )
+                        )
+
+                    if CDATA.args_target in [
+                        "nt35",
+                        "winnt",
+                        "win32"
+                    ]:
+                        self.emit_mov_dword_ptr(
+                            "eax",
+                            "ebp",
+                            offset,
+                            comment=f"{name} data"
+                        )
+
+                        return param["type"]
+
+                    if CDATA.args_target in [
+                        "dos",
+                        "dos16"
+                    ]:
+                        self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                            "ax",
+                            "bp",
+                            offset
+                        )
+
+                        return param["type"]
+
+                    self.emit_mov_qword_ptr(
+                        "rax",
+                        "rbp",
+                        offset,
+                        comment=f"{name} data"
+                    )
+
+                    return param["type"]
+
+                return self.emit_load_param(
+                    ctx,
+                    name
+                )
+
+            # Klassenfeld von Self.
+            self_field_type = self.emit_load_self_field(
+                ctx,
+                name
+            )
+
+            if self_field_type is not None:
+                return self_field_type
+
+            # Lokale oder globale Konstante.
+            const_info = self.find_const(
+                name
+            )
+
+            if const_info is not None:
+                return self.emit_load_const(
+                    ctx,
+                    name
+                )
+
+            # Globale Variable.
+            key = name.lower()
+
+            if key in self.vars:
+                info = self.var_info(
+                    ctx,
+                    name
+                )
+
+                self.emit_load_var(
+                    name,
+                    info
+                )
+
+                return self.resolve_type(
+                    info["type"]
+                )
+
+            # Parameterlose Methode der aktuellen Klasse.
+            if self.current_class is not None:
+                try:
+                    return self.emit_self_method_call(
+                        ctx,
+                        name,
+                        []
+                    )
+
+                except CompileError:
+                    pass
+
+            # Parameterlose Funktion ohne Klammern.
+            func = self.find_function(
+                name
+            )
+
+            if func is not None:
+                params = func.get(
+                    "params",
+                    []
+                )
+
+                if len(params) == 0:
+                    if CDATA.args_target in [
+                        "nt35",
+                        "winnt",
+                        "win32"
+                    ]:
+                        self.emit_registered_routine_call(
+                            func
+                        )
+
+                    else:
+                        self.emit_sub(
+                            "rsp",
+                            32,
+                            comment=(
+                                "shadow space for "
+                                "parameterless function call"
+                            )
+                        )
+
+                        self.emit_registered_routine_call(
+                            func
+                        )
+
+                        self.emit_add(
+                            "rsp",
+                            32
+                        )
+
+                    return self.resolve_type(
+                        func["return_type"]
+                    )
+
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=name
+            )
+
+        # ============================================================
+        # Vorzeichen
+        # ============================================================
         if ctx.MINUS():
-            expr_type = self.visit(ctx.factor())
+            expr_type = self.visit(
+                ctx.factor()
+            )
 
             if expr_type == "integer":
-                self.emit_mov("ebx", "eax")
-                self.emit_xor("eax", "eax")
-                self.emit_sub("eax", "ebx")
+                self.emit_mov(
+                    "ebx",
+                    "eax"
+                )
+
+                self.emit_xor(
+                    "eax",
+                    "eax"
+                )
+
+                self.emit_sub(
+                    "eax",
+                    "ebx"
+                )
+
                 return "integer"
 
             if expr_type == "double":
-                # 0.0 - xmm0
-                self.emit_sub("rsp", 8)
-                self.emit_movsd_store("rsp", 0, "xmm0")
+                if CDATA.args_target in [
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ]:
+                    self.emit_sub(
+                        "esp",
+                        8
+                    )
 
-                self.emit_mov("eax", 0)
-                self.emit_cvtsi2sd("xmm0", "eax")
+                    self.emit_movsd_store(
+                        "esp",
+                        0,
+                        "xmm0"
+                    )
 
-                self.emit_movsd_load("xmm1", "rsp", 0)
-                self.emit_add("rsp", 8)
+                    self.emit_xor(
+                        "eax",
+                        "eax"
+                    )
 
-                self.emit_subsd("xmm0", "xmm1")
+                    self.emit_cvtsi2sd(
+                        "xmm0",
+                        "eax"
+                    )
+
+                    self.emit_movsd_load(
+                        "xmm1",
+                        "esp",
+                        0
+                    )
+
+                    self.emit_add(
+                        "esp",
+                        8
+                    )
+
+                else:
+                    self.emit_sub(
+                        "rsp",
+                        8
+                    )
+
+                    self.emit_movsd_store(
+                        "rsp",
+                        0,
+                        "xmm0"
+                    )
+
+                    self.emit_xor(
+                        "eax",
+                        "eax"
+                    )
+
+                    self.emit_cvtsi2sd(
+                        "xmm0",
+                        "eax"
+                    )
+
+                    self.emit_movsd_load(
+                        "xmm1",
+                        "rsp",
+                        0
+                    )
+
+                    self.emit_add(
+                        "rsp",
+                        8
+                    )
+
+                self.emit_subsd(
+                    "xmm0",
+                    "xmm1"
+                )
+
                 return "double"
 
-            raise CompileError(ctx, "E0005", got=expr_type, expected="integer/double")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=expr_type,
+                expected="integer/double"
+            )
 
         if ctx.PLUS():
-            return self.visit(ctx.factor())
-        
+            return self.visit(
+                ctx.factor()
+            )
+
+        # ============================================================
+        # Boolean-Literale und NOT
+        # ============================================================
+
         if ctx.TRUE():
-            self.emit_mov_imm("eax", 1)
+            self.emit_mov_imm(
+                "eax",
+                1
+            )
+
             return "boolean"
 
         if ctx.FALSE():
-            self.emit_mov_imm("eax", 0)
+            self.emit_mov_imm(
+                "eax",
+                0
+            )
+
             return "boolean"
-        
+
         if ctx.NOT():
-            t = self.visit(ctx.factor())
+            expr_type = self.visit(
+                ctx.factor()
+            )
 
-            if t != "boolean":
-                raise CompileError(ctx, "E0005", got=t, expected="boolean")
+            if expr_type != "boolean":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected="boolean"
+                )
 
-            lbl_true = self.new_named_label("not_true")
-            lbl_end  = self.new_named_label("not_end")
+            true_label = self.new_named_label(
+                "not_true"
+            )
 
-            self.emit_cmp("eax", 0)
-            self.emit_je(lbl_true)
+            end_label = self.new_named_label(
+                "not_end"
+            )
 
-            # operand war TRUE -> FALSE
-            self.emit_mov("eax", 0)
-            self.emit_jmp(lbl_end)
+            self.emit_cmp(
+                "eax",
+                0
+            )
 
-            self.emit_bind_label(lbl_true)
-            self.emit_mov("eax", 1)
+            self.emit_je(
+                true_label
+            )
 
-            self.emit_bind_label(lbl_end)
+            self.emit_mov(
+                "eax",
+                0
+            )
+
+            self.emit_jmp(
+                end_label
+            )
+
+            self.emit_bind_label(
+                true_label
+            )
+
+            self.emit_mov(
+                "eax",
+                1
+            )
+
+            self.emit_bind_label(
+                end_label
+            )
 
             return "boolean"
-        
+
+        # ============================================================
+        # Adressoperator @
+        # ============================================================
+
         if ctx.AT():
             ref = ctx.variableRef()
-            name = ref.IDENT().getText()
-            suffixes = ref.variableSuffix()
-            
+
+            if ref is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text="address operator requires a variable"
+                )
+
+            name = variable_ref_name(
+                ref
+            )
+
+            suffixes = list(
+                ref.variableSuffix()
+            )
+
             if suffixes:
                 first = suffixes[0]
-                
+
                 if first.LBRACK():
-                    index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
+                    index_exprs, rest_suffixes = (
+                        self.collect_array_suffix_exprs(
+                            suffixes
+                        )
+                    )
+
+                    if rest_suffixes:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "address of array record field "
+                                "is not implemented yet"
+                            )
+                        )
+
+                    param = self.find_param(
+                        name
+                    )
+
+                    if (
+                        param is not None
+                        and param.get(
+                            "is_open_array",
+                            False
+                        )
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "address of an open-array element "
+                                "is not implemented yet"
+                            )
+                        )
+
                     return self.emit_address_of_array_element(
                         ctx,
                         name,
                         index_exprs
                     )
-            
-            return self.emit_address_of_var(ctx, name)
-        
-        # Function call zuerst
-        if ctx.functionCallExpr():
-            return self.visit(ctx.functionCallExpr())
-        
-        if ctx.variableRef():
-            ref      = ctx.variableRef()
-            suffixes = ref.variableSuffix()
-            name     = ref.IDENT().getText()
 
+            return self.emit_address_of_var(
+                ctx,
+                name
+            )
+
+        # ============================================================
+        # Expliziter Funktionsaufruf
+        # ============================================================
+
+        if ctx.functionCallExpr():
+            return self.visit(
+                ctx.functionCallExpr()
+            )
+
+        # ============================================================
+        # Arraykonstruktor
+        #
+        # Beispiel:
+        #
+        #   [1, 2, 3]
+        #
+        # Die eigentliche Implementierung gehört in
+        # visitArrayConstructor().
+        # ============================================================
+        if (
+            hasattr(ctx, "arrayConstructor")
+            and ctx.arrayConstructor() is not None
+        ):
+            return self.visit(
+                ctx.arrayConstructor()
+            )
+
+        # ============================================================
+        # VariableRef:
+        #
+        #   Value
+        #   Values[I]
+        #   P^
+        #   P^.Field
+        #   Object.Field
+        #   TFoo.Create
+        # ============================================================
+        if ctx.variableRef():
+            ref = ctx.variableRef()
+
+            name = variable_ref_name(
+                ref
+            )
+
+            suffixes = list(
+                ref.variableSuffix()
+            )
+
+            # --------------------------------------------------------
+            # Einfacher Name ohne Suffix
+            # --------------------------------------------------------
             if not suffixes:
-                self_field_type = self.emit_load_self_field(ctx, name)
-                if self_field_type is not None:
-                    return self_field_type
-            
-            if suffixes:
-                first     = suffixes[0]
-                has_caret = any(s.CARET() for s in suffixes)
-                has_dot   = any(s.DOT()   for s in suffixes)
-                
-                if has_caret and has_dot:
-                    parts = [ref.IDENT().getText()]
-                    
-                    after_caret = False
-                    for s in suffixes:
-                        if s.CARET():
-                            after_caret = True
-                            continue
-                        
-                        if after_caret and s.DOT():
-                            parts.append(s.IDENT().getText())
-                    
-                    return self.emit_load_pointer_record_field(ctx, parts)
-                
-                if first.CARET():
-                    var_name = ref.IDENT().getText()
-                    return self.emit_load_pointer_deref(ctx, var_name)
-                
-                if first.LBRACK():
-                    var_name = ref.IDENT().getText()
-                    var_info = self.var_info(ctx, var_name)
-                    var_type = var_info["type"]
-                    
-                    index_exprs, rest_suffixes = self.collect_array_suffix_exprs(suffixes)
-                    
-                    # Spezialfall: s[0] = ganzer String
-                    if var_type == "string":
-                        index_exprs = list(first.expr())
-                        
-                        if len(index_exprs) == 1 and index_exprs[0].getText() == "0":
-                            self.emit_load_var(var_name, var_info)   # RAX = char*
-                            return "string"
-                        
-                        return self.emit_load_string_char(
-                            ctx,
-                            var_name,
-                            index_exprs
-                        )
-                    
-                    # points[0].X
-                    if rest_suffixes and rest_suffixes[0].DOT():
-                        field_parts = []
-                        
-                        for s in rest_suffixes:
-                            if s.DOT():
-                                field_parts.append(s.IDENT().getText())
-                        
-                        var_info, array_info = self.get_array_info(ctx, var_name)
-                        
-                        if getattr(array_info, "is_dynamic", False):
-                            return self.emit_load_dynamic_array_record_field(
-                                ctx,
-                                var_name,
-                                index_exprs,
-                                field_parts
+                return load_plain_identifier(
+                    name
+                )
+
+            first = suffixes[0]
+
+            has_caret = any(
+                suffix.CARET()
+                for suffix in suffixes
+            )
+
+            has_dot = any(
+                suffix.DOT()
+                for suffix in suffixes
+            )
+
+            # --------------------------------------------------------
+            # Pointer auf Record:
+            #
+            #   P^.Field
+            # --------------------------------------------------------
+            if has_caret and has_dot:
+                parts = [
+                    name
+                ]
+
+                after_caret = False
+
+                for suffix in suffixes:
+                    if suffix.CARET():
+                        after_caret = True
+                        continue
+
+                    if (
+                        after_caret
+                        and suffix.DOT()
+                    ):
+                        parts.append(
+                            suffix_identifier(
+                                suffix
                             )
-                        
-                        return self.emit_load_array_record_field(
+                        )
+
+                return self.emit_load_pointer_record_field(
+                    ctx,
+                    parts
+                )
+
+            # --------------------------------------------------------
+            # Einfaches Dereferenzieren:
+            #
+            #   P^
+            # --------------------------------------------------------
+            if first.CARET():
+                return self.emit_load_pointer_deref(
+                    ctx,
+                    name
+                )
+
+            # --------------------------------------------------------
+            # Array- oder Stringzugriff:
+            #
+            #   Values[I]
+            #   A[I]
+            #   S[I]
+            #   Points[I].X
+            # --------------------------------------------------------
+            if first.LBRACK():
+                index_exprs, rest_suffixes = (
+                    self.collect_array_suffix_exprs(
+                        suffixes
+                    )
+                )
+
+                if not index_exprs:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"array index missing for {name}"
+                        )
+                    )
+
+                # ----------------------------------------------------
+                # Offenes Array als Parameter:
+                #
+                #   Values[I]
+                # ----------------------------------------------------
+                param = self.find_param(
+                    name
+                )
+
+                if (
+                    param is not None
+                    and param.get(
+                        "is_open_array",
+                        False
+                    )
+                ):
+                    if rest_suffixes:
+                        raise CompileError(
                             ctx,
-                            var_name,
+                            "E0019",
+                            text=(
+                                "record fields on open-array "
+                                "elements are not implemented yet"
+                            )
+                        )
+
+                    return self.emit_load_open_array_element(
+                        ctx,
+                        name,
+                        param,
+                        index_exprs
+                    )
+
+                # Die vorhandenen Array- und String-Emitter arbeiten
+                # derzeit mit globalen Variablen aus self.vars.
+                var_info = self.var_info(
+                    ctx,
+                    name
+                )
+
+                var_type = self.resolve_type(
+                    var_info["type"]
+                )
+
+                # ----------------------------------------------------
+                # Stringzugriff:
+                #
+                #   S[0] = kompletter String
+                #   S[I] = einzelnes Zeichen
+                # ----------------------------------------------------
+                if var_type == "string":
+                    if (
+                        len(index_exprs) == 1
+                        and index_exprs[0].getText() == "0"
+                    ):
+                        self.emit_load_var(
+                            name,
+                            var_info
+                        )
+
+                        return "string"
+
+                    return self.emit_load_string_char(
+                        ctx,
+                        name,
+                        index_exprs
+                    )
+
+                # ----------------------------------------------------
+                # Array aus Records:
+                #
+                #   Points[I].X
+                # ----------------------------------------------------
+                if (
+                    rest_suffixes
+                    and rest_suffixes[0].DOT()
+                ):
+                    field_parts = []
+
+                    for suffix in rest_suffixes:
+                        if suffix.DOT():
+                            field_parts.append(
+                                suffix_identifier(
+                                    suffix
+                                )
+                            )
+
+                    var_info, array_info = self.get_array_info(
+                        ctx,
+                        name
+                    )
+
+                    if getattr(
+                        array_info,
+                        "is_dynamic",
+                        False
+                    ):
+                        return self.emit_load_dynamic_array_record_field(
+                            ctx,
+                            name,
                             index_exprs,
                             field_parts
                         )
-                    
-                    # normales a[0]
-                    return self.emit_load_array_element(
-                        ctx,
-                        var_name,
-                        index_exprs
-                    )
-                
-                if first.DOT():
-                    parts = [ref.IDENT().getText()]
-                    
-                    for s in suffixes:
-                        if s.DOT():
-                            parts.append(s.IDENT().getText())
-                    
-                    # TFoo.Create
-                    if len(parts) == 2:
-                        class_name  = parts[0]
-                        method_name = parts[1]
-                        
-                        if (
-                            class_name.lower() in self.classes
-                            and method_name.lower() == "create"
-                        ):
-                            return self.emit_class_constructor_call(
-                                ctx,
-                                class_name,
-                                method_name
-                            )
-                    
-                    var_name = parts[0]
-                    var_info = self.var_info(ctx, var_name)
-                    var_type = self.resolve_type(var_info["type"])
-                    
-                    if isinstance(var_type, str) and var_type in self.classes:
-                        prop_type = self.emit_load_class_property(ctx, parts)
-                        if prop_type:
-                            return prop_type
-                        return self.emit_load_class_field(ctx, parts)
-                    return self.emit_load_record_field(ctx, parts)
-            
-            name = ref.IDENT().getText()
-            
-            local_var = self.find_local_var(name)
-            if local_var:
-                return self.emit_load_local_var(ctx, name, local_var)
-            
-            param = self.find_param(name)
-            if param:
-                return self.emit_load_param(ctx, name)
-            
-            const_info = self.find_const(name)
-            if const_info:
-                return self.emit_load_const(ctx, name)
-            
-            key = name.lower()
-            if key in self.vars:
-                info = self.var_info(ctx, name)
-                self.emit_load_var(name, info)
-                return info["type"]
-            
-            if self.current_class is not None:
-                try:
-                    return self.emit_self_method_call(ctx, name, [])
-                except CompileError:
-                    pass
-            
-            func = self.find_function(name)
-            if func:
-                params = func.get("params", [])
 
-                if len(params) == 0:
-                    if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                        self.emit_registered_routine_call(func)
-                        return self.resolve_type(func["return_type"])
-                    else:
-                        self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
-                        self.emit_registered_routine_call(func)
-                        self.emit_add("rsp", 32)
-                        return self.resolve_type(func["return_type"])
-            
-            raise CompileError(ctx, "E0001", name=name)
-        
-        # Klammerausdruck nur wenn wirklich vorhanden
+                    return self.emit_load_array_record_field(
+                        ctx,
+                        name,
+                        index_exprs,
+                        field_parts
+                    )
+
+                # ----------------------------------------------------
+                # Normaler Arrayzugriff
+                # ----------------------------------------------------
+                return self.emit_load_array_element(
+                    ctx,
+                    name,
+                    index_exprs
+                )
+
+            # --------------------------------------------------------
+            # Punktzugriff:
+            #
+            #   TFoo.Create
+            #   Object.Field
+            #   Object.Property
+            #   Record.Field
+            # --------------------------------------------------------
+            if first.DOT():
+                parts = [
+                    name
+                ]
+
+                for suffix in suffixes:
+                    if suffix.DOT():
+                        parts.append(
+                            suffix_identifier(
+                                suffix
+                            )
+                        )
+
+                # TFoo.Create
+                if len(parts) == 2:
+                    class_name = parts[0]
+                    method_name = parts[1]
+
+                    if (
+                        class_name.lower() in self.classes
+                        and method_name.lower() == "create"
+                    ):
+                        return self.emit_class_constructor_call(
+                            ctx,
+                            class_name,
+                            method_name
+                        )
+
+                var_name = parts[0]
+
+                var_info = self.var_info(
+                    ctx,
+                    var_name
+                )
+
+                var_type = self.resolve_type(
+                    var_info["type"]
+                )
+
+                if (
+                    isinstance(var_type, str)
+                    and var_type in self.classes
+                ):
+                    property_type = self.emit_load_class_property(
+                        ctx,
+                        parts
+                    )
+
+                    if property_type is not None:
+                        return property_type
+
+                    return self.emit_load_class_field(
+                        ctx,
+                        parts
+                    )
+
+                return self.emit_load_record_field(
+                    ctx,
+                    parts
+                )
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "unsupported variable suffix: "
+                    + ref.getText()
+                )
+            )
+
+        # ============================================================
+        # Geklammerter Ausdruck
+        # ============================================================
+
         expr_list = ctx.expr()
+
         if expr_list:
-            if isinstance(expr_list, list):
-                if len(expr_list) > 0:
-                    return self.visit(expr_list[0])
+            if isinstance(
+                expr_list,
+                list
+            ):
+                if expr_list:
+                    return self.visit(
+                        expr_list[0]
+                    )
+
             else:
-                return self.visit(expr_list)
-        
+                return self.visit(
+                    expr_list
+                )
+
+        # ============================================================
+        # NIL
+        # ============================================================
+
         if ctx.NIL():
-            self.emit_xor("rax", "rax", comment = "nil")
+            if CDATA.args_target in [
+                "nt35",
+                "winnt",
+                "win32"
+            ]:
+                self.emit_xor(
+                    "eax",
+                    "eax",
+                    comment="nil"
+                )
+
+            elif CDATA.args_target in [
+                "dos",
+                "dos16"
+            ]:
+                self.emit_xor(
+                    "eax",
+                    "eax",
+                    comment="nil offset"
+                )
+
+                self.emit_xor(
+                    "edx",
+                    "edx",
+                    comment="nil segment"
+                )
+
+            else:
+                self.emit_xor(
+                    "rax",
+                    "rax",
+                    comment="nil"
+                )
+
             return "^nil"
-        
-        # Integer
+
+        # ============================================================
+        # Integerliteral
+        # ============================================================
+
         if ctx.NUMBER():
             value = ctx.NUMBER().getText()
-            self.emit_mov_imm("eax", value)
-            #self.emit(f"a.mov(x86::eax, {value});")
+
+            self.emit_mov_imm(
+                "eax",
+                value
+            )
+
             return "integer"
-        
-        # Double
+
+        # ============================================================
+        # Doubleliteral
+        # ============================================================
+
         if ctx.FLOATNUMBER():
             value = ctx.FLOATNUMBER().getText()
-            return self.emit_load_double_literal(value)
-        
-        # String
-        if ctx.STRING():
-            value = ctx.STRING().getText()[1:-1]
-            label = self.add_string_literal(value)
 
-            # Erst Char prüfen!
+            return self.emit_load_double_literal(
+                value
+            )
+
+        # ============================================================
+        # String- oder Zeichenliteral
+        # ============================================================
+
+        if ctx.STRING():
+            try:
+                value = self.pascal_token_string(
+                    ctx.STRING()
+                )
+            except ValueError:
+                value = ctx.STRING().getText()[1:-1]
+
+            label = self.add_string_literal(
+                value
+            )
+
+            # Ein Zeichen bleibt ein Char.
             if len(value) == 1:
-                if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    self.writer.emit_lea_reg_data_label("eax", label)
+                if CDATA.args_target in [
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ]:
+                    self.writer.emit_lea_reg_data_label(
+                        "eax",
+                        label
+                    )
+
+                elif CDATA.args_target in [
+                    "dos",
+                    "dos16"
+                ]:
+                    self.backend.writer.emit_mov_dx_label(
+                        label
+                    )
+
                 else:
-                    self.emit_mov_imm("rax", label)
+                    self.emit_mov_imm(
+                        "rax",
+                        label
+                    )
 
                 return "char"
 
-            # Nur echte Strings zu DynString machen
-            if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                self.backend.writer.emit_push_data_label32(label)
-                self.emit_call("_jit_dynstring_from_cstr")
-                self.backend.emit_cleanup_stack(4)
-                self.writer.emit_lea_reg_data_label("esi", "ctx")
+            # Mehrere Zeichen werden in einen dynamischen String
+            # umgewandelt.
+            if CDATA.args_target in [
+                "nt35",
+                "winnt",
+                "win32"
+            ]:
+                self.backend.writer.emit_push_data_label32(
+                    label
+                )
+
+                self.emit_call(
+                    "_jit_dynstring_from_cstr"
+                )
+
+                self.backend.emit_cleanup_stack(
+                    4
+                )
+
+                if self.coff.find_symbol_index(
+                    "ctx"
+                ) is not None:
+                    self.writer.emit_lea_reg_data_label(
+                        "esi",
+                        "ctx"
+                    )
+
+            elif CDATA.args_target in [
+                "dos",
+                "dos16"
+            ]:
+                self.backend.writer.emit_mov_dx_label(
+                    label
+                )
+
             else:
-                self.emit_mov_imm("rcx", label)
-                self.emit_mov_imm("rax", "&_jit_dynstring_from_cstr")
+                self.emit_mov_imm(
+                    "rcx",
+                    label
+                )
+
+                self.emit_mov_imm(
+                    "rax",
+                    "&_jit_dynstring_from_cstr"
+                )
+
                 self.emit_call_rax()
 
-            return "string"        
-            
-        # Identifier
-        if ctx.IDENT():
-            name = ctx.IDENT().getText()
-            
-            local_var = self.find_local_var(name)
-            if local_var:
-                return self.emit_load_local_var(ctx, name, local_var)
-            
-            param = self.find_param(name)
-            if param:
-                return self.emit_load_param(ctx, name)
-            
-            self_field_type = self.emit_load_self_field(ctx, name)
-            if self_field_type is not None:
-                return self_field_type
-            
-            const_info = self.find_const(name)
-            if const_info:
-                return self.emit_load_const(ctx, name)
-            
-            key = name.lower()
-            if key in self.vars:
-                info = self.var_info(ctx, name)
-                self.emit_load_var(name, info)
-                return info["type"]
-            
-            func      = self.find_function(name)
-            local_var = self.find_local_var(name)
-            
-            if local_var:
-                return self.emit_load_local_var(ctx, name, local_var)
-            
-            param = self.find_param(name)
-            if param:
-                return self.emit_load_param(name)
-            
-            # globale Variable
-            key = name.lower()
-            if key in self.vars:
-                info = self.var_info(ctx, name)
-                self.emit_load_var(name, info)
-                return info["type"]
-            
-            if self.current_class is not None:
-                try:
-                    return self.emit_self_method_call(ctx, name, [])
-                except CompileError:
-                    pass
-            
-            # parameterlose Funktion ohne Klammern:
-            func = self.find_function(name)
-            if func:
-                params = func.get("params", [])
+            return "string"
 
-                if len(params) == 0:
-                    if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                        self.emit_registered_routine_call(func)
-                        return self.resolve_type(func["return_type"])
-                    else:
-                        self.emit_sub("rsp", 32, comment="shadow space for parameterless function call")
-                        self.emit_registered_routine_call(func)
-                        self.emit_add("rsp", 32)
-                        return self.resolve_type(func["return_type"])
-            
-            raise CompileError(ctx, "E0001", name=name)
+        # ============================================================
+        # Direkter IDENT-Faktor
+        #
+        # Einige Grammar-Alternativen erzeugen keinen variableRef-
+        # Kontext, sondern liefern den Identifier direkt.
+        # ============================================================
+
+        if ctx.IDENT():
+            ident = ctx.IDENT()
+
+            if isinstance(ident, list):
+                if not ident:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text="empty identifier"
+                    )
+
+                name = ident[0].getText()
+
+            else:
+                name = ident.getText()
+
+            return load_plain_identifier(
+                name
+            )
+
+        raise CompileError(
+            ctx,
+            "E0015",
+            text=text
+        )
         
-        raise CompileError(ctx, "E0015", text=text)
-    
     def get_single_builtin_arg(self, ctx):
         actuals = []
 
@@ -11897,47 +14311,332 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         
     def emit_builtin_low(self, ctx):
         arg_ctx = self.get_single_builtin_arg(ctx)
+
         name = arg_ctx.getText()
 
-        var_info = self.var_info(ctx, name)
-        var_type = self.resolve_type(var_info["type"])
+        # --------------------------------------------------------
+        # Offenes Array als Funktionsparameter
+        #
+        # function Sum(
+        #     const Values: array of Integer
+        # ): Integer;
+        #
+        # Offene Arrays beginnen immer bei Index 0.
+        # --------------------------------------------------------
+        param = self.find_param(
+            name
+        )
 
-        if isinstance(var_type, str) and var_type in self.arrays:
-            array_info = self.arrays[var_type]
+        if (
+            param is not None
+            and param.get(
+                "is_open_array",
+                False
+            )
+        ):
+            self.emit_mov(
+                "eax",
+                0,
+                comment=f"Low({name})"
+            )
 
-            # Dynamische Arrays: immer 0
-            if getattr(array_info, "is_dynamic", False):
-                self.emit_mov("eax", 0)
-                return "integer"
-
-            # Statische Arrays: index_min
-            self.emit_mov("eax", array_info.index_min)
             return "integer"
 
-        raise CompileError(ctx, "E0005", got=var_type, expected="array")
+        # --------------------------------------------------------
+        # Lokale Arrayvariable
+        # --------------------------------------------------------
+        local_var = self.find_local_var(
+            name
+        )
+
+        if local_var is not None:
+            var_type = self.resolve_type(
+                local_var["type"]
+            )
+
+            if (
+                isinstance(var_type, str)
+                and var_type in self.arrays
+            ):
+                array_info = self.arrays[
+                    var_type
+                ]
+
+                if getattr(
+                    array_info,
+                    "is_dynamic",
+                    False
+                ):
+                    self.emit_mov(
+                        "eax",
+                        0,
+                        comment=f"Low({name})"
+                    )
+
+                    return "integer"
+
+                self.emit_mov(
+                    "eax",
+                    array_info.index_min,
+                    comment=f"Low({name})"
+                )
+
+                return "integer"
+
+        # --------------------------------------------------------
+        # Globale Arrayvariable
+        # --------------------------------------------------------
+        key = name.lower()
+
+        if key in self.vars:
+            var_info = self.vars[key]
+
+            var_type = self.resolve_type(
+                var_info["type"]
+            )
+
+            if (
+                isinstance(var_type, str)
+                and var_type in self.arrays
+            ):
+                array_info = self.arrays[
+                    var_type
+                ]
+
+                if getattr(
+                    array_info,
+                    "is_dynamic",
+                    False
+                ):
+                    self.emit_mov(
+                        "eax",
+                        0,
+                        comment=f"Low({name})"
+                    )
+
+                    return "integer"
+
+                self.emit_mov(
+                    "eax",
+                    array_info.index_min,
+                    comment=f"Low({name})"
+                )
+
+                return "integer"
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=name,
+            expected="array"
+        )
 
     def emit_builtin_high(self, ctx):
-        arg_ctx = self.get_single_builtin_arg(ctx)
+        arg_ctx = self.get_single_builtin_arg(
+            ctx
+        )
+
         name = arg_ctx.getText()
 
-        var_info = self.var_info(ctx, name)
-        var_type = self.resolve_type(var_info["type"])
+        # --------------------------------------------------------
+        # Offenes Array als Funktionsparameter
+        # --------------------------------------------------------
+        param = self.find_param(
+            name
+        )
 
-        if isinstance(var_type, str) and var_type in self.arrays:
-            array_info = self.arrays[var_type]
+        if (
+            param is not None
+            and param.get(
+                "is_open_array",
+                False
+            )
+        ):
+            high_offset = param.get(
+                "high_offset"
+            )
 
-            # Dynamische Arrays:
-            # High(A) = Length(A) - 1
-            if getattr(array_info, "is_dynamic", False):
-                self.emit_builtin_length(ctx)
-                self.emit_sub("eax", 1)
+            if high_offset is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"open array parameter {name} "
+                        f"has no High offset"
+                    )
+                )
+
+            if CDATA.args_target in [
+                "nt35",
+                "winnt",
+                "win32"
+            ]:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    high_offset,
+                    comment=f"High({name})"
+                )
+
                 return "integer"
 
-            # Statische Arrays
-            self.emit_mov("eax", array_info.index_max)
+            if CDATA.args_target in [
+                "dos",
+                "dos16"
+            ]:
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    high_offset
+                )
+
+                return "integer"
+
+            self.emit_mov_dword_ptr(
+                "eax",
+                "rbp",
+                high_offset,
+                comment=f"High({name})"
+            )
+
             return "integer"
 
-        raise CompileError(ctx, "E0005", got=var_type, expected="array")
+        # --------------------------------------------------------
+        # Lokale Arrayvariable
+        # --------------------------------------------------------
+        local_var = self.find_local_var(
+            name
+        )
+
+        if local_var is not None:
+            var_type = self.resolve_type(
+                local_var["type"]
+            )
+
+            if (
+                isinstance(var_type, str)
+                and var_type in self.arrays
+            ):
+                array_info = self.arrays[
+                    var_type
+                ]
+
+                if getattr(
+                    array_info,
+                    "is_dynamic",
+                    False
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "High() for local dynamic arrays "
+                            "is not implemented yet"
+                        )
+                    )
+
+                self.emit_mov(
+                    "eax",
+                    array_info.index_max,
+                    comment=f"High({name})"
+                )
+
+                return "integer"
+
+        # --------------------------------------------------------
+        # Globale Arrayvariable
+        # --------------------------------------------------------
+        key = name.lower()
+
+        if key in self.vars:
+            var_info = self.vars[key]
+
+            var_type = self.resolve_type(
+                var_info["type"]
+            )
+
+            if (
+                isinstance(var_type, str)
+                and var_type in self.arrays
+            ):
+                array_info = self.arrays[
+                    var_type
+                ]
+
+                if getattr(
+                    array_info,
+                    "is_dynamic",
+                    False
+                ):
+                    self.emit_builtin_length(
+                        ctx
+                    )
+
+                    self.emit_sub(
+                        "eax",
+                        1,
+                        comment=f"High({name})"
+                    )
+
+                    return "integer"
+
+                self.emit_mov(
+                    "eax",
+                    array_info.index_max,
+                    comment=f"High({name})"
+                )
+
+                return "integer"
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=name,
+            expected="array"
+        )
+
+    def collect_array_constructor_elements(self, ctx):
+        result = []
+
+        def walk(node):
+            if node is None:
+                return
+
+            children = getattr(
+                node,
+                "children",
+                None
+            )
+
+            if not children:
+                return
+
+            for child in children:
+                # Sobald ein ExprContext gefunden wurde, ist dies ein
+                # vollständiges Element des Arraykonstruktors.
+                #
+                # Nicht weiter in diesen Ausdruck hinabsteigen, sonst
+                # würden bei "1 + 2" zusätzlich die Unterausdrücke
+                # eingesammelt.
+                if isinstance(
+                    child,
+                    MiniPascalParser.ExprContext
+                ):
+                    result.append(
+                        child
+                    )
+
+                    continue
+
+                walk(
+                    child
+                )
+
+        walk(
+            ctx
+        )
+
+        return result
     
     def visitFunctionCallExpr(self, ctx):
         names  = list(ctx.functionName())
@@ -12012,49 +14711,292 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             arg_bytes = 0
 
-            # cdecl: rechts nach links pushen
-            for index in range(len(actuals) - 1, -1, -1):
-                arg_expr    = actuals[index]
-                formal      = params[index]
-                formal_type = self.resolve_type(formal["type"])
+            # --------------------------------------------------------
+            # cdecl: Parameter rechts nach links auswerten und pushen
+            # --------------------------------------------------------
+            for index in range(
+                len(actuals) - 1,
+                -1,
+                -1
+            ):
+                arg_expr = actuals[index]
+                formal   = params[index]
 
-                expr_type = self.visit(arg_expr)
+                raw_formal_type = formal.get(
+                    "type"
+                )
 
+                formal_type = self.resolve_type(
+                    raw_formal_type
+                )
+
+                is_open_array = (
+                    formal.get(
+                        "is_open_array",
+                        False
+                    )
+                    or (
+                        isinstance(formal_type, str)
+                        and formal_type.startswith(
+                            "open_array:"
+                        )
+                    )
+                )
+
+                # Alten Zustand löschen, damit keine Metadaten eines
+                # vorherigen Arguments verwendet werden.
+                self.pending_open_array_actual = None
+
+                expr_type = self.visit(
+                    arg_expr
+                )
+
+                expr_type = self.resolve_type(
+                    expr_type
+                )
+
+                # ====================================================
+                # Offenes Array
+                #
+                # function Sum(
+                #     const Values: array of Integer
+                # ): Integer;
+                #
+                # Interne NT32-ABI:
+                #
+                #     [ebp+8]  = data pointer
+                #     [ebp+12] = High-Wert
+                #
+                # cdecl Push-Reihenfolge:
+                #
+                #     push High
+                #     push data
+                # ====================================================
+                if is_open_array:
+                    element_type = formal.get(
+                        "element_type"
+                    )
+
+                    if not element_type:
+                        element_type = formal_type.split(
+                            ":",
+                            1
+                        )[1]
+
+                    element_type = self.resolve_type(
+                        element_type
+                    )
+
+                    expected_type = (
+                        f"open_array:{element_type}"
+                    )
+
+                    if expr_type != expected_type:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected=expected_type
+                        )
+
+                    actual_info = (
+                        self.pending_open_array_actual
+                    )
+
+                    if actual_info is None:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "open-array expression returned a type, "
+                                "but no open-array metadata"
+                            )
+                        )
+
+                    high_value = actual_info[
+                        "high"
+                    ]
+
+                    # EAX enthält weiterhin den Datenpointer.
+                    #
+                    # cdecl rechts nach links:
+                    #
+                    #     push High
+                    #     push data
+                    self.backend.writer.emit_push_imm32(
+                        high_value
+                    )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"open-array data parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 8
+
+                    self.pending_open_array_actual = None
+                    continue
+
+                # ====================================================
+                # Integer
+                # ====================================================
                 if formal_type == "integer":
                     if expr_type != "integer":
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="integer")
-                    self.emit_push("eax", comment=f"function integer parameter {index + 1}")
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="integer"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function integer parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
-                
+
+                # ====================================================
+                # Boolean
+                # ====================================================
                 if formal_type == "boolean":
-                    if expr_type not in ["boolean", "integer"]:
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="boolean/integer 1")
+                    if expr_type not in (
+                        "boolean",
+                        "integer"
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="boolean/integer"
+                        )
 
-                    self.emit_push("eax", comment=f"function boolean parameter {index + 1}")
+                    self.emit_and(
+                        "eax",
+                        1,
+                        comment="normalize boolean"
+                    )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function boolean parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
 
+                # ====================================================
+                # Char
+                # ====================================================
+                if formal_type == "char":
+                    if expr_type != "char":
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="char"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function char parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                # ====================================================
+                # String
+                # ====================================================
                 if formal_type == "string":
                     if expr_type != "string":
-                        raise CompileError(ctx, "E0005", got=expr_type, expected="string")
-                    self.emit_push("eax", comment=f"function string parameter {index + 1}")
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="string"
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function string parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                # ====================================================
+                # Pointer
+                # ====================================================
+                if (
+                    isinstance(formal_type, str)
+                    and formal_type.startswith("^")
+                ):
+                    if expr_type not in (
+                        formal_type,
+                        "^nil"
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected=formal_type
+                        )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function pointer parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
                     arg_bytes += 4
                     continue
 
                 raise CompileError(
                     ctx,
                     "E0005",
-                    got=formal_type,
-                    expected="boolean/integer/string"
+
+                    # Nicht formal_type verwenden:
+                    got=expr_type,
+
+                    expected=(
+                        "boolean/integer/char/string/"
+                        "pointer/open-array"
+                    )
                 )
 
-            self.emit_registered_routine_call(func)
+            self.emit_registered_routine_call(
+                func
+            )
 
             if arg_bytes:
-                self.emit_add("esp", arg_bytes, comment="cdecl function cleanup")
+                self.emit_add(
+                    "esp",
+                    arg_bytes,
+                    comment="cdecl function cleanup"
+                )
 
-            return self.resolve_type(func["return_type"])
+            return self.resolve_type(
+                func["return_type"]
+            )
             
         else:
             int_regs = ["ecx", "edx", "r8d", "r9d"]
@@ -13688,6 +16630,9 @@ class GeneratorClass(AsmJitGenerator):
         super().__init__(backend)
         self.writer = None
         self.coff   = None
+
+        self.pending_open_array_actual = None
+        self.next_open_array_literal_id = 0
 
         if writer is None:
             raise RuntimeError("generator writer invalid")

@@ -125,5 +125,11 @@
         "functions": [],
         "procedures": [],
         "classes": []
+    },
+    "macros": {
+        "PRODUCT_NAME": "dBase2Many",
+        "VERSION": 1,
+        "VERSION_NAME": "Community",
+        "VERSION_TEXT": "1.0.0"
     }
 }

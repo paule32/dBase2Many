@@ -57,6 +57,7 @@ class CommonData():
         self.IncludePaths        : list = []
         
         self.force_write         : str  = ""
+        self.debug_mode          : bool = False
         
         self.link_object_files   = []
         self.link_archive_files  = []

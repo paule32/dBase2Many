@@ -3,6 +3,11 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
+{$define VERSION 1}
+{$define VERSION_TEXT '1.0.0'}
+{$define VERSION_NAME 'Community'}
+{$define PRODUCT_NAME 'dBase2Many'}
+
 unit System.Types;
 
 interface

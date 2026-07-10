@@ -3,20 +3,21 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{$info Compile time: {$__DATE__} at {$__TIME__}}
+{$define DEBUG True}
+program testtypes;
+
+uses System.Types;
+
+{$info {$VERSION} Compile time: {$__DATE__} at {$__TIME__}}
 {$note File: {$__FILE__}, Line: {$__LINE__}}
 
-{$define VERSION 3}
-{$if VERSION >= 3}
+
+{$if VERSION >= 1}
     {$info Version fits into needs}
 {$else}
     {$error Version does not fit into needs}
 {$endif}
 
-program testtypes;
-
-uses System.Types;
-    
 var
     b : Boolean;
     c : Byte;

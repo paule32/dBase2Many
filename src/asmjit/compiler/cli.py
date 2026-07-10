@@ -176,6 +176,7 @@ def args_func():
     # emitter backend ...
     # -------------------------------------------------------------
     args_parser.add_argument(
+        "-B",
         "--backend",
         dest     =  "backend",
         nargs    =  "?",
@@ -322,7 +323,10 @@ def validate_output_path(value: str):
         
     CDATA.CurrentWorkingDir = value
     CDATA.exe_file = value
-    print(CDATA.CurrentWorkingDir)
+    
+    if CDATA.debug_mode:
+        print(CDATA.CurrentWorkingDir)
+    
     path = Path(value)
     #print(path)
 

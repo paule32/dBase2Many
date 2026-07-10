@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# File: generator.py - Pascal Transpiler
+# File: preprocessor.py - Pascal pre-Processor
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
@@ -35,33 +35,30 @@ class PascalDirectiveAbort(Exception):
         self.column = int(column)
         self.message = message
 
-
+# ---------------------------------------------------------------------------
+#  Unterstützt:
+#
+#      {$INFO ...}
+#      {$WARN ...}
+#      {$WARNING ...}
+#      {$NOTE ...}
+#      {$ERROR ...}
+#
+#      {$__LINE__}
+#      {$__FILE__}
+#      {$__DATE__}
+#      {$__TIME__}
+#
+#  Intrinsics dürfen auch innerhalb einer Meldung stehen:
+#
+#      {$INFO Datei {$__FILE__}, Zeile {$__LINE__}}
+# ---------------------------------------------------------------------------
 class PascalCompilerDirectiveExpander:
-    """
-    Unterstützt:
-
-        {$INFO ...}
-        {$WARN ...}
-        {$WARNING ...}
-        {$NOTE ...}
-        {$ERROR ...}
-
-        {$__LINE__}
-        {$__FILE__}
-        {$__DATE__}
-        {$__TIME__}
-
-    Intrinsics dürfen auch innerhalb einer Meldung stehen:
-
-        {$INFO Datei {$__FILE__}, Zeile {$__LINE__}}
-    """
-
     _DIAGNOSTIC_LEVELS = {
         "info": "INFO",
         "warn": "WARN",
         "warning": "WARN",
         "note": "NOTE",
-        "noite": "NOTE",
         "error": "ERROR"
     }
 
@@ -926,27 +923,25 @@ class ConditionalExpressionParser:
 
         return bool(value)
 
-
+# ---------------------------------------------------------------------------
+#  Unterstützt:
+#
+#    {$DEFINE NAME}
+#    {$DEFINE VERSION 1}
+#    {$DEFINE VERSION = 1}
+#    {$UNDEF NAME}
+#
+#    {$IFDEF NAME}
+#    {$IFNDEF NAME}
+#
+#    {$IF VERSION == 1}
+#    {$IF MINOR >= 2 AND MINOR <= 3}
+#    {$ELSEIF VERSION == 2}
+#    {$ELIF VERSION == 3}
+#    {$ELSE}
+#    {$ENDIF}
+# ---------------------------------------------------------------------------
 class PascalPreprocessor:
-    """
-    Unterstützt:
-
-        {$DEFINE NAME}
-        {$DEFINE VERSION 1}
-        {$DEFINE VERSION = 1}
-        {$UNDEF NAME}
-
-        {$IFDEF NAME}
-        {$IFNDEF NAME}
-
-        {$IF VERSION == 1}
-        {$IF MINOR >= 2 AND MINOR <= 3}
-        {$ELSEIF VERSION == 2}
-        {$ELIF VERSION == 3}
-        {$ELSE}
-        {$ENDIF}
-    """
-
     CONTROL_DIRECTIVE_RE = re.compile(
         r"""
         ^\s*
@@ -986,6 +981,10 @@ class PascalPreprocessor:
 
         # Für Kompatibilität mit bestehendem Code.
         self.defines = set()
+
+        # Nur Makros, die durch {$DEFINE ...} in dieser Datei
+        # definiert wurden.
+        self.source_macros = {}
 
         self.compiler_directives = (
             PascalCompilerDirectiveExpander()
@@ -1037,11 +1036,11 @@ class PascalPreprocessor:
             default
         )
 
-    def define(self, name, value = True):
+    def define(self, name, value = True, source_defined = False):
         name = str(name).strip()
 
         if not name:
-            raise PascalPreprocessorError(
+            raise RuntimeError(
                 "macro name must not be empty"
             )
 
@@ -1050,10 +1049,15 @@ class PascalPreprocessor:
         self.macros[key] = value
         self.defines.add(key)
 
+        if source_defined:
+            self.source_macros[key] = value
+
     def undef(self, name):
         key = str(name).strip().upper()
 
-        self.macros.pop(key,None)
+        self.macros       .pop(key, None)
+        self.source_macros.pop(key, None)
+        
         self.defines.discard(key)
 
     def process_define_argument(
@@ -1091,7 +1095,8 @@ class PascalPreprocessor:
 
         self.define(
             name,
-            value
+            value,
+            source_defined = True
         )
 
     @staticmethod

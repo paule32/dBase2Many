@@ -11,6 +11,10 @@ from __future__  import annotations
 import locale
 import gettext
 import polib
+import os
+import sys
+
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # locales (gnu gettext) support ...
@@ -39,7 +43,7 @@ class TranslationManager:
     
     def _trres(self, msgid:str) -> str:
         for trans in self.translations:
-            text = trans.gettext(msgid)
+            text = trans.find(msgid)
             if text != msgid:
                 return text
         return msgid
@@ -48,12 +52,11 @@ class TranslationManager:
         self.lang = lang
         self.translations.clear()
         self.filename = f"locales/{lang}/pascal.mo"
+        self.filename = Path(self.filename).resolve()
+    
         try:
-            if not os.path.isfile(self.filename):
-                print("language file not found, fail back to english.")
-            else:
-                self.trans = self.load_mo(self.filename)
-                self.add_trans(self.trans)
+            self.trans = polib.mofile(self.filename)
+            self.add_trans(self.trans)
             
         except FileNotFoundError as e:
             app = self.ensure_app()
@@ -82,11 +85,6 @@ class TranslationManager:
             print("default language is English.")
             return
         return
-    
-    def load_mo(self, filename: str) -> gettext.GNUTranslations:
-        with open(filename, "rb") as f:
-            data = f.read()
-        return gettext.GNUTranslations(fp = io.BytesIO(data))
     
     def _tr(self, msgid: str) -> str:
         try:

@@ -557,6 +557,33 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#paramModifier.
+    def enterParamModifier(self, ctx:MiniPascalParser.ParamModifierContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#paramModifier.
+    def exitParamModifier(self, ctx:MiniPascalParser.ParamModifierContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#paramType.
+    def enterParamType(self, ctx:MiniPascalParser.ParamTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#paramType.
+    def exitParamType(self, ctx:MiniPascalParser.ParamTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#openArrayType.
+    def enterOpenArrayType(self, ctx:MiniPascalParser.OpenArrayTypeContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#openArrayType.
+    def exitOpenArrayType(self, ctx:MiniPascalParser.OpenArrayTypeContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#declaration.
     def enterDeclaration(self, ctx:MiniPascalParser.DeclarationContext):
         pass
@@ -950,6 +977,24 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#addExpr.
     def exitAddExpr(self, ctx:MiniPascalParser.AddExprContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayConstructor.
+    def enterArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayConstructor.
+    def exitArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayConstructorItems.
+    def enterArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayConstructorItems.
+    def exitArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
         pass
 
 

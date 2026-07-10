@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 import os
+import re
 import io
 import argparse
 import struct
@@ -150,7 +151,12 @@ def main():
     args        = None
     
     CDATA.InputFiles = []
-    CDATA.CurrentWorkingDir = os.getcwd()
+    
+    if getattr(sys, "frozen", False):
+        CDATA.CurrentWorkingDir = Path(sys.executable).resolve().parent
+    else:
+        CDATA.CurrentWorkingDir = Path(__file__).resolve().parent
+    
     try:
         # -----------------------------------------
         # 0. prepare pascal file ...
@@ -190,7 +196,9 @@ def main():
         backend    = None
         writer     = None
         target_obj = None
-        print("back: ", CDATA.args_backend)
+        
+        if CDATA.debug_mode:
+            print("back: ", CDATA.args_backend)
         # -----------------------------------------
         if CDATA.args_backend in ["c++", "asmjit"]:
             if args.target in ["win32", "win64"]:
@@ -263,8 +271,9 @@ def main():
             else:
                 raise Exception(tr("compiler mode unknown."))
         
-        print('T: ' + CDATA.args_target)
-        print('B: ' + CDATA.args_backend)
+        if CDATA.debug_mode:
+            print('T: ' + CDATA.args_target)
+            print('B: ' + CDATA.args_backend)
         
         # todo !!!
         CDATA.InputFiles.append(source_file)
@@ -281,18 +290,19 @@ def main():
         CDATA.dll_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".dll")
         CDATA.exe_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".exe")
         
-        print("Compile-Run ...")
-        print("---------------------------")
-        print("input : ", CDATA.src_file)
-        print("output: ", CDATA.exe_file)
-        print("")
-        print("nasm  : ", CDATA.asm_file)
-        print("asmjit: ", CDATA.cpp_file)
-        print("object: ", CDATA.obj_file)
-        print("pui32 : ", CDATA.pui_file)
-        print("dll32 : ", CDATA.dll_file)
-        print("win64 : ", CDATA.exe_file)
-        print("---------------------------")
+        if CDATA.debug_mode:
+            print("Compile-Run ...")
+            print("---------------------------")
+            print("input : ", CDATA.src_file)
+            print("output: ", CDATA.exe_file)
+            print("")
+            print("nasm  : ", CDATA.asm_file)
+            print("asmjit: ", CDATA.cpp_file)
+            print("object: ", CDATA.obj_file)
+            print("pui32 : ", CDATA.pui_file)
+            print("dll32 : ", CDATA.dll_file)
+            print("win64 : ", CDATA.exe_file)
+            print("---------------------------")
         
         # -----------------------------------------
         # open source file and read contents
@@ -302,21 +312,73 @@ def main():
             f.close()
         
         # -----------------------------------------
-        # 1. pre-process pascal file ...
+        # 1. Makros verwendeter Units aus PUI laden
+        # -----------------------------------------
+        raw_source = source
+        
+        imported_unit_macros = collect_used_unit_macros(
+            raw_source  = raw_source,
+            source_file = CDATA.src_file
+        )
+
+        # Optional zum Testen:
+        if CDATA.debug_mode:
+            print("Imported PUI macros:",imported_unit_macros)
+        
+        # -----------------------------------------
+        # 2. Preprocessor erstellen
+        #
+        # Priorität:
+        #
+        #   PUI-Makros
+        #   CDATA.Defines
+        #   Kommandozeilen-Defines
+        #   lokale {$DEFINE}-Anweisungen
+        #
+        # Lokale Definitionen haben damit die höchste Priorität.
         # -----------------------------------------
         pre = PascalPreprocessor(
-            defines = getattr(
+            defines=imported_unit_macros
+        )
+
+        pre.add_initial_defines(
+            getattr(
                 CDATA,
                 "Defines",
                 []
             )
         )
-        
-        for define in args.define:
-            pre.defines.add(define.upper())
-        
-        source  = pre.process(source, filename=CDATA.src_file)
-        stream  = InputStream(source)
+
+        pre.add_initial_defines(
+            getattr(
+                args,
+                "define",
+                []
+            ) or []
+        )
+
+        # -----------------------------------------
+        # 3. Hauptdatei bzw. Unit präprozessieren
+        # -----------------------------------------
+        source = pre.process(
+            raw_source,
+            filename=CDATA.src_file
+        )
+
+        stream = InputStream(
+            source
+        )
+
+        # Nur die Makros speichern, die in der aktuellen Quelldatei
+        # selbst durch {$DEFINE ...} definiert wurden.
+        CDATA.unit_source_macros = dict(
+            pre.source_macros
+        )
+
+        # Importierte Werte können getrennt gespeichert werden.
+        CDATA.imported_unit_macros = dict(
+            imported_unit_macros
+        )
         
         # -----------------------------------------
         # 2. lexical analyse pascal file ...
@@ -341,9 +403,20 @@ def main():
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
+        # ----------------------------------------------------------
+        # Die im Preprocessor gefundenen Unit-Makros an den
+        # Generator übergeben.
+        #
+        # write_unit_pui() liest später self.unit_source_macros.
+        # ----------------------------------------------------------
+        generator.unit_source_macros = dict(
+            pre.source_macros
+        )
+        
         text = generator.visit(tree)
         
-        print(generator.backend.asm_lines)
+        if CDATA.debug_mode:
+            print(generator.backend.asm_lines)
         
         # -----------------------------------------
         # 5. finalize: create c++ output file ...

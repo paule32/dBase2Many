@@ -1229,11 +1229,12 @@ class NT32Writer:
         return data
 
     def write(self, filename):
-        print(
+        if CDATA.debug_mode:
+            print(
             "NT32Writer.write called:",
             "DLL" if self.is_dll else "EXE",
             filename
-        )
+            )
 
         if self.is_dll:
             if not getattr(self.coff, "image_name", None):

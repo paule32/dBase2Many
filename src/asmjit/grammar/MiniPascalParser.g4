@@ -309,7 +309,21 @@ formalParamList
     ;
 
 formalParam
-    : VAR? identList COLON typeName
+    : paramModifier? identList COLON paramType
+    ;
+    
+paramModifier
+    : VAR
+    | CONST
+    ;
+
+paramType
+    : typeName
+    | openArrayType
+    ;
+
+openArrayType
+    : ARRAY OF typeName
     ;
 
 declaration
@@ -547,6 +561,14 @@ addExpr
     : term ((PLUS | MINUS) term)*
     ;
 
+arrayConstructor
+    : LBRACK arrayConstructorItems? RBRACK
+    ;
+
+arrayConstructorItems
+    : expr (COMMA expr)*
+    ;
+
 term
     : factor ((STAR | SLASH) factor)*
     ;
@@ -560,6 +582,7 @@ factor
     | AT variableRef
     | variableRef
     | functionCallExpr
+    | arrayConstructor
     | NIL
     | NUMBER
     | FLOATNUMBER
