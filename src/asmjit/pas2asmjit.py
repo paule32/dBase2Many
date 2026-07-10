@@ -56,8 +56,12 @@ from compiler.writer.pe64 import *
 from compiler.cli import *
 from antlr4       import *
 
-from compiler.frontend.pascal.preprocessor   import PascalPreprocessor
-
+from compiler.frontend.pascal.preprocessor   import (
+    ConditionalExpressionError,
+    PascalPreprocessorError,
+    PascalDirectiveAbort,
+    PascalPreprocessor
+)
 from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
 from parsers.pascal.MiniPascalParser         import MiniPascalParser
 from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
@@ -94,79 +98,6 @@ def can_write_file(path: Path) -> bool:
         return False
     except OSError:
         return False
-
-# ---------------------------------------------------------------------------
-# the pre-processor class ...
-# ---------------------------------------------------------------------------
-class PascalPreprocessor:
-    def __init__(self):
-        self.defines = set()
-    
-    def process(self, text):
-        lines   = text.splitlines()
-        
-        output  = []
-        stack   = []
-        enabled = True
-        
-        for line in lines:
-            stripped = line.strip()
-            
-            if stripped.lower() == "{$break}":
-                if enabled:
-                    output.append("__debug_break;")
-                    output.append("")
-                else:
-                    output.append("")
-                continue
-            
-            if stripped.startswith("{$define"):
-                output.append("")
-                name = stripped[8:-1].strip()
-                self.defines.add(name.upper())
-                continue
-            
-            if stripped.startswith("{$undef"):
-                output.append("")
-                name = stripped[7:-1].strip()
-                self.defines.discard(name.upper())
-                continue
-            
-            if stripped.startswith("{$ifdef"):
-                output.append("")
-                name = stripped[7:-1].strip()
-                cond = name.upper() in self.defines
-                
-                stack.append(enabled)
-                enabled = enabled and cond
-                continue
-            
-            if stripped.startswith("{$ifndef"):
-                output.append("")
-                name = stripped[8:-1].strip()
-                cond = name.upper() not in self.defines
-                
-                stack.append(enabled)
-                enabled = enabled and cond
-                continue
-            
-            if stripped.startswith("{$else"):
-                output.append("")
-                parent  = stack[-1]
-                enabled = parent and not enabled
-                continue
-            
-            if stripped.startswith("{$endif"):
-                output.append("")
-                enabled = stack.pop()
-                continue
-            
-            if enabled:
-                output.append(line)
-        
-        return "\n".join(output)
-
-
 
 # ---------------------------------------------------------------------------
 # generic output writer's ...
@@ -373,12 +304,18 @@ def main():
         # -----------------------------------------
         # 1. pre-process pascal file ...
         # -----------------------------------------
-        pre     = PascalPreprocessor()
+        pre = PascalPreprocessor(
+            defines = getattr(
+                CDATA,
+                "Defines",
+                []
+            )
+        )
         
         for define in args.define:
             pre.defines.add(define.upper())
         
-        source  = pre.process(source)
+        source  = pre.process(source, filename=CDATA.src_file)
         stream  = InputStream(source)
         
         # -----------------------------------------
@@ -535,7 +472,20 @@ def main():
             raise Exception(tr("backend not given or not supported."))
         
         return 0
+
+    except ConditionalExpressionError as e:
+        print("-------------------------------------")
+        print(e)
+        return 1
     
+    except PascalPreprocessorError as e:
+        print(e)
+        return 1
+        
+    except PascalDirectiveAbort as e:
+        #print(e)
+        return 1
+        
     except CompileError as e:
         if generator is not None:
             print(generator.format_error(source_file, e), file = sys.stderr)
@@ -543,41 +493,49 @@ def main():
         else:
             print(e, file = sys.stderr)
             return 3
+            
     except PermissionError as e:
         print(f"{tr('Error')}: {tr('Permission Error')}")
         print(f"Text : {e.message}")
         return 2
+        
     except ArgumentParserError as e:
         print(f"{tr('Error')}: {tr('Invalid argument(s)')}")
         print(f"Text : {e.message}")
         #print(f"Code : {e.errno}")
         return 2
+        
     except AttributeError as e:
         print(f"{tr('Error')}: {tr('Attribute Error')}")
         print(f"Text : {str(e)}")
         import traceback
         traceback.print_exc()
         return 2
+        
     except FileNotFoundError as e:
         print(f"{tr('Error')}: {tr('File not found')} '{e.filename}'")
         print(f"Text : {e.strerror}")
         print(f"Code : {e.errno}")
         return 2
+        
     except TypeError as e:
         print(f"{tr('Error')}: {tr('Type error')}")
         print(f"Text : {str(e)}")
         import traceback
         traceback.print_exc()
         return 2
+        
     except ArithmeticError as e:
         print(f"{tr('Error')}: {tr('Arithmetic Error')}")
         print(f"Text : {tr('Division through 0')}")
         return 2
+        
     except Exception as e:
         print(f"{tr('Error')}: {str(e)}")
         import traceback
         traceback.print_exc()
         return 1
+        
     #except Exception as e:
     #    print(e, file=sys.stderr)
     #    return 1
