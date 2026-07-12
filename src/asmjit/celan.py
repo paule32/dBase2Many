@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# File:   pascal2asmjit.py
+# File:   celan.py - ELAN/EUMEL compiler
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
@@ -42,10 +42,7 @@ from compiler.backend.dos16    import *
 from compiler.backend.asmjit   import *
 from compiler.backend.nasm     import *
 
-from compiler.frontend.pascal.generator import *
-from compiler.frontend.basic .generator import *
-from compiler.frontend.c     .generator import *
-from compiler.frontend.dbase .generator import *
+from compiler.frontend.elan.generator  import *
 
 from compiler.writer.pe64coff    import *
 
@@ -57,93 +54,18 @@ from compiler.writer.pe64 import *
 from compiler.cli import *
 from antlr4       import *
 
-from compiler.frontend.pascal.preprocessor   import (
-    ConditionalExpressionError,
-    PascalPreprocessorError,
-    PascalDirectiveAbort,
-    PascalPreprocessor
-)
-from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
-from parsers.pascal.MiniPascalParser         import MiniPascalParser
-from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
+from parsers.elan.ElanLexer          import ElanLexer
+from parsers.elan.ElanParser         import ElanParser
+from parsers.elan.ElanParserVisitor  import ElanParserVisitor
 
-COMMENT_REPL = ('-' * 77)
-
-def ask_yes_no(question, default=False):
-    while True:
-        answer = input(question + " (y/N): ").strip().lower()
-        
-        if answer in ("j", "y", "ja", "yes"):
-            return True
-        
-        if answer in ("n", "no", "nein"):
-            return False
-        
-        if answer == "":
-            return default
-        
-        print(tr("Enter [Y]es or [N]o ."))
-
-def is_windows_drive(path: Path) -> bool:
-    resolved = path.resolve()
-    anchor = Path(resolved.anchor)
-
-    return resolved == anchor
-
-def can_write_file(path: Path) -> bool:
-    try:
-        with open(path, "a+b"):
-            pass
-        return True
-    except PermissionError:
-        return False
-    except OSError:
-        return False
-
-# ---------------------------------------------------------------------------
-# generic output writer's ...
-# ---------------------------------------------------------------------------
-class OutputWriter:
-    def write(self, filename):    raise NotImplementedError
-
-class PE32ExeWriter(OutputWriter):
-    def __init__(self, coff):
-        self.coff = coff
-    
-    def write(self, filename):
-        pe = PE32Writer(self.coff)
-        pe.write(filename)
-        
-class PE64ExeWriter(OutputWriter):
-    def __init__(self, coff):
-        self.coff = coff
-        
-    def write(self, filename):
-        pe = PE64Writer(self.coff)
-        pe.write(filename)
-
-class CoffObjectWriter(OutputWriter):
-    def __init__(self,  coff):
-        self.coff = coff
-        
-    def write(self, filename):
-        self.coff.write(filename)
-        
-class DosExeWriter(OutputWriter):
-    def __init__(self, mz):
-        self.mz = mz
-        
-    def write(self, filename):
-        self.mz.write(filename)
+class NoSourceException(Exception):          pass
+class NoCompilerModeException(Exception):    pass
+class NoEntryRefinementException(Exception): pass
 
 # ---------------------------------------------------------------------------
 # the main definition 
 # ---------------------------------------------------------------------------
-def main():
-    #if len(sys.argv) != 2:
-    #    print("Usage: python pascal_to_asmjit.py file.pas", file=sys.stderr)
-    #    return 1
-    
+def main() -> int:
     generator   = None
     source_file = ""
     
@@ -159,7 +81,7 @@ def main():
     
     try:
         # -----------------------------------------
-        # 0. prepare pascal file ...
+        # 0. prepare elan file ...
         # -----------------------------------------
         args = args_parser.parse_args()
         
@@ -175,8 +97,8 @@ def main():
         # -----------------------------------------
         if not args.source:
             CDATA.LastErrorCode = LastError.NO_SOURCE
-            raise Exception(tr("no source file given."))
-        
+            raise NoSourceException(tr("no source file given."))
+            
         # -----------------------------------------
         # get target platform ...
         # -----------------------------------------
@@ -197,15 +119,7 @@ def main():
         writer     = None
         target_obj = None
         
-        if CDATA.debug_mode:
-            print("back: ", CDATA.args_backend)
-        # -----------------------------------------
-        if CDATA.args_backend in ["c++", "asmjit"]:
-            if args.target in ["win32", "win64"]:
-                backend    = AsmJitBackend()
-                writer     = CppOutputWriter()
-                
-        elif CDATA.args_backend in ["asm", "nasm"]:
+        if CDATA.args_backend in ["asm", "nasm"]:
             if args.target in ["win32", "win64"]:
                 backend    = NasmBackend()
                 writer     = NasmOutputWriter()
@@ -248,7 +162,7 @@ def main():
         else:
             CDATA.LastErrorCode = LastError.NO_BACKEND
             raise Exception(tr("backend not supported."))
-            
+        
         if backend is None:
             CDATA.LastErrorCode = LastError.NO_BACKEND
             raise Exception(tr("could not create backend"))
@@ -257,25 +171,17 @@ def main():
         name, ext   = os.path.splitext(source_file)
         found       = False
         
-        if ext.lower() in [".pas", ".pp", ".c", ".cc", ".cpp"]:
+        if ext.lower() in [".elan", ".ela", ".el", ".e"]:
             CDATA.args_compilermode = args.compilermode
             source_file = name + ext
         else:
             CDATA.args_compilermode = args.compilermode
-            if args.compilermode in ["pp", "pas", "pascal"]:
+            if args.compilermode in ["e", "ela", "elan"]:
                 if not ext or len(ext) < 2:
-                    source_file = name + ".pas"
-            elif args.compilermode in ["c", "cc", "cpp"]:
-                if not ext or len(ext) < 2:
-                    source_file = name + ".cc"
+                    source_file = name + ".elan"
             else:
-                raise Exception(tr("compiler mode unknown."))
+                raise NoCompilerModeException(tr("compiler mode unknown."))
         
-        if CDATA.debug_mode:
-            print('T: ' + CDATA.args_target)
-            print('B: ' + CDATA.args_backend)
-        
-        # todo !!!
         CDATA.InputFiles.append(source_file)
         
         # -----------------------------------------
@@ -311,85 +217,18 @@ def main():
             source = f.read()
             f.close()
         
-        # -----------------------------------------
-        # 1. Makros verwendeter Units aus PUI laden
-        # -----------------------------------------
-        raw_source = source
-        
-        imported_unit_macros = collect_used_unit_macros(
-            raw_source  = raw_source,
-            source_file = CDATA.src_file
-        )
-
-        # Optional zum Testen:
-        if CDATA.debug_mode:
-            print("Imported PUI macros:",imported_unit_macros)
+        stream = InputStream(source)
         
         # -----------------------------------------
-        # 2. Preprocessor erstellen
-        #
-        # Priorität:
-        #
-        #   PUI-Makros
-        #   CDATA.Defines
-        #   Kommandozeilen-Defines
-        #   lokale {$DEFINE}-Anweisungen
-        #
-        # Lokale Definitionen haben damit die höchste Priorität.
+        # 2. lexical analyse elan file ...
         # -----------------------------------------
-        pre = PascalPreprocessor(
-            defines=imported_unit_macros
-        )
-
-        pre.add_initial_defines(
-            getattr(
-                CDATA,
-                "Defines",
-                []
-            )
-        )
-
-        pre.add_initial_defines(
-            getattr(
-                args,
-                "define",
-                []
-            ) or []
-        )
-
-        # -----------------------------------------
-        # 3. Hauptdatei bzw. Unit präprozessieren
-        # -----------------------------------------
-        source = pre.process(
-            raw_source,
-            filename=CDATA.src_file
-        )
-
-        stream = InputStream(
-            source
-        )
-
-        # Nur die Makros speichern, die in der aktuellen Quelldatei
-        # selbst durch {$DEFINE ...} definiert wurden.
-        CDATA.unit_source_macros = dict(
-            pre.source_macros
-        )
-
-        # Importierte Werte können getrennt gespeichert werden.
-        CDATA.imported_unit_macros = dict(
-            imported_unit_macros
-        )
-        
-        # -----------------------------------------
-        # 2. lexical analyse pascal file ...
-        # -----------------------------------------
-        lexer   = MiniPascalLexer(stream)
+        lexer   = ElanLexer(stream)
         tokens  = CommonTokenStream(lexer)
         
         # -----------------------------------------
-        # 3. parse pascal file ...
+        # 3. parse elan file ...
         # -----------------------------------------
-        parser  = MiniPascalParser(tokens)
+        parser  = ElanParser(tokens)
         tree    = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
@@ -402,16 +241,6 @@ def main():
         generator = GeneratorClass(backend, writer=target_obj)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
-        
-        # ----------------------------------------------------------
-        # Die im Preprocessor gefundenen Unit-Makros an den
-        # Generator übergeben.
-        #
-        # write_unit_pui() liest später self.unit_source_macros.
-        # ----------------------------------------------------------
-        generator.unit_source_macros = dict(
-            pre.source_macros
-        )
         
         text = generator.visit(tree)
         
@@ -434,6 +263,10 @@ def main():
         
         elif CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
             if CDATA.args_backend.lower() in ["exe", "exefile"]:
+                if not generator.main_emitted:
+                    raise NoEntryRefinementException(
+                        "ELAN source does not contain a 'program:' refinement"
+                    )
                 outfile = Path(CDATA.exe_file)
                 check   = ['j','y']
                 if outfile.exists():
@@ -445,6 +278,8 @@ def main():
                 if ('y' in check) or ('j' in check):
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
+                    
+                    writer.add_jit_context32("ctx")
                     writer.write(CDATA.exe_file)
                 else:
                     print(tr("no files written"))
@@ -543,32 +378,38 @@ def main():
         else:
             #print(text)
             raise Exception(tr("backend not given or not supported."))
-        
         return 0
-
-    except ConditionalExpressionError as e:
-        print("-------------------------------------")
-        print(e)
-        return 1
-    
-    except PascalPreprocessorError as e:
-        print(e)
-        return 1
-        
-    except PascalDirectiveAbort as e:
-        #print(e)
-        return 1
         
     except CompileError as e:
         if generator is not None:
-            print(generator.format_error(source_file, e), file = sys.stderr)
+            print(generator.format_error(CDATA.src_file, e), file = sys.stderr)
             return 3
         else:
             print(e, file = sys.stderr)
             return 3
-            
+
+    except NoSourceException as e:
+        print(tr("Parameter Error:"))
+        print(tr("no source given. Use --help to display the help."))
+        return 2
+
+    except NoEntryRefinementException as e:
+        print(tr("Entry point Error:"))
+        print(tr("No start refinement symbol given."))
+        return 2
+        
+    except NoCompilerModeException as e:
+        print(tr("Compiler Mode Error:"))
+        print(tr("unknown compiler syntax for given file."))
+        return 2
+        
     except PermissionError as e:
         print(f"{tr('Error')}: {tr('Permission Error')}")
+        print(f"Text : {e.message}")
+        return 2
+        
+    except ModuleNotFoundError as e:
+        print(f"{tr('Error')}: {tr('Module not found')}")
         print(f"Text : {e.message}")
         return 2
         
@@ -609,9 +450,7 @@ def main():
         traceback.print_exc()
         return 1
         
-    #except Exception as e:
-    #    print(e, file=sys.stderr)
-    #    return 1
+    return 0
 
 # ---------------------------------------------------------------------------
 # entry point für start-up the application

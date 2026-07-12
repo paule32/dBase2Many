@@ -16,9 +16,9 @@ from antlr4      import *
 
 from compiler.frontend.pascal.preprocessor   import PascalPreprocessor
 
-from parsers.pascal.MiniPascalLexer          import MiniPascalLexer
-from parsers.pascal.MiniPascalParser         import MiniPascalParser
-from parsers.pascal.MiniPascalParserVisitor  import MiniPascalParserVisitor
+from parsers.pascal.PascalLexer          import PascalLexer
+from parsers.pascal.PascalParser         import PascalParser
+from parsers.pascal.PascalParserVisitor  import PascalParserVisitor
 
 from compiler.common.error     import *
 from compiler.common.types     import *
@@ -623,7 +623,7 @@ def collect_used_unit_macros(
 # ---------------------------------------------------------------------------
 # the transpiler generator for Pascal->Assembly
 # ---------------------------------------------------------------------------
-class AsmJitGenerator(MiniPascalParserVisitor):
+class AsmJitGenerator(PascalParserVisitor):
     def __init__(self, backend=None):
         self.backend = backend or AsmJitBackend()   # default backend
         self.lines   = self.backend.lines
@@ -1528,7 +1528,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             if node is None:
                 return
 
-            if isinstance(node, MiniPascalParser.VariableRefContext):
+            if isinstance(node, PascalParser.VariableRefContext):
                 refs.append(node)
                 return
 
@@ -3551,9 +3551,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             self.current_unit = unit_key
 
             stream = InputStream(text)
-            lexer  = MiniPascalLexer(stream)
+            lexer  = PascalLexer(stream)
             tokens = CommonTokenStream(lexer)
-            parser = MiniPascalParser(tokens)
+            parser = PascalParser(tokens)
             tree   = parser.sourceFile()
 
             if parser.getNumberOfSyntaxErrors() > 0:
@@ -13269,7 +13269,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         if isinstance(
             ctx,
-            MiniPascalParser.ArrayConstructorContext
+            PascalParser.ArrayConstructorContext
         ):
             return ctx
 
@@ -15196,7 +15196,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 # eingesammelt.
                 if isinstance(
                     child,
-                    MiniPascalParser.ExprContext
+                    PascalParser.ExprContext
                 ):
                     result.append(
                         child
@@ -17653,7 +17653,7 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 class GeneratorClass(AsmJitGenerator):
     def __init__(self, backend, writer=None):
         super().__init__(backend)
-        self.writer = None
+        self.writer = writer
         self.coff   = None
 
         self.pending_open_array_actual = None
@@ -17661,8 +17661,6 @@ class GeneratorClass(AsmJitGenerator):
 
         if writer is None:
             raise RuntimeError("generator writer invalid")
-
-        self.writer = writer
 
         # EXE-Writer bekommen: echten COFF-Writer herausziehen
         if isinstance(writer, NT32Writer):

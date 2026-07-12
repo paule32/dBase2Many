@@ -1,7 +1,7 @@
-parser grammar MiniPascalParser;
+parser grammar PascalParser;
 
 options {
-    tokenVocab = MiniPascalLexer;
+    tokenVocab = PascalLexer;
 }
 
 sourceFile

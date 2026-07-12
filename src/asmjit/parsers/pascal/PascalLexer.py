@@ -1,4 +1,4 @@
-# Generated from grammar/MiniPascalLexer.g4 by ANTLR 4.13.2
+# Generated from compiler/grammar/PascalLexer.g4 by ANTLR 4.13.2
 from antlr4 import *
 from io import StringIO
 import sys
@@ -353,7 +353,7 @@ def serializedATN():
         0,838,896,898,907,914,919,925,930,935,945,954,967,1,6,0,0
     ]
 
-class MiniPascalLexer(Lexer):
+class PascalLexer(Lexer):
 
     atn = ATNDeserializer().deserialize(serializedATN())
 
@@ -531,7 +531,7 @@ class MiniPascalLexer(Lexer):
                   "STRING", "IDENT", "HEXNUMBER", "FLOATNUMBER", "NUMBER", 
                   "WS", "COMMENT1", "COMMENT2", "COMMENT3" ]
 
-    grammarFileName = "MiniPascalLexer.g4"
+    grammarFileName = "PascalLexer.g4"
 
     def __init__(self, input=None, output:TextIO = sys.stdout):
         super().__init__(input, output)

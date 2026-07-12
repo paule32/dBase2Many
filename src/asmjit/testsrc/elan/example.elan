@@ -1,0 +1,13 @@
+program:
+    INT VAR x := 1;
+
+    WHILE x <= 5
+    REP
+        put(x);
+        line;
+        x := x + 1
+    ENDREP.
+
+INT PROC square (INT CONST value):
+    value * value
+ENDPROC square;

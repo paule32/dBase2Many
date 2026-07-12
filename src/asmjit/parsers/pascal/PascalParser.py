@@ -1,4 +1,4 @@
-# Generated from grammar/MiniPascalParser.g4 by ANTLR 4.13.2
+# Generated from compiler/grammar/PascalParser.g4 by ANTLR 4.13.2
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -439,9 +439,9 @@ def serializedATN():
         1125,1130
     ]
 
-class MiniPascalParser ( Parser ):
+class PascalParser ( Parser ):
 
-    grammarFileName = "MiniPascalParser.g4"
+    grammarFileName = "PascalParser.g4"
 
     atn = ATNDeserializer().deserialize(serializedATN())
 
@@ -788,29 +788,29 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def EOF(self):
-            return self.getToken(MiniPascalParser.EOF, 0)
+            return self.getToken(PascalParser.EOF, 0)
 
         def programFile(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProgramFileContext,0)
+            return self.getTypedRuleContext(PascalParser.ProgramFileContext,0)
 
 
         def unitFile(self):
-            return self.getTypedRuleContext(MiniPascalParser.UnitFileContext,0)
+            return self.getTypedRuleContext(PascalParser.UnitFileContext,0)
 
 
         def libraryFile(self):
-            return self.getTypedRuleContext(MiniPascalParser.LibraryFileContext,0)
+            return self.getTypedRuleContext(PascalParser.LibraryFileContext,0)
 
 
         def compilerDirective(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.CompilerDirectiveContext)
+                return self.getTypedRuleContexts(PascalParser.CompilerDirectiveContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.CompilerDirectiveContext,i)
+                return self.getTypedRuleContext(PascalParser.CompilerDirectiveContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_sourceFile
+            return PascalParser.RULE_sourceFile
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterSourceFile" ):
@@ -831,7 +831,7 @@ class MiniPascalParser ( Parser ):
 
     def sourceFile(self):
 
-        localctx = MiniPascalParser.SourceFileContext(self, self._ctx, self.state)
+        localctx = PascalParser.SourceFileContext(self, self._ctx, self.state)
         self.enterRule(localctx, 0, self.RULE_sourceFile)
         self._la = 0 # Token type
         try:
@@ -865,7 +865,7 @@ class MiniPascalParser ( Parser ):
                 raise NoViableAltException(self)
 
             self.state = 241
-            self.match(MiniPascalParser.EOF)
+            self.match(PascalParser.EOF)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -883,23 +883,23 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def callingConvention(self):
-            return self.getTypedRuleContext(MiniPascalParser.CallingConventionContext,0)
+            return self.getTypedRuleContext(PascalParser.CallingConventionContext,0)
 
 
         def STRING(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.STRING)
+                return self.getTokens(PascalParser.STRING)
             else:
-                return self.getToken(MiniPascalParser.STRING, i)
+                return self.getToken(PascalParser.STRING, i)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def NAME(self):
-            return self.getToken(MiniPascalParser.NAME, 0)
+            return self.getToken(PascalParser.NAME, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_externalRoutineSpec
+            return PascalParser.RULE_externalRoutineSpec
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExternalRoutineSpec" ):
@@ -920,7 +920,7 @@ class MiniPascalParser ( Parser ):
 
     def externalRoutineSpec(self):
 
-        localctx = MiniPascalParser.ExternalRoutineSpecContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExternalRoutineSpecContext(self, self._ctx, self.state)
         self.enterRule(localctx, 2, self.RULE_externalRoutineSpec)
         self._la = 0 # Token type
         try:
@@ -928,19 +928,19 @@ class MiniPascalParser ( Parser ):
             self.state = 243
             self.callingConvention()
             self.state = 244
-            self.match(MiniPascalParser.STRING)
+            self.match(PascalParser.STRING)
             self.state = 247
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             if _la==88:
                 self.state = 245
-                self.match(MiniPascalParser.NAME)
+                self.match(PascalParser.NAME)
                 self.state = 246
-                self.match(MiniPascalParser.STRING)
+                self.match(PascalParser.STRING)
 
 
             self.state = 249
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -958,16 +958,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def CDECL(self):
-            return self.getToken(MiniPascalParser.CDECL, 0)
+            return self.getToken(PascalParser.CDECL, 0)
 
         def STDCALL(self):
-            return self.getToken(MiniPascalParser.STDCALL, 0)
+            return self.getToken(PascalParser.STDCALL, 0)
 
         def PASCAL(self):
-            return self.getToken(MiniPascalParser.PASCAL, 0)
+            return self.getToken(PascalParser.PASCAL, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_callingConvention
+            return PascalParser.RULE_callingConvention
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCallingConvention" ):
@@ -988,7 +988,7 @@ class MiniPascalParser ( Parser ):
 
     def callingConvention(self):
 
-        localctx = MiniPascalParser.CallingConventionContext(self, self._ctx, self.state)
+        localctx = PascalParser.CallingConventionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 4, self.RULE_callingConvention)
         self._la = 0 # Token type
         try:
@@ -1017,34 +1017,34 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PROGRAM(self):
-            return self.getToken(MiniPascalParser.PROGRAM, 0)
+            return self.getToken(PascalParser.PROGRAM, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def block(self):
-            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+            return self.getTypedRuleContext(PascalParser.BlockContext,0)
 
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def usesClause(self):
-            return self.getTypedRuleContext(MiniPascalParser.UsesClauseContext,0)
+            return self.getTypedRuleContext(PascalParser.UsesClauseContext,0)
 
 
         def declarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.DeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.DeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.DeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.DeclarationPartContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_programFile
+            return PascalParser.RULE_programFile
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterProgramFile" ):
@@ -1065,17 +1065,17 @@ class MiniPascalParser ( Parser ):
 
     def programFile(self):
 
-        localctx = MiniPascalParser.ProgramFileContext(self, self._ctx, self.state)
+        localctx = PascalParser.ProgramFileContext(self, self._ctx, self.state)
         self.enterRule(localctx, 6, self.RULE_programFile)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 253
-            self.match(MiniPascalParser.PROGRAM)
+            self.match(PascalParser.PROGRAM)
             self.state = 254
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 255
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 257
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1098,7 +1098,7 @@ class MiniPascalParser ( Parser ):
             self.state = 265
             self.block()
             self.state = 266
-            self.match(MiniPascalParser.DOT)
+            self.match(PascalParser.DOT)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1116,32 +1116,32 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def UNIT(self):
-            return self.getToken(MiniPascalParser.UNIT, 0)
+            return self.getToken(PascalParser.UNIT, 0)
 
         def qualifiedIdent(self):
-            return self.getTypedRuleContext(MiniPascalParser.QualifiedIdentContext,0)
+            return self.getTypedRuleContext(PascalParser.QualifiedIdentContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def interfaceSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.InterfaceSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.InterfaceSectionContext,0)
 
 
         def implementationSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.ImplementationSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.ImplementationSectionContext,0)
 
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def unitInitBlock(self):
-            return self.getTypedRuleContext(MiniPascalParser.UnitInitBlockContext,0)
+            return self.getTypedRuleContext(PascalParser.UnitInitBlockContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_unitFile
+            return PascalParser.RULE_unitFile
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterUnitFile" ):
@@ -1162,17 +1162,17 @@ class MiniPascalParser ( Parser ):
 
     def unitFile(self):
 
-        localctx = MiniPascalParser.UnitFileContext(self, self._ctx, self.state)
+        localctx = PascalParser.UnitFileContext(self, self._ctx, self.state)
         self.enterRule(localctx, 8, self.RULE_unitFile)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 268
-            self.match(MiniPascalParser.UNIT)
+            self.match(PascalParser.UNIT)
             self.state = 269
             self.qualifiedIdent()
             self.state = 270
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 271
             self.interfaceSection()
             self.state = 272
@@ -1186,7 +1186,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 276
-            self.match(MiniPascalParser.DOT)
+            self.match(PascalParser.DOT)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1204,38 +1204,38 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LIBRARY(self):
-            return self.getToken(MiniPascalParser.LIBRARY, 0)
+            return self.getToken(PascalParser.LIBRARY, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def block(self):
-            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+            return self.getTypedRuleContext(PascalParser.BlockContext,0)
 
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def usesClause(self):
-            return self.getTypedRuleContext(MiniPascalParser.UsesClauseContext,0)
+            return self.getTypedRuleContext(PascalParser.UsesClauseContext,0)
 
 
         def declarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.DeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.DeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.DeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.DeclarationPartContext,i)
 
 
         def exportsClause(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExportsClauseContext,0)
+            return self.getTypedRuleContext(PascalParser.ExportsClauseContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_libraryFile
+            return PascalParser.RULE_libraryFile
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterLibraryFile" ):
@@ -1256,17 +1256,17 @@ class MiniPascalParser ( Parser ):
 
     def libraryFile(self):
 
-        localctx = MiniPascalParser.LibraryFileContext(self, self._ctx, self.state)
+        localctx = PascalParser.LibraryFileContext(self, self._ctx, self.state)
         self.enterRule(localctx, 10, self.RULE_libraryFile)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 278
-            self.match(MiniPascalParser.LIBRARY)
+            self.match(PascalParser.LIBRARY)
             self.state = 279
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 280
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 282
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1297,7 +1297,7 @@ class MiniPascalParser ( Parser ):
             self.state = 293
             self.block()
             self.state = 294
-            self.match(MiniPascalParser.DOT)
+            self.match(PascalParser.DOT)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1315,10 +1315,10 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def COMPILER_DIRECTIVE(self):
-            return self.getToken(MiniPascalParser.COMPILER_DIRECTIVE, 0)
+            return self.getToken(PascalParser.COMPILER_DIRECTIVE, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_compilerDirective
+            return PascalParser.RULE_compilerDirective
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCompilerDirective" ):
@@ -1339,12 +1339,12 @@ class MiniPascalParser ( Parser ):
 
     def compilerDirective(self):
 
-        localctx = MiniPascalParser.CompilerDirectiveContext(self, self._ctx, self.state)
+        localctx = PascalParser.CompilerDirectiveContext(self, self._ctx, self.state)
         self.enterRule(localctx, 12, self.RULE_compilerDirective)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 296
-            self.match(MiniPascalParser.COMPILER_DIRECTIVE)
+            self.match(PascalParser.COMPILER_DIRECTIVE)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1362,26 +1362,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def EXPORTS(self):
-            return self.getToken(MiniPascalParser.EXPORTS, 0)
+            return self.getToken(PascalParser.EXPORTS, 0)
 
         def exportItem(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExportItemContext)
+                return self.getTypedRuleContexts(PascalParser.ExportItemContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExportItemContext,i)
+                return self.getTypedRuleContext(PascalParser.ExportItemContext,i)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_exportsClause
+            return PascalParser.RULE_exportsClause
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExportsClause" ):
@@ -1402,13 +1402,13 @@ class MiniPascalParser ( Parser ):
 
     def exportsClause(self):
 
-        localctx = MiniPascalParser.ExportsClauseContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExportsClauseContext(self, self._ctx, self.state)
         self.enterRule(localctx, 14, self.RULE_exportsClause)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 298
-            self.match(MiniPascalParser.EXPORTS)
+            self.match(PascalParser.EXPORTS)
             self.state = 299
             self.exportItem()
             self.state = 304
@@ -1416,7 +1416,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 300
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 301
                 self.exportItem()
                 self.state = 306
@@ -1424,7 +1424,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 307
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1442,15 +1442,15 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def qualifiedIdent(self):
-            return self.getTypedRuleContext(MiniPascalParser.QualifiedIdentContext,0)
+            return self.getTypedRuleContext(PascalParser.QualifiedIdentContext,0)
 
 
         def exportSignature(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExportSignatureContext,0)
+            return self.getTypedRuleContext(PascalParser.ExportSignatureContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_exportItem
+            return PascalParser.RULE_exportItem
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExportItem" ):
@@ -1471,7 +1471,7 @@ class MiniPascalParser ( Parser ):
 
     def exportItem(self):
 
-        localctx = MiniPascalParser.ExportItemContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExportItemContext(self, self._ctx, self.state)
         self.enterRule(localctx, 16, self.RULE_exportItem)
         self._la = 0 # Token type
         try:
@@ -1503,17 +1503,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def exportTypeList(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExportTypeListContext,0)
+            return self.getTypedRuleContext(PascalParser.ExportTypeListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_exportSignature
+            return PascalParser.RULE_exportSignature
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExportSignature" ):
@@ -1534,13 +1534,13 @@ class MiniPascalParser ( Parser ):
 
     def exportSignature(self):
 
-        localctx = MiniPascalParser.ExportSignatureContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExportSignatureContext(self, self._ctx, self.state)
         self.enterRule(localctx, 18, self.RULE_exportSignature)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 313
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 315
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1550,7 +1550,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 317
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1569,19 +1569,19 @@ class MiniPascalParser ( Parser ):
 
         def typeName(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.TypeNameContext)
+                return self.getTypedRuleContexts(PascalParser.TypeNameContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,i)
+                return self.getTypedRuleContext(PascalParser.TypeNameContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_exportTypeList
+            return PascalParser.RULE_exportTypeList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExportTypeList" ):
@@ -1602,7 +1602,7 @@ class MiniPascalParser ( Parser ):
 
     def exportTypeList(self):
 
-        localctx = MiniPascalParser.ExportTypeListContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExportTypeListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 20, self.RULE_exportTypeList)
         self._la = 0 # Token type
         try:
@@ -1614,7 +1614,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 320
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 321
                 self.typeName()
                 self.state = 326
@@ -1638,17 +1638,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def USES(self):
-            return self.getToken(MiniPascalParser.USES, 0)
+            return self.getToken(PascalParser.USES, 0)
 
         def qualifiedIdentList(self):
-            return self.getTypedRuleContext(MiniPascalParser.QualifiedIdentListContext,0)
+            return self.getTypedRuleContext(PascalParser.QualifiedIdentListContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_usesClause
+            return PascalParser.RULE_usesClause
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterUsesClause" ):
@@ -1669,16 +1669,16 @@ class MiniPascalParser ( Parser ):
 
     def usesClause(self):
 
-        localctx = MiniPascalParser.UsesClauseContext(self, self._ctx, self.state)
+        localctx = PascalParser.UsesClauseContext(self, self._ctx, self.state)
         self.enterRule(localctx, 22, self.RULE_usesClause)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 327
-            self.match(MiniPascalParser.USES)
+            self.match(PascalParser.USES)
             self.state = 328
             self.qualifiedIdentList()
             self.state = 329
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -1697,19 +1697,19 @@ class MiniPascalParser ( Parser ):
 
         def qualifiedIdent(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.QualifiedIdentContext)
+                return self.getTypedRuleContexts(PascalParser.QualifiedIdentContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.QualifiedIdentContext,i)
+                return self.getTypedRuleContext(PascalParser.QualifiedIdentContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_qualifiedIdentList
+            return PascalParser.RULE_qualifiedIdentList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterQualifiedIdentList" ):
@@ -1730,7 +1730,7 @@ class MiniPascalParser ( Parser ):
 
     def qualifiedIdentList(self):
 
-        localctx = MiniPascalParser.QualifiedIdentListContext(self, self._ctx, self.state)
+        localctx = PascalParser.QualifiedIdentListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 24, self.RULE_qualifiedIdentList)
         self._la = 0 # Token type
         try:
@@ -1742,7 +1742,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 332
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 333
                 self.qualifiedIdent()
                 self.state = 338
@@ -1766,21 +1766,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def INTERFACE(self):
-            return self.getToken(MiniPascalParser.INTERFACE, 0)
+            return self.getToken(PascalParser.INTERFACE, 0)
 
         def usesClause(self):
-            return self.getTypedRuleContext(MiniPascalParser.UsesClauseContext,0)
+            return self.getTypedRuleContext(PascalParser.UsesClauseContext,0)
 
 
         def interfaceDeclarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.InterfaceDeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.InterfaceDeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.InterfaceDeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.InterfaceDeclarationPartContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_interfaceSection
+            return PascalParser.RULE_interfaceSection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterInterfaceSection" ):
@@ -1801,13 +1801,13 @@ class MiniPascalParser ( Parser ):
 
     def interfaceSection(self):
 
-        localctx = MiniPascalParser.InterfaceSectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.InterfaceSectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 26, self.RULE_interfaceSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 339
-            self.match(MiniPascalParser.INTERFACE)
+            self.match(PascalParser.INTERFACE)
             self.state = 341
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1843,21 +1843,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IMPLEMENTATION(self):
-            return self.getToken(MiniPascalParser.IMPLEMENTATION, 0)
+            return self.getToken(PascalParser.IMPLEMENTATION, 0)
 
         def usesClause(self):
-            return self.getTypedRuleContext(MiniPascalParser.UsesClauseContext,0)
+            return self.getTypedRuleContext(PascalParser.UsesClauseContext,0)
 
 
         def implementationDeclarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ImplementationDeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.ImplementationDeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ImplementationDeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.ImplementationDeclarationPartContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_implementationSection
+            return PascalParser.RULE_implementationSection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterImplementationSection" ):
@@ -1878,13 +1878,13 @@ class MiniPascalParser ( Parser ):
 
     def implementationSection(self):
 
-        localctx = MiniPascalParser.ImplementationSectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.ImplementationSectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 28, self.RULE_implementationSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 349
-            self.match(MiniPascalParser.IMPLEMENTATION)
+            self.match(PascalParser.IMPLEMENTATION)
             self.state = 351
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -1920,27 +1920,27 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def constSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstSectionContext,0)
 
 
         def typeSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeSectionContext,0)
 
 
         def varSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VarSectionContext,0)
 
 
         def procedureHeader(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureHeaderContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureHeaderContext,0)
 
 
         def functionHeader(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionHeaderContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionHeaderContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_interfaceDeclarationPart
+            return PascalParser.RULE_interfaceDeclarationPart
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterInterfaceDeclarationPart" ):
@@ -1961,7 +1961,7 @@ class MiniPascalParser ( Parser ):
 
     def interfaceDeclarationPart(self):
 
-        localctx = MiniPascalParser.InterfaceDeclarationPartContext(self, self._ctx, self.state)
+        localctx = PascalParser.InterfaceDeclarationPartContext(self, self._ctx, self.state)
         self.enterRule(localctx, 30, self.RULE_interfaceDeclarationPart)
         try:
             self.state = 364
@@ -2012,31 +2012,31 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def constSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstSectionContext,0)
 
 
         def typeSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeSectionContext,0)
 
 
         def varSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VarSectionContext,0)
 
 
         def procedureDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureDeclarationContext,0)
 
 
         def functionDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionDeclarationContext,0)
 
 
         def classMethodImplementation(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassMethodImplementationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassMethodImplementationContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_implementationDeclarationPart
+            return PascalParser.RULE_implementationDeclarationPart
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterImplementationDeclarationPart" ):
@@ -2057,7 +2057,7 @@ class MiniPascalParser ( Parser ):
 
     def implementationDeclarationPart(self):
 
-        localctx = MiniPascalParser.ImplementationDeclarationPartContext(self, self._ctx, self.state)
+        localctx = PascalParser.ImplementationDeclarationPartContext(self, self._ctx, self.state)
         self.enterRule(localctx, 32, self.RULE_implementationDeclarationPart)
         try:
             self.state = 372
@@ -2117,17 +2117,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def BEGIN_(self):
-            return self.getToken(MiniPascalParser.BEGIN_, 0)
+            return self.getToken(PascalParser.BEGIN_, 0)
 
         def statementList(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementListContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementListContext,0)
 
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_unitInitBlock
+            return PascalParser.RULE_unitInitBlock
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterUnitInitBlock" ):
@@ -2148,16 +2148,16 @@ class MiniPascalParser ( Parser ):
 
     def unitInitBlock(self):
 
-        localctx = MiniPascalParser.UnitInitBlockContext(self, self._ctx, self.state)
+        localctx = PascalParser.UnitInitBlockContext(self, self._ctx, self.state)
         self.enterRule(localctx, 34, self.RULE_unitInitBlock)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 374
-            self.match(MiniPascalParser.BEGIN_)
+            self.match(PascalParser.BEGIN_)
             self.state = 375
             self.statementList()
             self.state = 376
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -2176,18 +2176,18 @@ class MiniPascalParser ( Parser ):
 
         def IDENT(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.IDENT)
+                return self.getTokens(PascalParser.IDENT)
             else:
-                return self.getToken(MiniPascalParser.IDENT, i)
+                return self.getToken(PascalParser.IDENT, i)
 
         def DOT(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.DOT)
+                return self.getTokens(PascalParser.DOT)
             else:
-                return self.getToken(MiniPascalParser.DOT, i)
+                return self.getToken(PascalParser.DOT, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_qualifiedIdent
+            return PascalParser.RULE_qualifiedIdent
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterQualifiedIdent" ):
@@ -2208,21 +2208,21 @@ class MiniPascalParser ( Parser ):
 
     def qualifiedIdent(self):
 
-        localctx = MiniPascalParser.QualifiedIdentContext(self, self._ctx, self.state)
+        localctx = PascalParser.QualifiedIdentContext(self, self._ctx, self.state)
         self.enterRule(localctx, 36, self.RULE_qualifiedIdent)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 378
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 383
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while _la==91:
                 self.state = 379
-                self.match(MiniPascalParser.DOT)
+                self.match(PascalParser.DOT)
                 self.state = 380
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 self.state = 385
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -2244,31 +2244,31 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def constSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstSectionContext,0)
 
 
         def typeSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeSectionContext,0)
 
 
         def varSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VarSectionContext,0)
 
 
         def procedureDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureDeclarationContext,0)
 
 
         def functionDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionDeclarationContext,0)
 
 
         def classMethodImplementation(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassMethodImplementationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassMethodImplementationContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_declarationPart
+            return PascalParser.RULE_declarationPart
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterDeclarationPart" ):
@@ -2289,7 +2289,7 @@ class MiniPascalParser ( Parser ):
 
     def declarationPart(self):
 
-        localctx = MiniPascalParser.DeclarationPartContext(self, self._ctx, self.state)
+        localctx = PascalParser.DeclarationPartContext(self, self._ctx, self.state)
         self.enterRule(localctx, 38, self.RULE_declarationPart)
         try:
             self.state = 392
@@ -2350,48 +2350,48 @@ class MiniPascalParser ( Parser ):
 
         def IDENT(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.IDENT)
+                return self.getTokens(PascalParser.IDENT)
             else:
-                return self.getToken(MiniPascalParser.IDENT, i)
+                return self.getToken(PascalParser.IDENT, i)
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def SEMI(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SEMI)
+                return self.getTokens(PascalParser.SEMI)
             else:
-                return self.getToken(MiniPascalParser.SEMI, i)
+                return self.getToken(PascalParser.SEMI, i)
 
         def block(self):
-            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+            return self.getTypedRuleContext(PascalParser.BlockContext,0)
 
 
         def CONSTRUCTOR(self):
-            return self.getToken(MiniPascalParser.CONSTRUCTOR, 0)
+            return self.getToken(PascalParser.CONSTRUCTOR, 0)
 
         def DESTRUCTOR(self):
-            return self.getToken(MiniPascalParser.DESTRUCTOR, 0)
+            return self.getToken(PascalParser.DESTRUCTOR, 0)
 
         def FUNCTION(self):
-            return self.getToken(MiniPascalParser.FUNCTION, 0)
+            return self.getToken(PascalParser.FUNCTION, 0)
 
         def PROCEDURE(self):
-            return self.getToken(MiniPascalParser.PROCEDURE, 0)
+            return self.getToken(PascalParser.PROCEDURE, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classMethodImplementation
+            return PascalParser.RULE_classMethodImplementation
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassMethodImplementation" ):
@@ -2412,7 +2412,7 @@ class MiniPascalParser ( Parser ):
 
     def classMethodImplementation(self):
 
-        localctx = MiniPascalParser.ClassMethodImplementationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassMethodImplementationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 40, self.RULE_classMethodImplementation)
         self._la = 0 # Token type
         try:
@@ -2425,11 +2425,11 @@ class MiniPascalParser ( Parser ):
                 self._errHandler.reportMatch(self)
                 self.consume()
             self.state = 395
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 396
-            self.match(MiniPascalParser.DOT)
+            self.match(PascalParser.DOT)
             self.state = 397
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 399
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -2443,13 +2443,13 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==93:
                 self.state = 401
-                self.match(MiniPascalParser.COLON)
+                self.match(PascalParser.COLON)
                 self.state = 402
                 self.typeName()
 
 
             self.state = 405
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 406
             self.block()
             self.state = 408
@@ -2457,7 +2457,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==94:
                 self.state = 407
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -2477,20 +2477,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PROCEDURE(self):
-            return self.getToken(MiniPascalParser.PROCEDURE, 0)
+            return self.getToken(PascalParser.PROCEDURE, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_procedureHeader
+            return PascalParser.RULE_procedureHeader
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterProcedureHeader" ):
@@ -2511,15 +2511,15 @@ class MiniPascalParser ( Parser ):
 
     def procedureHeader(self):
 
-        localctx = MiniPascalParser.ProcedureHeaderContext(self, self._ctx, self.state)
+        localctx = PascalParser.ProcedureHeaderContext(self, self._ctx, self.state)
         self.enterRule(localctx, 42, self.RULE_procedureHeader)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 410
-            self.match(MiniPascalParser.PROCEDURE)
+            self.match(PascalParser.PROCEDURE)
             self.state = 411
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 413
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -2529,7 +2529,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 415
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -2547,27 +2547,27 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def FUNCTION(self):
-            return self.getToken(MiniPascalParser.FUNCTION, 0)
+            return self.getToken(PascalParser.FUNCTION, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_functionHeader
+            return PascalParser.RULE_functionHeader
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFunctionHeader" ):
@@ -2588,15 +2588,15 @@ class MiniPascalParser ( Parser ):
 
     def functionHeader(self):
 
-        localctx = MiniPascalParser.FunctionHeaderContext(self, self._ctx, self.state)
+        localctx = PascalParser.FunctionHeaderContext(self, self._ctx, self.state)
         self.enterRule(localctx, 44, self.RULE_functionHeader)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 417
-            self.match(MiniPascalParser.FUNCTION)
+            self.match(PascalParser.FUNCTION)
             self.state = 418
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 420
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -2606,11 +2606,11 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 422
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 423
             self.typeName()
             self.state = 424
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -2628,17 +2628,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def CONST(self):
-            return self.getToken(MiniPascalParser.CONST, 0)
+            return self.getToken(PascalParser.CONST, 0)
 
         def constDeclaration(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ConstDeclarationContext)
+                return self.getTypedRuleContexts(PascalParser.ConstDeclarationContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ConstDeclarationContext,i)
+                return self.getTypedRuleContext(PascalParser.ConstDeclarationContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_constSection
+            return PascalParser.RULE_constSection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterConstSection" ):
@@ -2659,13 +2659,13 @@ class MiniPascalParser ( Parser ):
 
     def constSection(self):
 
-        localctx = MiniPascalParser.ConstSectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConstSectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 46, self.RULE_constSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 426
-            self.match(MiniPascalParser.CONST)
+            self.match(PascalParser.CONST)
             self.state = 428 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -2696,22 +2696,22 @@ class MiniPascalParser ( Parser ):
 
         def constItem(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ConstItemContext)
+                return self.getTypedRuleContexts(PascalParser.ConstItemContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ConstItemContext,i)
+                return self.getTypedRuleContext(PascalParser.ConstItemContext,i)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_constDeclaration
+            return PascalParser.RULE_constDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterConstDeclaration" ):
@@ -2732,7 +2732,7 @@ class MiniPascalParser ( Parser ):
 
     def constDeclaration(self):
 
-        localctx = MiniPascalParser.ConstDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConstDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 48, self.RULE_constDeclaration)
         self._la = 0 # Token type
         try:
@@ -2744,7 +2744,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 433
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 434
                 self.constItem()
                 self.state = 439
@@ -2752,7 +2752,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 440
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -2770,17 +2770,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def constValue(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstValueContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstValueContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_constItem
+            return PascalParser.RULE_constItem
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterConstItem" ):
@@ -2801,14 +2801,14 @@ class MiniPascalParser ( Parser ):
 
     def constItem(self):
 
-        localctx = MiniPascalParser.ConstItemContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConstItemContext(self, self._ctx, self.state)
         self.enterRule(localctx, 50, self.RULE_constItem)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 442
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 443
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 444
             self.constValue()
         except RecognitionException as re:
@@ -2828,16 +2828,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def STRING(self):
-            return self.getToken(MiniPascalParser.STRING, 0)
+            return self.getToken(PascalParser.STRING, 0)
 
         def FLOATNUMBER(self):
-            return self.getToken(MiniPascalParser.FLOATNUMBER, 0)
+            return self.getToken(PascalParser.FLOATNUMBER, 0)
 
         def NUMBER(self):
-            return self.getToken(MiniPascalParser.NUMBER, 0)
+            return self.getToken(PascalParser.NUMBER, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_constValue
+            return PascalParser.RULE_constValue
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterConstValue" ):
@@ -2858,7 +2858,7 @@ class MiniPascalParser ( Parser ):
 
     def constValue(self):
 
-        localctx = MiniPascalParser.ConstValueContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConstValueContext(self, self._ctx, self.state)
         self.enterRule(localctx, 52, self.RULE_constValue)
         self._la = 0 # Token type
         try:
@@ -2887,17 +2887,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def TYPE(self):
-            return self.getToken(MiniPascalParser.TYPE, 0)
+            return self.getToken(PascalParser.TYPE, 0)
 
         def typeDeclaration(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.TypeDeclarationContext)
+                return self.getTypedRuleContexts(PascalParser.TypeDeclarationContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.TypeDeclarationContext,i)
+                return self.getTypedRuleContext(PascalParser.TypeDeclarationContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_typeSection
+            return PascalParser.RULE_typeSection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTypeSection" ):
@@ -2918,13 +2918,13 @@ class MiniPascalParser ( Parser ):
 
     def typeSection(self):
 
-        localctx = MiniPascalParser.TypeSectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.TypeSectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 54, self.RULE_typeSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 448
-            self.match(MiniPascalParser.TYPE)
+            self.match(PascalParser.TYPE)
             self.state = 450 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -2954,13 +2954,13 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def BOOLEAN(self):
-            return self.getToken(MiniPascalParser.BOOLEAN, 0)
+            return self.getToken(PascalParser.BOOLEAN, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_typeIdentifier
+            return PascalParser.RULE_typeIdentifier
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTypeIdentifier" ):
@@ -2981,7 +2981,7 @@ class MiniPascalParser ( Parser ):
 
     def typeIdentifier(self):
 
-        localctx = MiniPascalParser.TypeIdentifierContext(self, self._ctx, self.state)
+        localctx = PascalParser.TypeIdentifierContext(self, self._ctx, self.state)
         self.enterRule(localctx, 56, self.RULE_typeIdentifier)
         self._la = 0 # Token type
         try:
@@ -3010,41 +3010,41 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def typeIdentifier(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeIdentifierContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeIdentifierContext,0)
 
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def subrangeType(self):
-            return self.getTypedRuleContext(MiniPascalParser.SubrangeTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.SubrangeTypeContext,0)
 
 
         def enumDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.EnumDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.EnumDeclarationContext,0)
 
 
         def recordDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.RecordDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.RecordDeclarationContext,0)
 
 
         def arrayDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayDeclarationContext,0)
 
 
         def classDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassDeclarationContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_typeDeclaration
+            return PascalParser.RULE_typeDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTypeDeclaration" ):
@@ -3065,7 +3065,7 @@ class MiniPascalParser ( Parser ):
 
     def typeDeclaration(self):
 
-        localctx = MiniPascalParser.TypeDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.TypeDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 58, self.RULE_typeDeclaration)
         try:
             self.state = 470
@@ -3076,11 +3076,11 @@ class MiniPascalParser ( Parser ):
                 self.state = 456
                 self.typeIdentifier()
                 self.state = 457
-                self.match(MiniPascalParser.EQ_OP)
+                self.match(PascalParser.EQ_OP)
                 self.state = 458
                 self.typeName()
                 self.state = 459
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
                 pass
 
             elif la_ == 2:
@@ -3088,11 +3088,11 @@ class MiniPascalParser ( Parser ):
                 self.state = 461
                 self.typeIdentifier()
                 self.state = 462
-                self.match(MiniPascalParser.EQ_OP)
+                self.match(PascalParser.EQ_OP)
                 self.state = 463
                 self.subrangeType()
                 self.state = 464
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
                 pass
 
             elif la_ == 3:
@@ -3137,30 +3137,30 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def CLASS(self):
-            return self.getToken(MiniPascalParser.CLASS, 0)
+            return self.getToken(PascalParser.CLASS, 0)
 
         def classBody(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassBodyContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassBodyContext,0)
 
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def classParent(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassParentContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassParentContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classDeclaration
+            return PascalParser.RULE_classDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassDeclaration" ):
@@ -3181,17 +3181,17 @@ class MiniPascalParser ( Parser ):
 
     def classDeclaration(self):
 
-        localctx = MiniPascalParser.ClassDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 60, self.RULE_classDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 472
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 473
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 474
-            self.match(MiniPascalParser.CLASS)
+            self.match(PascalParser.CLASS)
             self.state = 476
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -3203,9 +3203,9 @@ class MiniPascalParser ( Parser ):
             self.state = 478
             self.classBody()
             self.state = 479
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
             self.state = 480
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3223,16 +3223,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classParent
+            return PascalParser.RULE_classParent
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassParent" ):
@@ -3253,16 +3253,16 @@ class MiniPascalParser ( Parser ):
 
     def classParent(self):
 
-        localctx = MiniPascalParser.ClassParentContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassParentContext(self, self._ctx, self.state)
         self.enterRule(localctx, 62, self.RULE_classParent)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 482
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 483
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 484
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3281,13 +3281,13 @@ class MiniPascalParser ( Parser ):
 
         def classMember(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ClassMemberContext)
+                return self.getTypedRuleContexts(PascalParser.ClassMemberContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ClassMemberContext,i)
+                return self.getTypedRuleContext(PascalParser.ClassMemberContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classBody
+            return PascalParser.RULE_classBody
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassBody" ):
@@ -3308,7 +3308,7 @@ class MiniPascalParser ( Parser ):
 
     def classBody(self):
 
-        localctx = MiniPascalParser.ClassBodyContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassBodyContext(self, self._ctx, self.state)
         self.enterRule(localctx, 64, self.RULE_classBody)
         self._la = 0 # Token type
         try:
@@ -3340,35 +3340,35 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def visibilitySection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VisibilitySectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VisibilitySectionContext,0)
 
 
         def propertyDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.PropertyDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.PropertyDeclarationContext,0)
 
 
         def classFieldDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassFieldDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassFieldDeclarationContext,0)
 
 
         def constructorDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstructorDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstructorDeclarationContext,0)
 
 
         def destructorDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.DestructorDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.DestructorDeclarationContext,0)
 
 
         def classFunctionDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassFunctionDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassFunctionDeclarationContext,0)
 
 
         def classProcedureDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ClassProcedureDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ClassProcedureDeclarationContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classMember
+            return PascalParser.RULE_classMember
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassMember" ):
@@ -3389,7 +3389,7 @@ class MiniPascalParser ( Parser ):
 
     def classMember(self):
 
-        localctx = MiniPascalParser.ClassMemberContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassMemberContext(self, self._ctx, self.state)
         self.enterRule(localctx, 66, self.RULE_classMember)
         try:
             self.state = 499
@@ -3450,19 +3450,19 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PRIVATE(self):
-            return self.getToken(MiniPascalParser.PRIVATE, 0)
+            return self.getToken(PascalParser.PRIVATE, 0)
 
         def PROTECTED(self):
-            return self.getToken(MiniPascalParser.PROTECTED, 0)
+            return self.getToken(PascalParser.PROTECTED, 0)
 
         def PUBLIC(self):
-            return self.getToken(MiniPascalParser.PUBLIC, 0)
+            return self.getToken(PascalParser.PUBLIC, 0)
 
         def PUBLISHED(self):
-            return self.getToken(MiniPascalParser.PUBLISHED, 0)
+            return self.getToken(PascalParser.PUBLISHED, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_visibilitySection
+            return PascalParser.RULE_visibilitySection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVisibilitySection" ):
@@ -3483,7 +3483,7 @@ class MiniPascalParser ( Parser ):
 
     def visibilitySection(self):
 
-        localctx = MiniPascalParser.VisibilitySectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.VisibilitySectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 68, self.RULE_visibilitySection)
         self._la = 0 # Token type
         try:
@@ -3512,30 +3512,30 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PROPERTY(self):
-            return self.getToken(MiniPascalParser.PROPERTY, 0)
+            return self.getToken(PascalParser.PROPERTY, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def propertyAccessor(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.PropertyAccessorContext)
+                return self.getTypedRuleContexts(PascalParser.PropertyAccessorContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.PropertyAccessorContext,i)
+                return self.getTypedRuleContext(PascalParser.PropertyAccessorContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_propertyDeclaration
+            return PascalParser.RULE_propertyDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterPropertyDeclaration" ):
@@ -3556,17 +3556,17 @@ class MiniPascalParser ( Parser ):
 
     def propertyDeclaration(self):
 
-        localctx = MiniPascalParser.PropertyDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.PropertyDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 70, self.RULE_propertyDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 503
-            self.match(MiniPascalParser.PROPERTY)
+            self.match(PascalParser.PROPERTY)
             self.state = 504
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 505
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 506
             self.typeName()
             self.state = 510
@@ -3580,7 +3580,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 513
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3598,16 +3598,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def READ(self):
-            return self.getToken(MiniPascalParser.READ, 0)
+            return self.getToken(PascalParser.READ, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def WRITE(self):
-            return self.getToken(MiniPascalParser.WRITE, 0)
+            return self.getToken(PascalParser.WRITE, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_propertyAccessor
+            return PascalParser.RULE_propertyAccessor
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterPropertyAccessor" ):
@@ -3628,7 +3628,7 @@ class MiniPascalParser ( Parser ):
 
     def propertyAccessor(self):
 
-        localctx = MiniPascalParser.PropertyAccessorContext(self, self._ctx, self.state)
+        localctx = PascalParser.PropertyAccessorContext(self, self._ctx, self.state)
         self.enterRule(localctx, 72, self.RULE_propertyAccessor)
         try:
             self.state = 519
@@ -3637,16 +3637,16 @@ class MiniPascalParser ( Parser ):
             if token in [59]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 515
-                self.match(MiniPascalParser.READ)
+                self.match(PascalParser.READ)
                 self.state = 516
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 pass
             elif token in [60]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 517
-                self.match(MiniPascalParser.WRITE)
+                self.match(PascalParser.WRITE)
                 self.state = 518
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -3668,27 +3668,27 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def FUNCTION(self):
-            return self.getToken(MiniPascalParser.FUNCTION, 0)
+            return self.getToken(PascalParser.FUNCTION, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classFunctionDeclaration
+            return PascalParser.RULE_classFunctionDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassFunctionDeclaration" ):
@@ -3709,15 +3709,15 @@ class MiniPascalParser ( Parser ):
 
     def classFunctionDeclaration(self):
 
-        localctx = MiniPascalParser.ClassFunctionDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassFunctionDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 74, self.RULE_classFunctionDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 521
-            self.match(MiniPascalParser.FUNCTION)
+            self.match(PascalParser.FUNCTION)
             self.state = 522
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 524
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -3727,11 +3727,11 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 526
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 527
             self.typeName()
             self.state = 528
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3749,20 +3749,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PROCEDURE(self):
-            return self.getToken(MiniPascalParser.PROCEDURE, 0)
+            return self.getToken(PascalParser.PROCEDURE, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classProcedureDeclaration
+            return PascalParser.RULE_classProcedureDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassProcedureDeclaration" ):
@@ -3783,15 +3783,15 @@ class MiniPascalParser ( Parser ):
 
     def classProcedureDeclaration(self):
 
-        localctx = MiniPascalParser.ClassProcedureDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassProcedureDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 76, self.RULE_classProcedureDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 530
-            self.match(MiniPascalParser.PROCEDURE)
+            self.match(PascalParser.PROCEDURE)
             self.state = 531
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 533
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -3801,7 +3801,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 535
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3819,21 +3819,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def identList(self):
-            return self.getTypedRuleContext(MiniPascalParser.IdentListContext,0)
+            return self.getTypedRuleContext(PascalParser.IdentListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_classFieldDeclaration
+            return PascalParser.RULE_classFieldDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterClassFieldDeclaration" ):
@@ -3854,18 +3854,18 @@ class MiniPascalParser ( Parser ):
 
     def classFieldDeclaration(self):
 
-        localctx = MiniPascalParser.ClassFieldDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ClassFieldDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 78, self.RULE_classFieldDeclaration)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 537
             self.identList()
             self.state = 538
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 539
             self.typeName()
             self.state = 540
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -3883,17 +3883,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def INHERITED(self):
-            return self.getToken(MiniPascalParser.INHERITED, 0)
+            return self.getToken(PascalParser.INHERITED, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def actualParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.ActualParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.ActualParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_inheritedStatement
+            return PascalParser.RULE_inheritedStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterInheritedStatement" ):
@@ -3914,19 +3914,19 @@ class MiniPascalParser ( Parser ):
 
     def inheritedStatement(self):
 
-        localctx = MiniPascalParser.InheritedStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.InheritedStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 80, self.RULE_inheritedStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 542
-            self.match(MiniPascalParser.INHERITED)
+            self.match(PascalParser.INHERITED)
             self.state = 544
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,38,self._ctx)
             if la_ == 1:
                 self.state = 543
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
 
 
             self.state = 547
@@ -3954,20 +3954,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def CONSTRUCTOR(self):
-            return self.getToken(MiniPascalParser.CONSTRUCTOR, 0)
+            return self.getToken(PascalParser.CONSTRUCTOR, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_constructorDeclaration
+            return PascalParser.RULE_constructorDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterConstructorDeclaration" ):
@@ -3988,15 +3988,15 @@ class MiniPascalParser ( Parser ):
 
     def constructorDeclaration(self):
 
-        localctx = MiniPascalParser.ConstructorDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConstructorDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 82, self.RULE_constructorDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 549
-            self.match(MiniPascalParser.CONSTRUCTOR)
+            self.match(PascalParser.CONSTRUCTOR)
             self.state = 550
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 552
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -4006,7 +4006,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 554
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4024,20 +4024,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def DESTRUCTOR(self):
-            return self.getToken(MiniPascalParser.DESTRUCTOR, 0)
+            return self.getToken(PascalParser.DESTRUCTOR, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_destructorDeclaration
+            return PascalParser.RULE_destructorDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterDestructorDeclaration" ):
@@ -4058,15 +4058,15 @@ class MiniPascalParser ( Parser ):
 
     def destructorDeclaration(self):
 
-        localctx = MiniPascalParser.DestructorDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.DestructorDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 84, self.RULE_destructorDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 556
-            self.match(MiniPascalParser.DESTRUCTOR)
+            self.match(PascalParser.DESTRUCTOR)
             self.state = 557
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 559
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -4076,7 +4076,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 561
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4094,24 +4094,24 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def arrayType(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayTypeContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def arrayInitializer(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayInitializerContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayInitializerContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayDeclaration
+            return PascalParser.RULE_arrayDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayDeclaration" ):
@@ -4132,15 +4132,15 @@ class MiniPascalParser ( Parser ):
 
     def arrayDeclaration(self):
 
-        localctx = MiniPascalParser.ArrayDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 86, self.RULE_arrayDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 563
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 564
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 565
             self.arrayType()
             self.state = 567
@@ -4152,7 +4152,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 569
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4170,20 +4170,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def arrayValueList(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayValueListContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayValueListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayInitializer
+            return PascalParser.RULE_arrayInitializer
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayInitializer" ):
@@ -4204,15 +4204,15 @@ class MiniPascalParser ( Parser ):
 
     def arrayInitializer(self):
 
-        localctx = MiniPascalParser.ArrayInitializerContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayInitializerContext(self, self._ctx, self.state)
         self.enterRule(localctx, 88, self.RULE_arrayInitializer)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 571
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 572
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 574
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -4222,7 +4222,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 576
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4241,19 +4241,19 @@ class MiniPascalParser ( Parser ):
 
         def constValue(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ConstValueContext)
+                return self.getTypedRuleContexts(PascalParser.ConstValueContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ConstValueContext,i)
+                return self.getTypedRuleContext(PascalParser.ConstValueContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayValueList
+            return PascalParser.RULE_arrayValueList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayValueList" ):
@@ -4274,7 +4274,7 @@ class MiniPascalParser ( Parser ):
 
     def arrayValueList(self):
 
-        localctx = MiniPascalParser.ArrayValueListContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayValueListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 90, self.RULE_arrayValueList)
         self._la = 0 # Token type
         try:
@@ -4287,7 +4287,7 @@ class MiniPascalParser ( Parser ):
             while _alt!=2 and _alt!=ATN.INVALID_ALT_NUMBER:
                 if _alt==1:
                     self.state = 579
-                    self.match(MiniPascalParser.COMMA)
+                    self.match(PascalParser.COMMA)
                     self.state = 580
                     self.constValue() 
                 self.state = 585
@@ -4299,7 +4299,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==95:
                 self.state = 586
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
 
 
         except RecognitionException as re:
@@ -4319,36 +4319,36 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def ARRAY(self):
-            return self.getToken(MiniPascalParser.ARRAY, 0)
+            return self.getToken(PascalParser.ARRAY, 0)
 
         def LBRACK(self):
-            return self.getToken(MiniPascalParser.LBRACK, 0)
+            return self.getToken(PascalParser.LBRACK, 0)
 
         def arrayRange(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ArrayRangeContext)
+                return self.getTypedRuleContexts(PascalParser.ArrayRangeContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ArrayRangeContext,i)
+                return self.getTypedRuleContext(PascalParser.ArrayRangeContext,i)
 
 
         def RBRACK(self):
-            return self.getToken(MiniPascalParser.RBRACK, 0)
+            return self.getToken(PascalParser.RBRACK, 0)
 
         def OF(self):
-            return self.getToken(MiniPascalParser.OF, 0)
+            return self.getToken(PascalParser.OF, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayType
+            return PascalParser.RULE_arrayType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayType" ):
@@ -4369,7 +4369,7 @@ class MiniPascalParser ( Parser ):
 
     def arrayType(self):
 
-        localctx = MiniPascalParser.ArrayTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 92, self.RULE_arrayType)
         self._la = 0 # Token type
         try:
@@ -4379,9 +4379,9 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 589
-                self.match(MiniPascalParser.ARRAY)
+                self.match(PascalParser.ARRAY)
                 self.state = 590
-                self.match(MiniPascalParser.LBRACK)
+                self.match(PascalParser.LBRACK)
                 self.state = 591
                 self.arrayRange()
                 self.state = 596
@@ -4389,7 +4389,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
                 while _la==95:
                     self.state = 592
-                    self.match(MiniPascalParser.COMMA)
+                    self.match(PascalParser.COMMA)
                     self.state = 593
                     self.arrayRange()
                     self.state = 598
@@ -4397,9 +4397,9 @@ class MiniPascalParser ( Parser ):
                     _la = self._input.LA(1)
 
                 self.state = 599
-                self.match(MiniPascalParser.RBRACK)
+                self.match(PascalParser.RBRACK)
                 self.state = 600
-                self.match(MiniPascalParser.OF)
+                self.match(PascalParser.OF)
                 self.state = 601
                 self.typeName()
                 pass
@@ -4407,9 +4407,9 @@ class MiniPascalParser ( Parser ):
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 603
-                self.match(MiniPascalParser.ARRAY)
+                self.match(PascalParser.ARRAY)
                 self.state = 604
-                self.match(MiniPascalParser.OF)
+                self.match(PascalParser.OF)
                 self.state = 605
                 self.typeName()
                 pass
@@ -4433,16 +4433,16 @@ class MiniPascalParser ( Parser ):
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def DOTDOT(self):
-            return self.getToken(MiniPascalParser.DOTDOT, 0)
+            return self.getToken(PascalParser.DOTDOT, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayRange
+            return PascalParser.RULE_arrayRange
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayRange" ):
@@ -4463,14 +4463,14 @@ class MiniPascalParser ( Parser ):
 
     def arrayRange(self):
 
-        localctx = MiniPascalParser.ArrayRangeContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayRangeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 94, self.RULE_arrayRange)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 608
             self.expr()
             self.state = 609
-            self.match(MiniPascalParser.DOTDOT)
+            self.match(PascalParser.DOTDOT)
             self.state = 610
             self.expr()
         except RecognitionException as re:
@@ -4490,17 +4490,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LBRACK(self):
-            return self.getToken(MiniPascalParser.LBRACK, 0)
+            return self.getToken(PascalParser.LBRACK, 0)
 
         def RBRACK(self):
-            return self.getToken(MiniPascalParser.RBRACK, 0)
+            return self.getToken(PascalParser.RBRACK, 0)
 
         def arrayConstructorItems(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayConstructorItemsContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayConstructorItemsContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayConstructor
+            return PascalParser.RULE_arrayConstructor
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayConstructor" ):
@@ -4521,13 +4521,13 @@ class MiniPascalParser ( Parser ):
 
     def arrayConstructor(self):
 
-        localctx = MiniPascalParser.ArrayConstructorContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayConstructorContext(self, self._ctx, self.state)
         self.enterRule(localctx, 96, self.RULE_arrayConstructor)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 612
-            self.match(MiniPascalParser.LBRACK)
+            self.match(PascalParser.LBRACK)
             self.state = 614
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -4537,7 +4537,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 616
-            self.match(MiniPascalParser.RBRACK)
+            self.match(PascalParser.RBRACK)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4556,19 +4556,19 @@ class MiniPascalParser ( Parser ):
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_arrayConstructorItems
+            return PascalParser.RULE_arrayConstructorItems
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArrayConstructorItems" ):
@@ -4589,7 +4589,7 @@ class MiniPascalParser ( Parser ):
 
     def arrayConstructorItems(self):
 
-        localctx = MiniPascalParser.ArrayConstructorItemsContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArrayConstructorItemsContext(self, self._ctx, self.state)
         self.enterRule(localctx, 98, self.RULE_arrayConstructorItems)
         self._la = 0 # Token type
         try:
@@ -4601,7 +4601,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 619
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 620
                 self.expr()
                 self.state = 625
@@ -4625,14 +4625,14 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def simpleType(self):
-            return self.getTypedRuleContext(MiniPascalParser.SimpleTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.SimpleTypeContext,0)
 
 
         def CARET(self):
-            return self.getToken(MiniPascalParser.CARET, 0)
+            return self.getToken(PascalParser.CARET, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_typeName
+            return PascalParser.RULE_typeName
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTypeName" ):
@@ -4653,7 +4653,7 @@ class MiniPascalParser ( Parser ):
 
     def typeName(self):
 
-        localctx = MiniPascalParser.TypeNameContext(self, self._ctx, self.state)
+        localctx = PascalParser.TypeNameContext(self, self._ctx, self.state)
         self.enterRule(localctx, 100, self.RULE_typeName)
         try:
             self.state = 629
@@ -4667,7 +4667,7 @@ class MiniPascalParser ( Parser ):
             elif token in [104]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 627
-                self.match(MiniPascalParser.CARET)
+                self.match(PascalParser.CARET)
                 self.state = 628
                 self.simpleType()
                 pass
@@ -4691,22 +4691,22 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def INTEGER(self):
-            return self.getToken(MiniPascalParser.INTEGER, 0)
+            return self.getToken(PascalParser.INTEGER, 0)
 
         def DOUBLE(self):
-            return self.getToken(MiniPascalParser.DOUBLE, 0)
+            return self.getToken(PascalParser.DOUBLE, 0)
 
         def STRING(self):
-            return self.getToken(MiniPascalParser.STRING, 0)
+            return self.getToken(PascalParser.STRING, 0)
 
         def BOOLEAN(self):
-            return self.getToken(MiniPascalParser.BOOLEAN, 0)
+            return self.getToken(PascalParser.BOOLEAN, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_simpleType
+            return PascalParser.RULE_simpleType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterSimpleType" ):
@@ -4727,7 +4727,7 @@ class MiniPascalParser ( Parser ):
 
     def simpleType(self):
 
-        localctx = MiniPascalParser.SimpleTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.SimpleTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 102, self.RULE_simpleType)
         self._la = 0 # Token type
         try:
@@ -4756,16 +4756,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def NUMBER(self):
-            return self.getToken(MiniPascalParser.NUMBER, 0)
+            return self.getToken(PascalParser.NUMBER, 0)
 
         def PLUS(self):
-            return self.getToken(MiniPascalParser.PLUS, 0)
+            return self.getToken(PascalParser.PLUS, 0)
 
         def MINUS(self):
-            return self.getToken(MiniPascalParser.MINUS, 0)
+            return self.getToken(PascalParser.MINUS, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_signedInteger
+            return PascalParser.RULE_signedInteger
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterSignedInteger" ):
@@ -4786,7 +4786,7 @@ class MiniPascalParser ( Parser ):
 
     def signedInteger(self):
 
-        localctx = MiniPascalParser.SignedIntegerContext(self, self._ctx, self.state)
+        localctx = PascalParser.SignedIntegerContext(self, self._ctx, self.state)
         self.enterRule(localctx, 104, self.RULE_signedInteger)
         self._la = 0 # Token type
         try:
@@ -4805,7 +4805,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 636
-            self.match(MiniPascalParser.NUMBER)
+            self.match(PascalParser.NUMBER)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4824,16 +4824,16 @@ class MiniPascalParser ( Parser ):
 
         def signedInteger(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.SignedIntegerContext)
+                return self.getTypedRuleContexts(PascalParser.SignedIntegerContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.SignedIntegerContext,i)
+                return self.getTypedRuleContext(PascalParser.SignedIntegerContext,i)
 
 
         def DOTDOT(self):
-            return self.getToken(MiniPascalParser.DOTDOT, 0)
+            return self.getToken(PascalParser.DOTDOT, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_subrangeType
+            return PascalParser.RULE_subrangeType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterSubrangeType" ):
@@ -4854,14 +4854,14 @@ class MiniPascalParser ( Parser ):
 
     def subrangeType(self):
 
-        localctx = MiniPascalParser.SubrangeTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.SubrangeTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 106, self.RULE_subrangeType)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 638
             self.signedInteger()
             self.state = 639
-            self.match(MiniPascalParser.DOTDOT)
+            self.match(PascalParser.DOTDOT)
             self.state = 640
             self.signedInteger()
         except RecognitionException as re:
@@ -4881,26 +4881,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def enumValueList(self):
-            return self.getTypedRuleContext(MiniPascalParser.EnumValueListContext,0)
+            return self.getTypedRuleContext(PascalParser.EnumValueListContext,0)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_enumDeclaration
+            return PascalParser.RULE_enumDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterEnumDeclaration" ):
@@ -4921,22 +4921,22 @@ class MiniPascalParser ( Parser ):
 
     def enumDeclaration(self):
 
-        localctx = MiniPascalParser.EnumDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.EnumDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 108, self.RULE_enumDeclaration)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 642
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 643
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 644
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 645
             self.enumValueList()
             self.state = 646
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
             self.state = 647
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -4955,19 +4955,19 @@ class MiniPascalParser ( Parser ):
 
         def enumValue(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.EnumValueContext)
+                return self.getTypedRuleContexts(PascalParser.EnumValueContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.EnumValueContext,i)
+                return self.getTypedRuleContext(PascalParser.EnumValueContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_enumValueList
+            return PascalParser.RULE_enumValueList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterEnumValueList" ):
@@ -4988,7 +4988,7 @@ class MiniPascalParser ( Parser ):
 
     def enumValueList(self):
 
-        localctx = MiniPascalParser.EnumValueListContext(self, self._ctx, self.state)
+        localctx = PascalParser.EnumValueListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 110, self.RULE_enumValueList)
         self._la = 0 # Token type
         try:
@@ -5000,7 +5000,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 650
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 651
                 self.enumValue()
                 self.state = 656
@@ -5024,16 +5024,16 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def NUMBER(self):
-            return self.getToken(MiniPascalParser.NUMBER, 0)
+            return self.getToken(PascalParser.NUMBER, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_enumValue
+            return PascalParser.RULE_enumValue
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterEnumValue" ):
@@ -5054,21 +5054,21 @@ class MiniPascalParser ( Parser ):
 
     def enumValue(self):
 
-        localctx = MiniPascalParser.EnumValueContext(self, self._ctx, self.state)
+        localctx = PascalParser.EnumValueContext(self, self._ctx, self.state)
         self.enterRule(localctx, 112, self.RULE_enumValue)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 657
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 660
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             if _la==106:
                 self.state = 658
-                self.match(MiniPascalParser.EQ_OP)
+                self.match(PascalParser.EQ_OP)
                 self.state = 659
-                self.match(MiniPascalParser.NUMBER)
+                self.match(PascalParser.NUMBER)
 
 
         except RecognitionException as re:
@@ -5088,29 +5088,29 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def RECORD(self):
-            return self.getToken(MiniPascalParser.RECORD, 0)
+            return self.getToken(PascalParser.RECORD, 0)
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def recordFieldDeclaration(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.RecordFieldDeclarationContext)
+                return self.getTypedRuleContexts(PascalParser.RecordFieldDeclarationContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.RecordFieldDeclarationContext,i)
+                return self.getTypedRuleContext(PascalParser.RecordFieldDeclarationContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_recordDeclaration
+            return PascalParser.RULE_recordDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterRecordDeclaration" ):
@@ -5131,17 +5131,17 @@ class MiniPascalParser ( Parser ):
 
     def recordDeclaration(self):
 
-        localctx = MiniPascalParser.RecordDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.RecordDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 114, self.RULE_recordDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 662
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 663
-            self.match(MiniPascalParser.EQ_OP)
+            self.match(PascalParser.EQ_OP)
             self.state = 664
-            self.match(MiniPascalParser.RECORD)
+            self.match(PascalParser.RECORD)
             self.state = 668
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -5153,9 +5153,9 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 671
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
             self.state = 672
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -5173,21 +5173,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def identList(self):
-            return self.getTypedRuleContext(MiniPascalParser.IdentListContext,0)
+            return self.getTypedRuleContext(PascalParser.IdentListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_recordFieldDeclaration
+            return PascalParser.RULE_recordFieldDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterRecordFieldDeclaration" ):
@@ -5208,18 +5208,18 @@ class MiniPascalParser ( Parser ):
 
     def recordFieldDeclaration(self):
 
-        localctx = MiniPascalParser.RecordFieldDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.RecordFieldDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 116, self.RULE_recordFieldDeclaration)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 674
             self.identList()
             self.state = 675
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 676
             self.typeName()
             self.state = 677
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -5237,45 +5237,45 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def FUNCTION(self):
-            return self.getToken(MiniPascalParser.FUNCTION, 0)
+            return self.getToken(PascalParser.FUNCTION, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def SEMI(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SEMI)
+                return self.getTokens(PascalParser.SEMI)
             else:
-                return self.getToken(MiniPascalParser.SEMI, i)
+                return self.getToken(PascalParser.SEMI, i)
 
         def externalRoutineSpec(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExternalRoutineSpecContext,0)
+            return self.getTypedRuleContext(PascalParser.ExternalRoutineSpecContext,0)
 
 
         def block(self):
-            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+            return self.getTypedRuleContext(PascalParser.BlockContext,0)
 
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def declarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.DeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.DeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.DeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.DeclarationPartContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_functionDeclaration
+            return PascalParser.RULE_functionDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFunctionDeclaration" ):
@@ -5296,15 +5296,15 @@ class MiniPascalParser ( Parser ):
 
     def functionDeclaration(self):
 
-        localctx = MiniPascalParser.FunctionDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.FunctionDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 118, self.RULE_functionDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 679
-            self.match(MiniPascalParser.FUNCTION)
+            self.match(PascalParser.FUNCTION)
             self.state = 680
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 682
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -5314,11 +5314,11 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 684
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 685
             self.typeName()
             self.state = 686
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 697
             self._errHandler.sync(self)
             token = self._input.LA(1)
@@ -5341,7 +5341,7 @@ class MiniPascalParser ( Parser ):
                 self.state = 694
                 self.block()
                 self.state = 695
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -5363,38 +5363,38 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PROCEDURE(self):
-            return self.getToken(MiniPascalParser.PROCEDURE, 0)
+            return self.getToken(PascalParser.PROCEDURE, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def SEMI(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SEMI)
+                return self.getTokens(PascalParser.SEMI)
             else:
-                return self.getToken(MiniPascalParser.SEMI, i)
+                return self.getToken(PascalParser.SEMI, i)
 
         def externalRoutineSpec(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExternalRoutineSpecContext,0)
+            return self.getTypedRuleContext(PascalParser.ExternalRoutineSpecContext,0)
 
 
         def block(self):
-            return self.getTypedRuleContext(MiniPascalParser.BlockContext,0)
+            return self.getTypedRuleContext(PascalParser.BlockContext,0)
 
 
         def formalParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.FormalParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.FormalParamListContext,0)
 
 
         def declarationPart(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.DeclarationPartContext)
+                return self.getTypedRuleContexts(PascalParser.DeclarationPartContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.DeclarationPartContext,i)
+                return self.getTypedRuleContext(PascalParser.DeclarationPartContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_procedureDeclaration
+            return PascalParser.RULE_procedureDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterProcedureDeclaration" ):
@@ -5415,15 +5415,15 @@ class MiniPascalParser ( Parser ):
 
     def procedureDeclaration(self):
 
-        localctx = MiniPascalParser.ProcedureDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.ProcedureDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 120, self.RULE_procedureDeclaration)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 699
-            self.match(MiniPascalParser.PROCEDURE)
+            self.match(PascalParser.PROCEDURE)
             self.state = 700
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 702
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -5433,7 +5433,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 704
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
             self.state = 715
             self._errHandler.sync(self)
             token = self._input.LA(1)
@@ -5456,7 +5456,7 @@ class MiniPascalParser ( Parser ):
                 self.state = 712
                 self.block()
                 self.state = 713
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -5478,26 +5478,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def formalParam(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.FormalParamContext)
+                return self.getTypedRuleContexts(PascalParser.FormalParamContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.FormalParamContext,i)
+                return self.getTypedRuleContext(PascalParser.FormalParamContext,i)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def SEMI(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SEMI)
+                return self.getTokens(PascalParser.SEMI)
             else:
-                return self.getToken(MiniPascalParser.SEMI, i)
+                return self.getToken(PascalParser.SEMI, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_formalParamList
+            return PascalParser.RULE_formalParamList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFormalParamList" ):
@@ -5518,13 +5518,13 @@ class MiniPascalParser ( Parser ):
 
     def formalParamList(self):
 
-        localctx = MiniPascalParser.FormalParamListContext(self, self._ctx, self.state)
+        localctx = PascalParser.FormalParamListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 122, self.RULE_formalParamList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 717
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 718
             self.formalParam()
             self.state = 723
@@ -5532,7 +5532,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==94:
                 self.state = 719
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
                 self.state = 720
                 self.formalParam()
                 self.state = 725
@@ -5540,7 +5540,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 726
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -5558,22 +5558,22 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def identList(self):
-            return self.getTypedRuleContext(MiniPascalParser.IdentListContext,0)
+            return self.getTypedRuleContext(PascalParser.IdentListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def paramType(self):
-            return self.getTypedRuleContext(MiniPascalParser.ParamTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.ParamTypeContext,0)
 
 
         def paramModifier(self):
-            return self.getTypedRuleContext(MiniPascalParser.ParamModifierContext,0)
+            return self.getTypedRuleContext(PascalParser.ParamModifierContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_formalParam
+            return PascalParser.RULE_formalParam
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFormalParam" ):
@@ -5594,7 +5594,7 @@ class MiniPascalParser ( Parser ):
 
     def formalParam(self):
 
-        localctx = MiniPascalParser.FormalParamContext(self, self._ctx, self.state)
+        localctx = PascalParser.FormalParamContext(self, self._ctx, self.state)
         self.enterRule(localctx, 124, self.RULE_formalParam)
         self._la = 0 # Token type
         try:
@@ -5610,7 +5610,7 @@ class MiniPascalParser ( Parser ):
             self.state = 731
             self.identList()
             self.state = 732
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 733
             self.paramType()
         except RecognitionException as re:
@@ -5630,13 +5630,13 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def VAR(self):
-            return self.getToken(MiniPascalParser.VAR, 0)
+            return self.getToken(PascalParser.VAR, 0)
 
         def CONST(self):
-            return self.getToken(MiniPascalParser.CONST, 0)
+            return self.getToken(PascalParser.CONST, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_paramModifier
+            return PascalParser.RULE_paramModifier
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterParamModifier" ):
@@ -5657,7 +5657,7 @@ class MiniPascalParser ( Parser ):
 
     def paramModifier(self):
 
-        localctx = MiniPascalParser.ParamModifierContext(self, self._ctx, self.state)
+        localctx = PascalParser.ParamModifierContext(self, self._ctx, self.state)
         self.enterRule(localctx, 126, self.RULE_paramModifier)
         self._la = 0 # Token type
         try:
@@ -5686,15 +5686,15 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def openArrayType(self):
-            return self.getTypedRuleContext(MiniPascalParser.OpenArrayTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.OpenArrayTypeContext,0)
 
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_paramType
+            return PascalParser.RULE_paramType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterParamType" ):
@@ -5715,7 +5715,7 @@ class MiniPascalParser ( Parser ):
 
     def paramType(self):
 
-        localctx = MiniPascalParser.ParamTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.ParamTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 128, self.RULE_paramType)
         try:
             self.state = 739
@@ -5751,20 +5751,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def ARRAY(self):
-            return self.getToken(MiniPascalParser.ARRAY, 0)
+            return self.getToken(PascalParser.ARRAY, 0)
 
         def OF(self):
-            return self.getToken(MiniPascalParser.OF, 0)
+            return self.getToken(PascalParser.OF, 0)
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def CONST(self):
-            return self.getToken(MiniPascalParser.CONST, 0)
+            return self.getToken(PascalParser.CONST, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_openArrayType
+            return PascalParser.RULE_openArrayType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterOpenArrayType" ):
@@ -5785,7 +5785,7 @@ class MiniPascalParser ( Parser ):
 
     def openArrayType(self):
 
-        localctx = MiniPascalParser.OpenArrayTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.OpenArrayTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 130, self.RULE_openArrayType)
         try:
             self.state = 747
@@ -5794,9 +5794,9 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 741
-                self.match(MiniPascalParser.ARRAY)
+                self.match(PascalParser.ARRAY)
                 self.state = 742
-                self.match(MiniPascalParser.OF)
+                self.match(PascalParser.OF)
                 self.state = 743
                 self.typeName()
                 pass
@@ -5804,11 +5804,11 @@ class MiniPascalParser ( Parser ):
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 744
-                self.match(MiniPascalParser.ARRAY)
+                self.match(PascalParser.ARRAY)
                 self.state = 745
-                self.match(MiniPascalParser.OF)
+                self.match(PascalParser.OF)
                 self.state = 746
-                self.match(MiniPascalParser.CONST)
+                self.match(PascalParser.CONST)
                 pass
 
 
@@ -5830,25 +5830,25 @@ class MiniPascalParser ( Parser ):
 
         def compilerDirective(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.CompilerDirectiveContext)
+                return self.getTypedRuleContexts(PascalParser.CompilerDirectiveContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.CompilerDirectiveContext,i)
+                return self.getTypedRuleContext(PascalParser.CompilerDirectiveContext,i)
 
 
         def varSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VarSectionContext,0)
 
 
         def procedureDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureDeclarationContext,0)
 
 
         def functionDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionDeclarationContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_declaration
+            return PascalParser.RULE_declaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterDeclaration" ):
@@ -5869,7 +5869,7 @@ class MiniPascalParser ( Parser ):
 
     def declaration(self):
 
-        localctx = MiniPascalParser.DeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.DeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 132, self.RULE_declaration)
         self._la = 0 # Token type
         try:
@@ -5924,28 +5924,28 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def DISKFREE(self):
-            return self.getToken(MiniPascalParser.DISKFREE, 0)
+            return self.getToken(PascalParser.DISKFREE, 0)
 
         def DISKTOTAL(self):
-            return self.getToken(MiniPascalParser.DISKTOTAL, 0)
+            return self.getToken(PascalParser.DISKTOTAL, 0)
 
         def DISKLABEL(self):
-            return self.getToken(MiniPascalParser.DISKLABEL, 0)
+            return self.getToken(PascalParser.DISKLABEL, 0)
 
         def DISKSERIAL(self):
-            return self.getToken(MiniPascalParser.DISKSERIAL, 0)
+            return self.getToken(PascalParser.DISKSERIAL, 0)
 
         def DISKFILESYSTEM(self):
-            return self.getToken(MiniPascalParser.DISKFILESYSTEM, 0)
+            return self.getToken(PascalParser.DISKFILESYSTEM, 0)
 
         def DISKTYPE(self):
-            return self.getToken(MiniPascalParser.DISKTYPE, 0)
+            return self.getToken(PascalParser.DISKTYPE, 0)
 
         def DISKSHARE(self):
-            return self.getToken(MiniPascalParser.DISKSHARE, 0)
+            return self.getToken(PascalParser.DISKSHARE, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_builtinDiskFunctionName
+            return PascalParser.RULE_builtinDiskFunctionName
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBuiltinDiskFunctionName" ):
@@ -5966,7 +5966,7 @@ class MiniPascalParser ( Parser ):
 
     def builtinDiskFunctionName(self):
 
-        localctx = MiniPascalParser.BuiltinDiskFunctionNameContext(self, self._ctx, self.state)
+        localctx = PascalParser.BuiltinDiskFunctionNameContext(self, self._ctx, self.state)
         self.enterRule(localctx, 134, self.RULE_builtinDiskFunctionName)
         self._la = 0 # Token type
         try:
@@ -5995,43 +5995,43 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def BLAKE2(self):
-            return self.getToken(MiniPascalParser.BLAKE2, 0)
+            return self.getToken(PascalParser.BLAKE2, 0)
 
         def CRC16(self):
-            return self.getToken(MiniPascalParser.CRC16, 0)
+            return self.getToken(PascalParser.CRC16, 0)
 
         def CRC32(self):
-            return self.getToken(MiniPascalParser.CRC32, 0)
+            return self.getToken(PascalParser.CRC32, 0)
 
         def CRC32C(self):
-            return self.getToken(MiniPascalParser.CRC32C, 0)
+            return self.getToken(PascalParser.CRC32C, 0)
 
         def CRC64(self):
-            return self.getToken(MiniPascalParser.CRC64, 0)
+            return self.getToken(PascalParser.CRC64, 0)
 
         def MD5(self):
-            return self.getToken(MiniPascalParser.MD5, 0)
+            return self.getToken(PascalParser.MD5, 0)
 
         def SHA1(self):
-            return self.getToken(MiniPascalParser.SHA1, 0)
+            return self.getToken(PascalParser.SHA1, 0)
 
         def SHA3(self):
-            return self.getToken(MiniPascalParser.SHA3, 0)
+            return self.getToken(PascalParser.SHA3, 0)
 
         def SHA224(self):
-            return self.getToken(MiniPascalParser.SHA224, 0)
+            return self.getToken(PascalParser.SHA224, 0)
 
         def SHA256(self):
-            return self.getToken(MiniPascalParser.SHA256, 0)
+            return self.getToken(PascalParser.SHA256, 0)
 
         def SHA384(self):
-            return self.getToken(MiniPascalParser.SHA384, 0)
+            return self.getToken(PascalParser.SHA384, 0)
 
         def SHA512(self):
-            return self.getToken(MiniPascalParser.SHA512, 0)
+            return self.getToken(PascalParser.SHA512, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_builtinHashFunctionName
+            return PascalParser.RULE_builtinHashFunctionName
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBuiltinHashFunctionName" ):
@@ -6052,7 +6052,7 @@ class MiniPascalParser ( Parser ):
 
     def builtinHashFunctionName(self):
 
-        localctx = MiniPascalParser.BuiltinHashFunctionNameContext(self, self._ctx, self.state)
+        localctx = PascalParser.BuiltinHashFunctionNameContext(self, self._ctx, self.state)
         self.enterRule(localctx, 136, self.RULE_builtinHashFunctionName)
         self._la = 0 # Token type
         try:
@@ -6081,36 +6081,36 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def LENGTH(self):
-            return self.getToken(MiniPascalParser.LENGTH, 0)
+            return self.getToken(PascalParser.LENGTH, 0)
 
         def LOW(self):
-            return self.getToken(MiniPascalParser.LOW, 0)
+            return self.getToken(PascalParser.LOW, 0)
 
         def HIGH(self):
-            return self.getToken(MiniPascalParser.HIGH, 0)
+            return self.getToken(PascalParser.HIGH, 0)
 
         def COPY(self):
-            return self.getToken(MiniPascalParser.COPY, 0)
+            return self.getToken(PascalParser.COPY, 0)
 
         def POS(self):
-            return self.getToken(MiniPascalParser.POS, 0)
+            return self.getToken(PascalParser.POS, 0)
 
         def builtinHashFunctionName(self):
-            return self.getTypedRuleContext(MiniPascalParser.BuiltinHashFunctionNameContext,0)
+            return self.getTypedRuleContext(PascalParser.BuiltinHashFunctionNameContext,0)
 
 
         def builtinDiskFunctionName(self):
-            return self.getTypedRuleContext(MiniPascalParser.BuiltinDiskFunctionNameContext,0)
+            return self.getTypedRuleContext(PascalParser.BuiltinDiskFunctionNameContext,0)
 
 
         def ASSIGNED(self):
-            return self.getToken(MiniPascalParser.ASSIGNED, 0)
+            return self.getToken(PascalParser.ASSIGNED, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_functionName
+            return PascalParser.RULE_functionName
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFunctionName" ):
@@ -6131,7 +6131,7 @@ class MiniPascalParser ( Parser ):
 
     def functionName(self):
 
-        localctx = MiniPascalParser.FunctionNameContext(self, self._ctx, self.state)
+        localctx = PascalParser.FunctionNameContext(self, self._ctx, self.state)
         self.enterRule(localctx, 138, self.RULE_functionName)
         try:
             self.state = 773
@@ -6140,32 +6140,32 @@ class MiniPascalParser ( Parser ):
             if token in [113]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 764
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 pass
             elif token in [42]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 765
-                self.match(MiniPascalParser.LENGTH)
+                self.match(PascalParser.LENGTH)
                 pass
             elif token in [38]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 766
-                self.match(MiniPascalParser.LOW)
+                self.match(PascalParser.LOW)
                 pass
             elif token in [39]:
                 self.enterOuterAlt(localctx, 4)
                 self.state = 767
-                self.match(MiniPascalParser.HIGH)
+                self.match(PascalParser.HIGH)
                 pass
             elif token in [41]:
                 self.enterOuterAlt(localctx, 5)
                 self.state = 768
-                self.match(MiniPascalParser.COPY)
+                self.match(PascalParser.COPY)
                 pass
             elif token in [40]:
                 self.enterOuterAlt(localctx, 6)
                 self.state = 769
-                self.match(MiniPascalParser.POS)
+                self.match(PascalParser.POS)
                 pass
             elif token in [66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77]:
                 self.enterOuterAlt(localctx, 7)
@@ -6180,7 +6180,7 @@ class MiniPascalParser ( Parser ):
             elif token in [43]:
                 self.enterOuterAlt(localctx, 9)
                 self.state = 772
-                self.match(MiniPascalParser.ASSIGNED)
+                self.match(PascalParser.ASSIGNED)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -6203,26 +6203,26 @@ class MiniPascalParser ( Parser ):
 
         def functionName(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.FunctionNameContext)
+                return self.getTypedRuleContexts(PascalParser.FunctionNameContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.FunctionNameContext,i)
+                return self.getTypedRuleContext(PascalParser.FunctionNameContext,i)
 
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def argumentList(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArgumentListContext,0)
+            return self.getTypedRuleContext(PascalParser.ArgumentListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_functionCallExpr
+            return PascalParser.RULE_functionCallExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFunctionCallExpr" ):
@@ -6243,7 +6243,7 @@ class MiniPascalParser ( Parser ):
 
     def functionCallExpr(self):
 
-        localctx = MiniPascalParser.FunctionCallExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.FunctionCallExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 140, self.RULE_functionCallExpr)
         self._la = 0 # Token type
         try:
@@ -6259,13 +6259,13 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
                 if _la==91:
                     self.state = 776
-                    self.match(MiniPascalParser.DOT)
+                    self.match(PascalParser.DOT)
                     self.state = 777
                     self.functionName()
 
 
                 self.state = 780
-                self.match(MiniPascalParser.LPAREN)
+                self.match(PascalParser.LPAREN)
                 self.state = 782
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -6275,7 +6275,7 @@ class MiniPascalParser ( Parser ):
 
 
                 self.state = 784
-                self.match(MiniPascalParser.RPAREN)
+                self.match(PascalParser.RPAREN)
                 pass
 
             elif la_ == 2:
@@ -6283,7 +6283,7 @@ class MiniPascalParser ( Parser ):
                 self.state = 786
                 self.functionName()
                 self.state = 787
-                self.match(MiniPascalParser.DOT)
+                self.match(PascalParser.DOT)
                 self.state = 788
                 self.functionName()
                 pass
@@ -6307,22 +6307,22 @@ class MiniPascalParser ( Parser ):
 
         def IDENT(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.IDENT)
+                return self.getTokens(PascalParser.IDENT)
             else:
-                return self.getToken(MiniPascalParser.IDENT, i)
+                return self.getToken(PascalParser.IDENT, i)
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def actualParamList(self):
-            return self.getTypedRuleContext(MiniPascalParser.ActualParamListContext,0)
+            return self.getTypedRuleContext(PascalParser.ActualParamListContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_procedureCallStatement
+            return PascalParser.RULE_procedureCallStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterProcedureCallStatement" ):
@@ -6343,21 +6343,21 @@ class MiniPascalParser ( Parser ):
 
     def procedureCallStatement(self):
 
-        localctx = MiniPascalParser.ProcedureCallStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.ProcedureCallStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 142, self.RULE_procedureCallStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 792
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 795
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             if _la==91:
                 self.state = 793
-                self.match(MiniPascalParser.DOT)
+                self.match(PascalParser.DOT)
                 self.state = 794
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
 
 
             self.state = 798
@@ -6373,7 +6373,7 @@ class MiniPascalParser ( Parser ):
             la_ = self._interp.adaptivePredict(self._input,73,self._ctx)
             if la_ == 1:
                 self.state = 800
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -6393,26 +6393,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def actualParam(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ActualParamContext)
+                return self.getTypedRuleContexts(PascalParser.ActualParamContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ActualParamContext,i)
+                return self.getTypedRuleContext(PascalParser.ActualParamContext,i)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_actualParamList
+            return PascalParser.RULE_actualParamList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterActualParamList" ):
@@ -6433,13 +6433,13 @@ class MiniPascalParser ( Parser ):
 
     def actualParamList(self):
 
-        localctx = MiniPascalParser.ActualParamListContext(self, self._ctx, self.state)
+        localctx = PascalParser.ActualParamListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 144, self.RULE_actualParamList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 803
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 804
             self.actualParam()
             self.state = 809
@@ -6447,7 +6447,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 805
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 806
                 self.actualParam()
                 self.state = 811
@@ -6455,7 +6455,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 812
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -6473,14 +6473,14 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def STRING(self):
-            return self.getToken(MiniPascalParser.STRING, 0)
+            return self.getToken(PascalParser.STRING, 0)
 
         def expr(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
+            return self.getTypedRuleContext(PascalParser.ExprContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_actualParam
+            return PascalParser.RULE_actualParam
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterActualParam" ):
@@ -6501,7 +6501,7 @@ class MiniPascalParser ( Parser ):
 
     def actualParam(self):
 
-        localctx = MiniPascalParser.ActualParamContext(self, self._ctx, self.state)
+        localctx = PascalParser.ActualParamContext(self, self._ctx, self.state)
         self.enterRule(localctx, 146, self.RULE_actualParam)
         try:
             self.state = 816
@@ -6510,7 +6510,7 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 814
-                self.match(MiniPascalParser.STRING)
+                self.match(PascalParser.STRING)
                 pass
 
             elif la_ == 2:
@@ -6537,17 +6537,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def VAR(self):
-            return self.getToken(MiniPascalParser.VAR, 0)
+            return self.getToken(PascalParser.VAR, 0)
 
         def varDeclaration(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.VarDeclarationContext)
+                return self.getTypedRuleContexts(PascalParser.VarDeclarationContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.VarDeclarationContext,i)
+                return self.getTypedRuleContext(PascalParser.VarDeclarationContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_varSection
+            return PascalParser.RULE_varSection
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVarSection" ):
@@ -6568,13 +6568,13 @@ class MiniPascalParser ( Parser ):
 
     def varSection(self):
 
-        localctx = MiniPascalParser.VarSectionContext(self, self._ctx, self.state)
+        localctx = PascalParser.VarSectionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 148, self.RULE_varSection)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 818
-            self.match(MiniPascalParser.VAR)
+            self.match(PascalParser.VAR)
             self.state = 820 
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -6604,21 +6604,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def identList(self):
-            return self.getTypedRuleContext(MiniPascalParser.IdentListContext,0)
+            return self.getTypedRuleContext(PascalParser.IdentListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def varType(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.VarTypeContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_varDeclaration
+            return PascalParser.RULE_varDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVarDeclaration" ):
@@ -6639,18 +6639,18 @@ class MiniPascalParser ( Parser ):
 
     def varDeclaration(self):
 
-        localctx = MiniPascalParser.VarDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.VarDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 150, self.RULE_varDeclaration)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 824
             self.identList()
             self.state = 825
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 826
             self.varType()
             self.state = 827
-            self.match(MiniPascalParser.SEMI)
+            self.match(PascalParser.SEMI)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -6668,15 +6668,15 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def typeName(self):
-            return self.getTypedRuleContext(MiniPascalParser.TypeNameContext,0)
+            return self.getTypedRuleContext(PascalParser.TypeNameContext,0)
 
 
         def arrayType(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayTypeContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayTypeContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_varType
+            return PascalParser.RULE_varType
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVarType" ):
@@ -6697,7 +6697,7 @@ class MiniPascalParser ( Parser ):
 
     def varType(self):
 
-        localctx = MiniPascalParser.VarTypeContext(self, self._ctx, self.state)
+        localctx = PascalParser.VarTypeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 152, self.RULE_varType)
         try:
             self.state = 831
@@ -6734,18 +6734,18 @@ class MiniPascalParser ( Parser ):
 
         def IDENT(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.IDENT)
+                return self.getTokens(PascalParser.IDENT)
             else:
-                return self.getToken(MiniPascalParser.IDENT, i)
+                return self.getToken(PascalParser.IDENT, i)
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_identList
+            return PascalParser.RULE_identList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterIdentList" ):
@@ -6766,21 +6766,21 @@ class MiniPascalParser ( Parser ):
 
     def identList(self):
 
-        localctx = MiniPascalParser.IdentListContext(self, self._ctx, self.state)
+        localctx = PascalParser.IdentListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 154, self.RULE_identList)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 833
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 838
             self._errHandler.sync(self)
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 834
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 835
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 self.state = 840
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -6802,24 +6802,24 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def BEGIN_(self):
-            return self.getToken(MiniPascalParser.BEGIN_, 0)
+            return self.getToken(PascalParser.BEGIN_, 0)
 
         def statementList(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementListContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementListContext,0)
 
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def localDeclaration(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.LocalDeclarationContext)
+                return self.getTypedRuleContexts(PascalParser.LocalDeclarationContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.LocalDeclarationContext,i)
+                return self.getTypedRuleContext(PascalParser.LocalDeclarationContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_block
+            return PascalParser.RULE_block
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBlock" ):
@@ -6840,7 +6840,7 @@ class MiniPascalParser ( Parser ):
 
     def block(self):
 
-        localctx = MiniPascalParser.BlockContext(self, self._ctx, self.state)
+        localctx = PascalParser.BlockContext(self, self._ctx, self.state)
         self.enterRule(localctx, 156, self.RULE_block)
         self._la = 0 # Token type
         try:
@@ -6856,11 +6856,11 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
 
             self.state = 847
-            self.match(MiniPascalParser.BEGIN_)
+            self.match(PascalParser.BEGIN_)
             self.state = 848
             self.statementList()
             self.state = 849
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -6878,23 +6878,23 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def procedureDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureDeclarationContext,0)
 
 
         def functionDeclaration(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionDeclarationContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionDeclarationContext,0)
 
 
         def varSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.VarSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.VarSectionContext,0)
 
 
         def constSection(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConstSectionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConstSectionContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_localDeclaration
+            return PascalParser.RULE_localDeclaration
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterLocalDeclaration" ):
@@ -6915,7 +6915,7 @@ class MiniPascalParser ( Parser ):
 
     def localDeclaration(self):
 
-        localctx = MiniPascalParser.LocalDeclarationContext(self, self._ctx, self.state)
+        localctx = PascalParser.LocalDeclarationContext(self, self._ctx, self.state)
         self.enterRule(localctx, 158, self.RULE_localDeclaration)
         try:
             self.state = 855
@@ -6962,19 +6962,19 @@ class MiniPascalParser ( Parser ):
 
         def statement(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.StatementContext)
+                return self.getTypedRuleContexts(PascalParser.StatementContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.StatementContext,i)
+                return self.getTypedRuleContext(PascalParser.StatementContext,i)
 
 
         def SEMI(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SEMI)
+                return self.getTokens(PascalParser.SEMI)
             else:
-                return self.getToken(MiniPascalParser.SEMI, i)
+                return self.getToken(PascalParser.SEMI, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_statementList
+            return PascalParser.RULE_statementList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterStatementList" ):
@@ -6995,7 +6995,7 @@ class MiniPascalParser ( Parser ):
 
     def statementList(self):
 
-        localctx = MiniPascalParser.StatementListContext(self, self._ctx, self.state)
+        localctx = PascalParser.StatementListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 160, self.RULE_statementList)
         self._la = 0 # Token type
         try:
@@ -7011,7 +7011,7 @@ class MiniPascalParser ( Parser ):
                 la_ = self._interp.adaptivePredict(self._input,81,self._ctx)
                 if la_ == 1:
                     self.state = 858
-                    self.match(MiniPascalParser.SEMI)
+                    self.match(PascalParser.SEMI)
 
 
                 self.state = 865
@@ -7035,71 +7035,71 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def assignment(self):
-            return self.getTypedRuleContext(MiniPascalParser.AssignmentContext,0)
+            return self.getTypedRuleContext(PascalParser.AssignmentContext,0)
 
 
         def writeLnStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.WriteLnStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.WriteLnStatementContext,0)
 
 
         def tryStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.TryStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.TryStatementContext,0)
 
 
         def ifStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.IfStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.IfStatementContext,0)
 
 
         def whileStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.WhileStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.WhileStatementContext,0)
 
 
         def repeatStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.RepeatStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.RepeatStatementContext,0)
 
 
         def forStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.ForStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.ForStatementContext,0)
 
 
         def incstatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.IncstatementContext,0)
+            return self.getTypedRuleContext(PascalParser.IncstatementContext,0)
 
 
         def decstatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.DecstatementContext,0)
+            return self.getTypedRuleContext(PascalParser.DecstatementContext,0)
 
 
         def breakStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.BreakStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.BreakStatementContext,0)
 
 
         def continueStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.ContinueStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.ContinueStatementContext,0)
 
 
         def caseStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.CaseStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.CaseStatementContext,0)
 
 
         def procedureCallStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.ProcedureCallStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.ProcedureCallStatementContext,0)
 
 
         def inheritedStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.InheritedStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.InheritedStatementContext,0)
 
 
         def exitStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExitStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.ExitStatementContext,0)
 
 
         def compoundStatement(self):
-            return self.getTypedRuleContext(MiniPascalParser.CompoundStatementContext,0)
+            return self.getTypedRuleContext(PascalParser.CompoundStatementContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_statement
+            return PascalParser.RULE_statement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterStatement" ):
@@ -7120,7 +7120,7 @@ class MiniPascalParser ( Parser ):
 
     def statement(self):
 
-        localctx = MiniPascalParser.StatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.StatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 162, self.RULE_statement)
         try:
             self.state = 882
@@ -7240,26 +7240,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def INC(self):
-            return self.getToken(MiniPascalParser.INC, 0)
+            return self.getToken(PascalParser.INC, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def COMMA(self):
-            return self.getToken(MiniPascalParser.COMMA, 0)
+            return self.getToken(PascalParser.COMMA, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_incstatement
+            return PascalParser.RULE_incstatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterIncstatement" ):
@@ -7280,15 +7280,15 @@ class MiniPascalParser ( Parser ):
 
     def incstatement(self):
 
-        localctx = MiniPascalParser.IncstatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.IncstatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 164, self.RULE_incstatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 884
-            self.match(MiniPascalParser.INC)
+            self.match(PascalParser.INC)
             self.state = 885
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 886
             self.expr()
             self.state = 889
@@ -7296,13 +7296,13 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==95:
                 self.state = 887
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 888
                 self.expr()
 
 
             self.state = 891
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -7320,26 +7320,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def DEC(self):
-            return self.getToken(MiniPascalParser.DEC, 0)
+            return self.getToken(PascalParser.DEC, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def COMMA(self):
-            return self.getToken(MiniPascalParser.COMMA, 0)
+            return self.getToken(PascalParser.COMMA, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_decstatement
+            return PascalParser.RULE_decstatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterDecstatement" ):
@@ -7360,15 +7360,15 @@ class MiniPascalParser ( Parser ):
 
     def decstatement(self):
 
-        localctx = MiniPascalParser.DecstatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.DecstatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 166, self.RULE_decstatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 893
-            self.match(MiniPascalParser.DEC)
+            self.match(PascalParser.DEC)
             self.state = 894
-            self.match(MiniPascalParser.LPAREN)
+            self.match(PascalParser.LPAREN)
             self.state = 895
             self.expr()
             self.state = 898
@@ -7376,13 +7376,13 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==95:
                 self.state = 896
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 897
                 self.expr()
 
 
             self.state = 900
-            self.match(MiniPascalParser.RPAREN)
+            self.match(PascalParser.RPAREN)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -7400,31 +7400,31 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def CASE(self):
-            return self.getToken(MiniPascalParser.CASE, 0)
+            return self.getToken(PascalParser.CASE, 0)
 
         def expr(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
+            return self.getTypedRuleContext(PascalParser.ExprContext,0)
 
 
         def OF(self):
-            return self.getToken(MiniPascalParser.OF, 0)
+            return self.getToken(PascalParser.OF, 0)
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def caseItem(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.CaseItemContext)
+                return self.getTypedRuleContexts(PascalParser.CaseItemContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.CaseItemContext,i)
+                return self.getTypedRuleContext(PascalParser.CaseItemContext,i)
 
 
         def caseElse(self):
-            return self.getTypedRuleContext(MiniPascalParser.CaseElseContext,0)
+            return self.getTypedRuleContext(PascalParser.CaseElseContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_caseStatement
+            return PascalParser.RULE_caseStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCaseStatement" ):
@@ -7445,17 +7445,17 @@ class MiniPascalParser ( Parser ):
 
     def caseStatement(self):
 
-        localctx = MiniPascalParser.CaseStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.CaseStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 168, self.RULE_caseStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 902
-            self.match(MiniPascalParser.CASE)
+            self.match(PascalParser.CASE)
             self.state = 903
             self.expr()
             self.state = 904
-            self.match(MiniPascalParser.OF)
+            self.match(PascalParser.OF)
             self.state = 908
             self._errHandler.sync(self)
             _la = self._input.LA(1)
@@ -7475,7 +7475,7 @@ class MiniPascalParser ( Parser ):
 
 
             self.state = 914
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -7493,21 +7493,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def caseLabelList(self):
-            return self.getTypedRuleContext(MiniPascalParser.CaseLabelListContext,0)
+            return self.getTypedRuleContext(PascalParser.CaseLabelListContext,0)
 
 
         def COLON(self):
-            return self.getToken(MiniPascalParser.COLON, 0)
+            return self.getToken(PascalParser.COLON, 0)
 
         def statement(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_caseItem
+            return PascalParser.RULE_caseItem
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCaseItem" ):
@@ -7528,7 +7528,7 @@ class MiniPascalParser ( Parser ):
 
     def caseItem(self):
 
-        localctx = MiniPascalParser.CaseItemContext(self, self._ctx, self.state)
+        localctx = PascalParser.CaseItemContext(self, self._ctx, self.state)
         self.enterRule(localctx, 170, self.RULE_caseItem)
         self._la = 0 # Token type
         try:
@@ -7536,7 +7536,7 @@ class MiniPascalParser ( Parser ):
             self.state = 916
             self.caseLabelList()
             self.state = 917
-            self.match(MiniPascalParser.COLON)
+            self.match(PascalParser.COLON)
             self.state = 918
             self.statement()
             self.state = 920
@@ -7544,7 +7544,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==94:
                 self.state = 919
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -7565,19 +7565,19 @@ class MiniPascalParser ( Parser ):
 
         def caseLabel(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.CaseLabelContext)
+                return self.getTypedRuleContexts(PascalParser.CaseLabelContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.CaseLabelContext,i)
+                return self.getTypedRuleContext(PascalParser.CaseLabelContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_caseLabelList
+            return PascalParser.RULE_caseLabelList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCaseLabelList" ):
@@ -7598,7 +7598,7 @@ class MiniPascalParser ( Parser ):
 
     def caseLabelList(self):
 
-        localctx = MiniPascalParser.CaseLabelListContext(self, self._ctx, self.state)
+        localctx = PascalParser.CaseLabelListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 172, self.RULE_caseLabelList)
         self._la = 0 # Token type
         try:
@@ -7610,7 +7610,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 923
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 924
                 self.caseLabel()
                 self.state = 929
@@ -7634,13 +7634,13 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def NUMBER(self):
-            return self.getToken(MiniPascalParser.NUMBER, 0)
+            return self.getToken(PascalParser.NUMBER, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_caseLabel
+            return PascalParser.RULE_caseLabel
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCaseLabel" ):
@@ -7661,7 +7661,7 @@ class MiniPascalParser ( Parser ):
 
     def caseLabel(self):
 
-        localctx = MiniPascalParser.CaseLabelContext(self, self._ctx, self.state)
+        localctx = PascalParser.CaseLabelContext(self, self._ctx, self.state)
         self.enterRule(localctx, 174, self.RULE_caseLabel)
         self._la = 0 # Token type
         try:
@@ -7690,17 +7690,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def ELSE(self):
-            return self.getToken(MiniPascalParser.ELSE, 0)
+            return self.getToken(PascalParser.ELSE, 0)
 
         def statementList(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementListContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementListContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_caseElse
+            return PascalParser.RULE_caseElse
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCaseElse" ):
@@ -7721,13 +7721,13 @@ class MiniPascalParser ( Parser ):
 
     def caseElse(self):
 
-        localctx = MiniPascalParser.CaseElseContext(self, self._ctx, self.state)
+        localctx = PascalParser.CaseElseContext(self, self._ctx, self.state)
         self.enterRule(localctx, 176, self.RULE_caseElse)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 932
-            self.match(MiniPascalParser.ELSE)
+            self.match(PascalParser.ELSE)
             self.state = 933
             self.statementList()
             self.state = 935
@@ -7735,7 +7735,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             if _la==94:
                 self.state = 934
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -7755,10 +7755,10 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def BREAK(self):
-            return self.getToken(MiniPascalParser.BREAK, 0)
+            return self.getToken(PascalParser.BREAK, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_breakStatement
+            return PascalParser.RULE_breakStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBreakStatement" ):
@@ -7779,12 +7779,12 @@ class MiniPascalParser ( Parser ):
 
     def breakStatement(self):
 
-        localctx = MiniPascalParser.BreakStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.BreakStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 178, self.RULE_breakStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 937
-            self.match(MiniPascalParser.BREAK)
+            self.match(PascalParser.BREAK)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -7802,10 +7802,10 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def CONTINUE(self):
-            return self.getToken(MiniPascalParser.CONTINUE, 0)
+            return self.getToken(PascalParser.CONTINUE, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_continueStatement
+            return PascalParser.RULE_continueStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterContinueStatement" ):
@@ -7826,12 +7826,12 @@ class MiniPascalParser ( Parser ):
 
     def continueStatement(self):
 
-        localctx = MiniPascalParser.ContinueStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.ContinueStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 180, self.RULE_continueStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 939
-            self.match(MiniPascalParser.CONTINUE)
+            self.match(PascalParser.CONTINUE)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -7849,26 +7849,26 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def TRY(self):
-            return self.getToken(MiniPascalParser.TRY, 0)
+            return self.getToken(PascalParser.TRY, 0)
 
         def statementList(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.StatementListContext)
+                return self.getTypedRuleContexts(PascalParser.StatementListContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.StatementListContext,i)
+                return self.getTypedRuleContext(PascalParser.StatementListContext,i)
 
 
         def FINALLY(self):
-            return self.getToken(MiniPascalParser.FINALLY, 0)
+            return self.getToken(PascalParser.FINALLY, 0)
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def EXCEPT(self):
-            return self.getToken(MiniPascalParser.EXCEPT, 0)
+            return self.getToken(PascalParser.EXCEPT, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_tryStatement
+            return PascalParser.RULE_tryStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTryStatement" ):
@@ -7889,7 +7889,7 @@ class MiniPascalParser ( Parser ):
 
     def tryStatement(self):
 
-        localctx = MiniPascalParser.TryStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.TryStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 182, self.RULE_tryStatement)
         try:
             self.state = 953
@@ -7898,29 +7898,29 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 941
-                self.match(MiniPascalParser.TRY)
+                self.match(PascalParser.TRY)
                 self.state = 942
                 self.statementList()
                 self.state = 943
-                self.match(MiniPascalParser.FINALLY)
+                self.match(PascalParser.FINALLY)
                 self.state = 944
                 self.statementList()
                 self.state = 945
-                self.match(MiniPascalParser.END)
+                self.match(PascalParser.END)
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 947
-                self.match(MiniPascalParser.TRY)
+                self.match(PascalParser.TRY)
                 self.state = 948
                 self.statementList()
                 self.state = 949
-                self.match(MiniPascalParser.EXCEPT)
+                self.match(PascalParser.EXCEPT)
                 self.state = 950
                 self.statementList()
                 self.state = 951
-                self.match(MiniPascalParser.END)
+                self.match(PascalParser.END)
                 pass
 
 
@@ -7941,13 +7941,13 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def EXIT(self):
-            return self.getToken(MiniPascalParser.EXIT, 0)
+            return self.getToken(PascalParser.EXIT, 0)
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_exitStatement
+            return PascalParser.RULE_exitStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExitStatement" ):
@@ -7968,18 +7968,18 @@ class MiniPascalParser ( Parser ):
 
     def exitStatement(self):
 
-        localctx = MiniPascalParser.ExitStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExitStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 184, self.RULE_exitStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 955
-            self.match(MiniPascalParser.EXIT)
+            self.match(PascalParser.EXIT)
             self.state = 957
             self._errHandler.sync(self)
             la_ = self._interp.adaptivePredict(self._input,92,self._ctx)
             if la_ == 1:
                 self.state = 956
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -7999,36 +7999,36 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def FOR(self):
-            return self.getToken(MiniPascalParser.FOR, 0)
+            return self.getToken(PascalParser.FOR, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def ASSIGN(self):
-            return self.getToken(MiniPascalParser.ASSIGN, 0)
+            return self.getToken(PascalParser.ASSIGN, 0)
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def DO(self):
-            return self.getToken(MiniPascalParser.DO, 0)
+            return self.getToken(PascalParser.DO, 0)
 
         def statement(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementContext,0)
 
 
         def TO(self):
-            return self.getToken(MiniPascalParser.TO, 0)
+            return self.getToken(PascalParser.TO, 0)
 
         def DOWNTO(self):
-            return self.getToken(MiniPascalParser.DOWNTO, 0)
+            return self.getToken(PascalParser.DOWNTO, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_forStatement
+            return PascalParser.RULE_forStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterForStatement" ):
@@ -8049,17 +8049,17 @@ class MiniPascalParser ( Parser ):
 
     def forStatement(self):
 
-        localctx = MiniPascalParser.ForStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.ForStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 186, self.RULE_forStatement)
         self._la = 0 # Token type
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 959
-            self.match(MiniPascalParser.FOR)
+            self.match(PascalParser.FOR)
             self.state = 960
-            self.match(MiniPascalParser.IDENT)
+            self.match(PascalParser.IDENT)
             self.state = 961
-            self.match(MiniPascalParser.ASSIGN)
+            self.match(PascalParser.ASSIGN)
             self.state = 962
             self.expr()
             self.state = 963
@@ -8072,7 +8072,7 @@ class MiniPascalParser ( Parser ):
             self.state = 964
             self.expr()
             self.state = 965
-            self.match(MiniPascalParser.DO)
+            self.match(PascalParser.DO)
             self.state = 966
             self.statement()
         except RecognitionException as re:
@@ -8092,24 +8092,24 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def REPEAT(self):
-            return self.getToken(MiniPascalParser.REPEAT, 0)
+            return self.getToken(PascalParser.REPEAT, 0)
 
         def statementList(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementListContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementListContext,0)
 
 
         def UNTIL(self):
-            return self.getToken(MiniPascalParser.UNTIL, 0)
+            return self.getToken(PascalParser.UNTIL, 0)
 
         def condition(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConditionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConditionContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_repeatStatement
+            return PascalParser.RULE_repeatStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterRepeatStatement" ):
@@ -8130,16 +8130,16 @@ class MiniPascalParser ( Parser ):
 
     def repeatStatement(self):
 
-        localctx = MiniPascalParser.RepeatStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.RepeatStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 188, self.RULE_repeatStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 968
-            self.match(MiniPascalParser.REPEAT)
+            self.match(PascalParser.REPEAT)
             self.state = 969
             self.statementList()
             self.state = 970
-            self.match(MiniPascalParser.UNTIL)
+            self.match(PascalParser.UNTIL)
             self.state = 971
             self.condition()
             self.state = 973
@@ -8147,7 +8147,7 @@ class MiniPascalParser ( Parser ):
             la_ = self._interp.adaptivePredict(self._input,93,self._ctx)
             if la_ == 1:
                 self.state = 972
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -8168,19 +8168,19 @@ class MiniPascalParser ( Parser ):
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_argumentList
+            return PascalParser.RULE_argumentList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterArgumentList" ):
@@ -8201,7 +8201,7 @@ class MiniPascalParser ( Parser ):
 
     def argumentList(self):
 
-        localctx = MiniPascalParser.ArgumentListContext(self, self._ctx, self.state)
+        localctx = PascalParser.ArgumentListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 190, self.RULE_argumentList)
         self._la = 0 # Token type
         try:
@@ -8213,7 +8213,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 976
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 977
                 self.expr()
                 self.state = 982
@@ -8237,21 +8237,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def WHILE(self):
-            return self.getToken(MiniPascalParser.WHILE, 0)
+            return self.getToken(PascalParser.WHILE, 0)
 
         def condition(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConditionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConditionContext,0)
 
 
         def DO(self):
-            return self.getToken(MiniPascalParser.DO, 0)
+            return self.getToken(PascalParser.DO, 0)
 
         def statement(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_whileStatement
+            return PascalParser.RULE_whileStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterWhileStatement" ):
@@ -8272,16 +8272,16 @@ class MiniPascalParser ( Parser ):
 
     def whileStatement(self):
 
-        localctx = MiniPascalParser.WhileStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.WhileStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 192, self.RULE_whileStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 983
-            self.match(MiniPascalParser.WHILE)
+            self.match(PascalParser.WHILE)
             self.state = 984
             self.condition()
             self.state = 985
-            self.match(MiniPascalParser.DO)
+            self.match(PascalParser.DO)
             self.state = 986
             self.statement()
         except RecognitionException as re:
@@ -8301,27 +8301,27 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def IF(self):
-            return self.getToken(MiniPascalParser.IF, 0)
+            return self.getToken(PascalParser.IF, 0)
 
         def condition(self):
-            return self.getTypedRuleContext(MiniPascalParser.ConditionContext,0)
+            return self.getTypedRuleContext(PascalParser.ConditionContext,0)
 
 
         def THEN(self):
-            return self.getToken(MiniPascalParser.THEN, 0)
+            return self.getToken(PascalParser.THEN, 0)
 
         def statement(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.StatementContext)
+                return self.getTypedRuleContexts(PascalParser.StatementContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.StatementContext,i)
+                return self.getTypedRuleContext(PascalParser.StatementContext,i)
 
 
         def ELSE(self):
-            return self.getToken(MiniPascalParser.ELSE, 0)
+            return self.getToken(PascalParser.ELSE, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_ifStatement
+            return PascalParser.RULE_ifStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterIfStatement" ):
@@ -8342,16 +8342,16 @@ class MiniPascalParser ( Parser ):
 
     def ifStatement(self):
 
-        localctx = MiniPascalParser.IfStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.IfStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 194, self.RULE_ifStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 988
-            self.match(MiniPascalParser.IF)
+            self.match(PascalParser.IF)
             self.state = 989
             self.condition()
             self.state = 990
-            self.match(MiniPascalParser.THEN)
+            self.match(PascalParser.THEN)
             self.state = 991
             self.statement()
             self.state = 994
@@ -8359,7 +8359,7 @@ class MiniPascalParser ( Parser ):
             la_ = self._interp.adaptivePredict(self._input,95,self._ctx)
             if la_ == 1:
                 self.state = 992
-                self.match(MiniPascalParser.ELSE)
+                self.match(PascalParser.ELSE)
                 self.state = 993
                 self.statement()
 
@@ -8382,17 +8382,17 @@ class MiniPascalParser ( Parser ):
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def compareOp(self):
-            return self.getTypedRuleContext(MiniPascalParser.CompareOpContext,0)
+            return self.getTypedRuleContext(PascalParser.CompareOpContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_condition
+            return PascalParser.RULE_condition
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCondition" ):
@@ -8413,7 +8413,7 @@ class MiniPascalParser ( Parser ):
 
     def condition(self):
 
-        localctx = MiniPascalParser.ConditionContext(self, self._ctx, self.state)
+        localctx = PascalParser.ConditionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 196, self.RULE_condition)
         self._la = 0 # Token type
         try:
@@ -8447,25 +8447,25 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def EQ_OP(self):
-            return self.getToken(MiniPascalParser.EQ_OP, 0)
+            return self.getToken(PascalParser.EQ_OP, 0)
 
         def NE_OP(self):
-            return self.getToken(MiniPascalParser.NE_OP, 0)
+            return self.getToken(PascalParser.NE_OP, 0)
 
         def LT_OP(self):
-            return self.getToken(MiniPascalParser.LT_OP, 0)
+            return self.getToken(PascalParser.LT_OP, 0)
 
         def LE_OP(self):
-            return self.getToken(MiniPascalParser.LE_OP, 0)
+            return self.getToken(PascalParser.LE_OP, 0)
 
         def GT_OP(self):
-            return self.getToken(MiniPascalParser.GT_OP, 0)
+            return self.getToken(PascalParser.GT_OP, 0)
 
         def GE_OP(self):
-            return self.getToken(MiniPascalParser.GE_OP, 0)
+            return self.getToken(PascalParser.GE_OP, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_compareOp
+            return PascalParser.RULE_compareOp
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCompareOp" ):
@@ -8486,7 +8486,7 @@ class MiniPascalParser ( Parser ):
 
     def compareOp(self):
 
-        localctx = MiniPascalParser.CompareOpContext(self, self._ctx, self.state)
+        localctx = PascalParser.CompareOpContext(self, self._ctx, self.state)
         self.enterRule(localctx, 198, self.RULE_compareOp)
         self._la = 0 # Token type
         try:
@@ -8515,17 +8515,17 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def BEGIN_(self):
-            return self.getToken(MiniPascalParser.BEGIN_, 0)
+            return self.getToken(PascalParser.BEGIN_, 0)
 
         def statementList(self):
-            return self.getTypedRuleContext(MiniPascalParser.StatementListContext,0)
+            return self.getTypedRuleContext(PascalParser.StatementListContext,0)
 
 
         def END(self):
-            return self.getToken(MiniPascalParser.END, 0)
+            return self.getToken(PascalParser.END, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_compoundStatement
+            return PascalParser.RULE_compoundStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCompoundStatement" ):
@@ -8546,16 +8546,16 @@ class MiniPascalParser ( Parser ):
 
     def compoundStatement(self):
 
-        localctx = MiniPascalParser.CompoundStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.CompoundStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 200, self.RULE_compoundStatement)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 1004
-            self.match(MiniPascalParser.BEGIN_)
+            self.match(PascalParser.BEGIN_)
             self.state = 1005
             self.statementList()
             self.state = 1006
-            self.match(MiniPascalParser.END)
+            self.match(PascalParser.END)
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)
@@ -8573,21 +8573,21 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def variableRef(self):
-            return self.getTypedRuleContext(MiniPascalParser.VariableRefContext,0)
+            return self.getTypedRuleContext(PascalParser.VariableRefContext,0)
 
 
         def ASSIGN(self):
-            return self.getToken(MiniPascalParser.ASSIGN, 0)
+            return self.getToken(PascalParser.ASSIGN, 0)
 
         def expr(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
+            return self.getTypedRuleContext(PascalParser.ExprContext,0)
 
 
         def SEMI(self):
-            return self.getToken(MiniPascalParser.SEMI, 0)
+            return self.getToken(PascalParser.SEMI, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_assignment
+            return PascalParser.RULE_assignment
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterAssignment" ):
@@ -8608,14 +8608,14 @@ class MiniPascalParser ( Parser ):
 
     def assignment(self):
 
-        localctx = MiniPascalParser.AssignmentContext(self, self._ctx, self.state)
+        localctx = PascalParser.AssignmentContext(self, self._ctx, self.state)
         self.enterRule(localctx, 202, self.RULE_assignment)
         try:
             self.enterOuterAlt(localctx, 1)
             self.state = 1008
             self.variableRef()
             self.state = 1009
-            self.match(MiniPascalParser.ASSIGN)
+            self.match(PascalParser.ASSIGN)
             self.state = 1010
             self.expr()
             self.state = 1012
@@ -8623,7 +8623,7 @@ class MiniPascalParser ( Parser ):
             la_ = self._interp.adaptivePredict(self._input,97,self._ctx)
             if la_ == 1:
                 self.state = 1011
-                self.match(MiniPascalParser.SEMI)
+                self.match(PascalParser.SEMI)
 
 
         except RecognitionException as re:
@@ -8643,20 +8643,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def RESULT(self):
-            return self.getToken(MiniPascalParser.RESULT, 0)
+            return self.getToken(PascalParser.RESULT, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def variableSuffix(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.VariableSuffixContext)
+                return self.getTypedRuleContexts(PascalParser.VariableSuffixContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.VariableSuffixContext,i)
+                return self.getTypedRuleContext(PascalParser.VariableSuffixContext,i)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_variableRef
+            return PascalParser.RULE_variableRef
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVariableRef" ):
@@ -8677,7 +8677,7 @@ class MiniPascalParser ( Parser ):
 
     def variableRef(self):
 
-        localctx = MiniPascalParser.VariableRefContext(self, self._ctx, self.state)
+        localctx = PascalParser.VariableRefContext(self, self._ctx, self.state)
         self.enterRule(localctx, 204, self.RULE_variableRef)
         self._la = 0 # Token type
         try:
@@ -8687,12 +8687,12 @@ class MiniPascalParser ( Parser ):
             if token in [46]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 1014
-                self.match(MiniPascalParser.RESULT)
+                self.match(PascalParser.RESULT)
                 pass
             elif token in [113]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 1015
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 self.state = 1019
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -8724,35 +8724,35 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def DOT(self):
-            return self.getToken(MiniPascalParser.DOT, 0)
+            return self.getToken(PascalParser.DOT, 0)
 
         def IDENT(self):
-            return self.getToken(MiniPascalParser.IDENT, 0)
+            return self.getToken(PascalParser.IDENT, 0)
 
         def LBRACK(self):
-            return self.getToken(MiniPascalParser.LBRACK, 0)
+            return self.getToken(PascalParser.LBRACK, 0)
 
         def expr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.ExprContext)
+                return self.getTypedRuleContexts(PascalParser.ExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.ExprContext,i)
+                return self.getTypedRuleContext(PascalParser.ExprContext,i)
 
 
         def RBRACK(self):
-            return self.getToken(MiniPascalParser.RBRACK, 0)
+            return self.getToken(PascalParser.RBRACK, 0)
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def CARET(self):
-            return self.getToken(MiniPascalParser.CARET, 0)
+            return self.getToken(PascalParser.CARET, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_variableSuffix
+            return PascalParser.RULE_variableSuffix
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterVariableSuffix" ):
@@ -8773,7 +8773,7 @@ class MiniPascalParser ( Parser ):
 
     def variableSuffix(self):
 
-        localctx = MiniPascalParser.VariableSuffixContext(self, self._ctx, self.state)
+        localctx = PascalParser.VariableSuffixContext(self, self._ctx, self.state)
         self.enterRule(localctx, 206, self.RULE_variableSuffix)
         self._la = 0 # Token type
         try:
@@ -8783,14 +8783,14 @@ class MiniPascalParser ( Parser ):
             if token in [91]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 1024
-                self.match(MiniPascalParser.DOT)
+                self.match(PascalParser.DOT)
                 self.state = 1025
-                self.match(MiniPascalParser.IDENT)
+                self.match(PascalParser.IDENT)
                 pass
             elif token in [100]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 1026
-                self.match(MiniPascalParser.LBRACK)
+                self.match(PascalParser.LBRACK)
                 self.state = 1027
                 self.expr()
                 self.state = 1032
@@ -8798,7 +8798,7 @@ class MiniPascalParser ( Parser ):
                 _la = self._input.LA(1)
                 while _la==95:
                     self.state = 1028
-                    self.match(MiniPascalParser.COMMA)
+                    self.match(PascalParser.COMMA)
                     self.state = 1029
                     self.expr()
                     self.state = 1034
@@ -8806,12 +8806,12 @@ class MiniPascalParser ( Parser ):
                     _la = self._input.LA(1)
 
                 self.state = 1035
-                self.match(MiniPascalParser.RBRACK)
+                self.match(PascalParser.RBRACK)
                 pass
             elif token in [104]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 1037
-                self.match(MiniPascalParser.CARET)
+                self.match(PascalParser.CARET)
                 pass
             else:
                 raise NoViableAltException(self)
@@ -8833,11 +8833,11 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def boolOrExpr(self):
-            return self.getTypedRuleContext(MiniPascalParser.BoolOrExprContext,0)
+            return self.getTypedRuleContext(PascalParser.BoolOrExprContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_expr
+            return PascalParser.RULE_expr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterExpr" ):
@@ -8858,7 +8858,7 @@ class MiniPascalParser ( Parser ):
 
     def expr(self):
 
-        localctx = MiniPascalParser.ExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.ExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 208, self.RULE_expr)
         try:
             self.enterOuterAlt(localctx, 1)
@@ -8882,19 +8882,19 @@ class MiniPascalParser ( Parser ):
 
         def boolXorExpr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.BoolXorExprContext)
+                return self.getTypedRuleContexts(PascalParser.BoolXorExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.BoolXorExprContext,i)
+                return self.getTypedRuleContext(PascalParser.BoolXorExprContext,i)
 
 
         def OR(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.OR)
+                return self.getTokens(PascalParser.OR)
             else:
-                return self.getToken(MiniPascalParser.OR, i)
+                return self.getToken(PascalParser.OR, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_boolOrExpr
+            return PascalParser.RULE_boolOrExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBoolOrExpr" ):
@@ -8915,7 +8915,7 @@ class MiniPascalParser ( Parser ):
 
     def boolOrExpr(self):
 
-        localctx = MiniPascalParser.BoolOrExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.BoolOrExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 210, self.RULE_boolOrExpr)
         self._la = 0 # Token type
         try:
@@ -8927,7 +8927,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==27:
                 self.state = 1043
-                self.match(MiniPascalParser.OR)
+                self.match(PascalParser.OR)
                 self.state = 1044
                 self.boolXorExpr()
                 self.state = 1049
@@ -8952,19 +8952,19 @@ class MiniPascalParser ( Parser ):
 
         def boolAndExpr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.BoolAndExprContext)
+                return self.getTypedRuleContexts(PascalParser.BoolAndExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.BoolAndExprContext,i)
+                return self.getTypedRuleContext(PascalParser.BoolAndExprContext,i)
 
 
         def XOR(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.XOR)
+                return self.getTokens(PascalParser.XOR)
             else:
-                return self.getToken(MiniPascalParser.XOR, i)
+                return self.getToken(PascalParser.XOR, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_boolXorExpr
+            return PascalParser.RULE_boolXorExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBoolXorExpr" ):
@@ -8985,7 +8985,7 @@ class MiniPascalParser ( Parser ):
 
     def boolXorExpr(self):
 
-        localctx = MiniPascalParser.BoolXorExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.BoolXorExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 212, self.RULE_boolXorExpr)
         self._la = 0 # Token type
         try:
@@ -8997,7 +8997,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==28:
                 self.state = 1051
-                self.match(MiniPascalParser.XOR)
+                self.match(PascalParser.XOR)
                 self.state = 1052
                 self.boolAndExpr()
                 self.state = 1057
@@ -9022,19 +9022,19 @@ class MiniPascalParser ( Parser ):
 
         def compareExpr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.CompareExprContext)
+                return self.getTypedRuleContexts(PascalParser.CompareExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.CompareExprContext,i)
+                return self.getTypedRuleContext(PascalParser.CompareExprContext,i)
 
 
         def AND(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.AND)
+                return self.getTokens(PascalParser.AND)
             else:
-                return self.getToken(MiniPascalParser.AND, i)
+                return self.getToken(PascalParser.AND, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_boolAndExpr
+            return PascalParser.RULE_boolAndExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterBoolAndExpr" ):
@@ -9055,7 +9055,7 @@ class MiniPascalParser ( Parser ):
 
     def boolAndExpr(self):
 
-        localctx = MiniPascalParser.BoolAndExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.BoolAndExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 214, self.RULE_boolAndExpr)
         self._la = 0 # Token type
         try:
@@ -9067,7 +9067,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==26:
                 self.state = 1059
-                self.match(MiniPascalParser.AND)
+                self.match(PascalParser.AND)
                 self.state = 1060
                 self.compareExpr()
                 self.state = 1065
@@ -9092,17 +9092,17 @@ class MiniPascalParser ( Parser ):
 
         def addExpr(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.AddExprContext)
+                return self.getTypedRuleContexts(PascalParser.AddExprContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.AddExprContext,i)
+                return self.getTypedRuleContext(PascalParser.AddExprContext,i)
 
 
         def compareOp(self):
-            return self.getTypedRuleContext(MiniPascalParser.CompareOpContext,0)
+            return self.getTypedRuleContext(PascalParser.CompareOpContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_compareExpr
+            return PascalParser.RULE_compareExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterCompareExpr" ):
@@ -9123,7 +9123,7 @@ class MiniPascalParser ( Parser ):
 
     def compareExpr(self):
 
-        localctx = MiniPascalParser.CompareExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.CompareExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 216, self.RULE_compareExpr)
         try:
             self.enterOuterAlt(localctx, 1)
@@ -9157,25 +9157,25 @@ class MiniPascalParser ( Parser ):
 
         def term(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.TermContext)
+                return self.getTypedRuleContexts(PascalParser.TermContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.TermContext,i)
+                return self.getTypedRuleContext(PascalParser.TermContext,i)
 
 
         def PLUS(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.PLUS)
+                return self.getTokens(PascalParser.PLUS)
             else:
-                return self.getToken(MiniPascalParser.PLUS, i)
+                return self.getToken(PascalParser.PLUS, i)
 
         def MINUS(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.MINUS)
+                return self.getTokens(PascalParser.MINUS)
             else:
-                return self.getToken(MiniPascalParser.MINUS, i)
+                return self.getToken(PascalParser.MINUS, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_addExpr
+            return PascalParser.RULE_addExpr
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterAddExpr" ):
@@ -9196,7 +9196,7 @@ class MiniPascalParser ( Parser ):
 
     def addExpr(self):
 
-        localctx = MiniPascalParser.AddExprContext(self, self._ctx, self.state)
+        localctx = PascalParser.AddExprContext(self, self._ctx, self.state)
         self.enterRule(localctx, 218, self.RULE_addExpr)
         self._la = 0 # Token type
         try:
@@ -9238,25 +9238,25 @@ class MiniPascalParser ( Parser ):
 
         def factor(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.FactorContext)
+                return self.getTypedRuleContexts(PascalParser.FactorContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.FactorContext,i)
+                return self.getTypedRuleContext(PascalParser.FactorContext,i)
 
 
         def STAR(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.STAR)
+                return self.getTokens(PascalParser.STAR)
             else:
-                return self.getToken(MiniPascalParser.STAR, i)
+                return self.getToken(PascalParser.STAR, i)
 
         def SLASH(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.SLASH)
+                return self.getTokens(PascalParser.SLASH)
             else:
-                return self.getToken(MiniPascalParser.SLASH, i)
+                return self.getToken(PascalParser.SLASH, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_term
+            return PascalParser.RULE_term
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterTerm" ):
@@ -9277,7 +9277,7 @@ class MiniPascalParser ( Parser ):
 
     def term(self):
 
-        localctx = MiniPascalParser.TermContext(self, self._ctx, self.state)
+        localctx = PascalParser.TermContext(self, self._ctx, self.state)
         self.enterRule(localctx, 220, self.RULE_term)
         self._la = 0 # Token type
         try:
@@ -9318,63 +9318,63 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def PLUS(self):
-            return self.getToken(MiniPascalParser.PLUS, 0)
+            return self.getToken(PascalParser.PLUS, 0)
 
         def factor(self):
-            return self.getTypedRuleContext(MiniPascalParser.FactorContext,0)
+            return self.getTypedRuleContext(PascalParser.FactorContext,0)
 
 
         def MINUS(self):
-            return self.getToken(MiniPascalParser.MINUS, 0)
+            return self.getToken(PascalParser.MINUS, 0)
 
         def NOT(self):
-            return self.getToken(MiniPascalParser.NOT, 0)
+            return self.getToken(PascalParser.NOT, 0)
 
         def FALSE(self):
-            return self.getToken(MiniPascalParser.FALSE, 0)
+            return self.getToken(PascalParser.FALSE, 0)
 
         def TRUE(self):
-            return self.getToken(MiniPascalParser.TRUE, 0)
+            return self.getToken(PascalParser.TRUE, 0)
 
         def AT(self):
-            return self.getToken(MiniPascalParser.AT, 0)
+            return self.getToken(PascalParser.AT, 0)
 
         def variableRef(self):
-            return self.getTypedRuleContext(MiniPascalParser.VariableRefContext,0)
+            return self.getTypedRuleContext(PascalParser.VariableRefContext,0)
 
 
         def functionCallExpr(self):
-            return self.getTypedRuleContext(MiniPascalParser.FunctionCallExprContext,0)
+            return self.getTypedRuleContext(PascalParser.FunctionCallExprContext,0)
 
 
         def arrayConstructor(self):
-            return self.getTypedRuleContext(MiniPascalParser.ArrayConstructorContext,0)
+            return self.getTypedRuleContext(PascalParser.ArrayConstructorContext,0)
 
 
         def NIL(self):
-            return self.getToken(MiniPascalParser.NIL, 0)
+            return self.getToken(PascalParser.NIL, 0)
 
         def NUMBER(self):
-            return self.getToken(MiniPascalParser.NUMBER, 0)
+            return self.getToken(PascalParser.NUMBER, 0)
 
         def FLOATNUMBER(self):
-            return self.getToken(MiniPascalParser.FLOATNUMBER, 0)
+            return self.getToken(PascalParser.FLOATNUMBER, 0)
 
         def STRING(self):
-            return self.getToken(MiniPascalParser.STRING, 0)
+            return self.getToken(PascalParser.STRING, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def expr(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
+            return self.getTypedRuleContext(PascalParser.ExprContext,0)
 
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_factor
+            return PascalParser.RULE_factor
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterFactor" ):
@@ -9395,7 +9395,7 @@ class MiniPascalParser ( Parser ):
 
     def factor(self):
 
-        localctx = MiniPascalParser.FactorContext(self, self._ctx, self.state)
+        localctx = PascalParser.FactorContext(self, self._ctx, self.state)
         self.enterRule(localctx, 222, self.RULE_factor)
         try:
             self.state = 1109
@@ -9404,7 +9404,7 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 1088
-                self.match(MiniPascalParser.PLUS)
+                self.match(PascalParser.PLUS)
                 self.state = 1089
                 self.factor()
                 pass
@@ -9412,7 +9412,7 @@ class MiniPascalParser ( Parser ):
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 1090
-                self.match(MiniPascalParser.MINUS)
+                self.match(PascalParser.MINUS)
                 self.state = 1091
                 self.factor()
                 pass
@@ -9420,7 +9420,7 @@ class MiniPascalParser ( Parser ):
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 1092
-                self.match(MiniPascalParser.NOT)
+                self.match(PascalParser.NOT)
                 self.state = 1093
                 self.factor()
                 pass
@@ -9428,19 +9428,19 @@ class MiniPascalParser ( Parser ):
             elif la_ == 4:
                 self.enterOuterAlt(localctx, 4)
                 self.state = 1094
-                self.match(MiniPascalParser.FALSE)
+                self.match(PascalParser.FALSE)
                 pass
 
             elif la_ == 5:
                 self.enterOuterAlt(localctx, 5)
                 self.state = 1095
-                self.match(MiniPascalParser.TRUE)
+                self.match(PascalParser.TRUE)
                 pass
 
             elif la_ == 6:
                 self.enterOuterAlt(localctx, 6)
                 self.state = 1096
-                self.match(MiniPascalParser.AT)
+                self.match(PascalParser.AT)
                 self.state = 1097
                 self.variableRef()
                 pass
@@ -9466,35 +9466,35 @@ class MiniPascalParser ( Parser ):
             elif la_ == 10:
                 self.enterOuterAlt(localctx, 10)
                 self.state = 1101
-                self.match(MiniPascalParser.NIL)
+                self.match(PascalParser.NIL)
                 pass
 
             elif la_ == 11:
                 self.enterOuterAlt(localctx, 11)
                 self.state = 1102
-                self.match(MiniPascalParser.NUMBER)
+                self.match(PascalParser.NUMBER)
                 pass
 
             elif la_ == 12:
                 self.enterOuterAlt(localctx, 12)
                 self.state = 1103
-                self.match(MiniPascalParser.FLOATNUMBER)
+                self.match(PascalParser.FLOATNUMBER)
                 pass
 
             elif la_ == 13:
                 self.enterOuterAlt(localctx, 13)
                 self.state = 1104
-                self.match(MiniPascalParser.STRING)
+                self.match(PascalParser.STRING)
                 pass
 
             elif la_ == 14:
                 self.enterOuterAlt(localctx, 14)
                 self.state = 1105
-                self.match(MiniPascalParser.LPAREN)
+                self.match(PascalParser.LPAREN)
                 self.state = 1106
                 self.expr()
                 self.state = 1107
-                self.match(MiniPascalParser.RPAREN)
+                self.match(PascalParser.RPAREN)
                 pass
 
 
@@ -9515,20 +9515,20 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def WRITELN(self):
-            return self.getToken(MiniPascalParser.WRITELN, 0)
+            return self.getToken(PascalParser.WRITELN, 0)
 
         def LPAREN(self):
-            return self.getToken(MiniPascalParser.LPAREN, 0)
+            return self.getToken(PascalParser.LPAREN, 0)
 
         def RPAREN(self):
-            return self.getToken(MiniPascalParser.RPAREN, 0)
+            return self.getToken(PascalParser.RPAREN, 0)
 
         def writeArgList(self):
-            return self.getTypedRuleContext(MiniPascalParser.WriteArgListContext,0)
+            return self.getTypedRuleContext(PascalParser.WriteArgListContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_writeLnStatement
+            return PascalParser.RULE_writeLnStatement
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterWriteLnStatement" ):
@@ -9549,7 +9549,7 @@ class MiniPascalParser ( Parser ):
 
     def writeLnStatement(self):
 
-        localctx = MiniPascalParser.WriteLnStatementContext(self, self._ctx, self.state)
+        localctx = PascalParser.WriteLnStatementContext(self, self._ctx, self.state)
         self.enterRule(localctx, 224, self.RULE_writeLnStatement)
         self._la = 0 # Token type
         try:
@@ -9559,15 +9559,15 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 1111
-                self.match(MiniPascalParser.WRITELN)
+                self.match(PascalParser.WRITELN)
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 1112
-                self.match(MiniPascalParser.WRITELN)
+                self.match(PascalParser.WRITELN)
                 self.state = 1113
-                self.match(MiniPascalParser.LPAREN)
+                self.match(PascalParser.LPAREN)
                 self.state = 1115
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
@@ -9577,7 +9577,7 @@ class MiniPascalParser ( Parser ):
 
 
                 self.state = 1117
-                self.match(MiniPascalParser.RPAREN)
+                self.match(PascalParser.RPAREN)
                 pass
 
 
@@ -9599,19 +9599,19 @@ class MiniPascalParser ( Parser ):
 
         def writeArg(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(MiniPascalParser.WriteArgContext)
+                return self.getTypedRuleContexts(PascalParser.WriteArgContext)
             else:
-                return self.getTypedRuleContext(MiniPascalParser.WriteArgContext,i)
+                return self.getTypedRuleContext(PascalParser.WriteArgContext,i)
 
 
         def COMMA(self, i:int=None):
             if i is None:
-                return self.getTokens(MiniPascalParser.COMMA)
+                return self.getTokens(PascalParser.COMMA)
             else:
-                return self.getToken(MiniPascalParser.COMMA, i)
+                return self.getToken(PascalParser.COMMA, i)
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_writeArgList
+            return PascalParser.RULE_writeArgList
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterWriteArgList" ):
@@ -9632,7 +9632,7 @@ class MiniPascalParser ( Parser ):
 
     def writeArgList(self):
 
-        localctx = MiniPascalParser.WriteArgListContext(self, self._ctx, self.state)
+        localctx = PascalParser.WriteArgListContext(self, self._ctx, self.state)
         self.enterRule(localctx, 226, self.RULE_writeArgList)
         self._la = 0 # Token type
         try:
@@ -9644,7 +9644,7 @@ class MiniPascalParser ( Parser ):
             _la = self._input.LA(1)
             while _la==95:
                 self.state = 1121
-                self.match(MiniPascalParser.COMMA)
+                self.match(PascalParser.COMMA)
                 self.state = 1122
                 self.writeArg()
                 self.state = 1127
@@ -9668,14 +9668,14 @@ class MiniPascalParser ( Parser ):
             self.parser = parser
 
         def STRING(self):
-            return self.getToken(MiniPascalParser.STRING, 0)
+            return self.getToken(PascalParser.STRING, 0)
 
         def expr(self):
-            return self.getTypedRuleContext(MiniPascalParser.ExprContext,0)
+            return self.getTypedRuleContext(PascalParser.ExprContext,0)
 
 
         def getRuleIndex(self):
-            return MiniPascalParser.RULE_writeArg
+            return PascalParser.RULE_writeArg
 
         def enterRule(self, listener:ParseTreeListener):
             if hasattr( listener, "enterWriteArg" ):
@@ -9696,7 +9696,7 @@ class MiniPascalParser ( Parser ):
 
     def writeArg(self):
 
-        localctx = MiniPascalParser.WriteArgContext(self, self._ctx, self.state)
+        localctx = PascalParser.WriteArgContext(self, self._ctx, self.state)
         self.enterRule(localctx, 228, self.RULE_writeArg)
         try:
             self.state = 1130
@@ -9705,7 +9705,7 @@ class MiniPascalParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 1128
-                self.match(MiniPascalParser.STRING)
+                self.match(PascalParser.STRING)
                 pass
 
             elif la_ == 2:

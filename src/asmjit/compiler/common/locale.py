@@ -35,31 +35,27 @@ class TranslationManager:
     def __init__(self, mode: int = 0):
         self.lang         = self.get_default_lang().split("_")[0].lower()
         self.mode         = mode
-        self.translations = []
+        self.po           = None
         self.filename     = ""
         self.trans        = gettext.NullTranslations()
         
         self._langSwitch(self.lang)
     
     def _trres(self, msgid:str) -> str:
-        for trans in self.translations:
-            text = trans.find(msgid)
-            if text != msgid:
-                return text
+        text = self.po.find(msgid)
+        if text is not None:
+            return text
         return msgid
     
     def _langSwitch(self, lang: str):
         self.lang = lang
-        self.translations.clear()
         self.filename = f"locales/{lang}/pascal.mo"
         self.filename = Path(self.filename).resolve()
-    
+        
         try:
-            self.trans = polib.mofile(self.filename)
-            self.add_trans(self.trans)
+            self.po = polib.mofile(self.filename)
             
         except FileNotFoundError as e:
-            app = self.ensure_app()
             print(f"{self._tr('File not found Error')}:")
             print(f"{self._tr('The requested file')}: {self.filename} {tr('could not be found')}.")
             return

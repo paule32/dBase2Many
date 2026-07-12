@@ -1533,6 +1533,35 @@ class PE32Writer:
 
         return offset
 
+    def emit_setcc_r8(self, opcode, reg):
+        reg8 = {
+            "al": 0,
+            "cl": 1,
+            "dl": 2,
+            "bl": 3,
+        }
+
+        reg = reg.lower()
+
+        if reg not in reg8:
+            raise RuntimeError(
+                f"unsupported 8-bit SETcc register: {reg}"
+            )
+
+        # SETcc r/m8:
+        # 0F opcode /0
+        self.text += b"\x0F"
+        self.text.append(opcode)
+        self.text.append(0xC0 | reg8[reg])
+
+
+    def emit_sete (self, reg): self.emit_setcc_r8(0x94, reg)
+    def emit_setne(self, reg): self.emit_setcc_r8(0x95, reg)
+    def emit_setl (self, reg): self.emit_setcc_r8(0x9C, reg)
+    def emit_setge(self, reg): self.emit_setcc_r8(0x9D, reg)
+    def emit_setle(self, reg): self.emit_setcc_r8(0x9E, reg)
+    def emit_setg (self, reg): self.emit_setcc_r8(0x9F, reg)
+
     #def has_symbol(self, name):
     #    for sym in self.symbols:
     #        if sym.name == name:

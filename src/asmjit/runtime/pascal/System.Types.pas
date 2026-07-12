@@ -13,10 +13,10 @@ unit System.Types;
 interface
 
 type
-    Boolean = 0..1;
-    Byte    = 0..255;
-    Word    = 0..65535;
-    DWord   = 0..4294967295;
+    Boolean  = 0..1;
+    Byte     = 0..255;
+    Word     = 0..65535;
+    DWord    = 0..4294967295;
     
     ShortInt = -128..127;
     SmallInt = -32768..32767;

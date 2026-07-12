@@ -645,8 +645,38 @@ class Coff32Backend(CodeBackend):
 
     def emit_mov_reg_byte(self, dst, base, comment=""):
         raise NotImplementedError(tr("NT32 byte load is not implemented yet"))
+
+    def emit_sete(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"sete {reg}")
+        self.writer.emit_sete(reg)
+
+    def emit_setne(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"setne {reg}")
+        self.writer.emit_setne(reg)
+
+    def emit_setl(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"setl {reg}")
+        self.writer.emit_setl(reg)
+
+    def emit_setle(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"setle {reg}")
+        self.writer.emit_setle(reg)
+
+    def emit_setg(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"setg {reg}")
+        self.writer.emit_setg(reg)
+
+    def emit_setge(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"setge {reg}")
+        self.writer.emit_setge(reg)
     
-    def emit_program_entry(self):
+    def emit_program_entry_old(self):
         frame_size = 512
 
         self.emit_bind_label("_start")
@@ -695,6 +725,79 @@ class Coff32Backend(CodeBackend):
         self.emit_pop("ebp")
         self.emit_ret()
     
+    def emit_program_entry(self):
+        frame_size = 512
+
+        self.emit_bind_label("_start")
+        self.asm_lines.append("_start:")
+
+        self.emit_push("ebp")
+        self.emit_mov("ebp", "esp")
+
+        # ---------------------------------------------------------
+        # Exception-Frame in EDI
+        # ---------------------------------------------------------
+        self.emit_sub(
+            "esp",
+            frame_size,
+            comment="top exception frame"
+        )
+
+        self.emit_mov(
+            "edi",
+            "esp",
+            comment="exception frame"
+        )
+
+        self.emit_push("edi")
+        self.emit_call("_jit_exception_push")
+        self.emit_cleanup_stack(4)
+
+        self.emit_push("edi")
+        self.emit_call("_jit_setjmp")
+        self.emit_cleanup_stack(4)
+
+        except_label = "__top_except"
+        exit_label   = "__top_exit"
+
+        self.emit_cmp("eax", 0)
+        self.emit_jne(except_label)
+
+        # ---------------------------------------------------------
+        # EBX = Adresse des JitContext
+        # ---------------------------------------------------------
+        self.writer.emit_mov_reg_data_label32(
+            "ebx",
+            "ctx"
+        )
+
+        self.asm_lines.append("mov ebx, ctx")
+
+        # ELAN-Hauptprogramm
+        self.emit_call("_main")
+
+        self.emit_push("edi")
+        self.emit_call("_jit_exception_pop")
+        self.emit_cleanup_stack(4)
+
+        self.emit_mov("eax", 0)
+        self.emit_jmp(exit_label)
+
+        self.emit_bind_label(except_label)
+
+        self.emit_push("edi")
+        self.emit_call("_jit_exception_pop")
+        self.emit_cleanup_stack(4)
+
+        self.emit_mov("eax", 1)
+
+        self.emit_bind_label(exit_label)
+
+        self.emit_mov("esp", "ebp")
+        self.emit_pop("ebp")
+        self.emit_ret()
+        
+        
     def write(self, filename):
         self.emit_program_entry()
         NTWriter32(self).write(filename)

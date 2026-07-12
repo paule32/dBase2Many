@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['pas2asmjit.py'],
+    ['cpascal.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='pas2asmjit',
+    name='cpascal',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

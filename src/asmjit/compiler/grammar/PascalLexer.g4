@@ -1,4 +1,4 @@
-lexer grammar MiniPascalLexer;
+lexer grammar PascalLexer;
 
 PROGRAM             : [Pp][Rr][Oo][Gg][Rr][Aa][Mm] ;
 BEGIN_              : [Bb][Ee][Gg][Ii][Nn] ;
