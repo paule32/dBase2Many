@@ -104,7 +104,12 @@ typedef int     (JIT_STDCALL *PFN_MessageBoxA)(HANDLE, LPCSTR, LPCSTR, UINT);
 typedef DWORD   (JIT_STDCALL *PFN_GetLastError)();
 typedef VOID    (JIT_STDCALL *PFN_SetLastError)(DWORD error);
 
+typedef LPSTR   (JIT_STDCALL *PFN_GetCommandLineA)(VOID);
 typedef HANDLE  (JIT_STDCALL *PFN_GetStdHandle)(DWORD);
+
+typedef LCID    (JIT_STDCALL *PFN_GetUserDefaultLCID)(VOID);
+typedef LCID    (JIT_STDCALL *PFN_GetSystemDefaultLCID)(VOID);
+
 typedef BOOL    (JIT_STDCALL *PFN_WriteFile)(HANDLE, const void *, DWORD, DWORD *, void *);
 typedef BOOL    (JIT_STDCALL *PFN_ReadFile )(HANDLE, const void *, DWORD, DWORD *, void *);
 
@@ -139,19 +144,24 @@ typedef DWORD   (JIT_STDCALL *PFN_WNetGetConnectionA)(
     LPDWORD lpnLength
 );
 
-extern PFN_LoadLibraryA   p_LoadLibraryA;
-extern PFN_GetProcAddress p_GetProcAddress;
-extern PFN_ExitProcess    p_ExitProcess;
+extern PFN_LoadLibraryA    p_LoadLibraryA;
+extern PFN_GetProcAddress  p_GetProcAddress;
+extern PFN_ExitProcess     p_ExitProcess;
 
-extern PFN_GetLastError   p_GetLastError;
-extern PFN_SetLastError   p_SetLastError;
+extern PFN_GetLastError    p_GetLastError;
+extern PFN_SetLastError    p_SetLastError;
 
-extern PFN_GetStdHandle   p_GetStdHandle;
-extern PFN_WriteFile      p_WriteFile;
-extern PFN_ReadFile       p_ReadFile;
+extern PFN_GetCommandLineA p_GetCommandLineA;
+extern PFN_GetStdHandle    p_GetStdHandle;
 
-extern PFN_MessageBoxA    p_MessageBoxA;
-extern PFN_GetDriveTypeA  p_GetDriveTypeA;
+extern PFN_GetUserDefaultLCID   p_GetUserDefaultLCID;
+extern PFN_GetSystemDefaultLCID p_GetSystemDefaultLCID;
+
+extern PFN_WriteFile       p_WriteFile;
+extern PFN_ReadFile        p_ReadFile;
+
+extern PFN_MessageBoxA     p_MessageBoxA;
+extern PFN_GetDriveTypeA   p_GetDriveTypeA;
 
 extern PFN_GetDiskFreeSpaceExA   p_GetDiskFreeSpaceExA;
 extern PFN_GetDiskFreeSpaceA     p_GetDiskFreeSpaceA;
@@ -174,6 +184,17 @@ DLL_API VOID    JIT_STDCALL ExitProcess (DWORD   uExitCode);
 // --------------------------------------------------------------------
 DLL_API DWORD   JIT_STDCALL GetLastError(void);
 DLL_API VOID    JIT_STDCALL SetLastError(DWORD error);
+
+// --------------------------------------------------------------------
+// Windows Command Line (console) ...
+// --------------------------------------------------------------------
+DLL_API LPSTR   JIT_STDCALL GetCommandLineA(VOID);
+
+// --------------------------------------------------------------------
+// locale supported win32api members ...
+// --------------------------------------------------------------------
+DLL_API LCID    JIT_STDCALL GetUserDefaultLCID(VOID);
+DLL_API LCID    JIT_STDCALL GetSystemDefaultLCID(VOID);
 
 // --------------------------------------------------------------------
 // Windows file input / output ...

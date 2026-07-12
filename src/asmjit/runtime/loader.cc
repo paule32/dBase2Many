@@ -275,9 +275,14 @@ extern "C" int init_loader()
     if (!p_LoadLibraryA || !p_GetProcAddress)
     return 0;
 
-    p_GetStdHandle = (PFN_GetStdHandle) p_GetProcAddress(kernel32, "GetStdHandle");
-    p_WriteFile    = (PFN_WriteFile)    p_GetProcAddress(kernel32, "WriteFile");
-    p_ReadFile     = (PFN_ReadFile)     p_GetProcAddress(kernel32, "ReadFile");
+    p_GetStdHandle    = (PFN_GetStdHandle)    p_GetProcAddress(kernel32, "GetStdHandle");
+    p_GetCommandLineA = (PFN_GetCommandLineA) p_GetProcAddress(kernel32, "GetCommandLineA");
+    
+    p_GetUserDefaultLCID   = (PFN_GetUserDefaultLCID  ) p_GetProcAddress(kernel32, "GetUserDefaultLCID");
+    p_GetSystemDefaultLCID = (PFN_GetSystemDefaultLCID) p_GetProcAddress(kernel32, "GetSystemDefaultLCID");
+    
+    p_WriteFile       = (PFN_WriteFile)       p_GetProcAddress(kernel32, "WriteFile");
+    p_ReadFile        = (PFN_ReadFile)        p_GetProcAddress(kernel32, "ReadFile");
 
 
     HMODULE user32 = p_LoadLibraryA("user32.dll");

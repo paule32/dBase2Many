@@ -37,53 +37,76 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   for dir in "${CRYPTO_FILES[@]}"; do
     mkdir -p "win32/obj/crypto/$dir"
     echo "assemble: crypto/$dir/$dir.cc"
-    g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
-    -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
-    -Wno-write-strings   \
-    -fno-builtin-memset  \
-    -fno-builtin-memcpy  \
-    -fno-builtin-memmove \
-    -S -o win32/obj/crypto/$dir/$dir.s crypto/$dir/$dir.cc
+    if ! g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+       -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+       -fno-threadsafe-statics \
+       -Wno-write-strings   \
+       -fno-builtin-memset  \
+       -fno-builtin-memcpy  \
+       -fno-builtin-memmove \
+       -S -o win32/obj/crypto/$dir/$dir.s crypto/$dir/$dir.cc ; then
+       echo "assemble run error."
+       exit 1
+    fi
     echo "sed:      win32/obj/crypto/$dir/$dir.s"
-    sed -i \
-      -e '/^[[:space:]]*\.ident/d'     \
-      -e '/^[[:space:]]*\.file/d'      \
-      -e '/^[[:space:]]*\.linkonce/d'  \
-      -e '/^[[:space:]]*\.def/d'       \
-      -e '/^[[:space:]]*\.cfi_/d'      \
-      -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
-      -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' \
-      win32/obj/crypto/$dir/$dir.s
+    if ! sed -i \
+       -e '/^[[:space:]]*\.ident/d'     \
+       -e '/^[[:space:]]*\.file/d'      \
+       -e '/^[[:space:]]*\.linkonce/d'  \
+       -e '/^[[:space:]]*\.def/d'       \
+       -e '/^[[:space:]]*\.cfi_/d'      \
+       -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+       -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' \
+       win32/obj/crypto/$dir/$dir.s ; then
+       echo "sed error."
+       exit 1
+    fi
     echo "compile:  win32/obj/crypto/$dir/$dir.s"
-    g++ -o win32/obj/crypto/$dir/$dir.o -c win32/obj/crypto/$dir/$dir.s
+    if ! g++ -o win32/obj/crypto/$dir/$dir.o -c win32/obj/crypto/$dir/$dir.s ; then
+       echo "compile time error."
+       exit 1
+    fi
   done
   
   RUNTIME_FILES=(
-    loader allocator diskio/diskio error exception iostream memory print
-    string vector windows
+    args loader allocator diskio/diskio error exception iostream memory
+    print string vector locale windows
     dllmain
   )
-  mkdir -p win32/obj/diskio
+  if ! mkdir -p win32/obj/diskio ; then
+     echo "could not create directory: win32/obj/diskio."
+     exit 1
+  fi
   for file in "${RUNTIME_FILES[@]}"; do
     echo "assemble: $file.cc"
-    g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
-    -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
-    -Wno-write-strings   \
-    -fno-builtin-memset  \
-    -fno-builtin-memcpy  \
-    -fno-builtin-memmove \
-    -S -o win32/obj/$file.s $file.cc
+    if ! g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+       -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+       -fno-threadsafe-statics \
+       -Wno-write-strings   \
+       -fno-builtin-memset  \
+       -fno-builtin-memcpy  \
+       -fno-builtin-memmove \
+       -S -o win32/obj/$file.s $file.cc ; then
+       echo "assemble run error."
+       exit 1
+    fi
     echo "sed:      $file.s"
-    sed -i \
-        -e '/^[[:space:]]*\.ident/d'     \
-        -e '/^[[:space:]]*\.file/d'      \
-        -e '/^[[:space:]]*\.linkonce/d'  \
-        -e '/^[[:space:]]*\.def/d'       \
-        -e '/^[[:space:]]*\.cfi_/d'      \
-        -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
-        -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/$file.s
+    if ! sed -i \
+       -e '/^[[:space:]]*\.ident/d'     \
+       -e '/^[[:space:]]*\.file/d'      \
+       -e '/^[[:space:]]*\.linkonce/d'  \
+       -e '/^[[:space:]]*\.def/d'       \
+       -e '/^[[:space:]]*\.cfi_/d'      \
+       -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+       -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/$file.s ; then
+       echo "sed error."
+       exit 1
+    fi
     echo "compile:  $file.s"
-    g++ -o win32/obj/$file.o -c win32/obj/$file.s
+    if ! g++ -o win32/obj/$file.o -c win32/obj/$file.s ; then
+       echo "compile time error."
+       exit 1
+    fi
   done
   
   nasm -fwin32 -o win32/obj/setjmp32.o setjmp32.asm
@@ -91,36 +114,52 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   RUNTIME_OBJECTS=("${RUNTIME_FILES[@]/#/win32/obj/}")
   RUNTIME_OBJECTS=("${RUNTIME_OBJECTS[@]/%/.o}")
   
-  ld -r -o win32/obj/runtime_all.o "${RUNTIME_OBJECTS[@]}" win32/obj/setjmp32.o
+  if ! ld -r -o win32/obj/runtime_all.o "${RUNTIME_OBJECTS[@]}" win32/obj/setjmp32.o ; then
+     echo "relocation link error."
+     exit 1
+  fi
   nm win32/obj/runtime_all.o > win32/obj/1
   
   echo "create export .def initions file..."
-  python makedef.32.py
+  if ! python makedef.32.py ; then
+     echo "Python 3.14 could not be start - error."
+     exit 1
+  fi
   
-  echo "create 32-bit dll fil..."
-  g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
-  -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
-  -Wno-write-strings \
-  win32/obj/runtime_all.o      \
-  win32/obj/crypto/blake2/*.o  \
-  win32/obj/crypto/blake3/*.o  \
-  win32/obj/crypto/crc16/*.o   \
-  win32/obj/crypto/crc32/*.o   \
-  win32/obj/crypto/crc32c/*.o  \
-  win32/obj/crypto/crc64/*.o   \
-  win32/obj/crypto/md5/*.o     \
-  win32/obj/crypto/sha1/*.o    \
-  win32/obj/crypto/sha3/*.o    \
-  win32/obj/crypto/sha224/*.o  \
-  win32/obj/crypto/sha256/*.o  \
-  win32/obj/crypto/sha384/*.o  \
-  win32/obj/crypto/sha512/*.o  \
-  win32/libdbase2many.32.def   \
-  -Wl,--out-implib,win32/libdbase2many.32.dll.a
+  echo "create 32-bit dll file..."
+  if ! g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
+     -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
+     -fno-threadsafe-statics      \
+     -Wno-write-strings \
+     win32/obj/runtime_all.o      \
+     win32/obj/crypto/blake2/*.o  \
+     win32/obj/crypto/blake3/*.o  \
+     win32/obj/crypto/crc16/*.o   \
+     win32/obj/crypto/crc32/*.o   \
+     win32/obj/crypto/crc32c/*.o  \
+     win32/obj/crypto/crc64/*.o   \
+     win32/obj/crypto/md5/*.o     \
+     win32/obj/crypto/sha1/*.o    \
+     win32/obj/crypto/sha3/*.o    \
+     win32/obj/crypto/sha224/*.o  \
+     win32/obj/crypto/sha256/*.o  \
+     win32/obj/crypto/sha384/*.o  \
+     win32/obj/crypto/sha512/*.o  \
+     win32/libdbase2many.32.def   \
+     -Wl,--out-implib,win32/libdbase2many.32.dll.a ; then
+     echo "32-bit dll file could not create."
+     exit 1
+  fi
 
   echo "strip debug informations..."
-  strip win32/libdbase2many.32.dll
-  cp    win32/libdbase2many.32.dll ../x32/libdbase2many.32.dll
+  if ! strip win32/libdbase2many.32.dll ; then
+     echo "debug symbols could not be stripped."
+     exit 1
+  fi
+  if ! cp win32/libdbase2many.32.dll ../x32/libdbase2many.32.dll ; then
+     echo "32-bit dll could not be copied."
+     exit 1
+  fi
   
   echo "done."
   exit 0

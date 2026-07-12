@@ -7,6 +7,7 @@
 # include "stddef.h"
 # include "memory.h"
 # include "string.h"
+# include "variant.h"
 # include "exception.h"
 # include "windows.h"
 
@@ -190,6 +191,78 @@ _jit_dynstring_pos(
     }
 
     return 0;
+}
+
+DLL_API VOID JIT_CDECL _jit_print_variant(const JitVariantArg *value)
+{
+    uint64_t bits;
+    double double_value;
+
+    if (value == nullptr) {
+        return;
+    }
+
+    switch (value->kind) {
+        case JIT_VARIANT_INTEGER: {
+            _jit_print_int((int32_t)value->value_low);
+            break;
+        }
+
+        case JIT_VARIANT_BOOLEAN: {
+            // Später kann hier True/False statt 0/1 ausgegeben werden.
+            _jit_print_int(value->value_low != 0);
+            break;
+        }
+
+        case JIT_VARIANT_CHAR: {
+            LPCSTR char_ptr = (LPCSTR)(uintptr_t)value->value_low;
+            if (char_ptr != nullptr) {
+                int ch = (unsigned char)char_ptr[0];
+                _jit_print_char(ch);
+            }
+            break;
+        }
+
+        case JIT_VARIANT_STRING: {
+            _jit_print_text((const char *)(uintptr_t)value->value_low);
+            break;
+        }
+
+        case JIT_VARIANT_DOUBLE: {
+            bits = ((uint64_t)value->value_high << 32) | value->value_low;
+            _jit_memcpy(&double_value, &bits, sizeof(double_value));
+
+            _jit_print_double(double_value);
+            break;
+        }
+
+        case JIT_VARIANT_POINTER: {
+            // Pointer zunächst hexadezimal ausgeben.
+            _jit_printf("0x%08X", (unsigned)value->value_low);
+            break;
+        }
+
+        case JIT_VARIANT_EMPTY:
+        default: {
+            break;
+        }
+    }
+}
+
+DLL_API VOID JIT_CDECL
+_jit_print_variant_array(
+    const JitVariantArg *values,
+    int32_t high) {
+    
+    int32_t index;
+
+    if (values == nullptr || high < 0) {
+        return;
+    }
+
+    for (index = 0; index <= high; ++index) {
+        _jit_print_variant(&values[index]);
+    }
 }
 
 };

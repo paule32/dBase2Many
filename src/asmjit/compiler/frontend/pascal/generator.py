@@ -30,6 +30,27 @@ from compiler.writer.pe64 import *
 
 from compiler.writer.pe64coff  import *
 
+# ---------------------------------------------------------------------------
+# NT32 descriptor used for Pascal ``array of const``.
+#
+# Layout (12 bytes):
+#   +0  kind       (uint32)
+#   +4  value_low  (uint32)
+#   +8  value_high (uint32)
+# ---------------------------------------------------------------------------
+JIT_VARIANT_EMPTY   = 0
+JIT_VARIANT_INTEGER = 1
+JIT_VARIANT_BOOLEAN = 2
+JIT_VARIANT_CHAR    = 3
+JIT_VARIANT_STRING  = 4
+JIT_VARIANT_DOUBLE  = 5
+JIT_VARIANT_POINTER = 6
+
+JIT_VARIANT_ARG_SIZE    = 12
+JIT_VARIANT_KIND_OFFSET = 0
+JIT_VARIANT_LOW_OFFSET  = 4
+JIT_VARIANT_HIGH_OFFSET = 8
+
 class PropertyInfo:
     def __init__(self, name, ptype, visibility, read_name=None, write_name=None):
         self.name       = name
@@ -672,6 +693,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         self.current_function   = None
         self.current_proc_params= {}
         
+        self.next_variant_array_id = 0
+        self.pending_open_array_actual = None
+        
         self.section_text = []
         self.section_data = []
         
@@ -706,8 +730,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
         self.asm_file               = CDATA.asm_file
         self.emit_local_string_data = True
-        
-        self.pending_open_array_actual = None
         
         # Makros, die direkt in der aktuell kompilierten Unit
         # durch {$DEFINE ...} festgelegt wurden.
@@ -3830,57 +3852,142 @@ class AsmJitGenerator(MiniPascalParserVisitor):
     def collect_formal_params(self, ctx):
         params = []
 
-        if not ctx.formalParamList():
+        formal_param_list = ctx.formalParamList()
+
+        if formal_param_list is None:
             return params
 
-        for p in ctx.formalParamList().formalParam():
+        for formal_ctx in formal_param_list.formalParam():
             modifier = None
 
-            if p.paramModifier():
-                modifier = p.paramModifier().getText().lower()
-
-            param_type_ctx = p.paramType()
-
-            if param_type_ctx.openArrayType():
-                element_type = self.resolve_type(
-                    param_type_ctx
-                    .openArrayType()
-                    .typeName()
+            if (
+                hasattr(formal_ctx, "paramModifier")
+                and formal_ctx.paramModifier() is not None
+            ):
+                modifier = (
+                    formal_ctx
+                    .paramModifier()
                     .getText()
+                    .lower()
                 )
 
-                typ = f"open_array:{element_type}"
-                is_open_array = True
+            param_type_ctx = formal_ctx.paramType()
 
-            elif param_type_ctx.typeName():
-                typ = self.resolve_type(
-                    param_type_ctx.typeName().getText()
-                )
-
-                element_type = None
-                is_open_array = False
-
-            else:
+            if param_type_ctx is None:
                 raise CompileError(
-                    p,
+                    formal_ctx,
                     "E0019",
                     text=(
-                        "unsupported formal parameter type: "
-                        + param_type_ctx.getText()
+                        "formal parameter has no type: "
+                        + formal_ctx.getText()
                     )
                 )
 
-            for ident in p.identList().IDENT():
+            open_array_ctx = None
+
+            if hasattr(
+                param_type_ctx,
+                "openArrayType"
+            ):
+                open_array_ctx = (
+                    param_type_ctx.openArrayType()
+                )
+
+            is_open_array = (
+                open_array_ctx is not None
+            )
+
+            is_variant_open_array = False
+            element_type = None
+
+            if is_open_array:
+                const_token = None
+
+                if hasattr(
+                    open_array_ctx,
+                    "CONST"
+                ):
+                    const_token = (
+                        open_array_ctx.CONST()
+                    )
+
+                if const_token is not None:
+                    typ = "open_array:const"
+                    element_type = "const"
+                    is_variant_open_array = True
+
+                else:
+                    type_name_ctx = (
+                        open_array_ctx.typeName()
+                    )
+
+                    if type_name_ctx is None:
+                        raise CompileError(
+                            formal_ctx,
+                            "E0019",
+                            text=(
+                                "open array requires an "
+                                "element type or const"
+                            )
+                        )
+
+                    element_type = self.resolve_type(
+                        type_name_ctx.getText()
+                    )
+
+                    typ = (
+                        f"open_array:{element_type}"
+                    )
+
+            else:
+                type_name_ctx = (
+                    param_type_ctx.typeName()
+                )
+
+                if type_name_ctx is None:
+                    raise CompileError(
+                        formal_ctx,
+                        "E0019",
+                        text=(
+                            "unsupported formal parameter type: "
+                            + param_type_ctx.getText()
+                        )
+                    )
+
+                typ = self.resolve_type(
+                    type_name_ctx.getText()
+                )
+
+            ident_list_ctx = (
+                formal_ctx.identList()
+            )
+
+            if ident_list_ctx is None:
+                raise CompileError(
+                    formal_ctx,
+                    "E0019",
+                    text="formal parameter has no name"
+                )
+
+            for ident in ident_list_ctx.IDENT():
                 params.append({
-                    "name"          : ident.getText(),
-                    "type"          : typ,
+                    "name": ident.getText(),
+                    "type": typ,
 
-                    "modifier"      : modifier,
-                    "is_var"        : modifier == "var",
-                    "is_const"      : modifier == "const",
+                    "modifier": modifier,
+                    "is_var": modifier == "var",
+                    "is_const": (
+                        modifier == "const"
+                        or is_variant_open_array
+                    ),
 
-                    "is_open_array" : is_open_array,
-                    "element_type"  : element_type
+                    "is_open_array": is_open_array,
+
+                    "is_variant_open_array": (
+                        is_variant_open_array
+                    ),
+
+                    "element_type": element_type
                 })
 
         return params
@@ -4567,6 +4674,191 @@ class AsmJitGenerator(MiniPascalParserVisitor):
 
             return None
     
+    def restore_nt32_context_after_runtime_call(self):
+        """Lädt ESI nach einem Runtime-Aufruf erneut mit &ctx."""
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            return
+
+        if self.coff.find_symbol_index("ctx") is not None:
+            self.writer.emit_lea_reg_data_label(
+                "esi",
+                "ctx"
+            )
+
+    def emit_builtin_paramcount(self, ctx):
+        """
+        Pascal:
+
+            ParamCount
+            ParamCount()
+
+        Liefert die Anzahl der Argumente ohne ParamStr(0).
+        """
+        args = self.function_call_args(ctx)
+
+        if args:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="0"
+            )
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "ParamCount is currently implemented "
+                    "only for NT32"
+                )
+            )
+
+        self.emit_call(
+            "_jit_param_count"
+        )
+
+        self.restore_nt32_context_after_runtime_call()
+        return "integer"
+
+    def emit_builtin_paramstr(self, ctx):
+        """
+        Pascal:
+
+            ParamStr(Index)
+
+        ParamStr(0) liefert den Programmnamen. Ein ungültiger Index
+        liefert einen leeren dynamischen String.
+        """
+        args = self.function_call_args(ctx)
+
+        if len(args) != 1:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="1"
+            )
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "ParamStr is currently implemented "
+                    "only for NT32"
+                )
+            )
+
+        index_type = self.visit(
+            args[0]
+        )
+
+        if index_type != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=index_type,
+                expected="integer"
+            )
+
+        # const char* _jit_param_str_cstr(int index)
+        self.emit_push(
+            "eax",
+            comment="ParamStr index"
+        )
+
+        self.emit_call(
+            "_jit_param_str_cstr"
+        )
+
+        self.backend.emit_cleanup_stack(
+            4
+        )
+
+        # EAX ist ein stabiler C-String. Für Pascal muss daraus ein
+        # dynamischer String im vorhandenen Runtime-Format werden.
+        self.emit_push(
+            "eax",
+            comment="ParamStr c-string"
+        )
+
+        self.emit_call(
+            "_jit_dynstring_from_cstr"
+        )
+
+        self.backend.emit_cleanup_stack(
+            4
+        )
+
+        self.restore_nt32_context_after_runtime_call()
+        return "string"
+
+    def emit_builtin_commandline(self, ctx):
+        """
+        Pascal:
+
+            CommandLine
+            CommandLine()
+
+        Liefert die unveränderte vollständige ANSI-Kommandozeile.
+        """
+        args = self.function_call_args(ctx)
+
+        if args:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="0"
+            )
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "CommandLine is currently implemented "
+                    "only for NT32"
+                )
+            )
+
+        self.emit_call(
+            "_jit_command_line_cstr"
+        )
+
+        self.emit_push(
+            "eax",
+            comment="command line c-string"
+        )
+
+        self.emit_call(
+            "_jit_dynstring_from_cstr"
+        )
+
+        self.backend.emit_cleanup_stack(
+            4
+        )
+
+        self.restore_nt32_context_after_runtime_call()
+        return "string"
+
     def emit_builtin_length(self, ctx):
         actuals = []
 
@@ -12831,6 +13123,40 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 comment=f"{name} data"
             )
 
+            # ----------------------------------------------------
+            # Variant open array (``array of const``).
+            #
+            # Each element is a JitVariantArg descriptor.  Return
+            # its address in EAX; consumers such as WriteLn inspect
+            # the runtime kind stored at offset zero.
+            # ----------------------------------------------------
+            if (
+                param.get(
+                    "is_variant_open_array",
+                    False
+                )
+                or element_type == "const"
+            ):
+                self.emit_imul(
+                    "ecx",
+                    "ecx",
+                    JIT_VARIANT_ARG_SIZE
+                )
+
+                self.emit_add(
+                    "edx",
+                    "ecx",
+                    comment=f"{name}[index] variant address"
+                )
+
+                self.emit_mov(
+                    "eax",
+                    "edx",
+                    comment=f"{name}[index] variant"
+                )
+
+                return "variant"
+
             if element_type in (
                 "integer",
                 "boolean"
@@ -12935,7 +13261,244 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 "implemented only for NT32"
             )
         )
-    
+
+    def find_array_constructor_context(self, ctx):
+        """Return the first nested ArrayConstructorContext, if present."""
+        if ctx is None:
+            return None
+
+        if isinstance(
+            ctx,
+            MiniPascalParser.ArrayConstructorContext
+        ):
+            return ctx
+
+        for child in (
+            getattr(ctx, "children", None)
+            or []
+        ):
+            result = self.find_array_constructor_context(
+                child
+            )
+
+            if result is not None:
+                return result
+
+        return None
+
+    def variant_kind_for_type(self, ctx, value_type):
+        value_type = self.resolve_type(
+            value_type
+        )
+
+        if value_type == "integer":
+            return JIT_VARIANT_INTEGER
+
+        if value_type == "boolean":
+            return JIT_VARIANT_BOOLEAN
+
+        if value_type == "char":
+            return JIT_VARIANT_CHAR
+
+        if value_type == "string":
+            return JIT_VARIANT_STRING
+
+        if value_type == "double":
+            return JIT_VARIANT_DOUBLE
+
+        if value_type == "^nil":
+            return JIT_VARIANT_POINTER
+
+        if (
+            isinstance(value_type, str)
+            and value_type.startswith("^")
+        ):
+            return JIT_VARIANT_POINTER
+
+        if (
+            isinstance(value_type, str)
+            and value_type in self.classes
+        ):
+            return JIT_VARIANT_POINTER
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=value_type,
+            expected=(
+                "integer/boolean/char/string/"
+                "double/pointer"
+            )
+        )
+
+    def emit_store_variant_descriptor_nt32(
+        self,
+        ctx,
+        data_label,
+        index,
+        value_type
+    ):
+        """Store the value currently in EAX/XMM0 as JitVariantArg."""
+        value_type = self.resolve_type(
+            value_type
+        )
+
+        kind = self.variant_kind_for_type(
+            ctx,
+            value_type
+        )
+
+        descriptor_offset = (
+            index * JIT_VARIANT_ARG_SIZE
+        )
+
+        # Loading EDX does not destroy the expression result in EAX/XMM0.
+        self.writer.emit_lea_reg_data_label(
+            "edx",
+            data_label
+        )
+
+        self.emit_mov(
+            "ecx",
+            kind,
+            comment=f"variant element {index} kind"
+        )
+
+        self.emit_mov_dword_ptr_store(
+            "edx",
+            descriptor_offset + JIT_VARIANT_KIND_OFFSET,
+            "ecx"
+        )
+
+        if value_type == "double":
+            self.emit_movsd_store(
+                "edx",
+                descriptor_offset + JIT_VARIANT_LOW_OFFSET,
+                "xmm0",
+                comment=f"variant double element {index}"
+            )
+            return
+
+        self.emit_mov_dword_ptr_store(
+            "edx",
+            descriptor_offset + JIT_VARIANT_LOW_OFFSET,
+            "eax",
+            comment=f"variant element {index} value"
+        )
+
+        self.emit_xor(
+            "ecx",
+            "ecx"
+        )
+
+        self.emit_mov_dword_ptr_store(
+            "edx",
+            descriptor_offset + JIT_VARIANT_HIGH_OFFSET,
+            "ecx"
+        )
+
+    def emit_variant_open_array_actual_nt32(
+        self,
+        ctx,
+        argument_ctx
+    ):
+        """Build an NT32 ``array of const`` actual parameter."""
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "array of const is currently "
+                    "implemented only for NT32"
+                )
+            )
+
+        constructor_ctx = (
+            self.find_array_constructor_context(
+                argument_ctx
+            )
+        )
+
+        if constructor_ctx is not None:
+            elements = (
+                self.collect_array_constructor_elements(
+                    constructor_ctx
+                )
+            )
+        else:
+            # Project extension: a scalar actual can be wrapped as a
+            # one-element variant open array.
+            elements = [argument_ctx]
+
+        count = len(elements)
+        literal_id = self.next_variant_array_id
+        self.next_variant_array_id += 1
+
+        data_label = (
+            f"__variant_open_array_{literal_id}"
+        )
+
+        allocation_size = max(
+            1,
+            count
+        ) * JIT_VARIANT_ARG_SIZE
+
+        if self.coff.find_symbol_index(
+            data_label
+        ) is None:
+            self.coff.add_data_zeros(
+                data_label,
+                allocation_size,
+                alignment=4
+            )
+
+        for index, element_ctx in enumerate(elements):
+            value_type = self.visit(
+                element_ctx
+            )
+
+            if value_type is None:
+                raise CompileError(
+                    element_ctx,
+                    "E0019",
+                    text=(
+                        "array-of-const element "
+                        "produced no type"
+                    )
+                )
+
+            value_type = self.resolve_type(
+                value_type
+            )
+
+            self.emit_store_variant_descriptor_nt32(
+                element_ctx,
+                data_label,
+                index,
+                value_type
+            )
+
+        self.writer.emit_lea_reg_data_label(
+            "eax",
+            data_label
+        )
+
+        result = {
+            "element_type": "const",
+            "high": count - 1,
+            "count": count,
+            "element_size": JIT_VARIANT_ARG_SIZE,
+            "data_label": data_label,
+            "stack_bytes": 0
+        }
+
+        self.pending_open_array_actual = result
+        return result
+
     def visitArrayConstructor(self, ctx):
         elements = self.collect_array_constructor_elements(
             ctx
@@ -13435,7 +13998,20 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 except CompileError:
                     pass
 
-            # Parameterlose Funktion ohne Klammern.
+            # Eingebaute parameterlose Funktionen ohne Klammern.
+            builtin_key = name.lower()
+
+            if builtin_key == "paramcount":
+                return self.emit_builtin_paramcount(
+                    ctx
+                )
+
+            if builtin_key == "commandline":
+                return self.emit_builtin_commandline(
+                    ctx
+                )
+
+            # Parameterlose benutzerdefinierte Funktion ohne Klammern.
             func = self.find_function(
                 name
             )
@@ -14665,6 +15241,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "length": self.emit_builtin_length,
             "low": self.emit_builtin_low,
             "high": self.emit_builtin_high,
+            "paramcount": self.emit_builtin_paramcount,
+            "paramstr": self.emit_builtin_paramstr,
+            "commandline": self.emit_builtin_commandline,
             "copy": self.emit_builtin_copy,
             "pos": self.emit_builtin_pos,
         
@@ -14743,17 +15322,32 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                     )
                 )
 
+                is_variant_open_array = (
+                    formal.get(
+                        "is_variant_open_array",
+                        False
+                    )
+                    or formal_type == "open_array:const"
+                )
+
                 # Alten Zustand löschen, damit keine Metadaten eines
                 # vorherigen Arguments verwendet werden.
                 self.pending_open_array_actual = None
 
-                expr_type = self.visit(
-                    arg_expr
-                )
+                if is_variant_open_array:
+                    self.emit_variant_open_array_actual_nt32(
+                        ctx,
+                        arg_expr
+                    )
+                    expr_type = "open_array:const"
+                else:
+                    expr_type = self.visit(
+                        arg_expr
+                    )
 
-                expr_type = self.resolve_type(
-                    expr_type
-                )
+                    expr_type = self.resolve_type(
+                        expr_type
+                    )
 
                 # ====================================================
                 # Offenes Array
@@ -15011,6 +15605,9 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         name = ctx.IDENT().getText()
         key  = name.lower()
 
+        # --------------------------------------------------------------
+        # Externe Prozedur
+        # --------------------------------------------------------------
         if ctx.externalRoutineSpec():
             params = self.collect_formal_params(ctx)
 
@@ -15030,24 +15627,15 @@ class AsmJitGenerator(MiniPascalParserVisitor):
         exit_label = self.new_named_label("exitproc_" + name)
 
         params = self.collect_formal_params(ctx)
-        
-        old_params = self.current_proc_params
-        self.current_proc_params = {}
 
-        param_regs = ["rcx", "rdx", "r8", "r9"]
-        
         if len(params) > 64:
-            raise CompileError(ctx, "E0005", got=str(len(params)), expected="max 64 params")
-            
-        #if len(params) > len(param_regs):
-        #    raise CompileError(ctx,
-        #        "E0005",
-        #        got="too many params",
-        #        expected="max 4 params")
-        
-        self.emit_jmp(skip_label)
-        self.emit_bind_label(label)
-        
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(params)),
+                expected="max 64 params"
+            )
+
         scoped = self.unit_scoped_name(name)
 
         mangled = self.fpc_mangle_routine(
@@ -15064,102 +15652,422 @@ class AsmJitGenerator(MiniPascalParserVisitor):
             "params": params
         }
 
-        # Every procedure receives its stable FPC symbol.  Programs also
-        # retain the old lower-case alias for backward compatibility.
-        if self.backend.writer.find_symbol_index(mangled) is None:
-            self.backend.writer.add_symbol_alias(
-                mangled,
-                label
+        # Die COFF-Aliase dürfen hier noch nicht angelegt werden.
+        # Das interne Label wird vom Writer erst während der vollständigen
+        # Prozedur-Codeerzeugung als Symbol registriert. Die Aliase werden
+        # deshalb nach dem Prozedur-Epilog und dem Skip-Label erzeugt.
+
+        # Prozedurcode im normalen Programmfluss überspringen.
+        self.emit_jmp(skip_label)
+        self.emit_bind_label(label)
+
+        old_params = self.current_proc_params
+        self.current_proc_params = {}
+
+        target = CDATA.args_target.lower()
+
+        # --------------------------------------------------------------
+        # Prolog und Parameterabbildung
+        # --------------------------------------------------------------
+        if target in ("nt35", "winnt", "win32"):
+            self.emit_push(
+                "ebp",
+                comment="procedure prolog"
             )
 
-        if not self.current_unit:
-            legacy_symbol = "_" + name.lower()
+            self.emit_mov(
+                "ebp",
+                "esp",
+                comment="stack frame"
+            )
 
-            if self.backend.writer.find_symbol_index(legacy_symbol) is None:
-                self.backend.writer.add_symbol_alias(
-                    legacy_symbol,
-                    label
-                )
-        
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            self.emit_push("ebp")
-            self.emit_mov("ebp", "esp")
-            self.emit_push("ebx", comment="preserve EBX")
+            # EBX wird von mehreren Emittern als Arbeitsregister benutzt.
+            self.emit_push(
+                "ebx",
+                comment="preserve EBX"
+            )
 
-            for index, p in enumerate(params):
-                pname = p["name"]
-                ptype = self.resolve_type(p["type"])
+            stack_offset = 8
 
-                self.current_proc_params[pname.lower()] = {
-                    "type": ptype,
+            for param in params:
+                pname = param["name"]
+
+                param_info = {
+                    "type": param["type"],
                     "reg": None,
-                    "stack_offset": 8 + index * 4,
-                    "is_var": p.get("is_var", False)
+                    "stack_offset": stack_offset,
+                    "is_var": param.get("is_var", False),
+                    "is_const": param.get("is_const", False),
+                    "is_open_array": param.get(
+                        "is_open_array",
+                        False
+                    ),
+                    "is_variant_open_array": param.get(
+                        "is_variant_open_array",
+                        False
+                    ),
+                    "element_type": param.get("element_type")
                 }
 
-            self.emit_sub("esp", 512, comment="local variables")
+                if param_info["is_open_array"]:
+                    # Interne NT32-ABI:
+                    #
+                    # [ebp + stack_offset]     = Datenpointer
+                    # [ebp + stack_offset + 4] = High-Wert
+                    param_info["high_offset"] = stack_offset + 4
+                    stack_offset += 8
+                else:
+                    stack_offset += 4
+
+                self.current_proc_params[
+                    pname.lower()
+                ] = param_info
+
+            # [ebp-4] enthält den gesicherten EBX-Wert.
+            local_base_offset = 4
+
+        elif target in ("dos", "dos16"):
+            self.backend.writer.emit_push_reg16("bp")
+            self.backend.writer.emit_mov_reg16_reg16(
+                "bp",
+                "sp"
+            )
+
+            stack_offset = 4
+
+            for param in params:
+                pname = param["name"]
+
+                param_info = {
+                    "type": param["type"],
+                    "reg": None,
+                    "stack_offset": stack_offset,
+                    "is_var": param.get("is_var", False),
+                    "is_const": param.get("is_const", False),
+                    "is_open_array": param.get(
+                        "is_open_array",
+                        False
+                    ),
+                    "is_variant_open_array": param.get(
+                        "is_variant_open_array",
+                        False
+                    ),
+                    "element_type": param.get("element_type")
+                }
+
+                if param_info["is_open_array"]:
+                    param_info["high_offset"] = stack_offset + 2
+                    stack_offset += 4
+                else:
+                    stack_offset += 2
+
+                self.current_proc_params[
+                    pname.lower()
+                ] = param_info
+
+            local_base_offset = 0
 
         else:
-            self.emit_push("rbp")
-            self.emit_mov("rbp", "rsp")
+            self.emit_push(
+                "rbp",
+                comment="procedure prolog"
+            )
 
-            for index, p in enumerate(params):
-                pname = p["name"]
-                ptype = self.resolve_type(p["type"])
+            self.emit_mov(
+                "rbp",
+                "rsp",
+                comment="stack frame"
+            )
 
-                if index < 4:
+            param_regs = [
+                "rcx",
+                "rdx",
+                "r8",
+                "r9"
+            ]
+
+            saved_param_count = min(
+                len(params),
+                len(param_regs)
+            )
+
+            for index, param in enumerate(params):
+                pname = param["name"]
+
+                if index < len(param_regs):
                     reg = param_regs[index]
-                    self.emit_push(reg, comment=f"save param {pname}")
+
+                    self.emit_push(
+                        reg,
+                        comment=f"save param {pname}"
+                    )
+
                     stack_offset = -8 * (index + 1)
                 else:
                     reg = None
                     stack_offset = 48 + ((index - 4) * 8)
 
                 self.current_proc_params[pname.lower()] = {
-                    "type": ptype,
+                    "type": param["type"],
                     "reg": reg,
                     "stack_offset": stack_offset,
-                    "is_var": p.get("is_var", False)
+                    "is_var": param.get("is_var", False),
+                    "is_const": param.get("is_const", False),
+                    "is_open_array": param.get(
+                        "is_open_array",
+                        False
+                    ),
+                    "is_variant_open_array": param.get(
+                        "is_variant_open_array",
+                        False
+                    ),
+                    "element_type": param.get("element_type")
                 }
 
-            saved_param_count = min(len(params), 4)
+            local_base_offset = saved_param_count * 8
 
-            if saved_param_count % 2 == 1:
-                self.emit_sub("rsp", 8, comment="align stack after odd param saves")
-
-            self.emit_sub("rsp", 512, comment="local variables")
-        
+        # --------------------------------------------------------------
+        # Lokale Scopes VOR den Deklarationen öffnen.
+        # --------------------------------------------------------------
         self.exit_label_stack.append(exit_label)
+        self.scope_stack.append(name)
         self.push_local_scope()
-        
-        saved_param_count = min(len(params), 4)
-        self.current_local_scope()["next_offset"] = saved_param_count * 8
-        
-        block_ctx = ctx.block()
-        if block_ctx is None:
-            raise CompileError(ctx, "E0015", text="procedure block missing")
+        self.push_const_scope()
 
-        self.visit(block_ctx)
-        
+        scope = self.current_local_scope()
+
+        # Bereits belegte negative Stackplätze nicht überschreiben.
+        scope["next_offset"] = local_base_offset
+
+        nested_declarations = []
+
+        def process_local_declaration(declaration):
+            if declaration is None:
+                return
+
+            var_section = (
+                declaration.varSection()
+                if hasattr(declaration, "varSection")
+                else None
+            )
+
+            const_section = (
+                declaration.constSection()
+                if hasattr(declaration, "constSection")
+                else None
+            )
+
+            type_section = (
+                declaration.typeSection()
+                if hasattr(declaration, "typeSection")
+                else None
+            )
+
+            procedure_declaration = (
+                declaration.procedureDeclaration()
+                if hasattr(declaration, "procedureDeclaration")
+                else None
+            )
+
+            function_declaration = (
+                declaration.functionDeclaration()
+                if hasattr(declaration, "functionDeclaration")
+                else None
+            )
+
+            if var_section is not None:
+                self.visitVarSection(var_section)
+                return
+
+            if const_section is not None:
+                self.visitConstSection(const_section)
+                return
+
+            if type_section is not None:
+                self.visitTypeSection(type_section)
+                return
+
+            if procedure_declaration is not None:
+                nested_declarations.append(
+                    procedure_declaration
+                )
+                return
+
+            if function_declaration is not None:
+                nested_declarations.append(
+                    function_declaration
+                )
+
+        # --------------------------------------------------------------
+        # Laut Grammar stehen lokale Deklarationen direkt in
+        # procedureDeclaration.declarationPart().
+        # --------------------------------------------------------------
+        if hasattr(ctx, "declarationPart"):
+            for declaration in ctx.declarationPart():
+                process_local_declaration(declaration)
+
+        block_ctx = ctx.block()
+
+        if block_ctx is None:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text="procedure block missing"
+            )
+
+        # Zusätzlich block.localDeclaration() berücksichtigen.
+        if hasattr(block_ctx, "localDeclaration"):
+            for declaration in block_ctx.localDeclaration():
+                process_local_declaration(declaration)
+
+        local_bytes = scope["next_offset"] - local_base_offset
+
+        if target in ("dos", "dos16"):
+            aligned_local_bytes = (local_bytes + 1) & ~1
+
+            if aligned_local_bytes:
+                self.emit_sub(
+                    "sp",
+                    aligned_local_bytes,
+                    comment=f"{aligned_local_bytes} bytes locals"
+                )
+
+        elif target in ("nt35", "winnt", "win32"):
+            aligned_local_bytes = (local_bytes + 15) & ~15
+
+            if aligned_local_bytes:
+                self.emit_sub(
+                    "esp",
+                    aligned_local_bytes,
+                    comment=f"{aligned_local_bytes} bytes locals"
+                )
+
+        else:
+            aligned_local_bytes = (local_bytes + 15) & ~15
+
+            if aligned_local_bytes:
+                self.emit_sub(
+                    "rsp",
+                    aligned_local_bytes,
+                    comment=f"{aligned_local_bytes} bytes locals"
+                )
+
+        # Verschachtelte Routinen erst nach lokalen Typen/Konstanten.
+        for declaration in nested_declarations:
+            self.visit(declaration)
+
+        # Nur ausführbare Statements besuchen. Die Deklarationen wurden
+        # bereits verarbeitet und dürfen nicht doppelt besucht werden.
+        statement_list = block_ctx.statementList()
+
+        if statement_list is not None:
+            self.visit(statement_list)
+
+        self.pop_const_scope()
         self.pop_local_scope()
+        self.scope_stack.pop()
         self.exit_label_stack.pop()
-        
+
         self.current_proc_params = old_params
-        
+
+        # --------------------------------------------------------------
+        # Gemeinsamer EXIT-Punkt und Epilog
+        # --------------------------------------------------------------
         self.emit_bind_label(exit_label)
-        
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            self.emit_mov("esp", "ebp")
+
+        if target in ("nt35", "winnt", "win32"):
+            self.emit_mov_dword_ptr(
+                "ebx",
+                "ebp",
+                -4,
+                comment="restore EBX"
+            )
+
+            self.emit_mov(
+                "esp",
+                "ebp"
+            )
+
             self.emit_pop("ebp")
             self.emit_ret()
+
+        elif target in ("dos", "dos16"):
+            self.backend.writer.emit_mov_reg16_reg16(
+                "sp",
+                "bp"
+            )
+
+            self.backend.writer.emit_pop_reg16("bp")
+            self.backend.writer.emit_ret()
+
         else:
-            self.emit_mov("rsp", "rbp")
+            self.emit_mov(
+                "rsp",
+                "rbp"
+            )
+
             self.emit_pop("rbp")
             self.emit_ret()
-        
+
         self.emit_bind_label(skip_label)
+
+        # --------------------------------------------------------------
+        # COFF-Symbole erst nach vollständiger Prozedur-Codeerzeugung
+        # aliasieren. Zu diesem Zeitpunkt muss das interne Label bereits
+        # als Writer-Symbol existieren. Das entspricht dem bereits
+        # funktionierenden Ablauf bei visitFunctionDeclaration().
+        # --------------------------------------------------------------
+        if (
+            CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+            and hasattr(
+                self.backend.writer,
+                "add_symbol_alias"
+            )
+        ):
+            target_index = (
+                self.backend.writer.find_symbol_index(
+                    label
+                )
+            )
+
+            if target_index is None:
+                raise RuntimeError(
+                    "internal procedure symbol was not generated: "
+                    f"{label}"
+                )
+
+            if (
+                self.backend.writer.find_symbol_index(
+                    mangled
+                )
+                is None
+            ):
+                self.backend.writer.add_symbol_alias(
+                    mangled,
+                    label
+                )
+
+            # Historischen Alias nur bei Programmen beibehalten.
+            if not self.current_unit:
+                legacy_symbol = "_" + name.lower()
+
+                if (
+                    self.backend.writer.find_symbol_index(
+                        legacy_symbol
+                    )
+                    is None
+                ):
+                    self.backend.writer.add_symbol_alias(
+                        legacy_symbol,
+                        label
+                    )
+
         return None
-    
+
     def visitProcedureCallStatement(self, ctx):
         idents = list(ctx.IDENT())
 
@@ -15331,6 +16239,103 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                 formal_type = self.resolve_type(
                     formal["type"]
                 )
+
+                is_open_array = (
+                    formal.get(
+                        "is_open_array",
+                        False
+                    )
+                    or (
+                        isinstance(formal_type, str)
+                        and formal_type.startswith("open_array:")
+                    )
+                )
+
+                is_variant_open_array = (
+                    formal.get(
+                        "is_variant_open_array",
+                        False
+                    )
+                    or formal_type == "open_array:const"
+                )
+
+                # ----------------------------------------------------------
+                # Offenes Array / array of const
+                # ----------------------------------------------------------
+                if is_open_array:
+                    if convention == "pascal":
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "open-array parameters with Pascal "
+                                "calling convention are not implemented"
+                            )
+                        )
+
+                    argument_expr = (
+                        arg.expr()
+                        if arg.expr() is not None
+                        else arg
+                    )
+
+                    self.pending_open_array_actual = None
+
+                    if is_variant_open_array:
+                        actual_info = (
+                            self.emit_variant_open_array_actual_nt32(
+                                ctx,
+                                argument_expr
+                            )
+                        )
+                        expr_type = "open_array:const"
+                    else:
+                        expr_type = self.visit_actual_param_expr(
+                            arg
+                        )
+                        expr_type = self.resolve_type(
+                            expr_type
+                        )
+                        actual_info = (
+                            self.pending_open_array_actual
+                        )
+
+                    if expr_type != formal_type:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected=formal_type
+                        )
+
+                    if actual_info is None:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "open-array expression produced "
+                                "no metadata"
+                            )
+                        )
+
+                    # Interne NT32-cdecl-ABI:
+                    #   push High
+                    #   push data
+                    self.backend.writer.emit_push_imm32(
+                        int(actual_info["high"])
+                    )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"open-array data parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 8
+                    self.pending_open_array_actual = None
+                    continue
 
                 # ----------------------------------------------------------
                 # VAR-Parameter
@@ -16034,7 +17039,6 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                         if CDATA.args_target in ["nt35", "winnt", "win32"]:
                             self.emit_push("eax")
                             self.emit_nt32_call_cdecl("_jit_print_char", 4)
-                            self.backend.emit_cleanup_stack(4)
                         else:
                             self.emit_mov("ecx", "eax")
                             self.emit_mov_imm("rax", "&_jit_print_char")
@@ -16070,6 +17074,27 @@ class AsmJitGenerator(MiniPascalParserVisitor):
                             # Windows x64: double-Argument liegt in xmm0
                             self.emit_mov_imm("rax", "&_jit_print_double")
                             self.emit_call_rax()
+
+                    elif expr_type == "variant":
+                        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                            # EAX zeigt auf einen JitVariantArg-Deskriptor.
+                            self.emit_push(
+                                "eax",
+                                comment="variant descriptor"
+                            )
+                            self.emit_nt32_call_cdecl(
+                                "_jit_print_variant",
+                                4
+                            )
+                        else:
+                            raise CompileError(
+                                arg,
+                                "E0019",
+                                text=(
+                                    "variant output is currently "
+                                    "implemented only for NT32"
+                                )
+                            )
         
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             self.emit_nt32_call_cdecl("_jit_print_newline", 0)
@@ -16742,6 +17767,12 @@ class GeneratorClass(AsmJitGenerator):
                     "esi",
                     "ctx"
                 )
+
+                # Programmargumente werden absichtlich NICHT hier
+                # initialisiert. ParamCount und ParamStr initialisieren
+                # die Runtime bei Bedarf selbst. Dadurch können Programme,
+                # die keine Kommandozeilenparameter verwenden, bereits vor
+                # der ersten Ausgabe nicht an der Argument-Runtime scheitern.
             else:
                 # Win64
                 self.emit_push("r12")

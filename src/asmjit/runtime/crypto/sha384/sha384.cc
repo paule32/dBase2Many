@@ -199,10 +199,9 @@ sha384_final(SHA384_CTX *ctx, uint8_t digest[48])
 DLL_API char*
 _jit_sha384(char *str, int len)
 {
+    static const char hex[] = "0123456789abcdef";
     SHA384_CTX ctx;
     uint8_t digest[48];
-
-    static const char hex[] = "0123456789abcdef";
 
     char *result = (char*)_jit_malloc(48 * 2 + 1);
     if (result == nullptr)
@@ -216,7 +215,7 @@ _jit_sha384(char *str, int len)
         result[i * 2 + 0] = hex[(digest[i] >> 4) & 0x0f];
         result[i * 2 + 1] = hex[ digest[i]       & 0x0f];
     }
-
+    
     result[48 * 2] = '\0';
     return result;
 }

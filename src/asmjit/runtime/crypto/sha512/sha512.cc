@@ -198,13 +198,12 @@ sha512_final(SHA512_CTX *ctx, uint8_t digest[64])
 DLL_API char*
 _jit_sha512(char *str, int len)
 {
+    static const char hex[] = "0123456789abcdef";
     SHA512_CTX ctx;
     uint8_t digest[64];
 
-    static const char hex[] = "0123456789abcdef";
-
     char *result = (char*)_jit_malloc(64 * 2 + 1);
-    if (result == nullptr)
+    if (!result)
         return nullptr;
 
     sha512_init  (&ctx);

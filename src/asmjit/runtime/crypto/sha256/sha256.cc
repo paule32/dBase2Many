@@ -152,10 +152,9 @@ sha256_final(SHA256_CTX *ctx, uint8_t digest[32])
 DLL_API char*
 _jit_sha256(char *str, int len)
 {
+    static const char hex[] = "0123456789abcdef";
     SHA256_CTX ctx;
     uint8_t digest[32];
-
-    static const char hex[] = "0123456789abcdef";
 
     char *result = (char*)_jit_malloc(32 * 2 + 1);
     if (result == nullptr)
@@ -169,7 +168,7 @@ _jit_sha256(char *str, int len)
         result[i * 2 + 0] = hex[(digest[i] >> 4) & 0x0f];
         result[i * 2 + 1] = hex[ digest[i]       & 0x0f];
     }
-
+    
     result[32 * 2] = '\0';
     return result;
 }

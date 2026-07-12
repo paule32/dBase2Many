@@ -440,6 +440,24 @@ class MiniPascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by MiniPascalParser#arrayConstructor.
+    def enterArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayConstructor.
+    def exitArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
+        pass
+
+
+    # Enter a parse tree produced by MiniPascalParser#arrayConstructorItems.
+    def enterArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
+        pass
+
+    # Exit a parse tree produced by MiniPascalParser#arrayConstructorItems.
+    def exitArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
+        pass
+
+
     # Enter a parse tree produced by MiniPascalParser#typeName.
     def enterTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         pass
@@ -977,24 +995,6 @@ class MiniPascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by MiniPascalParser#addExpr.
     def exitAddExpr(self, ctx:MiniPascalParser.AddExprContext):
-        pass
-
-
-    # Enter a parse tree produced by MiniPascalParser#arrayConstructor.
-    def enterArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
-        pass
-
-    # Exit a parse tree produced by MiniPascalParser#arrayConstructor.
-    def exitArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
-        pass
-
-
-    # Enter a parse tree produced by MiniPascalParser#arrayConstructorItems.
-    def enterArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
-        pass
-
-    # Exit a parse tree produced by MiniPascalParser#arrayConstructorItems.
-    def exitArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
         pass
 
 

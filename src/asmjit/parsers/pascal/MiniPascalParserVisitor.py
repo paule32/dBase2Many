@@ -249,6 +249,16 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by MiniPascalParser#arrayConstructor.
+    def visitArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by MiniPascalParser#arrayConstructorItems.
+    def visitArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by MiniPascalParser#typeName.
     def visitTypeName(self, ctx:MiniPascalParser.TypeNameContext):
         return self.visitChildren(ctx)
@@ -546,16 +556,6 @@ class MiniPascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by MiniPascalParser#addExpr.
     def visitAddExpr(self, ctx:MiniPascalParser.AddExprContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by MiniPascalParser#arrayConstructor.
-    def visitArrayConstructor(self, ctx:MiniPascalParser.ArrayConstructorContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by MiniPascalParser#arrayConstructorItems.
-    def visitArrayConstructorItems(self, ctx:MiniPascalParser.ArrayConstructorItemsContext):
         return self.visitChildren(ctx)
 
 

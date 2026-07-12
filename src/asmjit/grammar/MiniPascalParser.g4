@@ -247,6 +247,15 @@ arrayRange
     : expr DOTDOT expr
     ;
 
+arrayConstructor
+    : LBRACK arrayConstructorItems? RBRACK
+    ;
+
+arrayConstructorItems
+    : expr (COMMA expr)*
+    ;
+
+
 typeName
     : simpleType
     | CARET simpleType
@@ -318,12 +327,13 @@ paramModifier
     ;
 
 paramType
-    : typeName
-    | openArrayType
+    : openArrayType
+    | typeName
     ;
 
 openArrayType
     : ARRAY OF typeName
+    | ARRAY OF CONST
     ;
 
 declaration
@@ -559,14 +569,6 @@ compareExpr
 
 addExpr
     : term ((PLUS | MINUS) term)*
-    ;
-
-arrayConstructor
-    : LBRACK arrayConstructorItems? RBRACK
-    ;
-
-arrayConstructorItems
-    : expr (COMMA expr)*
     ;
 
 term

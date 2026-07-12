@@ -9,17 +9,27 @@
 // ---------------------------------------------------------------------------
 // Windows error handling ...
 // ---------------------------------------------------------------------------
-PFN_GetLastError   p_GetLastError   = nullptr;
-PFN_SetLastError   p_SetLastError   = nullptr;
+PFN_GetLastError    p_GetLastError    = nullptr;
+PFN_SetLastError    p_SetLastError    = nullptr;
 
-PFN_GetProcAddress p_GetProcAddress = nullptr;
-PFN_GetStdHandle   p_GetStdHandle   = nullptr;
-PFN_ExitProcess    p_ExitProcess    = nullptr;
+PFN_GetProcAddress  p_GetProcAddress  = nullptr;
+PFN_GetStdHandle    p_GetStdHandle    = nullptr;
+PFN_ExitProcess     p_ExitProcess     = nullptr;
 
-PFN_MessageBoxA    p_MessageBoxA    = nullptr;
+// ---------------------------------------------------------------------------
+// Windows command line interface (console) ...
+// ---------------------------------------------------------------------------
+PFN_GetCommandLineA p_GetCommandLineA = nullptr;
+PFN_MessageBoxA     p_MessageBoxA     = nullptr;
 
-PFN_ReadFile       p_ReadFile       = nullptr;
-PFN_WriteFile      p_WriteFile      = nullptr;
+// ---------------------------------------------------------------------------
+// locales language code identifiers ...
+// ---------------------------------------------------------------------------
+PFN_GetUserDefaultLCID   p_GetUserDefaultLCID   = nullptr;
+PFN_GetSystemDefaultLCID p_GetSystemDefaultLCID = nullptr;
+
+PFN_ReadFile        p_ReadFile        = nullptr;
+PFN_WriteFile       p_WriteFile       = nullptr;
 // ---------------------------------------------------------------------------
 // disk drive proto types ...
 // ---------------------------------------------------------------------------
@@ -35,7 +45,10 @@ PFN_GetVolumeInformationA p_GetVolumeInformationA = nullptr;
 // ---------------------------------------------------------------------------
 PFN_WNetGetConnectionA    p_WNetGetConnectionA    = nullptr;
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 DLL_API HMODULE JIT_STDCALL LoadLibraryA(LPCSTR  lpLibFileName) {
     return p_LoadLibraryA(lpLibFileName);
 }
@@ -96,6 +109,9 @@ extern "C" void _jit_print_text(const char *s)
     );
 }
 
+DLL_API LPSTR   JIT_STDCALL GetCommandLineA(VOID) {
+    return p_GetCommandLineA();
+}
 DLL_API HANDLE  JIT_STDCALL GetStdHandle(DWORD h) {
     return p_GetStdHandle(h);
 }
@@ -176,4 +192,7 @@ DLL_API DWORD JIT_STDCALL WNetGetConnectionA(
     );
 }
 
+#ifdef __cplusplus
 };
+#endif
+

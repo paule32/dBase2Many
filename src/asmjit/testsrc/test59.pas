@@ -1,11 +1,17 @@
 // ---------------------------------------------------------------------------
-// File:   testSHA512.pas
+// File:   test59.pas
 // Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-program testSHA1;
+program test59;
+
+var
+    I: Integer;
 
 begin
-writeln('SHA 512:');
-    WriteLn(sha512('bbc', 3));
+    WriteLn('Kommandozeile: ', CommandLine);
+    WriteLn('Parameter: ', ParamCount);
+
+    for I := 0 to ParamCount do
+    WriteLn( 'ParamStr(', I, ') = [', ParamStr(I), ']');
 end.

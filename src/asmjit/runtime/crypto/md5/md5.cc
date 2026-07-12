@@ -169,7 +169,6 @@ _jit_md5_final(MD5_CTX *ctx, uint8_t digest[16])
 static char *bytes_to_hex_alloc(const uint8_t *data, size_t len)
 {
     static const char hex[] = "0123456789abcdef";
-
     char *result = (char*)_jit_malloc(len * 2 + 1);
     if (result == nullptr)
         return nullptr;

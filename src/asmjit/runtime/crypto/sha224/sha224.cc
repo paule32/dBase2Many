@@ -152,10 +152,9 @@ sha224_final(SHA224_CTX *ctx, uint8_t digest[28])
 DLL_API char*
 _jit_sha224(char *str, int len)
 {
+    static const char hex[] = "0123456789abcdef";
     SHA224_CTX ctx;
     uint8_t digest[28];
-
-    static const char hex[] = "0123456789abcdef";
 
     char *result = (char*)_jit_malloc(28 * 2 + 1);
     if (result == nullptr)
@@ -169,7 +168,7 @@ _jit_sha224(char *str, int len)
         result[i * 2 + 0] = hex[(digest[i] >> 4) & 0x0f];
         result[i * 2 + 1] = hex[ digest[i]       & 0x0f];
     }
-
+    
     result[28 * 2] = '\0';
     return result;
 }

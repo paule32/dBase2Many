@@ -161,10 +161,9 @@ sha3_final(SHA3_CTX *ctx, uint8_t *digest)
 DLL_API char*
 _jit_sha3(char *str, int len)
 {
+    static const char hex[] = "0123456789abcdef";
     SHA3_CTX ctx;
     uint8_t digest[32];
-
-    static const char hex[] = "0123456789abcdef";
 
     char *result = (char*)_jit_malloc(32 * 2 + 1);
     if (result == nullptr)

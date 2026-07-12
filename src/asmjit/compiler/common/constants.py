@@ -88,6 +88,23 @@ IMAGE_REL_I386_DIR32            = 0x0006
 IMAGE_REL_I386_REL32            = 0x0014
 
 # ---------------------------------------------------------------------------
+# variant types ...
+# ---------------------------------------------------------------------------
+JIT_VARIANT_EMPTY       = 0
+JIT_VARIANT_INTEGER     = 1
+JIT_VARIANT_BOOLEAN     = 2
+JIT_VARIANT_CHAR        = 3
+JIT_VARIANT_STRING      = 4
+JIT_VARIANT_DOUBLE      = 5
+JIT_VARIANT_POINTER     = 6
+
+JIT_VARIANT_ARG_SIZE    = 12
+
+JIT_VARIANT_KIND_OFFSET = 0
+JIT_VARIANT_LOW_OFFSET  = 4
+JIT_VARIANT_HIGH_OFFSET = 8
+
+# ---------------------------------------------------------------------------
 # Assembly JIT context offsets sizes ...
 # ---------------------------------------------------------------------------
 JIT_CONTEXT_OFFSETS = {

@@ -4,3 +4,7 @@
 ; All rights reserved.
 ; ---------------------------------------------------------------------------
 _jit_ExitProcess               @40
+_jit_GetCommandLineA           @41
+
+_jit_locale_user               @120
+_jit_locale_system             @121

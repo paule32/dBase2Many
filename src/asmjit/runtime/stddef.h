@@ -123,4 +123,56 @@ typedef union _ULARGE_INTEGER {
     ULONGLONG QuadPart;
 }   ULARGE_INTEGER, *PULARGE_INTEGER;
 
+// ---------------------------------------------------------------------------
+// locales support by .mo files ...
+// ---------------------------------------------------------------------------
+typedef struct MoHeader
+{
+    uint32_t magic;
+    uint32_t revision;
+    uint32_t string_count;
+    uint32_t original_table_offset;
+    uint32_t translated_table_offset;
+    uint32_t hash_table_size;
+    uint32_t hash_table_offset;
+    
+}   MoHeader;
+
+typedef struct MoStringDescriptor
+{
+    uint32_t length;
+    uint32_t offset;
+    
+}   MoStringDescriptor;
+
+constexpr DWORD MO_MAGIC_LITTLE_ENDIAN = 0x950412DE;
+constexpr DWORD MO_MAGIC_BIG_ENDIAN    = 0xDE120495;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+// ---------------------------------------------------------------------------
+// locale - language code identifier ...
+// ---------------------------------------------------------------------------
+typedef DWORD LCID;
+typedef WORD  LANGID;
+
+typedef struct JitLocaleEntry
+{
+    LCID         lcid;
+    const char * locale_name;
+    const char * language;
+    const char * mo_directory;
+    
+}   JitLocaleEntry;
+
+DLL_API LCID JIT_CDECL _jit_locale_user(void);
+DLL_API LCID JIT_CDECL _jit_locale_system(void);
+
+DLL_API LPCSTR JIT_CDECL _jit_locale_gettext(LPCSTR);
+
+#ifdef __cplusplus
+};
+#endif
+
 #endif

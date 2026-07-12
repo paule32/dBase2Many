@@ -81,22 +81,24 @@ class CommonData():
                 ( "_jit_print_newline",               54 ),
                 ( "_jit_print_double",                55 ),
                 ( "_jit_print_char",                  56 ),
-                ( "_jit_print_cstr",                  63 ),
 
-                ( "_jit_new_memory",                 41 ),
-                ( "_jit_dispose_memory",             42 ),
+                ( "_jit_print_variant",               64 ),
+                ( "_jit_print_variant_array",         65 ),
 
-                ( "_jit_malloc",                     43 ),
-                ( "_jit_realloc",                    44 ),
-                ( "_jit_free",                       45 ),
+                ( "_jit_new_memory",                 90 ),
+                ( "_jit_dispose_memory",             91 ),
 
-                ( "_jit_memcpy",                     46 ),
-                ( "_jit_memset",                     47 ),
-                ( "_jit_memcmp",                     48 ),
-                ( "_jit_memmove",                    49 ),
+                ( "_jit_malloc",                     92 ),
+                ( "_jit_realloc",                    93 ),
+                ( "_jit_free",                       94 ),
 
-                ( "_jit_strdup",                     50 ),
-                ( "_jit_strlen",                     51 ),
+                ( "_jit_memcpy",                     95 ),
+                ( "_jit_memset",                     96 ),
+                ( "_jit_memcmp",                     97 ),
+                ( "_jit_memmove",                    98 ),
+
+                ( "_jit_strdup",                     100 ),
+                ( "_jit_strlen",                     101 ),
 
                 ( "_jit_debug_break",                16 ),
 
@@ -138,7 +140,16 @@ class CommonData():
                 ( "_jit_read_int",                  2 ),
                 ( "_jit_read_string",               3 ),
                 
+                ( "_jit_args_init",                 70 ),
+                ( "_jit_args_shutdown",             71 ),
+                
+                ( "_jit_param_count",               72 ),
+                ( "_jit_param_str_cstr",            73 ),
+                
+                ( "_jit_command_line_cstr",         74 ),
+                
                 ( "_jit_ExitProcess",               40 ),
+                ( "_jit_GetCommandLineA",           41 ),
                 
                 ( "_jit_blake2", 4 ),
                 ( "_jit_crc16" , 5 ),
