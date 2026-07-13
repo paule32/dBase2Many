@@ -1,0 +1,19 @@
+// ---------------------------------------------------------------------------
+// File:   test7.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR i := 1;
+
+    WHILE i <= 10
+    REP
+        IF i MOD 2 = 0
+        THEN
+            put(i);
+            line
+        FI;
+
+        i := i + 1
+    ENDREP
+.

@@ -1,0 +1,24 @@
+// ---------------------------------------------------------------------------
+// File:   test14.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR x := 1;
+    INT VAR y := 1;
+
+    WHILE x <= 3
+    REP
+        y := 1;
+
+        WHILE y <= 3
+        REP
+            put(x * y);
+            line;
+
+            y := y + 1
+        ENDREP;
+
+        x := x + 1
+    ENDREP
+.

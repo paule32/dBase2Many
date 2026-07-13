@@ -447,8 +447,15 @@ class Coff32Backend(CodeBackend):
         self.writer.emit_cdq()
 
     def emit_idiv(self, reg, comment=""):
+        reg32 = self.map_reg32(reg)
+        line  = f"idiv {reg32}"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.asm_lines.append(line)
         self.writer.emit_idiv_r32(
-            self.map_reg32(reg)
+            reg32
         )
         
     def emit_cmp(self, dst, value, comment=""):

@@ -1,0 +1,18 @@
+// ---------------------------------------------------------------------------
+// File:   test21.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR quotient := 0;
+    INT VAR remainder := 0;
+
+    quotient  := 17 DIV 5;
+    remainder := 17 MOD 5;
+
+    put(quotient);
+    line;
+
+    put(remainder);
+    line;
+.

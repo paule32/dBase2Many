@@ -101,7 +101,8 @@ class CommonData():
                 ( "_jit_strlen",                     101 ),
 
                 ( "_jit_debug_break",                16 ),
-
+                
+                ( "_jit_error_divide_by_zero",       110 ),
                 ( "_jit_error_runtime",              31 ),
                 ( "_jit_error_array_bounds",         32 ),
                 ( "_jit_error_string_range",         33 ),

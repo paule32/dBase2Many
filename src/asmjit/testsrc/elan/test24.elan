@@ -1,0 +1,17 @@
+// ---------------------------------------------------------------------------
+// File:   test24.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+INT PROC doublevalue (INT CONST value):
+    value * 2
+ENDPROC doublevalue;
+
+PROC showdouble (INT CONST value):
+    put(doublevalue(value));
+    line;
+ENDPROC showdouble;
+
+program:
+    showdouble(21);
+.

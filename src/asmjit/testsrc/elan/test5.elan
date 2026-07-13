@@ -1,0 +1,21 @@
+// ---------------------------------------------------------------------------
+// File:   test5.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR x := 1;
+
+    IF x = 1
+    THEN
+        put(100);
+        line
+    ELIF x = 2
+    THEN
+        put(200);
+        line
+    ELSE
+        put(0);
+        line
+    FI
+.

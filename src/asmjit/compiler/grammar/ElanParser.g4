@@ -50,21 +50,21 @@ refinementName
 // -----------------------------------------------------------------------------
 procedureDeclaration
     : resultType? PROC IDENTIFIER formalParameterList?
-      COLON? procedureBody
-      procedureEnd IDENTIFIER? SEMI?
-    ;
-
-procedureEnd
-    : ENDPROC
-    | END PROC
+      COLON procedureBody
+      ENDPROC IDENTIFIER? SEMI?
     ;
 
 procedureBody
-    : declarationOrStatement*
+    : declarationOrStatement* resultExpression?
+    ;
+
+resultExpression
+    : expression
     ;
 
 formalParameterList
-    : LPAREN formalParameterGroup (COMMA formalParameterGroup)* RPAREN
+    : LPAREN formalParameterGroup
+      (COMMA formalParameterGroup)* RPAREN
     ;
 
 formalParameterGroup
@@ -196,6 +196,7 @@ paragraph
 
 statement
     : assignmentStatement
+    | builtinProcedureStatement
     | procedureCallStatement
     | ifStatement
     | whileStatement
@@ -203,19 +204,19 @@ statement
     | loopStatement
     | forStatement
     | leaveStatement
-    | expressionStatement
     ;
 
 assignmentStatement
     : assignable ASSIGN expression
     ;
 
-procedureCallStatement
-    : qualifiedName actualParameterList?
+builtinProcedureStatement
+    : LINE
+    | NEWLINE
     ;
 
-expressionStatement
-    : expression
+procedureCallStatement
+    : qualifiedName actualParameterList
     ;
 
 ifStatement
@@ -252,9 +253,9 @@ loopStatement
     ;
 
 forStatement
-    : FOR IDENTIFIER FROM expression forDirection expression
+    : FOR IDENTIFIER FROM expression
+      forDirection expression
       repeatKeyword paragraph repeatEnd
-    | forDirection expression repeatKeyword paragraph repeatEnd
     ;
 
 forDirection

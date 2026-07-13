@@ -1,0 +1,25 @@
+// ---------------------------------------------------------------------------
+// File:   test3.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR a := 6;
+    INT VAR b := 7;
+    
+    INT VAR result := 0;
+
+    result := a * b;
+    put(result);
+    line;
+    
+    INT VAR c := 6;
+    result := result - c;
+    put(result);
+    line;
+    
+    INT VAR d := 2;
+    result := result DIV d;
+    put(result);
+    line;
+.

@@ -1,0 +1,20 @@
+// ---------------------------------------------------------------------------
+// File:   test23.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+INT PROC add (INT CONST a, INT CONST b):
+    a + b
+ENDPROC add;
+
+program:
+    INT VAR sum := 0;
+
+    sum := add(
+               add(1, 2),
+               add(3, 4)
+              );
+
+    put(sum);
+    line;
+.

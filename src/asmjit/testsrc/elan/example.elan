@@ -1,3 +1,8 @@
+// ---------------------------------------------------------------------------
+// File:   example.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
 program:
     INT VAR x := 1;
 
@@ -6,7 +11,8 @@ program:
         put(x);
         line;
         x := x + 1
-    ENDREP.
+    ENDREP
+.
 
 INT PROC square (INT CONST value):
     value * value

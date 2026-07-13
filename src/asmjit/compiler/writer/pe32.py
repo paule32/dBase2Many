@@ -1579,12 +1579,17 @@ class PE32Writer:
         return False
 
     def add_data_label(self, name):
-        self.add_symbol(
-            name,
-            2, #self.data_section_number,
-            len(self.data)
-        )
+        if self.find_symbol_index(name) is not None:
+            raise RuntimeError(
+                f"Duplicate data label: {name}"
+            )
 
+        self.add_symbol(
+            name=name,
+            value=len(self.data),
+            section_number=2
+        )
+    
     def ensure_data_symbol_block(self, name, size):
         if not self.has_symbol(name):
             self.add_data_bytes(name, b"\x00" * size, alignment=4)

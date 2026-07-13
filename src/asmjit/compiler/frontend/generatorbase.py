@@ -24,11 +24,20 @@ class CodeGeneratorBase:
         self.global_vars = {}
         self.local_vars  = {}
         
+        self.routines      = {}
+        self.label_counter = 0
+        
         self.break_label_stack    = []
         self.continue_label_stack = []
         
         self.current_proc_params  = {}
+        self.current_func_params  = {}
+        
         self.current_proc_name    = None
+        self.current_func         = None
+        
+        self.variables = {}
+        self.functions = {}
 
         # Slotverwaltung
         self.next_int_slot      = 0
@@ -40,7 +49,8 @@ class CodeGeneratorBase:
         self.label_id           = 0
 
         # Scopes
-        self.scope_stack = []
+        self.scope_stack  = []
+        self.local_scopes = []
         
         self.lines              = self.backend.lines
         self.asm_label_mappings = []
@@ -63,36 +73,95 @@ class CodeGeneratorBase:
         self.next_open_array_literal_id = 0
 
     def allocate_slot(self, var_type):
-        if var_type == "integer":
+        # Integer, Boolean und Char werden als 32-Bit-Werte
+        # gemeinsam in int_vars gespeichert.
+        if var_type in (
+            "integer",
+            "boolean",
+            "char"
+        ):
             slot = self.next_int_slot
             self.next_int_slot += 1
             return slot
 
-        elif var_type == "double":
+        if var_type == "double":
             slot = self.next_double_slot
             self.next_double_slot += 1
             return slot
 
-        elif var_type == "string":
+        if var_type == "string":
             slot = self.next_string_slot
             self.next_string_slot += 1
             return slot
 
-        elif var_type == "boolean":
-            slot = self.next_bool_slot
-            self.next_bool_slot += 1
-            return slot
-
-        elif var_type.startswith("^"):
+        if var_type.startswith("^"):
             slot = self.next_pointer_slot
             self.next_pointer_slot += 1
             return slot
 
-        raise RuntimeError(f"Unsupported type: {var_type}")
+        raise RuntimeError(
+            f"Unsupported type: {var_type}"
+        )
 
     def is_nt32(self):
         return CDATA.args_target in ["nt35", "winnt", "win32"]
     
+    # ------------------------------------------------------------
+    # Bereits vorhandenes identisches Literal wiederverwenden
+    # ------------------------------------------------------------
+    def add_string_literal(self, text):
+        for label, old_text in self.string_literals:
+            if old_text == text:
+                return label
+
+        label = f"str_{len(self.string_literals)}"
+        self.string_literals.append((label, text))
+
+        target = CDATA.args_target.lower()
+
+        # ------------------------------------------------------------
+        # DOS
+        # ------------------------------------------------------------
+        if target in ["dos", "dos16"]:
+            if self.writer is None:
+                raise RuntimeError(
+                    "DOS writer not installed"
+                )
+
+            self.writer.add_dos_string(
+                label,
+                text
+            )
+
+            return label
+
+        # ------------------------------------------------------------
+        # Windows COFF32 / COFF64
+        #
+        # Gilt sowohl für:
+        #   - reine .o/.obj-Dateien
+        #   - spätere EXE-/DLL-Erzeugung
+        # ------------------------------------------------------------
+        if target in ["nt35", "winnt", "win32", "win64"]:
+            coff = getattr(self, "coff", None)
+
+            if coff is None:
+                raise RuntimeError(
+                    "COFF writer not installed"
+                )
+
+            if coff.find_symbol_index(label) is None:
+                coff.add_data_string(
+                    label,
+                    text
+                )
+
+            return label
+
+        raise RuntimeError(
+            f"string literal target not supported: {target}"
+        )
+        
     def declare_global_var(self, ctx, name, var_type, is_const=False):
         key = name.lower()
 
@@ -118,10 +187,35 @@ class CodeGeneratorBase:
         return info
 
     def format_error(self, filename, err):
-        template = ERROR_MAP.get(err.code, err.code)
-        message  = template.format(**err.params)
-        
-        return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
+        template = ERROR_MAP.get(
+            err.code,
+            err.code
+        )
+
+        params = dict(err.params)
+
+        # Kompatibilität für ältere Fehleraufrufe.
+        if ("name"       not in params and "identifier" in params): params["name"]       = params["identifier"]
+        if ("identifier" not in params and "name"       in params): params["identifier"] = params["name"]
+
+        try:
+            message = template.format(**params)
+
+        except KeyError as exc:
+            missing = str(exc).strip("'")
+
+            message = (
+                f"{template} "
+                f"[missing error parameter: {missing}; "
+                f"params={params}]"
+            )
+
+        return (
+            f"{err.code}: "
+            f"{os.path.basename(filename)} "
+            f"{err.line}:{err.column} "
+            f"{message}"
+        )
 
     def add_asm_label_mapping(self, asmjit_label, target_label):
         self.asm_label_mappings.append({
@@ -146,7 +240,9 @@ class CodeGeneratorBase:
         key = name.lower()
 
         if key not in self.global_vars:
-            raise RuntimeError(f"Unknown variable: {name}")
+            raise RuntimeError(
+                f"Unknown variable: {name}"
+            )
 
         info = self.global_vars[key]
 
@@ -155,19 +251,67 @@ class CodeGeneratorBase:
 
         slot = info["slot"]
 
-        if var_type == "integer":
-            if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                # edx = ctx->int_vars
-                self.backend.writer.emit_mov_reg_mem32("edx", "ebx",
-                JIT_CONTEXT_OFFSETS["int_vars"])
+        # ---------------------------------------------------------
+        # Integer / Boolean / Char
+        # ---------------------------------------------------------
+        if var_type in (
+            "integer",
+            "boolean",
+            "char"
+        ):
+            if not self.is_nt32():
+                raise RuntimeError(
+                    f"emit_store_var({var_type}): "
+                    "target not implemented"
+                )
 
-                # [edx + slot*4] = eax
-                self.backend.writer.emit_mov_mem_reg32("edx", slot * 4, "eax")
-                return
+            # Boolean sicher auf 0 oder 1 normalisieren.
+            if var_type == "boolean":
+                self.emit_cmp("eax", 0)
+                self.emit_setne("al")
+                self.emit_movzx("eax", "al")
 
-            raise RuntimeError(
-                "emit_store_var(integer): target not implemented"
+            # edx = ctx->int_vars
+            self.backend.writer.emit_mov_reg_mem32(
+                "edx",
+                "ebx",
+                JIT_CONTEXT_OFFSETS["int_vars"]
             )
+
+            # int_vars[slot] = eax
+            self.backend.writer.emit_mov_mem_reg32(
+                "edx",
+                slot * 4,
+                "eax"
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Double
+        # ---------------------------------------------------------
+        if var_type == "double":
+            if not self.is_nt32():
+                raise RuntimeError(
+                    "emit_store_var(double): "
+                    "target not implemented"
+                )
+
+            # edx = ctx->double_vars
+            self.backend.writer.emit_mov_reg_mem32(
+                "edx",
+                "ebx",
+                JIT_CONTEXT_OFFSETS["double_vars"]
+            )
+
+            # double_vars[slot] = xmm0
+            self.backend.writer.emit_movsd_store32(
+                "edx",
+                slot * 8,
+                "xmm0"
+            )
+
+            return
 
         raise RuntimeError(
             f"emit_store_var: unsupported type: {var_type}"
@@ -311,29 +455,73 @@ class CodeGeneratorBase:
         key = name.lower()
 
         if key not in self.global_vars:
-            raise RuntimeError(f"Unknown variable: {name}")
+            raise RuntimeError(
+                f"Unknown variable: {name}"
+            )
 
         info     = self.global_vars[key]
         var_type = info["type"]
         slot     = info["slot"]
 
-        if var_type == "integer":
-            if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                # edx = ctx->int_vars
-                self.backend.writer.emit_mov_reg_mem32(
-                    "edx",
-                    "ebx",
-                    JIT_CONTEXT_OFFSETS["int_vars"]
+        # ---------------------------------------------------------
+        # Integer / Boolean / Char
+        # ---------------------------------------------------------
+        if var_type in (
+            "integer",
+            "boolean",
+            "char"
+        ):
+            if not self.is_nt32():
+                raise RuntimeError(
+                    f"emit_load_var({var_type}): "
+                    "target not implemented"
                 )
 
-                # eax = int_vars[slot]
-                self.backend.writer.emit_mov_reg_mem32(
-                    "eax",
-                    "edx",
-                    slot * 4
+            # edx = ctx->int_vars
+            self.backend.writer.emit_mov_reg_mem32(
+                "edx",
+                "ebx",
+                JIT_CONTEXT_OFFSETS["int_vars"]
+            )
+
+            # eax = int_vars[slot]
+            self.backend.writer.emit_mov_reg_mem32(
+                "eax",
+                "edx",
+                slot * 4
+            )
+
+            # Bei Boolean vorsichtshalber normalisieren.
+            if var_type == "boolean":
+                self.emit_cmp("eax", 0)
+                self.emit_setne("al")
+                self.emit_movzx("eax", "al")
+
+            return
+
+        # ---------------------------------------------------------
+        # Double
+        # ---------------------------------------------------------
+        if var_type == "double":
+            if not self.is_nt32():
+                raise RuntimeError(
+                    "emit_load_var(double): "
+                    "target not implemented"
                 )
 
-                return
+            self.backend.writer.emit_mov_reg_mem32(
+                "edx",
+                "ebx",
+                JIT_CONTEXT_OFFSETS["double_vars"]
+            )
+
+            self.backend.writer.emit_movsd_load32(
+                "xmm0",
+                "edx",
+                slot * 8
+            )
+
+            return
 
         raise RuntimeError(
             f"emit_load_var: unsupported type: {var_type}"

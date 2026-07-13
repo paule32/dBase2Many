@@ -1,0 +1,17 @@
+// ---------------------------------------------------------------------------
+// File:   test12.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    BOOL VAR active := TRUE;
+
+    IF active
+    THEN
+        put(1);
+        line
+    ELSE
+        put(0);
+        line
+    FI
+.

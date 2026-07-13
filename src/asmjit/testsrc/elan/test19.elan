@@ -1,0 +1,21 @@
+// ---------------------------------------------------------------------------
+// File:   test19.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR x := 1;
+    INT VAR sum := 0;
+
+    WHILE x <= 5
+    REP
+        put(x);
+        line;
+
+        sum := sum + x;
+        x   := x + 1
+    ENDREP;
+
+    put(sum);
+    line
+.

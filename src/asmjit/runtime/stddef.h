@@ -171,6 +171,11 @@ DLL_API LCID JIT_CDECL _jit_locale_system(void);
 
 DLL_API LPCSTR JIT_CDECL _jit_locale_gettext(LPCSTR);
 
+// ---------------------------------------------------------------------------
+// mathematical cpu stuff ...
+// ---------------------------------------------------------------------------
+DLL_API VOID _jit_error_divide_by_zero();
+
 #ifdef __cplusplus
 };
 #endif

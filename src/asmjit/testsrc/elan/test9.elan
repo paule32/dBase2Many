@@ -1,0 +1,13 @@
+// ---------------------------------------------------------------------------
+// File:   test9.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+PROC printnumber (INT CONST value):
+    put(value);
+    line
+ENDPROC printnumber;
+
+program:
+    printnumber(123)
+.

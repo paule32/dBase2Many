@@ -53,21 +53,21 @@ class ElanParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by ElanParser#procedureEnd.
-    def enterProcedureEnd(self, ctx:ElanParser.ProcedureEndContext):
-        pass
-
-    # Exit a parse tree produced by ElanParser#procedureEnd.
-    def exitProcedureEnd(self, ctx:ElanParser.ProcedureEndContext):
-        pass
-
-
     # Enter a parse tree produced by ElanParser#procedureBody.
     def enterProcedureBody(self, ctx:ElanParser.ProcedureBodyContext):
         pass
 
     # Exit a parse tree produced by ElanParser#procedureBody.
     def exitProcedureBody(self, ctx:ElanParser.ProcedureBodyContext):
+        pass
+
+
+    # Enter a parse tree produced by ElanParser#resultExpression.
+    def enterResultExpression(self, ctx:ElanParser.ResultExpressionContext):
+        pass
+
+    # Exit a parse tree produced by ElanParser#resultExpression.
+    def exitResultExpression(self, ctx:ElanParser.ResultExpressionContext):
         pass
 
 
@@ -296,21 +296,21 @@ class ElanParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ElanParser#builtinProcedureStatement.
+    def enterBuiltinProcedureStatement(self, ctx:ElanParser.BuiltinProcedureStatementContext):
+        pass
+
+    # Exit a parse tree produced by ElanParser#builtinProcedureStatement.
+    def exitBuiltinProcedureStatement(self, ctx:ElanParser.BuiltinProcedureStatementContext):
+        pass
+
+
     # Enter a parse tree produced by ElanParser#procedureCallStatement.
     def enterProcedureCallStatement(self, ctx:ElanParser.ProcedureCallStatementContext):
         pass
 
     # Exit a parse tree produced by ElanParser#procedureCallStatement.
     def exitProcedureCallStatement(self, ctx:ElanParser.ProcedureCallStatementContext):
-        pass
-
-
-    # Enter a parse tree produced by ElanParser#expressionStatement.
-    def enterExpressionStatement(self, ctx:ElanParser.ExpressionStatementContext):
-        pass
-
-    # Exit a parse tree produced by ElanParser#expressionStatement.
-    def exitExpressionStatement(self, ctx:ElanParser.ExpressionStatementContext):
         pass
 
 

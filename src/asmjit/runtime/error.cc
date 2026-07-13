@@ -11,6 +11,13 @@
 
 using namespace std;
 
+DLL_API VOID _jit_error_divide_by_zero() {
+    _jit_raise(
+        JIT_RUNTIME_ERROR,
+        "division through zero"
+    );
+}
+
 DLL_API void
 _jit_error_array_bounds(
     const char* array_name,
@@ -22,14 +29,6 @@ _jit_error_array_bounds(
         JIT_RUNTIME_ERROR,
         "Array bounds error: "
     );
-    
-    /*error = new JitRuntimeError(
-        std::string("Array bounds error: ") +
-        array_name + "[" +
-        std::to_string(index) + "] allowed range " +
-        std::to_string(min_value) + ".." +
-        std::to_string(max_value)
-    );*/
 }
 
 DLL_API void

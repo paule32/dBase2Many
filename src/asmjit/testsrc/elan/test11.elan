@@ -1,0 +1,19 @@
+// ---------------------------------------------------------------------------
+// File:   test11.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+// Fakultät
+program:
+    INT VAR n := 5;
+    INT VAR result := 1;
+
+    WHILE n > 1
+    REP
+        result := result * n;
+        n      := n - 1
+    ENDREP;
+
+    put(result);
+    line
+.

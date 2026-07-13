@@ -34,13 +34,13 @@ class ElanParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ElanParser#procedureEnd.
-    def visitProcedureEnd(self, ctx:ElanParser.ProcedureEndContext):
+    # Visit a parse tree produced by ElanParser#procedureBody.
+    def visitProcedureBody(self, ctx:ElanParser.ProcedureBodyContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ElanParser#procedureBody.
-    def visitProcedureBody(self, ctx:ElanParser.ProcedureBodyContext):
+    # Visit a parse tree produced by ElanParser#resultExpression.
+    def visitResultExpression(self, ctx:ElanParser.ResultExpressionContext):
         return self.visitChildren(ctx)
 
 
@@ -169,13 +169,13 @@ class ElanParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ElanParser#procedureCallStatement.
-    def visitProcedureCallStatement(self, ctx:ElanParser.ProcedureCallStatementContext):
+    # Visit a parse tree produced by ElanParser#builtinProcedureStatement.
+    def visitBuiltinProcedureStatement(self, ctx:ElanParser.BuiltinProcedureStatementContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by ElanParser#expressionStatement.
-    def visitExpressionStatement(self, ctx:ElanParser.ExpressionStatementContext):
+    # Visit a parse tree produced by ElanParser#procedureCallStatement.
+    def visitProcedureCallStatement(self, ctx:ElanParser.ProcedureCallStatementContext):
         return self.visitChildren(ctx)
 
 

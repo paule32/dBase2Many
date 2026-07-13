@@ -1,0 +1,18 @@
+// ---------------------------------------------------------------------------
+// File:   test13.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    BOOL VAR active := TRUE;
+    BOOL VAR blocked := FALSE;
+
+    IF active AND NOT blocked
+    THEN
+        put(1);
+        line
+    ELSE
+        put(0);
+        line
+    FI
+.

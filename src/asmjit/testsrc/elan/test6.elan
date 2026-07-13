@@ -1,0 +1,18 @@
+// ---------------------------------------------------------------------------
+// File:   test6.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+program:
+    INT VAR i := 1;
+    INT VAR sum := 0;
+
+    WHILE i <= 10
+    REP
+        sum := sum + i;
+        i := i + 1
+    ENDREP;
+
+    put(sum);
+    line
+.

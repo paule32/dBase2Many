@@ -58,6 +58,9 @@ PACKET      : [Pp][Aa][Cc][Kk][Ee][Tt];
 ENDPACKET   : [Ee][Nn][Dd][Pp][Aa][Cc][Kk][Ee][Tt];
 USE         : [Uu][Ss][Ee];
 
+LINE        : [Ll][Ii][Nn][Ee];
+NEWLINE     : [Nn][Ee][Ww][Ll][Ii][Nn][Ee];
+    
 ASSIGN      : ':=';
 LE          : '<=';
 GE          : '>=';

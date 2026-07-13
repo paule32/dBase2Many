@@ -38,3 +38,18 @@ antlr4 -v %ANTLR_VERSION% ^
     -visitor              ^
     -lib parsers/elan     ^
     compiler/grammar/ElanParser.g4
+
+:: ----------------------------------------------------------------------------
+:: LISP
+:: ----------------------------------------------------------------------------
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/lisp       ^
+    compiler/grammar/LispLexer.g4
+
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/lisp       ^
+    -visitor              ^
+    -lib parsers/lisp     ^
+    compiler/grammar/LispParser.g4

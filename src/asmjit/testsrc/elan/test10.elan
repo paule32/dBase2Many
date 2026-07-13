@@ -1,0 +1,17 @@
+// ---------------------------------------------------------------------------
+// File:   test10.elan
+// Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
+// All rights reserved
+// ---------------------------------------------------------------------------
+INT PROC add (INT CONST a, INT CONST b):
+    a + b
+ENDPROC add;
+
+program:
+    INT VAR result := 0;
+
+    result := add(12, 30);
+
+    put(result);
+    line
+.
