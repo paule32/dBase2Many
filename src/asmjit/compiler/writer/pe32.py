@@ -451,6 +451,45 @@ class PE32Writer:
         
         return reg_map[reg]
     
+    def emit_seta(self, reg):
+        if reg != "al":
+            raise RuntimeError(
+                "emit_seta currently supports only al"
+            )
+
+        # seta al
+        self.text += b"\x0F\x97\xC0"
+
+
+    def emit_setae(self, reg):
+        if reg != "al":
+            raise RuntimeError(
+                "emit_setae currently supports only al"
+            )
+
+        # setae al
+        self.text += b"\x0F\x93\xC0"
+
+
+    def emit_setb(self, reg):
+        if reg != "al":
+            raise RuntimeError(
+                "emit_setb currently supports only al"
+            )
+
+        # setb al
+        self.text += b"\x0F\x92\xC0"
+
+
+    def emit_setbe(self, reg):
+        if reg != "al":
+            raise RuntimeError(
+                "emit_setbe currently supports only al"
+            )
+
+        # setbe al
+        self.text += b"\x0F\x96\xC0"
+    
     def archive_name_candidates(self, name):
         name = self.normalize_link_path(name)
 

@@ -39,6 +39,7 @@ class GeneratorClass(CodeGeneratorBase, LispParserVisitor):
         CodeGeneratorBase.__init__(self, backend)
         LispParserVisitor.__init__(self)
         
+        self.backend  = backend
         self.writer   = writer
         self.coff     = None
 

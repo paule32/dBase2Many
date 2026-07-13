@@ -569,6 +569,20 @@ class CodeGeneratorBase:
         self.label_id += 1
         return f"{prefix}_{self.label_id}"
 
+    def emit_seta (self, reg, comment=""): self.backend.emit_seta (reg, comment)
+    def emit_setae(self, reg, comment=""): self.backend.emit_setae(reg, comment)
+    def emit_setb (self, reg, comment=""): self.backend.emit_setb (reg, comment)
+    def emit_setbe(self, reg, comment=""): self.backend.emit_setbe(reg, comment)
+    
+    def emit_nt32_call_cdecl(self, name, arg_bytes):
+        self.backend.emit_call(name)
+        if arg_bytes:
+            self.emit_add(
+                "esp",
+                arg_bytes,
+                comment="cdecl stack cleanup"
+            )
+        
     def emit_sete (self, reg, comment=""): self.backend.emit_sete (reg, comment)
     def emit_setne(self, reg, comment=""): self.backend.emit_setne(reg, comment)
     def emit_setl (self, reg, comment=""): self.backend.emit_setl (reg, comment)

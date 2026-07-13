@@ -67,6 +67,30 @@ class Coff32Backend(CodeBackend):
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             return 4
         return 8
+    
+    
+    def emit_seta(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+        self.asm_lines.append(f"seta {reg}")
+        self.writer.emit_seta(reg)
+
+    def emit_setae(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+
+        self.asm_lines.append(f"setae {reg}")
+        self.writer.emit_setae(reg)
+
+    def emit_setb(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+
+        self.asm_lines.append(f"setb {reg}")
+        self.writer.emit_setb(reg)
+
+    def emit_setbe(self, reg, comment=""):
+        reg = self.map_reg8(reg)
+
+        self.asm_lines.append(f"setbe {reg}")
+        self.writer.emit_setbe(reg)
         
     def emit_new_label_decl(self, name, comment=""):
         # PE32/COFF braucht keine vorherige Label-Deklaration

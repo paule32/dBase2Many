@@ -7,11 +7,10 @@
 set PATH=%CD%;%PATH%
 set ANTLR_VERSION=4.13.2
 
-echo create: Lexer + Parser
-
 :: ----------------------------------------------------------------------------
 :: Pascal
 :: ----------------------------------------------------------------------------
+echo create: Lexer + Parser for Pascal
 antlr4 -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
     -o parsers/pascal     ^
@@ -27,6 +26,7 @@ antlr4 -v %ANTLR_VERSION% ^
 :: ----------------------------------------------------------------------------
 :: ELAN / EUMEL
 :: ----------------------------------------------------------------------------
+echo create: Lexer + Parser for ELAN/EUMEL
 antlr4 -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
     -o parsers/elan       ^
@@ -42,6 +42,7 @@ antlr4 -v %ANTLR_VERSION% ^
 :: ----------------------------------------------------------------------------
 :: LISP
 :: ----------------------------------------------------------------------------
+echo create: Lexer + Parser for LISP
 antlr4 -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
     -o parsers/lisp       ^
@@ -53,3 +54,19 @@ antlr4 -v %ANTLR_VERSION% ^
     -visitor              ^
     -lib parsers/lisp     ^
     compiler/grammar/LispParser.g4
+
+:: ----------------------------------------------------------------------------
+:: BASIC
+:: ----------------------------------------------------------------------------
+echo create: Lexer + Parser for BASIC
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/basic      ^
+    compiler/grammar/BasicLexer.g4
+
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/basic      ^
+    -visitor              ^
+    -lib parsers/basic    ^
+    compiler/grammar/BasicParser.g4
