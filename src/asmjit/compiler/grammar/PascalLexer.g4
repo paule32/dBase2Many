@@ -75,6 +75,10 @@ PROTECTED           : [pP][rR][oO][tT][eE][cC][tT][eE][dD] ;
 PUBLIC              : [pP][uU][bB][lL][iI][cC] ;
 PUBLISHED           : [Pp][Uu][Bb][Ll][Ii][Ss][Hh][Ee][Dd] ;
 PROPERTY            : [Pp][Rr][Oo][Pp][Ee][Rr][Tt][Yy] ;
+
+VIRTUAL             : [Vv][Ii][Rr][Tt][Uu][Aa][Ll] ;
+OVERRIDE            : [Oo][Vv][Ee][Rr][Rr][Ii][Dd][Ee] ;
+
 READ                : [rR][eE][aA][dD] ;
 WRITE               : [wW][rR][iI][tT][eE] ;
 
@@ -110,6 +114,7 @@ DISKSHARE           : [dD][iI][sS][kK][sS][hH][aA][rR][eE] ;
 CDECL               : [cC][dD][eE][cC][lL] ;
 STDCALL             : [sS][tT][dD][cC][aA][lL][lL] ;
 PASCAL              : [pP][aA][sS][cC][aA][lL] ;
+EXTERNAL            : [Ee][Xx][Tt][Ee][Rr][Nn][Aa][Ll] ;
 NAME                : [nN][aA][mM][eE] ;
 
 COMPILER_DIRECTIVE  : '{$' .*? '}' ;

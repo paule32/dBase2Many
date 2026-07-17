@@ -19,6 +19,11 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PascalParser#externalLibrary.
+    def visitExternalLibrary(self, ctx:PascalParser.ExternalLibraryContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PascalParser#callingConvention.
     def visitCallingConvention(self, ctx:PascalParser.CallingConventionContext):
         return self.visitChildren(ctx)
@@ -101,6 +106,16 @@ class PascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PascalParser#qualifiedIdent.
     def visitQualifiedIdent(self, ctx:PascalParser.QualifiedIdentContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#methodDirective.
+    def visitMethodDirective(self, ctx:PascalParser.MethodDirectiveContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#methodDirectiveList.
+    def visitMethodDirectiveList(self, ctx:PascalParser.MethodDirectiveListContext):
         return self.visitChildren(ctx)
 
 

@@ -182,14 +182,31 @@ class Coff32Object:
         return result
 
 class Coff32Section:
-    def __init__(self, name, data, characteristics):
+    def __init__(
+        self,
+        name,
+        data,
+        characteristics,
+        virtual_size=0,
+        raw_size=0
+    ):
         self.name            = name
         self.data            = bytearray(data)
         self.characteristics = characteristics
+        self.virtual_size    = int(virtual_size)
+        self.raw_size        = int(raw_size)
         self.relocations     = []
         self.output_section  = None
         self.output_offset   = 0
         self.rva             = 0
+
+    @property
+    def memory_size(self):
+        return max(
+            len(self.data),
+            self.virtual_size,
+            self.raw_size
+        )
 
 class Coff32Symbol:
     def __init__(self, name, section_number, value, storage_class):
@@ -215,6 +232,7 @@ class Coff32Reader:
         reader.data = data
 
         reader.read_header()
+        reader.read_string_table()
         reader.read_sections()
         reader.read_symbols()
 
@@ -225,6 +243,7 @@ class Coff32Reader:
             self.data = f.read()
 
         self.read_header()
+        self.read_string_table()
         self.read_sections()
         self.read_symbols()
 
@@ -247,8 +266,55 @@ class Coff32Reader:
         if self.size_of_optional_header != 0:
             raise RuntimeError("COFF object should not have optional header")
 
+    def read_string_table(self):
+        symtab = int(self.pointer_to_symbol_table)
+        strtab_offset = symtab + int(self.number_of_symbols) * 18
+
+        if symtab > 0 and strtab_offset + 4 <= len(self.data):
+            size = struct.unpack_from("<L", self.data, strtab_offset)[0]
+
+            if size < 4:
+                raise RuntimeError("invalid COFF string table size")
+
+            strtab_end = strtab_offset + size
+
+            if strtab_end > len(self.data):
+                raise RuntimeError(
+                    "COFF string table exceeds object file"
+                )
+
+            self.string_table = self.data[
+                strtab_offset:
+                strtab_end
+            ]
+        else:
+            self.string_table = b"\x04\x00\x00\x00"
+
     def section_name(self, raw):
         raw = raw.rstrip(b"\x00")
+
+        if raw.startswith(b"/") and raw[1:].isdigit():
+            string_offset = int(raw[1:], 10)
+
+            if (
+                string_offset < 4
+                or string_offset >= len(self.string_table)
+            ):
+                raise RuntimeError(
+                    "invalid COFF long section-name "
+                    f"offset: {string_offset}"
+                )
+
+            name = self.get_string_from_table(string_offset)
+
+            if not name:
+                raise RuntimeError(
+                    "empty COFF long section name at "
+                    f"offset {string_offset}"
+                )
+
+            return name
+
         return raw.decode("ascii", errors="replace")
 
     def read_sections(self):
@@ -270,14 +336,60 @@ class Coff32Reader:
 
             name = self.section_name(raw_name)
 
-            section_data = b""
-            if size_of_raw_data:
+            # COFF object files describe uninitialized sections such as
+            # .bss with a size but without physical bytes.  Reading from
+            # PointerToRawData == 0 would accidentally copy the COFF header
+            # into the section.  Materialize these sections as zero bytes so
+            # the current PE writer can merge them into its .data image.
+            section_size = max(
+                int(virtual_size),
+                int(size_of_raw_data)
+            )
+
+            is_uninitialized = (
+                name == ".bss"
+                or name.startswith(".bss$")
+                or bool(
+                    characteristics
+                    & 0x00000080  # IMAGE_SCN_CNT_UNINITIALIZED_DATA
+                )
+            )
+
+            if is_uninitialized:
+                section_data = bytes(section_size)
+
+            elif size_of_raw_data:
+                if pointer_to_raw_data == 0:
+                    raise RuntimeError(
+                        f"COFF section {name} has raw data but "
+                        "PointerToRawData is zero"
+                    )
+
+                raw_end = (
+                    pointer_to_raw_data
+                    + size_of_raw_data
+                )
+
+                if raw_end > len(self.data):
+                    raise RuntimeError(
+                        f"COFF section {name} exceeds object file"
+                    )
+
                 section_data = self.data[
                     pointer_to_raw_data:
-                    pointer_to_raw_data + size_of_raw_data
+                    raw_end
                 ]
 
-            sec = Coff32Section(name, section_data, characteristics)
+            else:
+                section_data = b""
+
+            sec = Coff32Section(
+                name,
+                section_data,
+                characteristics,
+                virtual_size=virtual_size,
+                raw_size=size_of_raw_data
+            )
 
             for r in range(number_of_relocations):
                 roff = pointer_to_relocations + r * 10
@@ -318,13 +430,9 @@ class Coff32Reader:
 
     def read_symbols(self):
         symtab = self.pointer_to_symbol_table
-        strtab_offset = symtab + self.number_of_symbols * 18
 
-        if strtab_offset + 4 <= len(self.data):
-            size = struct.unpack_from("<L", self.data, strtab_offset)[0]
-            self.string_table = self.data[strtab_offset:strtab_offset + size]
-        else:
-            self.string_table = b"\x04\x00\x00\x00"
+        if not self.string_table:
+            self.read_string_table()
 
         i = 0
 
@@ -388,6 +496,7 @@ class PE32Writer:
         
         self.text = bytearray()
         self.data = bytearray()
+        self.rsrc = bytearray()
 
         self.labels = {}
         self.fixups = []
@@ -403,6 +512,8 @@ class PE32Writer:
         self.image_name = None
 
         self.exports: list[PE32Export] = []
+        
+        self.runtime_symbol_aliases = {}
 
         # Optionaler DLL-Einstiegspunkt.
         # None bedeutet AddressOfEntryPoint = 0.
@@ -421,6 +532,41 @@ class PE32Writer:
         # external .a rchive file's
         self.archive_files      = []
         self.archives           = []
+    
+    def add_runtime_symbol_alias(self, alias_name, target_name):
+        if not isinstance(alias_name, str) or not alias_name:
+            raise RuntimeError("runtime alias has no symbol name")
+
+        if not isinstance(target_name, str) or not target_name:
+            raise RuntimeError("runtime alias has no target name")
+
+        old_target = self.runtime_symbol_aliases.get(alias_name)
+
+        if (old_target is not None and old_target != target_name):
+            raise RuntimeError(
+                "conflicting runtime symbol alias: "
+                f"{alias_name}: "
+                f"{old_target} versus {target_name}"
+            )
+
+        self.runtime_symbol_aliases[alias_name] = target_name
+
+    def resolve_runtime_symbol_alias(self, symbol_name):
+        aliases = self.runtime_symbol_aliases
+        visited = set()
+        current = symbol_name
+
+        while current in aliases:
+            if current in visited:
+                raise RuntimeError(
+                    "cyclic runtime symbol alias: "
+                    + symbol_name
+                )
+
+            visited.add(current)
+            current = aliases[current]
+
+        return current
     
     def map_reg32(self, reg):
         reg_map = {
@@ -663,25 +809,144 @@ class PE32Writer:
         if name in [".data", ".rdata"]:
             return self.data_rva
 
+        if name == ".rsrc":
+            return getattr(self, "rsrc_rva", 0)
+
         raise RuntimeError(f"unknown output section: {name}")
         
+    @staticmethod
+    def coff_section_alignment(characteristics):
+        # IMAGE_SCN_ALIGN_1BYTES .. IMAGE_SCN_ALIGN_8192BYTES use
+        # encoded values 1..14 in bits 20..23.
+        encoded = (
+            int(characteristics)
+            & 0x00F00000
+        ) >> 20
+
+        if 1 <= encoded <= 14:
+            return 1 << (encoded - 1)
+
+        # GNU/MinGW commonly leaves the alignment unspecified for simple
+        # data sections. Four bytes are a safe i386 default.
+        return 4
+
+    @staticmethod
+    def align_coff_output(buffer, alignment):
+        alignment = max(1, int(alignment))
+        padding = (-len(buffer)) % alignment
+
+        if padding:
+            buffer.extend(
+                bytes(padding)
+            )
+
     def include_coff_objects(self):
         for obj in self.coff_objects:
             for sec in obj.sections:
-                if sec.name == ".text":
+                alignment = self.coff_section_alignment(
+                    sec.characteristics
+                )
+
+                if (
+                    sec.name == ".text"
+                    or sec.name.startswith(".text$")
+                    or sec.name.startswith(".text.")
+                ):
+                    self.align_coff_output(
+                        self.text,
+                        alignment
+                    )
+
                     sec.output_section = ".text"
                     sec.output_offset  = len(self.text)
                     self.text         += sec.data
-                
-                elif sec.name in [".data", ".rdata"]:
+
+                elif (
+                    sec.name in [".data", ".rdata"]
+                    or sec.name.startswith(".data$")
+                    or sec.name.startswith(".data.")
+                    or sec.name.startswith(".rdata$")
+                    or sec.name.startswith(".rdata.")
+                ):
+                    self.align_coff_output(
+                        self.data,
+                        alignment
+                    )
+
                     sec.output_section = ".data"
                     sec.output_offset  = len(self.data)
                     self.data         += sec.data
-                
-                elif sec.name == ".bss":
-                    sec.output_section = ".bss"
-                    sec.output_offset  = self.bss_size
-                    self.bss_size     += len(sec.data)
+
+                elif (
+                    sec.name == ".bss"
+                    or sec.name.startswith(".bss$")
+                    or sec.name.startswith(".bss.")
+                    or bool(
+                        sec.characteristics
+                        & 0x00000080
+                    )
+                ):
+                    # The current NT32 image writer has one combined writable
+                    # output section. Flatten .bss into its .data image as
+                    # zero-initialized bytes. This keeps symbol RVAs and COFF
+                    # relocations correct without introducing a new PE section.
+                    self.align_coff_output(
+                        self.data,
+                        alignment
+                    )
+
+                    sec.output_section = ".data"
+                    sec.output_offset  = len(self.data)
+
+                    bss_size = sec.memory_size
+
+                    if bss_size:
+                        self.data.extend(
+                            bytes(bss_size)
+                        )
+
+                elif (
+                    sec.name == ".rsrc"
+                    or sec.name.startswith(".rsrc$")
+                    or sec.name.startswith(".rsrc.")
+                ):
+                    # windres emits the resource directory and payload into a
+                    # COFF .rsrc section. Keep it separate so NT32Writer can
+                    # publish IMAGE_DIRECTORY_ENTRY_RESOURCE and apply the
+                    # IMAGE_REL_I386_DIR32NB relocations used by data entries.
+                    self.align_coff_output(
+                        self.rsrc,
+                        alignment
+                    )
+
+                    sec.output_section = ".rsrc"
+                    sec.output_offset  = len(self.rsrc)
+                    self.rsrc         += sec.data
+
+                elif (
+                    sec.name in [
+                        ".drectve",
+                        ".eh_frame",
+                        ".comment"
+                    ]
+                    or sec.name.startswith(".debug")
+                    or sec.name.startswith(".note")
+                    or sec.name.startswith(".llvm")
+                ):
+                    # Linker directives and debugging/unwind metadata are not
+                    # part of the runtime PE image generated by this writer.
+                    sec.output_section = ".discard"
+                    sec.output_offset  = 0
+
+                elif sec.memory_size == 0:
+                    sec.output_section = ".discard"
+                    sec.output_offset  = 0
+
+                else:
+                    raise RuntimeError(
+                        "unsupported COFF section: "
+                        + sec.name
+                    )
     
     def add_symbol_alias(self, alias_name, target_name):
         target_index = self.find_symbol_index(target_name)
@@ -1114,6 +1379,12 @@ class PE32Writer:
         })
 
     def add_external_symbol(self, name):
+        if not isinstance(name, str) or not name:
+            raise RuntimeError(
+                "cannot add external COFF symbol with "
+                f"invalid name: {name!r}"
+            )
+
         index = len(self.symbols)
 
         self.symbols.append({
@@ -1171,6 +1442,24 @@ class PE32Writer:
     def align_data(self, alignment):
         while len(self.data) % alignment != 0:
             self.data.append(0)
+
+    def add_data_u32(
+        self,
+        value
+    ):
+        self.align_data(4)
+
+        offset = len(self.data)
+
+        self.data += int(
+            value
+        ).to_bytes(
+            4,
+            "little",
+            signed=False
+        )
+
+        return offset
 
     def add_data_bytes(self, name, data_bytes, alignment=1):
         self.align_data(alignment)
@@ -1560,9 +1849,29 @@ class PE32Writer:
         self.emit_mov_reg_data_label32(reg, label)
 
     def add_data_i32_symbol_ref(self, target_symbol):
-        sym_index = self.find_or_add_symbol(target_symbol)
+        if (
+            not isinstance(target_symbol, str)
+            or not target_symbol
+        ):
+            raise RuntimeError(
+                "cannot create COFF data relocation "
+                f"for invalid symbol: {target_symbol!r}"
+            )
+
+        sym_index = self.find_symbol_index(
+            target_symbol
+        )
+
+        if sym_index is None:
+            sym_index = self.add_external_symbol(
+                target_symbol
+            )
+
         offset = len(self.data)
-        self.data += b"\x00\x00\x00\x00"
+
+        self.data += (
+            b"\x00\x00\x00\x00"
+        )
 
         self.data_relocations.append({
             "offset": offset,

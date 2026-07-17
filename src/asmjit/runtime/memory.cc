@@ -10,6 +10,7 @@
 # include "windows.h"
 
 static malloc_fn    p_malloc    = nullptr;
+static calloc_fn    p_calloc    = nullptr;
 static realloc_fn   p_realloc   = nullptr;
 static free_fn      p_free      = nullptr;
 
@@ -33,6 +34,7 @@ struct CRTImport {
 };
 CRTImport crt_imports[] = {
     { "malloc",    (void**)&p_malloc     },
+    { "calloc",    (void**)&p_calloc     },
     { "realloc",   (void**)&p_realloc    },
     { "free",      (void**)&p_free       },
 
@@ -454,12 +456,25 @@ _jit_malloc(uint32_t size)
         std::cout << "heap error" << std::endl;
         return nullptr;
     }
-
     return p_malloc(size);
 }
 
 DLL_API void *
+_jit_calloc(uint32_t count, uint32_t size)
+{
+    if (!init_msvcrt()) {
+        std::cout << "heap error" << std::endl;
+        return nullptr;
+    }
+    return p_calloc(count, size);
+}
+
+DLL_API void *
 _jit_realloc(void *ptr, unsigned int new_size) {
+    if (!init_msvcrt()) {
+        std::cout << "heap error" << std::endl;
+        return nullptr;
+    }
     return p_realloc(ptr, (size_t)new_size);
 }
 

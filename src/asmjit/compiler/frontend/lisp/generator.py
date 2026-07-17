@@ -34,7 +34,7 @@ from compiler.frontend.generatorbase import *
 # ---------------------------------------------------------------------------
 # generator classes
 # ---------------------------------------------------------------------------
-class GeneratorClass(CodeGeneratorBase, LispParserVisitor):
+class LispGenerator(CodeGeneratorBase, LispParserVisitor):
     def __init__(self, backend, writer=None):
         CodeGeneratorBase.__init__(self, backend)
         LispParserVisitor.__init__(self)

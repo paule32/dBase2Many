@@ -107,7 +107,7 @@ class BasicLayoutCollector(BasicParserVisitor):
         return None
 
 
-class GeneratorClass(CodeGeneratorBase, BasicParserVisitor):
+class BasicGenerator(CodeGeneratorBase, BasicParserVisitor):
     def __init__(self, backend, writer):
         CodeGeneratorBase .__init__(self, backend)
         BasicParserVisitor.__init__(self)

@@ -30,8 +30,11 @@ class NT32Writer:
     IMAGE_FILE_32BIT_MACHINE           = 0x0100
     IMAGE_FILE_DLL                     = 0x2000
 
-    IMAGE_DIRECTORY_ENTRY_EXPORT = 0
-    IMAGE_DIRECTORY_ENTRY_IMPORT = 1
+    IMAGE_DIRECTORY_ENTRY_EXPORT   = 0
+    IMAGE_DIRECTORY_ENTRY_IMPORT   = 1
+    IMAGE_DIRECTORY_ENTRY_RESOURCE = 2
+
+    IMAGE_REL_I386_DIR32NB = 0x0007
 
     def __init__(self, coff):
         self.coff    = coff
@@ -46,12 +49,16 @@ class NT32Writer:
 
         self.text_rva = 0
         self.data_rva = 0
+        self.rsrc_rva = 0
         
     @property
     def text(self): return self.coff.text
 
     @property
     def data(self): return self.coff.data
+
+    @property
+    def rsrc(self): return self.coff.rsrc
 
     def align(self, value, alignment):
         return (value + alignment - 1) & ~(alignment - 1)
@@ -66,8 +73,36 @@ class NT32Writer:
                 return sym["value"]
         raise RuntimeError(tr("entry point not found: _start/main/_main"))
 
+    def resolve_runtime_alias(self, name):
+        aliases = getattr(
+            self.coff,
+            "runtime_symbol_aliases",
+            {}
+        )
+
+        visited = set()
+        current = name
+
+        while current in aliases:
+            if current in visited:
+                raise RuntimeError(
+                    "cyclic runtime alias: "
+                    + name
+                )
+
+            visited.add(current)
+            current = aliases[current]
+
+        return current
+
+    def symbol_is_defined_or_aliased(self, name, defined):
+        if name in defined:
+            return True
+
+        target = self.resolve_runtime_alias(name)
+        return target in defined
+
     def resolve_label_rva(self, label_name):
-        """Resolve a Pascal/COFF symbol to an RVA in the final PE image."""
         if not label_name:
             raise RuntimeError("empty PE label name")
 
@@ -428,13 +463,16 @@ class NT32Writer:
 
         return data
 
-    def collect_used_external_symbols(self):
-        """Collect real Windows imports used by primary code and linked .o files.
+    def require_symbol_name(name, origin):
+        if not isinstance(name, str) or not name:
+            raise RuntimeError(
+                "COFF relocation has an invalid external "
+                f"symbol name {name!r}: {origin}"
+            )
 
-        Symbols defined by the main Pascal stream or by any linked COFF object
-        are internal link targets. Only still-undefined symbols must be resolved
-        through the PE import table.
-        """
+        return name
+
+    def collect_used_external_symbols(self):
         used = set()
         defined = self.coff.collect_defined_symbols()
 
@@ -442,8 +480,17 @@ class NT32Writer:
         for reloc in self.coff.text_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
 
-            if sym["section"] == 0 and sym["name"] not in defined:
-                used.add(sym["name"])
+            #if sym["section"] == 0 and sym["name"] not in defined:
+            #    used.add(sym["name"])
+            if (sym["section"] == 0
+                and not self.symbol_is_defined_or_aliased(
+                    sym["name"],
+                    defined
+                )
+            ):
+                used.add(
+                    sym["name"]
+                )
 
         for reloc in self.coff.data_relocations:
             sym = self.coff.symbols[reloc["symbol_index"]]
@@ -462,10 +509,11 @@ class NT32Writer:
                             "COFF relocation references AUX symbol"
                         )
 
-                    if (
-                        symbol.section_number == 0
-                        and symbol.name not in defined
-                    ):
+                    if (symbol.section_number == 0
+                        and not self.symbol_is_defined_or_aliased(
+                            symbol.name,
+                            defined
+                        )):
                         used.add(symbol.name)
 
         return used
@@ -490,34 +538,6 @@ class NT32Writer:
         return result
 
     def build_import_section_by_ord(self, idata_rva):
-        """
-        Erzeugt die PE32-Importsection.
-
-        Unterstützt:
-
-          - Import-by-name
-          - Import-by-ordinal
-          - internen Symbolalias
-          - abweichenden DLL-Exportnamen
-
-        Importbeschreibung:
-
-            "MessageBoxA"
-
-        oder:
-
-            {
-                "symbol": "__dllimp_0_libfoo_fuzz",
-                "name": "fuzz"
-            }
-
-        oder:
-
-            {
-                "symbol": "__dllimp_1_libfoo_ord12",
-                "ordinal": 12
-            }
-        """
         self.import_iat_rvas = {}
 
         descriptor_size = 20
@@ -871,6 +891,38 @@ class NT32Writer:
                 rel32
             ).to_bytes(4, "little", signed=True)
 
+    def validate_runtime_thunk_aliases(self):
+        aliases = getattr(
+            self.coff,
+            "runtime_symbol_aliases",
+            {}
+        )
+
+        if not aliases:
+            return
+
+        defined = self.coff.collect_defined_symbols()
+        missing = []
+
+        for alias_name, target_name in aliases.items():
+            target_name = self.resolve_runtime_alias(
+                target_name
+            )
+
+            if target_name not in defined:
+                missing.append(
+                    f"{alias_name} -> {target_name}"
+                )
+
+        if missing:
+            raise RuntimeError(
+                "runtime thunk symbols not defined:\n"
+                + "\n".join(
+                    "  " + item
+                    for item in sorted(missing)
+                )
+            )
+        
     def validate_imports_complete(self):
         used = self.collect_used_external_symbols()
 
@@ -904,15 +956,65 @@ class NT32Writer:
 
                 sec = obj.sections[sym.section_number - 1]
 
+                if sec.output_section == ".discard":
+                    continue
+
                 if sec.output_section == ".text":
                     base_rva = text_rva
                 elif sec.output_section in [".data", ".rdata", ".bss"]:
                     base_rva = data_rva
+                elif sec.output_section == ".rsrc":
+                    base_rva = self.rsrc_rva
                 else:
-                    raise RuntimeError(f"unknown COFF output section: {sec.output_section}")
+                    raise RuntimeError(
+                        "unknown COFF output section: "
+                        + str(sec.output_section)
+                        + " (input section "
+                        + sec.name
+                        + ")"
+                    )
 
                 sym.resolved_rva = base_rva + sec.output_offset + sym.value
                 self.coff.external_symbols[name] = sym.resolved_rva
+        
+        aliases = getattr(
+            self.coff,
+            "runtime_symbol_aliases",
+            {}
+        )
+
+        for alias_name, target_name in aliases.items():
+            resolved_target = self.resolve_runtime_alias(
+                target_name
+            )
+
+            target_rva = self.coff.external_symbols.get(
+                resolved_target
+            )
+
+            if target_rva is None:
+                raise RuntimeError(
+                    "runtime thunk target not found: "
+                    f"{alias_name} -> {resolved_target}"
+                )
+
+            old_rva = self.coff.external_symbols.get(
+                alias_name
+            )
+
+            if (
+                old_rva is not None
+                and old_rva != target_rva
+            ):
+                raise RuntimeError(
+                    "runtime alias conflicts with "
+                    "defined COFF symbol: "
+                    + alias_name
+                )
+
+            self.coff.external_symbols[
+                alias_name
+            ] = target_rva
 
     def build_pascal_symbol_rvas(self, text_rva, data_rva):
         result = {}
@@ -955,14 +1057,22 @@ class NT32Writer:
 
         section = obj.sections[symbol.section_number - 1]
 
+        if section.output_section == ".discard":
+            return None
+
         if section.output_section == ".text":
             base_rva = text_rva
         elif section.output_section in (".data", ".rdata", ".bss"):
             base_rva = data_rva
+        elif section.output_section == ".rsrc":
+            base_rva = self.rsrc_rva
         else:
             raise RuntimeError(
                 "unknown COFF output section: "
                 + str(section.output_section)
+                + " (input section "
+                + section.name
+                + ")"
             )
 
         return base_rva + section.output_offset + symbol.value
@@ -971,8 +1081,10 @@ class NT32Writer:
         self,
         text_image,
         data_image,
+        rsrc_image,
         text_rva,
-        data_rva
+        data_rva,
+        rsrc_rva
     ):
         """Patch relocations located inside linked COFF32 object files.
 
@@ -983,7 +1095,10 @@ class NT32Writer:
         """
         for obj in self.coff.coff_objects:
             for section in obj.sections:
-                if not section.output_section:
+                if (
+                    not section.output_section
+                    or section.output_section == ".discard"
+                ):
                     continue
 
                 if section.output_section == ".text":
@@ -998,10 +1113,17 @@ class NT32Writer:
                     buffer = data_image
                     section_rva = data_rva
 
+                elif section.output_section == ".rsrc":
+                    buffer = rsrc_image
+                    section_rva = rsrc_rva
+
                 else:
                     raise RuntimeError(
                         "unknown COFF output section: "
                         + str(section.output_section)
+                        + " (input section "
+                        + section.name
+                        + ")"
                     )
 
                 for relocation in section.relocations:
@@ -1033,6 +1155,9 @@ class NT32Writer:
                             data_rva
                         )
 
+                        if target_rva is None:
+                            continue
+
                     # --------------------------------------------------
                     # Undefined in this object, but defined by the main
                     # Pascal stream or another linked object.
@@ -1042,7 +1167,9 @@ class NT32Writer:
 
                     # --------------------------------------------------
                     # Imported function used by a linked .o file.
-                    # A REL32 call targets the JMP thunk in .text.
+                    #
+                    # Direct calls use IMAGE_REL_I386_REL32 and target the
+                    # generated JMP thunk in .text.
                     # --------------------------------------------------
                     elif (
                         relocation.type == IMAGE_REL_I386_REL32
@@ -1053,14 +1180,47 @@ class NT32Writer:
                             + self.import_thunk_offsets[name]
                         )
 
+                    # --------------------------------------------------
+                    # GCC/MinGW dllimport calls normally reference the IAT
+                    # variable directly, for example:
+                    #
+                    #     call dword ptr [__imp__GetTempPathA@8]
+                    #
+                    # The COFF relocation is IMAGE_REL_I386_DIR32 and must
+                    # therefore resolve to the actual IAT slot, not to the
+                    # executable JMP thunk.
+                    # --------------------------------------------------
+                    elif (
+                        relocation.type == IMAGE_REL_I386_DIR32
+                        and name in self.import_iat_rvas
+                    ):
+                        target_rva = self.import_iat_rvas[
+                            name
+                        ]
+
                     else:
                         raise RuntimeError(
                             "unresolved COFF symbol: " + name
                         )
 
                     if relocation.type == IMAGE_REL_I386_REL32:
+                        # COFF/i386 stores the relocation addend in the
+                        # relocated four-byte field. Preserve it for
+                        # references such as symbol+offset.
+                        addend = int.from_bytes(
+                            buffer[
+                                patch_offset:patch_offset + 4
+                            ],
+                            "little",
+                            signed=True
+                        )
+
                         source_rva = section_rva + patch_offset
-                        value = target_rva - (source_rva + 4)
+                        value = (
+                            target_rva
+                            + addend
+                            - (source_rva + 4)
+                        )
 
                         buffer[
                             patch_offset:patch_offset + 4
@@ -1071,7 +1231,47 @@ class NT32Writer:
                         )
 
                     elif relocation.type == IMAGE_REL_I386_DIR32:
-                        value = self.IMAGE_BASE + target_rva
+                        # NASM/GCC place the addend in the relocated field.
+                        # Example:
+                        #
+                        #   [_dbm_runtime_proc_table + ordinal * 4]
+                        #
+                        # Dropping it makes every thunk use table entry 0.
+                        addend = int.from_bytes(
+                            buffer[
+                                patch_offset:patch_offset + 4
+                            ],
+                            "little",
+                            signed=False
+                        )
+
+                        value = (
+                            self.IMAGE_BASE
+                            + target_rva
+                            + addend
+                        ) & 0xFFFFFFFF
+
+                        buffer[
+                            patch_offset:patch_offset + 4
+                        ] = int(value).to_bytes(
+                            4,
+                            "little",
+                            signed=False
+                        )
+
+                    elif relocation.type == self.IMAGE_REL_I386_DIR32NB:
+                        # windres stores the offset inside the .rsrc section
+                        # as the relocation addend. DIR32NB means an RVA, not
+                        # an image-base-relative virtual address.
+                        addend = int.from_bytes(
+                            buffer[
+                                patch_offset:patch_offset + 4
+                            ],
+                            "little",
+                            signed=False
+                        )
+
+                        value = target_rva + addend
 
                         buffer[
                             patch_offset:patch_offset + 4
@@ -1254,6 +1454,7 @@ class NT32Writer:
                 + "\n".join(unresolved)
             )
 
+        self.validate_runtime_thunk_aliases()
         self.validate_imports_complete()
         self.imports = self.filtered_imports()
 
@@ -1268,7 +1469,13 @@ class NT32Writer:
             getattr(self.coff, "exports", [])
         )
 
-        number_of_sections = 4 if has_exports else 3
+        has_resources = bool(self.rsrc)
+
+        number_of_sections = (
+            3
+            + (1 if has_resources else 0)
+            + (1 if has_exports else 0)
+        )
         size_of_optional_header = 0xE0
         section_header_size = 40
 
@@ -1338,14 +1545,36 @@ class NT32Writer:
             self.FILE_ALIGNMENT
         )
 
+        rsrc_image = bytearray(self.rsrc)
+        rsrc_rva = 0
+        rsrc_raw = 0
+        rsrc_virtual_size = 0
+        rsrc_raw_size = 0
+
+        if has_resources:
+            rsrc_rva = self.align(
+                idata_rva + idata_virtual_size,
+                self.SECTION_ALIGN
+            )
+            rsrc_raw = idata_raw + idata_raw_size
+            rsrc_virtual_size = len(rsrc_image)
+            rsrc_raw_size = self.align(
+                rsrc_virtual_size,
+                self.FILE_ALIGNMENT
+            )
+
+        self.rsrc_rva = rsrc_rva
+
         # All Pascal and linked-object symbols now receive their final RVA.
         self.register_coff_symbols(text_rva, data_rva)
 
         self.patch_coff_relocations(
             text_image,
             data_image,
+            rsrc_image,
             text_rva,
-            data_rva
+            data_rva,
+            rsrc_rva
         )
         self.patch_internal_relocations(
             text_image,
@@ -1366,11 +1595,23 @@ class NT32Writer:
         edata_raw_size = 0
 
         if has_exports:
+            previous_rva_end = (
+                rsrc_rva + rsrc_virtual_size
+                if has_resources
+                else idata_rva + idata_virtual_size
+            )
+
+            previous_raw_end = (
+                rsrc_raw + rsrc_raw_size
+                if has_resources
+                else idata_raw + idata_raw_size
+            )
+
             edata_rva = self.align(
-                idata_rva + idata_virtual_size,
+                previous_rva_end,
                 self.SECTION_ALIGN
             )
-            edata_raw = idata_raw + idata_raw_size
+            edata_raw = previous_raw_end
             edata = self.build_export_section(edata_rva)
             edata_virtual_size = len(edata)
             edata_raw_size = self.align(
@@ -1394,6 +1635,8 @@ class NT32Writer:
 
         if has_exports:
             image_end_rva = edata_rva + edata_virtual_size
+        elif has_resources:
+            image_end_rva = rsrc_rva + rsrc_virtual_size
         else:
             image_end_rva = idata_rva + idata_virtual_size
 
@@ -1405,6 +1648,7 @@ class NT32Writer:
         initialized_data_size = (
             data_raw_size +
             idata_raw_size +
+            rsrc_raw_size +
             edata_raw_size
         )
 
@@ -1472,6 +1716,15 @@ class NT32Writer:
             len(idata)
         )
 
+        if has_resources:
+            struct.pack_into(
+                "<II",
+                data_directories,
+                self.IMAGE_DIRECTORY_ENTRY_RESOURCE * 8,
+                rsrc_rva,
+                rsrc_virtual_size
+            )
+
         optional_header += data_directories
 
         if len(optional_header) != size_of_optional_header:
@@ -1518,6 +1771,18 @@ class NT32Writer:
         section_headers += data_section_header
         section_headers += idata_section_header
 
+        if has_resources:
+            section_headers += struct.pack(
+                "<8sIIIIIIHHI",
+                b".rsrc\x00\x00\x00",
+                rsrc_virtual_size,
+                rsrc_rva,
+                rsrc_raw_size,
+                rsrc_raw,
+                0, 0, 0, 0,
+                0x40000040
+            )
+
         if has_exports:
             section_headers += struct.pack(
                 "<8sIIIIIIHHI",
@@ -1548,6 +1813,10 @@ class NT32Writer:
 
         image += idata
         self.pad_to(image, idata_raw + idata_raw_size)
+
+        if has_resources:
+            image += rsrc_image
+            self.pad_to(image, rsrc_raw + rsrc_raw_size)
 
         if has_exports:
             image += edata

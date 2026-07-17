@@ -19,16 +19,29 @@ constexpr WORD MAX_PATH = 260;
 // --------------------------------------------------------------------
 // GetLastError()
 // --------------------------------------------------------------------
-constexpr DWORD NO_ERROR                = 0;
-constexpr DWORD ERROR_SUCCESS           = 0;
-constexpr DWORD ERROR_FILE_NOT_FOUND    = 2;
-constexpr DWORD ERROR_PATH_NOT_FOUND    = 3;
-constexpr DWORD ERROR_ACCESS_DENIED     = 5;
-constexpr DWORD ERROR_INVALID_HANDLE    = 6;
-constexpr DWORD ERROR_INVALID_DRIVE     = 15;
-constexpr DWORD ERROR_NOT_READY         = 21;
-constexpr DWORD ERROR_SHARING_VIOLATION = 32;
-constexpr DWORD ERROR_FILE_EXISTS       = 80;
+constexpr DWORD NO_ERROR                     =   0;
+constexpr DWORD ERROR_SUCCESS                =   0;
+constexpr DWORD ERROR_FILE_NOT_FOUND         =   2;
+constexpr DWORD ERROR_PATH_NOT_FOUND         =   3;
+constexpr DWORD ERROR_ACCESS_DENIED          =   5;
+constexpr DWORD ERROR_INVALID_HANDLE         =   6;
+constexpr DWORD ERROR_NOT_ENOUGH_MEMORY      =   8;
+constexpr DWORD ERROR_BAD_FORMAT             =  11;
+constexpr DWORD ERROR_INVALID_DRIVE          =  15;
+constexpr DWORD ERROR_NOT_READY              =  21;
+constexpr DWORD ERROR_CRC                    =  23;
+constexpr DWORD ERROR_WRITE_FAULT            =  29;
+constexpr DWORD ERROR_SHARING_VIOLATION      =  32;
+constexpr DWORD ERROR_FILE_EXISTS            =  80;
+constexpr DWORD ERROR_INVALID_PARAMETER      =  87;
+constexpr DWORD ERROR_INSUFFICIENT_BUFFER    = 122;
+constexpr DWORD ERROR_BAD_COMPRESSION_BUFFER = 605;
+
+// --------------------------------------------------------------------
+// resource types ...
+// --------------------------------------------------------------------
+# define MAKEINTRESOURCEA(value) ((LPSTR)(ULONG_PTR)((WORD)(value)))
+# define RT_RCDATA MAKEINTRESOURCEA(10)
 
 // --------------------------------------------------------------------
 // dll loader main
@@ -72,12 +85,15 @@ constexpr DWORD FILE_FILE_COMPRESSION         = 0x00000010;
 constexpr DWORD FILE_VOLUME_QUOTAS            = 0x00000020;
 constexpr DWORD FILE_SUPPORTS_SPARSE_FILES    = 0x00000040;
 constexpr DWORD FILE_SUPPORTS_REPARSE_POINTS  = 0x00000080;
+constexpr DWORD FILE_ATTRIBUTE_TEMPORARY      = 0x00000100;
 constexpr DWORD FILE_VOLUME_IS_COMPRESSED     = 0x00008000;
 constexpr DWORD FILE_SUPPORTS_OBJECT_IDS      = 0x00010000;
 constexpr DWORD FILE_SUPPORTS_ENCRYPTION      = 0x00020000;
 constexpr DWORD FILE_NAMED_STREAMS            = 0x00040000;
 constexpr DWORD FILE_READ_ONLY_VOLUME         = 0x00080000;
 
+constexpr DWORD GENERIC_WRITE                 = 0x40000000;
+constexpr DWORD CREATE_ALWAYS                 = 2U;
 // --------------------------------------------------------------------
 // console handle's ...
 // --------------------------------------------------------------------
@@ -202,7 +218,31 @@ DLL_API LCID    JIT_STDCALL GetSystemDefaultLCID(VOID);
 DLL_API BOOL    JIT_STDCALL WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
 DLL_API BOOL    JIT_STDCALL ReadFile (HANDLE, const void *, DWORD, DWORD *, void *);
 
+typedef struct _SECURITY_ATTRIBUTES {
+    DWORD  nLength;
+    LPVOID lpSecurityDescriptor;
+    BOOL   bInheritHandle;
+    
+}   SECURITY_ATTRIBUTES;
+
+typedef SECURITY_ATTRIBUTES * PSECURITY_ATTRIBUTES;
+typedef SECURITY_ATTRIBUTES * LPSECURITY_ATTRIBUTES;
+
+DLL_API HANDLE  JIT_STDCALL CreateFileA(
+    LPCSTR                lpFileName,
+    DWORD                 dwDesiredAccess,
+    DWORD                 dwShareMode,
+    LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+    DWORD                 dwCreationDisposition,
+    DWORD                 dwFlagsAndAttributes,
+    HANDLE                hTemplateFile
+);
+DLL_API BOOL    JIT_STDCALL DeleteFileA(LPCSTR lpFileName);
+
 DLL_API HANDLE  JIT_STDCALL GetStdHandle(DWORD);
+DLL_API HMODULE JIT_STDCALL GetModuleHandleA(LPCSTR lpModuleName);
+DLL_API BOOL    JIT_STDCALL CloseHandle(HANDLE);
+
 DLL_API FARPROC JIT_STDCALL GetProcAddress(
     HMODULE hModule,
     LPCSTR lpProcName
@@ -216,6 +256,59 @@ DLL_API int JIT_STDCALL MessageBoxA(
     const char* text,
     const char* caption,
     unsigned int type
+);
+
+// --------------------------------------------------------------------
+// resources ...
+// --------------------------------------------------------------------
+DLL_API HGLOBAL JIT_STDCALL LoadResource(
+    HMODULE hModule,
+    HRSRC   hResInfo
+);
+DLL_API HRSRC JIT_STDCALL FindResourceA(
+    HMODULE hModule,
+    LPCSTR  lpName,
+    LPCSTR  lpType
+);
+DLL_API DWORD JIT_STDCALL SizeofResource(
+    HMODULE hModule,
+    HRSRC   hResInfo
+);
+DLL_API LPVOID JIT_STDCALL LockResource(
+    HGLOBAL hResData
+);
+
+// --------------------------------------------------------------------
+// memory
+// --------------------------------------------------------------------
+DLL_API HANDLE JIT_STDCALL GetProcessHeap(void);
+DLL_API VOID   JIT_STDCALL RtlZeroMemory(
+    PVOID  Destination,
+    SIZE_T Length
+);
+DLL_API LPVOID JIT_STDCALL HeapAlloc(
+    HANDLE hHeap,
+    DWORD  dwFlags,
+    SIZE_T dwBytes
+);
+DLL_API BOOL JIT_STDCALL HeapFree(
+    HANDLE hHeap,
+    DWORD  dwFlags,
+    LPVOID lpMem
+);
+
+// --------------------------------------------------------------------
+// temporary file stuff ...
+// --------------------------------------------------------------------
+DLL_API DWORD JIT_STDCALL GetTempPathA(
+    DWORD nBufferLength,
+    LPSTR lpBuffer
+);
+DLL_API UINT  JIT_STDCALL GetTempFileNameA(
+    LPCSTR lpPathName,
+    LPCSTR lpPrefixString,
+    UINT   uUnique,
+    LPSTR  lpTempFileName
 );
 
 // --------------------------------------------------------------------

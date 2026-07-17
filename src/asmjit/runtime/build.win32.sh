@@ -68,7 +68,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     fi
   done
   
-  RUNTIME_FILES=(
+  RUNTIME_FILES=( jitObject
     args loader allocator diskio/diskio error exception iostream memory
     print string vector locale windows
     dllmain
@@ -120,11 +120,11 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   fi
   nm win32/obj/runtime_all.o > win32/obj/1
   
-  echo "create export .def initions file..."
-  if ! python makedef.32.py ; then
-     echo "Python 3.14 could not be start - error."
-     exit 1
-  fi
+  #echo "create export .def initions file..."
+  #if ! python makedef.32.py ; then
+  #   echo "Python 3.14 could not be start - error."
+  #   exit 1
+  #fi
   
   echo "create 32-bit dll file..."
   if ! g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
@@ -156,10 +156,132 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      echo "debug symbols could not be stripped."
      exit 1
   fi
-  if ! cp win32/libdbase2many.32.dll ../x32/libdbase2many.32.dll ; then
-     echo "32-bit dll could not be copied."
+  
+  echo "compact PE32 DLL sections..."
+  if ! python compact_pe32_dll.py   \
+     win32/libdbase2many.32.dll \
+     win32/obj/libdbase2many.32.dll.c --drop-empty-idata ; then
+     echo "PE32 compaction failed."
      exit 1
   fi
+
+  echo "create, and copy ordinals ..."
+  if ! python makedef.32.py --ignore --python ; then
+     echo "could not patch import file..."
+     exit 1
+  fi
+
+  echo "check python import file..."
+  if ! python -m py_compile \
+     ../compiler/common/runtime_imports.py \
+     ../compiler/common/types.py ; then
+     echo "python: fail -m py_compile"
+     exit 1
+  fi
+
+  echo "verify dll exports..."
+  if ! python verify_exports.32.py \
+     win32/libdbase2many.32.dll    \
+     ../compiler/frontend/dllimports.py ; then
+     echo "could not start python."
+     exit 1
+  fi
+  
+  echo "packaging PE32 DLL per zip level 9"
+  if ! python pack_dll.py             \
+     win32/obj/libdbase2many.32.dll.c \
+     win32/obj/libdbase2many.32.dll.z --level 9 ; then
+     echo "pack PE32 dll failed."
+     exit 1
+  fi
+  
+  echo "create Windows coff32 .o resource"
+  if ! windres \
+     --input  dll_runtime.rc    \
+     --output win32/obj/dll_runtime.o \
+     --output-format=coff  ; then
+     echo "error: windres could not create resource file."
+     exit 1
+  fi
+  
+  echo "create faked zlib..."
+  if ! gcc -m32 -O2 \
+           -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
+           -Wno-builtin-declaration-mismatch \
+           -fno-threadsafe-statics \
+           -Wno-write-strings      \
+           -fno-builtin-memset     \
+           -fno-builtin-memcpy     \
+           -fno-builtin-memmove    \
+           \
+           -S dll_inflate.cc \
+           -o win32/obj/dll_inflate.s  ; then
+     echo "assemble run error"
+     exit 1
+  fi
+  if ! sed -i \
+       -e '/^[[:space:]]*\.ident/d'     \
+       -e '/^[[:space:]]*\.file/d'      \
+       -e '/^[[:space:]]*\.linkonce/d'  \
+       -e '/^[[:space:]]*\.def/d'       \
+       -e '/^[[:space:]]*\.cfi_/d'      \
+       -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+       -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/dll_inflate.s ; then
+       echo "sed error."
+       exit 1
+  fi
+  if ! gcc -o win32/obj/dll_inflate.o -c win32/obj/dll_inflate.s ; then
+     echo "gcc could not create db_inflate.o"
+     exit 1
+  fi
+  if ! nasm -f win32 -o win32/obj/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
+     echo "assemlber could not create object file."
+     exit 1
+  fi
+  
+  echo "create packed dll loader..."
+  if ! g++ -m32 -O2 \
+           -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
+           -Wno-builtin-declaration-mismatch \
+           -fno-threadsafe-statics \
+           -Wno-write-strings      \
+           -fno-builtin-memset     \
+           -fno-builtin-memcpy     \
+           -fno-builtin-memmove    \
+           \
+           -S dll_loader.cc -o win32/obj/dll_loader.s  ; then
+     echo "assemble run error"
+     exit 1
+  fi
+  if ! sed -i \
+       -e '/^[[:space:]]*\.ident/d'     \
+       -e '/^[[:space:]]*\.file/d'      \
+       -e '/^[[:space:]]*\.linkonce/d'  \
+       -e '/^[[:space:]]*\.def/d'       \
+       -e '/^[[:space:]]*\.cfi_/d'      \
+       -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+       -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/dll_loader.s ; then
+       echo "sed error."
+       exit 1
+  fi
+  if ! g++ -o win32/obj/dll_loader.o -c win32/obj/dll_loader.s ; then
+     echo "g++ could not create packed_dll_loader.o"
+     exit 1
+  fi
+  
+  
+
+  echo "copy dll file..."
+  if ! cp win32/obj/libdbase2many.32.dll.c ../x32/libdbase2many.32.dll ; then
+     echo "PE32 dll could not be copied."
+     exit 1
+  fi
+  
+  #echo "pre-compile python cpascal.py files..."
+  #if ! python -m compileall cpascal.py ; then
+  #   echo "python: could not run -m compileall"
+  #   exit 1
+  #fi
   
   echo "done."
   exit 0

@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# File: generator.py - Pascal Transpiler
+# File: generator.py - Pascal Compiler
 # Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 # All rights reserved
 # ---------------------------------------------------------------------------
@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from antlr4      import *
 
 from compiler.frontend.pascal.preprocessor   import PascalPreprocessor
+from compiler.frontend.dllimports            import *
 
 from parsers.pascal.PascalLexer          import PascalLexer
 from parsers.pascal.PascalParser         import PascalParser
@@ -746,6 +747,405 @@ class AsmJitGenerator(PascalParserVisitor):
         
         return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
 
+    def is_packed_runtime_library(self, dll_name):
+        if not getattr(CDATA, "packed_runtime", False):
+            return False
+
+        normalized = os.path.basename(str(dll_name).strip()).lower()
+
+        return (normalized == "libdbase2many.32.dll")
+
+    def class_is_descendant(
+        self,
+        actual_type,
+        expected_type
+    ):
+        actual = self.resolve_type(actual_type)
+        expected = self.resolve_type(expected_type)
+
+        if actual == expected:
+            return True
+
+        current = actual
+
+        while current in self.classes:
+            current = self.classes[current].parent
+
+            if current == expected:
+                return True
+
+            if current is None:
+                break
+
+        return False
+    
+
+    def class_metadata_symbol(
+        self,
+        class_name,
+        kind
+    ):
+        scope_name = (
+            self.current_unit
+            if self.current_unit
+            else self.program_name
+        )
+
+        safe_scope = re.sub(
+            r"[^A-Za-z0-9_]",
+            "_",
+            str(scope_name).lower()
+        )
+
+        safe_class = re.sub(
+            r"[^A-Za-z0-9_]",
+            "_",
+            str(class_name).lower()
+        )
+
+        return (
+            f"__{kind}_{safe_scope}_{safe_class}"
+        )
+
+    def configure_class_vmt_metadata(
+        self,
+        ctx,
+        class_key,
+        vmt_symbol=None,
+        class_name_symbol=None
+    ):
+        """
+        VMT-Layout NT32:
+
+            +0   Parent
+            +4   ClassName
+            +8   InstanceSize
+            +12  Init
+            +16  Finalize
+            +20  Destroy
+            +24  erste normale virtuelle Methode
+        """
+        cls = self.classes[
+            class_key
+        ]
+
+        cls.vmt_symbol = (
+            vmt_symbol
+            or self.class_metadata_symbol(
+                cls.name,
+                "vmt"
+            )
+        )
+
+        cls.class_name_symbol = (
+            class_name_symbol
+            or self.class_metadata_symbol(
+                cls.name,
+                "classname"
+            )
+        )
+
+        parent_cls = (
+            self.classes.get(
+                cls.parent
+            )
+            if cls.parent
+            else None
+        )
+
+        slots = list(
+            getattr(
+                parent_cls,
+                "vmt_slots",
+                []
+            )
+            if parent_cls is not None
+            else []
+        )
+
+        destroy_method = (
+            getattr(
+                parent_cls,
+                "vmt_destroy",
+                None
+            )
+            if parent_cls is not None
+            else None
+        )
+
+        def signature_key(method):
+            return (
+                str(method.name).lower(),
+                self.method_signature(
+                    method.params
+                )
+            )
+
+        slot_indexes = {
+            signature_key(method): index
+            for index, method in enumerate(
+                slots
+            )
+        }
+
+        for overloads in cls.methods.values():
+            for method in overloads:
+                if method.owner != class_key:
+                    continue
+
+                is_virtual = bool(
+                    getattr(
+                        method,
+                        "is_virtual",
+                        False
+                    )
+                )
+
+                is_override = bool(
+                    getattr(
+                        method,
+                        "is_override",
+                        False
+                    )
+                )
+
+                if method.kind == "destructor":
+                    if is_override:
+                        if destroy_method is None:
+                            raise CompileError(
+                                ctx,
+                                "E0019",
+                                text=(
+                                    f"{cls.name}.{method.name} "
+                                    "uses override but the parent "
+                                    "has no virtual destructor"
+                                )
+                            )
+
+                        is_virtual = True
+
+                    if is_virtual:
+                        method.is_virtual = True
+                        method.vmt_offset = 20
+                        destroy_method = method
+                    else:
+                        method.is_virtual = False
+                        method.vmt_offset = None
+
+                    continue
+
+                key = signature_key(
+                    method
+                )
+
+                inherited_index = (
+                    slot_indexes.get(
+                        key
+                    )
+                )
+
+                if is_override:
+                    if inherited_index is None:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                f"{cls.name}.{method.name} "
+                                "uses override but no matching "
+                                "virtual parent method exists"
+                            )
+                        )
+
+                    is_virtual = True
+
+                if not is_virtual:
+                    method.is_virtual = False
+                    method.vmt_offset = None
+                    continue
+
+                method.is_virtual = True
+
+                if inherited_index is not None:
+                    method.vmt_offset = (
+                        24
+                        + inherited_index * 4
+                    )
+
+                    slots[
+                        inherited_index
+                    ] = method
+
+                else:
+                    method.vmt_offset = (
+                        24
+                        + len(slots) * 4
+                    )
+
+                    slot_indexes[
+                        key
+                    ] = len(slots)
+
+                    slots.append(
+                        method
+                    )
+
+        cls.vmt_destroy = destroy_method
+        cls.vmt_slots = slots
+
+    def emit_class_vmt_data(
+        self,
+        class_name
+    ):
+        if not hasattr(
+            self,
+            "emitted_class_vmts"
+        ):
+            self.emitted_class_vmts = set()
+
+        cls = self.classes[
+            class_name.lower()
+        ]
+
+        if cls.vmt_symbol in self.emitted_class_vmts:
+            return
+
+        self.emitted_class_vmts.add(
+            cls.vmt_symbol
+        )
+
+        self.writer.add_data_string(
+            cls.class_name_symbol,
+            cls.name
+        )
+
+        # Eine VMT besteht aus zusammenhängenden 32-Bit-Slots.
+        #
+        # add_data_string() richtet das Ende nicht automatisch aus.
+        # Ohne dieses Alignment könnte die VMT beispielsweise bei
+        # 0x402005 beginnen. add_data_u32() fügt später Padding ein,
+        # wodurch die fest definierten Offsets +8, +20 und +24 nicht
+        # mehr stimmen.
+        self.writer.align_data(
+            4
+        )
+
+        vmt_start = len(
+            self.writer.data
+        )
+
+        self.writer.add_data_label(
+            cls.vmt_symbol
+        )
+
+        # +0 Parent
+        if cls.parent:
+            parent_cls = self.classes[
+                cls.parent
+            ]
+
+            self.writer.add_data_i32_symbol_ref(
+                parent_cls.vmt_symbol
+            )
+        else:
+            self.writer.add_data_u32(
+                0
+            )
+
+        # +4 ClassName
+        self.writer.add_data_i32_symbol_ref(
+            cls.class_name_symbol
+        )
+
+        # +8 InstanceSize
+        self.writer.add_data_u32(
+            cls.size
+        )
+
+        # +12 Init
+        self.writer.add_data_u32(
+            0
+        )
+
+        # +16 Finalize
+        self.writer.add_data_u32(
+            0
+        )
+
+        # +20 Destroy
+        if cls.vmt_destroy is not None:
+            target = (
+                cls.vmt_destroy.label
+                or cls.vmt_destroy.mangled
+            )
+
+            self.writer.add_data_i32_symbol_ref(
+                target
+            )
+        else:
+            self.writer.add_data_u32(
+                0
+            )
+
+        # +24 virtuelle Slots
+        for method in cls.vmt_slots:
+            target = (
+                method.label
+                or method.mangled
+            )
+
+            self.writer.add_data_i32_symbol_ref(
+                target
+            )
+
+        expected_vmt_size = (
+            24
+            + len(cls.vmt_slots) * 4
+        )
+
+        actual_vmt_size = (
+            len(self.writer.data)
+            - vmt_start
+        )
+
+        if actual_vmt_size != expected_vmt_size:
+            raise RuntimeError(
+                f"invalid VMT layout for {cls.name}: "
+                f"expected {expected_vmt_size} bytes, "
+                f"got {actual_vmt_size} bytes"
+            )
+
+    def method_directive_flags(
+        self,
+        declaration_ctx
+    ):
+        result = {
+            "virtual": False,
+            "override": False
+        }
+
+        directive_list = (
+            declaration_ctx.methodDirectiveList()
+            if hasattr(
+                declaration_ctx,
+                "methodDirectiveList"
+            )
+            else None
+        )
+
+        if directive_list is None:
+            return result
+
+        for directive in directive_list.methodDirective():
+            value = directive.getText().lower()
+
+            if value == "virtual":
+                result["virtual"] = True
+
+            elif value == "override":
+                result["override"] = True
+
+        return result
+
     def find_unit_file(self, ctx, unit_name):
         unit_name = str(unit_name).strip()
 
@@ -1064,6 +1464,26 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return value
     
+    def find_known_dll_import_ordinal(
+        self,
+        dll_name,
+        import_name
+    ):
+        """Returns a stable import ordinal for known runtime exports."""
+        if not dll_name or not import_name:
+            return None
+
+        normalized_dll = os.path.basename(
+            str(dll_name).strip()
+        ).lower()
+
+        if normalized_dll != "libdbase2many.32.dll":
+            return None
+
+        return LIBDBASE2MANY32_IMPORT_ORDINALS.get(
+            str(import_name)
+        )
+
     def make_dll_import_symbol(self, dll_name, import_name):
         key = (
             dll_name.lower(),
@@ -1120,11 +1540,18 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
-        convention = (
+        convention_ctx = (
             spec_ctx.callingConvention()
-            .getText()
-            .lower()
         )
+
+        if convention_ctx is None:
+            convention = "cdecl"
+        else:
+            convention = (
+                convention_ctx
+                .getText()
+                .lower()
+            )
 
         if convention == "c":
             convention = "cdecl"
@@ -1143,19 +1570,20 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
-        string_tokens = list(
-            spec_ctx.STRING()
+        library_ctx = (
+            spec_ctx.externalLibrary()
         )
 
-        if not string_tokens:
+        if library_ctx is None:
             raise CompileError(
                 ctx,
                 "E0019",
                 text="DLL name is missing"
             )
 
-        dll_name = self.pascal_token_string(
-            string_tokens[0]
+        dll_name = self.resolve_external_library(
+            ctx,
+            library_ctx
         )
 
         if not dll_name:
@@ -1172,10 +1600,18 @@ class AsmJitGenerator(PascalParserVisitor):
         if not os.path.splitext(dll_name)[1]:
             dll_name += ".dll"
 
-        # Explizites NAME überschreibt das automatische Mangling.
-        if len(string_tokens) >= 2:
+        name_token = (
+            spec_ctx.STRING()
+            if hasattr(
+                spec_ctx,
+                "STRING"
+            )
+            else None
+        )
+
+        if name_token is not None:
             import_name = self.pascal_token_string(
-                string_tokens[1]
+                name_token
             )
         else:
             import_name = (
@@ -1184,7 +1620,7 @@ class AsmJitGenerator(PascalParserVisitor):
                     params
                 )
             )
-
+        
         if not import_name:
             raise CompileError(
                 ctx,
@@ -1192,7 +1628,19 @@ class AsmJitGenerator(PascalParserVisitor):
                 text="DLL import name must not be empty"
             )
 
-        internal_symbol = self.make_dll_import_symbol(
+        use_runtime_thunk = self.is_packed_runtime_library(
+            dll_name
+        )
+
+        if use_runtime_thunk:
+            internal_symbol = import_name
+        else:
+            internal_symbol = self.make_dll_import_symbol(
+                dll_name,
+                import_name
+            )
+
+        ordinal = self.find_known_dll_import_ordinal(
             dll_name,
             import_name
         )
@@ -1201,24 +1649,46 @@ class AsmJitGenerator(PascalParserVisitor):
             # Name für COFF-Relocation und Import-Thunk
             "symbol": internal_symbol,
 
-            # Echter Name in der DLL
+            # Für Diagnose, PUI-Kompatibilität und Fallback beibehalten.
+            # Der NT32Writer bevorzugt automatisch "ordinal", wenn dieses
+            # Feld vorhanden ist; der Name landet dann nicht im PE-Image.
             "name": import_name
         }
 
-        dll_imports = CDATA.imports.setdefault(
-            dll_name,
-            []
-        )
+        if ordinal is not None:
+            import_item["ordinal"] = int(
+                ordinal
+            )
 
-        already_registered = any(
-            isinstance(item, dict)
-            and item.get("symbol") == internal_symbol
-            and item.get("name") == import_name
-            for item in dll_imports
-        )
+        if not use_runtime_thunk:
+            dll_imports = CDATA.imports.setdefault(
+                dll_name,
+                []
+            )
 
-        if not already_registered:
-            dll_imports.append(
+            already_registered = any(
+                isinstance(item, dict)
+                and item.get("symbol") == internal_symbol
+                and item.get("name") == import_name
+                and item.get("ordinal") == import_item.get("ordinal")
+                for item in dll_imports
+            )
+
+            if not already_registered:
+                dll_imports.append(
+                    import_item
+                )
+
+        # Eine Unit-Objektdatei enthält Relocations auf das interne
+        # Symbol (zum Beispiel __dllimp_3_...). Diese Zuordnung muss
+        # deshalb in der PUI erhalten bleiben und beim späteren Linken
+        # des Hauptprogramms wiederhergestellt werden.
+        if (
+            self.root_module_kind == "unit"
+            and self.pending_pui is not None
+        ):
+            self.pui_add_dll_import(
+                dll_name,
                 import_item
             )
 
@@ -1233,6 +1703,7 @@ class AsmJitGenerator(PascalParserVisitor):
 
             "dll": dll_name,
             "import_name": import_name,
+            "ordinal": ordinal,
 
             "calling_convention": convention,
             "params": params,
@@ -1283,24 +1754,6 @@ class AsmJitGenerator(PascalParserVisitor):
         name,
         params=None
     ):
-        """
-        Erstellt den Import-/Exportnamen einer globalen Pascal-Routine.
-
-        Im Gegensatz zu fpc_mangle_routine() wird self.current_unit
-        absichtlich nicht berücksichtigt. Die aktuelle EXE-Unit darf
-        den Namen einer Funktion in einer fremden DLL nicht verändern.
-
-        Beispiele:
-
-            TestString(String)
-                -> _TESTSTRING$ANSISTRING
-
-            Add(Integer, Integer)
-                -> _ADD$INTEGER$INTEGER
-
-            GetNumber()
-                -> _GETNUMBER
-        """
         params = params or []
 
         routine_name = str(name).upper()
@@ -1403,6 +1856,9 @@ class AsmJitGenerator(PascalParserVisitor):
             return range_info.size
 
         typ = self.resolve_type(typ)
+        
+        if typ == "pointer":
+            return self.pointer_slot_size()
 
         if isinstance(typ, dict):
             if typ.get("kind") == "array":
@@ -1575,124 +2031,253 @@ class AsmJitGenerator(PascalParserVisitor):
             size    = offset
         )
     
-    def declare_class(self, ctx, name, fields, methods, properties=None, parent_name=None):
+
+    def declare_class(
+        self,
+        ctx,
+        name,
+        fields,
+        methods,
+        properties=None,
+        parent_name=None
+    ):
         key = name.lower()
-        
+
         if properties is None:
-            properties  = {}
-            
-        parent_key      = None
-        parent_size     = 0
-        parent_fields   = {}
-        parent_methods  = {}
-        
+            properties = {}
+
+        parent_key = None
+
+        # Versteckter VMT-Pointer an Offset 0.
+        parent_size = self.pointer_slot_size()
+
+        parent_fields = {}
+        parent_methods = {}
+
         if parent_name:
             parent_key = parent_name.lower()
 
             if parent_key not in self.classes:
-                raise CompileError(ctx, "E0004", name=parent_name)
+                raise CompileError(
+                    ctx,
+                    "E0004",
+                    name=parent_name
+                )
 
-            parent_cls    = self.classes[parent_key]
-            parent_size   = parent_cls.size
-
-            parent_fields = dict(parent_cls.fields)
-
-            for mname, overloads in parent_cls.methods.items():
-                parent_methods[mname] = list(overloads)
-        
-        if key in self.classes:
-            raise CompileError(ctx, "E0002", name=name)
-        
-        offset = parent_size
-        class_fields = dict(parent_fields)
-        
-        for field_name, field_type, visibility in fields:
-            field_key = field_name.lower()
-            resolved_type = self.resolve_type(field_type)
-            size = self.type_size(ctx, resolved_type)
-            
-            class_fields[field_key] = RecordFieldInfo(
-                name        = field_name,
-                type        = resolved_type,
-                offset      = offset,
-                size        = size,
-                visibility  = visibility
-            )
-            
-            offset += size
-        
-        class_methods = dict(parent_methods)
-        
-        for method in methods:
-            method_key = method["name"].lower()
-            
-            info = ClassMethodInfo(
-                name        = method["name"],
-                kind        = method["kind"],
-                label       = method["label"],
-                params      = method.get("params", []),
-                owner       = key,
-                return_type = method.get("return_type", None),
-                implemented = False,
-                mangled     = method.get("mangled", None),
-                visibility  = method.get("visibility", "public")
-            )
-            
-            class_methods.setdefault(method_key, [])
-            sig = self.method_signature(info.params)
-            
-            # gleiche Signatur aus Parent-Klasse entfernen:
-            # Kindklasse überschreibt diese Methode
-            class_methods[method_key] = [
-                old for old in class_methods[method_key]
-                if self.method_signature(old.params) != sig
+            parent_cls = self.classes[
+                parent_key
             ]
-            
-            class_methods[method_key].append(info)
-        
-        has_create  = "create"  in class_methods
-        has_destroy = "destroy" in class_methods
-        
-        if not has_create:
+
+            parent_size = max(
+                int(parent_cls.size),
+                self.pointer_slot_size()
+            )
+
+            parent_fields = dict(
+                parent_cls.fields
+            )
+
+            for method_name, overloads in (
+                parent_cls.methods.items()
+            ):
+                parent_methods[
+                    method_name
+                ] = list(
+                    overloads
+                )
+
+        if key in self.classes:
             raise CompileError(
                 ctx,
-                "E0019",
-                text = f"class {name} requires constructor Create"
+                "E0002",
+                name=name
             )
-        
-        if not has_destroy:
-            raise CompileError(
+
+        offset = parent_size
+        class_fields = dict(
+            parent_fields
+        )
+
+        for (
+            field_name,
+            field_type,
+            visibility
+        ) in fields:
+            field_key = field_name.lower()
+            resolved_type = self.resolve_type(
+                field_type
+            )
+
+            size = self.type_size(
                 ctx,
-                "E0019",
-                text = f"class {name} requires destructor Destroy"
+                resolved_type
             )
-        
+
+            class_fields[
+                field_key
+            ] = RecordFieldInfo(
+                name=field_name,
+                type=resolved_type,
+                offset=offset,
+                size=size,
+                visibility=visibility
+            )
+
+            offset += size
+
+        class_methods = dict(
+            parent_methods
+        )
+
+        for method_data in methods:
+            method_key = (
+                method_data["name"].lower()
+            )
+
+            info = ClassMethodInfo(
+                name=method_data["name"],
+                kind=method_data["kind"],
+                label=method_data["label"],
+                params=method_data.get(
+                    "params",
+                    []
+                ),
+                owner=key,
+                return_type=method_data.get(
+                    "return_type"
+                ),
+                implemented=False,
+                mangled=method_data.get(
+                    "mangled"
+                ),
+                visibility=method_data.get(
+                    "visibility",
+                    "public"
+                )
+            )
+
+            info.is_virtual = bool(
+                method_data.get(
+                    "virtual",
+                    False
+                )
+            )
+
+            info.is_override = bool(
+                method_data.get(
+                    "override",
+                    False
+                )
+            )
+
+            info.vmt_offset = None
+
+            class_methods.setdefault(
+                method_key,
+                []
+            )
+
+            signature = self.method_signature(
+                info.params
+            )
+
+            class_methods[
+                method_key
+            ] = [
+                old_method
+                for old_method in class_methods[
+                    method_key
+                ]
+                if self.method_signature(
+                    old_method.params
+                ) != signature
+            ]
+
+            class_methods[
+                method_key
+            ].append(
+                info
+            )
+
         if "create" not in class_methods:
-            raise CompileError(ctx, "E0019", text = f"class {name} requires constructor Create")
-        
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"class {name} requires "
+                    "constructor Create"
+                )
+            )
+
         if "destroy" not in class_methods:
-            raise CompileError(ctx, "E0019", text = f"class {name} requires destructor Destroy")
-        
-        class_properties = dict(properties)
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"class {name} requires "
+                    "destructor Destroy"
+                )
+            )
+
+        class_properties = dict(
+            properties
+        )
 
         if parent_name:
-            parent_properties = getattr(parent_cls, "properties", {})
-            class_properties = dict(parent_properties)
-            class_properties.update(properties)
-        
-        if CDATA.debug_mode:
-            print("DECLARE CLASS:", name, "size=", offset)
-            print("FIELDS:", list(class_fields.keys()))
+            parent_properties = getattr(
+                parent_cls,
+                "properties",
+                {}
+            )
 
-        self.classes[key] = ClassInfo(
-            name       = name,
-            fields     = class_fields,
-            methods    = class_methods,
-            properties = class_properties,
-            size       = offset,
-            parent     = parent_key
+            class_properties = dict(
+                parent_properties
+            )
+
+            class_properties.update(
+                properties
+            )
+
+        self.classes[
+            key
+        ] = ClassInfo(
+            name=name,
+            fields=class_fields,
+            methods=class_methods,
+            properties=class_properties,
+            size=max(
+                int(offset),
+                self.pointer_slot_size()
+            ),
+            parent=parent_key
         )
-    
+
+        self.configure_class_vmt_metadata(
+            ctx,
+            key
+        )
+
+        if CDATA.debug_mode:
+            cls = self.classes[
+                key
+            ]
+
+            print(
+                "DECLARE CLASS:",
+                name,
+                "size=",
+                cls.size,
+                "vmt=",
+                cls.vmt_symbol
+            )
+
+            print(
+                "FIELDS:",
+                list(
+                    class_fields.keys()
+                )
+            )
+
     def validate_class_methods(self, ctx):
         for class_key, cls in self.classes.items():
             for method_name, overloads in cls.methods.items():
@@ -1878,7 +2463,7 @@ class AsmJitGenerator(PascalParserVisitor):
         if typ in ["integer", "boolean"]:
             if CDATA.args_target in ["dos", "dos16"]:
                 site = 2
-            elif CDATA.args_target in ["nt35", "ntwin", "win32"]:
+            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
                 size = 4
             else:
                 size = 8
@@ -1892,8 +2477,10 @@ class AsmJitGenerator(PascalParserVisitor):
             else:
                 size = 8
         
-        elif isinstance(typ, str) and typ.startswith("^"):
-            size = 8
+        elif (typ == "pointer"     or (isinstance(typ, str)
+        and   typ.startswith("^")) or (isinstance(typ, str)
+        and   typ in self.classes)):
+            size = self.pointer_slot_size()
         
         elif isinstance(typ, str) and typ in self.records:
             size = self.records[typ].size
@@ -2708,15 +3295,29 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return typ
     
-    def unit_search_directories(self):
-        """Return all directories that may contain compiled Pascal units.
+    def is_pointer_type(
+        self,
+        typ,
+        include_nil=True
+    ):
+        typ = self.resolve_type(typ)
 
-        The compiler driver does not always set ``CDATA.output_dir``.  Unit
-        output is often written next to ``obj_file``/``exe_file`` or into the
-        conventional ``testout`` directory.  Therefore the search path is
-        derived from all known output filenames as well as the configured
-        include/object paths.
-        """
+        if typ == "pointer":
+            return True
+
+        if include_nil and typ == "^nil":
+            return True
+
+        if (isinstance(typ, str) and typ.startswith("^")):
+            return True
+
+        # Klassenvariablen sind ebenfalls Objektpointer.
+        if (isinstance(typ, str) and typ in self.classes):
+            return True
+
+        return False
+    
+    def unit_search_directories(self):
         directories = []
         seen = set()
 
@@ -3106,6 +3707,18 @@ class AsmJitGenerator(PascalParserVisitor):
 
                 methods = {}
 
+                if parent_key is not None:
+                    parent_cls = self.classes[
+                        parent_key
+                    ]
+
+                    for inherited_name, inherited_overloads in (
+                        parent_cls.methods.items()
+                    ):
+                        methods[inherited_name] = list(
+                            inherited_overloads
+                        )
+
                 for method_item in class_item.get("methods", []):
                     if not isinstance(method_item, dict):
                         continue
@@ -3154,10 +3767,60 @@ class AsmJitGenerator(PascalParserVisitor):
                         )
                     )
 
+                    method.is_virtual = bool(
+                        method_item.get(
+                            "is_virtual",
+                            False
+                        )
+                    )
+
+                    method.is_override = bool(
+                        method_item.get(
+                            "is_override",
+                            False
+                        )
+                    )
+
+                    method.vmt_offset = (
+                        int(
+                            method_item[
+                                "vmt_offset"
+                            ]
+                        )
+                        if method_item.get(
+                            "vmt_offset"
+                        ) is not None
+                        else None
+                    )
+
+                    method_key = (
+                        method_name.lower()
+                    )
+
                     methods.setdefault(
-                        method_name.lower(),
+                        method_key,
                         []
-                    ).append(method)
+                    )
+
+                    signature = self.method_signature(
+                        method.params
+                    )
+
+                    methods[method_key] = [
+                        old_method
+                        for old_method in methods[
+                            method_key
+                        ]
+                        if self.method_signature(
+                            old_method.params
+                        ) != signature
+                    ]
+
+                    methods[
+                        method_key
+                    ].append(
+                        method
+                    )
 
                 properties = {}
 
@@ -3194,8 +3857,24 @@ class AsmJitGenerator(PascalParserVisitor):
                     parent=parent_key
                 )
 
-                self.classes[class_key] = class_info
-                self.pui_class_units[class_key] = unit_name
+                self.classes[
+                    class_key
+                ] = class_info
+
+                self.configure_class_vmt_metadata(
+                    ctx,
+                    class_key,
+                    vmt_symbol=class_item.get(
+                        "vmt_symbol"
+                    ),
+                    class_name_symbol=class_item.get(
+                        "class_name_symbol"
+                    )
+                )
+
+                self.pui_class_units[
+                    class_key
+                ] = unit_name
 
                 del pending[class_key]
                 progress = True
@@ -3217,43 +3896,63 @@ class AsmJitGenerator(PascalParserVisitor):
                     )
                 )
 
-    def emit_class_method_call(self, method, comment=""):
-        """
-        Ruft eine lokale Klassenmethode oder eine über PUI importierte
-        Klassenmethode auf.
+    def emit_class_method_call(
+        self,
+        method,
+        comment=""
+    ):
+        local_label = getattr(method, "label",   None)
+        mangled     = getattr(method, "mangled", None)
 
-        Lokale Methoden besitzen method.label. Importierte PUI-Methoden
-        besitzen kein lokales Label; ihr COFF-Symbol steht in
-        method.mangled.
-        """
-
-        local_label = getattr(method, "label", None)
-        mangled = getattr(method, "mangled", None)
-
-        external = local_label is None
-        target = mangled if external else local_label
+        target = (
+            local_label
+            if local_label is not None
+            else mangled
+        )
 
         if not target:
             raise RuntimeError(
                 "class method has no call target: "
-                + str(getattr(method, "name", "<unknown>"))
+                + str(
+                    getattr(
+                        method,
+                        "name",
+                        "<unknown>"
+                    )
+                )
             )
 
-        if CDATA.args_target in (
-            "nt35",
-            "winnt",
-            "win32"
-        ):
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            if getattr(method, "is_virtual", False):
+                vmt_offset = getattr(
+                    method,
+                    "vmt_offset",
+                    None
+                )
+
+                if vmt_offset is None:
+                    raise RuntimeError(
+                        "virtual method has no VMT offset: "
+                        + method.name
+                    )
+
+                # Self liegt oben auf dem Stack.
+                self.writer.emit_mov_reg_mem32("edx", "esp", 0)
+                # ECX = Self^.VMT
+                self.writer.emit_mov_reg_mem32("ecx", "edx", 0)
+                # ECX = VMT-Slot
+                self.writer.emit_mov_reg_mem32("ecx", "ecx", vmt_offset)
+                self.writer.emit_call_reg32   ("ecx")
+
+                return
+
             self.writer.emit_call_external(target)
             return
 
-        if external:
-            raise RuntimeError(
-                "PUI class method imports are currently supported "
-                "only for COFF32 targets"
-            )
+        if local_label is None:
+            raise RuntimeError(tr("PUI class imports currently require COFF32"))
 
-        self.emit_call_lbl(target, comment=comment)
+        self.emit_call_lbl(local_label, comment=comment)
 
     def register_pui_routines(self, ctx, unit_name, data):
         symbols = data.get("symbols", {})
@@ -3318,6 +4017,266 @@ class AsmJitGenerator(PascalParserVisitor):
             unit_name,
             classes
         )
+
+    def register_pui_imports(self, ctx, unit_name, data):
+        imports = data.get(
+            "imports",
+            {}
+        )
+
+        if imports is None:
+            imports = {}
+
+        if not isinstance(imports, dict):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"invalid imports section in "
+                    f"{unit_name}.pui"
+                )
+            )
+
+        for raw_dll_name, raw_items in imports.items():
+            dll_name = os.path.basename(
+                str(raw_dll_name).strip()
+            )
+
+            if not dll_name:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"empty DLL name in "
+                        f"{unit_name}.pui"
+                    )
+                )
+
+            if not isinstance(raw_items, list):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid import list for "
+                        f"{dll_name} in {unit_name}.pui"
+                    )
+                )
+
+            use_runtime_thunks = (
+                self.is_packed_runtime_library(
+                    dll_name
+                )
+            )
+
+            target_dll_name = None
+            target_items = None
+
+            if not use_runtime_thunks:
+                # Vorhandenen DLL-Key unabhängig von Groß-/Kleinschreibung
+                # wiederverwenden.
+                for existing_dll_name in CDATA.imports:
+                    if (
+                        str(existing_dll_name).lower()
+                        == dll_name.lower()
+                    ):
+                        target_dll_name = existing_dll_name
+                        break
+
+                if target_dll_name is None:
+                    target_dll_name = dll_name
+
+                target_items = CDATA.imports.setdefault(
+                    target_dll_name,
+                    []
+                )
+
+            for raw_item in raw_items:
+                if not isinstance(raw_item, dict):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"invalid import entry for "
+                            f"{dll_name} in {unit_name}.pui"
+                        )
+                    )
+
+                symbol = raw_item.get(
+                    "symbol"
+                )
+
+                import_name = raw_item.get(
+                    "name"
+                )
+
+                ordinal = raw_item.get(
+                    "ordinal"
+                )
+
+                if ordinal is None:
+                    ordinal = self.find_known_dll_import_ordinal(
+                        dll_name,
+                        import_name
+                    )
+
+                if not isinstance(symbol, str) or not symbol:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"DLL import without internal symbol "
+                            f"in {unit_name}.pui"
+                        )
+                    )
+
+                if (
+                    not isinstance(import_name, str)
+                    or not import_name
+                ):
+                    import_name = None
+
+                if import_name is None and ordinal is None:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"DLL import {symbol} has neither "
+                            f"name nor ordinal in {unit_name}.pui"
+                        )
+                    )
+
+                if use_runtime_thunks:
+                    if import_name is None:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                f"packed runtime import "
+                                f"{symbol} has no thunk name "
+                                f"in {unit_name}.pui"
+                            )
+                        )
+
+                    writer = self.backend.writer
+
+                    if not hasattr(
+                        writer,
+                        "add_runtime_symbol_alias"
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "backend does not support "
+                                "runtime symbol aliases"
+                            )
+                        )
+
+                    # Units built in normal mode usually reference a
+                    # synthetic __dllimp_* symbol.  Units already built in
+                    # packed mode can reference the thunk name directly.
+                    if symbol != import_name:
+                        writer.add_runtime_symbol_alias(
+                            symbol,
+                            import_name
+                        )
+
+                    key = (
+                        dll_name.lower(),
+                        import_name
+                    )
+
+                    self.dll_import_symbols.setdefault(
+                        key,
+                        symbol
+                    )
+
+                    match = re.match(
+                        r"^__dllimp_(\d+)_",
+                        symbol
+                    )
+
+                    if match:
+                        self.next_dll_import_id = max(
+                            self.next_dll_import_id,
+                            int(match.group(1)) + 1
+                        )
+
+                    # Do not copy the runtime DLL into CDATA.imports.
+                    continue
+
+                item = {
+                    "symbol": symbol
+                }
+
+                if import_name is not None:
+                    item["name"] = import_name
+
+                if ordinal is not None:
+                    item["ordinal"] = int(
+                        ordinal
+                    )
+
+                # Dasselbe interne Symbol darf nicht auf zwei verschiedene
+                # DLL-Exporte zeigen.
+                for existing_dll, existing_items in CDATA.imports.items():
+                    for existing_item in existing_items:
+                        if (
+                            isinstance(existing_item, dict)
+                            and existing_item.get("symbol") == symbol
+                            and (
+                                str(existing_dll).lower()
+                                != str(target_dll_name).lower()
+                                or existing_item.get("name")
+                                != item.get("name")
+                                or existing_item.get("ordinal")
+                                != item.get("ordinal")
+                            )
+                        ):
+                            raise CompileError(
+                                ctx,
+                                "E0019",
+                                text=(
+                                    f"conflicting imported COFF symbol "
+                                    f"{symbol} while loading "
+                                    f"{unit_name}.pui"
+                                )
+                            )
+
+                already_registered = any(
+                    isinstance(existing_item, dict)
+                    and existing_item.get("symbol") == symbol
+                    and existing_item.get("name") == item.get("name")
+                    and existing_item.get("ordinal") == item.get("ordinal")
+                    for existing_item in target_items
+                )
+
+                if not already_registered:
+                    target_items.append(
+                        item
+                    )
+
+                if import_name is not None:
+                    key = (
+                        dll_name.lower(),
+                        import_name
+                    )
+
+                    self.dll_import_symbols.setdefault(
+                        key,
+                        symbol
+                    )
+
+                match = re.match(
+                    r"^__dllimp_(\d+)_",
+                    symbol
+                )
+
+                if match:
+                    self.next_dll_import_id = max(
+                        self.next_dll_import_id,
+                        int(match.group(1)) + 1
+                    )
 
     def add_unit_initializer(self, symbol, external=False):
         if not symbol:
@@ -3485,6 +4444,15 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.add_pui_link_archive(path)
 
             self.register_pui_types(
+                ctx,
+                unit_name,
+                data
+            )
+
+            # Die eingebundene Unit-.o-Datei kann Relocations auf
+            # synthetische DLL-Import-Symbole enthalten. Diese müssen
+            # vor dem finalen PE-Link wieder in CDATA.imports stehen.
+            self.register_pui_imports(
                 ctx,
                 unit_name,
                 data
@@ -4221,6 +5189,19 @@ class AsmJitGenerator(PascalParserVisitor):
             self.emit_call("_jit_error_out_of_memory")
             self.emit_bind_label(ok_label)
 
+            # [Self+0] enthält immer den VMT-Zeiger.
+            self.writer.emit_lea_reg_data_label(
+                "edx",
+                cls.vmt_symbol
+            )
+
+            self.emit_mov_dword_ptr_store(
+                "eax",
+                0,
+                "edx",
+                comment=f"{class_name} VMT"
+            )
+
             # Objekt für Rückgabe sichern, aber NICHT auf dem Parameter-Stack
             tmp_symbol = "__ctor_result_tmp"
 
@@ -4306,6 +5287,557 @@ class AsmJitGenerator(PascalParserVisitor):
             
             return class_key
     
+    def resolve_external_library(
+        self,
+        ctx,
+        library_ctx
+    ):
+        string_token = (
+            library_ctx.STRING()
+            if hasattr(
+                library_ctx,
+                "STRING"
+            )
+            else None
+        )
+
+        if string_token is not None:
+            return self.pascal_token_string(
+                string_token
+            )
+
+        ident_token = (
+            library_ctx.IDENT()
+            if hasattr(
+                library_ctx,
+                "IDENT"
+            )
+            else None
+        )
+
+        if ident_token is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="external library name is missing"
+            )
+
+        const_name = ident_token.getText()
+
+        const_info = self.find_const(
+            const_name
+        )
+
+        if const_info is None:
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=const_name
+            )
+
+        if const_info.get("type") != "string":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=const_info.get(
+                    "type",
+                    "<unknown>"
+                ),
+                expected="string constant"
+            )
+
+        dll_name = const_info.get(
+            "value"
+        )
+
+        if not isinstance(
+            dll_name,
+            str
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"external library constant "
+                    f"{const_name} is not a string"
+                )
+            )
+
+        return dll_name
+    
+    def resolve_object_reference(
+        self,
+        ctx,
+        obj_name
+    ):
+        """
+        Ermittelt eine Objektvariable in der Reihenfolge:
+
+            lokale Variable
+            formaler Parameter
+            globale Variable
+
+        Rückgabe:
+            (source_kind, info, class_type)
+        """
+        local_info = self.find_local_var(
+            obj_name
+        )
+
+        if local_info is not None:
+            class_type = self.resolve_type(
+                local_info["type"]
+            )
+
+            if class_type not in self.classes:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=class_type,
+                    expected="class"
+                )
+
+            return (
+                "local",
+                local_info,
+                class_type
+            )
+
+        param_info = self.find_param(
+            obj_name
+        )
+
+        if param_info is not None:
+            class_type = self.resolve_type(
+                param_info["type"]
+            )
+
+            if class_type not in self.classes:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=class_type,
+                    expected="class"
+                )
+
+            return (
+                "param",
+                param_info,
+                class_type
+            )
+
+        key = obj_name.lower()
+
+        if key not in self.vars:
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=obj_name
+            )
+
+        global_info = self.vars[key]
+        class_type = self.resolve_type(
+            global_info["type"]
+        )
+
+        if class_type not in self.classes:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=class_type,
+                expected="class"
+            )
+
+        return (
+            "global",
+            global_info,
+            class_type
+        )
+
+    def emit_load_object_reference(
+        self,
+        ctx,
+        obj_name,
+        source_kind,
+        info,
+        class_type
+    ):
+        if source_kind == "local":
+            offset = info["offset"]
+
+            if CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    offset,
+                    comment=f"local object {obj_name}"
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rbp",
+                    offset,
+                    comment=f"local object {obj_name}"
+                )
+
+            return class_type
+
+        if source_kind == "param":
+            result_type = self.emit_load_param(
+                ctx,
+                obj_name
+            )
+
+            if result_type is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"could not load object parameter "
+                        f"{obj_name}"
+                    )
+                )
+
+            return class_type
+
+        self.emit_load_object_var(
+            ctx,
+            obj_name,
+            info
+        )
+
+        return class_type
+
+    def emit_object_method_call(
+        self,
+        ctx,
+        obj_name,
+        method_name,
+        actuals=None,
+        require_function=False
+    ):
+        """
+        Erzeugt einen Aufruf der Form:
+
+            Obj.Method(...)
+            Obj.FunctionMethod
+
+        NT32-ABI:
+            Argumente rechts nach links
+            danach Self
+        """
+        if actuals is None:
+            actuals = []
+
+        (
+            source_kind,
+            obj_info,
+            class_type
+        ) = self.resolve_object_reference(
+            ctx,
+            obj_name
+        )
+
+        actual_types = []
+
+        # ==========================================================
+        # NT32 / Win32
+        # ==========================================================
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            arg_bytes = 0
+
+            # cdecl: rechts nach links.
+            for arg_index, arg in enumerate(
+                reversed(actuals)
+            ):
+                arg_type = self.resolve_type(
+                    self.visit_actual_param_expr(
+                        arg
+                    )
+                )
+
+                actual_types.insert(
+                    0,
+                    arg_type
+                )
+
+                if arg_type in (
+                    "integer",
+                    "boolean",
+                    "char",
+                    "string"
+                ):
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"{obj_name}.{method_name} "
+                            f"argument"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                if self.is_pointer_type(
+                    arg_type
+                ):
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"{obj_name}.{method_name} "
+                            f"pointer argument"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
+
+                if arg_type == "double":
+                    self.emit_sub(
+                        "esp",
+                        8,
+                        comment=(
+                            f"{obj_name}.{method_name} "
+                            f"double argument"
+                        )
+                    )
+
+                    self.emit_movsd_store(
+                        "esp",
+                        0,
+                        "xmm0"
+                    )
+
+                    arg_bytes += 8
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=arg_type,
+                    expected=(
+                        "integer/boolean/char/string/"
+                        "double/pointer/class"
+                    )
+                )
+
+            method, owner_cls = (
+                self.find_class_method_recursive(
+                    ctx,
+                    class_type,
+                    method_name,
+                    actual_types
+                )
+            )
+
+            if (
+                require_function
+                and method.kind != "function"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"{owner_cls.name}.{method.name} "
+                        f"is not a function"
+                    )
+                )
+
+            self.emit_load_object_reference(
+                ctx,
+                obj_name,
+                source_kind,
+                obj_info,
+                class_type
+            )
+
+            self.emit_nil_pointer_check(
+                obj_name
+            )
+
+            # Self liegt absichtlich zuletzt/oben auf dem Stack.
+            # emit_class_method_call() benötigt das für VMT-Aufrufe.
+            self.emit_push(
+                "eax",
+                comment=f"{obj_name} Self"
+            )
+
+            self.emit_class_method_call(
+                method,
+                comment=(
+                    f"{owner_cls.name}."
+                    f"{method.name}"
+                )
+            )
+
+            self.backend.emit_cleanup_stack(
+                arg_bytes + 4
+            )
+
+            if (
+                self.coff.find_symbol_index(
+                    "ctx"
+                )
+                is not None
+            ):
+                self.writer.emit_lea_reg_data_label(
+                    "esi",
+                    "ctx"
+                )
+
+            if method.kind == "function":
+                return self.resolve_type(
+                    method.return_type
+                )
+
+            return None
+
+        # ==========================================================
+        # Win64 – momentan bis zu drei skalare Methodenparameter.
+        # ==========================================================
+        if len(actuals) > 3:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "Win64 object method calls currently "
+                    "support at most three parameters"
+                )
+            )
+
+        for arg in reversed(actuals):
+            arg_type = self.resolve_type(
+                self.visit_actual_param_expr(
+                    arg
+                )
+            )
+
+            actual_types.insert(
+                0,
+                arg_type
+            )
+
+            if (
+                arg_type in (
+                    "integer",
+                    "boolean",
+                    "char",
+                    "string"
+                )
+                or self.is_pointer_type(
+                    arg_type
+                )
+            ):
+                self.emit_push(
+                    "rax",
+                    comment=(
+                        f"{obj_name}.{method_name} "
+                        f"argument"
+                    )
+                )
+                continue
+
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "unsupported Win64 object method "
+                    f"argument type: {arg_type}"
+                )
+            )
+
+        method, owner_cls = (
+            self.find_class_method_recursive(
+                ctx,
+                class_type,
+                method_name,
+                actual_types
+            )
+        )
+
+        if (
+            require_function
+            and method.kind != "function"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"{owner_cls.name}.{method.name} "
+                    f"is not a function"
+                )
+            )
+
+        self.emit_load_object_reference(
+            ctx,
+            obj_name,
+            source_kind,
+            obj_info,
+            class_type
+        )
+
+        self.emit_nil_pointer_check(
+            obj_name
+        )
+
+        self.emit_mov(
+            "rcx",
+            "rax",
+            comment=f"{obj_name} Self"
+        )
+
+        param_regs = [
+            "rdx",
+            "r8",
+            "r9"
+        ]
+
+        for index in range(
+            len(actuals)
+        ):
+            self.emit_pop(
+                param_regs[index],
+                comment=(
+                    f"{obj_name}.{method_name} "
+                    f"argument {index + 1}"
+                )
+            )
+
+        self.emit_sub(
+            "rsp",
+            32,
+            comment="method shadow space"
+        )
+
+        self.emit_class_method_call(
+            method,
+            comment=(
+                f"{owner_cls.name}."
+                f"{method.name}"
+            )
+        )
+
+        self.emit_add(
+            "rsp",
+            32,
+            comment="remove method shadow space"
+        )
+
+        if method.kind == "function":
+            return self.resolve_type(
+                method.return_type
+            )
+
+        return None
+
     def emit_class_free_call(self, ctx, obj_name):
         info = self.var_info(ctx, obj_name)
         class_type = info["type"]
@@ -5777,7 +7309,22 @@ class AsmJitGenerator(PascalParserVisitor):
             return "double"
 
         if field.type == "string":
-            self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"Self.{name}")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                # NT32: String ist ein 32-Bit-Datenpointer.
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "eax",
+                    field.offset,
+                    comment=f"Self.{name}"
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rax",
+                    field.offset,
+                    comment=f"Self.{name}"
+                )
+
             return "string"
 
         return field.type
@@ -5968,7 +7515,21 @@ class AsmJitGenerator(PascalParserVisitor):
             return "double"
 
         if field.type == "string":
-            self.emit_mov_qword_ptr("rax", "rax", field.offset, comment=f"{path}")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "eax",
+                    field.offset,
+                    comment=path
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rax",
+                    field.offset,
+                    comment=path
+                )
+
             return "string"
 
         return field.type
@@ -6080,8 +7641,8 @@ class AsmJitGenerator(PascalParserVisitor):
                     self.emit_mov_dword_ptr("eax", "ebx", 0)
                     return "string"
 
-                if isinstance(typ, str) and typ.startswith("^"):
-                    self.emit_mov_dword_ptr("eax", "ebx", 0)
+                if self.is_pointer_type(typ, include_nil=False):
+                    self.emit_mov_dword_ptr("eax","ebp", offset)
                     return typ
 
             if typ in ("integer", "boolean"):
@@ -6100,8 +7661,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.emit_mov_dword_ptr("eax", "ebp", offset)
                 return "string"
 
-            if isinstance(typ, str) and typ.startswith("^"):
-                self.emit_mov_dword_ptr("eax", "ebp", offset)
+            if self.is_pointer_type(typ, include_nil=False):
+                self.emit_mov_dword_ptr("eax", "ebp", offset,
+                    comment=f"pointer parameter {name}"
+                )
                 return typ
                 
         else:
@@ -6417,19 +7980,137 @@ class AsmJitGenerator(PascalParserVisitor):
             return True
 
         if expr_type == "double":
-            self.emit_sub("rsp", 8)
-            self.emit_movsd_store("rsp", 0, "xmm0")
-            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
-            self.emit_movsd_load("xmm0", "rsp")
-            self.emit_add("rsp", 8)
-            self.emit_movsd_store("rax", field.offset, "xmm0", comment=f"Self.{name} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_sub(
+                    "esp",
+                    8,
+                    comment=f"save Self.{name} double"
+                )
+
+                self.emit_movsd_store(
+                    "esp",
+                    0,
+                    "xmm0"
+                )
+
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    -4,
+                    comment="Self"
+                )
+
+                self.emit_movsd_load(
+                    "xmm0",
+                    "esp",
+                    0
+                )
+
+                self.emit_add(
+                    "esp",
+                    8,
+                    comment=f"restore Self.{name} double"
+                )
+
+                self.emit_movsd_store(
+                    "eax",
+                    field.offset,
+                    "xmm0",
+                    comment=f"Self.{name} :="
+                )
+            else:
+                self.emit_sub(
+                    "rsp",
+                    8,
+                    comment=f"save Self.{name} double"
+                )
+
+                self.emit_movsd_store(
+                    "rsp",
+                    0,
+                    "xmm0"
+                )
+
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rbp",
+                    -8,
+                    comment="Self"
+                )
+
+                self.emit_movsd_load(
+                    "xmm0",
+                    "rsp",
+                    0
+                )
+
+                self.emit_add(
+                    "rsp",
+                    8,
+                    comment=f"restore Self.{name} double"
+                )
+
+                self.emit_movsd_store(
+                    "rax",
+                    field.offset,
+                    "xmm0",
+                    comment=f"Self.{name} :="
+                )
+
             return True
 
         if expr_type == "string":
-            self.emit_push("rax")
-            self.emit_mov_qword_ptr("rax", "rbp", -8, comment='Self')
-            self.emit_pop("r11")
-            self.emit_mov_qword_ptr_store("rax", field.offset, "r11", comment=f"Self.{name} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                # EAX enthält den dynamischen String-Datenpointer.
+                self.emit_push(
+                    "eax",
+                    comment=f"save Self.{name} string"
+                )
+
+                # In NT32-Klassenmethoden liegt Self bei [ebp-4].
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    -4,
+                    comment="Self"
+                )
+
+                self.emit_pop(
+                    "ebx",
+                    comment=f"restore Self.{name} string"
+                )
+
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    field.offset,
+                    "ebx",
+                    comment=f"Self.{name} :="
+                )
+            else:
+                self.emit_push(
+                    "rax",
+                    comment=f"save Self.{name} string"
+                )
+
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rbp",
+                    -8,
+                    comment="Self"
+                )
+
+                self.emit_pop(
+                    "r11",
+                    comment=f"restore Self.{name} string"
+                )
+
+                self.emit_mov_qword_ptr_store(
+                    "rax",
+                    field.offset,
+                    "r11",
+                    comment=f"Self.{name} :="
+                )
+
             return True
 
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -6557,11 +8238,42 @@ class AsmJitGenerator(PascalParserVisitor):
             self.emit_mov("ebx", "eax", comment='save class field value')
         
         elif expr_type == "double":
-            self.emit_sub("rsp", 8)
-            self.emit_movsd_store("rsp", 0, "xmm0")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_sub(
+                    "esp",
+                    8,
+                    comment="save double field value"
+                )
+
+                self.emit_movsd_store(
+                    "esp",
+                    0,
+                    "xmm0"
+                )
+            else:
+                self.emit_sub(
+                    "rsp",
+                    8,
+                    comment="save double field value"
+                )
+
+                self.emit_movsd_store(
+                    "rsp",
+                    0,
+                    "xmm0"
+                )
         
         elif expr_type == "string":
-            self.emit_push("rax", comment='save string field value')
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_push(
+                    "eax",
+                    comment="save string field value"
+                )
+            else:
+                self.emit_push(
+                    "rax",
+                    comment="save string field value"
+                )
         
         else:
             raise CompileError(ctx, "E0013", var_type=field.type)
@@ -6577,14 +8289,73 @@ class AsmJitGenerator(PascalParserVisitor):
             return
         
         if field.type == "double":
-            self.emit_movsd_load("xmm0", "rsp")
-            self.emit_add("rsp", 8)
-            self.emit_movsd_store("rax", field.offset, "xmm0", comment=f"{'.'.join(parts)} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_movsd_load(
+                    "xmm0",
+                    "esp",
+                    0
+                )
+
+                self.emit_add(
+                    "esp",
+                    8,
+                    comment="restore double field value"
+                )
+
+                self.emit_movsd_store(
+                    "eax",
+                    field.offset,
+                    "xmm0",
+                    comment=f"{'.'.join(parts)} :="
+                )
+            else:
+                self.emit_movsd_load(
+                    "xmm0",
+                    "rsp",
+                    0
+                )
+
+                self.emit_add(
+                    "rsp",
+                    8,
+                    comment="restore double field value"
+                )
+
+                self.emit_movsd_store(
+                    "rax",
+                    field.offset,
+                    "xmm0",
+                    comment=f"{'.'.join(parts)} :="
+                )
+
             return
         
         if field.type == "string":
-            self.emit_pop("r11")
-            self.emit_mov_qword_ptr_store("rax", field.offset, "r11", comment=f"{'.'.join(parts)} :=")
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                self.emit_pop(
+                    "ebx",
+                    comment="restore string field value"
+                )
+
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    field.offset,
+                    "ebx",
+                    comment=f"{'.'.join(parts)} :="
+                )
+            else:
+                self.emit_pop(
+                    "r11",
+                    comment="restore string field value"
+                )
+
+                self.emit_mov_qword_ptr_store(
+                    "rax",
+                    field.offset,
+                    "r11",
+                    comment=f"{'.'.join(parts)} :="
+                )
+
             return
         
         raise CompileError(ctx, "E0013", var_type=field.type)
@@ -7383,6 +9154,19 @@ class AsmJitGenerator(PascalParserVisitor):
             raise CompileError(ctx, "E0006")
 
         return_type = self.resolve_type(self.current_function["return_type"])
+        expr_type   = self.resolve_type(expr_type)
+
+        if self.is_pointer_type(return_type, include_nil=False):
+            if not self.is_pointer_type(expr_type):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=return_type
+                )
+
+            # Typprüfung wurde erfolgreich durchgeführt.
+            expr_type = return_type
 
         if return_type == "integer" and expr_type == "char":
             expr_type = "integer"
@@ -7413,16 +9197,37 @@ class AsmJitGenerator(PascalParserVisitor):
             raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
 
         elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if return_type in ("integer", "boolean"):
-                self.emit_mov_dword_ptr_store("ebp", offset, "eax")
+            if (return_type in (
+                    "integer",
+                    "boolean",
+                    "string",
+                    "pointer"
+                )
+                or (
+                    isinstance(return_type, str)
+                    and return_type.startswith("^")
+                )
+                or (
+                    isinstance(return_type, str)
+                    and return_type in self.classes
+                )
+            ):
+                self.emit_mov_dword_ptr_store(
+                    "ebp",
+                    offset,
+                    "eax"
+                )
+
                 return None
-                
-            elif return_type == "string":
-                self.emit_mov_dword_ptr_store("ebp", offset, "eax")
+
+            if return_type == "double":
+                self.emit_movsd_store(
+                    "ebp",
+                    offset,
+                    "xmm0"
+                )
+
                 return None
-            
-            elif return_type == "double":
-                raise Exception(tr("double not implemented, yet"))
         else:
             if return_type == "integer":
                 self.emit_mov_dword_ptr_store("rbp", offset, "eax")
@@ -8145,7 +9950,7 @@ class AsmJitGenerator(PascalParserVisitor):
         rt = return_type.lower()
 
         if rt not in ["integer", "string", "double", "boolean"]:
-            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double")
+            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double AA")
 
         self.emit_jmp(end_label)
         self.emit_bind_label(label)
@@ -10083,6 +11888,55 @@ class AsmJitGenerator(PascalParserVisitor):
             self.visit(decl)
         return None
 
+    def emit_class_method_direct_call(
+        self,
+        method,
+        comment=""
+    ):
+        local_label = getattr(
+            method,
+            "label",
+            None
+        )
+
+        mangled = getattr(
+            method,
+            "mangled",
+            None
+        )
+
+        target = (
+            local_label
+            if local_label is not None
+            else mangled
+        )
+
+        if not isinstance(target, str) or not target:
+            raise RuntimeError(
+                "class method has no direct call target: "
+                + str(method.name)
+            )
+
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            self.writer.emit_call_external(
+                target
+            )
+            return
+
+        if local_label is None:
+            raise RuntimeError(
+                "PUI class imports currently require COFF32"
+            )
+
+        self.emit_call_lbl(
+            local_label,
+            comment=comment
+        )
+
     def visitInheritedStatement(self, ctx):
         if self.current_class is None or self.current_method is None:
             raise CompileError(
@@ -10108,80 +11962,224 @@ class AsmJitGenerator(PascalParserVisitor):
             method_name = self.current_method.name
 
         args = self.function_call_args(ctx)
-        actual_types = []
+        argument_bytes = 0
+        actual_types   = []
 
-        for arg in reversed(args):
-            arg_type = self.visit_actual_param_expr(arg)
-            actual_types.insert(0, arg_type)
+        if CDATA.args_target in ["nt35", "winnt", "win32"]:
+            for arg in reversed(args):
+                arg_type = self.resolve_type(self.visit_actual_param_expr(arg))
+                actual_types.insert(0, arg_type)
+                
+                if arg_type in ["integer", "boolean", "char", "string"]:
+                    self.emit_push("eax", comment="inherited argument")
+                    argument_bytes += 4
+                    continue
             
-            if arg_type == "integer":
-                self.emit_movsxd("rax", "eax")
-                self.emit_push("rax", comment="inherited integer arg")
+                if self.is_pointer_type(arg_type):
+                    self.emit_push("eax", comment="inherted pointer argument")
+                    argument_bytes += 4
+                    continue
+                    
+                if arg_type == "double":
+                    self.emit_sub("esp", 8)
+                    self.emit_movsd_store("esp", 0, "xmm0")
+                    argument_bytes += 8
+                    continue
             
-            elif arg_type == "string":
-                if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    # Self aus lokalem Slot laden: wurde am Methodeneinstieg nach [ebp-4] gepusht
-                    self.emit_mov_dword_ptr("eax", "ebp", -4, comment="inherited Self")
-                    self.emit_push("eax", comment="Self")
+                raise CompileError(ctx, "E0019",
+                    text=(f"unsupported inherited argument type {arg_type}")
+                )
+        
+            method, owner_cls = self.find_class_method_recursive(
+                ctx,
+                cls.parent,
+                method_name,
+                actual_types
+            )
 
-                    self.emit_call(method.label, comment=f"inherited {owner_cls.name}.{method.name}")
-
-                    self.backend.emit_cleanup_stack(4)
-                    self.writer.emit_lea_reg_data_label("esi", "ctx")
-
-                    return None
-                else:
-                    self.emit_push("rax", comment="inherited string arg")
+            # Self wurde im Prolog nach [ebp-4] gesichert.
+            self.emit_mov_dword_ptr("eax", "ebp", -4, comment="inherited Self")
             
-            elif isinstance(arg_type, str) and arg_type.startswith("^"):
-                self.emit_push("rax", comment="inherited pointer arg")
+            # Self muss unmittelbar vor dem Call oben auf
+            # dem Stack liegen:
+            #
+            #   [esp+0] = Self
+            #   [esp+4] = Parameter 1
+            #
+            self.emit_push("eax", comment="inherited Self")
+            self.emit_class_method_direct_call(
+                method,
+                comment=(
+                    f"inherited "
+                    f"{owner_cls.name}."
+                    f"{method.name}"
+                )
+            )
             
-            else:
+            self.backend.emit_cleanup_stack(argument_bytes + 4)
+            
+            if (self.coff.find_symbol_index("ctx") is not None):
+                self.writer.emit_lea_reg_data_label("esi", "ctx")
+                
+            return None
+            
+        # Windows 64-bit
+        else:
+            # Der derzeitige Aufbau unterstützt nur die drei Registerparameter
+            # nach Self:
+            #
+            #   RCX = Self
+            #   RDX = Parameter 1
+            #   R8  = Parameter 2
+            #   R9  = Parameter 3
+            #
+            if len(args) > 3:
                 raise CompileError(
                     ctx,
                     "E0019",
-                    text=f"unsupported inherited argument type {arg_type}"
+                    text=(
+                        "Win64 inherited calls currently "
+                        "support at most three parameters"
+                    )
                 )
-        
-        method, owner_cls = self.find_class_method_recursive(
-            ctx,
-            cls.parent,
-            method_name,
-            actual_types
-        )
 
-        param_regs = ["rdx", "r8", "r9"]
+            for arg in reversed(args):
+                arg_type = self.resolve_type(
+                    self.visit_actual_param_expr(
+                        arg
+                    )
+                )
 
-        # Parameter 4..N bleiben als Stack-Parameter liegen
-        stack_count = 0
+                actual_types.insert(
+                    0,
+                    arg_type
+                )
 
-        for index in range(len(args) - 1, 2, -1):
-            stack_count += 1
+                if arg_type == "integer":
+                    self.emit_movsxd(
+                        "rax",
+                        "eax"
+                    )
 
-        # Self laden
-        self.emit_mov_qword_ptr("rcx", "rbp", -8, comment='inherited Self')
+                    self.emit_push(
+                        "rax",
+                        comment="inherited integer argument"
+                    )
 
-        # Parameter 1..3 aus temporärem Stack holen
-        reg_count = min(3, len(args))
+                    continue
 
-        for index in range(reg_count):
-            self.emit_pop(param_regs[index], comment=f"inherited arg {index + 1}")
+                if arg_type in (
+                    "boolean",
+                    "char"
+                ):
+                    # Ein Schreiben nach EAX löscht unter x64 die
+                    # oberen 32 Bits von RAX.
+                    self.emit_and(
+                        "eax",
+                        0xFFFFFFFF
+                    )
 
-        align_pad = 0
+                    self.emit_push(
+                        "rax",
+                        comment="inherited scalar argument"
+                    )
 
-        if stack_count % 2 == 1:
-            self.emit_sub("rsp", 8, comment = "align stack before inherited call")
-            align_pad = 8
+                    continue
 
-        self.emit_call(method.label, comment = f"inherited {owner_cls.name}.{method.name}")
+                if (
+                    arg_type == "string"
+                    or self.is_pointer_type(
+                        arg_type
+                    )
+                ):
+                    self.emit_push(
+                        "rax",
+                        comment="inherited pointer argument"
+                    )
 
-        if align_pad:
-            self.emit_add("rsp", 8, comment = "remove inherited alignment padding")
+                    continue
 
-        if stack_count > 0:
-            self.emit_add("rsp", stack_count * 8, comment = "remove inherited stack args")
+                if arg_type == "double":
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "Win64 Double arguments in inherited "
+                            "calls are not implemented yet"
+                        )
+                    )
 
-        return None
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "unsupported inherited "
+                        f"argument type {arg_type}"
+                    )
+                )
+
+            method, owner_cls = (
+                self.find_class_method_recursive(
+                    ctx,
+                    cls.parent,
+                    method_name,
+                    actual_types
+                )
+            )
+
+            # Self wurde im Prolog nach [rbp-8] gesichert.
+            self.emit_mov_qword_ptr(
+                "rcx",
+                "rbp",
+                -8,
+                comment="inherited Self"
+            )
+
+            param_regs = [
+                "rdx",
+                "r8",
+                "r9"
+            ]
+
+            # Durch das Pushen in umgekehrter Reihenfolge liegt
+            # Parameter 1 jetzt oben auf dem Stack.
+            for index in range(
+                len(args)
+            ):
+                self.emit_pop(
+                    param_regs[index],
+                    comment=(
+                        f"inherited argument "
+                        f"{index + 1}"
+                    )
+                )
+
+            # Windows-x64 Shadow Space.
+            #
+            # Falls dein Methoden-Prolog RSP vor diesem Punkt nur auf
+            # 8 modulo 16 ausrichtet, müssen hier 40 statt 32 Bytes
+            # reserviert werden.
+            self.emit_sub(
+                "rsp",
+                32,
+                comment="inherited shadow space"
+            )
+
+            self.emit_class_method_direct_call(
+                method,
+                comment=(
+                    f"inherited "
+                    f"{owner_cls.name}."
+                    f"{method.name}"
+                )
+            )
+
+            self.emit_add(
+                "rsp",
+                32,
+                comment="remove inherited shadow space"
+            )
+            return None
     
     def visitClassMethodImplementation(self, ctx):
         class_name  = ctx.IDENT(0).getText()
@@ -10406,28 +12404,105 @@ class AsmJitGenerator(PascalParserVisitor):
         self.current_proc_params = old_params
         
         if method.kind == "function":
-            rt = self.resolve_type(method.return_type)
+            rt = self.resolve_type(
+                method.return_type
+            )
 
             if rt == "string":
-                if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    self.emit_mov_dword_ptr("eax", "ebp", result_off)
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "ebp",
+                        result_off
+                    )
                 else:
-                    self.emit_mov_qword_ptr("rax", "rbp", result_off)
-                    
-            elif rt == "integer":
-                if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    self.emit_mov_dword_ptr("eax", "ebp", result_off)
+                    self.emit_mov_qword_ptr(
+                        "rax",
+                        "rbp",
+                        result_off
+                    )
+
+            elif rt in (
+                "integer",
+                "boolean"
+            ):
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "ebp",
+                        result_off
+                    )
                 else:
-                    self.emit_mov_dword_ptr("eax", "rbp", result_off)
-                    
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "rbp",
+                        result_off
+                    )
+
+                if rt == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
+            elif self.is_pointer_type(
+                rt,
+                include_nil=False
+            ):
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "ebp",
+                        result_off
+                    )
+                else:
+                    self.emit_mov_qword_ptr(
+                        "rax",
+                        "rbp",
+                        result_off
+                    )
+
             elif rt == "double":
-                if CDATA.args_target in ["nt35", "winnt", "win32"]:
-                    self.emit_movsd_load("xmm0", "ebp", result_off)
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    self.emit_movsd_load(
+                        "xmm0",
+                        "ebp",
+                        result_off
+                    )
                 else:
-                    self.emit_movsd_load("xmm0", "rbp", result_off)
+                    self.emit_movsd_load(
+                        "xmm0",
+                        "rbp",
+                        result_off
+                    )
+
             else:
-                raise CompileError(ctx, "E0005", got=rt, expected="integer/string/double")
-        
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=rt,
+                    expected=(
+                        "integer/boolean/string/"
+                        "double/pointer"
+                    )
+                )
+            
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
             self.emit_mov("esp", "ebp")
             self.emit_pop("ebp")
@@ -10725,7 +12800,7 @@ class AsmJitGenerator(PascalParserVisitor):
         REG_B  = "ebx" if is_nt32 else "rbx"
         REG_SP = "esp" if is_nt32 else "rsp"
 
-        if left_type == "integer":
+        if left_type in ["integer", "boolean"]:
             self.emit_push(REG_A)
 
         elif left_type == "double":
@@ -10748,8 +12823,8 @@ class AsmJitGenerator(PascalParserVisitor):
         true_label = self.new_named_label("cmp_true")
         end_label  = self.new_named_label("cmp_end")
 
-        if left_type == "integer":
-            if right_type == "integer":
+        if left_type in ["integer", "boolean"]:
+            if right_type in ["integer", "boolean"]:
                 self.emit_mov("ebx", "eax")
                 self.emit_pop(REG_A)
                 self.emit_cmp("eax", "ebx")
@@ -10785,11 +12860,11 @@ class AsmJitGenerator(PascalParserVisitor):
                     ctx,
                     "E0005",
                     got=right_type,
-                    expected="integer/double"
+                    expected="integer/double/boolean 22"
                 )
 
         elif left_type == "double":
-            if right_type == "integer":
+            if right_type in ["integer", "boolean"]:
                 self.emit_cvtsi2sd("xmm0", "eax")
 
             elif right_type != "double":
@@ -10797,7 +12872,7 @@ class AsmJitGenerator(PascalParserVisitor):
                     ctx,
                     "E0005",
                     got=right_type,
-                    expected="integer/double"
+                    expected="integer/double/boolean"
                 )
 
             self.emit_movsd_load("xmm1", REG_SP, 0)
@@ -10845,7 +12920,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 ctx,
                 "E0005",
                 got=left_type,
-                expected="integer/double/pointer"
+                expected="integer/double/pointer 11"
             )
 
         jump_map[op](true_label)
@@ -10858,7 +12933,7 @@ class AsmJitGenerator(PascalParserVisitor):
 
         self.emit_bind_label(end_label)
 
-        return "integer"
+        return "boolean"
     
     def visitRecordDeclaration(self, ctx):
         record_name = ctx.IDENT().getText()
@@ -11292,6 +13367,11 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             },
 
+            # DLL-Imports, die von der erzeugten Unit-Objektdatei
+            # referenziert werden. Das Hauptprogramm muss für diese
+            # internen COFF-Symbole Import-Thunks erzeugen.
+            "imports": {},
+
             "initialization": {
                 "symbol": None
             },
@@ -11408,6 +13488,104 @@ class AsmJitGenerator(PascalParserVisitor):
 
         entries.append(item)
     
+    def pui_add_dll_import(
+        self,
+        dll_name,
+        import_item
+    ):
+        """
+        Speichert einen von der Unit-Objektdatei benötigten DLL-Import.
+
+        Gespeichert werden insbesondere:
+
+            symbol  internes COFF-/Thunk-Symbol
+            name    tatsächlicher Exportname in der DLL
+        """
+        if self.pending_pui is None:
+            return
+
+        dll_name = os.path.basename(
+            str(dll_name).strip()
+        )
+
+        if not dll_name:
+            raise RuntimeError(
+                "PUI DLL import has no library name"
+            )
+
+        if not isinstance(import_item, dict):
+            raise RuntimeError(
+                "PUI DLL import item must be a dictionary"
+            )
+
+        symbol = import_item.get(
+            "symbol"
+        )
+
+        import_name = import_item.get(
+            "name"
+        )
+
+        ordinal = import_item.get(
+            "ordinal"
+        )
+
+        if not isinstance(symbol, str) or not symbol:
+            raise RuntimeError(
+                "PUI DLL import has no internal symbol"
+            )
+
+        if (
+            not isinstance(import_name, str)
+            or not import_name
+        ):
+            import_name = None
+
+        if import_name is None and ordinal is None:
+            raise RuntimeError(
+                "PUI DLL import requires a name or ordinal: "
+                + symbol
+            )
+
+        imports = self.pending_pui.setdefault(
+            "imports",
+            {}
+        )
+
+        entries = imports.setdefault(
+            dll_name,
+            []
+        )
+
+        item = {
+            "symbol": symbol
+        }
+
+        if import_name is not None:
+            item["name"] = import_name
+
+        if ordinal is not None:
+            item["ordinal"] = int(
+                ordinal
+            )
+
+        for old_item in entries:
+            if (
+                isinstance(old_item, dict)
+                and old_item.get("symbol") == symbol
+            ):
+                if old_item != item:
+                    raise RuntimeError(
+                        "conflicting PUI DLL import symbol "
+                        + symbol
+                    )
+
+                return
+
+        entries.append(
+            item
+        )
+
     def visitFunctionHeader(self, ctx):
         name   = ctx.IDENT().getText()
         scoped = self.unit_scoped_name(name)
@@ -11418,6 +13596,16 @@ class AsmJitGenerator(PascalParserVisitor):
         return_type = self.resolve_type(
             ctx.typeName().getText()
         )
+
+        if ctx.externalRoutineSpec():
+            return self.register_external_routine(
+                ctx         = ctx,
+                kind        = "function",
+                name        = name,
+                params      = params,
+                return_type = return_type,
+                spec_ctx    = ctx.externalRoutineSpec()
+            )
 
         mangled = self.fpc_mangle_routine(
             name,
@@ -11459,6 +13647,16 @@ class AsmJitGenerator(PascalParserVisitor):
 
         params = self.collect_formal_params(ctx)
 
+        if ctx.externalRoutineSpec():
+            return self.register_external_routine(
+                ctx         = ctx,
+                kind        = "procedure",
+                name        = name,
+                params      = params,
+                return_type = None,
+                spec_ctx    = ctx.externalRoutineSpec()
+            )
+
         mangled = self.fpc_mangle_routine(
             name,
             params,
@@ -11475,7 +13673,7 @@ class AsmJitGenerator(PascalParserVisitor):
             }
 
         self.procedures[name.lower()] = self.procedures[key]
-
+        
         if self.collect_pui_interface:
             self.pui_add_symbol(
                 "procedures",
@@ -11552,29 +13750,42 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return None
     
-    def pui_add_class(self, class_name):
+
+    def pui_add_class(
+        self,
+        class_name
+    ):
         if self.pending_pui is None:
             return
 
         class_key = class_name.lower()
-        cls = self.classes[class_key]
+        cls = self.classes[
+            class_key
+        ]
 
         fields = []
 
-        for field_name, field in cls.fields.items():
+        for field in cls.fields.values():
+            # Geerbte Felder werden für ein vollständiges Layout
+            # weiterhin gespeichert.
             fields.append({
                 "name": field.name,
-                "type": self.resolve_type(field.type),
+                "type": self.resolve_type(
+                    field.type
+                ),
                 "offset": field.offset,
                 "size": field.size,
-                "visibility": getattr(field, "visibility", "public")
+                "visibility": getattr(
+                    field,
+                    "visibility",
+                    "public"
+                )
             })
 
         methods = []
 
-        for method_name, overloads in cls.methods.items():
+        for overloads in cls.methods.values():
             for method in overloads:
-                # Geerbte Methoden nicht erneut als eigene Methoden speichern
                 if method.owner != class_key:
                     continue
 
@@ -11582,22 +13793,51 @@ class AsmJitGenerator(PascalParserVisitor):
                     "name": method.name,
                     "kind": method.kind,
                     "symbol": method.mangled,
-                    "params": self.pui_param_data(method.params),
+                    "params": self.pui_param_data(
+                        method.params
+                    ),
                     "return_type": (
-                        self.resolve_type(method.return_type)
+                        self.resolve_type(
+                            method.return_type
+                        )
                         if method.return_type
                         else None
                     ),
                     "visibility": method.visibility,
-                    "calling_convention": "cdecl"
+                    "calling_convention": "cdecl",
+                    "is_virtual": bool(
+                        getattr(
+                            method,
+                            "is_virtual",
+                            False
+                        )
+                    ),
+                    "is_override": bool(
+                        getattr(
+                            method,
+                            "is_override",
+                            False
+                        )
+                    ),
+                    "vmt_offset": getattr(
+                        method,
+                        "vmt_offset",
+                        None
+                    )
                 })
 
         properties = []
 
-        for prop_name, prop in getattr(cls, "properties", {}).items():
+        for prop in getattr(
+            cls,
+            "properties",
+            {}
+        ).values():
             properties.append({
                 "name": prop.name,
-                "type": self.resolve_type(prop.ptype),
+                "type": self.resolve_type(
+                    prop.ptype
+                ),
                 "visibility": prop.visibility,
                 "read": prop.read_name,
                 "write": prop.write_name
@@ -11609,150 +13849,217 @@ class AsmJitGenerator(PascalParserVisitor):
                 "name": cls.name,
                 "parent": cls.parent,
                 "size": cls.size,
+                "vmt_symbol": cls.vmt_symbol,
+                "class_name_symbol": (
+                    cls.class_name_symbol
+                ),
                 "fields": fields,
                 "methods": methods,
                 "properties": properties
             }
         )
-    
-    def visitClassDeclaration(self, ctx):
-        class_name = ctx.IDENT().getText()
-        
-        fields     = []
-        methods    = []
+
+
+    def visitClassDeclaration(
+        self,
+        ctx
+    ):
+        class_name = (
+            ctx.IDENT().getText()
+        )
+
+        fields = []
+        methods = []
         properties = {}
-        
-        parent_name         = None
-        current_visibility  = "public"
-        
+
+        parent_name = None
+        current_visibility = "public"
+
         if ctx.classParent():
-            parent_name = ctx.classParent().IDENT().getText()
-        
-        for member in ctx.classBody().classMember():
-            
+            parent_name = (
+                ctx.classParent()
+                .IDENT()
+                .getText()
+            )
+
+        for member in (
+            ctx.classBody()
+            .classMember()
+        ):
             if member.visibilitySection():
-                current_visibility = member.visibilitySection().getText().lower()
+                current_visibility = (
+                    member
+                    .visibilitySection()
+                    .getText()
+                    .lower()
+                )
+
                 continue
-                
+
             if member.classFieldDeclaration():
-                field_ctx = member.classFieldDeclaration()
-                field_type = field_ctx.typeName().getText()
-                
-                for ident in field_ctx.identList().IDENT():
-                    fields.append((ident.getText(), field_type, current_visibility))
-            
-            elif member.constructorDeclaration():
-                ctor = member.constructorDeclaration()
-                method_name = ctor.IDENT().getText()
-                
-                params  = self.collect_formal_params(ctor)
-                mangled = self.fpc_mangle_class_method(
-                    class_name,
-                    method_name,
-                    params,
-                    self.current_unit if self.current_unit else self.program_name
+                field_ctx = (
+                    member
+                    .classFieldDeclaration()
                 )
-                
-                methods.append({
-                    "name"      : method_name,
-                    "kind"      : "constructor",
-                    "label"     : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled"   : mangled,
-                    "params"    : params,
-                    "visibility": current_visibility
-                })
-            
+
+                field_type = (
+                    field_ctx
+                    .typeName()
+                    .getText()
+                )
+
+                for ident in (
+                    field_ctx
+                    .identList()
+                    .IDENT()
+                ):
+                    fields.append((
+                        ident.getText(),
+                        field_type,
+                        current_visibility
+                    ))
+
+                continue
+
+            declaration = None
+            method_kind = None
+            return_type = None
+
+            if member.constructorDeclaration():
+                declaration = (
+                    member
+                    .constructorDeclaration()
+                )
+
+                method_kind = "constructor"
+
             elif member.destructorDeclaration():
-                dtor = member.destructorDeclaration()
-                method_name = dtor.IDENT().getText()
-
-                params  = self.collect_formal_params(dtor)
-                mangled = self.fpc_mangle_class_method(
-                    class_name,
-                    method_name,
-                    params,
-                    self.current_unit if self.current_unit else self.program_name
+                declaration = (
+                    member
+                    .destructorDeclaration()
                 )
 
-                methods.append({
-                    "name"      : method_name,
-                    "kind"      : "destructor",
-                    "label"     : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled"   : mangled,
-                    "params"    : params,
-                    "visibility": current_visibility
-                })
-            
+                method_kind = "destructor"
+
             elif member.classFunctionDeclaration():
-                fn = member.classFunctionDeclaration()
-                method_name = fn.IDENT().getText()
-                
-                params  = self.collect_formal_params(fn)
-                mangled = self.fpc_mangle_class_method(
-                    class_name,
-                    method_name,
-                    params,
-                    self.current_unit if self.current_unit else self.program_name
+                declaration = (
+                    member
+                    .classFunctionDeclaration()
                 )
 
-                methods.append({
-                    "name"       : method_name,
-                    "kind"       : "function",
-                    "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled"    : mangled,
-                    "params"     : params,
-                    "return_type": self.resolve_type(fn.typeName().getText()),
-                    "visibility" : current_visibility
-                })
-            
+                method_kind = "function"
+
+                return_type = self.resolve_type(
+                    declaration
+                    .typeName()
+                    .getText()
+                )
+
             elif member.classProcedureDeclaration():
-                proc = member.classProcedureDeclaration()
-                method_name = proc.IDENT().getText()
-                
-                params  = self.collect_formal_params(proc)
+                declaration = (
+                    member
+                    .classProcedureDeclaration()
+                )
+
+                method_kind = "procedure"
+
+            if declaration is not None:
+                method_name = (
+                    declaration
+                    .IDENT()
+                    .getText()
+                )
+
+                params = self.collect_formal_params(
+                    declaration
+                )
+
+                flags = self.method_directive_flags(
+                    declaration
+                )
+
                 mangled = self.fpc_mangle_class_method(
                     class_name,
                     method_name,
                     params,
-                    self.current_unit if self.current_unit else self.program_name
+                    (
+                        self.current_unit
+                        if self.current_unit
+                        else self.program_name
+                    )
                 )
 
                 methods.append({
-                    "name"       : method_name,
-                    "kind"       : "procedure",
-                    "label"      : self.new_named_label("class_" + class_name + "_" + method_name),
-                    "mangled"    : mangled,
-                    "params"     : params,
-                    "return_type": None,
-                    "visibility" : current_visibility
+                    "name": method_name,
+                    "kind": method_kind,
+                    "label": self.new_named_label(
+                        "class_"
+                        + class_name
+                        + "_"
+                        + method_name
+                    ),
+                    "mangled": mangled,
+                    "params": params,
+                    "return_type": return_type,
+                    "visibility": current_visibility,
+                    "virtual": flags["virtual"],
+                    "override": flags["override"]
                 })
-            
-            elif member.propertyDeclaration():
-                prop = member.propertyDeclaration()
 
-                prop_name = prop.IDENT().getText()
-                prop_type = self.resolve_type(prop.typeName().getText())
+                continue
+
+            if member.propertyDeclaration():
+                prop = (
+                    member
+                    .propertyDeclaration()
+                )
+
+                prop_name = (
+                    prop.IDENT().getText()
+                )
+
+                prop_type = self.resolve_type(
+                    prop.typeName().getText()
+                )
 
                 read_name = None
                 write_name = None
 
-                for acc in prop.propertyAccessor():
-                    acc_text = acc.getText().lower()
-                    acc_name = acc.IDENT().getText()
+                for accessor in (
+                    prop.propertyAccessor()
+                ):
+                    accessor_text = (
+                        accessor
+                        .getText()
+                        .lower()
+                    )
 
-                    if acc_text.startswith("read"):
-                        read_name = acc_name
-                    elif acc_text.startswith("write"):
-                        write_name = acc_name
+                    accessor_name = (
+                        accessor
+                        .IDENT()
+                        .getText()
+                    )
 
-                properties[prop_name.lower()] = PropertyInfo(
-                    name       = prop_name,
-                    ptype      = prop_type,
-                    visibility = current_visibility,
-                    read_name  = read_name,
-                    write_name = write_name
+                    if accessor_text.startswith(
+                        "read"
+                    ):
+                        read_name = accessor_name
+
+                    elif accessor_text.startswith(
+                        "write"
+                    ):
+                        write_name = accessor_name
+
+                properties[
+                    prop_name.lower()
+                ] = PropertyInfo(
+                    name=prop_name,
+                    ptype=prop_type,
+                    visibility=current_visibility,
+                    read_name=read_name,
+                    write_name=write_name
                 )
-        
+
         self.declare_class(
             ctx,
             class_name,
@@ -11761,10 +14068,17 @@ class AsmJitGenerator(PascalParserVisitor):
             properties,
             parent_name=parent_name
         )
-        
+
         if self.collect_pui_interface:
-            self.pui_add_class(class_name)
-        
+            self.pui_add_class(
+                class_name
+            )
+
+        # Das Datensymbol muss vor Konstruktor-Code existieren.
+        self.emit_class_vmt_data(
+            class_name
+        )
+
         return None
 
     def register_pui_types(
@@ -14638,6 +16952,28 @@ class AsmJitGenerator(PascalParserVisitor):
                     if property_type is not None:
                         return property_type
 
+                    # Parameterlose Funktionsmethode ohne Klammern:
+                    #
+                    #     Foo.InstanceSize
+                    #
+                    if len(parts) == 2:
+                        cls = self.classes[
+                            var_type
+                        ]
+
+                        method_key = (
+                            parts[1].lower()
+                        )
+
+                        if method_key in cls.methods:
+                            return self.emit_object_method_call(
+                                ctx,
+                                var_name,
+                                parts[1],
+                                actuals=[],
+                                require_function=True
+                            )
+
                     return self.emit_load_class_field(
                         ctx,
                         parts
@@ -15236,38 +17572,76 @@ class AsmJitGenerator(PascalParserVisitor):
         
         key  = name.lower()
         
-        self.builtin_functions = {
-            "assigned": self.emit_builtin_assigned,
-            "length": self.emit_builtin_length,
-            "low": self.emit_builtin_low,
-            "high": self.emit_builtin_high,
-            "paramcount": self.emit_builtin_paramcount,
-            "paramstr": self.emit_builtin_paramstr,
-            "commandline": self.emit_builtin_commandline,
-            "copy": self.emit_builtin_copy,
-            "pos": self.emit_builtin_pos,
+        # ------------------------------------------------------------
+        # Expliziter Pointer-Cast
+        #
+        #     Pointer(Self)
+        #     Pointer(P)
+        #
+        # Der Cast verändert den Maschinenwert nicht. EAX/RAX enthält
+        # nach der Auswertung bereits den Zeiger.
+        # ------------------------------------------------------------
+        if key == "pointer":
+            actuals = []
+
+            if ctx.argumentList():
+                actuals = list(ctx.argumentList().expr())
+
+            if len(actuals) != 1:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=str(len(actuals)),
+                    expected="1"
+                )
+
+            source_type = self.visit(actuals[0])
+            source_type = self.resolve_type(source_type)
+
+            if not self.is_pointer_type(source_type):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="pointer or class"
+                )
+
+            # Kein Code notwendig:
+            # EAX/RAX enthält bereits die Adresse.
+            return "pointer"
         
-            "blake2": self.emit_builtin_blake2,
-            "blake3": self.emit_builtin_blake3,
-            "crc16": self.emit_builtin_crc16,
-            "crc32": self.emit_builtin_crc32,
-            "crc32c": self.emit_builtin_crc32c,
-            "crc64": self.emit_builtin_crc64,
-            "md5": self.emit_builtin_md5,
-            "sha1": self.emit_builtin_sha1,
-            "sha3": self.emit_builtin_sha3,
-            "sha224": self.emit_builtin_sha224,
-            "sha256": self.emit_builtin_sha256,
-            "sha384": self.emit_builtin_sha384,
-            "sha512": self.emit_builtin_sha512,
+        self.builtin_functions = {
+            "assigned"      : self.emit_builtin_assigned,
+            "length"        : self.emit_builtin_length,
+            "low"           : self.emit_builtin_low,
+            "high"          : self.emit_builtin_high,
+            "paramcount"    : self.emit_builtin_paramcount,
+            "paramstr"      : self.emit_builtin_paramstr,
+            "commandline"   : self.emit_builtin_commandline,
+            "copy"          : self.emit_builtin_copy,
+            "pos"           : self.emit_builtin_pos,
+        
+            "blake2"        : self.emit_builtin_blake2,
+            "blake3"        : self.emit_builtin_blake3,
+            "crc16"         : self.emit_builtin_crc16,
+            "crc32"         : self.emit_builtin_crc32,
+            "crc32c"        : self.emit_builtin_crc32c,
+            "crc64"         : self.emit_builtin_crc64,
+            "md5"           : self.emit_builtin_md5,
+            "sha1"          : self.emit_builtin_sha1,
+            "sha3"          : self.emit_builtin_sha3,
+            "sha224"        : self.emit_builtin_sha224,
+            "sha256"        : self.emit_builtin_sha256,
+            "sha384"        : self.emit_builtin_sha384,
+            "sha512"        : self.emit_builtin_sha512,
             
-            "diskfree": self.emit_builtin_diskfree,
-            "disktotal": self.emit_builtin_disktotal,
-            "disklabel": self.emit_builtin_disklabel,
-            "diskserial": self.emit_builtin_diskserial,
+            "diskfree"      : self.emit_builtin_diskfree,
+            "disktotal"     : self.emit_builtin_disktotal,
+            "disklabel"     : self.emit_builtin_disklabel,
+            "diskserial"    : self.emit_builtin_diskserial,
             "diskfilesystem": self.emit_builtin_diskfilesystem,
-            "disktype": self.emit_builtin_disktype,
-            "diskshare": self.emit_builtin_diskshare,
+            "disktype"      : self.emit_builtin_disktype,
+            "diskshare"     : self.emit_builtin_diskshare,
         }
         handler = self.builtin_functions.get(key)
         if handler:
@@ -15538,23 +17912,38 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ====================================================
                 # Pointer
                 # ====================================================
-                if (
-                    isinstance(formal_type, str)
-                    and formal_type.startswith("^")
-                ):
-                    if expr_type not in (
-                        formal_type,
-                        "^nil"
-                    ):
-                        raise CompileError(
-                            ctx,
-                            "E0005",
-                            got=expr_type,
-                            expected=formal_type
-                        )
+                if self.is_pointer_type(formal_type, include_nil=False):
+                    if formal_type == "pointer":
+                        # Generischer Pointer akzeptiert:
+                        #   Pointer
+                        #   ^T
+                        #   Klasseninstanz
+                        #   nil
+                        if not self.is_pointer_type(expr_type):
+                            raise CompileError(
+                                ctx,
+                                "E0005",
+                                got=expr_type,
+                                expected="pointer"
+                            )
 
-                    self.emit_push(
-                        "eax",
+                    else:
+                        # Typisierter Pointer bleibt grundsätzlich streng.
+                        # Ein expliziter Pointer(...) Cast darf ihn jedoch
+                        # ebenfalls passieren.
+                        if expr_type not in (
+                            formal_type,
+                            "pointer",
+                            "^nil"
+                        ):
+                            raise CompileError(
+                                ctx,
+                                "E0005",
+                                got=expr_type,
+                                expected=formal_type
+                            )
+
+                    self.emit_push("eax",
                         comment=(
                             f"function pointer parameter "
                             f"{index + 1}"
@@ -16108,6 +18497,21 @@ class AsmJitGenerator(PascalParserVisitor):
                     obj_name
                 )
 
+            actuals = []
+
+            if ctx.actualParamList():
+                actuals = list(
+                    ctx.actualParamList().actualParam()
+                )
+
+            return self.emit_object_method_call(
+                ctx,
+                obj_name,
+                method_name,
+                actuals=actuals,
+                require_function=False
+            )
+
         # ------------------------------------------------------------------
         # Eingebaute Prozeduren
         # ------------------------------------------------------------------
@@ -16527,21 +18931,43 @@ class AsmJitGenerator(PascalParserVisitor):
 
                 # ----------------------------------------------------------
                 # Pointer
+                #
+                # Unterstützt:
+                #   Pointer
+                #   ^Integer
+                #   ^Record
+                #   Klasseninstanzen
+                #   nil
                 # ----------------------------------------------------------
-                if (
-                    isinstance(formal_type, str)
-                    and formal_type.startswith("^")
-                ):
-                    if expr_type not in (
-                        formal_type,
-                        "^nil"
-                    ):
-                        raise CompileError(
-                            ctx,
-                            "E0005",
-                            got=expr_type,
-                            expected=formal_type
-                        )
+                if self.is_pointer_type(formal_type, include_nil=False):
+                    if formal_type == "pointer":
+                        # Der generische Typ Pointer akzeptiert alle
+                        # Pointer- und Klassenreferenzen sowie nil.
+                        if not self.is_pointer_type(
+                            expr_type
+                        ):
+                            raise CompileError(
+                                ctx,
+                                "E0005",
+                                got=expr_type,
+                                expected="pointer"
+                            )
+
+                    else:
+                        # Typisierte Pointer bleiben streng.
+                        # Ein expliziter Pointer(...) Cast darf ebenfalls
+                        # übergeben werden.
+                        if expr_type not in (
+                            formal_type,
+                            "pointer",
+                            "^nil"
+                        ):
+                            raise CompileError(
+                                ctx,
+                                "E0005",
+                                got=expr_type,
+                                expected=formal_type
+                            )
 
                     self.emit_push(
                         "eax",
@@ -16797,12 +19223,24 @@ class AsmJitGenerator(PascalParserVisitor):
             # --------------------------------------------------------------
             # Pointer
             # --------------------------------------------------------------
-            if (
-                isinstance(formal_type, str)
-                and formal_type.startswith("^")
+            if self.is_pointer_type(
+                formal_type,
+                include_nil=False
             ):
-                if expr_type not in (
+                if formal_type == "pointer":
+                    if not self.is_pointer_type(
+                        expr_type
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=expr_type,
+                            expected="pointer"
+                        )
+
+                elif expr_type not in (
                     formal_type,
+                    "pointer",
                     "^nil"
                 ):
                     raise CompileError(
@@ -16820,7 +19258,6 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
 
                 return
-
             # --------------------------------------------------------------
             # Klasseninstanz
             # --------------------------------------------------------------
@@ -16860,8 +19297,8 @@ class AsmJitGenerator(PascalParserVisitor):
             raise CompileError(
                 ctx,
                 "E0005",
-                got=formal_type,
-                expected=(
+                got       = expr_type,
+                expected  = (
                     "integer/boolean/char/string/"
                     "pointer/class"
                 )
@@ -17650,7 +20087,7 @@ class AsmJitGenerator(PascalParserVisitor):
 # ---------------------------------------------------------------------------
 # generator class
 # ---------------------------------------------------------------------------
-class GeneratorClass(AsmJitGenerator):
+class PascalGenerator(AsmJitGenerator):
     def __init__(self, backend, writer=None):
         super().__init__(backend)
         self.writer = writer

@@ -13,7 +13,15 @@ sourceFile
     ;
 
 externalRoutineSpec
-    : callingConvention STRING (NAME STRING)? SEMI
+    : callingConvention SEMI
+      EXTERNAL externalLibrary
+      (NAME STRING)?
+      SEMI
+    ;
+
+externalLibrary
+    : STRING
+    | IDENT
     ;
 
 callingConvention
@@ -30,7 +38,7 @@ unitFile
     : UNIT qualifiedIdent SEMI
       interfaceSection
       implementationSection
-      unitInitBlock?
+      ( unitInitBlock | END )
       DOT
     ;
 
@@ -104,6 +112,16 @@ qualifiedIdent
     : IDENT (DOT IDENT)*
     ;
 
+methodDirective
+    : VIRTUAL
+    | OVERRIDE
+    ;
+
+methodDirectiveList
+    : methodDirective SEMI
+     (methodDirective SEMI)*
+    ;
+
 declarationPart
     : constSection
     | typeSection
@@ -121,11 +139,15 @@ classMethodImplementation
     ;
 
 procedureHeader
-    : PROCEDURE IDENT formalParamList? SEMI
+    : PROCEDURE IDENT formalParamList?
+      SEMI
+      externalRoutineSpec?
     ;
 
 functionHeader
-    : FUNCTION IDENT formalParamList? COLON typeName SEMI
+    : FUNCTION IDENT formalParamList? COLON typeName
+      SEMI
+      externalRoutineSpec?
     ;
 
 constSection
@@ -203,11 +225,15 @@ propertyAccessor
     ;
 
 classFunctionDeclaration
-    : FUNCTION IDENT formalParamList? COLON typeName SEMI
+    : FUNCTION IDENT formalParamList?
+      COLON typeName SEMI
+      methodDirectiveList?
     ;
 
 classProcedureDeclaration
-    : PROCEDURE IDENT formalParamList? SEMI
+    : PROCEDURE IDENT formalParamList?
+      SEMI
+      methodDirectiveList?
     ;
 
 classFieldDeclaration
@@ -219,11 +245,15 @@ inheritedStatement
     ;
 
 constructorDeclaration
-    : CONSTRUCTOR IDENT formalParamList? SEMI
+    : CONSTRUCTOR IDENT formalParamList?
+      SEMI
+      methodDirectiveList?
     ;
 
 destructorDeclaration
-    : DESTRUCTOR IDENT formalParamList? SEMI
+    : DESTRUCTOR IDENT formalParamList?
+      SEMI
+      methodDirectiveList?
     ;
 
 arrayDeclaration
@@ -298,17 +328,18 @@ recordFieldDeclaration
     ;
 
 functionDeclaration
-    : FUNCTION IDENT formalParamList? COLON typeName SEMI
-      (
-          externalRoutineSpec
+    : FUNCTION IDENT formalParamList?
+      COLON typeName
+      SEMI
+      (   externalRoutineSpec
         | declarationPart* block SEMI
       )
     ;
 
 procedureDeclaration
-    : PROCEDURE IDENT formalParamList? SEMI
-      (
-          externalRoutineSpec
+    : PROCEDURE IDENT formalParamList?
+      SEMI
+      (   externalRoutineSpec
         | declarationPart* block SEMI
       )
     ;

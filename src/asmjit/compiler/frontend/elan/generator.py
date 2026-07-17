@@ -42,7 +42,7 @@ ELAN_TYPES = {
 # ---------------------------------------------------------------------------
 # generator classes
 # ---------------------------------------------------------------------------
-class GeneratorClass(CodeGeneratorBase, ElanParserVisitor):
+class ElanGenerator(CodeGeneratorBase, ElanParserVisitor):
     def __init__(self, backend, writer=None):
         CodeGeneratorBase.__init__(self, backend)
         ElanParserVisitor.__init__(self)

@@ -36,6 +36,14 @@ def args_func():
         help    = tr("Output directory")
     )
     
+    args_parser.add_argument(
+        "-Us",
+        "--packed-runtime",
+        dest    = "packed_runtime",
+        action  = "store_true",
+        help    = tr("compile a system unit.")
+    )
+    
     # -------------------------------------------------------------
     # force overwriten old files with new content ...
     # -------------------------------------------------------------
@@ -433,36 +441,53 @@ def handle_args(args):
         CDATA.ExeOutputDir = args.exe_output_dir
         #print("==> ", CDATA.CurrentWorkingDir)
 
-    result = validate_output_path(args.exe_output_dir)
-    if result["kind"] == "directory":
-        return args
+    result = validate_output_path(
+        args.exe_output_dir
+    )
+
     if result["kind"] == "file":
         CDATA.LastErrorCode = LastError.NO_DIRECTORY
-        raise Exception(tr("executable output is not a directory or does not exists."))
-    
-    if args.objpath:
-        for path in args.Fo:
-            CDATA.link_object_paths.append(
-                os.path.normpath(path)
+        raise Exception(
+            tr(
+                "executable output is not a directory "
+                "or does not exist."
             )
+        )
+
+    if args.objpath:
+        for path in args.objpath:
+            normalized = os.path.normpath(path)
+
+            if normalized not in CDATA.link_object_paths:
+                CDATA.link_object_paths.append(
+                    normalized
+                )
 
     if args.libpath:
-        for path in args.Fl:
-            CDATA.link_library_paths.append(
-                os.path.normpath(path)
-            )
-    
+        for path in args.libpath:
+            normalized = os.path.normpath(path)
+
+            if normalized not in CDATA.link_library_paths:
+                CDATA.link_library_paths.append(
+                    normalized
+                )
+
     CDATA.args_backend = args.backend
-    CDATA.UnitPaths = normalize_search_paths(args.unit_paths)
-    
-    if args.info is not None:
-        if args.info == "":
-            print("Common Info")
-        elif args.info == "V":
-            print("Version")
-        elif args.info == "W":
-            print("Warning")
-        elif args.info == "TP":
-            print(tr("Target platform"))
+    CDATA.UnitPaths = normalize_search_paths(
+        args.unit_paths
+    )
+    CDATA.packed_runtime = bool(
+        args.packed_runtime
+    )
+
+    #if args.info is not None:
+    #    if args.info == "":
+    #        print("Common Info")
+    #    elif args.info == "V":
+    #        print("Version")
+    #    elif args.info == "W":
+    #        print("Warning")
+    #    elif args.info == "TP":
+    #        print(tr("Target platform"))
     
     return args

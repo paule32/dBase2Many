@@ -47,6 +47,9 @@ DLL_API size_t _jit_strlen(const char* str);
 DLL_API size_t      strlen(const char* str);
 
 DLL_API char * _jit_strncpy(char *dest, const char *src, unsigned int count);
+
+DLL_API LPSTR JIT_STDCALL lstrcpynA(LPSTR, LPCSTR, int);
+
 };
 
 #endif

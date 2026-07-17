@@ -1,0 +1,207 @@
+diff --git a/src/asmjit/compiler/frontend/pascal/generator.py b/src/asmjit/compiler/frontend/pascal/generator.py
+index ed16cf4..af02300 100644
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -51,6 +51,115 @@ JIT_VARIANT_KIND_OFFSET = 0
+ JIT_VARIANT_LOW_OFFSET  = 4
+ JIT_VARIANT_HIGH_OFFSET = 8
+ 
++# ---------------------------------------------------------------------------
++# Stable import ordinals of libdbase2many.32.dll.
++#
++# These values were read from the DLL export table. They are part of the
++# runtime ABI and must not be renumbered in future DLL builds.
++# ---------------------------------------------------------------------------
++LIBDBASE2MANY32_IMPORT_ORDINALS = {
++    '_jit_dynarray_setlength': 1,
++    '_jit_read_int': 2,
++    '_jit_read_string': 3,
++    '_jit_blake2': 4,
++    '_jit_crc16': 5,
++    '_jit_crc32': 6,
++    '_jit_crc32c': 7,
++    '_jit_crc64': 8,
++    '_jit_md5': 9,
++    '_jit_sha1': 10,
++    '_jit_sha3': 11,
++    '_jit_sha224': 12,
++    '_jit_sha256': 13,
++    '_jit_sha384': 14,
++    '_jit_sha512': 15,
++    '_jit_debug_break': 16,
++    '_jit_disk_free': 17,
++    '_jit_disk_total': 18,
++    '_jit_disk_label': 19,
++    '_jit_disk_serial': 20,
++    '_jit_disk_filesystem': 21,
++    '_jit_disk_type': 22,
++    '_jit_disk_share': 23,
++    '_jit_disk_used': 24,
++    '_jit_disk_exists': 25,
++    '_jit_disk_ready': 26,
++    '_jit_disk_is_cdrom': 27,
++    '_jit_disk_is_network': 28,
++    '_jit_disk_is_removable': 29,
++    '_jit_disk_is_fixed': 30,
++    '_jit_error_runtime': 31,
++    '_jit_error_array_bounds': 32,
++    '_jit_error_string_range': 33,
++    '_jit_error_nil_pointer': 34,
++    '_jit_error_out_of_memory': 35,
++    '_jit_exception_push': 36,
++    '_jit_exception_pop': 37,
++    '_jit_setjmp': 38,
++    '_jit_longjmp': 39,
++    '_jit_ExitProcess': 40,
++    '_jit_GetCommandLineA': 41,
++    '_jit_print_int': 52,
++    '_jit_print_text': 53,
++    '_jit_print_newline': 54,
++    '_jit_print_double': 55,
++    '_jit_print_char': 56,
++    '_jit_dynstring_setlength': 57,
++    '_jit_dynstring_from_cstr': 58,
++    '_jit_dynstring_length': 59,
++    '_jit_dynstring_concat': 60,
++    '_jit_dynstring_copy': 61,
++    '_jit_dynstring_pos': 62,
++    '_jit_print_variant': 64,
++    '_jit_print_variant_array': 65,
++    '_jit_args_init': 70,
++    '_jit_args_shutdown': 71,
++    '_jit_param_count': 72,
++    '_jit_param_str_cstr': 73,
++    '_jit_command_line_cstr': 74,
++    '_jit_calloc': 81,
++    '_jit_md5_final': 82,
++    '_jit_md5_init': 83,
++    '_jit_md5_update': 84,
++    '_jit_printf': 85,
++    '_jit_raise': 86,
++    '_jit_read_char': 87,
++    '_jit_setlength_memory': 88,
++    '_jit_snprintf': 89,
++    '_jit_new_memory': 90,
++    '_jit_dispose_memory': 91,
++    '_jit_malloc': 92,
++    '_jit_realloc': 93,
++    '_jit_free': 94,
++    '_jit_memcpy': 95,
++    '_jit_memset': 96,
++    '_jit_memcmp': 97,
++    '_jit_memmove': 98,
++    '_jit_strncpy': 99,
++    '_jit_strdup': 100,
++    '_jit_strlen': 101,
++    '_jit_vprintf': 102,
++    '_jit_vsnprintf': 103,
++    '_jit_error_divide_by_zero': 110,
++    '_jit_locale_user': 120,
++    '_jit_locale_system': 121,
++    '_jit_object_instance_new': 130,
++    '_jit_object_instance_free': 131,
++    '_jit_object_free': 132,
++    '_jit_object_class_type': 140,
++    '_jit_class_parent': 141,
++    '_jit_class_name': 142,
++    '_jit_class_instance_size': 143,
++    '_jit_inherits_from_class': 150,
++    '_jit_inherits_from_object': 151,
++    '_jit_get_virtual_vmt': 160,
++    '_jit_get_virtual_object': 161,
++    '_jit_object_error_set_hook': 170,
++    '_jit_object_error_last': 171,
++    '_jit_object_error_last_message': 172,
++    '_jit_object_error_clear': 173,
++}
++
+ class PropertyInfo:
+     def __init__(self, name, ptype, visibility, read_name=None, write_name=None):
+         self.name       = name
+@@ -1455,6 +1564,26 @@ class AsmJitGenerator(PascalParserVisitor):
+ 
+         return value
+     
++    def find_known_dll_import_ordinal(
++        self,
++        dll_name,
++        import_name
++    ):
++        """Returns a stable import ordinal for known runtime exports."""
++        if not dll_name or not import_name:
++            return None
++
++        normalized_dll = os.path.basename(
++            str(dll_name).strip()
++        ).lower()
++
++        if normalized_dll != "libdbase2many.32.dll":
++            return None
++
++        return LIBDBASE2MANY32_IMPORT_ORDINALS.get(
++            str(import_name)
++        )
++
+     def make_dll_import_symbol(self, dll_name, import_name):
+         key = (
+             dll_name.lower(),
+@@ -1604,14 +1733,26 @@ class AsmJitGenerator(PascalParserVisitor):
+             import_name
+         )
+ 
++        ordinal = self.find_known_dll_import_ordinal(
++            dll_name,
++            import_name
++        )
++
+         import_item = {
+             # Name für COFF-Relocation und Import-Thunk
+             "symbol": internal_symbol,
+ 
+-            # Echter Name in der DLL
++            # Für Diagnose, PUI-Kompatibilität und Fallback beibehalten.
++            # Der NT32Writer bevorzugt automatisch "ordinal", wenn dieses
++            # Feld vorhanden ist; der Name landet dann nicht im PE-Image.
+             "name": import_name
+         }
+ 
++        if ordinal is not None:
++            import_item["ordinal"] = int(
++                ordinal
++            )
++
+         dll_imports = CDATA.imports.setdefault(
+             dll_name,
+             []
+@@ -1621,6 +1762,7 @@ class AsmJitGenerator(PascalParserVisitor):
+             isinstance(item, dict)
+             and item.get("symbol") == internal_symbol
+             and item.get("name") == import_name
++            and item.get("ordinal") == import_item.get("ordinal")
+             for item in dll_imports
+         )
+ 
+@@ -1653,6 +1795,7 @@ class AsmJitGenerator(PascalParserVisitor):
+ 
+             "dll": dll_name,
+             "import_name": import_name,
++            "ordinal": ordinal,
+ 
+             "calling_convention": convention,
+             "params": params,
+@@ -4067,6 +4210,15 @@ class AsmJitGenerator(PascalParserVisitor):
+                     "ordinal"
+                 )
+ 
++                # Alte PUI-Dateien können noch reine Namensimporte
++                # enthalten. Bekannte Runtime-Exporte werden beim Laden
++                # automatisch auf ihre stabile Ordinalnummer aktualisiert.
++                if ordinal is None:
++                    ordinal = self.find_known_dll_import_ordinal(
++                        dll_name,
++                        import_name
++                    )
++
+                 if not isinstance(symbol, str) or not symbol:
+                     raise CompileError(
+                         ctx,

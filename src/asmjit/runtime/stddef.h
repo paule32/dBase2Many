@@ -65,6 +65,15 @@ typedef int                 intptr_t;
 typedef unsigned int       uintptr_t;
 
 typedef uint32_t              size_t;
+typedef size_t                SIZE_T;
+
+// ---------------------------------------------------------------------------
+// used by z-lib ...
+// ---------------------------------------------------------------------------
+typedef unsigned char    Byte;
+typedef Byte            Bytef;
+typedef unsigned long   uLong;
+typedef unsigned long  uLongf;
 
 // ---------------------------------------------------------------------------
 // widely used Windows 32-bit used type definition's ...
@@ -80,11 +89,14 @@ typedef int                 BOOL;
 typedef unsigned char       BYTE;
 typedef unsigned short      WORD;
 typedef unsigned long       DWORD;
+typedef unsigned long       ULONG_PTR;
 typedef unsigned long long  ULONGLONG;
 typedef unsigned int        UINT;
 typedef DWORD      *        LPDWORD;
 typedef PVOID               HMODULE;
 typedef PVOID               HANDLE;
+typedef HANDLE              HRSRC;
+typedef HANDLE              HGLOBAL;
 typedef       char *        LPSTR;
 typedef const char *        LPCSTR;
 typedef void       *        HINSTANCE;
@@ -166,8 +178,8 @@ typedef struct JitLocaleEntry
     
 }   JitLocaleEntry;
 
-DLL_API LCID JIT_CDECL _jit_locale_user(void);
-DLL_API LCID JIT_CDECL _jit_locale_system(void);
+DLL_API LCID   JIT_CDECL _jit_locale_user(void);
+DLL_API LCID   JIT_CDECL _jit_locale_system(void);
 
 DLL_API LPCSTR JIT_CDECL _jit_locale_gettext(LPCSTR);
 
@@ -175,6 +187,16 @@ DLL_API LPCSTR JIT_CDECL _jit_locale_gettext(LPCSTR);
 // mathematical cpu stuff ...
 // ---------------------------------------------------------------------------
 DLL_API VOID _jit_error_divide_by_zero();
+
+// ---------------------------------------------------------------------------
+// z-lib
+// ---------------------------------------------------------------------------
+DLL_API int JIT_CDECL uncompress(
+    unsigned char       * destination,
+    uLongf              * destination_length,
+    const unsigned char * source,
+    uLong                 source_length
+);
 
 #ifdef __cplusplus
 };

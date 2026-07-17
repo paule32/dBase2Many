@@ -1,0 +1,5 @@
+#include <windows.h>
+
+#define IDR_DBASE2MANY_RUNTIME 101
+
+IDR_DBASE2MANY_RUNTIME RCDATA "win32/obj/libdbase2many.32.dll.z"

@@ -26,6 +26,15 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PascalParser#externalLibrary.
+    def enterExternalLibrary(self, ctx:PascalParser.ExternalLibraryContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#externalLibrary.
+    def exitExternalLibrary(self, ctx:PascalParser.ExternalLibraryContext):
+        pass
+
+
     # Enter a parse tree produced by PascalParser#callingConvention.
     def enterCallingConvention(self, ctx:PascalParser.CallingConventionContext):
         pass
@@ -176,6 +185,24 @@ class PascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PascalParser#qualifiedIdent.
     def exitQualifiedIdent(self, ctx:PascalParser.QualifiedIdentContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#methodDirective.
+    def enterMethodDirective(self, ctx:PascalParser.MethodDirectiveContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#methodDirective.
+    def exitMethodDirective(self, ctx:PascalParser.MethodDirectiveContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#methodDirectiveList.
+    def enterMethodDirectiveList(self, ctx:PascalParser.MethodDirectiveListContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#methodDirectiveList.
+    def exitMethodDirectiveList(self, ctx:PascalParser.MethodDirectiveListContext):
         pass
 
 

@@ -758,12 +758,33 @@ class Coff32Backend(CodeBackend):
     
     def emit_program_entry(self):
         frame_size = 512
+        packed_runtime = bool(
+            getattr(CDATA, "packed_runtime", False)
+        )
+
+        runtime_ready_label = "__packed_runtime_ready"
+        except_label = "__top_except"
+        exit_label = "__top_exit"
+        return_label = "__entry_return"
 
         self.emit_bind_label("_start")
         self.asm_lines.append("_start:")
 
         self.emit_push("ebp")
         self.emit_mov("ebp", "esp")
+
+        # The normal Windows loader resolves the EXE import table before
+        # AddressOfEntryPoint is entered.  In packed mode the embedded
+        # runtime therefore has to be loaded before the first _jit_* call.
+        if packed_runtime:
+            self.emit_call("_packed_runtime_init")
+            self.emit_test("eax", "eax")
+            self.emit_jne(runtime_ready_label)
+
+            self.emit_mov("eax", 1)
+            self.emit_jmp(return_label)
+
+            self.emit_bind_label(runtime_ready_label)
 
         # ---------------------------------------------------------
         # Exception-Frame in EDI
@@ -788,9 +809,6 @@ class Coff32Backend(CodeBackend):
         self.emit_call("_jit_setjmp")
         self.emit_cleanup_stack(4)
 
-        except_label = "__top_except"
-        exit_label   = "__top_exit"
-
         self.emit_cmp("eax", 0)
         self.emit_jne(except_label)
 
@@ -804,7 +822,6 @@ class Coff32Backend(CodeBackend):
 
         self.asm_lines.append("mov ebx, ctx")
 
-        # ELAN-Hauptprogramm
         self.emit_call("_main")
 
         self.emit_push("edi")
@@ -824,11 +841,20 @@ class Coff32Backend(CodeBackend):
 
         self.emit_bind_label(exit_label)
 
+        if packed_runtime:
+            # Preserve the Pascal process result while the loader releases
+            # the temporary runtime module.
+            self.emit_push("eax")
+            self.emit_call("_packed_runtime_shutdown")
+            self.emit_pop("eax")
+
+        self.emit_bind_label(return_label)
+
         self.emit_mov("esp", "ebp")
         self.emit_pop("ebp")
         self.emit_ret()
-        
-        
+
+
     def write(self, filename):
         self.emit_program_entry()
         NTWriter32(self).write(filename)

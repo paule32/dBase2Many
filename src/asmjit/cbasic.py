@@ -268,7 +268,7 @@ def main() -> int:
         # -----------------------------------------
         # 4. generate asmjit c++ / nasm code  ...
         # -----------------------------------------
-        generator = GeneratorClass(backend, writer=target_obj)
+        generator = BasicGenerator(backend, writer=target_obj)
         generator.source_file = os.path.abspath(source_file)
         generator.source_dir  = os.path.dirname(generator.source_file)
         
