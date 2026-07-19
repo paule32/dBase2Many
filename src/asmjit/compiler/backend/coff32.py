@@ -29,6 +29,9 @@ class Coff32Backend(CodeBackend):
         }
         self.asm_lines = []
 
+    def emit_shift_left (self, dst, count, comment=""): self.emit(f"shl {dst}, {count}")
+    def emit_shift_right(self, dst, count, comment=""): self.emit(f"shr {dst}, {count}")
+
     def emit_jb(self, label, comment=""):
         self.asm_lines.append(f"jb {label}")
         self.writer.emit_jb(label)
@@ -68,6 +71,233 @@ class Coff32Backend(CodeBackend):
             return 4
         return 8
     
+    def _format_memory_operand(
+        self,
+        base,
+        offset
+    ):
+        if offset == 0:
+            return f"[{base}]"
+
+        if offset > 0:
+            return f"[{base}+{offset}]"
+
+        return f"[{base}{offset}]"
+
+    def emit_lea_dword(
+        self,
+        dst,
+        base,
+        offset,
+        comment=""
+    ):
+        dst = self.map_reg32(
+            dst
+        )
+
+        base = self.map_reg32(
+            base
+        )
+
+        operand = self._format_memory_operand(
+            base,
+            int(offset)
+        )
+
+        line = f"lea {dst}, {operand}"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.asm_lines.append(
+            line
+        )
+
+        self.writer.emit_lea_reg_mem32(
+            dst,
+            base,
+            int(offset)
+        )
+
+    def emit_lea_byte(
+        self,
+        dst,
+        base,
+        offset,
+        comment=""
+    ):
+        # LEA berechnet ausschließlich eine Adresse.
+        # Die Größe des adressierten Objekts ist dabei egal.
+        return self.emit_lea_dword(
+            dst,
+            base,
+            offset,
+            comment
+        )
+
+    def emit_lea_qword(
+        self,
+        dst,
+        base,
+        offset,
+        comment=""
+    ):
+        # Unter NT32 sind auch Adressen von QWord-Objekten 32 Bit breit.
+        return self.emit_lea_dword(
+            dst,
+            base,
+            offset,
+            comment
+        )
+    
+    def emit_shl_reg_cl(
+        self,
+        reg,
+        comment=""
+    ):
+        reg32 = self.map_reg32(
+            reg
+        )
+
+        line = f"shl {reg32}, cl"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.asm_lines.append(
+            line
+        )
+
+        self.writer.emit_shl_reg_cl(
+            reg32
+        )
+
+
+    def emit_shr_reg_cl(
+        self,
+        reg,
+        comment=""
+    ):
+        reg32 = self.map_reg32(
+            reg
+        )
+
+        line = f"shr {reg32}, cl"
+
+        if comment:
+            line += f" ; {comment}"
+
+        self.asm_lines.append(
+            line
+        )
+
+        self.writer.emit_shr_reg_cl(
+            reg32
+        )
+    
+    def emit_mov_byte_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        base32 = self.map_reg32(
+            base
+        )
+
+        src8 = self.map_reg8(
+            src
+        )
+
+        off = self.resolve_offset32(
+            offset
+        )
+
+        if off == 0:
+            line = (
+                f"mov byte [{base32}], "
+                f"{src8}"
+            )
+
+        elif off > 0:
+            line = (
+                f"mov byte [{base32}+{off}], "
+                f"{src8}"
+            )
+
+        else:
+            line = (
+                f"mov byte [{base32}{off}], "
+                f"{src8}"
+            )
+
+        if comment:
+            line += (
+                f" ; {comment}"
+            )
+
+        self.asm_lines.append(
+            line
+        )
+
+        self.writer.emit_mov_byte_ptr_reg8(
+            base32,
+            off,
+            src8
+        )
+
+    def emit_mov_word_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        base32 = self.map_reg32(
+            base
+        )
+
+        src16 = self.map_reg16(
+            src
+        )
+
+        off = self.resolve_offset32(
+            offset
+        )
+
+        if off == 0:
+            line = (
+                f"mov word [{base32}], "
+                f"{src16}"
+            )
+
+        elif off > 0:
+            line = (
+                f"mov word [{base32}+{off}], "
+                f"{src16}"
+            )
+
+        else:
+            line = (
+                f"mov word [{base32}{off}], "
+                f"{src16}"
+            )
+
+        if comment:
+            line += (
+                f" ; {comment}"
+            )
+
+        self.asm_lines.append(
+            line
+        )
+
+        self.writer.emit_mov_word_ptr_reg16(
+            base32,
+            off,
+            src16
+        )
     
     def emit_seta(self, reg, comment=""):
         reg = self.map_reg8(reg)
@@ -208,6 +438,49 @@ class Coff32Backend(CodeBackend):
     def emit_jmp(self, label, comment=""):
         self.asm_lines.append(f"jmp {label}")
         self.writer.emit_jmp(label)
+
+    def map_reg16(
+        self,
+        reg
+    ):
+        reg_map = {
+            "ax": "ax",
+            "cx": "cx",
+            "dx": "dx",
+            "bx": "bx",
+            "sp": "sp",
+            "bp": "bp",
+            "si": "si",
+            "di": "di",
+
+            # Bequeme Abbildung von 32/64 Bit auf 16 Bit
+            "eax": "ax",
+            "ecx": "cx",
+            "edx": "dx",
+            "ebx": "bx",
+            "esp": "sp",
+            "ebp": "bp",
+            "esi": "si",
+            "edi": "di",
+
+            "rax": "ax",
+            "rcx": "cx",
+            "rdx": "dx",
+            "rbx": "bx",
+            "rsp": "sp",
+            "rbp": "bp",
+            "rsi": "si",
+            "rdi": "di",
+        }
+
+        if reg not in reg_map:
+            raise RuntimeError(
+                f"unsupported NT32 16-bit register: {reg}"
+            )
+
+        return reg_map[
+            reg
+        ]
 
     def map_reg32(self, reg):
         reg_map = {

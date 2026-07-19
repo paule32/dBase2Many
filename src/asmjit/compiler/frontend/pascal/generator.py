@@ -31,6 +31,10 @@ from compiler.writer.pe64 import *
 
 from compiler.writer.pe64coff  import *
 
+from compiler.common.constants import (
+    LIBDBASE2MANY32_IMPORT_ORDINALS
+)
+
 # ---------------------------------------------------------------------------
 # NT32 descriptor used for Pascal ``array of const``.
 #
@@ -695,6 +699,7 @@ class AsmJitGenerator(PascalParserVisitor):
         self.current_proc_params= {}
         
         self.next_variant_array_id = 0
+        self.next_const_array_id   = 0
         self.pending_open_array_actual = None
         
         self.section_text = []
@@ -725,6 +730,10 @@ class AsmJitGenerator(PascalParserVisitor):
 
         self.root_link_objects  = []
         self.root_link_archives = []
+        
+        # COFF-Dateien, die physisch in die erzeugte Unit-.o-Datei
+        # übernommen werden sollen.
+        self.root_embedded_objects = []
 
         self.pending_pui = None
         self.collect_pui_interface = False
@@ -746,6 +755,56 @@ class AsmJitGenerator(PascalParserVisitor):
         message  = template.format(**err.params)
         
         return f"{err.code}: {os.path.basename(filename)} {err.line}:{err.column} {message}"
+
+    def is_pointer_type(
+        self,
+        type_name,
+        include_nil=False
+    ):
+        if type_name is None:
+            return False
+
+        current = type_name
+
+        visited = set()
+
+        while isinstance(
+            current,
+            str
+        ):
+            key = current.lower()
+
+            if key in visited:
+                break
+
+            visited.add(key)
+
+            if include_nil and key == "nil":
+                return True
+
+            if key in (
+                "pointer",
+                "pchar",
+                "pansichar"
+            ):
+                return True
+
+            if key.startswith("^"):
+                return True
+
+            resolved = self.resolve_type(
+                current
+            )
+
+            if (
+                resolved is None
+                or resolved == current
+            ):
+                break
+
+            current = resolved
+
+        return False
 
     def is_packed_runtime_library(self, dll_name):
         if not getattr(CDATA, "packed_runtime", False):
@@ -1388,6 +1447,72 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return self.resolve_type(typ)
 
+    def function_abi_return_type(
+        self,
+        type_name
+    ):
+        """
+        Liefert den ABI-Typ eines Pascal-Funktionsresultats.
+
+        Subrange-Typen wie Byte, Word und Cardinal werden im
+        Rückgaberegister wie Integer behandelt. Pointer-Aliase und
+        Klasseninstanzen werden als Maschinenpointer zurückgegeben.
+        """
+        resolved_type = self.resolve_type(
+            type_name
+        )
+
+        range_info = self.subrange_info(
+            resolved_type
+        )
+
+        if range_info is not None:
+            return self.resolve_type(
+                range_info.base_type
+            )
+
+        if self.is_pointer_type(
+            resolved_type,
+            include_nil=False
+        ):
+            return "pointer"
+
+        if (
+            isinstance(resolved_type, str)
+            and resolved_type in self.classes
+        ):
+            return "pointer"
+
+        return resolved_type
+
+    def function_result_storage_type(
+        self,
+        declared_type
+    ):
+        """
+        Bestimmt den lokalen Speichertyp der impliziten Result-Variable.
+
+        Kleine skalare Typen werden absichtlich in einem 32-Bit-Slot
+        gespeichert, weil NT32 sie über EAX zurückgibt und die vorhandenen
+        Store-Emitter 32-Bit-Zugriffe erzeugen.
+        """
+        resolved_type = self.resolve_type(
+            declared_type
+        )
+
+        abi_type = self.function_abi_return_type(
+            resolved_type
+        )
+
+        if abi_type in (
+            "integer",
+            "boolean",
+            "char"
+        ):
+            return "integer"
+
+        return resolved_type
+
     def declare_subrange_type(
         self,
         ctx,
@@ -1469,7 +1594,17 @@ class AsmJitGenerator(PascalParserVisitor):
         dll_name,
         import_name
     ):
-        """Returns a stable import ordinal for known runtime exports."""
+        """
+        Liefert die stabile Ordinalnummer eines bekannten Runtime-Exports.
+
+        Unterstützt sowohl den C-Namen:
+
+            _jit_malloc
+
+        als auch den dekorierten i386-COFF-Namen:
+
+            __jit_malloc
+        """
         if not dll_name or not import_name:
             return None
 
@@ -1480,9 +1615,73 @@ class AsmJitGenerator(PascalParserVisitor):
         if normalized_dll != "libdbase2many.32.dll":
             return None
 
-        return LIBDBASE2MANY32_IMPORT_ORDINALS.get(
-            str(import_name)
+        name = str(
+            import_name
+        ).strip()
+
+        candidates = [
+            name
+        ]
+
+        # MinGW32 dekoriert einen C-Namen mit einem zusätzlichen
+        # führenden Unterstrich.
+        if name.startswith("__"):
+            candidates.append(
+                name[1:]
+            )
+
+        elif not name.startswith("_"):
+            candidates.append(
+                "_" + name
+            )
+
+        for candidate in candidates:
+            ordinal = (
+                LIBDBASE2MANY32_IMPORT_ORDINALS.get(
+                    candidate
+                )
+            )
+
+            if ordinal is not None:
+                return int(
+                    ordinal
+                )
+
+        return None
+
+
+    def find_known_dll_import_name(
+        self,
+        dll_name,
+        ordinal
+    ):
+        """
+        Rückwärtsauflösung für PUI-Einträge, die nur eine Ordinalnummer
+        enthalten. Sie wird für den gepackten Runtime-Thunkpfad benötigt.
+        """
+        if not dll_name or ordinal is None:
+            return None
+
+        normalized_dll = os.path.basename(
+            str(dll_name).strip()
+        ).lower()
+
+        if normalized_dll != "libdbase2many.32.dll":
+            return None
+
+        wanted_ordinal = int(
+            ordinal
         )
+
+        for import_name, import_ordinal in (
+            LIBDBASE2MANY32_IMPORT_ORDINALS.items()
+        ):
+            if int(import_ordinal) == wanted_ordinal:
+                return str(
+                    import_name
+                )
+
+        return None
 
     def make_dll_import_symbol(self, dll_name, import_name):
         key = (
@@ -1517,6 +1716,140 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return symbol
 
+    def register_local_external_routine(
+        self,
+        ctx,
+        kind,
+        name,
+        params,
+        return_type,
+        convention
+    ):
+        key = name.lower()
+
+        # Für C/MinGW32 wird ein führender Unterstrich verwendet.
+        symbol = name
+
+        if (
+            CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+            and not symbol.startswith("_")
+        ):
+            symbol = "_" + symbol
+
+        metadata = {
+            "name": name,
+            "scoped_name": name,
+            "label": None,
+            "mangled": symbol,
+            "symbol": symbol,
+            "params": params,
+            "return_type": return_type,
+            "calling_convention": convention,
+            "external": True,
+            "external_kind": "coff",
+            "dll": None,
+            "import_name": None,
+            "ordinal": None,
+        }
+
+        if kind == "function":
+            self.functions[key] = metadata
+        else:
+            self.procedures[key] = metadata
+
+        return None
+
+    def decorate_local_external_symbol(
+        self,
+        name,
+        convention,
+        parameter_bytes=0
+    ):
+        symbol = name
+
+        # Der Pascal-Name enthält bereits den gewünschten Unterstrich.
+        if symbol.startswith("_"):
+            return symbol
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            return symbol
+
+        if convention == "stdcall":
+            return (
+                "_"
+                + symbol
+                + "@"
+                + str(parameter_bytes)
+            )
+
+        return "_" + symbol
+
+    def normalize_calling_convention(
+        self,
+        ctx,
+        convention
+    ):
+        """
+        Normalisiert die Aufrufkonvention eines Routine-Headers.
+
+        Unterstützt sowohl Textwerte als auch ANTLR-Kontexte und ist
+        dadurch unabhängig davon, ob die aktuelle Parser-Version einen
+        callingConvention()-Accessor erzeugt.
+        """
+        if convention is None:
+            return "cdecl"
+
+        if hasattr(
+            convention,
+            "getText"
+        ):
+            convention = convention.getText()
+
+        convention_text = str(
+            convention
+        ).strip().lower()
+
+        match = re.search(
+            r"(?<![a-z0-9_])"
+            r"(cdecl|stdcall|pascal|c)"
+            r"(?![a-z0-9_])",
+            convention_text
+        )
+
+        if match is not None:
+            convention_text = match.group(1)
+
+        if convention_text == "c":
+            convention_text = "cdecl"
+
+        if not convention_text:
+            convention_text = "cdecl"
+
+        if convention_text not in (
+            "cdecl",
+            "stdcall",
+            "pascal"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "unsupported calling convention: "
+                    + convention_text
+                )
+            )
+
+        return convention_text
+
+
     def register_external_routine(
         self,
         ctx,
@@ -1524,7 +1857,8 @@ class AsmJitGenerator(PascalParserVisitor):
         name,
         params,
         return_type,
-        spec_ctx
+        spec_ctx,
+        convention="cdecl"
     ):
         if CDATA.args_target not in (
             "nt35",
@@ -1540,45 +1874,33 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
-        convention_ctx = (
-            spec_ctx.callingConvention()
+        # Die Aufrufkonvention gehört in der aktuellen Grammar zum
+        # Routine-Header, nicht zum ExternalRoutineDirectiveContext.
+        convention = self.normalize_calling_convention(
+            ctx,
+            convention
         )
 
-        if convention_ctx is None:
-            convention = "cdecl"
-        else:
-            convention = (
-                convention_ctx
-                .getText()
-                .lower()
-            )
-
-        if convention == "c":
-            convention = "cdecl"
-
-        if convention not in (
-            "cdecl",
-            "stdcall",
-            "pascal"
-        ):
-            raise CompileError(
-                ctx,
-                "E0019",
-                text=(
-                    "unsupported calling convention: "
-                    + convention
-                )
-            )
+        library_accessor = getattr(
+            spec_ctx,
+            "externalLibrary",
+            None
+        )
 
         library_ctx = (
-            spec_ctx.externalLibrary()
+            library_accessor()
+            if library_accessor is not None
+            else None
         )
 
         if library_ctx is None:
-            raise CompileError(
-                ctx,
-                "E0019",
-                text="DLL name is missing"
+            return self.register_local_external_routine(
+                ctx         = ctx,
+                kind        = kind,
+                name        = name,
+                params      = params,
+                return_type = return_type,
+                convention  = convention
             )
 
         dll_name = self.resolve_external_library(
@@ -1628,17 +1950,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 text="DLL import name must not be empty"
             )
 
-        use_runtime_thunk = self.is_packed_runtime_library(
-            dll_name
+        internal_symbol = self.make_dll_import_symbol(
+            dll_name,
+            import_name
         )
-
-        if use_runtime_thunk:
-            internal_symbol = import_name
-        else:
-            internal_symbol = self.make_dll_import_symbol(
-                dll_name,
-                import_name
-            )
 
         ordinal = self.find_known_dll_import_ordinal(
             dll_name,
@@ -1660,24 +1975,23 @@ class AsmJitGenerator(PascalParserVisitor):
                 ordinal
             )
 
-        if not use_runtime_thunk:
-            dll_imports = CDATA.imports.setdefault(
-                dll_name,
-                []
-            )
+        dll_imports = CDATA.imports.setdefault(
+            dll_name,
+            []
+        )
 
-            already_registered = any(
-                isinstance(item, dict)
-                and item.get("symbol") == internal_symbol
-                and item.get("name") == import_name
-                and item.get("ordinal") == import_item.get("ordinal")
-                for item in dll_imports
-            )
+        already_registered = any(
+            isinstance(item, dict)
+            and item.get("symbol") == internal_symbol
+            and item.get("name") == import_name
+            and item.get("ordinal") == import_item.get("ordinal")
+            for item in dll_imports
+        )
 
-            if not already_registered:
-                dll_imports.append(
-                    import_item
-                )
+        if not already_registered:
+            dll_imports.append(
+                import_item
+            )
 
         # Eine Unit-Objektdatei enthält Relocations auf das interne
         # Symbol (zum Beispiel __dllimp_3_...). Diese Zuordnung muss
@@ -1864,29 +2178,17 @@ class AsmJitGenerator(PascalParserVisitor):
             if typ.get("kind") == "array":
                 return typ["size"]
 
-        if isinstance(typ, str) and typ in self.classes:
-            return self.pointer_slot_size()
+        if isinstance(typ, str) and typ in self.records: return self.records[typ].size
+        if isinstance(typ, str) and typ in self.arrays:  return self.arrays[typ].size
+        if isinstance(typ, str) and typ in self.classes: return self.pointer_slot_size()
+        
+        if isinstance(typ, str) and typ.startswith("^"): return self.pointer_slot_size()
 
-        if isinstance(typ, str) and typ.startswith("^"):
-            return self.pointer_slot_size()
-
-        if typ == "boolean":
-            return 4
-
-        if typ == "integer":
-            return 4
-
-        if typ == "double":
-            return 8
-
-        if typ == "string":
-            return self.pointer_slot_size()
-
-        if isinstance(typ, str) and typ in self.records:
-            return self.records[typ].size
-
-        if isinstance(typ, str) and typ in self.arrays:
-            return self.arrays[typ].size
+        if typ == "char":    return 1
+        if typ == "boolean": return 4
+        if typ == "integer": return 4
+        if typ == "double":  return 8
+        if typ == "string":  return self.pointer_slot_size()
 
         raise CompileError(
             ctx,
@@ -2002,33 +2304,63 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return refs[0]
     
-    def declare_record(self, ctx, name, fields):
+    def declare_record(
+        self,
+        ctx,
+        name,
+        fields,
+        packed=False
+    ):
         key = name.lower()
 
         if key in self.records:
-            raise CompileError(ctx, "E0002", name=name)
+            raise CompileError(
+                ctx,
+                "E0002",
+                name=name
+            )
 
         offset = 0
         record_fields = {}
 
+        # Das bisherige dBase2Many-Record-ABI legt Felder bereits
+        # lückenlos hintereinander. PACKED macht dieses Layout nun
+        # ausdrücklich sichtbar und transportiert die Information
+        # zusätzlich über die PUI.
         for field_name, field_type in fields:
             field_key = field_name.lower()
-            resolved_type = self.resolve_type(field_type)
-            size = self.type_size(ctx, resolved_type)
+
+            if field_key in record_fields:
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=field_name
+                )
+
+            resolved_type = self.resolve_type(
+                field_type
+            )
+
+            size = self.type_size(
+                ctx,
+                resolved_type
+            )
 
             record_fields[field_key] = RecordFieldInfo(
-                name    = field_name,
-                type    = resolved_type,
-                offset  = offset,
-                size    = size
+                name=field_name,
+                type=resolved_type,
+                offset=offset,
+                size=size
             )
 
             offset += size
 
         self.records[key] = RecordInfo(
-            name    = name,
-            fields  = record_fields,
-            size    = offset
+            name=name,
+            fields=record_fields,
+            size=offset,
+            packed=bool(packed),
+            alignment=1
         )
     
 
@@ -2357,7 +2689,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 }
             ]
 
-        if resolved_type == "boolean":
+        if resolved_type == "char":
+            element_size = 1
+        
+        elif resolved_type == "boolean":
             element_size = 4
             
         elif resolved_type == "integer":
@@ -2414,6 +2749,639 @@ class AsmJitGenerator(PascalParserVisitor):
             "base_type": base_type
         }
     
+    def const_array_symbol(
+        self,
+        name
+    ):
+        """
+        Erzeugt ein eindeutiges internes COFF-Symbol für ein
+        typisiertes konstantes Array.
+
+        Lokale Konstanten verschiedener Routinen dürfen denselben
+        Pascal-Namen besitzen. Der Scope ist deshalb Bestandteil des
+        Symbols.
+        """
+        scope_parts = []
+
+        if self.current_unit:
+            scope_parts.append(
+                str(self.current_unit)
+            )
+        elif self.program_name:
+            scope_parts.append(
+                str(self.program_name)
+            )
+
+        scope_parts.extend(
+            str(item)
+            for item in self.scope_stack
+        )
+
+        scope_parts.append(
+            str(name)
+        )
+
+        safe_name = re.sub(
+            r"[^A-Za-z0-9_]",
+            "_",
+            "_".join(scope_parts)
+        ).lower()
+
+        symbol = (
+            f"__const_array_{safe_name}_"
+            f"{self.next_const_array_id}"
+        )
+
+        self.next_const_array_id += 1
+
+        return symbol
+
+
+    def encode_const_array_data(
+        self,
+        ctx,
+        element_type,
+        init_values
+    ):
+        """
+        Kodiert die Werte eines typisierten konstanten Arrays für
+        die COFF-Datensektion.
+        """
+        resolved_type = self.resolve_type(
+            element_type
+        )
+
+        range_info = self.subrange_info(
+            resolved_type
+        )
+
+        payload = bytearray()
+
+        if resolved_type == "char":
+            for value in init_values:
+                numeric_value = int(value)
+
+                if not 0 <= numeric_value <= 0xFF:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=str(numeric_value),
+                        expected="AnsiChar 0..255"
+                    )
+
+                payload.append(
+                    numeric_value
+                )
+
+            return bytes(payload), 1
+
+        if resolved_type == "boolean":
+            for value in init_values:
+                payload.extend(
+                    (1 if value else 0).to_bytes(
+                        4,
+                        "little",
+                        signed=False
+                    )
+                )
+
+            return bytes(payload), 4
+
+        if (
+            resolved_type == "integer"
+            or (
+                range_info is not None
+                and range_info.base_type == "integer"
+            )
+        ):
+            element_size = (
+                int(range_info.size)
+                if range_info is not None
+                else 4
+            )
+
+            bit_count = element_size * 8
+            mask = (1 << bit_count) - 1
+
+            for value in init_values:
+                numeric_value = int(value)
+
+                if range_info is not None:
+                    self.validate_subrange_constant(
+                        ctx,
+                        resolved_type,
+                        numeric_value
+                    )
+
+                payload.extend(
+                    (numeric_value & mask).to_bytes(
+                        element_size,
+                        "little",
+                        signed=False
+                    )
+                )
+
+            return (
+                bytes(payload),
+                min(
+                    max(element_size, 1),
+                    4
+                )
+            )
+
+        if resolved_type == "double":
+            for value in init_values:
+                bits = int(
+                    double_to_bits(
+                        float(value)
+                    )
+                )
+
+                payload.extend(
+                    bits.to_bytes(
+                        8,
+                        "little",
+                        signed=False
+                    )
+                )
+
+            return bytes(payload), 8
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "constant array data emission is not "
+                f"implemented for {resolved_type}"
+            )
+        )
+
+
+    def declare_const_array(
+        self,
+        ctx,
+        name,
+        dimensions,
+        element_type,
+        init_values
+    ):
+        """
+        Registriert ein typisiertes konstantes Array im aktuellen
+        Konstanten-Scope und schreibt dessen Inhalt in die COFF-
+        Datensektion.
+        """
+        key = name.lower()
+
+        scope = self.current_const_scope()
+
+        if scope is not None:
+            if key in scope:
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            local_scope = self.current_local_scope()
+
+            if (
+                local_scope is not None
+                and key in local_scope["vars"]
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            target_table = scope
+
+        else:
+            if (
+                key in self.constants
+                or key in self.vars
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            target_table = self.constants
+
+        if not dimensions:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"constant array {name} has no dimensions"
+                )
+            )
+
+        resolved_type = self.resolve_type(
+            element_type
+        )
+
+        element_size = self.type_size(
+            ctx,
+            resolved_type
+        )
+
+        element_count = 1
+
+        for dimension in dimensions:
+            count = (
+                int(dimension["max"])
+                - int(dimension["min"])
+                + 1
+            )
+
+            if count <= 0:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid constant array dimension "
+                        f"for {name}"
+                    )
+                )
+
+            element_count *= count
+
+        if len(init_values) != element_count:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(init_values)),
+                expected=str(element_count)
+            )
+
+        first_dimension = dimensions[0]
+
+        array_info = ArrayInfo(
+            name=name,
+            index_min=int(
+                first_dimension["min"]
+            ),
+            index_max=int(
+                first_dimension["max"]
+            ),
+            element_type=resolved_type,
+            element_size=int(element_size),
+            size=element_count * int(element_size),
+            init_values=list(init_values),
+            dimensions=list(dimensions)
+        )
+
+        symbol = self.const_array_symbol(
+            name
+        )
+
+        payload, alignment = self.encode_const_array_data(
+            ctx,
+            resolved_type,
+            init_values
+        )
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32",
+            "win64"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "typed constant arrays are currently "
+                    "implemented only for COFF targets"
+                )
+            )
+
+        self.writer.align_data(
+            alignment
+        )
+
+        self.writer.add_data_label(
+            symbol
+        )
+
+        self.writer.data.extend(
+            payload
+        )
+
+        target_table[key] = {
+            "name": name,
+            "kind": "array",
+            "type": "const_array",
+            "element_type": resolved_type,
+            "array_info": array_info,
+            "symbol": symbol,
+            "value": tuple(init_values)
+        }
+
+        return target_table[key]
+
+
+    def emit_load_const_array_element(
+        self,
+        ctx,
+        name,
+        const_info,
+        index_exprs
+    ):
+        """
+        Lädt ein Element eines typisierten konstanten Arrays.
+
+        NT32-Ergebnis:
+            Integer/Boolean/Char -> EAX
+            Double               -> XMM0
+        """
+        array_info = const_info.get(
+            "array_info"
+        )
+
+        symbol = const_info.get(
+            "symbol"
+        )
+
+        if array_info is None or not symbol:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"invalid constant array metadata: "
+                    f"{name}"
+                )
+            )
+
+        if not isinstance(
+            index_exprs,
+            list
+        ):
+            index_exprs = [
+                index_exprs
+            ]
+
+        dimensions = list(
+            array_info.dimensions
+        )
+
+        if len(index_exprs) != len(dimensions):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(index_exprs)),
+                expected=str(len(dimensions))
+            )
+
+        # Eindimensionale konstante Arrays werden ohne den allgemeinen
+        # EBX-Akkumulator berechnet. Komplexe Indexausdrücke wie
+        #
+        #     (CRC shr 12) and $0F
+        #
+        # dürfen EBX intern verwenden, ohne dadurch den Index zu
+        # verfälschen.
+        if len(dimensions) == 1:
+            index_type = self.visit(
+                index_exprs[0]
+            )
+
+            if self.scalar_base_type(
+                index_type
+            ) != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=index_type,
+                    expected="integer"
+                )
+
+            dimension = dimensions[0]
+
+            minimum = int(
+                dimension["min"]
+            )
+
+            maximum = int(
+                dimension["max"]
+            )
+
+            fail_label = self.new_named_label(
+                "const_array_bounds_fail"
+            )
+
+            ok_label = self.new_named_label(
+                "const_array_bounds_ok"
+            )
+
+            self.emit_cmp(
+                "eax",
+                minimum
+            )
+
+            self.emit_jl(
+                fail_label
+            )
+
+            self.emit_cmp(
+                "eax",
+                maximum
+            )
+
+            self.emit_jg(
+                fail_label
+            )
+
+            self.emit_jmp(
+                ok_label
+            )
+
+            self.emit_bind_label(
+                fail_label
+            )
+
+            self.emit_soft_runtime_error(
+                f"Array bounds error: {name} index out of range "
+                f"allowed range {minimum}..{maximum}"
+            )
+
+            self.emit_bind_label(
+                ok_label
+            )
+
+            if minimum != 0:
+                self.emit_sub(
+                    "eax",
+                    minimum
+                )
+
+        else:
+            self.emit_multi_array_index_offset(
+                ctx,
+                name,
+                array_info,
+                index_exprs
+            )
+
+        # EAX = linearer Index
+        if array_info.element_size != 1:
+            self.emit_imul(
+                "eax",
+                "eax",
+                array_info.element_size
+            )
+
+        is_nt32 = CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        )
+
+        if is_nt32:
+            self.emit_mov(
+                "edx",
+                "eax",
+                comment="constant array byte offset"
+            )
+
+            self.writer.emit_lea_reg_data_label(
+                "eax",
+                symbol
+            )
+
+            self.emit_add(
+                "eax",
+                "edx",
+                comment=f"{name} element address"
+            )
+
+            address_reg = "eax"
+
+        else:
+            self.emit_movsxd(
+                "r11",
+                "eax"
+            )
+
+            self.writer.emit_lea_reg_data_label(
+                "rax",
+                symbol
+            )
+
+            self.emit_add(
+                "rax",
+                "r11",
+                comment=f"{name} element address"
+            )
+
+            address_reg = "rax"
+
+        element_type = self.resolve_type(
+            array_info.element_type
+        )
+
+        range_info = self.subrange_info(
+            element_type
+        )
+
+        if element_type == "char":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                0
+            )
+
+            return "char"
+
+        if element_type == "boolean":
+            self.emit_mov_dword_ptr(
+                "eax",
+                address_reg,
+                0,
+                comment=f"load {name} element"
+            )
+
+            self.emit_and(
+                "eax",
+                1
+            )
+
+            return "boolean"
+
+        if (
+            element_type == "integer"
+            or (
+                range_info is not None
+                and range_info.base_type == "integer"
+            )
+        ):
+            element_size = (
+                int(range_info.size)
+                if range_info is not None
+                else 4
+            )
+
+            if element_size == 1:
+                self.backend.writer.emit_movzx_r32_byte_ptr(
+                    "eax",
+                    address_reg,
+                    0
+                )
+
+            elif element_size == 2:
+                # Der vorhandene Writer besitzt bereits den stabilen
+                # DWord-Ladepfad. Anschließend werden die oberen Bits
+                # entfernt.
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    0,
+                    comment=f"load {name} word element"
+                )
+
+                self.emit_and(
+                    "eax",
+                    0xFFFF
+                )
+
+            elif element_size == 4:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    0,
+                    comment=f"load {name} integer element"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"unsupported integer element size "
+                        f"{element_size} for {name}"
+                    )
+                )
+
+            return "integer"
+
+        if element_type == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                address_reg,
+                0,
+                comment=f"load {name} element"
+            )
+
+            return "double"
+
+        raise CompileError(
+            ctx,
+            "E0014",
+            var_type=element_type
+        )
+
+
     def declare_const(self, ctx, name, value, typ):
         key = name.lower()
 
@@ -2449,74 +3417,101 @@ class AsmJitGenerator(PascalParserVisitor):
     
     def declare_local_var(self, ctx, name, vtype):
         scope = self.current_local_scope()
-        
+
         if scope is None:
             self.declare_var(ctx, name, vtype)
             return
-        
+
         key = name.lower()
-        typ = self.resolve_type(vtype)
-        
+
         if key in scope["vars"]:
             raise CompileError(ctx, "E0002", name=name)
-        
-        if typ in ["integer", "boolean"]:
-            if CDATA.args_target in ["dos", "dos16"]:
-                site = 2
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                size = 4
-            else:
-                size = 8
-        
-        elif typ == "double":
-            size = 8
-        
-        elif typ == "string":
-            if CDATA.args_target in ["dos", "dos16"]:
-                size = 4      # DOS Far Pointer: offset + segment
-            else:
-                size = 8
-        
-        elif (typ == "pointer"     or (isinstance(typ, str)
-        and   typ.startswith("^")) or (isinstance(typ, str)
-        and   typ in self.classes)):
-            size = self.pointer_slot_size()
-        
-        elif isinstance(typ, str) and typ in self.records:
-            size = self.records[typ].size
-        
-        elif isinstance(typ, str) and typ in self.arrays:
-            array_info = self.arrays[typ]
 
-            if getattr(array_info, "is_dynamic", False):
-                slot = self.next_pointr_slot
-                self.next_pointr_slot += 1
-            else:
-                slot = self.next_arrays_slot
-                self.next_arrays_slot += array_info.size
-        
-        elif isinstance(typ, str) and typ in self.enums:
-            typ = "integer"
-            size = 8
-        
+        declared_type = str(vtype).strip().lower()
+        range_info = self.subrange_info(declared_type)
+
+        if range_info is not None:
+            # Bestehende Ausdruckspfade verwenden intern Integer. Der
+            # deklarierte Typ und die tatsächliche Speicherbreite bleiben
+            # für Range-Checks und Stores separat erhalten.
+            typ = range_info.base_type
+            size = int(range_info.size)
         else:
-            raise CompileError(
-                ctx,
-                "E0005",
-                got=typ,
-                expected="integer/boolean/double/string/pointer/record/array/enum"
-            )
-        
+            typ = self.resolve_type(declared_type)
+
+            if typ in ("integer", "boolean"):
+                if CDATA.args_target in ("dos", "dos16"):
+                    size = 2
+                elif CDATA.args_target in ("nt35", "winnt", "win32"):
+                    size = 4
+                else:
+                    size = 8
+
+            elif typ == "char":
+                size = 1
+
+            elif typ == "double":
+                size = 8
+
+            elif typ == "string":
+                if CDATA.args_target in ("dos", "dos16"):
+                    size = 4
+                else:
+                    size = self.pointer_slot_size()
+
+            elif (
+                typ == "pointer"
+                or self.is_pointer_type(typ, include_nil=False)
+                or (
+                    isinstance(typ, str)
+                    and typ in self.classes
+                )
+            ):
+                size = self.pointer_slot_size()
+
+            elif isinstance(typ, str) and typ in self.records:
+                size = int(self.records[typ].size)
+
+            elif isinstance(typ, str) and typ in self.arrays:
+                array_info = self.arrays[typ]
+
+                if getattr(array_info, "is_dynamic", False):
+                    size = self.pointer_slot_size()
+                else:
+                    size = int(array_info.size)
+
+            elif isinstance(typ, str) and typ in self.enums:
+                typ = "integer"
+
+                if CDATA.args_target in ("dos", "dos16"):
+                    size = 2
+                elif CDATA.args_target in ("nt35", "winnt", "win32"):
+                    size = 4
+                else:
+                    size = 8
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=typ,
+                    expected=(
+                        "integer/boolean/char/double/string/"
+                        "pointer/record/array/enum"
+                    )
+                )
+
         scope["next_offset"] += size
         offset = -scope["next_offset"]
-        
+
         scope["vars"][key] = {
             "name": name,
             "type": typ,
+            "declared_type": declared_type,
             "offset": offset,
             "size": size
         }
-    
+
     def declare_var(self, ctx, name, vtype):
         key = name.lower()
         #typ = self.resolve_type(vtype)
@@ -2541,7 +3536,21 @@ class AsmJitGenerator(PascalParserVisitor):
             and self.backend.name == CDATA.args_backend
         )
         
-        if typ == "integer":
+        if typ == "char":
+            slot = self.next_int_slot
+            self.next_int_slot += 1
+
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                symbol = f"_var_{name}"
+
+                if self.coff.find_symbol_index(symbol) is None:
+                    self.coff.add_data_zeros(
+                        symbol,
+                        1,
+                        alignment=1
+                    )
+        
+        elif typ == "integer":
             slot = self.next_int_slot
             self.next_int_slot += 1
             
@@ -3150,57 +4159,200 @@ class AsmJitGenerator(PascalParserVisitor):
 
         with open(filename, "w", encoding="utf-8") as f:
             f.write(self.render_fpc_import_unit())
-    
-    def resolve_pointer_record_path(self, ctx, parts):
-        ptr_name = parts[0]
-        ptr_key  = ptr_name.lower()
 
-        ptr_info = self.find_local_var(ptr_name)
-        is_local = ptr_info is not None
+    def emit_load_pointer_reference(
+        self,
+        ctx,
+        name,
+        info
+    ):
+        source_kind = info.get(
+            "source_kind"
+        )
+
+        if source_kind == "local":
+            return self.emit_load_local_var(
+                ctx,
+                name,
+                info
+            )
+
+        if source_kind == "param":
+            return self.emit_load_param(
+                ctx,
+                name
+            )
+
+        if source_kind == "global":
+            return self.emit_load_var(
+                name,
+                info
+            )
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                f"unknown pointer source for {name}"
+            )
+        )
+    
+    def resolve_pointer_record_path(
+        self,
+        ctx,
+        parts
+    ):
+        ptr_name = parts[0]
+        ptr_key = ptr_name.lower()
+
+        ptr_info = self.find_local_var(
+            ptr_name
+        )
+
+        source_kind = None
+
+        if ptr_info is not None:
+            source_kind = "local"
 
         if ptr_info is None:
-            if ptr_key not in self.vars:
-                raise CompileError(ctx, "E0001", name=ptr_name)
+            ptr_info = self.find_param(
+                ptr_name
+            )
 
-            ptr_info = self.vars[ptr_key]
+            if ptr_info is not None:
+                source_kind = "param"
 
-        ptr_type = self.resolve_type(ptr_info["type"])
+        if ptr_info is None:
+            ptr_info = self.vars.get(
+                ptr_key
+            )
 
-        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
-            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+            if ptr_info is not None:
+                source_kind = "global"
 
-        record_type = ptr_type[1:]
+        if ptr_info is None:
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=ptr_name
+            )
+
+        ptr_type = self.resolve_type(
+            ptr_info["type"]
+        )
+
+        if (
+            not isinstance(ptr_type, str)
+            or not ptr_type.startswith("^")
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=ptr_type,
+                expected="pointer"
+            )
+
+        record_type = self.resolve_type(
+            ptr_type[1:]
+        )
 
         if record_type not in self.records:
-            raise CompileError(ctx, "E0005", got=record_type, expected="record")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=record_type,
+                expected="record"
+            )
 
         offset = 0
         field = None
         current_type = record_type
 
-        for field_name in parts[1:]:
-            record = self.records[current_type]
+        for index, field_name in enumerate(
+            parts[1:]
+        ):
+            if current_type not in self.records:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_type,
+                    expected="record"
+                )
+
+            record = self.records[
+                current_type
+            ]
+
             field_key = field_name.lower()
 
             if field_key not in record.fields:
-                raise CompileError(ctx, "E0001", name=".".join(parts))
+                raise CompileError(
+                    ctx,
+                    "E0001",
+                    name=".".join(parts)
+                )
 
-            field = record.fields[field_key]
+            field = record.fields[
+                field_key
+            ]
+
             offset += field.offset
-            current_type = self.resolve_type(field.type)
 
-            if field_name != parts[-1]:
-                if isinstance(current_type, str) and current_type.startswith("^"):
-                    current_type = current_type[1:]
+            current_type = self.resolve_type(
+                field.type
+            )
+
+            is_last = (
+                index
+                == len(parts[1:]) - 1
+            )
+
+            if not is_last:
+                if (
+                    isinstance(current_type, str)
+                    and current_type.startswith("^")
+                ):
+                    current_type = (
+                        current_type[1:]
+                    )
 
                 if current_type not in self.records:
-                    raise CompileError(ctx, "E0005", got=current_type, expected="record")
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=current_type,
+                        expected="record"
+                    )
 
-        ptr_info = dict(ptr_info)
-        ptr_info["is_local"] = is_local
-        ptr_info["type"] = ptr_type
+        result_info = dict(
+            ptr_info
+        )
 
-        return ptr_info, offset, field
+        result_info["source_kind"] = (
+            source_kind
+        )
+
+        result_info["is_local"] = (
+            source_kind == "local"
+        )
+
+        result_info["is_param"] = (
+            source_kind == "param"
+        )
+
+        result_info["is_global"] = (
+            source_kind == "global"
+        )
+
+        result_info["type"] = (
+            ptr_type
+        )
+
+        return (
+            result_info,
+            offset,
+            field
+        )
     
     def resolve_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
         index_exprs = index_expr_ctx
@@ -3260,63 +4412,101 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return field
     
-    def resolve_type(self, type_name):
-        if not isinstance(type_name, str):
+    def resolve_type(
+        self,
+        type_name
+    ):
+        if not isinstance(
+            type_name,
+            str
+        ):
             return type_name
 
-        typ = type_name.lower()
+        current = type_name.strip().lower()
 
-        if typ.startswith("^"):
-            base = typ[1:]
+        if not current:
+            return current
 
-            while base in self.type_aliases:
-                base = self.type_aliases[base].lower()
+        visited = set()
 
-                if base.startswith("^"):
-                    return base
+        while True:
+            if current in visited:
+                raise RuntimeError(
+                    f"circular type alias detected: "
+                    f"{type_name}"
+                )
 
-            return "^" + base
+            visited.add(
+                current
+            )
 
-        while typ in self.type_aliases:
-            typ = self.type_aliases[typ].lower()
+            # ------------------------------------------------------
+            # Pointertyp
+            #
+            # Beispiele:
+            #
+            #   ^Byte
+            #   ^MyByte
+            #   ^^Integer
+            # ------------------------------------------------------
+            if current.startswith("^"):
+                base_type = current[1:]
 
-        # WICHTIG: Boolean NICHT zu integer machen
-        if typ == "boolean":
-            return "boolean"
+                resolved_base = self.resolve_type(
+                    base_type
+                )
 
-        if typ in self.enums:
-            return "integer"
+                # Ein Alias kann selbst bereits ein Pointer sein.
+                #
+                #   PByte  = ^Byte
+                #   PPByte = ^PByte
+                if (
+                    isinstance(resolved_base, str)
+                    and resolved_base.startswith("^")
+                ):
+                    return "^" + resolved_base
 
-        if isinstance(typ, str) and typ in self.records:
-            return typ
+                return "^" + str(
+                    resolved_base
+                )
 
-        if isinstance(typ, str) and typ in self.arrays:
-            return typ
+            # ------------------------------------------------------
+            # Normaler Typalias
+            # ------------------------------------------------------
+            alias_target = self.type_aliases.get(
+                current
+            )
 
-        return typ
-    
-    def is_pointer_type(
-        self,
-        typ,
-        include_nil=True
-    ):
-        typ = self.resolve_type(typ)
+            if alias_target is not None:
+                current = str(
+                    alias_target
+                ).strip().lower()
 
-        if typ == "pointer":
-            return True
+                continue
 
-        if include_nil and typ == "^nil":
-            return True
+            # ------------------------------------------------------
+            # Bekannte direkte Typen
+            # ------------------------------------------------------
+            if current == "boolean":
+                return "boolean"
 
-        if (isinstance(typ, str) and typ.startswith("^")):
-            return True
+            if current in self.enums:
+                return "integer"
 
-        # Klassenvariablen sind ebenfalls Objektpointer.
-        if (isinstance(typ, str) and typ in self.classes):
-            return True
+            if current in self.subrange_types:
+                return current
 
-        return False
-    
+            if current in self.records:
+                return current
+
+            if current in self.arrays:
+                return current
+
+            if current in self.classes:
+                return current
+
+            return current
+        
     def unit_search_directories(self):
         directories = []
         seen = set()
@@ -4018,7 +5208,60 @@ class AsmJitGenerator(PascalParserVisitor):
             classes
         )
 
-    def register_pui_imports(self, ctx, unit_name, data):
+    def local_routine_calling_convention(
+        self,
+        ctx
+    ):
+        """
+        Liest die Aufrufkonvention aus dem Routine-Header.
+
+        Unterstützt sowohl:
+
+            routineCallingConvention.callingConvention()
+
+        als auch Parser-Versionen, bei denen der äußere Kontext direkt
+        den Text "cdecl", "stdcall" oder "pascal" enthält.
+        """
+        accessor = getattr(
+            ctx,
+            "routineCallingConvention",
+            None
+        )
+
+        if accessor is None:
+            return "cdecl"
+
+        directive = accessor()
+
+        if directive is None:
+            return "cdecl"
+
+        convention_accessor = getattr(
+            directive,
+            "callingConvention",
+            None
+        )
+
+        if convention_accessor is not None:
+            convention_ctx = convention_accessor()
+
+            if convention_ctx is not None:
+                return self.normalize_calling_convention(
+                    ctx,
+                    convention_ctx
+                )
+
+        return self.normalize_calling_convention(
+            ctx,
+            directive
+        )
+
+    def register_pui_imports(
+        self,
+        ctx,
+        unit_name,
+        data
+    ):
         imports = data.get(
             "imports",
             {}
@@ -4027,7 +5270,10 @@ class AsmJitGenerator(PascalParserVisitor):
         if imports is None:
             imports = {}
 
-        if not isinstance(imports, dict):
+        if not isinstance(
+            imports,
+            dict
+        ):
             raise CompileError(
                 ctx,
                 "E0019",
@@ -4052,7 +5298,10 @@ class AsmJitGenerator(PascalParserVisitor):
                     )
                 )
 
-            if not isinstance(raw_items, list):
+            if not isinstance(
+                raw_items,
+                list
+            ):
                 raise CompileError(
                     ctx,
                     "E0019",
@@ -4068,30 +5317,34 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
+            # Vorhandenen DLL-Key unabhängig von Groß-/Kleinschreibung
+            # wiederverwenden.
             target_dll_name = None
+
+            for existing_dll_name in CDATA.imports:
+                if (
+                    str(existing_dll_name).lower()
+                    == dll_name.lower()
+                ):
+                    target_dll_name = existing_dll_name
+                    break
+
+            if target_dll_name is None:
+                target_dll_name = dll_name
+
             target_items = None
 
             if not use_runtime_thunks:
-                # Vorhandenen DLL-Key unabhängig von Groß-/Kleinschreibung
-                # wiederverwenden.
-                for existing_dll_name in CDATA.imports:
-                    if (
-                        str(existing_dll_name).lower()
-                        == dll_name.lower()
-                    ):
-                        target_dll_name = existing_dll_name
-                        break
-
-                if target_dll_name is None:
-                    target_dll_name = dll_name
-
                 target_items = CDATA.imports.setdefault(
                     target_dll_name,
                     []
                 )
 
             for raw_item in raw_items:
-                if not isinstance(raw_item, dict):
+                if not isinstance(
+                    raw_item,
+                    dict
+                ):
                     raise CompileError(
                         ctx,
                         "E0019",
@@ -4113,29 +5366,38 @@ class AsmJitGenerator(PascalParserVisitor):
                     "ordinal"
                 )
 
+                if not isinstance(
+                    symbol,
+                    str
+                ) or not symbol:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "DLL import without internal symbol "
+                            f"in {unit_name}.pui"
+                        )
+                    )
+
+                if (
+                    not isinstance(
+                        import_name,
+                        str
+                    )
+                    or not import_name
+                ):
+                    import_name = None
+
                 if ordinal is None:
                     ordinal = self.find_known_dll_import_ordinal(
                         dll_name,
                         import_name
                     )
 
-                if not isinstance(symbol, str) or not symbol:
-                    raise CompileError(
-                        ctx,
-                        "E0019",
-                        text=(
-                            f"DLL import without internal symbol "
-                            f"in {unit_name}.pui"
-                        )
-                    )
-
                 if (
-                    not isinstance(import_name, str)
-                    or not import_name
+                    import_name is None
+                    and ordinal is None
                 ):
-                    import_name = None
-
-                if import_name is None and ordinal is None:
                     raise CompileError(
                         ctx,
                         "E0019",
@@ -4145,14 +5407,30 @@ class AsmJitGenerator(PascalParserVisitor):
                         )
                     )
 
+                # --------------------------------------------------
+                # Gepackte Runtime:
+                #
+                # Kein PE-Import wird erzeugt. Stattdessen verweist das
+                # COFF-Symbol auf den internen Runtime-Thunk.
+                # --------------------------------------------------
                 if use_runtime_thunks:
-                    if import_name is None:
+                    thunk_name = import_name
+
+                    if thunk_name is None:
+                        thunk_name = (
+                            self.find_known_dll_import_name(
+                                dll_name,
+                                ordinal
+                            )
+                        )
+
+                    if thunk_name is None:
                         raise CompileError(
                             ctx,
                             "E0019",
                             text=(
-                                f"packed runtime import "
-                                f"{symbol} has no thunk name "
+                                f"packed runtime import {symbol} "
+                                "has no resolvable thunk name "
                                 f"in {unit_name}.pui"
                             )
                         )
@@ -4172,18 +5450,14 @@ class AsmJitGenerator(PascalParserVisitor):
                             )
                         )
 
-                    # Units built in normal mode usually reference a
-                    # synthetic __dllimp_* symbol.  Units already built in
-                    # packed mode can reference the thunk name directly.
-                    if symbol != import_name:
-                        writer.add_runtime_symbol_alias(
-                            symbol,
-                            import_name
-                        )
+                    writer.add_runtime_symbol_alias(
+                        symbol,
+                        thunk_name
+                    )
 
                     key = (
                         dll_name.lower(),
-                        import_name
+                        thunk_name
                     )
 
                     self.dll_import_symbols.setdefault(
@@ -4202,7 +5476,6 @@ class AsmJitGenerator(PascalParserVisitor):
                             int(match.group(1)) + 1
                         )
 
-                    # Do not copy the runtime DLL into CDATA.imports.
                     continue
 
                 item = {
@@ -4217,13 +5490,21 @@ class AsmJitGenerator(PascalParserVisitor):
                         ordinal
                     )
 
-                # Dasselbe interne Symbol darf nicht auf zwei verschiedene
-                # DLL-Exporte zeigen.
-                for existing_dll, existing_items in CDATA.imports.items():
+                # Dasselbe interne Symbol darf nicht auf zwei
+                # verschiedene DLL-Exporte zeigen.
+                for (
+                    existing_dll,
+                    existing_items
+                ) in CDATA.imports.items():
                     for existing_item in existing_items:
                         if (
-                            isinstance(existing_item, dict)
-                            and existing_item.get("symbol") == symbol
+                            isinstance(
+                                existing_item,
+                                dict
+                            )
+                            and existing_item.get(
+                                "symbol"
+                            ) == symbol
                             and (
                                 str(existing_dll).lower()
                                 != str(target_dll_name).lower()
@@ -4237,17 +5518,23 @@ class AsmJitGenerator(PascalParserVisitor):
                                 ctx,
                                 "E0019",
                                 text=(
-                                    f"conflicting imported COFF symbol "
+                                    "conflicting imported COFF symbol "
                                     f"{symbol} while loading "
                                     f"{unit_name}.pui"
                                 )
                             )
 
                 already_registered = any(
-                    isinstance(existing_item, dict)
-                    and existing_item.get("symbol") == symbol
-                    and existing_item.get("name") == item.get("name")
-                    and existing_item.get("ordinal") == item.get("ordinal")
+                    isinstance(
+                        existing_item,
+                        dict
+                    )
+                    and existing_item.get("symbol")
+                    == symbol
+                    and existing_item.get("name")
+                    == item.get("name")
+                    and existing_item.get("ordinal")
+                    == item.get("ordinal")
                     for existing_item in target_items
                 )
 
@@ -4966,7 +6253,7 @@ class AsmJitGenerator(PascalParserVisitor):
         return name
 
     def variable_ref_has_caret(self, ref):
-        return any(s.CARET() for s in ref.variableSuffix())
+        return any(self.suffix_is_caret(suffix) for suffix in ref.variableSuffix())
     
     def add_asm_label_mapping(self, asmjit_label, target_label):
         self.asm_label_mappings.append({
@@ -6000,10 +7287,22 @@ class AsmJitGenerator(PascalParserVisitor):
     
     def emit_sete(self, reg, comment=""):
         self.backend.emit_sete(reg, comment)
-        
+
     def emit_setne(self, reg, comment=""):
         self.backend.emit_setne(reg, comment)
-    
+
+    def emit_setl(self, reg, comment=""):
+        self.backend.emit_setl(reg, comment)
+
+    def emit_setle(self, reg, comment=""):
+        self.backend.emit_setle(reg, comment)
+
+    def emit_setg(self, reg, comment=""):
+        self.backend.emit_setg(reg, comment)
+
+    def emit_setge(self, reg, comment=""):
+        self.backend.emit_setge(reg, comment)
+
     def emit_soft_runtime_error(self, message):
         except_label = self.current_except_label()
         label = self.get_or_add_runtime_error_string(message)
@@ -6260,6 +7559,8 @@ class AsmJitGenerator(PascalParserVisitor):
 
         self.restore_nt32_context_after_runtime_call()
         return "integer"
+
+    
 
     def emit_builtin_paramstr(self, ctx):
         """
@@ -7575,6 +8876,56 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_movq("xmm0", "rax")
         return "double"
     
+    def context_contains_caret(self, ctx):
+        if ctx is None:
+            return False
+
+        symbol = getattr(ctx, "symbol", None)
+
+        if symbol is not None:
+            token_text = getattr(symbol, "text", None)
+            token_type = getattr(symbol, "type", None)
+            caret_type = getattr(PascalParser, "CARET", None)
+
+            if token_text == "^":
+                return True
+
+            if caret_type is not None and token_type == caret_type:
+                return True
+
+            return False
+
+        for child in getattr(ctx, "children", None) or []:
+            if self.context_contains_caret(child):
+                return True
+
+        return False
+        
+    def context_contains_dot(self, ctx):
+        if ctx is None:
+            return False
+
+        symbol = getattr(ctx, "symbol", None)
+
+        if symbol is not None:
+            token_text = getattr(symbol, "text", None)
+            token_type = getattr(symbol, "type", None)
+            caret_type = getattr(PascalParser, "DOT", None)
+
+            if token_text == ".":
+                return True
+
+            if caret_type is not None and token_type == caret_type:
+                return True
+
+            return False
+
+        for child in getattr(ctx, "children", None) or []:
+            if self.context_contains_dot(child):
+                return True
+
+        return False
+    
     def emit_load_string_var_to_rax(self, ctx, name):
         var_info = self.var_info(ctx, name)
         slot = var_info["slot"]
@@ -7590,111 +8941,367 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size())
     
     def emit_load_pointer_deref(self, ctx, name):
-        key = name.lower()
+        info = self.find_local_var(name)
+        source_kind = None
 
-        if key not in self.vars:
+        if info is not None:
+            source_kind = "local"
+
+        if info is None:
+            info = self.find_param(name)
+            if info is not None:
+                source_kind = "param"
+
+        if info is None:
+            info = self.vars.get(name.lower())
+            if info is not None:
+                source_kind = "global"
+
+        if info is None:
             raise CompileError(ctx, "E0001", name=name)
 
-        info = self.vars[key]
-        typ = info["type"]
+        ptr_type = self.resolve_type(info["type"])
 
-        if not isinstance(typ, str) or not typ.startswith("^"):
-            raise CompileError(ctx, "E0005", got=typ, expected="pointer")
+        if not self.is_pointer_type(ptr_type, include_nil=False):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=ptr_type,
+                expected="pointer"
+            )
 
-        base_type = typ[1:]
+        if source_kind == "local":
+            self.emit_load_local_var(ctx, name, info)
+        elif source_kind == "param":
+            self.emit_load_param(ctx, name)
+        else:
+            self.emit_load_var(name, info)
 
-        self.emit_load_var(name, info)
+        self.emit_nil_pointer_check(name)
 
-        if base_type == "integer":
-            self.emit_mov_reg_dword("eax", "rax", comment='p^')
+        if ptr_type in ("pchar", "pansichar"):
+            base_type = "char"
+        elif ptr_type == "pointer":
+            base_type = "pointer"
+        else:
+            base_type = self.resolve_type(ptr_type[1:])
+
+        range_info = self.subrange_info(base_type)
+        is_nt32 = CDATA.args_target in ("nt35", "winnt", "win32")
+        address_reg = "eax" if is_nt32 else "rax"
+
+        if range_info is not None and range_info.base_type == "integer":
+            if range_info.size == 1:
+                self.backend.writer.emit_movzx_r32_byte_ptr(
+                    "eax",
+                    address_reg,
+                    0
+                )
+            else:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    0,
+                    comment=f"{name}^"
+                )
+
+                if not range_info.signed and range_info.size == 2:
+                    self.emit_and("eax", 0xFFFF)
+
             return "integer"
 
+        if base_type == "integer":
+            self.emit_mov_dword_ptr("eax", address_reg, 0, comment=f"{name}^")
+            return "integer"
+
+        if base_type == "boolean":
+            self.emit_mov_dword_ptr("eax", address_reg, 0, comment=f"{name}^")
+            self.emit_and("eax", 1)
+            return "boolean"
+
+        if base_type == "char":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                0
+            )
+            return "char"
+
         if base_type == "double":
-            self.emit_movsd_load("xmm0", "rax", 0, comment="p^")
+            self.emit_movsd_load("xmm0", address_reg, 0, comment=f"{name}^")
             return "double"
 
         if base_type == "string":
-            self.emit_mov_reg_qword("rax", "rax", comment='p^')
+            if is_nt32:
+                self.emit_mov_dword_ptr("eax", "eax", 0, comment=f"{name}^")
+            else:
+                self.emit_mov_qword_ptr("rax", "rax", 0, comment=f"{name}^")
             return "string"
 
+        if self.is_pointer_type(base_type, include_nil=False):
+            if is_nt32:
+                self.emit_mov_dword_ptr("eax", "eax", 0, comment=f"{name}^")
+            else:
+                self.emit_mov_qword_ptr("rax", "rax", 0, comment=f"{name}^")
+            return base_type
+
+        if isinstance(base_type, str) and base_type in self.records:
+            return base_type
+
         raise CompileError(ctx, "E0014", var_type=base_type)
-    
+
     def emit_load_param(self, ctx, name):
         param = self.find_param(name)
 
-        if not param:
+        if param is None:
             raise CompileError(ctx, "E0001", name=name)
-            
-        typ    = self.resolve_type(param["type"])
-        offset = param["stack_offset"]
-        
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if param.get("is_var", False):
-                # [ebp+offset] = Adresse der echten Variable
-                self.emit_mov_dword_ptr("ebx", "ebp", offset)
+
+        declared_type = str(
+            param.get("declared_type", param["type"])
+        ).strip().lower()
+
+        typ = self.resolve_type(param["type"])
+        offset = param.get("stack_offset")
+
+        if offset is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"parameter {name} has no stack offset"
+            )
+
+        is_var = bool(param.get("is_var", False))
+        range_info = self.subrange_info(typ)
+        scalar_type = self.scalar_base_type(typ)
+
+        if CDATA.args_target in ("nt35", "winnt", "win32"):
+            if is_var:
+                self.emit_mov_dword_ptr(
+                    "ebx",
+                    "ebp",
+                    offset,
+                    comment=f"var parameter address {name}"
+                )
+
+                if range_info is not None and scalar_type == "integer":
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "ebx",
+                        0,
+                        comment=f"var subrange parameter {name}: {typ}"
+                    )
+
+                    if not range_info.signed:
+                        if range_info.size == 1:
+                            self.emit_and("eax", 0xFF)
+                        elif range_info.size == 2:
+                            self.emit_and("eax", 0xFFFF)
+
+                    return "integer"
 
                 if typ == "integer":
                     self.emit_mov_dword_ptr("eax", "ebx", 0)
                     return "integer"
+
+                if typ == "boolean":
+                    self.emit_mov_dword_ptr("eax", "ebx", 0)
+                    self.emit_and("eax", 1)
+                    return "boolean"
+
+                if typ == "char":
+                    self.backend.writer.emit_movzx_r32_byte_ptr(
+                        "eax",
+                        "ebx",
+                        0
+                    )
+                    return "char"
 
                 if typ == "string":
                     self.emit_mov_dword_ptr("eax", "ebx", 0)
                     return "string"
 
+                if typ == "double":
+                    self.emit_movsd_load("xmm0", "ebx", 0)
+                    return "double"
+
                 if self.is_pointer_type(typ, include_nil=False):
-                    self.emit_mov_dword_ptr("eax","ebp", offset)
+                    self.emit_mov_dword_ptr("eax", "ebx", 0)
                     return typ
 
-            if typ in ("integer", "boolean"):
-                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                if isinstance(typ, str) and typ in self.classes:
+                    self.emit_mov_dword_ptr("eax", "ebx", 0)
+                    return typ
 
-                if typ == "boolean":
-                    self.emit_and("eax", 1)
+                raise CompileError(ctx, "E0014", var_type=typ)
 
-                return typ
-                
+            if range_info is not None and scalar_type == "integer":
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    offset,
+                    comment=f"subrange parameter {name}: {typ}"
+                )
+
+                if not range_info.signed:
+                    if range_info.size == 1:
+                        self.emit_and("eax", 0xFF)
+                    elif range_info.size == 2:
+                        self.emit_and("eax", 0xFFFF)
+
+                return "integer"
+
             if typ == "integer":
                 self.emit_mov_dword_ptr("eax", "ebp", offset)
                 return "integer"
+
+            if typ == "boolean":
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                self.emit_and("eax", 1)
+                return "boolean"
+
+            if typ == "char":
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
+                self.emit_and("eax", 0xFF)
+                return "char"
 
             if typ == "string":
                 self.emit_mov_dword_ptr("eax", "ebp", offset)
                 return "string"
 
+            if typ == "double":
+                self.emit_movsd_load("xmm0", "ebp", offset)
+                return "double"
+
             if self.is_pointer_type(typ, include_nil=False):
-                self.emit_mov_dword_ptr("eax", "ebp", offset,
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    offset,
                     comment=f"pointer parameter {name}"
                 )
                 return typ
-                
-        else:
-            if param.get("is_var", False):
-                self.emit_mov_qword_ptr("r11", "rbp", offset, comment=f"var param address {name}")
-                
-                if typ == "integer":
-                    self.emit_mov_reg_dword("eax", "r11")
-                    return "integer"
-                
-                elif isinstance(typ, str) and typ.startswith("^"):
-                    self.emit_mov_reg_qword("rax", "r11")
-                    return typ
-                
-                raise CompileError(ctx, "E0014", var_type=typ)
-        
-            if typ == "integer":
-                self.emit_mov_dword_ptr("eax", "rbp", offset)
-                return "integer"
-            
-            elif typ == "string":
-                self.emit_mov_qword_ptr("rax", "rbp", offset)
-                return "string"
-            
-            elif isinstance(typ, str) and typ.startswith("^"):
-                self.emit_mov_qword_ptr("rax", "rbp", offset)
+
+            if isinstance(typ, str) and typ in self.classes:
+                self.emit_mov_dword_ptr("eax", "ebp", offset)
                 return typ
-                
+
             raise CompileError(ctx, "E0014", var_type=typ)
-    
+
+        if CDATA.args_target in ("dos", "dos16"):
+            if is_var:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "DOS VAR parameter loading is not implemented "
+                        f"for {declared_type}"
+                    )
+                )
+
+            if typ == "integer" or (
+                range_info is not None
+                and scalar_type == "integer"
+            ):
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    offset
+                )
+                return "integer"
+
+            if self.is_pointer_type(typ, include_nil=False):
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    offset
+                )
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "dx",
+                    "bp",
+                    offset + 2
+                )
+                return typ
+
+            raise CompileError(ctx, "E0014", var_type=typ)
+
+        if is_var:
+            self.emit_mov_qword_ptr(
+                "r11",
+                "rbp",
+                offset,
+                comment=f"var parameter address {name}"
+            )
+
+            if typ == "integer" or (
+                range_info is not None
+                and scalar_type == "integer"
+            ):
+                self.emit_mov_dword_ptr("eax", "r11", 0)
+                return "integer"
+
+            if typ == "boolean":
+                self.emit_mov_dword_ptr("eax", "r11", 0)
+                self.emit_and("eax", 1)
+                return "boolean"
+
+            if typ == "char":
+                self.emit_mov_dword_ptr("eax", "r11", 0)
+                self.emit_and("eax", 0xFF)
+                return "char"
+
+            if typ == "string":
+                self.emit_mov_qword_ptr("rax", "r11", 0)
+                return "string"
+
+            if typ == "double":
+                self.emit_movsd_load("xmm0", "r11", 0)
+                return "double"
+
+            if self.is_pointer_type(typ, include_nil=False):
+                self.emit_mov_qword_ptr("rax", "r11", 0)
+                return typ
+
+            if isinstance(typ, str) and typ in self.classes:
+                self.emit_mov_qword_ptr("rax", "r11", 0)
+                return typ
+
+            raise CompileError(ctx, "E0014", var_type=typ)
+
+        if typ == "integer" or (
+            range_info is not None
+            and scalar_type == "integer"
+        ):
+            self.emit_mov_dword_ptr("eax", "rbp", offset)
+            return "integer"
+
+        if typ == "boolean":
+            self.emit_mov_dword_ptr("eax", "rbp", offset)
+            self.emit_and("eax", 1)
+            return "boolean"
+
+        if typ == "char":
+            self.emit_mov_dword_ptr("eax", "rbp", offset)
+            self.emit_and("eax", 0xFF)
+            return "char"
+
+        if typ == "string":
+            self.emit_mov_qword_ptr("rax", "rbp", offset)
+            return "string"
+
+        if typ == "double":
+            self.emit_movsd_load("xmm0", "rbp", offset)
+            return "double"
+
+        if self.is_pointer_type(typ, include_nil=False):
+            self.emit_mov_qword_ptr("rax", "rbp", offset)
+            return typ
+
+        if isinstance(typ, str) and typ in self.classes:
+            self.emit_mov_qword_ptr("rax", "rbp", offset)
+            return typ
+
+        raise CompileError(ctx, "E0014", var_type=typ)
+
     def emit_load_record_field(self, ctx, parts):
         field_offset, field = self.resolve_record_path(ctx, parts)
         path = ".".join(parts)
@@ -7740,74 +9347,453 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return field.type
     
-    def emit_load_pointer_record_field(self, ctx, parts):
-        ptr_name = parts[0]
-        ptr_key  = ptr_name.lower()
+    def emit_load_pointer_record_field(
+        self,
+        ctx,
+        parts
+    ):
+        if not parts or len(parts) < 2:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "pointer record field access "
+                    "requires pointer and field"
+                )
+            )
 
-        ptr_info = self.find_local_var(ptr_name)
-        is_local = ptr_info is not None
+        ptr_name = parts[0]
+        ptr_key = ptr_name.lower()
+
+        # ----------------------------------------------------------
+        # Pointerquelle bestimmen:
+        #
+        #   lokale Variable
+        #   formaler Parameter
+        #   globale Variable
+        # ----------------------------------------------------------
+        ptr_info = self.find_local_var(
+            ptr_name
+        )
+
+        source_kind = None
+
+        if ptr_info is not None:
+            source_kind = "local"
 
         if ptr_info is None:
-            if ptr_key not in self.vars:
-                raise CompileError(ctx, "E0001", name=ptr_name)
-            ptr_info = self.vars[ptr_key]
+            ptr_info = self.find_param(
+                ptr_name
+            )
 
-        ptr_type = self.resolve_type(ptr_info["type"])
+            if ptr_info is not None:
+                source_kind = "param"
 
-        if not isinstance(ptr_type, str) or not ptr_type.startswith("^"):
-            raise CompileError(ctx, "E0005", got=ptr_type, expected="pointer")
+        if ptr_info is None:
+            ptr_info = self.vars.get(
+                ptr_key
+            )
 
-        current_type = ptr_type[1:]
-        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+            if ptr_info is not None:
+                source_kind = "global"
 
-        if is_local:
-            self.emit_load_local_var(ctx, ptr_name, ptr_info)
+        if ptr_info is None:
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=ptr_name
+            )
+
+        # ----------------------------------------------------------
+        # Pointertyp prüfen
+        # ----------------------------------------------------------
+        ptr_type = self.resolve_type(
+            ptr_info["type"]
+        )
+
+        if (
+            not isinstance(ptr_type, str)
+            or not ptr_type.startswith("^")
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=ptr_type,
+                expected="pointer"
+            )
+
+        current_type = self.resolve_type(
+            ptr_type[1:]
+        )
+
+        if current_type not in self.records:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=current_type,
+                expected="record"
+            )
+
+        is_nt32 = (
+            CDATA.args_target
+            in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+        )
+
+        address_reg = (
+            "eax"
+            if is_nt32
+            else "rax"
+        )
+
+        # ----------------------------------------------------------
+        # Pointerwert laden
+        # ----------------------------------------------------------
+        if source_kind == "local":
+            self.emit_load_local_var(
+                ctx,
+                ptr_name,
+                ptr_info
+            )
+
+        elif source_kind == "param":
+            self.emit_load_param(
+                ctx,
+                ptr_name
+            )
+
+        elif source_kind == "global":
+            self.emit_load_var(
+                ptr_name,
+                ptr_info
+            )
+
         else:
-            self.emit_load_var(ptr_name, ptr_info)
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"unknown pointer source: "
+                    f"{ptr_name}"
+                )
+            )
 
-        self.emit_nil_pointer_check(ptr_name)
+        self.emit_nil_pointer_check(
+            ptr_name
+        )
 
-        for index, field_name in enumerate(parts[1:]):
+        field_names = parts[1:]
+
+        # ----------------------------------------------------------
+        # Feldpfad abarbeiten
+        # ----------------------------------------------------------
+        for index, field_name in enumerate(
+            field_names
+        ):
             if current_type not in self.records:
-                raise CompileError(ctx, "E0005", got=current_type, expected="record")
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_type,
+                    expected="record"
+                )
 
-            record = self.records[current_type]
+            record = self.records[
+                current_type
+            ]
+
             field_key = field_name.lower()
 
             if field_key not in record.fields:
-                raise CompileError(ctx, "E0001", name=field_name)
+                raise CompileError(
+                    ctx,
+                    "E0001",
+                    name=".".join(parts)
+                )
 
-            field = record.fields[field_key]
-            is_last = index == len(parts[1:]) - 1
+            field = record.fields[
+                field_key
+            ]
 
+            field_type = self.resolve_type(
+                field.type
+            )
+
+            is_last = (
+                index
+                == len(field_names) - 1
+            )
+
+            path = ".".join(
+                parts[:index + 2]
+            )
+
+            # ======================================================
+            # Letztes Feld: tatsächlichen Wert laden
+            # ======================================================
             if is_last:
-                if field.type == "integer":
-                    self.emit_mov_dword_ptr("eax", "eax" if is_nt32 else "rax", field.offset)
+                # --------------------------------------------------
+                # Integer-Subrange (Byte, Word, DWord, ...)
+                # --------------------------------------------------
+                range_info = self.subrange_info(field_type)
+
+                if range_info is not None and range_info.base_type == "integer":
+                    field_size = int(getattr(field, "size", range_info.size))
+
+                    if field_size == 1:
+                        self.backend.writer.emit_movzx_r32_byte_ptr(
+                            "eax",
+                            address_reg,
+                            field.offset
+                        )
+                    else:
+                        self.emit_mov_dword_ptr(
+                            "eax",
+                            address_reg,
+                            field.offset,
+                            comment=path
+                        )
+
+                        if not range_info.signed and field_size == 2:
+                            self.emit_and("eax", 0xFFFF)
+
                     return "integer"
 
-                if isinstance(field.type, str) and field.type.startswith("^"):
+                # --------------------------------------------------
+                # Integer
+                # --------------------------------------------------
+                if field_type == "integer":
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        address_reg,
+                        field.offset,
+                        comment=path
+                    )
+
+                    return "integer"
+
+                # --------------------------------------------------
+                # Boolean
+                # --------------------------------------------------
+                if field_type == "boolean":
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        address_reg,
+                        field.offset,
+                        comment=path
+                    )
+
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
+                    return "boolean"
+
+                # --------------------------------------------------
+                # Char / AnsiChar
+                # --------------------------------------------------
+                if field_type == "char":
+                    self.backend.writer.emit_movzx_r32_byte_ptr(
+                        "eax",
+                        address_reg,
+                        field.offset
+                    )
+
+                    return "char"
+
+                # --------------------------------------------------
+                # Double
+                # --------------------------------------------------
+                if field_type == "double":
+                    self.emit_movsd_load(
+                        "xmm0",
+                        address_reg,
+                        field.offset,
+                        comment=path
+                    )
+
+                    return "double"
+
+                # --------------------------------------------------
+                # String
+                # --------------------------------------------------
+                if field_type == "string":
                     if is_nt32:
-                        self.emit_mov_dword_ptr("eax", "eax", field.offset)
+                        self.emit_mov_dword_ptr(
+                            "eax",
+                            "eax",
+                            field.offset,
+                            comment=path
+                        )
                     else:
-                        self.emit_mov_qword_ptr("rax", "rax", field.offset)
-                    return field.type
+                        self.emit_mov_qword_ptr(
+                            "rax",
+                            "rax",
+                            field.offset,
+                            comment=path
+                        )
 
-                return field.type
+                    return "string"
 
-            if isinstance(field.type, str) and field.type.startswith("^"):
+                # --------------------------------------------------
+                # Pointerfeld
+                # --------------------------------------------------
+                if self.is_pointer_type(
+                    field_type,
+                    include_nil=False
+                ):
+                    if is_nt32:
+                        self.emit_mov_dword_ptr(
+                            "eax",
+                            "eax",
+                            field.offset,
+                            comment=path
+                        )
+                    else:
+                        self.emit_mov_qword_ptr(
+                            "rax",
+                            "rax",
+                            field.offset,
+                            comment=path
+                        )
+
+                    return field_type
+
+                # --------------------------------------------------
+                # Klassenfeld: ebenfalls Pointer
+                # --------------------------------------------------
+                if (
+                    isinstance(field_type, str)
+                    and field_type in self.classes
+                ):
+                    if is_nt32:
+                        self.emit_mov_dword_ptr(
+                            "eax",
+                            "eax",
+                            field.offset,
+                            comment=path
+                        )
+                    else:
+                        self.emit_mov_qword_ptr(
+                            "rax",
+                            "rax",
+                            field.offset,
+                            comment=path
+                        )
+
+                    return field_type
+
+                # --------------------------------------------------
+                # Eingebetteter Record:
+                # Adresse dieses Records zurückgeben
+                # --------------------------------------------------
+                if (
+                    isinstance(field_type, str)
+                    and field_type in self.records
+                ):
+                    if field.offset != 0:
+                        self.emit_add(
+                            address_reg,
+                            field.offset,
+                            comment=path
+                        )
+
+                    return field_type
+
+                raise CompileError(
+                    ctx,
+                    "E0014",
+                    var_type=field_type
+                )
+
+            # ======================================================
+            # Noch nicht letztes Feld:
+            # Adresse für den nächsten Zugriff berechnen
+            # ======================================================
+
+            # ------------------------------------------------------
+            # Eingebetteter Record:
+            #
+            #   P^.Inner.Value
+            #
+            # P zeigt auf Outer.
+            # Inner liegt direkt innerhalb von Outer.
+            # ------------------------------------------------------
+            if field_type in self.records:
+                if field.offset != 0:
+                    self.emit_add(
+                        address_reg,
+                        field.offset,
+                        comment=path
+                    )
+
+                current_type = field_type
+                continue
+
+            # ------------------------------------------------------
+            # Pointer auf nächsten Record:
+            #
+            #   P^.Next^.Value
+            #
+            # Das Pointerfeld muss geladen und geprüft werden.
+            # ------------------------------------------------------
+            if self.is_pointer_type(
+                field_type,
+                include_nil=False
+            ):
+                pointed_type = self.resolve_type(
+                    field_type[1:]
+                )
+
+                if pointed_type not in self.records:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=pointed_type,
+                        expected="record"
+                    )
+
                 if is_nt32:
-                    self.emit_mov_dword_ptr("eax", "eax", field.offset)
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "eax",
+                        field.offset,
+                        comment=path
+                    )
                 else:
-                    self.emit_mov_qword_ptr("rax", "rax", field.offset)
-                current_type = field.type[1:]
+                    self.emit_mov_qword_ptr(
+                        "rax",
+                        "rax",
+                        field.offset,
+                        comment=path
+                    )
+
+                self.emit_nil_pointer_check(
+                    path
+                )
+
+                current_type = pointed_type
                 continue
 
-            if field.type in self.records:
-                self.emit_add("eax" if is_nt32 else "rax", field.offset)
-                current_type = field.type
-                continue
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=field_type,
+                expected="record/pointer"
+            )
 
-            raise CompileError(ctx, "E0005", got=field.type, expected="record/pointer")
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "pointer record field path "
+                "could not be resolved"
+            )
+        )
     
     def emit_load_local_var(self, ctx, name, info):
         var = self.find_local_var(name)
@@ -8380,8 +10366,12 @@ class AsmJitGenerator(PascalParserVisitor):
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
 
         if is_nt32:
-            # eax zeigt auf Char-Literal, Zeichen sichern
-            self.backend.writer.emit_movzx_r32_byte_ptr("ebx", "eax", 0)
+            # Char-Wert aus EAX sichern.
+            self.emit_mov(
+                "ebx",
+                "eax",
+                comment="save string char value"
+            )
 
             # Index berechnen -> eax
             index_type = self.visit(index_exprs[0])
@@ -8438,8 +10428,13 @@ class AsmJitGenerator(PascalParserVisitor):
             self.backend.writer.emit_mov_byte_ptr_reg8("edx", 0, "bl")
             return None
 
-        # Win64-Pfad, ebenfalls Inline-Data-Modell
-        self.emit_movzx("ebx", "byte_ptr(rax)", comment="char value")
+        # Win64-Pfad, ebenfalls Inline-Data-Modell.
+        # Der Char-Wert liegt direkt in EAX.
+        self.emit_mov(
+            "ebx",
+            "eax",
+            comment="save string char value"
+        )
 
         index_type = self.visit(index_exprs[0])
         if index_type != "integer":
@@ -8505,6 +10500,593 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_mov_qword("rdx", "r12", "pointr_vars")
         self.emit_mov_qword_ptr_store("rdx", slot * self.pointer_slot_size(), "rax")
     
+    def resolve_named_storage(
+        self,
+        ctx,
+        name
+    ):
+        """
+        Ermittelt eine benannte Variable unabhängig von ihrem Speicherort.
+
+        Rückgabe:
+            (source_kind, info, resolved_type)
+
+        source_kind:
+            local
+            param
+            global
+        """
+        info = self.find_local_var(
+            name
+        )
+
+        if info is not None:
+            return (
+                "local",
+                info,
+                self.resolve_type(
+                    info["type"]
+                )
+            )
+
+        info = self.find_param(
+            name
+        )
+
+        if info is not None:
+            return (
+                "param",
+                info,
+                self.resolve_type(
+                    info["type"]
+                )
+            )
+
+        info = self.vars.get(
+            name.lower()
+        )
+
+        if info is not None:
+            return (
+                "global",
+                info,
+                self.resolve_type(
+                    info["type"]
+                )
+            )
+
+        raise CompileError(
+            ctx,
+            "E0001",
+            name=name
+        )
+
+
+    def emit_load_named_value(
+        self,
+        ctx,
+        name,
+        source_kind,
+        info
+    ):
+        if source_kind == "local":
+            return self.emit_load_local_var(
+                ctx,
+                name,
+                info
+            )
+
+        if source_kind == "param":
+            return self.emit_load_param(
+                ctx,
+                name
+            )
+
+        if source_kind == "global":
+            return self.emit_load_var(
+                name,
+                info
+            )
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                f"unknown storage kind for "
+                f"{name}: {source_kind}"
+            )
+        )
+
+
+    def pointed_element_type(
+        self,
+        ctx,
+        pointer_type
+    ):
+        resolved_pointer_type = self.resolve_type(
+            pointer_type
+        )
+
+        if resolved_pointer_type in (
+            "pchar",
+            "pansichar"
+        ):
+            return "char"
+
+        if resolved_pointer_type == "pointer":
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "untyped Pointer cannot be indexed; "
+                    "cast it to a typed pointer first"
+                )
+            )
+
+        if (
+            not isinstance(
+                resolved_pointer_type,
+                str
+            )
+            or not resolved_pointer_type.startswith("^")
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=resolved_pointer_type,
+                expected="typed pointer"
+            )
+
+        return self.resolve_type(
+            resolved_pointer_type[1:]
+        )
+
+
+    def emit_load_pointer_element(
+        self,
+        ctx,
+        name,
+        index_exprs
+    ):
+        """
+        Lädt P[Index] für einen typisierten Pointer.
+
+        PAnsiChar verwendet bewusst nullbasierte Indizes:
+            P[0] = erstes Byte
+        """
+        if not isinstance(
+            index_exprs,
+            list
+        ):
+            index_exprs = [
+                index_exprs
+            ]
+
+        if len(index_exprs) != 1:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(index_exprs)),
+                expected="1"
+            )
+
+        (
+            source_kind,
+            info,
+            pointer_type
+        ) = self.resolve_named_storage(
+            ctx,
+            name
+        )
+
+        if not self.is_pointer_type(
+            pointer_type,
+            include_nil=False
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=pointer_type,
+                expected="typed pointer"
+            )
+
+        element_type = self.pointed_element_type(
+            ctx,
+            pointer_type
+        )
+
+        index_type = self.visit(
+            index_exprs[0]
+        )
+
+        if self.scalar_base_type(
+            index_type
+        ) != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=index_type,
+                expected="integer"
+            )
+
+        is_nt32 = CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        )
+
+        if is_nt32:
+            self.emit_mov(
+                "ecx",
+                "eax",
+                comment=f"{name} pointer index"
+            )
+        else:
+            self.emit_mov(
+                "ecx",
+                "eax",
+                comment=f"{name} pointer index"
+            )
+
+        self.emit_load_named_value(
+            ctx,
+            name,
+            source_kind,
+            info
+        )
+
+        self.emit_nil_pointer_check(
+            name
+        )
+
+        element_size = self.type_size(
+            ctx,
+            element_type
+        )
+
+        if element_size != 1:
+            self.emit_imul(
+                "ecx",
+                "ecx",
+                element_size,
+                comment=f"{name} pointer byte offset"
+            )
+
+        address_reg = (
+            "eax"
+            if is_nt32
+            else "rax"
+        )
+
+        if is_nt32:
+            self.emit_add(
+                "eax",
+                "ecx",
+                comment=f"{name}[index] address"
+            )
+        else:
+            self.emit_movsxd(
+                "rcx",
+                "ecx"
+            )
+
+            self.emit_add(
+                "rax",
+                "rcx",
+                comment=f"{name}[index] address"
+            )
+
+        range_info = self.subrange_info(
+            element_type
+        )
+
+        if element_type == "char":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                0
+            )
+
+            return "char"
+
+        if element_type == "boolean":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                0
+            )
+
+            self.emit_and(
+                "eax",
+                1
+            )
+
+            return "boolean"
+
+        if (
+            element_type == "integer"
+            or (
+                range_info is not None
+                and range_info.base_type == "integer"
+            )
+        ):
+            size = (
+                int(range_info.size)
+                if range_info is not None
+                else 4
+            )
+
+            if size == 1:
+                self.backend.writer.emit_movzx_r32_byte_ptr(
+                    "eax",
+                    address_reg,
+                    0
+                )
+
+            elif size == 4:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    0,
+                    comment=f"load {name}[index]"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "indexed pointer load currently "
+                        f"does not support {size}-byte integers"
+                    )
+                )
+
+            return (
+                element_type
+                if range_info is not None
+                else "integer"
+            )
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "indexed pointer load is not implemented "
+                f"for element type {element_type}"
+            )
+        )
+
+
+    def emit_store_pointer_element(
+        self,
+        ctx,
+        name,
+        index_exprs,
+        expr_type
+    ):
+        """
+        Speichert P[Index] := Value für einen typisierten Pointer.
+
+        Der aktuelle CRC-Anwendungsfall ist:
+            Result: PAnsiChar
+            Result[0] := HexDigits[...]
+            Result[4] := #0
+        """
+        if not isinstance(
+            index_exprs,
+            list
+        ):
+            index_exprs = [
+                index_exprs
+            ]
+
+        if len(index_exprs) != 1:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(index_exprs)),
+                expected="1"
+            )
+
+        (
+            source_kind,
+            info,
+            pointer_type
+        ) = self.resolve_named_storage(
+            ctx,
+            name
+        )
+
+        if not self.is_pointer_type(
+            pointer_type,
+            include_nil=False
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=pointer_type,
+                expected="typed pointer"
+            )
+
+        element_type = self.pointed_element_type(
+            ctx,
+            pointer_type
+        )
+
+        resolved_expr_type = self.resolve_type(
+            expr_type
+        )
+
+        element_base_type = self.scalar_base_type(
+            element_type
+        )
+
+        expression_base_type = self.scalar_base_type(
+            resolved_expr_type
+        )
+
+        if element_base_type != expression_base_type:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=resolved_expr_type,
+                expected=element_type
+            )
+
+        is_nt32 = CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        )
+
+        # Rechten Wert sichern, weil die Indexauswertung EAX verändert.
+        self.emit_push(
+            "eax" if is_nt32 else "rax",
+            comment=f"save {name}[index] value"
+        )
+
+        index_type = self.visit(
+            index_exprs[0]
+        )
+
+        if self.scalar_base_type(
+            index_type
+        ) != "integer":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=index_type,
+                expected="integer"
+            )
+
+        self.emit_mov(
+            "ecx",
+            "eax",
+            comment=f"{name} pointer index"
+        )
+
+        self.emit_load_named_value(
+            ctx,
+            name,
+            source_kind,
+            info
+        )
+
+        self.emit_nil_pointer_check(
+            name
+        )
+
+        element_size = self.type_size(
+            ctx,
+            element_type
+        )
+
+        if element_size != 1:
+            self.emit_imul(
+                "ecx",
+                "ecx",
+                element_size,
+                comment=f"{name} pointer byte offset"
+            )
+
+        if is_nt32:
+            self.emit_add(
+                "eax",
+                "ecx",
+                comment=f"{name}[index] address"
+            )
+
+            self.emit_pop(
+                "ebx",
+                comment=f"restore {name}[index] value"
+            )
+
+            if element_type in (
+                "char",
+                "boolean"
+            ) or (
+                self.subrange_info(
+                    element_type
+                ) is not None
+                and self.subrange_info(
+                    element_type
+                ).size == 1
+            ):
+                self.backend.writer.emit_mov_byte_ptr_reg8(
+                    "eax",
+                    0,
+                    "bl"
+                )
+
+                return None
+
+            if element_type == "integer":
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    0,
+                    "ebx",
+                    comment=f"{name}[index] :="
+                )
+
+                return None
+
+        else:
+            self.emit_movsxd(
+                "rcx",
+                "ecx"
+            )
+
+            self.emit_add(
+                "rax",
+                "rcx",
+                comment=f"{name}[index] address"
+            )
+
+            self.emit_pop(
+                "rbx",
+                comment=f"restore {name}[index] value"
+            )
+
+            if element_type in (
+                "char",
+                "boolean"
+            ) or (
+                self.subrange_info(
+                    element_type
+                ) is not None
+                and self.subrange_info(
+                    element_type
+                ).size == 1
+            ):
+                self.emit_mov_byte_ptr_store(
+                    "rax",
+                    0,
+                    "bl",
+                    comment=f"{name}[index] :="
+                )
+
+                return None
+
+            if element_type == "integer":
+                self.emit_mov_dword_ptr_store(
+                    "rax",
+                    0,
+                    "ebx",
+                    comment=f"{name}[index] :="
+                )
+
+                return None
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "indexed pointer store is not implemented "
+                f"for element type {element_type}"
+            )
+        )
+
+
     def emit_store_pointer_deref(self, ctx, name, expr_type):
         key = name.lower()
 
@@ -8673,123 +11255,627 @@ class AsmJitGenerator(PascalParserVisitor):
             return
 
         raise CompileError(ctx, "E0013", var_type=typ)
+
+    def emit_mov_byte_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        self.backend.emit_mov_byte_ptr_store(
+            base,
+            offset,
+            src,
+            comment
+        )
+        
+    def emit_mov_word_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        self.backend.emit_mov_word_ptr_store(
+            base,
+            offset,
+            src,
+            comment
+        )
     
-    def emit_store_pointer_record_field(self, ctx, parts, expr_type):
-        ptr_info, field_offset, field = self.resolve_pointer_record_path(ctx, parts)
-        ptr_name = parts[0]
-        path = "^.".join([ptr_name, ".".join(parts[1:])])
+    def emit_store_pointer_record_field(
+        self,
+        ctx,
+        parts,
+        expr_type
+    ):
+        if not parts or len(parts) < 2:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "pointer record field assignment "
+                    "requires a pointer and a field"
+                )
+            )
 
-        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
-
-        is_nil_pointer = (
-            isinstance(field.type, str)
-            and field.type.startswith("^")
-            and expr_type in ("integer", "^nil")
+        (
+            ptr_info,
+            field_offset,
+            field
+        ) = self.resolve_pointer_record_path(
+            ctx,
+            parts
         )
 
-        if isinstance(field.type, str) and field.type.startswith("^"):
-            if is_nil_pointer:
-                self.emit_xor("eax", "eax", comment="nil pointer")
+        if field is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "pointer record field assignment "
+                    "could not resolve the target field"
+                )
+            )
 
-            if field.type != expr_type and not is_nil_pointer:
-                raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+        ptr_name = parts[0]
 
-            if is_nt32:
-                self.emit_push("eax", comment="save right pointer value")
+        path = (
+            ptr_name
+            + "^."
+            + ".".join(parts[1:])
+        )
 
-                if ptr_info.get("is_local", False):
-                    self.emit_load_local_var(ctx, ptr_name, ptr_info)
-                else:
-                    self.emit_load_var(ptr_name, ptr_info)
+        is_nt32 = (
+            CDATA.args_target
+            in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+        )
 
-                self.emit_nil_pointer_check(ptr_name)
+        address_reg = (
+            "eax"
+            if is_nt32
+            else "rax"
+        )
 
-                if field_offset != 0:
-                    self.emit_add("eax", field_offset, comment="field offset")
+        stack_reg = (
+            "esp"
+            if is_nt32
+            else "rsp"
+        )
 
-                self.emit_pop("ebx")
-                self.emit_mov_dword_ptr_store("eax", 0, "ebx", comment=f"{path} :=")
-                return
+        # ----------------------------------------------------------
+        # Deklarierten und tatsächlichen Typ normalisieren
+        # ----------------------------------------------------------
+        declared_field_type = str(
+            field.type
+        ).lower()
 
-            self.emit_push("rax", comment="save right pointer value")
+        resolved_field_type = self.resolve_type(
+            declared_field_type
+        )
 
-            if ptr_info.get("is_local", False):
-                self.emit_load_local_var(ctx, ptr_name, ptr_info)
-            else:
-                self.emit_load_var(ptr_name, ptr_info)
+        resolved_expr_type = self.resolve_type(
+            expr_type
+        )
 
-            self.emit_nil_pointer_check(ptr_name)
+        field_base_type = self.scalar_base_type(
+            declared_field_type
+        )
+
+        expr_base_type = self.scalar_base_type(
+            resolved_expr_type
+        )
+
+        field_range = self.subrange_info(
+            declared_field_type
+        )
+
+        field_size = getattr(
+            field,
+            "size",
+            None
+        )
+
+        if field_size is None:
+            field_size = self.type_size(
+                ctx,
+                declared_field_type
+            )
+
+        field_size = int(
+            field_size
+        )
+
+        # ----------------------------------------------------------
+        # Hilfsfunktion: Zieladresse laden
+        # ----------------------------------------------------------
+        def load_target_address():
+            self.emit_load_pointer_reference(
+                ctx,
+                ptr_name,
+                ptr_info
+            )
+
+            self.emit_nil_pointer_check(
+                ptr_name
+            )
 
             if field_offset != 0:
-                self.emit_add("rax", field_offset, comment="field offset")
+                self.emit_add(
+                    address_reg,
+                    field_offset,
+                    comment="record field offset"
+                )
 
-            self.emit_pop("r11")
-            self.emit_mov_qword_ptr_store("rax", 0, "r11", comment=f"{path} :=")
-            return
+        # ----------------------------------------------------------
+        # Hilfsfunktion: Integerwert passend zur Feldgröße speichern
+        #
+        # Der Wert befindet sich in EBX.
+        # ----------------------------------------------------------
+        def store_scalar_from_ebx():
+            if field_size == 1:
+                self.emit_mov_byte_ptr_store(
+                    address_reg,
+                    0,
+                    "bl",
+                    comment=f"{path} :="
+                )
 
-        if field.type == "double" and expr_type == "integer":
-            self.emit_cvtsi2sd("xmm0", "eax")
-            expr_type = "double"
-
-        if field.type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
-
-        if is_nt32:
-            if expr_type == "integer":
-                self.emit_mov("ebx", "eax", comment="save right integer value")
-
-                if ptr_info.get("is_local", False):
-                    self.emit_load_local_var(ctx, ptr_name, ptr_info)
-                else:
-                    self.emit_load_var(ptr_name, ptr_info)
-
-                self.emit_nil_pointer_check(ptr_name)
-
-                if field_offset != 0:
-                    self.emit_add("eax", field_offset, comment="field offset")
-
-                self.emit_mov_dword_ptr_store("eax", 0, "ebx", comment=f"{path} :=")
                 return
 
-            raise CompileError(ctx, "E0013", var_type=field.type)
+            if field_size == 2:
+                self.emit_mov_word_ptr_store(
+                    address_reg,
+                    0,
+                    "bx",
+                    comment=f"{path} low byte"
+                )
 
-        if expr_type == "integer":
-            self.emit_mov("ebx", "eax")
+                return
 
-        elif expr_type == "double":
-            self.emit_sub("rsp", 8)
-            self.emit_movsd_store("rsp", 0, "xmm0")
+            if field_size == 4:
+                self.emit_mov_dword_ptr_store(
+                    address_reg,
+                    0,
+                    "ebx",
+                    comment=f"{path} :="
+                )
 
-        elif expr_type == "string":
-            self.emit_push("rax")
+                return
 
-        if ptr_info.get("is_local", False):
-            self.emit_load_local_var(ctx, ptr_name, ptr_info)
-        else:
-            self.emit_load_var(ptr_name, ptr_info)
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"unsupported scalar field size "
+                    f"{field_size} for {path}"
+                )
+            )
 
-        self.emit_nil_pointer_check(ptr_name)
+        # ==========================================================
+        # Pointerfeld
+        # ==========================================================
+        field_is_pointer = self.is_pointer_type(
+            resolved_field_type,
+            include_nil=False
+        )
 
-        if field_offset != 0:
-            self.emit_add("rax", field_offset, comment="field offset")
+        expression_is_nil = (
+            resolved_expr_type
+            in (
+                "nil",
+                "^nil"
+            )
+        )
 
-        if field.type == "integer":
-            self.emit_mov_dword_ptr_store("rax", 0, "ebx", comment=f"{path} :=")
+        if field_is_pointer:
+            if expression_is_nil:
+                # XOR EAX,EAX löscht unter x64 zugleich ganz RAX.
+                self.emit_xor(
+                    "eax",
+                    "eax",
+                    comment="nil pointer value"
+                )
+
+            else:
+                expression_is_pointer = self.is_pointer_type(
+                    resolved_expr_type,
+                    include_nil=False
+                )
+
+                if not expression_is_pointer:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=declared_field_type
+                    )
+
+                if (
+                    resolved_field_type
+                    != resolved_expr_type
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=declared_field_type
+                    )
+
+            if is_nt32:
+                self.emit_push(
+                    "eax",
+                    comment="save right pointer value"
+                )
+
+                load_target_address()
+
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right pointer value"
+                )
+
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    0,
+                    "ebx",
+                    comment=f"{path} :="
+                )
+
+                return
+
+            self.emit_push(
+                "rax",
+                comment="save right pointer value"
+            )
+
+            load_target_address()
+
+            self.emit_pop(
+                "r11",
+                comment="restore right pointer value"
+            )
+
+            self.emit_mov_qword_ptr_store(
+                "rax",
+                0,
+                "r11",
+                comment=f"{path} :="
+            )
+
             return
 
-        if field.type == "double":
-            self.emit_movsd_load("xmm0", "rsp")
-            self.emit_add("rsp", 8)
-            self.emit_movsd_store("rax", 0, "xmm0", comment=f"{path} :=")
+        # ==========================================================
+        # Klassenfeld
+        #
+        # Klassenvariablen enthalten ebenfalls einen Objektpointer.
+        # ==========================================================
+        field_is_class = (
+            isinstance(resolved_field_type, str)
+            and resolved_field_type in self.classes
+        )
+
+        if field_is_class:
+            if expression_is_nil:
+                self.emit_xor(
+                    "eax",
+                    "eax",
+                    comment="nil object value"
+                )
+
+            else:
+                expression_is_class = (
+                    isinstance(resolved_expr_type, str)
+                    and resolved_expr_type in self.classes
+                )
+
+                if (
+                    not expression_is_class
+                    or not self.class_is_descendant(
+                        resolved_expr_type,
+                        resolved_field_type
+                    )
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=declared_field_type
+                    )
+
+            if is_nt32:
+                self.emit_push(
+                    "eax",
+                    comment="save right object value"
+                )
+
+                load_target_address()
+
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right object value"
+                )
+
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    0,
+                    "ebx",
+                    comment=f"{path} :="
+                )
+
+                return
+
+            self.emit_push(
+                "rax",
+                comment="save right object value"
+            )
+
+            load_target_address()
+
+            self.emit_pop(
+                "r11",
+                comment="restore right object value"
+            )
+
+            self.emit_mov_qword_ptr_store(
+                "rax",
+                0,
+                "r11",
+                comment=f"{path} :="
+            )
+
             return
 
-        if field.type == "string":
-            self.emit_pop("r11")
-            self.emit_mov_qword_ptr_store("rax", 0, "r11", comment=f"{path} :=")
+        # ==========================================================
+        # Stringfeld
+        # ==========================================================
+        if resolved_field_type == "string":
+            if resolved_expr_type != "string":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=declared_field_type
+                )
+
+            if is_nt32:
+                self.emit_push(
+                    "eax",
+                    comment="save right string value"
+                )
+
+                load_target_address()
+
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right string value"
+                )
+
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    0,
+                    "ebx",
+                    comment=f"{path} :="
+                )
+
+                return
+
+            self.emit_push(
+                "rax",
+                comment="save right string value"
+            )
+
+            load_target_address()
+
+            self.emit_pop(
+                "r11",
+                comment="restore right string value"
+            )
+
+            self.emit_mov_qword_ptr_store(
+                "rax",
+                0,
+                "r11",
+                comment=f"{path} :="
+            )
+
             return
 
-        raise CompileError(ctx, "E0013", var_type=field.type)
-    
+        # ==========================================================
+        # Doublefeld
+        # ==========================================================
+        if resolved_field_type == "double":
+            if expr_base_type == "integer":
+                self.emit_cvtsi2sd(
+                    "xmm0",
+                    "eax",
+                    comment="integer to double"
+                )
+
+            elif resolved_expr_type != "double":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=declared_field_type
+                )
+
+            # XMM0 sichern, weil das Laden der Zieladresse weitere
+            # Generatoroperationen ausführt.
+            self.emit_sub(
+                stack_reg,
+                8,
+                comment="save right double value"
+            )
+
+            self.emit_movsd_store(
+                stack_reg,
+                0,
+                "xmm0"
+            )
+
+            load_target_address()
+
+            self.emit_movsd_load(
+                "xmm0",
+                stack_reg,
+                0
+            )
+
+            self.emit_add(
+                stack_reg,
+                8,
+                comment="restore stack after double value"
+            )
+
+            self.emit_movsd_store(
+                address_reg,
+                0,
+                "xmm0",
+                comment=f"{path} :="
+            )
+
+            return
+
+        # ==========================================================
+        # Booleanfeld
+        # ==========================================================
+        if resolved_field_type == "boolean":
+            if resolved_expr_type != "boolean":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=declared_field_type
+                )
+
+            self.emit_and(
+                "eax",
+                1,
+                comment="normalize boolean value"
+            )
+
+            self.emit_push(
+                address_reg,
+                comment="save right boolean value"
+            )
+
+            load_target_address()
+
+            if is_nt32:
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right boolean value"
+                )
+            else:
+                self.emit_pop(
+                    "rbx",
+                    comment="restore right boolean value"
+                )
+
+            store_scalar_from_ebx()
+            return
+
+        # ==========================================================
+        # Integer, Enum und Subrange
+        #
+        # Beispiele:
+        #
+        #     Integer
+        #     Byte
+        #     Word
+        #     DWord
+        #     ShortInt
+        #     SmallInt
+        # ==========================================================
+        if field_base_type == "integer":
+            if expr_base_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=declared_field_type
+                )
+
+            if field_range is not None:
+                self.emit_subrange_check(
+                    ctx,
+                    declared_field_type,
+                    "eax"
+                )
+
+            self.emit_push(
+                address_reg,
+                comment="save right integer value"
+            )
+
+            load_target_address()
+
+            if is_nt32:
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right integer value"
+                )
+            else:
+                self.emit_pop(
+                    "rbx",
+                    comment="restore right integer value"
+                )
+
+            store_scalar_from_ebx()
+            return
+
+        # ==========================================================
+        # Char / AnsiChar
+        # ==========================================================
+        if field_base_type == "char":
+            if expr_base_type != "char":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=expr_type,
+                    expected=declared_field_type
+                )
+
+            self.emit_push(
+                address_reg,
+                comment="save right char value"
+            )
+
+            load_target_address()
+
+            if is_nt32:
+                self.emit_pop(
+                    "ebx",
+                    comment="restore right char value"
+                )
+            else:
+                self.emit_pop(
+                    "rbx",
+                    comment="restore right char value"
+                )
+
+            self.emit_mov_byte_ptr_store(
+                address_reg,
+                0,
+                "bl",
+                comment=f"{path} :="
+            )
+
+            return
+
+        # Eingebettete Record-Gesamtzuweisungen sind hier noch
+        # nicht implementiert.
+        raise CompileError(
+            ctx,
+            "E0013",
+            var_type=declared_field_type
+        )    
 
     def emit_store_array_element(self, ctx, var_name, index_expr_ctx, expr_type):
         index_exprs = index_expr_ctx
@@ -9153,71 +12239,213 @@ class AsmJitGenerator(PascalParserVisitor):
         if self.current_function is None:
             raise CompileError(ctx, "E0006")
 
-        return_type = self.resolve_type(self.current_function["return_type"])
-        expr_type   = self.resolve_type(expr_type)
+        declared_return_type = self.resolve_type(
+            self.current_function["return_type"]
+        )
 
-        if self.is_pointer_type(return_type, include_nil=False):
-            if not self.is_pointer_type(expr_type):
+        return_type = self.current_function.get(
+            "abi_return_type"
+        )
+
+        if return_type is None:
+            return_type = self.function_abi_return_type(
+                declared_return_type
+            )
+
+        resolved_expr_type = self.resolve_type(
+            expr_type
+        )
+
+        expr_abi_type = self.function_abi_return_type(
+            resolved_expr_type
+        )
+
+        # ----------------------------------------------------------
+        # Subrange-Ergebnis
+        #
+        # Beispiel:
+        #
+        #     function F: Word;
+        #
+        # Der Ausdruck wird intern als Integer berechnet, muss aber
+        # vor dem Speichern gegen 0..65535 geprüft werden.
+        # ----------------------------------------------------------
+        return_range = self.subrange_info(
+            declared_return_type
+        )
+
+        if return_range is not None:
+            if self.scalar_base_type(
+                resolved_expr_type
+            ) != "integer":
                 raise CompileError(
                     ctx,
                     "E0005",
-                    got=expr_type,
-                    expected=return_type
+                    got=resolved_expr_type,
+                    expected=declared_return_type
                 )
 
-            # Typprüfung wurde erfolgreich durchgeführt.
-            expr_type = return_type
+            self.emit_subrange_check(
+                ctx,
+                declared_return_type,
+                "eax"
+            )
 
-        if return_type == "integer" and expr_type == "char":
-            expr_type = "integer"
+            expr_abi_type = "integer"
 
-        if return_type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=return_type)
+        # ----------------------------------------------------------
+        # Pointer- oder Klassenresultat
+        # ----------------------------------------------------------
+        if return_type == "pointer":
+            declared_is_class = (
+                isinstance(declared_return_type, str)
+                and declared_return_type in self.classes
+            )
 
-        result_var = self.find_local_var("Result")
+            expression_is_nil = (
+                resolved_expr_type in (
+                    "nil",
+                    "^nil"
+                )
+            )
+
+            if declared_is_class:
+                expression_is_class = (
+                    isinstance(resolved_expr_type, str)
+                    and resolved_expr_type in self.classes
+                )
+
+                if not expression_is_nil:
+                    if (
+                        not expression_is_class
+                        or not self.class_is_descendant(
+                            resolved_expr_type,
+                            declared_return_type
+                        )
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=resolved_expr_type,
+                            expected=declared_return_type
+                        )
+            else:
+                if not self.is_pointer_type(
+                    resolved_expr_type,
+                    include_nil=True
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=resolved_expr_type,
+                        expected=declared_return_type
+                    )
+
+            expr_abi_type = "pointer"
+
+        # Char kann ohne Konvertierung als Integer zurückgegeben werden.
+        if (
+            return_type == "integer"
+            and expr_abi_type == "char"
+        ):
+            expr_abi_type = "integer"
+
+        if return_type != expr_abi_type:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=resolved_expr_type,
+                expected=declared_return_type
+            )
+
+        result_var = self.find_local_var(
+            "Result"
+        )
+
         if result_var is None:
-            raise CompileError(ctx, "E0012", name="Result")
+            raise CompileError(
+                ctx,
+                "E0012",
+                name="Result"
+            )
 
         offset = result_var["offset"]
 
-        if CDATA.args_target in ["dos", "dos16"]:
-            if return_type == "integer":
-                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset, "ax")
+        if CDATA.args_target in (
+            "dos",
+            "dos16"
+        ):
+            if return_type in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                self.backend.writer.emit_mov_mem16_base_disp_reg16(
+                    "bp",
+                    offset,
+                    "ax"
+                )
                 return None
 
             if return_type == "string":
-                # DX enthält Offset auf DOS-$-String
-                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset, "dx")
+                # Bestehendes DOS-String-ABI beibehalten.
+                self.backend.writer.emit_mov_mem16_base_disp_reg16(
+                    "bp",
+                    offset,
+                    "dx"
+                )
 
-                # Segment bleibt 0 / unbenutzt
-                self.backend.writer.emit_mov_reg16_imm16("ax", 0)
-                self.backend.writer.emit_mov_mem16_base_disp_reg16("bp", offset + 2, "ax")
+                self.backend.writer.emit_mov_reg16_imm16(
+                    "ax",
+                    0
+                )
+
+                self.backend.writer.emit_mov_mem16_base_disp_reg16(
+                    "bp",
+                    offset + 2,
+                    "ax"
+                )
                 return None
 
-            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+            if return_type == "pointer":
+                # DOS-Far-Pointer: AX = Offset, DX = Segment.
+                self.backend.writer.emit_mov_mem16_base_disp_reg16(
+                    "bp",
+                    offset,
+                    "ax"
+                )
 
-        elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if (return_type in (
-                    "integer",
-                    "boolean",
-                    "string",
-                    "pointer"
+                self.backend.writer.emit_mov_mem16_base_disp_reg16(
+                    "bp",
+                    offset + 2,
+                    "dx"
                 )
-                or (
-                    isinstance(return_type, str)
-                    and return_type.startswith("^")
-                )
-                or (
-                    isinstance(return_type, str)
-                    and return_type in self.classes
-                )
+                return None
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=declared_return_type,
+                expected="integer/string/pointer"
+            )
+
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            if return_type in (
+                "integer",
+                "boolean",
+                "char",
+                "string",
+                "pointer"
             ):
                 self.emit_mov_dword_ptr_store(
                     "ebp",
                     offset,
                     "eax"
                 )
-
                 return None
 
             if return_type == "double":
@@ -9226,20 +12454,59 @@ class AsmJitGenerator(PascalParserVisitor):
                     offset,
                     "xmm0"
                 )
+                return None
 
-                return None
-        else:
-            if return_type == "integer":
-                self.emit_mov_dword_ptr_store("rbp", offset, "eax")
-                return None
-                
-            elif return_type == "string":
-                self.emit_mov_dword_ptr_store("rbp", offset, "rax")
-                return None
-                
-            elif return_type == "double":
-                self.emit_movsd_store("rbp", offset, "xmm0")
-                return None
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=declared_return_type,
+                expected=(
+                    "integer/boolean/char/string/"
+                    "double/pointer/subrange"
+                )
+            )
+
+        # Win64
+        if return_type in (
+            "integer",
+            "boolean",
+            "char"
+        ):
+            self.emit_mov_dword_ptr_store(
+                "rbp",
+                offset,
+                "eax"
+            )
+            return None
+
+        if return_type in (
+            "string",
+            "pointer"
+        ):
+            self.emit_mov_qword_ptr_store(
+                "rbp",
+                offset,
+                "rax"
+            )
+            return None
+
+        if return_type == "double":
+            self.emit_movsd_store(
+                "rbp",
+                offset,
+                "xmm0"
+            )
+            return None
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=declared_return_type,
+            expected=(
+                "integer/boolean/char/string/"
+                "double/pointer/subrange"
+            )
+        )
         
     def emit_load_array_record_field(self, ctx, var_name, index_expr_ctx, field_parts):
         index_exprs = index_expr_ctx
@@ -9933,7 +13200,7 @@ class AsmJitGenerator(PascalParserVisitor):
             fkey = key
         else:
             raise CompileError(ctx, "E0001", name=name)
-            
+
         label     = self.functions[key]["label"]
         end_label = self.new_named_label("endfunc_" + name)
 
@@ -9945,12 +13212,38 @@ class AsmJitGenerator(PascalParserVisitor):
         param_regs = ["rcx", "rdx", "r8", "r9"]
 
         if len(params) > len(param_regs):
-            raise CompileError(ctx, "E0005", got="too many params", expected="max 4 params")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got="too many params",
+                expected="max 4 params"
+            )
 
-        rt = return_type.lower()
+        declared_rt = self.resolve_type(
+            return_type
+        )
 
-        if rt not in ["integer", "string", "double", "boolean"]:
-            raise CompileError(ctx, "E0005", got=return_type, expected="integer/string/double AA")
+        rt = self.function_abi_return_type(
+            declared_rt
+        )
+
+        if rt not in (
+            "integer",
+            "boolean",
+            "char",
+            "string",
+            "double",
+            "pointer"
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=declared_rt,
+                expected=(
+                    "integer/boolean/char/string/"
+                    "double/pointer/subrange"
+                )
+            )
 
         self.emit_jmp(end_label)
         self.emit_bind_label(label)
@@ -9976,7 +13269,13 @@ class AsmJitGenerator(PascalParserVisitor):
         self.current_proc_params = {}
         self.current_function = {
             "name": name,
-            "return_type": rt,
+
+            # Pascal-Typ, zum Beispiel Word oder PAnsiChar.
+            "return_type": declared_rt,
+
+            # Physischer ABI-Typ, zum Beispiel integer oder pointer.
+            "abi_return_type": rt,
+
             "scoped_name": scoped
         }
 
@@ -9987,21 +13286,23 @@ class AsmJitGenerator(PascalParserVisitor):
         self.push_local_scope()
         self.push_const_scope()
 
-        # Result als echte lokale Variable
-        self.declare_local_var(ctx, "Result", rt)
+        # Result als echte lokale Variable. Subranges und Char verwenden
+        # einen 32-Bit-Slot, damit NT32-Store und EAX-Rückgabe sicher sind.
+        result_storage_type = self.function_result_storage_type(
+            declared_rt
+        )
+
+        self.declare_local_var(
+            ctx,
+            "Result",
+            result_storage_type
+        )
+
         result_var = self.find_local_var("Result")
         result_off = result_var["offset"]
 
         # -------------------------------------------------
         # Lokale Deklarationen der Funktion einsammeln.
-        #
-        # Laut Grammar stehen diese direkt in:
-        #
-        #   functionDeclaration -> declarationPart*
-        #
-        # und nicht zwingend innerhalb von:
-        #
-        #   block -> localDeclaration*
         # -------------------------------------------------
         for declaration in ctx.declarationPart():
             if declaration is None:
@@ -10030,7 +13331,7 @@ class AsmJitGenerator(PascalParserVisitor):
                     type_section
                 )
                 continue
-        
+
         scope = self.current_local_scope()
 
         local_size = scope["next_offset"]
@@ -10038,11 +13339,23 @@ class AsmJitGenerator(PascalParserVisitor):
 
         if local_size:
             if CDATA.args_target in ["dos", "dos16"]:
-                self.emit_sub("sp", local_size, comment=f"{local_size} bytes locals")
+                self.emit_sub(
+                    "sp",
+                    local_size,
+                    comment=f"{local_size} bytes locals"
+                )
             elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                self.emit_sub("esp", local_size, comment=f"{local_size} bytes locals")
+                self.emit_sub(
+                    "esp",
+                    local_size,
+                    comment=f"{local_size} bytes locals"
+                )
             else:
-                self.emit_sub("rsp", local_size, comment=f"{local_size} bytes locals")
+                self.emit_sub(
+                    "rsp",
+                    local_size,
+                    comment=f"{local_size} bytes locals"
+                )
 
         # -------------------------------------------------
         # Parameter sichern / Offsets eintragen
@@ -10051,65 +13364,40 @@ class AsmJitGenerator(PascalParserVisitor):
             stack_offset = 8
 
             for p in params:
-                pname       = p["name"]
-                param_info  = {
+                pname = p["name"]
+
+                param_info = {
                     "type": p["type"],
                     "reg": None,
-
-                    # Bei einem offenen Array liegt hier der Datenpointer.
                     "stack_offset": stack_offset,
-
-                    "is_var": p.get(
-                        "is_var",
-                        False
-                    ),
-
-                    "is_const": p.get(
-                        "is_const",
-                        False
-                    ),
-
-                    "is_open_array": p.get(
-                        "is_open_array",
-                        False
-                    ),
-
-                    "element_type": p.get(
-                        "element_type"
-                    )
+                    "is_var": p.get("is_var", False),
+                    "is_const": p.get("is_const", False),
+                    "is_open_array": p.get("is_open_array", False),
+                    "element_type": p.get("element_type")
                 }
 
                 if param_info["is_open_array"]:
-                    # Interne NT32-ABI:
-                    #
-                    # [ebp + stack_offset]     = data pointer
-                    # [ebp + stack_offset + 4] = High-Wert
-                    param_info["high_offset"] = (
-                        stack_offset + 4
-                    )
-
+                    param_info["high_offset"] = stack_offset + 4
                     stack_offset += 8
-
                 else:
                     stack_offset += 4
 
                 self.current_proc_params[
                     pname.lower()
                 ] = param_info
-        
+
         elif CDATA.args_target in ["dos", "dos16"]:
             for index, p in enumerate(params):
                 pname = p["name"]
 
                 self.current_proc_params[pname.lower()] = {
-                    "type"          : p["type"],
-                    "reg"           : None,
-                    "stack_offset"  : 4 + index * 2,
-
-                    "is_var"        : p.get("is_var", False),
-                    "is_const"      : p.get("is_const", False),
-                    "is_open_array" : p.get("is_open_array", False),
-                    "element_type"  : p.get("element_type")
+                    "type": p["type"],
+                    "reg": None,
+                    "stack_offset": 4 + index * 2,
+                    "is_var": p.get("is_var", False),
+                    "is_const": p.get("is_const", False),
+                    "is_open_array": p.get("is_open_array", False),
+                    "element_type": p.get("element_type")
                 }
         else:
             for index, p in enumerate(params):
@@ -10122,24 +13410,24 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
 
                 self.current_proc_params[pname.lower()] = {
-                    "type"          : p["type"],
-                    "reg"           : reg,
-                    "stack_offset"  : -8 * (index + 2),
-
-                    "is_var"        : p.get("is_var", False),
-                    "is_const"      : p.get("is_const", False),
-                    "is_open_array" : p.get("is_open_array", False),
-                    "element_type"  : p.get("element_type")
+                    "type": p["type"],
+                    "reg": reg,
+                    "stack_offset": -8 * (index + 2),
+                    "is_var": p.get("is_var", False),
+                    "is_const": p.get("is_const", False),
+                    "is_open_array": p.get("is_open_array", False),
+                    "element_type": p.get("element_type")
                 }
 
             if len(params) % 2 == 0:
-                self.emit_sub("rsp", 8, comment="align stack in function")
+                self.emit_sub(
+                    "rsp",
+                    8,
+                    comment="align stack in function"
+                )
 
         # -------------------------------------------------
         # Nur den ausführbaren Funktionskörper besuchen.
-        #
-        # Die lokalen Deklarationen wurden oben bereits
-        # verarbeitet und dürfen nicht erneut besucht werden.
         # -------------------------------------------------
         self.exit_label_stack.append(end_label)
 
@@ -10165,12 +13453,44 @@ class AsmJitGenerator(PascalParserVisitor):
         # -------------------------------------------------
         if CDATA.args_target in ["dos", "dos16"]:
             if rt == "string":
-                self.backend.writer.emit_mov_reg16_mem16_base_disp("dx", "bp", result_off)
-                self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off + 2)
-            elif rt == "integer":
-                self.backend.writer.emit_mov_reg16_mem16_base_disp("ax", "bp", result_off)
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "dx",
+                    "bp",
+                    result_off
+                )
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    result_off + 2
+                )
+            elif rt in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    result_off
+                )
+            elif rt == "pointer":
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "ax",
+                    "bp",
+                    result_off
+                )
+                self.backend.writer.emit_mov_reg16_mem16_base_disp(
+                    "dx",
+                    "bp",
+                    result_off + 2
+                )
             else:
-                raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=declared_rt,
+                    expected="integer/string/pointer"
+                )
 
             self.backend.writer.emit_mov_reg16_reg16("sp", "bp")
             self.backend.writer.emit_pop_reg16("bp")
@@ -10180,12 +13500,36 @@ class AsmJitGenerator(PascalParserVisitor):
             return
 
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if rt == "string":
-                self.emit_mov_dword_ptr("eax", "ebp", result_off)
-            elif rt == "integer" or rt == "boolean":
-                self.emit_mov_dword_ptr("eax", "ebp", result_off)
+            if rt in (
+                "integer",
+                "boolean",
+                "char",
+                "string",
+                "pointer"
+            ):
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    result_off,
+                    comment=f"{name} result"
+                )
+            elif rt == "double":
+                self.emit_movsd_load(
+                    "xmm0",
+                    "ebp",
+                    result_off,
+                    comment=f"{name} result"
+                )
             else:
-                raise CompileError(ctx, "E0005", got=return_type, expected="integer/string")
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=declared_rt,
+                    expected=(
+                        "integer/boolean/char/string/"
+                        "double/pointer/subrange"
+                    )
+                )
 
             self.emit_mov("esp", "ebp")
             self.emit_pop("ebp")
@@ -10194,12 +13538,41 @@ class AsmJitGenerator(PascalParserVisitor):
             self.emit_bind_label(end_label)
             return
 
-        if rt == "string":
-            self.emit_mov_qword_ptr("rax", "rbp", result_off)
-        elif rt == "integer":
-            self.emit_mov_dword_ptr("eax", "rbp", result_off)
+        if rt in (
+            "string",
+            "pointer"
+        ):
+            self.emit_mov_qword_ptr(
+                "rax",
+                "rbp",
+                result_off
+            )
+        elif rt in (
+            "integer",
+            "boolean",
+            "char"
+        ):
+            self.emit_mov_dword_ptr(
+                "eax",
+                "rbp",
+                result_off
+            )
+        elif rt == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                "rbp",
+                result_off
+            )
         else:
-            self.emit_movsd_load("xmm0", "rbp", result_off)
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=declared_rt,
+                expected=(
+                    "integer/boolean/char/string/"
+                    "double/pointer/subrange"
+                )
+            )
 
         self.emit_mov("rsp", "rbp")
         self.emit_pop("rbp")
@@ -10818,10 +14191,16 @@ class AsmJitGenerator(PascalParserVisitor):
         return self.var_info(ctx, name)["type"]
     
     def variable_ref_has_dot(self, ref):
-        return any(s.DOT() for s in ref.variableSuffix())
+        return any(
+            self.suffix_is_dot(s)
+            for s in ref.variableSuffix()
+        )
     
     def variable_ref_has_index(self, ref):
-        return any(s.LBRACK() for s in ref.variableSuffix())
+        return any(
+            self.suffix_is_index(s)
+            for s in ref.variableSuffix()
+        )
     
     def slot_for(self, ctx, name):
         return self.var_info(ctx, name)["slot"]
@@ -10918,7 +14297,6 @@ class AsmJitGenerator(PascalParserVisitor):
     def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""): self.backend.emit_mov_qword_ptr(dst, base, offset, comment)
     def emit_mov_qword_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_qword_ptr_store(base, offset, src, comment)
     def emit_mov_dword_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_dword_ptr_store(base, offset, src, comment)
-    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""): self.backend.emit_mov_byte_ptr_store(base, offset, src, comment)
     def emit_mov_reg_byte (self, dst, base, comment=""): self.backend.emit_mov_reg_byte (dst, base, comment)
     def emit_mov_reg_dword(self, dst, base, comment=""): self.backend.emit_mov_reg_dword(dst, base, comment)
     def emit_mov_reg_qword(self, dst, base, comment=""): self.backend.emit_mov_reg_qword(dst, base, comment)
@@ -10937,6 +14315,9 @@ class AsmJitGenerator(PascalParserVisitor):
     
     def emit_sub (self, reg, value, comment=""):
         self.backend.emit_sub(reg, value, comment)
+    
+    def emit_shift_left (self, dst, count, comment=""): self.backend.emit_shift_left (dst, count, comment)
+    def emit_shift_right(self, dst, count, comment=""): self.backend.emit_shift_right(dst, count, comment)
     
     def emit_ret(self, comment=""):
         self.backend.emit_ret(comment)
@@ -11023,7 +14404,18 @@ class AsmJitGenerator(PascalParserVisitor):
         if not cmd:
             return None
 
-        if cmd == "link":
+        if cmd == "embed":
+            if self.root_module_kind == "unit":
+                if arg not in self.root_embedded_objects:
+                    self.root_embedded_objects.append(arg)
+            else:
+                # Bei Programmen/Libraries genügt die normale
+                # Verarbeitung beim finalen Link.
+                if arg not in CDATA.link_object_files:
+                    CDATA.link_object_files.append(arg)
+
+        elif cmd == "link":
+            # Explizit auf den späteren Link verschieben.
             if arg not in CDATA.link_object_files:
                 CDATA.link_object_files.append(arg)
 
@@ -11276,6 +14668,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 cmd, arg = self.compiler_directive_parts(directive)
 
                 if is_root_source and self.root_module_kind == "unit":
+                    if cmd == "embed":
+                        if arg not in self.root_embedded_objects:
+                            self.root_embedded_objects.append(arg)
+                    
                     if cmd == "link":
                         if arg not in self.root_link_objects:
                             self.root_link_objects.append(arg)
@@ -12787,166 +16183,211 @@ class AsmJitGenerator(PascalParserVisitor):
         return None
 
     def visitCompareExpr(self, ctx):
-        left_type = self.visit(ctx.addExpr(0))
+        left_type = self.visit(
+            ctx.addExpr(0)
+        )
 
         if len(ctx.addExpr()) == 1:
             return left_type
 
-        op = ctx.compareOp().getText()
+        operator = (
+            ctx.compareOp()
+            .getText()
+            .lower()
+        )
 
-        is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+        self.emit_push(
+            "eax",
+            comment="save left comparison operand"
+        )
 
-        REG_A  = "eax" if is_nt32 else "rax"
-        REG_B  = "ebx" if is_nt32 else "rbx"
-        REG_SP = "esp" if is_nt32 else "rsp"
+        right_type = self.visit(
+            ctx.addExpr(1)
+        )
 
-        if left_type in ["integer", "boolean"]:
-            self.emit_push(REG_A)
+        self.emit_mov(
+            "ebx",
+            "eax",
+            comment="right comparison operand"
+        )
 
-        elif left_type == "double":
-            self.emit_sub(REG_SP, 8)
-            self.emit_movsd_store(REG_SP, 0, "xmm0")
+        self.emit_pop(
+            "eax",
+            comment="restore left comparison operand"
+        )
 
-        elif isinstance(left_type, str) and left_type.startswith("^"):
-            self.emit_push(REG_A)
+        left_is_pointer = self.is_pointer_type(
+            left_type,
+            include_nil=False
+        )
 
-        else:
-            raise CompileError(
-                ctx,
-                "E0005",
-                got=left_type,
-                expected="integer/double/pointer"
+        right_is_pointer = self.is_pointer_type(
+            right_type,
+            include_nil=False
+        )
+
+        left_is_nil = (
+            left_type in ( "nil", "^nil" )
+        )
+
+        right_is_nil = (
+            right_type in ( "nil", "^nil" )
+        )
+
+        # ----------------------------------------------------------
+        # Pointer = nil / Pointer <> nil
+        # ----------------------------------------------------------
+        pointer_comparison = (
+            (left_is_pointer and right_is_nil)
+            or
+            (left_is_nil and right_is_pointer)
+            or
+            (
+                left_is_pointer
+                and right_is_pointer
             )
+        )
+        
+        if pointer_comparison:
+            if operator not in (
+                "=",
+                "<>"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=operator,
+                    expected="= or <> for pointer comparison"
+                )
 
-        right_type = self.visit(ctx.addExpr(1))
-
-        true_label = self.new_named_label("cmp_true")
-        end_label  = self.new_named_label("cmp_end")
-
-        if left_type in ["integer", "boolean"]:
-            if right_type in ["integer", "boolean"]:
-                self.emit_mov("ebx", "eax")
-                self.emit_pop(REG_A)
-                self.emit_cmp("eax", "ebx")
-
-                jump_map = {
-                    "=":  self.emit_je,
-                    "<>": self.emit_jne,
-                    "<":  self.emit_jl,
-                    "<=": self.emit_jle,
-                    ">":  self.emit_jg,
-                    ">=": self.emit_jge,
-                }
-
-            elif right_type == "double":
-                self.emit_movapd("xmm1", "xmm0")
-
-                self.emit_pop("eax")
-                self.emit_cvtsi2sd("xmm0", "eax")
-
-                self.emit_ucomisd("xmm0", "xmm1")
-
-                jump_map = {
-                    "=":  self.emit_je,
-                    "<>": self.emit_jne,
-                    "<":  self.emit_jb,
-                    "<=": self.emit_jbe,
-                    ">":  self.emit_ja,
-                    ">=": self.emit_jae,
-                }
-
+            self.emit_cmp(
+                "eax",
+                "ebx"
+            )
+            
+            if operator == "=":
+                self.emit_sete(
+                    "al"
+                )
             else:
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=right_type,
-                    expected="integer/double/boolean 22"
+                self.emit_setne(
+                    "al"
                 )
 
-        elif left_type == "double":
-            if right_type in ["integer", "boolean"]:
-                self.emit_cvtsi2sd("xmm0", "eax")
+            self.emit_movzx(
+                "eax",
+                "al"
+            )
 
-            elif right_type != "double":
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=right_type,
-                    expected="integer/double/boolean"
-                )
+            return "boolean"
+        
+        # ----------------------------------------------------------
+        # normale Integervergleiche
+        # ----------------------------------------------------------
+        integer_types = (
+            "integer",
+            "byte",
+            "word",
+            "cardinal",
+            "dword",
+            "longint",
+            "smallint",
+            "shortint",
+            "char",
+            "boolean"
+        )
 
-            self.emit_movsd_load("xmm1", REG_SP, 0)
-            self.emit_add(REG_SP, 8)
-
-            self.emit_ucomisd("xmm1", "xmm0")
-
-            jump_map = {
-                "=":  self.emit_je,
-                "<>": self.emit_jne,
-                "<":  self.emit_jb,
-                "<=": self.emit_jbe,
-                ">":  self.emit_ja,
-                ">=": self.emit_jae,
-            }
-
-        elif isinstance(left_type, str) and left_type.startswith("^"):
-            if right_type != left_type and right_type != "^nil":
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=right_type,
-                    expected=left_type + "/nil"
-                )
-
-            if op not in ("=", "<>"):
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=op,
-                    expected="= or <>"
-                )
-
-            self.emit_mov(REG_B, REG_A)
-            self.emit_pop(REG_A)
-            self.emit_cmp(REG_A, REG_B)
-
-            jump_map = {
-                "=":  self.emit_je,
-                "<>": self.emit_jne,
-            }
-
-        else:
+        if left_type not in integer_types:
             raise CompileError(
                 ctx,
                 "E0005",
                 got=left_type,
-                expected="integer/double/pointer 11"
+                expected="integer"
             )
 
-        jump_map[op](true_label)
+        if right_type not in integer_types:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=right_type,
+                expected="integer"
+            )
 
-        self.emit_xor("eax", "eax")
-        self.emit_jmp(end_label)
+        self.emit_cmp(
+            "eax",
+            "ebx"
+        )
 
-        self.emit_bind_label(true_label)
-        self.emit_mov("eax", 1)
+        if operator == "=":
+            self.emit_sete("al")
 
-        self.emit_bind_label(end_label)
+        elif operator == "<>":
+            self.emit_setne("al")
+
+        elif operator == "<":
+            self.emit_setl("al")
+
+        elif operator == "<=":
+            self.emit_setle("al")
+
+        elif operator == ">":
+            self.emit_setg("al")
+
+        elif operator == ">=":
+            self.emit_setge("al")
+
+        else:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text=(
+                    "unsupported comparison operator: "
+                    + operator
+                )
+            )
+
+        self.emit_movzx(
+            "eax",
+            "al"
+        )
 
         return "boolean"
     
     def visitRecordDeclaration(self, ctx):
         record_name = ctx.IDENT().getText()
+        is_packed = ctx.PACKED() is not None
 
         fields = []
 
         for field_ctx in ctx.recordFieldDeclaration():
-            field_type = field_ctx.typeName().getText()
+            field_type = (
+                field_ctx
+                .typeName()
+                .getText()
+            )
 
-            for ident in field_ctx.identList().IDENT():
-                fields.append((ident.getText(), field_type))
+            for ident in (
+                field_ctx
+                .identList()
+                .IDENT()
+            ):
+                fields.append((
+                    ident.getText(),
+                    field_type
+                ))
 
-        self.declare_record(ctx, record_name, fields)
+        self.declare_record(
+            ctx,
+            record_name,
+            fields,
+            packed=is_packed
+        )
+
+        if self.collect_pui_interface:
+            self.pui_add_record(
+                record_name
+            )
+
         return None
     
     def visitArrayType(self, ctx):
@@ -13048,24 +16489,279 @@ class AsmJitGenerator(PascalParserVisitor):
             self.visit(item)
 
         return None
+
+    def parse_char_code(
+        self,
+        ctx,
+        text
+    ):
+        if not text.startswith("#"):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=text,
+                expected="character code"
+            )
+
+        value_text = text[1:]
+
+        if value_text.startswith("$"):
+            value = int(
+                value_text[1:],
+                16
+            )
+        else:
+            value = int(
+                value_text,
+                10
+            )
+
+        if value < 0 or value > 255:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(value),
+                expected="character code 0..255"
+            )
+
+        return value
     
     def visitConstItem(self, ctx):
         name = ctx.IDENT().getText()
-        value_text = ctx.constValue().getText()
 
-        if value_text.startswith("'") and value_text.endswith("'"):
-            value = value_text[1:-1]
-            typ = "string"
+        # ============================================================
+        # Typisierte konstante Arrays
+        # ============================================================
+        if ctx.arrayType() is not None:
+            array_type = self.visit(
+                ctx.arrayType()
+            )
+
+            dimensions = array_type[
+                "dimensions"
+            ]
+
+            element_type = self.resolve_type(
+                array_type["element_type"]
+            )
+
+            if not dimensions:
+                raise CompileError(
+                    ctx,
+                    "E0014",
+                    var_type=(
+                        "dynamic constant array"
+                    )
+                )
+
+            value_list = ctx.arrayValueList()
+
+            init_values = []
+
+            if value_list is not None:
+                for value_ctx in value_list.constValue():
+                    text = value_ctx.getText()
+
+                    # --------------------------------------------
+                    # Integer/Subrange
+                    # --------------------------------------------
+                    if element_type in (
+                        "integer",
+                        "byte",
+                        "word",
+                        "dword",
+                        "cardinal",
+                        "longint",
+                        "smallint",
+                        "shortint"
+                    ):
+                        if text.startswith("$"):
+                            value = int(
+                                text[1:],
+                                16
+                            )
+                        elif text.startswith("#"):
+                            value = self.parse_char_code(
+                                value_ctx,
+                                text
+                            )
+                        else:
+                            value = int(
+                                text,
+                                10
+                            )
+
+                        init_values.append(value)
+
+                    # --------------------------------------------
+                    # Char/AnsiChar
+                    # --------------------------------------------
+                    elif element_type in (
+                        "char",
+                        "ansichar"
+                    ):
+                        if text.startswith("#"):
+                            value = self.parse_char_code(
+                                value_ctx,
+                                text
+                            )
+
+                        elif (
+                            len(text) >= 2
+                            and text[0] == "'"
+                            and text[-1] == "'"
+                        ):
+                            literal = text[1:-1]
+
+                            # Pascal-Escaping: '' ergibt '
+                            literal = literal.replace(
+                                "''",
+                                "'"
+                            )
+
+                            if len(literal) != 1:
+                                raise CompileError(
+                                    value_ctx,
+                                    "E0005",
+                                    got=literal,
+                                    expected="single character"
+                                )
+
+                            value = ord(literal)
+
+                        else:
+                            raise CompileError(
+                                value_ctx,
+                                "E0005",
+                                got=text,
+                                expected="character"
+                            )
+
+                        init_values.append(value)
+
+                    # --------------------------------------------
+                    # Double
+                    # --------------------------------------------
+                    elif element_type == "double":
+                        init_values.append(
+                            float(text)
+                        )
+
+                    # --------------------------------------------
+                    # String
+                    # --------------------------------------------
+                    elif element_type == "string":
+                        if not (
+                            len(text) >= 2
+                            and text[0] == "'"
+                            and text[-1] == "'"
+                        ):
+                            raise CompileError(
+                                value_ctx,
+                                "E0005",
+                                got=text,
+                                expected="string"
+                            )
+
+                        init_values.append(
+                            text[1:-1].replace(
+                                "''",
+                                "'"
+                            )
+                        )
+
+                    else:
+                        raise CompileError(
+                            ctx,
+                            "E0014",
+                            var_type=element_type
+                        )
+
+            expected_count = 1
+
+            for dimension in dimensions:
+                expected_count *= (
+                    dimension["max"]
+                    - dimension["min"]
+                    + 1
+                )
+
+            if len(init_values) != expected_count:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=str(len(init_values)),
+                    expected=str(expected_count)
+                )
+
+            self.declare_const_array(
+                ctx=ctx,
+                name=name,
+                dimensions=dimensions,
+                element_type=element_type,
+                init_values=init_values
+            )
+
+            return None
+
+        # ============================================================
+        # Normale skalare Konstante
+        # ============================================================
+        value_ctx = ctx.constValue()
+
+        if value_ctx is None:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text="missing constant value"
+            )
+
+        value_text = value_ctx.getText()
+
+        if value_text.startswith("#"):
+            value = self.parse_char_code(
+                value_ctx,
+                value_text
+            )
+            typ = "char"
+
+        elif value_text.startswith("$"):
+            value = int(
+                value_text[1:],
+                16
+            )
+            typ = "integer"
+
+        elif (
+            value_text.startswith("'")
+            and value_text.endswith("'")
+        ):
+            value = (
+                value_text[1:-1]
+                .replace("''", "'")
+            )
+
+            typ = (
+                "char"
+                if len(value) == 1
+                else "string"
+            )
 
         elif "." in value_text:
-            value = value_text
+            value = float(value_text)
             typ = "double"
 
         else:
-            value = int(value_text)
+            value = int(value_text, 10)
             typ = "integer"
 
-        self.declare_const(ctx, name, value, typ)
+        self.declare_const(
+            ctx,
+            name,
+            value,
+            typ
+        )
+
         return None
     
     def visitEnumDeclaration(self, ctx):
@@ -13284,6 +16980,15 @@ class AsmJitGenerator(PascalParserVisitor):
         cmd = parts[0].strip().lower()
         arg = parts[1].strip()
 
+        # Standard-Pascal-Syntax:
+        #
+        #   {$L crc16.o}
+        #
+        # Im Gegensatz zu {$link ...} soll das Objekt physisch in die
+        # erzeugte Unit-Objektdatei eingebettet werden.
+        if cmd == "l":
+            cmd = "embed"
+
         # Optional gesetzte Anführungszeichen entfernen
         if (
             len(arg) >= 2
@@ -13358,15 +17063,6 @@ class AsmJitGenerator(PascalParserVisitor):
                 "implementation": []
             },
 
-            "link": {
-                "objects": list(
-                    self.root_link_objects
-                ),
-                "archives": list(
-                    self.root_link_archives
-                )
-            },
-
             # DLL-Imports, die von der erzeugten Unit-Objektdatei
             # referenziert werden. Das Hauptprogramm muss für diese
             # internen COFF-Symbole Import-Thunks erzeugen.
@@ -13383,7 +17079,8 @@ class AsmJitGenerator(PascalParserVisitor):
             # Compile-Time-Typinformationen
             "types": {
                 "aliases": [],
-                "subranges": []
+                "subranges": [],
+                "records": []
             },
 
             # Linkbare Routinen und Klassen
@@ -13391,8 +17088,74 @@ class AsmJitGenerator(PascalParserVisitor):
                 "functions": [],
                 "procedures": [],
                 "classes": []
-            }
+            },
+            "link": {
+                # Nur verzögert zu linkende Dateien.
+                "objects": list(
+                    self.root_link_objects
+                ),
+
+                "archives": list(
+                    self.root_link_archives
+                ),
+
+                # Nur Information; diese Dateien sind bereits physisch in
+                # der Unit-Objektdatei enthalten.
+                "embedded_objects": list(
+                    self.root_embedded_objects
+                )
+            },
         }
+
+    def pui_add_record(
+        self,
+        record_name
+    ):
+        if self.pending_pui is None:
+            return
+
+        key = str(record_name).lower()
+        info = self.records.get(key)
+
+        if info is None:
+            raise RuntimeError(
+                f"record type not registered: {record_name}"
+            )
+
+        entries = (
+            self.pending_pui
+            .setdefault("types", {})
+            .setdefault("records", [])
+        )
+
+        if any(
+            str(item.get("name", "")).lower() == key
+            for item in entries
+        ):
+            return
+
+        fields = []
+
+        for field_info in info.fields.values():
+            fields.append({
+                "name": field_info.name,
+                "type": field_info.type,
+                "offset": int(field_info.offset),
+                "size": int(field_info.size)
+            })
+
+        entries.append({
+            "kind": "record",
+            "name": info.name,
+            "packed": bool(
+                getattr(info, "packed", False)
+            ),
+            "alignment": int(
+                getattr(info, "alignment", 1)
+            ),
+            "size": int(info.size),
+            "fields": fields
+        })
 
     def pui_add_type_alias(
         self,
@@ -13487,20 +17250,194 @@ class AsmJitGenerator(PascalParserVisitor):
                     return
 
         entries.append(item)
+
+    def visitShiftExpr(self, ctx):
+        operands = ctx.term()
+
+        if not operands:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="shift expression has no operand"
+            )
+
+        result_type = self.visit(
+            ctx.term(0)
+        )
+
+        # Kein SHL/SHR vorhanden:
+        # Typ unverändert weiterreichen.
+        #
+        # Das ist wichtig für:
+        #   Ctx = nil
+        #   S = ''
+        #   Flag = True
+        #   Obj <> nil
+        if len(operands) == 1:
+            return result_type
+
+        integer_types = (
+            "integer",
+            "byte",
+            "word",
+            "cardinal",
+            "dword",
+            "longint",
+            "smallint",
+            "shortint",
+            "char"
+        )
+
+        left_scalar_type = self.scalar_base_type(
+            result_type
+        )
+
+        if (
+            result_type not in integer_types
+            and left_scalar_type != "integer"
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=result_type,
+                expected="integer"
+            )
+
+        for index in range(
+            1,
+            len(operands)
+        ):
+            operator = (
+                ctx.getChild(
+                    2 * index - 1
+                )
+                .getText()
+                .lower()
+            )
+
+            # Linken Wert sichern.
+            if CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
+                self.emit_push(
+                    "eax",
+                    comment="save shift value"
+                )
+            else:
+                self.emit_push(
+                    "rax",
+                    comment="save shift value"
+                )
+
+            shift_type = self.visit(
+                ctx.term(index)
+            )
+
+            shift_scalar_type = self.scalar_base_type(
+                shift_type
+            )
+
+            if (
+                shift_type not in integer_types
+                and shift_scalar_type != "integer"
+            ):
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    self.emit_pop("eax")
+                else:
+                    self.emit_pop("rax")
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=shift_type,
+                    expected="integer"
+                )
+
+            if CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
+                # ECX = Shiftanzahl
+                self.emit_mov(
+                    "ecx",
+                    "eax",
+                    comment="shift count"
+                )
+
+                # EAX = linker Operand
+                self.emit_pop(
+                    "eax",
+                    comment="restore shift value"
+                )
+
+                if operator == "shl":
+                    self.backend.emit_shl_reg_cl(
+                        "eax"
+                    )
+
+                elif operator == "shr":
+                    self.backend.emit_shr_reg_cl(
+                        "eax"
+                    )
+
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "unsupported shift operator: "
+                            + operator
+                        )
+                    )
+
+            else:
+                self.emit_mov(
+                    "rcx",
+                    "rax",
+                    comment="shift count"
+                )
+
+                self.emit_pop(
+                    "rax",
+                    comment="restore shift value"
+                )
+
+                if operator == "shl":
+                    self.backend.emit_shl_reg_cl(
+                        "rax"
+                    )
+
+                elif operator == "shr":
+                    self.backend.emit_shr_reg_cl(
+                        "rax"
+                    )
+
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "unsupported shift operator: "
+                            + operator
+                        )
+                    )
+
+            result_type = "integer"
+
+        return result_type
     
     def pui_add_dll_import(
         self,
         dll_name,
         import_item
     ):
-        """
-        Speichert einen von der Unit-Objektdatei benötigten DLL-Import.
-
-        Gespeichert werden insbesondere:
-
-            symbol  internes COFF-/Thunk-Symbol
-            name    tatsächlicher Exportname in der DLL
-        """
         if self.pending_pui is None:
             return
 
@@ -13597,16 +17534,37 @@ class AsmJitGenerator(PascalParserVisitor):
             ctx.typeName().getText()
         )
 
-        if ctx.externalRoutineSpec():
-            return self.register_external_routine(
-                ctx         = ctx,
-                kind        = "function",
-                name        = name,
-                params      = params,
-                return_type = return_type,
-                spec_ctx    = ctx.externalRoutineSpec()
+        convention = (
+            self.local_routine_calling_convention(
+                ctx
+            )
+        )
+
+        if self.routine_is_external(ctx):
+            dll_name = self.routine_external_library(
+                ctx
             )
 
+            if dll_name is None:
+                return self.register_local_external_routine(
+                    ctx=ctx,
+                    kind="function",
+                    name=name,
+                    params=params,
+                    return_type=return_type,
+                    convention=convention
+                )
+
+            return self.register_external_routine(
+                ctx=ctx,
+                kind="function",
+                name=name,
+                params=params,
+                return_type=return_type,
+                spec_ctx=ctx.externalRoutineDirective(),
+                convention=convention
+            )
+        
         mangled = self.fpc_mangle_routine(
             name,
             params,
@@ -13634,7 +17592,7 @@ class AsmJitGenerator(PascalParserVisitor):
                     "symbol": mangled,
                     "params": self.pui_param_data(params),
                     "return_type": return_type,
-                    "calling_convention": "cdecl"
+                    "calling_convention": convention
                 }
             )
 
@@ -13647,14 +17605,35 @@ class AsmJitGenerator(PascalParserVisitor):
 
         params = self.collect_formal_params(ctx)
 
-        if ctx.externalRoutineSpec():
+        convention = (
+            self.local_routine_calling_convention(
+                ctx
+            )
+        )
+
+        if self.routine_is_external(ctx):
+            dll_name = self.routine_external_library(
+                ctx
+            )
+
+            if dll_name is None:
+                return self.register_local_external_routine(
+                    ctx=ctx,
+                    kind="procedure",
+                    name=name,
+                    params=params,
+                    return_type=None,
+                    convention=convention
+                )
+
             return self.register_external_routine(
-                ctx         = ctx,
-                kind        = "procedure",
-                name        = name,
-                params      = params,
-                return_type = None,
-                spec_ctx    = ctx.externalRoutineSpec()
+                ctx=ctx,
+                kind="procedure",
+                name=name,
+                params=params,
+                return_type=None,
+                spec_ctx=ctx.externalRoutineDirective(),
+                convention=convention
             )
 
         mangled = self.fpc_mangle_routine(
@@ -13682,7 +17661,7 @@ class AsmJitGenerator(PascalParserVisitor):
                     "scoped_name": scoped,
                     "symbol"     : mangled,
                     "params"     : self.pui_param_data(params),
-                    "calling_convention": "cdecl"
+                    "calling_convention": convention
                 }
             )
 
@@ -14244,6 +18223,196 @@ class AsmJitGenerator(PascalParserVisitor):
                 target_type
             )
     
+        self.register_pui_record_types(
+            ctx,
+            unit_name,
+            types
+        )
+
+    def register_pui_record_types(
+        self,
+        ctx,
+        unit_name,
+        types
+    ):
+        for item in types.get(
+            "records",
+            []
+        ):
+            if not isinstance(item, dict):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid record entry "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            name = str(
+                item.get("name", "")
+            ).strip()
+
+            if not name:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"unnamed record type "
+                        f"in PUI for {unit_name}"
+                    )
+                )
+
+            key = name.lower()
+
+            if (
+                key in self.records
+                or key in self.arrays
+                or key in self.classes
+                or key in self.enums
+                or key in self.subrange_types
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0002",
+                    name=name
+                )
+
+            record_fields = {}
+
+            for field_item in item.get(
+                "fields",
+                []
+            ):
+                if not isinstance(field_item, dict):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"invalid field in "
+                            f"PUI record {unit_name}.{name}"
+                        )
+                    )
+
+                field_name = str(
+                    field_item.get("name", "")
+                ).strip()
+
+                field_type = str(
+                    field_item.get("type", "")
+                ).strip()
+
+                if not field_name or not field_type:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"invalid field in "
+                            f"PUI record {unit_name}.{name}"
+                        )
+                    )
+
+                try:
+                    field_offset = int(
+                        field_item["offset"]
+                    )
+                    field_size = int(
+                        field_item["size"]
+                    )
+                except (
+                    KeyError,
+                    TypeError,
+                    ValueError
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"invalid field layout in "
+                            f"PUI record {unit_name}.{name}"
+                        )
+                    )
+
+                if field_offset < 0 or field_size <= 0:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"invalid field layout in "
+                            f"PUI record {unit_name}.{name}"
+                        )
+                    )
+
+                field_key = field_name.lower()
+
+                if field_key in record_fields:
+                    raise CompileError(
+                        ctx,
+                        "E0002",
+                        name=field_name
+                    )
+
+                record_fields[field_key] = RecordFieldInfo(
+                    name=field_name,
+                    type=self.resolve_type(field_type),
+                    offset=field_offset,
+                    size=field_size
+                )
+
+            try:
+                record_size = int(item["size"])
+                alignment = int(
+                    item.get("alignment", 1)
+                )
+            except (
+                KeyError,
+                TypeError,
+                ValueError
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid layout for "
+                        f"PUI record {unit_name}.{name}"
+                    )
+                )
+
+            if record_size < 0 or alignment <= 0:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid layout for "
+                        f"PUI record {unit_name}.{name}"
+                    )
+                )
+
+            for field_info in record_fields.values():
+                if (
+                    field_info.offset
+                    + field_info.size
+                    > record_size
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"field {field_info.name} exceeds "
+                            f"PUI record {unit_name}.{name}"
+                        )
+                    )
+
+            self.records[key] = RecordInfo(
+                name=name,
+                fields=record_fields,
+                size=record_size,
+                packed=bool(
+                    item.get("packed", False)
+                ),
+                alignment=alignment
+            )
+
     def visitTypeDeclaration(self, ctx):
         # ------------------------------------------------------------
         # Deklarationen mit eigener Unterregel
@@ -14363,23 +18532,50 @@ class AsmJitGenerator(PascalParserVisitor):
     def visitFunctionDeclaration(self, ctx):
         name = ctx.IDENT().getText()
 
-        if ctx.externalRoutineSpec():
-            params = self.collect_formal_params(ctx)
+        convention = (
+            self.local_routine_calling_convention(
+                ctx
+            )
+        )
+        
+        if self.routine_is_external(ctx):
+            params = self.collect_formal_params(
+                ctx
+            )
 
             return_type = self.resolve_type(
                 ctx.typeName().getText()
             )
 
-            self.register_external_routine(
-                ctx=ctx,
-                kind        = "function",
-                name        = name,
-                params      = params,
-                return_type = return_type,
-                spec_ctx    = ctx.externalRoutineSpec()
+            directive = (
+                ctx.externalRoutineDirective()
             )
 
-            return None
+            dll_name = (
+                self.routine_external_library(
+                    ctx
+                )
+            )
+
+            if dll_name is None:
+                return self.register_local_external_routine(
+                    ctx=ctx,
+                    kind="function",
+                    name=name,
+                    params=params,
+                    return_type=return_type,
+                    convention=convention
+                )
+
+            return self.register_external_routine(
+                ctx=ctx,
+                kind="function",
+                name=name,
+                params=params,
+                return_type=return_type,
+                spec_ctx=directive,
+                convention=convention
+            )
 
         return_type = self.resolve_type(
             ctx.typeName().getText()
@@ -14407,7 +18603,8 @@ class AsmJitGenerator(PascalParserVisitor):
             "return_type": return_type,
             "label": asmjit_label,      # für a.bind(...)
             "mangled": fpc_name,        # für NASM / Export / Mapping
-            "params": params
+            "params": params,
+            "calling_convention": convention
         }
 
         # globaler Alias, damit "Add" gefunden wird
@@ -14436,6 +18633,56 @@ class AsmJitGenerator(PascalParserVisitor):
                     asmjit_label
                 )
         return None
+    
+    def routine_is_external(
+        self,
+        ctx
+    ):
+        if not hasattr(
+            ctx,
+            "externalRoutineDirective"
+        ):
+            return False
+
+        return (
+            ctx.externalRoutineDirective()
+            is not None
+        )
+
+    def routine_external_library(
+        self,
+        ctx
+    ):
+        if not hasattr(
+            ctx,
+            "externalRoutineDirective"
+        ):
+            return None
+
+        directive = (
+            ctx.externalRoutineDirective()
+        )
+
+        if directive is None:
+            return None
+
+        library_ctx = (
+            directive.externalLibrary()
+        )
+
+        if library_ctx is None:
+            return None
+
+        text = library_ctx.getText()
+
+        if (
+            len(text) >= 2
+            and text[0] in ("'", '"')
+            and text[-1] == text[0]
+        ):
+            text = text[1:-1]
+
+        return text
     
     def routine_calling_convention(self, routine):
         convention = routine.get(
@@ -14701,10 +18948,339 @@ class AsmJitGenerator(PascalParserVisitor):
                 comment="cdecl caller cleanup"
             )
     
+    def suffix_text(
+        self,
+        suffix
+    ):
+        if suffix is None:
+            return ""
+
+        return suffix.getText()
+
+    def suffix_is_caret(
+        self,
+        suffix
+    ):
+        return (
+            self.suffix_text(suffix)
+            == "^"
+        )
+
+    def suffix_is_dot(
+        self,
+        suffix
+    ):
+        return (
+            self.suffix_text(suffix)
+            .startswith(".")
+        )
+
+    def suffix_index_exprs(
+        self,
+        suffix
+    ):
+        """
+        Liefert die äußeren Indexausdrücke eines VariableSuffixContext.
+
+        Abhängig von der ANTLR-Grammatik liegen die ExprContext-Knoten
+        entweder direkt im Suffix oder unter einem Zwischenkontext wie
+        indexList/indexExpressionList. Deshalb darf hier nicht nur
+        suffix.expr() abgefragt werden.
+        """
+        if suffix is None:
+            return []
+
+        # Schneller Pfad für Grammatiken, in denen expr direkt Teil
+        # von variableSuffix ist.
+        expr_method = getattr(
+            suffix,
+            "expr",
+            None
+        )
+
+        if callable(expr_method):
+            exprs = expr_method()
+
+            if exprs is not None:
+                if isinstance(exprs, list):
+                    result = list(exprs)
+                else:
+                    result = [exprs]
+
+                if result:
+                    return result
+
+        # Robuster Fallback:
+        #
+        #   variableSuffix
+        #       '['
+        #       indexList
+        #           expr
+        #           ','
+        #           expr
+        #       ']'
+        #
+        # Sobald ein ExprContext gefunden wurde, wird nicht weiter in
+        # diesen Ausdruck hinabgestiegen. Sonst würden Teilausdrücke
+        # eines Indexes wie A[I + 1] mehrfach gesammelt.
+        result = []
+
+        def collect_outer_exprs(node):
+            if node is None:
+                return
+
+            if isinstance(
+                node,
+                PascalParser.ExprContext
+            ):
+                result.append(
+                    node
+                )
+                return
+
+            for child in (
+                getattr(
+                    node,
+                    "children",
+                    None
+                )
+                or []
+            ):
+                collect_outer_exprs(
+                    child
+                )
+
+        for child in (
+            getattr(
+                suffix,
+                "children",
+                None
+            )
+            or []
+        ):
+            collect_outer_exprs(
+                child
+            )
+
+        return result
+
+    def suffix_is_index(
+        self,
+        suffix
+    ):
+        text = self.suffix_text(
+            suffix
+        )
+
+        return (
+            text.startswith("[")
+            or bool(
+                self.suffix_index_exprs(
+                    suffix
+                )
+            )
+        )
+
+    def suffix_field_name(
+        self,
+        suffix
+    ):
+        text = self.suffix_text(
+            suffix
+        )
+
+        if not text.startswith("."):
+            return None
+
+        field_name = text[1:]
+
+        if not field_name:
+            return None
+
+        return field_name
+        
+    def suffix_identifier_name(
+        self,
+        ctx,
+        suffix
+    ):
+        """
+        Ermittelt den Feldbezeichner eines VariableSuffixContext.
+
+        Unterstützt alte und neu erzeugte ANTLR-Parser:
+
+            .Field
+            DOT IDENT
+            DOT identifier
+
+        Ein direkter IDENT()-Accessor ist nicht zwingend vorhanden.
+        """
+        if suffix is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="missing variable suffix"
+            )
+
+        # Grammar-unabhängig: der komplette Suffixtext lautet
+        # normalerweise ".Field".
+        field_name = self.suffix_field_name(
+            suffix
+        )
+
+        if field_name:
+            return field_name
+
+        # Ältere Grammar:
+        #
+        #     variableSuffix : DOT IDENT;
+        ident_accessor = getattr(
+            suffix,
+            "IDENT",
+            None
+        )
+
+        if callable(
+            ident_accessor
+        ):
+            ident = ident_accessor()
+
+            if isinstance(
+                ident,
+                list
+            ):
+                for item in ident:
+                    if item is None:
+                        continue
+
+                    value = item.getText()
+
+                    if value:
+                        return value
+
+            elif ident is not None:
+                value = ident.getText()
+
+                if value:
+                    return value
+
+        # Neuere Grammar:
+        #
+        #     variableSuffix : DOT identifier;
+        identifier_accessor = getattr(
+            suffix,
+            "identifier",
+            None
+        )
+
+        if callable(
+            identifier_accessor
+        ):
+            identifier_ctx = identifier_accessor()
+
+            if isinstance(
+                identifier_ctx,
+                list
+            ):
+                for item in identifier_ctx:
+                    if item is None:
+                        continue
+
+                    value = item.getText()
+
+                    if value:
+                        return value
+
+            elif identifier_ctx is not None:
+                value = identifier_ctx.getText()
+
+                if value:
+                    return value
+
+        # Letzter Parse-Tree-Fallback.
+        ignored_tokens = {
+            ".",
+            "^",
+            "[",
+            "]",
+            ",",
+            "(",
+            ")"
+        }
+
+        for index in range(
+            suffix.getChildCount() - 1,
+            -1,
+            -1
+        ):
+            child = suffix.getChild(
+                index
+            )
+
+            if child is None:
+                continue
+
+            value = child.getText()
+
+            if (
+                value
+                and value not in ignored_tokens
+            ):
+                return value.lstrip(".")
+
+        suffix_text = self.suffix_text(
+            suffix
+        )
+
+        if (
+            suffix_text.startswith(".")
+            and len(suffix_text) > 1
+        ):
+            return suffix_text[1:]
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                "could not determine field name from suffix "
+                + repr(suffix_text)
+            )
+        )
+
+
+    def suffix_is_field(
+        self,
+        suffix
+    ):
+        return (
+            self.suffix_text(suffix)
+            .startswith(".")
+        )
+    
     def visitAssignment(self, ctx):
         target_ctx = ctx.variableRef()
-        target     = target_ctx.getText()
-        expr_type  = self.visit(ctx.expr())
+
+        if target_ctx is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text="assignment has no target"
+            )
+
+        target = target_ctx.getText()
+
+        # IDENT() kann bei reservierten beziehungsweise speziell
+        # tokenisierten Namen wie Result None liefern. Der vorhandene
+        # Helfer verwendet zusätzlich identifier(), Starttoken und
+        # den ersten Kindknoten.
+        base_target_name = self.variable_ref_name(
+            ctx,
+            target_ctx
+        )
+
+        expr_type = self.visit(
+            ctx.expr()
+        )
 
         # --------------------------------------------------------------
         # Ausdruckstyp für Subrange-Zieltypen normalisieren.
@@ -14716,19 +19292,40 @@ class AsmJitGenerator(PascalParserVisitor):
         # False liefert "boolean", die Subrange-Variable wird intern
         # derzeit jedoch über den Basistyp "integer" gespeichert.
         # --------------------------------------------------------------
-        def normalize_subrange_assignment(info, current_expr_type):
-            declared_type = info.get(
-                "declared_type",
-                info["type"]
+        def normalize_subrange_assignment(
+            info,
+            current_expr_type
+        ):
+            declared_type = self.resolve_type(
+                info.get(
+                    "declared_type",
+                    info["type"]
+                )
             )
 
-            range_info = self.subrange_info(declared_type)
+            resolved_expr_type = self.resolve_type(
+                current_expr_type
+            )
 
+            range_info = self.subrange_info(
+                declared_type
+            )
+
+            # Das Ziel ist kein Subrange-Typ.
             if range_info is None:
-                return current_expr_type
+                return resolved_expr_type
 
+            target_base_type = self.scalar_base_type(
+                declared_type
+            )
+
+            expr_base_type = self.scalar_base_type(
+                resolved_expr_type
+            )
+
+            # Boolean-Subrange 0..1.
             if (
-                current_expr_type == "boolean"
+                resolved_expr_type == "boolean"
                 and range_info.min_value == 0
                 and range_info.max_value == 1
             ):
@@ -14737,17 +19334,51 @@ class AsmJitGenerator(PascalParserVisitor):
                     1,
                     comment="normalize boolean subrange"
                 )
+
                 return "integer"
 
-            if current_expr_type != "integer":
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=current_expr_type,
-                    expected=declared_type
+            # Byte, Word, DWord, Cardinal und Integer besitzen für
+            # Zuweisungen denselben skalaren ABI-Basistyp.
+            #
+            # Beispiel:
+            #
+            #     CRC: Word;
+            #     CRC := crc16_calc(...);   // Word := Word
+            #
+            # Der Ausdruck kann weiterhin den deklarierten Typ "word"
+            # tragen. Für den Speicherpfad wird er auf "integer"
+            # normalisiert.
+            if (
+                target_base_type == "integer"
+                and expr_base_type == "integer"
+            ):
+                return "integer"
+
+            # Ein einzelnes Zeichen darf in einen Byte-kompatiblen
+            # Integer-Subrange übernommen werden.
+            if (
+                target_base_type == "integer"
+                and resolved_expr_type == "char"
+                and range_info.min_value <= 0
+                and range_info.max_value >= 255
+            ):
+                self.emit_and(
+                    "eax",
+                    0xFF,
+                    comment=(
+                        f"normalize char for "
+                        f"{declared_type}"
+                    )
                 )
 
-            return "integer"
+                return "integer"
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=resolved_expr_type,
+                expected=declared_type
+            )
 
         # --------------------------------------------------------------
         # Funktionsrückgabewert
@@ -14783,36 +19414,77 @@ class AsmJitGenerator(PascalParserVisitor):
 
         if suffixes:
             first = suffixes[0]
+            
+            suffixes = list(
+                target_ctx.variableSuffix()
+            )
 
-            has_caret = any(s.CARET() for s in suffixes)
-            has_dot   = any(s.DOT()   for s in suffixes)
+            has_caret = any(
+                self.suffix_is_caret(suffix)
+                for suffix in suffixes
+            )
 
-            # Pointer auf Recordfeld: P^.Value := ...
+            has_dot = any(
+                self.suffix_is_dot(suffix)
+                for suffix in suffixes
+            )
+
+            # Pointer auf Recordfeld:
+            #
+            #     Ctx^.crc := $FFFF;
+            #
             if has_caret and has_dot:
-                parts = [target_ctx.IDENT().getText()]
+                parts = [
+                    base_target_name
+                ]
+
                 after_caret = False
 
                 for suffix in suffixes:
-                    if suffix.CARET():
+                    if self.suffix_is_caret(
+                        suffix
+                    ):
                         after_caret = True
                         continue
 
-                    if after_caret and suffix.DOT():
-                        ident = suffix.IDENT()
+                    if (
+                        after_caret
+                        and self.suffix_is_dot(
+                            suffix
+                        )
+                    ):
+                        field_name = (
+                            self.suffix_field_name(
+                                suffix
+                            )
+                        )
 
-                        if ident is not None:
-                            parts.append(ident.getText())
+                        if field_name:
+                            parts.append(
+                                field_name
+                            )
+
+                if len(parts) < 2:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "pointer record assignment "
+                            "has no field name"
+                        )
+                    )
 
                 self.emit_store_pointer_record_field(
                     ctx,
                     parts,
                     expr_type
                 )
+
                 return None
 
             # Einfacher Pointer-Dereferenzzugriff: P^ := ...
-            if first.CARET():
-                var_name = target_ctx.IDENT().getText()
+            if self.suffix_is_caret(first):
+                var_name = base_target_name
 
                 self.emit_store_pointer_deref(
                     ctx,
@@ -14822,15 +19494,70 @@ class AsmJitGenerator(PascalParserVisitor):
                 return None
 
             # Array- oder Stringindex
-            if first.LBRACK():
-                var_name = target_ctx.IDENT().getText()
+            if self.suffix_is_index(first):
+                var_name = base_target_name
 
                 index_exprs, rest_suffixes = self.collect_array_suffix_exprs(
                     suffixes
                 )
 
-                var_info = self.var_info(ctx, var_name)
-                var_type = self.resolve_type(var_info["type"])
+                # Typisierter Pointer:
+                #
+                #   Result[0] := 'a';
+                #   PAnsiCharVar[I] := #0;
+                #
+                # Result ist eine lokale Variable und darf deshalb nicht
+                # über var_info() gesucht werden.
+                pointer_info = self.find_local_var(
+                    var_name
+                )
+
+                if pointer_info is None:
+                    pointer_info = self.find_param(
+                        var_name
+                    )
+
+                if pointer_info is None:
+                    pointer_info = self.vars.get(
+                        var_name.lower()
+                    )
+
+                if pointer_info is not None:
+                    pointer_type = self.resolve_type(
+                        pointer_info["type"]
+                    )
+
+                    if self.is_pointer_type(
+                        pointer_type,
+                        include_nil=False
+                    ):
+                        if rest_suffixes:
+                            raise CompileError(
+                                ctx,
+                                "E0019",
+                                text=(
+                                    "field access after an indexed "
+                                    "pointer is not implemented yet"
+                                )
+                            )
+
+                        self.emit_store_pointer_element(
+                            ctx,
+                            var_name,
+                            index_exprs,
+                            expr_type
+                        )
+
+                        return None
+
+                var_info = self.var_info(
+                    ctx,
+                    var_name
+                )
+
+                var_type = self.resolve_type(
+                    var_info["type"]
+                )
 
                 # Stringzeichen: S[1] := 'A'
                 if var_type == "string":
@@ -14856,17 +19583,22 @@ class AsmJitGenerator(PascalParserVisitor):
                 var_info, array_info = self.get_array_info(ctx, var_name)
 
                 # Array von Records: Points[0].X := ...
-                if rest_suffixes and rest_suffixes[0].DOT():
+                if rest_suffixes and self.suffix_is_dot(rest_suffixes[0]):
                     field_parts = []
 
                     for suffix in rest_suffixes:
-                        if not suffix.DOT():
+                        if not self.suffix_is_dot(suffix):
                             continue
 
-                        ident = suffix.IDENT()
+                        field_name = self.suffix_identifier_name(
+                            ctx,
+                            suffix
+                        )
 
-                        if ident is not None:
-                            field_parts.append(ident.getText())
+                        if field_name:
+                            field_parts.append(
+                                field_name
+                            )
 
                     if not field_parts:
                         raise CompileError(
@@ -14905,17 +19637,22 @@ class AsmJitGenerator(PascalParserVisitor):
                 return None
 
             # Klassen- oder Recordfeld
-            if first.DOT():
-                parts = [target_ctx.IDENT().getText()]
+            if self.suffix_is_dot(first):
+                parts = [base_target_name]
 
                 for suffix in suffixes:
-                    if not suffix.DOT():
+                    if not self.suffix_is_dot(suffix):
                         continue
 
-                    ident = suffix.IDENT()
+                    field_name = self.suffix_identifier_name(
+                        ctx,
+                        suffix
+                    )
 
-                    if ident is not None:
-                        parts.append(ident.getText())
+                    if field_name:
+                        parts.append(
+                            field_name
+                        )
 
                 if len(parts) < 2:
                     raise CompileError(
@@ -15052,9 +19789,9 @@ class AsmJitGenerator(PascalParserVisitor):
         return self.visit(ctx.boolOrExpr())
     
     def visitAddExpr(self, ctx):
-        result_type = self.visit(ctx.term(0))
+        result_type = self.visit(ctx.shiftExpr(0))
         
-        for i in range(1, len(ctx.term())):
+        for i in range(1, len(ctx.shiftExpr())):
             op = ctx.getChild(2 * i - 1).getText()
 
             # string + string
@@ -15065,7 +19802,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 if CDATA.args_target in ["nt35", "winnt", "win32"]:
                     self.emit_push("eax", comment="save left DynString")
 
-                    right_type = self.visit(ctx.term(i))
+                    right_type = self.visit(ctx.shiftExpr(i))
                     if right_type != "string":
                         raise CompileError(ctx, "E0005", got=right_type, expected="string")
 
@@ -15085,7 +19822,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 else:
                     self.emit_push("rax", comment="save left DynString")
 
-                    right_type = self.visit(ctx.term(i))
+                    right_type = self.visit(ctx.shiftExpr(i))
                     if right_type != "string":
                         raise CompileError(ctx, "E0005", got=right_type, expected="string")
 
@@ -15105,7 +19842,7 @@ class AsmJitGenerator(PascalParserVisitor):
             if result_type == "integer":
                 self.emit_push("rax", comment="save left integer")
 
-                right_type = self.visit(ctx.term(i))
+                right_type = self.visit(ctx.shiftExpr(i))
 
                 if right_type == "integer":
                     self.emit_mov("ebx", "eax")
@@ -15139,7 +19876,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.emit_sub("rsp", 8)
                 self.emit_movsd_store("rsp", 0, "xmm0")
 
-                right_type = self.visit(ctx.term(i))
+                right_type = self.visit(ctx.shiftExpr(i))
 
                 if right_type == "integer":
                     self.emit_cvtsi2sd("xmm0", "eax")
@@ -15246,16 +19983,37 @@ class AsmJitGenerator(PascalParserVisitor):
                 text="missing variable reference"
             )
 
-        # Normaler IDENT-Token
-        ident = ref.IDENT()
+        # Normaler IDENT-Token. Nach einer Grammar-Änderung besitzt
+        # VariableRefContext nicht zwingend einen IDENT()-Accessor.
+        ident_accessor = getattr(
+            ref,
+            "IDENT",
+            None
+        )
 
-        if ident is not None:
-            # Absicherung, falls ANTLR eine Liste zurückliefert
-            if isinstance(ident, list):
-                if ident:
-                    return ident[0].getText()
-            else:
-                return ident.getText()
+        if callable(
+            ident_accessor
+        ):
+            ident = ident_accessor()
+
+            if ident is not None:
+                if isinstance(
+                    ident,
+                    list
+                ):
+                    for item in ident:
+                        if item is None:
+                            continue
+
+                        value = item.getText()
+
+                        if value:
+                            return value
+                else:
+                    value = ident.getText()
+
+                    if value:
+                        return value
 
         # Falls die Grammar eine allgemeine identifier-Regel besitzt
         if hasattr(ref, "identifier"):
@@ -16136,44 +20894,18 @@ class AsmJitGenerator(PascalParserVisitor):
                     text="missing variable suffix"
                 )
 
-            if hasattr(suffix, "IDENT"):
-                ident = suffix.IDENT()
+            # VariableSuffixContext kann den kompletten Text ".crc"
+            # als einen einzigen Parse-Tree-Knoten liefern. In diesem
+            # Fall darf der fuehrende Punkt nicht Teil des Feldnamens
+            # werden, sonst entsteht der Pfad "Ctx..crc".
+            field_name = self.suffix_field_name(suffix)
 
-                if isinstance(ident, list):
-                    if ident:
-                        return ident[0].getText()
+            if field_name:
+                return field_name
 
-                elif ident is not None:
-                    return ident.getText()
-
-            if hasattr(suffix, "identifier"):
-                ident_ctx = suffix.identifier()
-
-                if ident_ctx is not None:
-                    return ident_ctx.getText()
-
-            # Bei ".Field" ist der letzte Child normalerweise Field.
-            count = suffix.getChildCount()
-
-            for index in range(count - 1, -1, -1):
-                value = suffix.getChild(index).getText()
-
-                if value not in (
-                    ".",
-                    "^",
-                    "[",
-                    "]",
-                    ","
-                ):
-                    return value
-
-            raise CompileError(
+            return self.suffix_identifier_name(
                 ctx,
-                "E0019",
-                text=(
-                    "could not determine suffix identifier from "
-                    + suffix.getText()
-                )
+                suffix
             )
 
         # ------------------------------------------------------------
@@ -16277,6 +21009,16 @@ class AsmJitGenerator(PascalParserVisitor):
             )
 
             if const_info is not None:
+                if const_info.get("kind") == "array":
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"constant array {name} "
+                            "requires an index"
+                        )
+                    )
+
                 return self.emit_load_const(
                     ctx,
                     name
@@ -16494,7 +21236,6 @@ class AsmJitGenerator(PascalParserVisitor):
         # ============================================================
         # Boolean-Literale und NOT
         # ============================================================
-
         if ctx.TRUE():
             self.emit_mov_imm(
                 "eax",
@@ -16568,7 +21309,6 @@ class AsmJitGenerator(PascalParserVisitor):
         # ============================================================
         # Adressoperator @
         # ============================================================
-
         if ctx.AT():
             ref = ctx.variableRef()
 
@@ -16590,7 +21330,7 @@ class AsmJitGenerator(PascalParserVisitor):
             if suffixes:
                 first = suffixes[0]
 
-                if first.LBRACK():
+                if self.suffix_is_index(first):
                     index_exprs, rest_suffixes = (
                         self.collect_array_suffix_exprs(
                             suffixes
@@ -16657,8 +21397,7 @@ class AsmJitGenerator(PascalParserVisitor):
         # Die eigentliche Implementierung gehört in
         # visitArrayConstructor().
         # ============================================================
-        if (
-            hasattr(ctx, "arrayConstructor")
+        if (hasattr(ctx, "arrayConstructor")
             and ctx.arrayConstructor() is not None
         ):
             return self.visit(
@@ -16697,15 +21436,15 @@ class AsmJitGenerator(PascalParserVisitor):
             first = suffixes[0]
 
             has_caret = any(
-                suffix.CARET()
+                self.context_contains_caret(suffix)
                 for suffix in suffixes
             )
 
             has_dot = any(
-                suffix.DOT()
+                self.context_contains_dot(suffix)
                 for suffix in suffixes
             )
-
+            
             # --------------------------------------------------------
             # Pointer auf Record:
             #
@@ -16719,13 +21458,13 @@ class AsmJitGenerator(PascalParserVisitor):
                 after_caret = False
 
                 for suffix in suffixes:
-                    if suffix.CARET():
+                    if self.context_contains_caret(suffix):
                         after_caret = True
                         continue
 
                     if (
                         after_caret
-                        and suffix.DOT()
+                        and self.context_contains_dot(suffix)
                     ):
                         parts.append(
                             suffix_identifier(
@@ -16743,7 +21482,7 @@ class AsmJitGenerator(PascalParserVisitor):
             #
             #   P^
             # --------------------------------------------------------
-            if first.CARET():
+            if self.suffix_is_caret(first):
                 return self.emit_load_pointer_deref(
                     ctx,
                     name
@@ -16757,7 +21496,7 @@ class AsmJitGenerator(PascalParserVisitor):
             #   S[I]
             #   Points[I].X
             # --------------------------------------------------------
-            if first.LBRACK():
+            if self.suffix_is_index(first):
                 index_exprs, rest_suffixes = (
                     self.collect_array_suffix_exprs(
                         suffixes
@@ -16806,8 +21545,84 @@ class AsmJitGenerator(PascalParserVisitor):
                         index_exprs
                     )
 
-                # Die vorhandenen Array- und String-Emitter arbeiten
-                # derzeit mit globalen Variablen aus self.vars.
+                # Typisiertes konstantes Array:
+                #
+                #   const
+                #       HexDigits: array[0..15] of AnsiChar = (...);
+                #
+                # Solche Arrays liegen nicht in self.vars, sondern im
+                # lokalen beziehungsweise globalen Konstanten-Scope.
+                const_info = self.find_const(
+                    name
+                )
+
+                if (
+                    const_info is not None
+                    and const_info.get("kind") == "array"
+                ):
+                    if rest_suffixes:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "record fields on constant-array "
+                                "elements are not implemented yet"
+                            )
+                        )
+
+                    return self.emit_load_const_array_element(
+                        ctx,
+                        name,
+                        const_info,
+                        index_exprs
+                    )
+
+                # Typisierter Pointer:
+                #
+                #   PAnsiCharVar[I]
+                #   Result[I]
+                #
+                # Lokale Pointer und Parameter liegen nicht in self.vars.
+                pointer_info = self.find_local_var(
+                    name
+                )
+
+                if pointer_info is None:
+                    pointer_info = self.find_param(
+                        name
+                    )
+
+                if pointer_info is None:
+                    pointer_info = self.vars.get(
+                        name.lower()
+                    )
+
+                if pointer_info is not None:
+                    pointer_type = self.resolve_type(
+                        pointer_info["type"]
+                    )
+
+                    if self.is_pointer_type(
+                        pointer_type,
+                        include_nil=False
+                    ):
+                        if rest_suffixes:
+                            raise CompileError(
+                                ctx,
+                                "E0019",
+                                text=(
+                                    "field access after an indexed "
+                                    "pointer is not implemented yet"
+                                )
+                            )
+
+                        return self.emit_load_pointer_element(
+                            ctx,
+                            name,
+                            index_exprs
+                        )
+
+                # Veränderliche Arrays und Strings.
                 var_info = self.var_info(
                     ctx,
                     name
@@ -16848,12 +21663,12 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ----------------------------------------------------
                 if (
                     rest_suffixes
-                    and rest_suffixes[0].DOT()
+                    and self.suffix_is_dot(rest_suffixes[0])
                 ):
                     field_parts = []
 
                     for suffix in rest_suffixes:
-                        if suffix.DOT():
+                        if self.suffix_is_dot(suffix):
                             field_parts.append(
                                 suffix_identifier(
                                     suffix
@@ -16901,13 +21716,13 @@ class AsmJitGenerator(PascalParserVisitor):
             #   Object.Property
             #   Record.Field
             # --------------------------------------------------------
-            if first.DOT():
+            if self.suffix_is_dot(first):
                 parts = [
                     name
                 ]
 
                 for suffix in suffixes:
-                    if suffix.DOT():
+                    if self.suffix_is_dot(suffix):
                         parts.append(
                             suffix_identifier(
                                 suffix
@@ -17017,13 +21832,8 @@ class AsmJitGenerator(PascalParserVisitor):
         # ============================================================
         # NIL
         # ============================================================
-
         if ctx.NIL():
-            if CDATA.args_target in [
-                "nt35",
-                "winnt",
-                "win32"
-            ]:
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 self.emit_xor(
                     "eax",
                     "eax",
@@ -17056,9 +21866,64 @@ class AsmJitGenerator(PascalParserVisitor):
             return "^nil"
 
         # ============================================================
+        # Pascal-Zeichencode: #0, #13, #$0A
+        # ============================================================
+        if ctx.CHARCODE():
+            token_text = (
+                ctx.CHARCODE().getText()
+            )
+
+            value_text = token_text[1:]
+
+            if value_text.startswith("$"):
+                value = int(
+                    value_text[1:],
+                    16
+                )
+            else:
+                value = int(
+                    value_text,
+                    10
+                )
+
+            if value < 0 or value > 255:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=str(value),
+                    expected="character code 0..255"
+                )
+
+            self.emit_mov_imm(
+                "eax",
+                str(value)
+            )
+
+            return "char"
+
+        # ============================================================
+        # Pascal-Hexliteral
+        # ============================================================
+        if ctx.HEXNUMBER():
+            token_text = (
+                ctx.HEXNUMBER().getText()
+            )
+
+            value = int(
+                token_text[1:],
+                16
+            )
+
+            self.emit_mov_imm(
+                "eax",
+                str(value)
+            )
+
+            return "integer"
+            
+        # ============================================================
         # Integerliteral
         # ============================================================
-
         if ctx.NUMBER():
             value = ctx.NUMBER().getText()
 
@@ -17092,37 +21957,44 @@ class AsmJitGenerator(PascalParserVisitor):
             except ValueError:
                 value = ctx.STRING().getText()[1:-1]
 
-            label = self.add_string_literal(
-                value
-            )
-
-            # Ein Zeichen bleibt ein Char.
+            # Ein Pascal-Char ist ein skalarer 8-Bit-Wert.
+            #
+            # Vorher wurde bei 'A' die Adresse eines String-Literals
+            # zurückgegeben, während #65 bereits den Wert 65 lieferte.
+            # Diese zwei Darstellungen führten bei Pointer- und
+            # Array-Zuweisungen zu falschen Bytes.
             if len(value) == 1:
-                if CDATA.args_target in [
-                    "nt35",
-                    "winnt",
-                    "win32"
-                ]:
-                    self.writer.emit_lea_reg_data_label(
-                        "eax",
-                        label
+                char_value = ord(
+                    value
+                )
+
+                if char_value < 0 or char_value > 0xFF:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=str(char_value),
+                        expected="AnsiChar 0..255"
                     )
 
-                elif CDATA.args_target in [
+                if CDATA.args_target in (
                     "dos",
                     "dos16"
-                ]:
-                    self.backend.writer.emit_mov_dx_label(
-                        label
+                ):
+                    self.backend.writer.emit_mov_reg16_imm16(
+                        "ax",
+                        char_value
                     )
-
                 else:
                     self.emit_mov_imm(
-                        "rax",
-                        label
+                        "eax",
+                        str(char_value)
                     )
 
                 return "char"
+
+            label = self.add_string_literal(
+                value
+            )
 
             # Mehrere Zeichen werden in einen dynamischen String
             # umgewandelt.
@@ -17206,7 +22078,13 @@ class AsmJitGenerator(PascalParserVisitor):
             "E0015",
             text=text
         )
-        
+    
+    def HEXNUMBER(self):
+        return self.getToken(
+            PascalParser.HEXNUMBER,
+            0
+        )
+    
     def get_single_builtin_arg(self, ctx):
         actuals = []
 
@@ -17550,6 +22428,282 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return result
     
+    def is_known_type_name(
+        self,
+        name
+    ):
+        if not isinstance(name, str):
+            return False
+
+        key = name.strip().lower()
+
+        if not key:
+            return False
+
+        if key in (
+            "integer",
+            "boolean",
+            "char",
+            "double",
+            "string",
+            "pointer",
+            "pchar",
+            "pansichar"
+        ):
+            return True
+
+        if key in self.type_aliases:    return True
+        if key in self.subrange_types:  return True
+        if key in self.enums:           return True
+        if key in self.records:         return True
+        if key in self.arrays:          return True
+        if key in self.classes:         return True
+
+        return False
+    
+    def emit_explicit_type_cast(self, ctx, target_name):
+        actuals = self.function_call_args(ctx)
+
+        if len(actuals) != 1:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(actuals)),
+                expected="1"
+            )
+
+        argument = actuals[0]
+
+        if hasattr(argument, "expr"):
+            nested_expr = argument.expr()
+            if nested_expr is not None:
+                argument = nested_expr
+
+        target_type = self.resolve_type(target_name)
+        source_type = self.resolve_type(self.visit(argument))
+
+        target_is_pointer = self.is_pointer_type(
+            target_type,
+            include_nil=False
+        )
+        source_is_pointer = self.is_pointer_type(
+            source_type,
+            include_nil=True
+        )
+        source_is_class = (
+            isinstance(source_type, str)
+            and source_type in self.classes
+        )
+        target_is_class = (
+            isinstance(target_type, str)
+            and target_type in self.classes
+        )
+        source_is_nil = source_type in ("nil", "^nil")
+
+        if target_is_pointer:
+            if not (
+                source_is_pointer
+                or source_is_class
+                or source_is_nil
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="pointer/class/nil"
+                )
+            return target_type
+
+        if target_is_class:
+            if not (
+                source_is_pointer
+                or source_is_class
+                or source_is_nil
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="pointer/class/nil"
+                )
+            return target_type
+
+        if target_type == "integer":
+            if self.scalar_base_type(source_type) in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                return "integer"
+
+            if source_is_pointer or source_is_class:
+                if CDATA.args_target not in (
+                    "nt35",
+                    "winnt",
+                    "win32"
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "pointer to Integer cast is only "
+                            "supported for NT32"
+                        )
+                    )
+                return "integer"
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=source_type,
+                expected="integer/boolean/char/pointer"
+            )
+
+        if target_type == "boolean":
+            if self.scalar_base_type(source_type) not in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="integer/boolean/char"
+                )
+
+            self.emit_cmp("eax", 0)
+            self.emit_setne("al")
+            self.emit_movzx("eax", "al")
+            return "boolean"
+
+        if target_type == "char":
+            if self.scalar_base_type(source_type) not in (
+                "integer",
+                "char"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="integer/char"
+                )
+
+            self.emit_and("eax", 0xFF, comment="cast to char")
+            return "char"
+
+        if target_type == "double":
+            if source_type == "double":
+                return "double"
+
+            if self.scalar_base_type(source_type) in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                self.emit_cvtsi2sd("xmm0", "eax")
+                return "double"
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=source_type,
+                expected="integer/boolean/char/double"
+            )
+
+        # target_name kann ein Alias sein:
+        #
+        #   Cardinal -> DWord
+        #   UInt32   -> DWord
+        #
+        # Die Subrange-Information muss deshalb über den bereits
+        # aufgelösten Zieltyp gesucht werden.
+        range_info = self.subrange_info(
+            target_type
+        )
+
+        if range_info is not None:
+            source_scalar_type = self.scalar_base_type(
+                source_type
+            )
+
+            if source_scalar_type not in (
+                "integer",
+                "boolean",
+                "char"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=source_type,
+                    expected="integer/boolean/char"
+                )
+
+            if range_info.base_type != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "unsupported subrange cast base type: "
+                        + str(range_info.base_type)
+                    )
+                )
+
+            # Explizite Integer-Casts verhalten sich wie eine
+            # Größenkonvertierung. Für vorzeichenlose kleine Typen
+            # wird der Wert auf die passende Bitbreite begrenzt.
+            if not range_info.signed:
+                if range_info.size == 1:
+                    self.emit_and(
+                        "eax",
+                        0xFF,
+                        comment=f"cast to {target_name}"
+                    )
+
+                elif range_info.size == 2:
+                    self.emit_and(
+                        "eax",
+                        0xFFFF,
+                        comment=f"cast to {target_name}"
+                    )
+
+                elif range_info.size == 4:
+                    # Cardinal/DWord: Der Wert befindet sich bereits
+                    # als vollständiges 32-Bit-Muster in EAX.
+                    pass
+
+                else:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            f"unsupported subrange cast size: "
+                            f"{range_info.size}"
+                        )
+                    )
+
+            else:
+                # Für vorzeichenbehaftete Subranges zunächst die
+                # bestehende Bereichsprüfung weiterverwenden.
+                self.emit_subrange_check(
+                    ctx,
+                    target_type,
+                    "eax"
+                )
+
+            # Wichtig: den aufgelösten Typ zurückgeben.
+            #
+            # Cardinal -> dword
+            # Word     -> word
+            # Byte     -> byte
+            return target_type
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=f"unsupported explicit type cast: {target_name}({source_type})"
+        )
+
     def visitFunctionCallExpr(self, ctx):
         names  = list(ctx.functionName())
 
@@ -17573,42 +22727,22 @@ class AsmJitGenerator(PascalParserVisitor):
         key  = name.lower()
         
         # ------------------------------------------------------------
-        # Expliziter Pointer-Cast
+        # Explizite Pascal-Typumwandlung
         #
-        #     Pointer(Self)
         #     Pointer(P)
+        #     PByte(Data)
+        #     Word(Value)
         #
-        # Der Cast verändert den Maschinenwert nicht. EAX/RAX enthält
-        # nach der Auswertung bereits den Zeiger.
+        # Nur unqualifizierte Aufrufe können Typcasts sein.
         # ------------------------------------------------------------
-        if key == "pointer":
-            actuals = []
-
-            if ctx.argumentList():
-                actuals = list(ctx.argumentList().expr())
-
-            if len(actuals) != 1:
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=str(len(actuals)),
-                    expected="1"
-                )
-
-            source_type = self.visit(actuals[0])
-            source_type = self.resolve_type(source_type)
-
-            if not self.is_pointer_type(source_type):
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=source_type,
-                    expected="pointer or class"
-                )
-
-            # Kein Code notwendig:
-            # EAX/RAX enthält bereits die Adresse.
-            return "pointer"
+        if (
+            len(names) == 1
+            and self.is_known_type_name(name)
+        ):
+            return self.emit_explicit_type_cast(
+                ctx,
+                name
+            )
         
         self.builtin_functions = {
             "assigned"      : self.emit_builtin_assigned,
@@ -17683,6 +22817,19 @@ class AsmJitGenerator(PascalParserVisitor):
                     raw_formal_type
                 )
 
+                # Pascal-Deklaration und Maschinen-ABI getrennt behandeln.
+                # Beispiele:
+                #
+                #   Byte/Cardinal/DWord/Word -> integer
+                #   PAnsiChar                -> pointer
+                #
+                # Der deklarierte Typ bleibt für Diagnosen und strenge
+                # Pointerprüfungen erhalten.
+                declared_formal_type = formal_type
+                formal_abi_type = self.scalar_base_type(
+                    formal_type
+                )
+
                 is_open_array = (
                     formal.get(
                         "is_open_array",
@@ -17722,6 +22869,11 @@ class AsmJitGenerator(PascalParserVisitor):
                     expr_type = self.resolve_type(
                         expr_type
                     )
+
+                declared_expr_type = expr_type
+                expr_abi_type = self.scalar_base_type(
+                    expr_type
+                )
 
                 # ====================================================
                 # Offenes Array
@@ -17809,22 +22961,27 @@ class AsmJitGenerator(PascalParserVisitor):
                     continue
 
                 # ====================================================
-                # Integer
+                # Integer und Integer-Subranges
+                #
+                # Word, Byte, DWord, Cardinal usw. werden unter NT32
+                # als 32-Bit-Wert übergeben. Die Pascal-Typinformation
+                # bleibt trotzdem in declared_* erhalten.
                 # ====================================================
-                if formal_type == "integer":
-                    if expr_type != "integer":
+                if formal_abi_type == "integer":
+                    if expr_abi_type != "integer":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="integer"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
                         "eax",
                         comment=(
-                            f"function integer parameter "
-                            f"{index + 1}"
+                            f"function integer/subrange parameter "
+                            f"{index + 1}: "
+                            f"{declared_formal_type}"
                         )
                     )
 
@@ -17834,16 +22991,16 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ====================================================
                 # Boolean
                 # ====================================================
-                if formal_type == "boolean":
-                    if expr_type not in (
+                if formal_abi_type == "boolean":
+                    if expr_abi_type not in (
                         "boolean",
                         "integer"
                     ):
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="boolean/integer"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_and(
@@ -17866,14 +23023,20 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ====================================================
                 # Char
                 # ====================================================
-                if formal_type == "char":
-                    if expr_type != "char":
+                if formal_abi_type == "char":
+                    if expr_abi_type != "char":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="char"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
+
+                    self.emit_and(
+                        "eax",
+                        0xFF,
+                        comment="normalize char"
+                    )
 
                     self.emit_push(
                         "eax",
@@ -17889,13 +23052,13 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ====================================================
                 # String
                 # ====================================================
-                if formal_type == "string":
-                    if expr_type != "string":
+                if formal_abi_type == "string":
+                    if expr_abi_type != "string":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="string"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
@@ -17907,6 +23070,36 @@ class AsmJitGenerator(PascalParserVisitor):
                     )
 
                     arg_bytes += 4
+                    continue
+
+                # ====================================================
+                # Double
+                # ====================================================
+                if formal_abi_type == "double":
+                    if expr_abi_type != "double":
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=declared_expr_type,
+                            expected=declared_formal_type
+                        )
+
+                    self.emit_sub(
+                        "esp",
+                        8,
+                        comment=(
+                            f"function double parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    self.backend.emit_movsd_store(
+                        "esp",
+                        0,
+                        "xmm0"
+                    )
+
+                    arg_bytes += 8
                     continue
 
                 # ====================================================
@@ -17961,8 +23154,8 @@ class AsmJitGenerator(PascalParserVisitor):
                     got=expr_type,
 
                     expected=(
-                        "boolean/integer/char/string/"
-                        "pointer/open-array"
+                        "boolean/integer/subrange/char/string/"
+                        "double/pointer/open-array"
                     )
                 )
 
@@ -17994,22 +23187,49 @@ class AsmJitGenerator(PascalParserVisitor):
         name = ctx.IDENT().getText()
         key  = name.lower()
 
+        convention = (
+            self.local_routine_calling_convention(
+                ctx
+            )
+        )
+        
         # --------------------------------------------------------------
         # Externe Prozedur
         # --------------------------------------------------------------
-        if ctx.externalRoutineSpec():
-            params = self.collect_formal_params(ctx)
-
-            self.register_external_routine(
-                ctx         = ctx,
-                kind        = "procedure",
-                name        = name,
-                params      = params,
-                return_type = None,
-                spec_ctx    = ctx.externalRoutineSpec()
+        if self.routine_is_external(ctx):
+            params = self.collect_formal_params(
+                ctx
             )
 
-            return None
+            directive = (
+                ctx.externalRoutineDirective()
+            )
+
+            dll_name = (
+                self.routine_external_library(
+                    ctx
+                )
+            )
+
+            if dll_name is None:
+                return self.register_local_external_routine(
+                    ctx=ctx,
+                    kind="procedure",
+                    name=name,
+                    params=params,
+                    return_type=None,
+                    convention=convention
+                )
+
+            return self.register_external_routine(
+                ctx=ctx,
+                kind="procedure",
+                name=name,
+                params=params,
+                return_type=None,
+                spec_ctx=directive,
+                convention=convention
+            )
 
         label      = self.new_named_label("proc_"     + name)
         skip_label = self.new_named_label("skipproc_" + name)
@@ -18038,7 +23258,8 @@ class AsmJitGenerator(PascalParserVisitor):
             "scoped_name": scoped,
             "label": label,
             "mangled": mangled,
-            "params": params
+            "params": params,
+            "calling_convention": convention
         }
 
         # Die COFF-Aliase dürfen hier noch nicht angelegt werden.
@@ -18643,6 +23864,11 @@ class AsmJitGenerator(PascalParserVisitor):
                 formal_type = self.resolve_type(
                     formal["type"]
                 )
+                
+                declared_formal_type = formal_type
+                formal_abi_type = self.scalar_base_type(
+                    formal_type
+                )
 
                 is_open_array = (
                     formal.get(
@@ -18806,19 +24032,24 @@ class AsmJitGenerator(PascalParserVisitor):
                     expr_type
                 )
 
+                declared_expr_type = expr_type
+                expr_abi_type = self.scalar_base_type(
+                    expr_type
+                )
+
                 # ----------------------------------------------------------
                 # Boolean
                 # ----------------------------------------------------------
-                if formal_type == "boolean":
-                    if expr_type not in (
+                if formal_abi_type == "boolean":
+                    if expr_abi_type not in (
                         "boolean",
                         "integer"
                     ):
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="boolean/integer"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
@@ -18834,19 +24065,21 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ----------------------------------------------------------
                 # Integer
                 # ----------------------------------------------------------
-                if formal_type == "integer":
-                    if expr_type != "integer":
+                if formal_abi_type == "integer":
+                    if expr_abi_type != "integer":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="integer"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
                         "eax",
                         comment=(
-                            f"integer parameter {index + 1}"
+                            f"integer/subrange parameter "
+                            f"{index + 1}: "
+                            f"{declared_formal_type}"
                         )
                     )
 
@@ -18856,13 +24089,13 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ----------------------------------------------------------
                 # Char
                 # ----------------------------------------------------------
-                if formal_type == "char":
-                    if expr_type != "char":
+                if formal_abi_type == "char":
+                    if expr_abi_type != "char":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="char"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
@@ -18878,13 +24111,13 @@ class AsmJitGenerator(PascalParserVisitor):
                 # ----------------------------------------------------------
                 # String
                 # ----------------------------------------------------------
-                if formal_type == "string":
-                    if expr_type != "string":
+                if formal_abi_type == "string":
+                    if expr_abi_type != "string":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="string"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_push(
@@ -18903,13 +24136,13 @@ class AsmJitGenerator(PascalParserVisitor):
                 # Das Ergebnis liegt in XMM0. Auf NT32 werden acht Byte
                 # direkt auf dem Stack reserviert und dort gespeichert.
                 # ----------------------------------------------------------
-                if formal_type == "double":
-                    if expr_type != "double":
+                if formal_abi_type == "double":
+                    if expr_abi_type != "double":
                         raise CompileError(
                             ctx,
                             "E0005",
-                            got=expr_type,
-                            expected="double"
+                            got=declared_expr_type,
+                            expected=declared_formal_type
                         )
 
                     self.emit_sub(
@@ -20115,8 +25348,18 @@ class PascalGenerator(AsmJitGenerator):
             raise RuntimeError(f"unsupported generator writer: {type(writer)}")
 
     def emit_mov_eax_ebx(self):
-        self.asm.append("mov eax, eax")
-        self.emit_mov("eax", "ebx")
+        """
+        Kopiert den berechneten linearen Array-Index aus EBX nach EAX.
+
+        Im COFF32-/PE32-Modus besitzt der Generator keine NASM-Textliste
+        namens self.asm. Die Instruktion wird ausschließlich über den
+        aktiven Backend-Emitter ausgegeben.
+        """
+        self.emit_mov(
+            "eax",
+            "ebx",
+            comment="copy linear array index to eax"
+        )
 
     def emit_mov_ebx_eax(self):
         self.emit_mov("ebx", "eax")
@@ -20128,8 +25371,10 @@ class PascalGenerator(AsmJitGenerator):
         in_array_part = True
 
         for s in suffixes:
-            if in_array_part and s.LBRACK():
-                index_exprs.extend(list(s.expr()))
+            if in_array_part and self.suffix_is_index(s):
+                index_exprs.extend(
+                    self.suffix_index_exprs(s)
+                )
                 continue
 
             in_array_part = False

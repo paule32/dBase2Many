@@ -17,12 +17,30 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by PascalParser#externalRoutineSpec.
-    def enterExternalRoutineSpec(self, ctx:PascalParser.ExternalRoutineSpecContext):
+    # Enter a parse tree produced by PascalParser#externalImportTarget.
+    def enterExternalImportTarget(self, ctx:PascalParser.ExternalImportTargetContext):
         pass
 
-    # Exit a parse tree produced by PascalParser#externalRoutineSpec.
-    def exitExternalRoutineSpec(self, ctx:PascalParser.ExternalRoutineSpecContext):
+    # Exit a parse tree produced by PascalParser#externalImportTarget.
+    def exitExternalImportTarget(self, ctx:PascalParser.ExternalImportTargetContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#routineCallingConvention.
+    def enterRoutineCallingConvention(self, ctx:PascalParser.RoutineCallingConventionContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#routineCallingConvention.
+    def exitRoutineCallingConvention(self, ctx:PascalParser.RoutineCallingConventionContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#externalRoutineDirective.
+    def enterExternalRoutineDirective(self, ctx:PascalParser.ExternalRoutineDirectiveContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#externalRoutineDirective.
+    def exitExternalRoutineDirective(self, ctx:PascalParser.ExternalRoutineDirectiveContext):
         pass
 
 
@@ -971,6 +989,42 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PascalParser#pointerDereference.
+    def enterPointerDereference(self, ctx:PascalParser.PointerDereferenceContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#pointerDereference.
+    def exitPointerDereference(self, ctx:PascalParser.PointerDereferenceContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#fieldAccess.
+    def enterFieldAccess(self, ctx:PascalParser.FieldAccessContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#fieldAccess.
+    def exitFieldAccess(self, ctx:PascalParser.FieldAccessContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#arrayIndex.
+    def enterArrayIndex(self, ctx:PascalParser.ArrayIndexContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#arrayIndex.
+    def exitArrayIndex(self, ctx:PascalParser.ArrayIndexContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#exprList.
+    def enterExprList(self, ctx:PascalParser.ExprListContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#exprList.
+    def exitExprList(self, ctx:PascalParser.ExprListContext):
+        pass
+
+
     # Enter a parse tree produced by PascalParser#expr.
     def enterExpr(self, ctx:PascalParser.ExprContext):
         pass
@@ -1022,6 +1076,15 @@ class PascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PascalParser#addExpr.
     def exitAddExpr(self, ctx:PascalParser.AddExprContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#shiftExpr.
+    def enterShiftExpr(self, ctx:PascalParser.ShiftExprContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#shiftExpr.
+    def exitShiftExpr(self, ctx:PascalParser.ShiftExprContext):
         pass
 
 

@@ -1,0 +1,72 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Crypto.sha256",
+        "normalized_name": "crypto_sha256"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "Crypto.sha256.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System.Types"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_CRYPTO_SHA256$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [
+            {
+                "name": "crypt",
+                "scoped_name": "crypto_sha256_crypt",
+                "symbol": "_CRYPTO_SHA256$$_CRYPT$ANSISTRING$INTEGER",
+                "params": [
+                    {
+                        "name": "S",
+                        "type": "string",
+                        "is_var": false
+                    },
+                    {
+                        "name": "Len",
+                        "type": "integer",
+                        "is_var": false
+                    }
+                ],
+                "return_type": "string",
+                "calling_convention": "cdecl"
+            }
+        ],
+        "procedures": [],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [
+            "sha256.o"
+        ],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

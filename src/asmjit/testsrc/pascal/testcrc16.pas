@@ -3,8 +3,9 @@
 // Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-program testSHA1;
+program testCRC16;
+uses System.Types, Crypto.crc16;
 
 begin
-    WriteLn(crc16('bbc', 3));
+    WriteLn(crypt('bbc', 3));
 end.

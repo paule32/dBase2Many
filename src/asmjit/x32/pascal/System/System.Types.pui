@@ -6,7 +6,7 @@
         "normalized_name": "system_types"
     },
     "target": {
-        "target": "winnt",
+        "target": "win32",
         "object_format": "coff32",
         "machine": "i386",
         "pointer_size": 4,
@@ -21,11 +21,7 @@
         "interface": [],
         "implementation": []
     },
-    "link": {
-        "objects": [],
-        "archives": [],
-        "base_directory": "pui"
-    },
+    "imports": {},
     "initialization": {
         "symbol": "_SYSTEM_TYPES$$_INIT"
     },
@@ -34,6 +30,11 @@
     },
     "types": {
         "aliases": [
+            {
+                "kind": "alias",
+                "name": "Cardinal",
+                "target_type": "dword"
+            },
             {
                 "kind": "alias",
                 "name": "UInt32",
@@ -53,6 +54,36 @@
                 "kind": "alias",
                 "name": "Extended",
                 "target_type": "double"
+            },
+            {
+                "kind": "alias",
+                "name": "PChar",
+                "target_type": "^char"
+            },
+            {
+                "kind": "alias",
+                "name": "AnsiChar",
+                "target_type": "char"
+            },
+            {
+                "kind": "alias",
+                "name": "PAnsiChar",
+                "target_type": "^ansichar"
+            },
+            {
+                "kind": "alias",
+                "name": "AnsiString",
+                "target_type": "string"
+            },
+            {
+                "kind": "alias",
+                "name": "PAnsiString",
+                "target_type": "^ansistring"
+            },
+            {
+                "kind": "alias",
+                "name": "PByte",
+                "target_type": "^byte"
             }
         ],
         "subranges": [
@@ -68,6 +99,15 @@
             {
                 "kind": "subrange",
                 "name": "Byte",
+                "base_type": "integer",
+                "min_value": 0,
+                "max_value": 255,
+                "size": 1,
+                "signed": false
+            },
+            {
+                "kind": "subrange",
+                "name": "Char",
                 "base_type": "integer",
                 "min_value": 0,
                 "max_value": 255,
@@ -119,12 +159,19 @@
                 "size": 4,
                 "signed": true
             }
-        ]
+        ],
+        "records": []
     },
     "symbols": {
         "functions": [],
         "procedures": [],
         "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
     },
     "macros": {
         "PRODUCT_NAME": "dBase2Many",

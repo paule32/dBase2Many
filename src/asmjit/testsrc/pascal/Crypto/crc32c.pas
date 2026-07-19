@@ -1,22 +1,11 @@
 // ---------------------------------------------------------------------------
-// File:   test40.pas
+// File:   crc32cpas
 // Author: (c) 2024, 2025, 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-
-program test40;
-
-var
-    a: Boolean;
-    b: Boolean;
+program crc32c;
+uses Crypto.crc32c;
 
 begin
-    a := True;
-    b := False;
-
-    WriteLn(a and b);
-    WriteLn(a or b);
-    WriteLn(a xor b);
-    WriteLn(not a);
-    WriteLn(not b);
+    WriteLn(crc32c('bbc', 3));
 end.

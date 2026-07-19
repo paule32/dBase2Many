@@ -117,3 +117,19 @@ JIT_CONTEXT_OFFSETS = {
     "print_int_tmp"     : 48,
     "print_double_tmp"  : 56,
 }
+
+# ---------------------------------------------------------------------------
+# Ordinal exports of libdbase2many.32.dll
+#
+# Schlüssel:
+#     tatsächlicher C-Funktionsname vor der COFF-Unterstrichdekoration
+#
+# Wert:
+#     Exportordinal aus der DLL beziehungsweise der .def-Datei
+# ---------------------------------------------------------------------------
+LIBDBASE2MANY32_IMPORT_ORDINALS = {
+    "_jit_malloc":   66,
+    "_jit_snprintf": 94,
+    "_jit_memcpy": 40,
+    "_jit_memset": 41,
+}

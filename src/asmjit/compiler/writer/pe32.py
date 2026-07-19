@@ -318,9 +318,28 @@ class Coff32Reader:
         return raw.decode("ascii", errors="replace")
 
     def read_sections(self):
-        offset = 20
+        # Liest die COFF32-Sektionstabelle.
+        #
+        # Bei .bss existieren normalerweise keine physischen Bytes in der
+        # Objektdatei. SizeOfRawData beziehungsweise VirtualSize beschreiben
+        # dort nur die im Speicher benötigte Größe.
+        offset = (
+            20
+            + int(
+                self.size_of_optional_header
+            )
+        )
 
-        for i in range(self.number_of_sections):
+        for _ in range(
+            self.number_of_sections
+        ):
+            if offset + 40 > len(
+                self.data
+            ):
+                raise RuntimeError(
+                    "truncated COFF section table"
+                )
+
             (
                 raw_name,
                 virtual_size,
@@ -332,83 +351,140 @@ class Coff32Reader:
                 number_of_relocations,
                 number_of_linenumbers,
                 characteristics
-            ) = struct.unpack_from("<8sLLLLLLHHL", self.data, offset)
-
-            name = self.section_name(raw_name)
-
-            # COFF object files describe uninitialized sections such as
-            # .bss with a size but without physical bytes.  Reading from
-            # PointerToRawData == 0 would accidentally copy the COFF header
-            # into the section.  Materialize these sections as zero bytes so
-            # the current PE writer can merge them into its .data image.
-            section_size = max(
-                int(virtual_size),
-                int(size_of_raw_data)
+            ) = struct.unpack_from(
+                "<8sLLLLLLHHL",
+                self.data,
+                offset
             )
 
-            is_uninitialized = (
+            name = self.section_name(
+                raw_name
+            )
+
+            is_bss = (
                 name == ".bss"
-                or name.startswith(".bss$")
                 or bool(
-                    characteristics
-                    & 0x00000080  # IMAGE_SCN_CNT_UNINITIALIZED_DATA
+                    int(characteristics)
+                    & 0x00000080
                 )
             )
 
-            if is_uninitialized:
-                section_data = bytes(section_size)
+            section_data = b""
 
-            elif size_of_raw_data:
-                if pointer_to_raw_data == 0:
+            if (
+                not is_bss
+                and int(size_of_raw_data) > 0
+            ):
+                if int(pointer_to_raw_data) <= 0:
                     raise RuntimeError(
-                        f"COFF section {name} has raw data but "
-                        "PointerToRawData is zero"
+                        f"COFF section {name} has raw data "
+                        "but no PointerToRawData"
                     )
 
-                raw_end = (
+                raw_start = int(
                     pointer_to_raw_data
-                    + size_of_raw_data
                 )
 
-                if raw_end > len(self.data):
+                raw_end = (
+                    raw_start
+                    + int(size_of_raw_data)
+                )
+
+                if raw_end > len(
+                    self.data
+                ):
                     raise RuntimeError(
-                        f"COFF section {name} exceeds object file"
+                        f"COFF section {name} raw data "
+                        "exceeds object file size"
                     )
 
                 section_data = self.data[
-                    pointer_to_raw_data:
+                    raw_start:
                     raw_end
                 ]
 
-            else:
-                section_data = b""
-
+            # `sec` wird absichtlich außerhalb aller Bedingungen erzeugt.
+            # Damit ist das Objekt auch für leere Sektionen und .bss
+            # garantiert definiert.
             sec = Coff32Section(
                 name,
                 section_data,
-                characteristics,
-                virtual_size=virtual_size,
-                raw_size=size_of_raw_data
+                characteristics
             )
 
-            for r in range(number_of_relocations):
-                roff = pointer_to_relocations + r * 10
+            # Zusätzliche COFF-Metadaten dynamisch speichern, damit keine
+            # Änderung der Coff32Section-Konstruktorsignatur nötig ist.
+            sec.raw_size = int(
+                size_of_raw_data
+            )
+
+            sec.virtual_size = int(
+                virtual_size
+            )
+
+            sec.virtual_address = int(
+                virtual_address
+            )
+
+            sec.pointer_to_raw_data = int(
+                pointer_to_raw_data
+            )
+
+            sec.pointer_to_relocations = int(
+                pointer_to_relocations
+            )
+
+            sec.is_bss = bool(
+                is_bss
+            )
+
+            if (
+                int(number_of_relocations) > 0
+                and int(pointer_to_relocations) <= 0
+            ):
+                raise RuntimeError(
+                    f"COFF section {name} has relocations "
+                    "but no PointerToRelocations"
+                )
+
+            for relocation_index in range(
+                int(number_of_relocations)
+            ):
+                relocation_offset = (
+                    int(pointer_to_relocations)
+                    + relocation_index * 10
+                )
+
+                if relocation_offset + 10 > len(
+                    self.data
+                ):
+                    raise RuntimeError(
+                        f"COFF relocation table for {name} "
+                        "exceeds object file size"
+                    )
 
                 (
-                    virtual_address,
+                    relocation_virtual_address,
                     symbol_index,
-                    rel_type
-                ) = struct.unpack_from("<LLH", self.data, roff)
+                    relocation_type
+                ) = struct.unpack_from(
+                    "<LLH",
+                    self.data,
+                    relocation_offset
+                )
 
                 sec.relocations.append(
                     Coff32Relocation(
-                        virtual_address,
+                        relocation_virtual_address,
                         symbol_index,
-                        rel_type
+                        relocation_type
                     )
                 )
 
-            self.obj.sections.append(sec)
+            self.obj.sections.append(
+                sec
+            )
+
             offset += 40
 
     def get_string_from_table(self, offset):
@@ -532,6 +608,636 @@ class PE32Writer:
         # external .a rchive file's
         self.archive_files      = []
         self.archives           = []
+
+    def _coff_section_alignment(
+        self,
+        characteristics
+    ):
+        alignment_code = (
+            int(characteristics) >> 20
+        ) & 0x0F
+
+        if alignment_code <= 0:
+            return 1
+
+        return 1 << (
+            alignment_code - 1
+        )
+
+    def _align_bytearray(
+        self,
+        target,
+        alignment
+    ):
+        alignment = max(
+            int(alignment),
+            1
+        )
+
+        while len(target) % alignment:
+            target.append(
+                0
+            )
+
+    def _append_merged_symbol(
+        self,
+        name,
+        value,
+        section_number,
+        storage_class,
+        symbol_type=0
+    ):
+        index = len(
+            self.symbols
+        )
+
+        self.symbols.append({
+            "name": str(name),
+            "value": int(value),
+            "section": int(section_number),
+            "type": int(symbol_type),
+            "storage": int(storage_class),
+            "aux": 0
+        })
+
+        return index
+
+    def _define_or_promote_external_symbol(
+        self,
+        name,
+        value,
+        section_number,
+        symbol_type=0
+    ):
+        old_index = self.find_symbol_index(
+            name
+        )
+
+        if old_index is None:
+            return self._append_merged_symbol(
+                name=name,
+                value=value,
+                section_number=section_number,
+                storage_class=2,       # IMAGE_SYM_CLASS_EXTERNAL
+                symbol_type=symbol_type
+            )
+
+        old = self.symbols[
+            old_index
+        ]
+
+        old_section = int(
+            old.get(
+                "section",
+                0
+            )
+        )
+
+        if old_section == 0:
+            old["value"] = int(
+                value
+            )
+
+            old["section"] = int(
+                section_number
+            )
+
+            old["type"] = int(
+                symbol_type
+            )
+
+            old["storage"] = 2
+
+            return old_index
+
+        if (
+            old_section == int(section_number)
+            and int(old.get("value", 0)) == int(value)
+        ):
+            return old_index
+
+        raise RuntimeError(
+            f"duplicate defined COFF symbol: {name}"
+        )
+
+    def merge_coff_object_into_object(
+        self,
+        source
+    ):
+        if isinstance(
+            source,
+            Coff32Object
+        ):
+            obj = source
+            source_name = "<memory>"
+
+        else:
+            source_name = os.path.abspath(
+                os.fspath(source)
+            )
+
+            obj = Coff32Reader(
+                source_name
+            ).read()
+
+        serial = getattr(
+            self,
+            "_partial_link_serial",
+            0
+        )
+
+        self._partial_link_serial = (
+            serial + 1
+        )
+
+        source_tag = os.path.basename(
+            source_name
+        )
+
+        source_tag = "".join(
+            ch
+            if ch.isalnum() or ch == "_"
+            else "_"
+            for ch in source_tag
+        )
+
+        # source section number ->
+        # {
+        #     output_section,
+        #     output_offset,
+        #     relocations
+        # }
+        section_map = {}
+
+        source_sections = {
+            index + 1: section
+            for index, section in enumerate(
+                obj.sections
+            )
+        }
+
+        # ----------------------------------------------------------
+        # Sektionen übernehmen
+        # ----------------------------------------------------------
+        for source_section_number, section in (
+            source_sections.items()
+        ):
+            section_name = section.name
+
+            alignment = self._coff_section_alignment(
+                section.characteristics
+            )
+
+            if section_name == ".text":
+                self._align_bytearray(
+                    self.text,
+                    alignment
+                )
+
+                output_offset = len(
+                    self.text
+                )
+
+                self.text.extend(
+                    section.data
+                )
+
+                section_map[
+                    source_section_number
+                ] = {
+                    "output_section": 1,
+                    "output_offset": output_offset,
+                    "relocations": self.text_relocations
+                }
+
+            elif section_name in (
+                ".data",
+                ".rdata"
+            ):
+                self._align_bytearray(
+                    self.data,
+                    alignment
+                )
+
+                output_offset = len(
+                    self.data
+                )
+
+                self.data.extend(
+                    section.data
+                )
+
+                section_map[
+                    source_section_number
+                ] = {
+                    "output_section": 2,
+                    "output_offset": output_offset,
+                    "relocations": self.data_relocations
+                }
+
+            elif section_name == ".bss":
+                # folded COFF .bss into .data
+                #
+                # Der relocatable Writer besitzt momentan nur .text und
+                # .data. Die nullinitialisierte .bss wird deshalb bis zur
+                # Einführung einer dritten Ausgabesektion in .data gefaltet.
+                self._align_bytearray(
+                    self.data,
+                    alignment
+                )
+
+                output_offset = len(
+                    self.data
+                )
+
+                section_size = max(
+                    len(section.data),
+                    int(getattr(section, "raw_size", 0) or 0),
+                    int(getattr(section, "virtual_size", 0) or 0)
+                )
+
+                if section.relocations:
+                    section_size = max(
+                        section_size,
+                        max(
+                            int(relocation.virtual_address) + 4
+                            for relocation in section.relocations
+                        )
+                    )
+
+                symbol_offsets = [
+                    int(symbol.value)
+                    for symbol in obj.raw_symbols
+                    if symbol is not None
+                    and int(symbol.section_number)
+                        == int(source_section_number)
+                ]
+
+                if symbol_offsets:
+                    section_size = max(
+                        section_size,
+                        max(symbol_offsets) + 1
+                    )
+
+                if section_size < 0:
+                    raise RuntimeError(
+                        f"invalid COFF .bss size: {section_size}"
+                    )
+
+                if section_size:
+                    self.data.extend(
+                        b"\x00" * int(section_size)
+                    )
+
+                section_map[
+                    source_section_number
+                ] = {
+                    "output_section": 2,
+                    "output_offset": output_offset,
+                    "relocations": self.data_relocations
+                }
+
+            elif section_name == ".drectve":
+                # Enthält bei crc16.o beispielsweise Exportoptionen.
+                # Beim Einbetten in eine Unit werden diese nicht benötigt.
+                continue
+
+            elif section_name.startswith(
+                ".debug"
+            ):
+                continue
+
+            elif section.data or section.relocations:
+                raise RuntimeError(
+                    f"unsupported COFF section while embedding "
+                    f"{source_name}: {section_name}"
+                )
+
+        # ----------------------------------------------------------
+        # Alte Quell-Symbolindizes auf neue Symbolindizes abbilden
+        # ----------------------------------------------------------
+        symbol_map = {}
+
+        for raw_index, symbol in enumerate(
+            obj.raw_symbols
+        ):
+            # Aux-Symboltabelleneintrag
+            if symbol is None:
+                continue
+
+            name = symbol.name
+
+            source_section_number = int(
+                symbol.section_number
+            )
+
+            storage_class = int(
+                symbol.storage_class
+            )
+
+            # ------------------------------------------------------
+            # Undefiniertes externes Symbol
+            # ------------------------------------------------------
+            if source_section_number == 0:
+                if not name:
+                    continue
+
+                # COFF Common-Symbole benötigen eigene Speicherallokation.
+                if int(symbol.value) != 0:
+                    raise RuntimeError(
+                        f"COFF common symbol is not implemented: "
+                        f"{name}"
+                    )
+
+                target_index = self.find_symbol_index(
+                    name
+                )
+
+                if target_index is None:
+                    target_index = self.add_external_symbol(
+                        name
+                    )
+
+                symbol_map[
+                    raw_index
+                ] = target_index
+
+                continue
+
+            # ------------------------------------------------------
+            # Debug-/Dateisymbol
+            # ------------------------------------------------------
+            if source_section_number == -2:
+                continue
+
+            # ------------------------------------------------------
+            # Absolutes Symbol
+            # ------------------------------------------------------
+            if source_section_number == -1:
+                local_name = (
+                    f"__embedded_{serial}_"
+                    f"{raw_index}_{source_tag}"
+                )
+
+                symbol_map[
+                    raw_index
+                ] = self._append_merged_symbol(
+                    name=local_name,
+                    value=symbol.value,
+                    section_number=-1,
+                    storage_class=3,
+                    symbol_type=0
+                )
+
+                continue
+
+            mapping = section_map.get(
+                source_section_number
+            )
+
+            # Symbol aus ignorierter Sektion, beispielsweise .drectve.
+            if mapping is None:
+                continue
+
+            output_section = int(
+                mapping["output_section"]
+            )
+
+            output_value = (
+                int(mapping["output_offset"])
+                + int(symbol.value)
+            )
+
+            is_external_definition = (
+                storage_class == 2
+                and bool(name)
+                and not name.startswith(".")
+            )
+
+            if is_external_definition:
+                target_index = (
+                    self._define_or_promote_external_symbol(
+                        name=name,
+                        value=output_value,
+                        section_number=output_section,
+                        symbol_type=0
+                    )
+                )
+
+            else:
+                safe_name = (
+                    name
+                    if name
+                    else "anonymous"
+                )
+
+                safe_name = "".join(
+                    ch
+                    if ch.isalnum() or ch == "_"
+                    else "_"
+                    for ch in safe_name
+                )
+
+                local_name = (
+                    f"__embedded_{serial}_"
+                    f"{raw_index}_{safe_name}"
+                )
+
+                target_index = self._append_merged_symbol(
+                    name=local_name,
+                    value=output_value,
+                    section_number=output_section,
+                    storage_class=3,       # IMAGE_SYM_CLASS_STATIC
+                    symbol_type=0
+                )
+
+            symbol_map[
+                raw_index
+            ] = target_index
+
+        # ----------------------------------------------------------
+        # Relocations übernehmen
+        # ----------------------------------------------------------
+        for source_section_number, section in (
+            source_sections.items()
+        ):
+            mapping = section_map.get(
+                source_section_number
+            )
+
+            if mapping is None:
+                if section.relocations:
+                    raise RuntimeError(
+                        f"relocations in unsupported section "
+                        f"{section.name}"
+                    )
+
+                continue
+
+            output_offset = int(
+                mapping["output_offset"]
+            )
+
+            output_relocations = mapping[
+                "relocations"
+            ]
+
+            for relocation in section.relocations:
+                source_symbol_index = int(
+                    relocation.symbol_index
+                )
+
+                target_symbol_index = symbol_map.get(
+                    source_symbol_index
+                )
+
+                if target_symbol_index is None:
+                    raise RuntimeError(
+                        f"COFF relocation in {source_name} "
+                        f"references unavailable symbol index "
+                        f"{source_symbol_index}"
+                    )
+
+                output_relocations.append({
+                    "offset": (
+                        output_offset
+                        + int(relocation.virtual_address)
+                    ),
+                    "symbol_index": int(
+                        target_symbol_index
+                    ),
+                    "type": int(
+                        relocation.type
+                    )
+                })
+
+        return source_name
+
+    def emit_lea_reg_mem32(
+        self,
+        dst,
+        base,
+        offset=0
+    ):
+        dst = self.map_reg32(
+            dst
+        )
+
+        base = self.map_reg32(
+            base
+        )
+
+        dst_id = self._reg_id(
+            dst
+        )
+
+        base_id = self._reg_id(
+            base
+        )
+
+        # LEA r32, m
+        self.text.append(
+            0x8D
+        )
+
+        self._emit_modrm_mem32(
+            dst_id,
+            base_id,
+            int(offset)
+        )
+    
+    def _emit_shift_reg_cl(self, reg, opcode_extension):
+        register_ids = {
+            "eax": 0,
+            "ecx": 1,
+            "edx": 2,
+            "ebx": 3,
+            "esp": 4,
+            "ebp": 5,
+            "esi": 6,
+            "edi": 7
+        }
+
+        reg = str(reg).lower()
+
+        if reg not in register_ids:
+            raise RuntimeError(
+                f"unsupported 32-bit shift register: {reg}"
+            )
+
+        if opcode_extension not in (4, 5, 7):
+            raise RuntimeError(
+                f"unsupported shift opcode extension: "
+                f"{opcode_extension}"
+            )
+
+        reg_id = register_ids[reg]
+
+        self.text += bytes([
+            0xD3,
+            0xC0 | (opcode_extension << 3) | reg_id
+        ])
+
+
+    def emit_shl_reg_cl(self, reg):
+        # D3 /4
+        self._emit_shift_reg_cl(reg, 4)
+
+
+    def emit_shr_reg_cl(self, reg):
+        # D3 /5
+        self._emit_shift_reg_cl(reg, 5)
+
+
+    def emit_sar_reg_cl(self, reg):
+        # D3 /7
+        self._emit_shift_reg_cl(reg, 7)
+    
+    def emit_mov_word_ptr_reg16(
+        self,
+        base,
+        offset,
+        src
+    ):
+        reg16 = {
+            "ax": 0,
+            "cx": 1,
+            "dx": 2,
+            "bx": 3,
+            "sp": 4,
+            "bp": 5,
+            "si": 6,
+            "di": 7,
+        }
+
+        if src not in reg16:
+            raise RuntimeError(
+                f"unsupported 16-bit source register: {src}"
+            )
+
+        base_id = self._reg_id(
+            base
+        )
+
+        src_id = reg16[
+            src
+        ]
+
+        # Operand-size override: 16 Bit
+        self.text.append(
+            0x66
+        )
+
+        # mov r/m16, r16
+        self.text.append(
+            0x89
+        )
+
+        self._emit_modrm_mem32(
+            src_id,
+            base_id,
+            int(offset)
+        )
     
     def add_runtime_symbol_alias(self, alias_name, target_name):
         if not isinstance(alias_name, str) or not alias_name:
@@ -777,6 +1483,9 @@ class PE32Writer:
 
         if not ext:
             name = name + ".o"
+
+        if os.path.isfile(name):
+            return os.path.abspath(name)
 
         # absolute oder explizite Pfadangabe
         if os.path.isabs(name) or os.path.dirname(name):
@@ -2242,8 +2951,7 @@ class PE32Writer:
 
         return image
 
-    def write_object(self, filename):
-        """Schreibt eine reine COFF32-i386-Objektdatei."""
+    def write_object(self, filename, embedded_objects=None):
         output_path = os.path.abspath(filename)
         output_dir  = os.path.dirname(output_path)
 
@@ -2252,6 +2960,23 @@ class PE32Writer:
                 output_dir,
                 exist_ok=True
             )
+
+        embedded_objects = (
+            embedded_objects
+            or []
+        )
+
+        merged_files = []
+
+        for object_name in embedded_objects:
+            resolved_name = self.resolve_link_object_name(object_name)
+            merged_files.append(
+                self.merge_coff_object_into_object(
+                    resolved_name
+                )
+            )
+
+        self.embedded_object_files = (merged_files)
 
         image = self.build_object_image()
 

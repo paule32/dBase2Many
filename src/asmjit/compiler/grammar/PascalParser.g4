@@ -12,10 +12,21 @@ sourceFile
     ) EOF
     ;
 
-externalRoutineSpec
+externalImportTarget
+    : externalLibrary
+      (NAME (STRING | IDENT))?
+    ;
+
+routineCallingConvention
     : callingConvention SEMI
-      EXTERNAL externalLibrary
-      (NAME STRING)?
+    ;
+
+externalRoutineDirective
+    : EXTERNAL
+      (
+          externalLibrary
+          (NAME (STRING | IDENT))?
+      )?
       SEMI
     ;
 
@@ -23,7 +34,7 @@ externalLibrary
     : STRING
     | IDENT
     ;
-
+    
 callingConvention
     : CDECL
     | STDCALL
@@ -141,13 +152,16 @@ classMethodImplementation
 procedureHeader
     : PROCEDURE IDENT formalParamList?
       SEMI
-      externalRoutineSpec?
+      routineCallingConvention?
+      externalRoutineDirective?
     ;
 
 functionHeader
-    : FUNCTION IDENT formalParamList? COLON typeName
+    : FUNCTION IDENT formalParamList?
+      COLON typeName
       SEMI
-      externalRoutineSpec?
+      routineCallingConvention?
+      externalRoutineDirective?
     ;
 
 constSection
@@ -160,10 +174,14 @@ constDeclaration
 
 constItem
     : IDENT EQ_OP constValue
+    | IDENT COLON arrayType EQ_OP
+      LPAREN arrayValueList? RPAREN
     ;
 
 constValue
     : STRING
+    | CHARCODE
+    | HEXNUMBER
     | FLOATNUMBER
     | NUMBER
     ;
@@ -320,7 +338,9 @@ enumValue
     ;
 
 recordDeclaration
-    : IDENT EQ_OP RECORD recordFieldDeclaration* END SEMI
+    : IDENT EQ_OP PACKED? RECORD
+      recordFieldDeclaration*
+      END SEMI
     ;
 
 recordFieldDeclaration
@@ -331,16 +351,24 @@ functionDeclaration
     : FUNCTION IDENT formalParamList?
       COLON typeName
       SEMI
-      (   externalRoutineSpec
-        | declarationPart* block SEMI
+      routineCallingConvention?
+      (
+          externalRoutineDirective
+        | declarationPart*
+          block
+          SEMI
       )
     ;
 
 procedureDeclaration
     : PROCEDURE IDENT formalParamList?
       SEMI
-      (   externalRoutineSpec
-        | declarationPart* block SEMI
+      routineCallingConvention?
+      (
+          externalRoutineDirective
+        | declarationPart*
+          block
+          SEMI
       )
     ;
 
@@ -568,14 +596,29 @@ assignment
     ;
 
 variableRef
-    : RESULT
-    | IDENT variableSuffix*
+    : (IDENT | RESULT) variableSuffix*
     ;
 
 variableSuffix
+    : pointerDereference
+    | arrayIndex
+    | fieldAccess
+    ;
+
+pointerDereference
+    : CARET
+    ;
+
+fieldAccess
     : DOT IDENT
-    | LBRACK expr (COMMA expr)* RBRACK
-    | CARET
+    ;
+
+arrayIndex
+    : LBRACK exprList RBRACK
+    ;
+
+exprList
+    : expr (COMMA expr)*
     ;
 
 expr
@@ -599,7 +642,11 @@ compareExpr
     ;
 
 addExpr
-    : term ((PLUS | MINUS) term)*
+    : shiftExpr ((PLUS | MINUS) shiftExpr)*
+    ;
+
+shiftExpr
+    : term ((SHL | SHR) term)*
     ;
 
 term
@@ -617,6 +664,8 @@ factor
     | functionCallExpr
     | arrayConstructor
     | NIL
+    | CHARCODE
+    | HEXNUMBER
     | NUMBER
     | FLOATNUMBER
     | STRING

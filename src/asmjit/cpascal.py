@@ -431,6 +431,23 @@ def main():
         
         elif CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
             if CDATA.args_backend.lower() in ["exe", "exefile"]:
+                module_kind = getattr(
+                    generator,
+                    "root_module_kind",
+                    None
+                )
+                requested_backend = str(
+                    getattr(
+                        args,
+                        "backend",
+                        ""
+                    )
+                ).lower()
+                if module_kind == "unit" and requested_backend not in ("", "obj", "object"):
+                    raise RuntimeError(
+                        tr("Pascal units can only be compiled as COFF objects; "
+                        "use -Bobj")
+                    )
                 outfile = Path(CDATA.exe_file)
                 check   = ['j','y']
                 if outfile.exists():
@@ -456,11 +473,18 @@ def main():
                 if ('y' in check) or ('j' in check):
                     generator.write_string_literals_to_coff()
                     generator.write_double_literals_to_coff()
-                    writer.write_object(CDATA.obj_file)
+                    writer.write_object(CDATA.obj_file,
+                        embedded_objects=(
+                            generator.root_embedded_objects
+                            if generator.root_module_kind == "unit"
+                            else []
+                        )
+                    )
                     if generator.root_module_kind == "unit":
                         CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
-                        print(f"COFF32 unit object: {CDATA.obj_file}")
-                        print(f"Pascal unit interface: {CDATA.pui_file}")
+                        if CDATA.args_verbose == False:
+                            print(f"COFF32 unit object: {CDATA.obj_file}")
+                            print(f"Pascal unit interface: {CDATA.pui_file}")
                 else:
                     print(tr("no files written"))
                     
@@ -543,6 +567,14 @@ def main():
         
         return 0
 
+    except FileNotFoundError as e:
+        print(e)
+        return 1
+        
+    except NotADirectoryError as e:
+        print(e)
+        return 1
+        
     except ConditionalExpressionError as e:
         print("-------------------------------------")
         print(e)
@@ -567,49 +599,59 @@ def main():
     except PermissionError as e:
         print(f"{tr('Error')}: {tr('Permission Error')}")
         print(f"Text : {e.message}")
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except ArgumentParserError as e:
         print(f"{tr('Error')}: {tr('Invalid argument(s)')}")
         print(f"Text : {e.message}")
-        #print(f"Code : {e.errno}")
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except AttributeError as e:
         print(f"{tr('Error')}: {tr('Attribute Error')}")
         print(f"Text : {str(e)}")
-        import traceback
-        traceback.print_exc()
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except FileNotFoundError as e:
         print(f"{tr('Error')}: {tr('File not found')} '{e.filename}'")
         print(f"Text : {e.strerror}")
         print(f"Code : {e.errno}")
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except TypeError as e:
         print(f"{tr('Error')}: {tr('Type error')}")
         print(f"Text : {str(e)}")
-        import traceback
-        traceback.print_exc()
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except ArithmeticError as e:
         print(f"{tr('Error')}: {tr('Arithmetic Error')}")
         print(f"Text : {tr('Division through 0')}")
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 2
         
     except Exception as e:
         print(f"{tr('Error')}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        if CDATA.args_verbose:
+            import traceback
+            traceback.print_exc()
         return 1
         
-    #except Exception as e:
-    #    print(e, file=sys.stderr)
-    #    return 1
-
 # ---------------------------------------------------------------------------
 # entry point für start-up the application
 # ---------------------------------------------------------------------------

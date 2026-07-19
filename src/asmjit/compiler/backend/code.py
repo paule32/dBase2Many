@@ -21,6 +21,24 @@ class CodeBackend:
     
     def emit_new_label_decl(self, name, comment=""): raise NotImplementedError
     
+    def emit_mov_byte_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        raise NotImplementedError
+    
+    def emit_mov_word_ptr_store(
+        self,
+        base,
+        offset,
+        src,
+        comment=""
+    ):
+        raise NotImplementedError
+    
     def emit_add(self, reg, value, comment=""): raise NotImplementedError
     def emit_imul(self, dst, src, value=None, comment=""): raise NotImplementedError
     def emit_cmp(self, dst, value, comment=""): raise NotImplementedError
@@ -54,7 +72,6 @@ class CodeBackend:
     def emit_mov_qword_ptr(self, dst, base, offset=0, comment=""): raise NotImplementedError
     def emit_mov_qword_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
     def emit_mov_dword_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
-    def emit_mov_byte_ptr_store(self, base, offset, src, comment=""): raise NotImplementedError
 
     def emit_mov_reg_byte(self, dst, base, comment=""): raise NotImplementedError
     def emit_mov_reg_dword(self, dst, base, comment=""): raise NotImplementedError

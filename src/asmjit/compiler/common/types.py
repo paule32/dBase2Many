@@ -64,6 +64,7 @@ class CommonData():
         
         self.force_write         : str  = ""
         self.debug_mode          : bool = False
+        self.args_verbose        : False
         
         self.link_object_files   = []
         self.link_archive_files  = []
@@ -82,7 +83,6 @@ class CommonData():
             "mpr.dll": [
                 "WNetGetConnectionA@12"
             ],
-            #"libdbase2many.32.dll": [],
         }
         
         initialize_commondata_imports(self)
@@ -115,6 +115,8 @@ class RecordInfo:
     name        : str
     fields      : dict[str, RecordFieldInfo]
     size        : int
+    packed      : bool = False
+    alignment   : int  = 1
 
 @dataclass
 class ArrayInfo:

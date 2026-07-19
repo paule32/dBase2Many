@@ -1,0 +1,72 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Crypto.crc16",
+        "normalized_name": "crypto_crc16"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "Crypto.crc16.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System.Types"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_CRYPTO_CRC16$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [
+            {
+                "name": "crypt",
+                "scoped_name": "crypto_crc16_crypt",
+                "symbol": "_CRYPTO_CRC16$$_CRYPT$ANSISTRING$INTEGER",
+                "params": [
+                    {
+                        "name": "S",
+                        "type": "string",
+                        "is_var": false
+                    },
+                    {
+                        "name": "Len",
+                        "type": "integer",
+                        "is_var": false
+                    }
+                ],
+                "return_type": "string",
+                "calling_convention": "cdecl"
+            }
+        ],
+        "procedures": [],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [
+            "crc16.o"
+        ],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

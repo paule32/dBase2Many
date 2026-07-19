@@ -7,6 +7,10 @@
 # include "crc16.h"
 # include "memory.h"
 
+typedef struct CRC16_CTX {
+    uint16_t crc;
+}   CRC16_CTX;
+
 DLL_API VOID
 crc16_init(CRC16_CTX *ctx)
 {

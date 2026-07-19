@@ -3,93 +3,158 @@
 :: author: (c) 2026 Jens Kallup - paule32
 :: all rights reserved.
 :: ----------------------------------------------------------------------------
-@echo off
-python -m compileall pas2asmjit.py
-::python pas2asmjit.py -Twinnt --backend exe testsrc/testnt35.pas
+@echo off   
+setlocal EnableDelayedExpansion
+
+python -m compileall cpascal.py
+set "compiler=python cpascal.py"
 
 :: ----------------------------------------------------------------------------
-:: hash algos
+:: compile Pascal system files ...
 :: ----------------------------------------------------------------------------
-python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc16.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc32.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc32c.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testcrc64.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testmd5.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha1.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha3.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha224.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha256.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha384.pas
-python pas2asmjit.py -Twinnt --backend exe testsrc/testsha512.pas
+echo stage:  [  1 /  4] - System
+set "list=System.Types System.Objects"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/System/.%%A.pas
+)
+echo.
+:: ----------------------------------------------------------------------------
+:: compile crypto files ...
+:: ----------------------------------------------------------------------------
+echo stage:  [  2 /  4] - Crypto package
+set "list=crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/Crypto/Crypto.%%A.pas
+    python cpascal.py -Twin32 --backend obj --force --verbose ^
+        -Fo runtime/pascal/crypto/objects ^
+        -Fo x32/pascal/System ^
+        -Fo x32/pascal/Crypto -FE x32/pascal/Crypto ^
+        runtime/pascal/Crypto/Crypto.%%A.pas
+    set "result=%errorlevel%"
+    if !result! gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+)
+echo.
+:: ----------------------------------------------------------------------------
+:: test applications ...
+:: ----------------------------------------------------------------------------
+echo stage:  [  3 /  4] - Test Application's with external DLL
+set "list=crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/crypto/%%A.pas
+    python cpascal.py -Twin32 --backend exe --force --verbose ^
+        -Fo runtime/pascal/crypto/objects ^
+        -Fo x32/pascal/System ^
+        -Fo x32/pascal/Crypto ^
+        -FE x32/pascal/tests/crypto testsrc/pascal/crypto/%%A.pas
+    set "result=%errorlevel%"
+    if %result% gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+    call :writeRun x32/pascal/tests/crypto/%%A.bat %%A.exe
+)
+echo.
+:: ----------------------------------------------------------------------------
+set /a total   = 54
+set /a current = 0
+for /L %%A in (2,1,%total%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/test%%A.pas
+    python cpascal.py -Twin32 --backend exe --force --verbose ^
+        -Fo x32/pascal/System ^
+        -Fo x32/pascal/Crypto ^
+        -FE x32/pascal/tests/common testsrc/pascal/common/test%%A.pas
+    set "result=%errorlevel%"
+    if %result% gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+    call :writeRun x32/pascal/tests/common/test%%A.bat test%%A.exe
+)
+echo.
+:: ----------------------------------------------------------------------------
+echo stage:  [  4 /  4] - Test Application's without external DLL / packed
+set "list=testvmt"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/%%A.pas
+    python cpascal.py -Twin32 --backend exe --force --verbose -Us ^
+        -Fo runtime/pascal/crypto/objects ^
+        -Fo x32/pascal/System       ^
+        -Fo x32/pascal/Crypto       ^
+        -Fo testsrc/pascal/objects  ^
+        -FE x32/pascal/tests/common testsrc/pascal/common/%%A.pas
+    set "result=%errorlevel%"
+    if %result% gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+)
+
+goto ok
+
+:: ----------------------------------------------------------------------------
+:: goto label as alternative for a sub routine call - write runner batch file
+:: call :writeRun <output-file> <exe-file>
+:: ----------------------------------------------------------------------------
+:writeRun
+echo ^:^: ------------------------------------------------------------>%1
+echo ^:^: Copyright ^(c^) 2026 by Jens Kallup - paule32>>%1
+echo ^:^: all rights reserved.>>%1
+echo ^:^: ------------------------------------------------------------>>%1
+echo @echo off>>%1
+echo set PATH=%CD%\x32;%PATH%>>%1
+echo %2>>%1
+exit /b 
+
+:done
+echo done.
+exit 0
+
+--backend exe testsrc/testcrc16.pas
+python cpascal.py -Twinnt --backend exe testsrc/testcrc32.pas
+python cpascal.py -Twinnt --backend exe testsrc/testcrc32c.pas
+python cpascal.py -Twinnt --backend exe testsrc/testcrc64.pas
+python cpascal.py -Twinnt --backend exe testsrc/testmd5.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha1.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha3.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha224.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha256.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha384.pas
+python cpascal.py -Twinnt --backend exe testsrc/testsha512.pas
 
 python pas2asmjit.py -Twinnt --backend exe testsrc/testdisk.pas
 
-echo @echo off> x32/testcrc16.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc16.bat
-echo testcrc16.exe>> x32/testcrc16.bat
-
-echo @echo off> x32/testcrc32.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc32.bat
-echo testcrc32.exe>> x32/testcrc32.bat
-
-echo @echo off> x32/testcrc32c.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc32c.bat
-echo testcrc32c.exe>> x32/testcrc32c.bat
-
-echo @echo off> x32/testcrc64.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testcrc64.bat
-echo testcrc64.exe>> x32/testcrc64.bat
-
-echo @echo off> x32/testmd5.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testmd5.bat
-echo testmd5.exe>> x32/testmd5.bat
-
-echo @echo off> x32/testsha1.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha1.bat
-echo testsha1.exe>> x32/testsha1.bat
-
-echo @echo off> x32/testsha3.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha3.bat
-echo testsha3.exe>> x32/testsha3.bat
-
-echo @echo off> x32/testsha224.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha224.bat
-echo testsha224.exe>> x32/testsha224.bat
-
-echo @echo off> x32/testsha256.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha256.bat
-echo testsha256.exe>> x32/testsha256.bat
-
-echo @echo off> x32/testsha384.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha384.bat
-echo testsha384.exe>> x32/testsha384.bat
-
-echo @echo off> x32/testsha512.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testsha512.bat
-echo testsha512.exe>> x32/testsha512.bat
-
-
-echo @echo off> x32/testdisk.bat
-echo set PATH=%CD%;..\runtime\win32;S:\msys64\mingw64\bin;S:\GitHub\asmjit\build-dll;..\runtime;%PATH%>> x32/testdisk.bat
-echo testdisk.exe>> x32/testdisk.bat
-
 :: ----------------------------------------------------------------------------
 exit 0
-:: ----------------------------------------------------------------------------
-:: first, set the current working directory, if you want to execute the created
-:: example Windows files (external). So the executables can find the libasmjit
-:: library file (libasmjit.dll)
-:: ----------------------------------------------------------------------------
-set PATH=%CD%;%PATH%
-set ANTLR_VERSION=4.13.2
-
-echo create: Lexer + Parser
-
-::antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal grammar/MiniPascalLexer.g4
-::antlr4 -v %ANTLR_VERSION% -Dlanguage=Python3 -o parsers/pascal -visitor -lib parsers/pascal grammar/MiniPascalParser.g4
-
-:: rm -rf testout
-rm debug.log
 
 if not exist testout ( mkdir testout )
 python pas2asmjit.py testsrc/test1.pas 1> testout/test1.cc 2>> debug.log
@@ -140,9 +205,9 @@ goto ok
 
 :error
 echo Error occur.
-type debug.log
-goto done
+exit /b %result%
 
 :ok
 echo Compile ok
 :done
+exit /b 0

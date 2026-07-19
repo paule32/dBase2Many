@@ -14,8 +14,18 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by PascalParser#externalRoutineSpec.
-    def visitExternalRoutineSpec(self, ctx:PascalParser.ExternalRoutineSpecContext):
+    # Visit a parse tree produced by PascalParser#externalImportTarget.
+    def visitExternalImportTarget(self, ctx:PascalParser.ExternalImportTargetContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#routineCallingConvention.
+    def visitRoutineCallingConvention(self, ctx:PascalParser.RoutineCallingConventionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#externalRoutineDirective.
+    def visitExternalRoutineDirective(self, ctx:PascalParser.ExternalRoutineDirectiveContext):
         return self.visitChildren(ctx)
 
 
@@ -544,6 +554,26 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PascalParser#pointerDereference.
+    def visitPointerDereference(self, ctx:PascalParser.PointerDereferenceContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#fieldAccess.
+    def visitFieldAccess(self, ctx:PascalParser.FieldAccessContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#arrayIndex.
+    def visitArrayIndex(self, ctx:PascalParser.ArrayIndexContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#exprList.
+    def visitExprList(self, ctx:PascalParser.ExprListContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PascalParser#expr.
     def visitExpr(self, ctx:PascalParser.ExprContext):
         return self.visitChildren(ctx)
@@ -571,6 +601,11 @@ class PascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PascalParser#addExpr.
     def visitAddExpr(self, ctx:PascalParser.AddExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#shiftExpr.
+    def visitShiftExpr(self, ctx:PascalParser.ShiftExprContext):
         return self.visitChildren(ctx)
 
 

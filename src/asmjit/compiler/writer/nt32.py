@@ -926,7 +926,14 @@ class NT32Writer:
     def validate_imports_complete(self):
         used = self.collect_used_external_symbols()
 
+        # Externe Symbole aus eingebundenen C-/C++-Objekten automatisch
+        # auf bekannte Runtime-Ordinale abbilden.
+        self.register_known_runtime_ordinal_imports(
+            used
+        )
+
         known = set()
+        
         for dll_name, funcs in self.imports.items():
             for func in funcs:
                 known.add(self.import_internal_name(func))
@@ -1286,6 +1293,90 @@ class NT32Writer:
                             "unsupported COFF relocation type: "
                             f"{relocation.type:04X}"
                         )
+
+    def register_known_runtime_ordinal_imports(
+        self,
+        used_symbols
+    ):
+        dll_name = "libdbase2many.32.dll"
+
+        imports = self.imports.setdefault(
+            dll_name,
+            []
+        )
+
+        known_symbols = {
+            self.import_internal_name(item)
+            for item in imports
+        }
+
+        added = []
+
+        for coff_symbol in sorted(
+            used_symbols
+        ):
+            if coff_symbol in known_symbols:
+                continue
+
+            # MinGW32-C-Symboldekoration:
+            #
+            # C-Funktion:    _jit_malloc
+            # COFF-Symbol:   __jit_malloc
+            candidates = [
+                coff_symbol
+            ]
+
+            if coff_symbol.startswith("__"):
+                candidates.append(
+                    coff_symbol[1:]
+                )
+
+            ordinal = None
+            runtime_name = None
+
+            for candidate in candidates:
+                candidate_ordinal = (
+                    LIBDBASE2MANY32_IMPORT_ORDINALS.get(
+                        candidate
+                    )
+                )
+
+                if candidate_ordinal is not None:
+                    ordinal = int(
+                        candidate_ordinal
+                    )
+
+                    runtime_name = candidate
+                    break
+
+            if ordinal is None:
+                continue
+
+            item = {
+                # Exakter Name aus der COFF-Relocation.
+                "symbol": coff_symbol,
+
+                # Der DLL-Exportname wird nicht benötigt, weil die
+                # DLL ausschließlich per Ordinal importiert wird.
+                "ordinal": ordinal
+            }
+
+            imports.append(
+                item
+            )
+
+            known_symbols.add(
+                coff_symbol
+            )
+
+            added.append({
+                "dll": dll_name,
+                "symbol": coff_symbol,
+                "runtime_name": runtime_name,
+                "ordinal": ordinal
+            })
+
+        return added
 
     def _export_value(self, item, name, default=None):
         if isinstance(item, dict):

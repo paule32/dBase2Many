@@ -328,8 +328,9 @@ def main() -> int:
                     writer.write_object(CDATA.obj_file)
                     if generator.root_module_kind == "unit":
                         CDATA.pui_file = generator.write_unit_pui(CDATA.obj_file)
-                        print(f"COFF32 unit object: {CDATA.obj_file}")
-                        print(f"Pascal unit interface: {CDATA.pui_file}")
+                        if CDATA.args_verbose == False:
+                            print(f"COFF32 unit object: {CDATA.obj_file}")
+                            print(f"Pascal unit interface: {CDATA.pui_file}")
                 else:
                     print(tr("no files written"))
                     

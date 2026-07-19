@@ -268,8 +268,6 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      echo "g++ could not create packed_dll_loader.o"
      exit 1
   fi
-  
-  
 
   echo "copy dll file..."
   if ! cp win32/obj/libdbase2many.32.dll.c ../x32/libdbase2many.32.dll ; then

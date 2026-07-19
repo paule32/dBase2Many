@@ -37,6 +37,15 @@ def args_func():
     )
     
     args_parser.add_argument(
+        "-v",
+        "--verbose",
+        dest    = "verbose",
+        default = False,
+        action  = "store_true",
+        help    = tr("force debug messages.")
+    )
+    
+    args_parser.add_argument(
         "-Us",
         "--packed-runtime",
         dest    = "packed_runtime",
@@ -237,39 +246,96 @@ def args_func():
     )
     
     # -------------------------------------------------------------
-    # executable output path ...
+    # Ausgabeverzeichnis für alle erzeugten Compilerdateien:
+    #
+    #   .o
+    #   .pui
+    #   .exe
+    #   .dll
+    #   .asm
+    #
+    # Relative Pfade werden gegen das aktuelle Arbeitsverzeichnis
+    # aufgelöst. Der angegebene Pfad wird unverändert verwendet;
+    # es wird kein zusätzliches x32/x64-Unterverzeichnis angehängt.
+    #
+    # Beispiel:
+    #
+    #   -FE x32/Crypto
+    #
+    # ergibt:
+    #
+    #   <cwd>/x32/Crypto
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-FE",
+        "--output-directory",
         dest    = "exe_output_dir",
         default = ".",
-        help    = tr("Set output directory for executables.")
+        metavar = "DIRECTORY",
+        help    = tr(
+            "Set the output directory for generated compiler files."
+        )
     )
     
     # -------------------------------------------------------------
-    # Linker .o bject file search path for {$link foo.o}
+    # Suchpfade für relocatable COFF-Objektdateien.
+    #
+    # Mehrfach verwendbar:
+    #
+    #   pas2asmjit -Fo obj -Fo thirdparty/obj test.pas
+    #
+    # Die resultierende Liste wird in:
+    #
+    #   CDATA.link_object_paths
+    #
+    # gespeichert und für folgende Direktiven verwendet:
+    #
+    #   {$L foo.o}
+    #   {$link foo.o}
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-Fo",
         "--objpath",
+        "--object-path",
         dest    = "objpath",
         action  = "append",
-        default = ["."],
-        metavar = "PATH",
-        help    = tr("Object file search path")
+        default = [],
+        metavar = "DIRECTORY",
+        help    = tr(
+            "Add COFF object file search directory. "
+            "The option may be specified more than once."
+        )
     )
 
     # -------------------------------------------------------------
-    # Linker .a rchive file search path for {$linklib libfoo.a}
+    # Suchpfade für statische Archive.
+    #
+    # Mehrfach verwendbar:
+    #
+    #   pas2asmjit -Fl lib -Fl thirdparty/lib test.pas
+    #
+    # Die resultierende Liste wird in:
+    #
+    #   CDATA.link_library_paths
+    #
+    # gespeichert und für:
+    #
+    #   {$linklib libfoo.a}
+    #
+    # verwendet.
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-Fl",
         "--libpath",
+        "--library-path",
         dest    = "libpath",
         action  = "append",
         default = [],
-        metavar = "PATH",
-        help    = tr("Library file search path")
+        metavar = "DIRECTORY",
+        help    = tr(
+            "Add archive/library search directory. "
+            "The option may be specified more than once."
+        )
     )
     
     # -------------------------------------------------------------
@@ -293,143 +359,363 @@ def args_func():
     
     return args_parser
 
-def validate_output_path(value: str):
-    if value == ".":
-        if sys.platform.startswith("win"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value = os.getcwd() + r"\x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value = os.getcwd() + r"\x32"
-            elif CDATA.args_target in ["win64"]:
-                value = os.getcwd() + r"\win64"
-                
-        elif sys.platform.startswith("linux"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value = os.getcwd() + r"/x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value = os.getcwd() + "r/x32"
-            elif CDATA.args_target in ["win64"]:
-                value = os.getcwd() + "/x64"
-    else:
-        if sys.platform.startswith("win"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value += r"\x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value += r"\x32"
-            elif CDATA.args_target in ["win64"]:
-                value += r"\x64"
-        elif sys.platform.startswith("linux"):
-            if CDATA.args_target in ["dos", "dos16"]:
-                value += r"/x16"
-            elif CDATA.args_target in ["nt35", "winnt", "win32"]:
-                value += r"/x32"
-            elif CDATA.args_target in ["win64"]:
-                value += r"/x64"
-    
-    output_dir = Path(value)
-    output_dir.mkdir(parents=True, exist_ok=True)
-        
-    CDATA.CurrentWorkingDir = value
-    CDATA.exe_file = value
-    
-    if CDATA.debug_mode:
-        print(CDATA.CurrentWorkingDir)
-    
-    path = Path(value)
-    #print(path)
+# ---------------------------------------------------------------------------
+#  Prüft und erzeugt das mit -FE angegebene Ausgabeverzeichnis.
+#
+#  Wichtig:
+#
+#    * Ein relativer Pfad ist unter Windows vollkommen gültig.
+#    * Er wird gegen das aktuelle Arbeitsverzeichnis aufgelöst.
+#    * Es wird kein Laufwerksbuchstabe vom Benutzer verlangt.
+#    * Es wird kein automatisches x16/x32/x64-Unterverzeichnis
+#      an einen expliziten -FE-Pfad angehängt.
+#    * Der Pfad bezeichnet immer ein Verzeichnis, niemals eine Datei.
+# ---------------------------------------------------------------------------
+def validate_output_path(
+    value
+):
+    if value is None:
+        value = "."
 
-    # Existierendes Verzeichnis
-    if path.exists() and path.is_dir():
-        if not path.drive and os.name == "nt":
-            raise RuntimeError(tr("no drive given."))
+    try:
+        value = os.fspath(
+            value
+        )
+    except TypeError:
+        raise RuntimeError(
+            tr("invalid output directory")
+            + ": "
+            + repr(value)
+        ) from None
 
-        if not path.exists():
-            CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-            raise RuntimeError(tr("directory does not exists."))
+    value = value.strip()
 
-        if not os.access(path, os.R_OK):
-            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-            raise RuntimeError(tr("directory not readable."))
+    if not value:
+        value = "."
 
-        if not os.access(path, os.W_OK):
-            CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-            raise RuntimeError(tr("directory not writeable."))
+    value = os.path.expandvars(
+        os.path.expanduser(
+            value
+        )
+    )
 
-        #print(">>",path)
-        return {
-            "kind": "directory",
-            "path": path
-        }
-    
-    # Datei oder noch nicht existierende Datei
-    parent = path.parent if path.parent != Path("") else Path(".")
-    
-    if not parent.exists():
-        CDATA.LastErrorCode = LastError.DIRECTORY_DONT_EXISTS
-        raise RuntimeError(f"{tr('target directory does not exists')}: {parent}")
-    
-    if not parent.is_dir():
-        CDATA.LastErrorCode = LastError.PATH_NO_DIRECTORY
-        raise RuntimeError(f"{tr('target path is not a directory')}: {parent}")
-    
-    if not os.access(parent, os.R_OK):
-        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_READABLE
-        raise RuntimeError(f"{tr('target directory is not readable')}: {parent}")
-    
-    if not os.access(parent, os.W_OK):
-        CDATA.LastErrorCode = LastError.DIRECTORY_NOT_WRITEABLE
-        raise RuntimeError(f"{tr('target directory is not writeable')}: {parent}")
-    
+    # os.path.abspath() ergänzt unter Windows bei relativen Pfaden
+    # automatisch das aktuelle Laufwerk und Arbeitsverzeichnis.
+    #
+    # Beispiel:
+    #
+    #   x32/Crypto
+    #
+    # wird zu:
+    #
+    #   T:\\GitHub\\dBase2Many\\src\\asmjit\\x32\\Crypto
+    output_path = os.path.abspath(
+        os.path.normpath(
+            value
+        )
+    )
+
+    path = Path(
+        output_path
+    )
+
     if path.exists():
-        if path.is_dir():
-            CDATA.LastErrorCode = LastError.IS_DIRECTORY
-            raise RuntimeError(tr("target is a directory, not a file."))
-        
-        if not path.is_file():
-            CDATA.LastErrorCode = LastError.NO_FILE_OR_DIRECTORY
-            raise RuntimeError(tr("target exists, but it is not a normal file."))
-        
-        if not ask_yes_no(f"{tr('file')} '{path}' {tr('already exists. Overwrite?')}"):
-            CDATA.LastErrorCode = LastError.FILE_EXISTS
-            raise RuntimeError(tr("Canceled."))
-        
-        if not can_write_file(path):
-            CDATA.LastErrorCode = LastError.FILE_LOCKED
-            raise RuntimeError(
-                f"{tr('File can not be overwrite')}. "
-                f"{tr('The file is blocked by other Process')}: {path}"
+        if not path.is_dir():
+            CDATA.LastErrorCode = (
+                LastError.PATH_NO_DIRECTORY
             )
-    
+
+            raise RuntimeError(
+                f"{tr('output path is not a directory')}: "
+                f"{output_path}"
+            )
+    else:
+        try:
+            path.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+        except OSError as exc:
+            CDATA.LastErrorCode = (
+                LastError.DIRECTORY_DONT_EXISTS
+            )
+
+            raise RuntimeError(
+                f"{tr('could not create output directory')}: "
+                f"{output_path}: {exc}"
+            ) from None
+
+    if not os.access(
+        output_path,
+        os.R_OK
+    ):
+        CDATA.LastErrorCode = (
+            LastError.DIRECTORY_NOT_READABLE
+        )
+
+        raise RuntimeError(
+            f"{tr('output directory is not readable')}: "
+            f"{output_path}"
+        )
+
+    if not os.access(
+        output_path,
+        os.W_OK
+    ):
+        CDATA.LastErrorCode = (
+            LastError.DIRECTORY_NOT_WRITEABLE
+        )
+
+        raise RuntimeError(
+            f"{tr('output directory is not writeable')}: "
+            f"{output_path}"
+        )
+
+    # Einheitlicher absoluter Ausgabepfad für alle Compilerstufen.
+    CDATA.CurrentWorkingDir = output_path
+    CDATA.ExeOutputDir      = output_path
+    CDATA.output_dir        = output_path
+
+    # Kompatibilität mit vorhandenen Treiberversionen, die
+    # CDATA.exe_file vorübergehend als Ausgabeverzeichnis behandeln.
+    CDATA.exe_file = output_path
+
+    if CDATA.debug_mode:
+        print(
+            "Compiler output directory:",
+            output_path
+        )
+
     return {
-        "kind": "file",
-        "path": path
+        "kind": "directory",
+        "path": path,
+        "absolute_path": output_path
     }
 
-def normalize_search_paths(paths):
+# ---------------------------------------------------------------------------
+#  Normalisiert eine Folge von Suchverzeichnissen.
+#
+#  Eigenschaften:
+#
+#    * Umgebungsvariablen und "~" werden aufgelöst.
+#    * Relative Pfade werden relativ zu base_directory interpretiert.
+#    * Doppelte Pfade werden unabhängig von Groß-/Kleinschreibung entfernt.
+#    * Die vom Benutzer angegebene Reihenfolge bleibt erhalten.
+#    * Optional wird geprüft, ob jeder Eintrag ein Verzeichnis ist.
+# ---------------------------------------------------------------------------
+def normalize_search_paths(
+    paths,
+    base_directory=None,
+    require_directory=True
+):
     result = []
     seen = set()
 
-    for path in paths or []:
-        if not path:
+    if base_directory is None:
+        base_directory = os.getcwd()
+
+    base_directory = os.path.abspath(
+        os.path.expandvars(
+            os.path.expanduser(
+                os.fspath(base_directory)
+            )
+        )
+    )
+
+    for raw_path in paths or []:
+        if raw_path is None:
             continue
 
-        path = os.path.abspath(
-            os.path.expandvars(
-                os.path.expanduser(path)
+        try:
+            raw_path = os.fspath(
+                raw_path
+            )
+        except TypeError:
+            raise RuntimeError(
+                tr("invalid search path")
+                + ": "
+                + repr(raw_path)
+            ) from None
+
+        raw_path = raw_path.strip()
+
+        if not raw_path:
+            continue
+
+        expanded_path = os.path.expandvars(
+            os.path.expanduser(
+                raw_path
             )
         )
 
+        if not os.path.isabs(
+            expanded_path
+        ):
+            expanded_path = os.path.join(
+                base_directory,
+                expanded_path
+            )
+
+        absolute_path = os.path.abspath(
+            expanded_path
+        )
+
+        normalized_path = os.path.normpath(
+            absolute_path
+        )
+
         key = os.path.normcase(
-            os.path.normpath(path)
+            normalized_path
         )
 
         if key in seen:
             continue
 
-        seen.add(key)
-        result.append(path)
+        if require_directory:
+            if not os.path.exists(
+                normalized_path
+            ):
+                raise FileNotFoundError(
+                    tr("search directory does not exist")
+                    + ": "
+                    + normalized_path
+                )
+
+            if not os.path.isdir(
+                normalized_path
+            ):
+                raise NotADirectoryError(
+                    tr("search path is not a directory")
+                    + ": "
+                    + normalized_path
+                )
+
+            if not os.access(
+                normalized_path,
+                os.R_OK
+            ):
+                raise RuntimeError(
+                    tr("search directory is not readable")
+                    + ": "
+                    + normalized_path
+                )
+
+        seen.add(
+            key
+        )
+
+        result.append(
+            normalized_path
+        )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+#  Erzeugt die endgültigen Suchpfadlisten für Objektdateien und Archive.
+#
+#  Suchreihenfolge für Objektdateien:
+#
+#    1. Verzeichnis der Pascal-Quelldatei
+#    2. aktuelles Arbeitsverzeichnis
+#    3. alle mehrfach angegebenen -Fo-Verzeichnisse
+#
+#  Suchreihenfolge für Archive:
+#
+#    1. Verzeichnis der Pascal-Quelldatei
+#    2. aktuelles Arbeitsverzeichnis
+#    3. alle -Fo-Verzeichnisse
+#    4. alle mehrfach angegebenen -Fl-Verzeichnisse
+#
+#  Dadurch kann ein gemeinsames Verzeichnis sowohl .o- als auch .a-Dateien
+#  enthalten. -Fl kann zusätzlich für reine Bibliotheksverzeichnisse benutzt
+#  werden.
+# ---------------------------------------------------------------------------
+def collect_link_search_paths(
+    args
+):
+    current_directory = os.path.abspath(
+        os.getcwd()
+    )
+
+    source_directory = current_directory
+
+    source_filename = getattr(
+        args,
+        "source",
+        None
+    )
+
+    if source_filename:
+        source_filename = os.path.expandvars(
+            os.path.expanduser(
+                os.fspath(
+                    source_filename
+                )
+            )
+        )
+
+        if not os.path.isabs(
+            source_filename
+        ):
+            source_filename = os.path.join(
+                current_directory,
+                source_filename
+            )
+
+        source_directory = os.path.dirname(
+            os.path.abspath(
+                source_filename
+            )
+        )
+
+    object_candidates = [
+        source_directory,
+        current_directory
+    ]
+
+    object_candidates.extend(
+        list(
+            getattr(
+                args,
+                "objpath",
+                []
+            )
+            or []
+        )
+    )
+
+    library_candidates = list(
+        object_candidates
+    )
+
+    library_candidates.extend(
+        list(
+            getattr(
+                args,
+                "libpath",
+                []
+            )
+            or []
+        )
+    )
+
+    object_paths = normalize_search_paths(
+        object_candidates,
+        base_directory=current_directory,
+        require_directory=True
+    )
+
+    library_paths = normalize_search_paths(
+        library_candidates,
+        base_directory=current_directory,
+        require_directory=True
+    )
+
+    return (
+        object_paths,
+        library_paths
+    )
     
 def handle_args(args):
     CDATA.IncludePaths = list(args.includepath or [])
@@ -437,40 +723,67 @@ def handle_args(args):
     
     CDATA.force_write  = args.forcewrite
     
-    if args.exe_output_dir is not None:
-        CDATA.ExeOutputDir = args.exe_output_dir
-        #print("==> ", CDATA.CurrentWorkingDir)
-
+    # -FE bezeichnet immer ein Ausgabeverzeichnis. Die Funktion
+    # normalisiert auch relative Pfade und schreibt den absoluten
+    # Pfad nach CDATA.ExeOutputDir, CDATA.output_dir und
+    # CDATA.CurrentWorkingDir.
     result = validate_output_path(
         args.exe_output_dir
     )
 
-    if result["kind"] == "file":
-        CDATA.LastErrorCode = LastError.NO_DIRECTORY
-        raise Exception(
-            tr(
-                "executable output is not a directory "
-                "or does not exist."
-            )
+    args.exe_output_dir = result[
+        "absolute_path"
+    ]
+
+    (
+        object_search_paths,
+        library_search_paths
+    ) = collect_link_search_paths(
+        args
+    )
+
+    # Wichtig:
+    #
+    # Nicht an möglicherweise vorhandene globale Listen anhängen. Ein
+    # Compilerprozess kann mehrere Läufe ausführen; sonst würden Pfade aus
+    # einem vorherigen Lauf erhalten bleiben.
+    CDATA.link_object_paths = list(
+        object_search_paths
+    )
+
+    CDATA.link_library_paths = list(
+        library_search_paths
+    )
+
+    # Optionale Kompatibilitätsnamen für ältere Module.
+    CDATA.ObjectPaths = list(
+        object_search_paths
+    )
+
+    CDATA.LibraryPaths = list(
+        library_search_paths
+    )
+
+    if CDATA.debug_mode:
+        print(
+            "COFF object search paths:"
         )
 
-    if args.objpath:
-        for path in args.objpath:
-            normalized = os.path.normpath(path)
+        for path in CDATA.link_object_paths:
+            print(
+                "  ",
+                path
+            )
 
-            if normalized not in CDATA.link_object_paths:
-                CDATA.link_object_paths.append(
-                    normalized
-                )
+        print(
+            "Archive search paths:"
+        )
 
-    if args.libpath:
-        for path in args.libpath:
-            normalized = os.path.normpath(path)
-
-            if normalized not in CDATA.link_library_paths:
-                CDATA.link_library_paths.append(
-                    normalized
-                )
+        for path in CDATA.link_library_paths:
+            print(
+                "  ",
+                path
+            )
 
     CDATA.args_backend = args.backend
     CDATA.UnitPaths = normalize_search_paths(
@@ -479,6 +792,11 @@ def handle_args(args):
     CDATA.packed_runtime = bool(
         args.packed_runtime
     )
+
+    if args.verbose:
+        CDATA.args_verbose = True
+    else:
+        CDATA.args_verbose = False
 
     #if args.info is not None:
     #    if args.info == "":

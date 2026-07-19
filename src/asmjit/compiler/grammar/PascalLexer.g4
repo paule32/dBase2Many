@@ -15,6 +15,7 @@ EXPORTS             : [eE][xX][pP][oO][rR][tT][sS] ;
 CONST               : [Cc][Oo][Nn][Ss][Tt] ;
 VAR                 : [Vv][Aa][Rr] ;
 TYPE                : [Tt][Yy][Pp][Ee] ;
+PACKED              : [Pp][Aa][Cc][Kk][Ee][Dd] ;
 RECORD              : [Rr][Ee][Cc][Oo][Rr][Dd] ;
 ARRAY               : [Aa][Rr][Rr][Aa][Yy] ;
 OF                  : [Oo][Ff] ;
@@ -32,9 +33,11 @@ BREAK               : [Bb][Rr][Ee][Aa][Kk] ;
 CONTINUE            : [Cc][Oo][Nn][Tt][Ii][Nn][Uu][Ee] ;
 
 NOT                 : [nN][oO][tT] ;
-AND                 : [aA][nN][dD] ;
-OR                  : [oO][rR] ;
-XOR                 : [xX][oO][rR] ;
+AND                 : [Aa][Nn][Dd] ;
+OR                  : [Oo][Rr] ;
+XOR                 : [Xx][Oo][Rr] ;
+SHL                 : [Ss][Hh][Ll] ;
+SHR                 : [Ss][Hh][Rr] ;
 
 WHILE               : [wW][hH][iI][lL][eE] ;
 DO                  : [dD][oO] ;
@@ -95,13 +98,6 @@ CRC16               : [Cc][Rc][Cc]'16' ;
 CRC32               : [Cc][Rc][Cc]'32' ;
 CRC32C              : [Cc][Rc][Cc]'32'[Cc] ;
 CRC64               : [Cc][Rc][Cc]'64' ;
-MD5                 : [Mm][Dd]'5' ;
-SHA1                : [Ss][Hh][Aa]'1' ;
-SHA3                : [Ss][Hh][Aa]'3' ;
-SHA224              : [Ss][Hh][Aa]'224' ;
-SHA256              : [Ss][Hh][Aa]'256' ;
-SHA384              : [Ss][Hh][Aa]'384' ;
-SHA512              : [Ss][Hh][Aa]'512' ;
 
 DISKFREE            : [dD][iI][sS][kK][fF][rR][eE][eE] ;
 DISKTOTAL           : [dD][iI][sS][kK][tT][oO][tT][aA][lL] ;
@@ -146,12 +142,13 @@ GE_OP               : '>='  ;
 GT_OP               : '>'   ;
 
 STRING              : '\'' ( ~['\\] | '\\' . )* '\'' ;
-    
-IDENT               : [a-zA-Z_][a-zA-Z0-9_]* ;
+CHARCODE            : '#'  ( '$' [0-9A-Fa-f]+ | [0-9]+ ) ;
 
-HEXNUMBER           : '$' [0-9a-fA-F]+  ;
 FLOATNUMBER         : [0-9]+ '.' [0-9]+ ;
+HEXNUMBER           : '$' [0-9a-fA-F]+  ;
 NUMBER              : [0-9]+ ;
+
+IDENT               : [a-zA-Z_][a-zA-Z0-9_]* ;
 
 WS                  : [ \t\r\n]+    -> skip ;
 COMMENT1            : '//' ~[\r\n]* -> skip ;
