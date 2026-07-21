@@ -1,71 +1,110 @@
 #!/usr/bin/env python3
-# ---------------------------------------------------------------------------
-# File: pack_dll.py
-#
-# Packs a DLL into a small zlib container suitable for embedding as RCDATA.
-# ---------------------------------------------------------------------------
 from __future__ import annotations
 
 import argparse
+import pathlib
 import struct
 import zlib
-from pathlib import Path
+
 
 MAGIC = b"DBDLLZ1\0"
 VERSION = 1
-HEADER = struct.Struct("<8sIIII")
+HEADER_FORMAT = "<8sIIII"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 24 bytes
 
 
-def pack_dll(source: Path, destination: Path, level: int) -> None:
-    raw = source.read_bytes()
+def compress_fixed_raw(data: bytes, level: int = 9) -> bytes:
     compressor = zlib.compressobj(
-        level,
-        zlib.DEFLATED,
-        -15
+        level=level,
+        method=zlib.DEFLATED,
+        wbits=-15,                 # Raw DEFLATE
+        memLevel=9,
+        strategy=zlib.Z_FIXED,     # Fixed Huffman / stored blocks
     )
-    compressed = (
-        compressor.compress(raw)
-        + compressor.flush()
-    )
+    return compressor.compress(data) + compressor.flush(zlib.Z_FINISH)
 
-    header = HEADER.pack(
+
+def build_dbm_image(data: bytes, level: int = 9) -> bytes:
+    packed = compress_fixed_raw(data, level)
+
+    header = struct.pack(
+        HEADER_FORMAT,
         MAGIC,
         VERSION,
-        len(raw),
-        len(compressed),
-        zlib.crc32(raw) & 0xFFFFFFFF
+        len(data),
+        len(packed),
+        zlib.crc32(data) & 0xFFFFFFFF,
     )
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(header + compressed)
+    return header + packed
 
-    print(f"Eingabe    : {source}")
-    print(f"Ausgabe    : {destination}")
-    print(f"Original   : {len(raw)} Bytes")
-    print(f"Komprimiert: {len(compressed)} Bytes")
-    print(f"Container  : {len(header) + len(compressed)} Bytes")
-    print(f"Ersparnis  : {len(raw) - len(header) - len(compressed)} Bytes")
+
+def verify_dbm_image(image: bytes) -> bytes:
+    if len(image) < HEADER_SIZE:
+        raise ValueError("image is shorter than the DBDLLZ1 header")
+
+    magic, version, original_size, packed_size, expected_crc = struct.unpack_from(
+        HEADER_FORMAT,
+        image,
+        0,
+    )
+
+    if magic != MAGIC:
+        raise ValueError(f"bad magic: {magic!r}")
+
+    if version != VERSION:
+        raise ValueError(f"unsupported version: {version}")
+
+    if packed_size > len(image) - HEADER_SIZE:
+        raise ValueError("packed size exceeds file size")
+
+    packed = image[HEADER_SIZE:HEADER_SIZE + packed_size]
+    restored = zlib.decompress(packed, wbits=-15)
+
+    if len(restored) != original_size:
+        raise ValueError(
+            f"size mismatch: expected {original_size}, got {len(restored)}"
+        )
+
+    actual_crc = zlib.crc32(restored) & 0xFFFFFFFF
+    if actual_crc != expected_crc:
+        raise ValueError(
+            f"CRC mismatch: expected {expected_crc:08X}, got {actual_crc:08X}"
+        )
+
+    return restored
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Komprimiert eine DLL in einen DBDLLZ1-Container."
+        description="Create a DBDLLZ1 image using Raw DEFLATE with fixed Huffman codes."
     )
-    parser.add_argument("input", type=Path)
-    parser.add_argument("output", type=Path)
-    parser.add_argument(
-        "--level",
-        type=int,
-        default=9,
-        choices=range(0, 10),
-        metavar="0..9"
-    )
+    parser.add_argument("source", type=pathlib.Path)
+    parser.add_argument("destination", type=pathlib.Path)
+    parser.add_argument("--level", type=int, default=9)
     args = parser.parse_args()
 
-    if not args.input.is_file():
-        parser.error(f"DLL nicht gefunden: {args.input}")
+    source_data = args.source.read_bytes()
+    image = build_dbm_image(source_data, args.level)
 
-    pack_dll(args.input, args.output, args.level)
+    # Validate before writing.
+    restored = verify_dbm_image(image)
+    if restored != source_data:
+        raise RuntimeError("internal verification failed")
+
+    args.destination.write_bytes(image)
+
+    _, _, original_size, packed_size, crc32 = struct.unpack_from(
+        HEADER_FORMAT,
+        image,
+        0,
+    )
+
+    print(f"header     : {HEADER_SIZE} bytes")
+    print(f"original   : {original_size} bytes")
+    print(f"compressed : {packed_size} bytes")
+    print(f"total      : {len(image)} bytes")
+    print(f"crc32      : {crc32:08X}")
     return 0
 
 

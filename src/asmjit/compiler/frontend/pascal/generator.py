@@ -807,12 +807,38 @@ class AsmJitGenerator(PascalParserVisitor):
         return False
 
     def is_packed_runtime_library(self, dll_name):
-        if not getattr(CDATA, "packed_runtime", False):
+        if not getattr(
+            CDATA,
+            "packed_runtime",
+            False
+        ):
             return False
 
-        normalized = os.path.basename(str(dll_name).strip()).lower()
+        normalized = os.path.basename(
+            str(dll_name).strip()
+        ).lower()
 
-        return (normalized == "libdbase2many.32.dll")
+        packed_libraries = getattr(
+            CDATA,
+            "packed_runtime_libraries",
+            None
+        )
+
+        if packed_libraries is None:
+            packed_libraries = {
+                #"libruntime_mini.dll",
+                "libruntime_all.dll",
+                "libdbase2many.32.dll",
+            }
+
+        packed_libraries = {
+            os.path.basename(
+                str(name).strip()
+            ).lower()
+            for name in packed_libraries
+        }
+
+        return normalized in packed_libraries
 
     def class_is_descendant(
         self,
@@ -838,6 +864,97 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return False
     
+
+    def external_import_name(
+        self,
+        spec_ctx
+    ):
+        accessor = getattr(
+            spec_ctx,
+            "externalNameClause",
+            None
+        )
+
+        if accessor is None:
+            return None
+
+        clause = accessor()
+
+        if clause is None:
+            return None
+
+        token = clause.STRING()
+
+        if token is None:
+            return None
+
+        value = self.pascal_token_string(
+            token
+        )
+
+        if not value:
+            raise CompileError(
+                spec_ctx,
+                "E0019",
+                text="external import name must not be empty"
+            )
+
+        return value
+
+
+    def external_import_ordinal(
+        self,
+        spec_ctx
+    ):
+        accessor = getattr(
+            spec_ctx,
+            "externalOrdinalClause",
+            None
+        )
+
+        if accessor is None:
+            return None
+
+        clause = accessor()
+
+        if clause is None:
+            return None
+
+        token = clause.NUMBER()
+
+        if token is None:
+            raise CompileError(
+                spec_ctx,
+                "E0019",
+                text="external ordinal has no numeric value"
+            )
+
+        try:
+            ordinal = int(
+                token.getText(),
+                10
+            )
+        except ValueError:
+            raise CompileError(
+                spec_ctx,
+                "E0019",
+                text=(
+                    "invalid external ordinal: "
+                    + token.getText()
+                )
+            ) from None
+
+        if not 1 <= ordinal <= 0xFFFF:
+            raise CompileError(
+                spec_ctx,
+                "E0019",
+                text=(
+                    f"external ordinal {ordinal} "
+                    "must be in range 1..65535"
+                )
+            )
+
+        return ordinal
 
     def class_metadata_symbol(
         self,
@@ -1612,7 +1729,7 @@ class AsmJitGenerator(PascalParserVisitor):
             str(dll_name).strip()
         ).lower()
 
-        if normalized_dll != "libdbase2many.32.dll":
+        if normalized_dll != "libruntime_mini2.dll":
             return None
 
         name = str(
@@ -1666,7 +1783,7 @@ class AsmJitGenerator(PascalParserVisitor):
             str(dll_name).strip()
         ).lower()
 
-        if normalized_dll != "libdbase2many.32.dll":
+        if normalized_dll != "libruntime_mini3.dll":
             return None
 
         wanted_ordinal = int(
@@ -1849,6 +1966,38 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return convention_text
 
+    def validate_class_methods(
+        self,
+        ctx
+    ):
+        for class_key, cls in self.classes.items():
+            for method_name, overloads in cls.methods.items():
+                for method in overloads:
+
+                    # Geerbte Methode gehört nicht zu dieser Klasse.
+                    if getattr(
+                        method,
+                        "owner",
+                        None
+                    ) != class_key:
+                        continue
+
+                    if not getattr(
+                        method,
+                        "implemented",
+                        False
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                f"{tr('class')} {cls.name} "
+                                f"{tr('method')} "
+                                f"{method.name}"
+                                f"{self.format_method_signature(method.params)} "
+                                f"{tr('is declared but not implemented')}"
+                            )
+                        )
 
     def register_external_routine(
         self,
@@ -1922,53 +2071,71 @@ class AsmJitGenerator(PascalParserVisitor):
         if not os.path.splitext(dll_name)[1]:
             dll_name += ".dll"
 
-        name_token = (
-            spec_ctx.STRING()
-            if hasattr(
-                spec_ctx,
-                "STRING"
-            )
-            else None
+        # ----------------------------------------------------------
+        # Expliziter Importname und explizites Ordinal aus dem
+        # Pascal-Quelltext.
+        # ----------------------------------------------------------
+        import_name = self.external_import_name(
+            spec_ctx
         )
 
-        if name_token is not None:
-            import_name = self.pascal_token_string(
-                name_token
+        ordinal = self.external_import_ordinal(
+            spec_ctx
+        )
+
+        # ----------------------------------------------------------
+        # Weder NAME noch ORDINAL angegeben:
+        # bisheriges Verhalten beibehalten und einen Namen erzeugen.
+        # ----------------------------------------------------------
+        if import_name is None and ordinal is None:
+            import_name = self.fpc_mangle_external_routine(
+                name,
+                params
             )
-        else:
-            import_name = (
-                self.fpc_mangle_external_routine(
-                    name,
-                    params
-                )
+
+        # ----------------------------------------------------------
+        # Wenn kein explizites Ordinal im Pascal-Code steht, darf
+        # weiterhin die bekannte Ordinaltabelle verwendet werden.
+        # ----------------------------------------------------------
+        if ordinal is None and import_name is not None:
+            ordinal = self.find_known_dll_import_ordinal(
+                dll_name,
+                import_name
             )
-        
-        if not import_name:
+
+        if import_name is None and ordinal is None:
             raise CompileError(
                 ctx,
                 "E0019",
-                text="DLL import name must not be empty"
+                text=(
+                    "DLL import requires a name "
+                    "or an ordinal"
+                )
             )
+
+        # make_dll_import_symbol() benötigt einen String.
+        # Bei einem reinen Ordinalimport wird deshalb ein interner,
+        # rein synthetischer Schlüssel erzeugt.
+        symbol_identity = (
+            import_name
+            if import_name is not None
+            else (
+                f"ordinal_{ordinal}_"
+                f"{name}"
+            )
+        )
 
         internal_symbol = self.make_dll_import_symbol(
             dll_name,
-            import_name
-        )
-
-        ordinal = self.find_known_dll_import_ordinal(
-            dll_name,
-            import_name
+            symbol_identity
         )
 
         import_item = {
-            # Name für COFF-Relocation und Import-Thunk
-            "symbol": internal_symbol,
-
-            # Für Diagnose, PUI-Kompatibilität und Fallback beibehalten.
-            # Der NT32Writer bevorzugt automatisch "ordinal", wenn dieses
-            # Feld vorhanden ist; der Name landet dann nicht im PE-Image.
-            "name": import_name
+            "symbol": internal_symbol
         }
+
+        if import_name is not None:
+            import_item["name"] = import_name
 
         if ordinal is not None:
             import_item["ordinal"] = int(
@@ -2610,26 +2777,6 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
-    def validate_class_methods(self, ctx):
-        for class_key, cls in self.classes.items():
-            for method_name, overloads in cls.methods.items():
-                for method in overloads:
-                    
-                    # geerbte Methode gehört nicht zu dieser Klasse
-                    if method.owner != class_key:
-                        continue
-                    
-                    if not method.implemented:
-                        raise CompileError(
-                            ctx,
-                            "E0019",
-                            text = (
-                                f"{tr('class')} {cls.name} {tr('method')} "
-                                f"{method.name}{self.format_method_signature(method.params)} "
-                                f"{tr('is declared but not implemented')}"
-                            )
-                        )
-    
     def normalize_bool_eax(self):
         self.emit_cmp   (REG_EAX, 0)
         self.emit_setne (REG_AL)
@@ -11465,12 +11612,36 @@ class AsmJitGenerator(PascalParserVisitor):
             include_nil=False
         )
 
+        expr_ctx = (
+            ctx.expr()
+            if hasattr(ctx, "expr")
+            else None
+        )
+
+        expr_text = (
+            expr_ctx.getText().strip()
+            if expr_ctx is not None
+            else ""
+        )
+
+        expression_is_zero_literal = (
+            resolved_expr_type == "integer"
+            and expr_text in (
+                "0",
+                "+0",
+                "-0",
+                "$0",
+                "#0"
+            )
+        )
+
         expression_is_nil = (
             resolved_expr_type
             in (
                 "nil",
                 "^nil"
             )
+            or expression_is_zero_literal
         )
 
         if field_is_pointer:
@@ -13304,6 +13475,8 @@ class AsmJitGenerator(PascalParserVisitor):
         # -------------------------------------------------
         # Lokale Deklarationen der Funktion einsammeln.
         # -------------------------------------------------
+        nested_declarations = []
+
         for declaration in ctx.declarationPart():
             if declaration is None:
                 continue
@@ -13329,6 +13502,36 @@ class AsmJitGenerator(PascalParserVisitor):
             if type_section is not None:
                 self.visitTypeSection(
                     type_section
+                )
+                continue
+
+            procedure_declaration = (
+                declaration.procedureDeclaration()
+                if hasattr(
+                    declaration,
+                    "procedureDeclaration"
+                )
+                else None
+            )
+
+            if procedure_declaration is not None:
+                nested_declarations.append(
+                    procedure_declaration
+                )
+                continue
+
+            function_declaration = (
+                declaration.functionDeclaration()
+                if hasattr(
+                    declaration,
+                    "functionDeclaration"
+                )
+                else None
+            )
+
+            if function_declaration is not None:
+                nested_declarations.append(
+                    function_declaration
                 )
                 continue
 
@@ -13426,6 +13629,11 @@ class AsmJitGenerator(PascalParserVisitor):
                     comment="align stack in function"
                 )
 
+        # Verschachtelte Funktionen und Prozeduren erzeugen.
+        for declaration in nested_declarations:
+            self.visit(
+                declaration
+            )
         # -------------------------------------------------
         # Nur den ausführbaren Funktionskörper besuchen.
         # -------------------------------------------------
@@ -14306,7 +14514,10 @@ class AsmJitGenerator(PascalParserVisitor):
     
     def emit_and(self, dst, src, comment=""):
         self.backend.emit_and(dst, src, comment)
-        
+
+    def emit_or(self, dst, src, comment=""):
+        self.backend.emit_or(dst, src, comment)
+
     def emit_xor(self, dst, src, comment=""):
         self.backend.emit_xor(dst, src, comment)
     
@@ -16100,24 +16311,46 @@ class AsmJitGenerator(PascalParserVisitor):
         return result_type
     
     def visitBoolOrExpr(self, ctx):
-        result_type = self.visit(ctx.boolXorExpr(0))
+        operands = ctx.boolXorExpr()
+        result_type = self.visit(operands[0])
 
-         # Kein OR vorhanden: normalen Ausdruck durchreichen
-        if len(ctx.boolXorExpr()) == 1:
+        # Kein OR vorhanden: Typ unverändert weiterreichen.
+        if len(operands) == 1:
             return result_type
 
-        for i in range(1, len(ctx.boolXorExpr())):
-            if result_type != "boolean":
-                raise CompileError(ctx, "E0005", got=result_type, expected="boolean")
+        # Boolean-Subranges werden intern als Integer gespeichert.
+        if result_type not in ("boolean", "integer"):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=result_type,
+                expected="boolean/integer or left"
+            )
 
-            self.emit_push("eax")
+        self.normalize_bool_eax()
 
-            right_type = self.visit(ctx.boolXorExpr(i))
+        for operand in operands[1:]:
+            self.emit_push(
+                "eax",
+                comment="lhs boolean or"
+            )
 
-            if result_type not in ("boolean", "integer"):
-                raise CompileError(ctx, "E0005", got=result_type, expected="boolean/integer or left")
+            right_type = self.visit(operand)
 
-            self.emit_pop("ebx")
+            if right_type not in ("boolean", "integer"):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=right_type,
+                    expected="boolean/integer or right"
+                )
+
+            self.normalize_bool_eax()
+
+            self.emit_pop(
+                "ebx",
+                comment="lhs boolean or"
+            )
 
             self.emit_or("eax", "ebx")
             self.emit_and("eax", 1)
@@ -16196,15 +16429,198 @@ class AsmJitGenerator(PascalParserVisitor):
             .lower()
         )
 
-        self.emit_push(
-            "eax",
-            comment="save left comparison operand"
+        integer_types = (
+            "integer",
+            "byte",
+            "word",
+            "cardinal",
+            "dword",
+            "longint",
+            "smallint",
+            "shortint",
+            "char",
+            "boolean"
         )
+
+        def is_integer_like(type_name):
+            return (
+                type_name in integer_types
+                or self.scalar_base_type(type_name)
+                in (
+                    "integer",
+                    "boolean",
+                    "char"
+                )
+            )
+
+        # ----------------------------------------------------------
+        # Linken Operanden sichern.
+        #
+        # Integer/Pointer: EAX
+        # Double:          XMM0
+        # ----------------------------------------------------------
+        if left_type == "double":
+            self.emit_sub(
+                "rsp",
+                8,
+                comment="save left double comparison operand"
+            )
+
+            self.emit_movsd_store(
+                "rsp",
+                0,
+                "xmm0"
+            )
+        else:
+            self.emit_push(
+                "eax",
+                comment="save left comparison operand"
+            )
 
         right_type = self.visit(
             ctx.addExpr(1)
         )
 
+        # ----------------------------------------------------------
+        # Double-Vergleich, einschließlich gemischter Vergleiche:
+        #
+        #     Double  < Double
+        #     Integer < Double
+        #     Double  < Integer
+        # ----------------------------------------------------------
+        if (
+            left_type == "double"
+            or right_type == "double"
+        ):
+            # Rechten Operanden nach XMM1 übernehmen.
+            if right_type == "double":
+                self.emit_movapd(
+                    "xmm1",
+                    "xmm0"
+                )
+
+            elif is_integer_like(
+                right_type
+            ):
+                self.emit_cvtsi2sd(
+                    "xmm1",
+                    "eax"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=right_type,
+                    expected="integer/double"
+                )
+
+            # Linken Operanden nach XMM0 zurückholen.
+            if left_type == "double":
+                self.emit_movsd_load(
+                    "xmm0",
+                    "rsp",
+                    0
+                )
+
+                self.emit_add(
+                    "rsp",
+                    8,
+                    comment="restore left double comparison operand"
+                )
+
+            elif is_integer_like(
+                left_type
+            ):
+                self.emit_pop(
+                    "eax",
+                    comment="restore left integer comparison operand"
+                )
+
+                self.emit_cvtsi2sd(
+                    "xmm0",
+                    "eax"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=left_type,
+                    expected="integer/double"
+                )
+
+            # Flags für XMM0 (links) gegen XMM1 (rechts).
+            self.emit_ucomisd(
+                "xmm0",
+                "xmm1"
+            )
+
+            true_label = self.new_named_label(
+                "double_compare_true"
+            )
+
+            done_label = self.new_named_label(
+                "double_compare_done"
+            )
+
+            jump_map = {
+                "=":  self.emit_je,
+                "<>": self.emit_jne,
+                "<":  self.emit_jb,
+                "<=": self.emit_jbe,
+                ">":  self.emit_ja,
+                ">=": self.emit_jae,
+            }
+
+            jump = jump_map.get(
+                operator
+            )
+
+            if jump is None:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text=(
+                        "unsupported comparison operator: "
+                        + operator
+                    )
+                )
+
+            # Standardresultat FALSE.
+            self.emit_xor(
+                "eax",
+                "eax",
+                comment="double comparison false"
+            )
+
+            jump(
+                true_label
+            )
+
+            self.emit_jmp(
+                done_label
+            )
+
+            self.emit_bind_label(
+                true_label
+            )
+
+            self.emit_mov_imm(
+                "eax",
+                "1",
+                comment="double comparison true"
+            )
+
+            self.emit_bind_label(
+                done_label
+            )
+
+            return "boolean"
+
+        # ----------------------------------------------------------
+        # Integer- und Pointerwerte zurückholen.
+        # ----------------------------------------------------------
         self.emit_mov(
             "ebx",
             "eax",
@@ -16227,27 +16643,39 @@ class AsmJitGenerator(PascalParserVisitor):
         )
 
         left_is_nil = (
-            left_type in ( "nil", "^nil" )
+            left_type in (
+                "nil",
+                "^nil"
+            )
         )
 
         right_is_nil = (
-            right_type in ( "nil", "^nil" )
+            right_type in (
+                "nil",
+                "^nil"
+            )
         )
 
         # ----------------------------------------------------------
         # Pointer = nil / Pointer <> nil
         # ----------------------------------------------------------
         pointer_comparison = (
-            (left_is_pointer and right_is_nil)
+            (
+                left_is_pointer
+                and right_is_nil
+            )
             or
-            (left_is_nil and right_is_pointer)
+            (
+                left_is_nil
+                and right_is_pointer
+            )
             or
             (
                 left_is_pointer
                 and right_is_pointer
             )
         )
-        
+
         if pointer_comparison:
             if operator not in (
                 "=",
@@ -16264,7 +16692,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 "eax",
                 "ebx"
             )
-            
+
             if operator == "=":
                 self.emit_sete(
                     "al"
@@ -16280,37 +16708,28 @@ class AsmJitGenerator(PascalParserVisitor):
             )
 
             return "boolean"
-        
-        # ----------------------------------------------------------
-        # normale Integervergleiche
-        # ----------------------------------------------------------
-        integer_types = (
-            "integer",
-            "byte",
-            "word",
-            "cardinal",
-            "dword",
-            "longint",
-            "smallint",
-            "shortint",
-            "char",
-            "boolean"
-        )
 
-        if left_type not in integer_types:
+        # ----------------------------------------------------------
+        # Normale Integervergleiche.
+        # ----------------------------------------------------------
+        if not is_integer_like(
+            left_type
+        ):
             raise CompileError(
                 ctx,
                 "E0005",
                 got=left_type,
-                expected="integer"
+                expected="integer/double"
             )
 
-        if right_type not in integer_types:
+        if not is_integer_like(
+            right_type
+        ):
             raise CompileError(
                 ctx,
                 "E0005",
                 got=right_type,
-                expected="integer"
+                expected="integer/double"
             )
 
         self.emit_cmp(
@@ -16352,7 +16771,7 @@ class AsmJitGenerator(PascalParserVisitor):
         )
 
         return "boolean"
-    
+
     def visitRecordDeclaration(self, ctx):
         record_name = ctx.IDENT().getText()
         is_packed = ctx.PACKED() is not None
@@ -18659,15 +19078,37 @@ class AsmJitGenerator(PascalParserVisitor):
         ):
             return None
 
-        directive = (
-            ctx.externalRoutineDirective()
-        )
+        directive = ctx.externalRoutineDirective()
 
         if directive is None:
             return None
 
+        spec_accessor = getattr(
+            directive,
+            "externalRoutineSpec",
+            None
+        )
+
+        spec_ctx = (
+            spec_accessor()
+            if spec_accessor is not None
+            else None
+        )
+
+        if spec_ctx is None:
+            # Nur "external;" – lokales COFF-Symbol.
+            return None
+
+        library_accessor = getattr(
+            spec_ctx,
+            "externalLibrary",
+            None
+        )
+
         library_ctx = (
-            directive.externalLibrary()
+            library_accessor()
+            if library_accessor is not None
+            else None
         )
 
         if library_ctx is None:
@@ -21257,13 +21698,20 @@ class AsmJitGenerator(PascalParserVisitor):
                 ctx.factor()
             )
 
-            if expr_type != "boolean":
+            if expr_type not in ("boolean", "integer"):
                 raise CompileError(
                     ctx,
                     "E0005",
                     got=expr_type,
-                    expected="boolean"
-                )
+                    expected="boolean/integer")
+            
+            #if expr_type != "boolean":
+            #    raise CompileError(
+            #        ctx,
+            #        "E0005",
+            #        got=expr_type,
+            #        expected="boolean"
+            #    )
 
             true_label = self.new_named_label(
                 "not_true"

@@ -37,7 +37,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   for dir in "${CRYPTO_FILES[@]}"; do
     mkdir -p "win32/obj/crypto/$dir"
     echo "assemble: crypto/$dir/$dir.cc"
-    if ! g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+    if ! g++ -O1 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
        -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
        -fno-threadsafe-statics \
        -Wno-write-strings   \
@@ -79,7 +79,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   fi
   for file in "${RUNTIME_FILES[@]}"; do
     echo "assemble: $file.cc"
-    if ! g++ -O2 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
+    if ! g++ -O1 -m32 -std=c++20 -shared -fPIC -DDLL_BUILD -I$BASEDIR -I. \
        -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
        -fno-threadsafe-statics \
        -Wno-write-strings   \
@@ -114,98 +114,178 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   RUNTIME_OBJECTS=("${RUNTIME_FILES[@]/#/win32/obj/}")
   RUNTIME_OBJECTS=("${RUNTIME_OBJECTS[@]/%/.o}")
   
-  if ! ld -r -o win32/obj/runtime_all.o "${RUNTIME_OBJECTS[@]}" win32/obj/setjmp32.o ; then
+  echo "create compact DLL..."
+  if ! gcc -m32 -fPIC -shared -nostdlib -o win32/libruntime_mini.dll \
+     win32/obj/allocator.o \
+     win32/obj/args.o      \
+     win32/obj/dllmain.o   \
+     win32/obj/error.o     \
+     win32/obj/exception.o \
+     win32/obj/iostream.o  \
+     win32/obj/jitObject.o \
+     win32/obj/loader.o    \
+     win32/obj/locale.o    \
+     win32/obj/memory.o    \
+     win32/obj/print.o     \
+     win32/obj/setjmp32.o  \
+     win32/obj/string.o    \
+     win32/obj/vector.o    \
+     win32/obj/windows.o   \
+     win32/libruntime_mini.def \
+     -Wl,--out-implib,win32/libruntime_mini.dll.a; then
      echo "relocation link error."
      exit 1
   fi
-  nm win32/obj/runtime_all.o > win32/obj/1
+  strip win32/libruntime_mini.dll
   
-  #echo "create export .def initions file..."
-  #if ! python makedef.32.py ; then
-  #   echo "Python 3.14 could not be start - error."
-  #   exit 1
-  #fi
-  
-  echo "create 32-bit dll file..."
-  if ! g++ -m32 -shared -fPIC -o win32/libdbase2many.32.dll \
-     -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
-     -fno-threadsafe-statics      \
-     -Wno-write-strings \
-     win32/obj/runtime_all.o      \
-     win32/obj/crypto/blake2/*.o  \
-     win32/obj/crypto/blake3/*.o  \
-     win32/obj/crypto/crc16/*.o   \
-     win32/obj/crypto/crc32/*.o   \
-     win32/obj/crypto/crc32c/*.o  \
-     win32/obj/crypto/crc64/*.o   \
-     win32/obj/crypto/md5/*.o     \
-     win32/obj/crypto/sha1/*.o    \
-     win32/obj/crypto/sha3/*.o    \
-     win32/obj/crypto/sha224/*.o  \
-     win32/obj/crypto/sha256/*.o  \
-     win32/obj/crypto/sha384/*.o  \
-     win32/obj/crypto/sha512/*.o  \
-     win32/libdbase2many.32.def   \
-     -Wl,--out-implib,win32/libdbase2many.32.dll.a ; then
-     echo "32-bit dll file could not create."
+  echo "create ALL in One DLL..."
+  if ! gcc -m32 -fPIC -shared -nostdlib -o win32/libruntime_all.dll \
+     win32/obj/allocator.o \
+     win32/obj/args.o      \
+     win32/obj/dllmain.o   \
+     win32/obj/error.o     \
+     win32/obj/exception.o \
+     win32/obj/iostream.o  \
+     win32/obj/jitObject.o \
+     win32/obj/loader.o    \
+     win32/obj/locale.o    \
+     win32/obj/memory.o    \
+     win32/obj/print.o     \
+     win32/obj/setjmp32.o  \
+     win32/obj/string.o    \
+     win32/obj/vector.o    \
+     win32/obj/windows.o   \
+     \
+     win32/obj/crypto/blake2/blake2.o \
+     win32/obj/crypto/crc16/crc16.o   \
+     win32/obj/crypto/crc32/crc32.o   \
+     win32/obj/crypto/crc32c/crc32c.o \
+     win32/obj/crypto/crc64/crc64.o   \
+     win32/obj/crypto/md5/md5.o       \
+     win32/obj/crypto/sha1/sha1.o     \
+     win32/obj/crypto/sha3/sha3.o     \
+     win32/obj/crypto/sha224/sha224.o \
+     win32/obj/crypto/sha256/sha256.o \
+     win32/obj/crypto/sha384/sha384.o \
+     win32/obj/crypto/sha512/sha512.o \
+     \
+     win32/obj/diskio/diskio.o        \
+     \
+     win32/libruntime_all.def   \
+     -Wl,--out-implib,win32/libruntime_all.dll.a; then
+     echo "relocation link error."
      exit 1
   fi
-
-  echo "strip debug informations..."
-  if ! strip win32/libdbase2many.32.dll ; then
-     echo "debug symbols could not be stripped."
-     exit 1
-  fi
+  strip win32/libruntime_all.dll
+    
   
   echo "compact PE32 DLL sections..."
   if ! python compact_pe32_dll.py   \
-     win32/libdbase2many.32.dll \
-     win32/obj/libdbase2many.32.dll.c --drop-empty-idata ; then
-     echo "PE32 compaction failed."
+     win32/libruntime_mini.dll \
+     win32/libruntime_mini.dll.c --drop-empty-idata ; then
+     echo "PE32:mini compaction failed."
+     exit 1
+  fi
+  if ! python compact_pe32_dll.py   \
+     win32/libruntime_all.dll \
+     win32/libruntime_all.dll.c --drop-empty-idata ; then
+     echo "PE32:all compaction failed."
      exit 1
   fi
 
-  echo "create, and copy ordinals ..."
-  if ! python makedef.32.py --ignore --python ; then
-     echo "could not patch import file..."
-     exit 1
-  fi
+  #echo "create, and copy ordinals ..."
+  #if ! python makedef.32.py --ignore --python ; then
+  #   echo "could not patch import file..."
+  #   exit 1
+  #fi
 
-  echo "check python import file..."
-  if ! python -m py_compile \
-     ../compiler/common/runtime_imports.py \
-     ../compiler/common/types.py ; then
-     echo "python: fail -m py_compile"
-     exit 1
-  fi
+  #echo "check python import file..."
+  #if ! python -m py_compile \
+  #   ../compiler/common/runtime_imports.py \
+  #   ../compiler/common/types.py ; then
+  #   echo "python: fail -m py_compile"
+  #   exit 1
+  #fi
 
-  echo "verify dll exports..."
-  if ! python verify_exports.32.py \
-     win32/libdbase2many.32.dll    \
-     ../compiler/frontend/dllimports.py ; then
-     echo "could not start python."
-     exit 1
-  fi
+  #echo "verify dll exports..."
+  #if ! python verify_exports.32.py \
+  #   win32/libdbase2many.32.dll    \
+  #   ../compiler/frontend/dllimports.py ; then
+  #   echo "could not start python."
+  #   exit 1
+  #fi
   
-  echo "packaging PE32 DLL per zip level 9"
-  if ! python pack_dll.py             \
-     win32/obj/libdbase2many.32.dll.c \
-     win32/obj/libdbase2many.32.dll.z --level 9 ; then
+  echo "packaging PE32:all DLL per zip level 9"
+  if ! python pack_dll.py       \
+     win32/libruntime_all.dll.c \
+     win32/libruntime_all.dll.z --level 9 ; then
+     echo "pack PE32 dll failed."
+     exit 1
+  fi
+  echo "packaging PE32:mini DLL per zip level 9"
+  if ! python pack_dll.py        \
+     win32/libruntime_mini.dll \
+     win32/libruntime_mini.dll.z --level 9 ; then
      echo "pack PE32 dll failed."
      exit 1
   fi
   
   echo "create Windows coff32 .o resource"
+  echo "#include <windows.h>"                > win32/obj/libruntime_all.rc
+  echo "#define IDR_DBASE2MANY_RUNTIME 101" >> win32/obj/libruntime_all.rc
+  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/libruntime_all.dll.z\"" >> win32/obj/libruntime_all.rc
+  echo "#include <windows.h>"                > win32/obj/libruntime_mini.rc
+  echo "#define IDR_DBASE2MANY_RUNTIME 101" >> win32/obj/libruntime_mini.rc
+  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/libruntime_mini.dll.z\"" >> win32/obj/libruntime_mini.rc
   if ! windres \
-     --input  dll_runtime.rc    \
-     --output win32/obj/dll_runtime.o \
+     --input  win32/obj/libruntime_all.rc   \
+     --output win32/libruntime_all.o        \
      --output-format=coff  ; then
      echo "error: windres could not create resource file."
      exit 1
   fi
-  
+  if ! windres \
+     --input  win32/obj/libruntime_mini.rc  \
+     --output win32/libruntime_mini.o       \
+     --output-format=coff  ; then
+     echo "error: windres could not create resource file."
+     exit 1
+  fi
+  if ! cp win32/libruntime_mini.o win32/dll_runtime.o ; then
+     echo "could not copy default (mini) runtime"
+     exit 1
+  fi
+
+  if ! g++ -m32 -O1 -std=c++20 \
+           -nostdinc -fno-exceptions -fno-rtti -nostdlib++ \
+           -fno-threadsafe-statics \
+           -Wno-write-strings   \
+           -fno-builtin-memset  \
+           -fno-builtin-memcpy  \
+           -fno-builtin-memmove \
+           -S dll_runtime_bindings.cc \
+           -o win32/obj/dll_runtime_bindings.s ; then
+       echo "assemble run error."
+       exit 1
+  fi
+  if ! sed -i \
+       -e '/^[[:space:]]*\.ident/d'     \
+       -e '/^[[:space:]]*\.file/d'      \
+       -e '/^[[:space:]]*\.linkonce/d'  \
+       -e '/^[[:space:]]*\.def/d'       \
+       -e '/^[[:space:]]*\.cfi_/d'      \
+       -e 's/\(\.section[[:space:]]*\.text\)\$.*/\1/' \
+       -e '/^[[:space:]]*\.section[[:space:]]*\.note\.GNU\-stack/d' win32/obj/dll_runtime_bindings.s ; then
+       echo "sed error."
+       exit 1
+  fi
+  if ! gcc -o win32/dll_runtime_bindings.o -c win32/obj/dll_runtime_bindings.s ; then
+       echo "gcc could not create dll_runtime_bindings.o"
+       exit 1
+  fi
+
   echo "create faked zlib..."
-  if ! gcc -m32 -O2 \
+  if ! g++ -m32 -O1 \
            -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
            -Wno-builtin-declaration-mismatch \
            -fno-threadsafe-statics \
@@ -230,17 +310,17 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "sed error."
        exit 1
   fi
-  if ! gcc -o win32/obj/dll_inflate.o -c win32/obj/dll_inflate.s ; then
+  if ! gcc -o win32/dll_inflate.o -c win32/obj/dll_inflate.s ; then
      echo "gcc could not create db_inflate.o"
      exit 1
   fi
-  if ! nasm -f win32 -o win32/obj/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
+  if ! nasm -f win32 -o win32/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
      echo "assemlber could not create object file."
      exit 1
   fi
-  
+
   echo "create packed dll loader..."
-  if ! g++ -m32 -O2 \
+  if ! g++ -m32 -O1 \
            -nostdinc -fno-exceptions -fno-rtti -nostdlib   \
            -Wno-builtin-declaration-mismatch \
            -fno-threadsafe-statics \
@@ -264,13 +344,13 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "sed error."
        exit 1
   fi
-  if ! g++ -o win32/obj/dll_loader.o -c win32/obj/dll_loader.s ; then
+  if ! g++ -o win32/dll_loader.o -c win32/obj/dll_loader.s ; then
      echo "g++ could not create packed_dll_loader.o"
      exit 1
   fi
 
   echo "copy dll file..."
-  if ! cp win32/obj/libdbase2many.32.dll.c ../x32/libdbase2many.32.dll ; then
+  if ! cp win32/libruntime_all.dll.c ../x32/libruntime_all.dll ; then
      echo "PE32 dll could not be copied."
      exit 1
   fi

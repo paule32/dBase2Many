@@ -11,6 +11,7 @@ IMPLEMENTATION      : [Ii][Mm][Pp][Ll][Ee][Mm][Ee][Nn][Tt][Aa][Tt][Ii][Oo][Nn] ;
 USES                : [Uu][Ss][Ee][Ss] ;
 
 EXPORTS             : [eE][xX][pP][oO][rR][tT][sS] ;
+ORDINAL             : [Oo][Rr][Dd][Ii][Nn][Aa][Ll] ;
 
 CONST               : [Cc][Oo][Nn][Ss][Tt] ;
 VAR                 : [Vv][Aa][Rr] ;

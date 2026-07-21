@@ -26,19 +26,19 @@ type
         function InheritsFrom(AClass: TClass): Boolean;
     end;
 
-const DLL_FILE = 'libdbase2many.32.dll';
+const DLL_FILE = 'libruntime_mini.dll';
 
-function  _jit_object_instance_new (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_object_instance_new';
-procedure _jit_object_instance_free(AObject: Pointer);          cdecl; external DLL_FILE name '_jit_object_instance_free';
-procedure _jit_object_free         (AObject: Pointer);          cdecl; external DLL_FILE name '_jit_object_free';
-function  _jit_object_class_type   (AObject: Pointer): Pointer; cdecl; external DLL_FILE name '_jit_object_class_type';
+function  _jit_object_instance_new (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_object_instance_new' ordinal 77;
+procedure _jit_object_instance_free(AObject: Pointer);          cdecl; external DLL_FILE name '_jit_object_instance_free' ordinal 78;
+procedure _jit_object_free         (AObject: Pointer);          cdecl; external DLL_FILE name '_jit_object_free' ordinal 79;
+function  _jit_object_class_type   (AObject: Pointer): Pointer; cdecl; external DLL_FILE name '_jit_object_class_type' ordinal 80;
 
-function  _jit_class_parent        (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_class_parent';
-function  _jit_class_name          (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_class_name';
-function  _jit_class_instance_size (AVmt:    Pointer): Integer; cdecl; external DLL_FILE name '_jit_class_instance_size';
+function  _jit_class_parent        (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_class_parent' ordinal 81;
+function  _jit_class_name          (AVmt:    Pointer): Pointer; cdecl; external DLL_FILE name '_jit_class_name' ordinal 82;
+function  _jit_class_instance_size (AVmt:    Pointer): Integer; cdecl; external DLL_FILE name '_jit_class_instance_size' ordinal 83;
 
-function  _jit_inherits_from_class (ACurrentClass: Pointer; AExpectedClass: Pointer): Integer; cdecl; external DLL_FILE name '_jit_inherits_from_class';
-function  _jit_inherits_from_object(AObject:       Pointer; AExpectedClass: Pointer): Boolean; cdecl; external DLL_FILE name '_jit_inherits_from_object';
+function  _jit_inherits_from_class (ACurrentClass: Pointer; AExpectedClass: Pointer): Integer; cdecl; external DLL_FILE name '_jit_inherits_from_class' ordinal 84;
+function  _jit_inherits_from_object(AObject:       Pointer; AExpectedClass: Pointer): Boolean; cdecl; external DLL_FILE name '_jit_inherits_from_object' ordinal 85;
 
 implementation
 

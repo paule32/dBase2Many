@@ -24,6 +24,11 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PascalParser#callingConvention.
+    def visitCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PascalParser#externalRoutineDirective.
     def visitExternalRoutineDirective(self, ctx:PascalParser.ExternalRoutineDirectiveContext):
         return self.visitChildren(ctx)
@@ -34,8 +39,13 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by PascalParser#callingConvention.
-    def visitCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+    # Visit a parse tree produced by PascalParser#externalNameClause.
+    def visitExternalNameClause(self, ctx:PascalParser.ExternalNameClauseContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#externalOrdinalClause.
+    def visitExternalOrdinalClause(self, ctx:PascalParser.ExternalOrdinalClauseContext):
         return self.visitChildren(ctx)
 
 

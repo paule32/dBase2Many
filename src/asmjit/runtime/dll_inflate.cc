@@ -575,18 +575,9 @@ db_inflate_deflate(
     size_t         destination_capacity,
     size_t        *destination_size
 ) {
-    DBBitReader reader;
-    size_t position;
-    unsigned int final_block;
-
-    reader.current = source;
-    reader.end = source + source_size;
-    reader.bits = 0;
-    reader.bit_count = 0;
-    reader.error = 0;
-
-    position = 0;
-    final_block = 0;
+    DBBitReader reader = { source, source + source_size, 0, 0, 0 };
+    size_t position = 0;
+    unsigned int final_block = 0;
 
     while (!final_block) {
         uint32_t value;

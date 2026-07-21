@@ -57,36 +57,36 @@ jit_valid_vmt(JitVmt *vmt)
 }
 
 void JIT_CDECL
-_jit_object_error_set_hook(JitObjectErrorHook hook)
+jit_object_error_set_hook(JitObjectErrorHook hook)
 {
     g_error_hook = hook;
 }
 
 int JIT_CDECL
-_jit_object_error_last(void)
+jit_object_error_last(void)
 {
     return g_last_error;
 }
 
 const char *JIT_CDECL
-_jit_object_error_last_message(void)
+jit_object_error_last_message(void)
 {
     return g_last_error_message;
 }
 
 void JIT_CDECL
-_jit_object_error_clear(void)
+jit_object_error_clear(void)
 {
     g_last_error = JIT_OBJECT_ERROR_NONE;
     g_last_error_message = "";
 }
 
 void *JIT_CDECL
-_jit_object_instance_new(JitVmt *vmt)
+jit_object_instance_new(JitVmt *vmt)
 {
     JitObjectHeader *object_header;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!jit_valid_vmt(vmt))
         return nullptr;
@@ -114,12 +114,12 @@ _jit_object_instance_new(JitVmt *vmt)
 }
 
 void JIT_CDECL
-_jit_object_instance_free(void *instance)
+jit_object_instance_free(void *instance)
 {
     JitObjectHeader *object_header;
     JitVmt *vmt;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!instance)
         return;
@@ -144,16 +144,16 @@ _jit_object_instance_free(void *instance)
 }
 
 void JIT_CDECL
-_jit_object_free(void *instance)
+jit_object_free(void *instance)
 {
     JitVmt *vmt;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!instance)
         return;
 
-    vmt = _jit_object_class_type(instance);
+    vmt = jit_object_class_type(instance);
 
     if (!vmt)
         return;
@@ -166,15 +166,15 @@ _jit_object_free(void *instance)
     if (vmt->destroy)
         vmt->destroy(instance);
 
-    _jit_object_instance_free(instance);
+    jit_object_instance_free(instance);
 }
 
 JitVmt *JIT_CDECL
-_jit_object_class_type(void *instance)
+jit_object_class_type(void *instance)
 {
     JitObjectHeader *object_header;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!instance)
         return nullptr;
@@ -194,9 +194,9 @@ _jit_object_class_type(void *instance)
 }
 
 JitVmt *JIT_CDECL
-_jit_class_parent(JitVmt *vmt)
+jit_class_parent(JitVmt *vmt)
 {
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!jit_valid_vmt(vmt))
         return nullptr;
@@ -205,9 +205,9 @@ _jit_class_parent(JitVmt *vmt)
 }
 
 const char *JIT_CDECL
-_jit_class_name(JitVmt *vmt)
+jit_class_name(JitVmt *vmt)
 {
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!jit_valid_vmt(vmt))
         return nullptr;
@@ -216,9 +216,9 @@ _jit_class_name(JitVmt *vmt)
 }
 
 uint32_t JIT_CDECL
-_jit_class_instance_size(JitVmt *vmt)
+jit_class_instance_size(JitVmt *vmt)
 {
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!jit_valid_vmt(vmt))
         return 0;
@@ -227,11 +227,11 @@ _jit_class_instance_size(JitVmt *vmt)
 }
 
 int JIT_CDECL
-_jit_inherits_from_class(
+jit_inherits_from_class(
     JitVmt *current_class,
     JitVmt *expected_class)
 {
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!current_class || !expected_class)
         return 0;
@@ -248,37 +248,37 @@ _jit_inherits_from_class(
 }
 
 int JIT_CDECL
-_jit_inherits_from_object(
+jit_inherits_from_object(
     void   *instance,
     JitVmt *expected_class)
 {
     JitVmt *current_class;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!instance || !expected_class)
         return 0;
 
-    current_class = _jit_object_class_type(instance);
+    current_class = jit_object_class_type(instance);
 
     if (!current_class)
         return 0;
 
-    return _jit_inherits_from_class(
+    return jit_inherits_from_class(
         current_class,
         expected_class
     );
 }
 
 void *JIT_CDECL
-_jit_get_virtual_vmt(
+jit_get_virtual_vmt(
     JitVmt  *vmt,
     uint32_t slot_index)
 {
     void **slot_table;
     void *method;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
     if (!jit_valid_vmt(vmt))
         return nullptr;
@@ -299,20 +299,20 @@ _jit_get_virtual_vmt(
 }
 
 void *JIT_CDECL
-_jit_get_virtual_object(
+jit_get_virtual_object(
     void     *instance,
     uint32_t  slot_index)
 {
     JitVmt *vmt;
 
-    _jit_object_error_clear();
+    jit_object_error_clear();
 
-    vmt = _jit_object_class_type(instance);
+    vmt = jit_object_class_type(instance);
 
     if (!vmt)
         return nullptr;
 
-    return _jit_get_virtual_vmt(
+    return jit_get_virtual_vmt(
         vmt,
         slot_index
     );

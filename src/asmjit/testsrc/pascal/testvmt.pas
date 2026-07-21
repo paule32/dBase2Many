@@ -6,8 +6,8 @@
 {$link dll_inflate.o}
 {$link dll_loader.o}
 {$link dll_runtime_bindings.o}
-{$link dll_runtime.o}
 {$link dll_runtime_thunks.o}
+{$link dll_runtime.o}
 program testvmt;
 
 uses System.Objects;

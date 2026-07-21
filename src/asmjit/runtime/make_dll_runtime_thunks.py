@@ -30,8 +30,8 @@ def load_runtime_imports(path: Path):
         normalized = Path(str(dll_name)).name.lower()
 
         if normalized in {
-            "libdbase2many.32.dll",
-            "libdbase2many.132.dll",
+            "libruntime_all.dll",
+            "libruntime_mini.dll",
         }:
             matches.extend(items)
 

@@ -119,7 +119,6 @@ JIT_CONTEXT_OFFSETS = {
 }
 
 # ---------------------------------------------------------------------------
-# Ordinal exports of libdbase2many.32.dll
 #
 # Schlüssel:
 #     tatsächlicher C-Funktionsname vor der COFF-Unterstrichdekoration
@@ -132,4 +131,18 @@ LIBDBASE2MANY32_IMPORT_ORDINALS = {
     "_jit_snprintf": 94,
     "_jit_memcpy": 40,
     "_jit_memset": 41,
+    "_jit_object_instance_free": 78,
+
+    "_jit_blake2": 4,
+    "_jit_crc16": 5,
+    "_jit_crc32": 6,
+    "_jit_crc32c": 7,
+    "_jit_crc64": 8,
+    "_jit_md5": 9,
+    "_jit_sha1": 10,
+    "_jit_sha3": 11,
+    "_jit_sha224": 12,
+    "_jit_sha256": 13,
+    "_jit_sha384": 14,
+    "_jit_sha512": 15,
 }

@@ -32,5 +32,5 @@ g++ -O2 -m64 -std=c++20 -s -shared -fPIC -Wl,--subsystem,console obj/*.64.o  -L.
 gendef dbase2many.32.dll
 gendef dbase2many.64.dll
 
-dlltool -d dbase2many.32.def -l libdbase2many.32.dll.a
-dlltool -d dbase2many.64.def -l libdbase2many.32.dll.a
+::dlltool -d dbase2many.32.def -l libdbase2many.32.dll.a
+::dlltool -d dbase2many.64.def -l libdbase2many.32.dll.a

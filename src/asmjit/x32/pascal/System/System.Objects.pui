@@ -21,46 +21,7 @@
         "interface": [],
         "implementation": []
     },
-    "imports": {
-        "libdbase2many.32.dll": [
-            {
-                "symbol": "__dllimp_0_libdbase2many_32_dll__jit_object_instance_new",
-                "name": "_jit_object_instance_new"
-            },
-            {
-                "symbol": "__dllimp_1_libdbase2many_32_dll__jit_object_instance_free",
-                "name": "_jit_object_instance_free"
-            },
-            {
-                "symbol": "__dllimp_2_libdbase2many_32_dll__jit_object_free",
-                "name": "_jit_object_free"
-            },
-            {
-                "symbol": "__dllimp_3_libdbase2many_32_dll__jit_object_class_type",
-                "name": "_jit_object_class_type"
-            },
-            {
-                "symbol": "__dllimp_4_libdbase2many_32_dll__jit_class_parent",
-                "name": "_jit_class_parent"
-            },
-            {
-                "symbol": "__dllimp_5_libdbase2many_32_dll__jit_class_name",
-                "name": "_jit_class_name"
-            },
-            {
-                "symbol": "__dllimp_6_libdbase2many_32_dll__jit_class_instance_size",
-                "name": "_jit_class_instance_size"
-            },
-            {
-                "symbol": "__dllimp_7_libdbase2many_32_dll__jit_inherits_from_class",
-                "name": "_jit_inherits_from_class"
-            },
-            {
-                "symbol": "__dllimp_8_libdbase2many_32_dll__jit_inherits_from_object",
-                "name": "_jit_inherits_from_object"
-            }
-        ]
-    },
+    "imports": {},
     "initialization": {
         "symbol": "_SYSTEM_OBJECTS$$_INIT"
     },

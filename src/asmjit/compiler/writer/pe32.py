@@ -609,6 +609,83 @@ class PE32Writer:
         self.archive_files      = []
         self.archives           = []
 
+    def collect_link_defined_symbols(
+        self
+    ):
+        defined = set()
+
+        # Symbole aus dem vom Pascal-Compiler erzeugten Hauptobjekt.
+        for symbol in self.symbols:
+            if not isinstance(
+                symbol,
+                dict
+            ):
+                continue
+
+            name = symbol.get(
+                "name"
+            )
+
+            section = int(
+                symbol.get(
+                    "section",
+                    0
+                )
+            )
+
+            if name and section > 0:
+                defined.add(
+                    name
+                )
+
+        # Symbole aus bereits geladenen externen COFF-Objekten.
+        for obj in self.coff_objects:
+            defined.update(
+                obj.get_defined_symbols()
+            )
+
+        return defined
+    
+    def collect_link_undefined_symbols(
+        self
+    ):
+        undefined = set()
+
+        # Externe Referenzen des Pascal-Hauptobjekts.
+        for symbol in self.symbols:
+            if not isinstance(
+                symbol,
+                dict
+            ):
+                continue
+
+            name = symbol.get(
+                "name"
+            )
+
+            section = int(
+                symbol.get(
+                    "section",
+                    0
+                )
+            )
+
+            if name and section == 0:
+                undefined.add(
+                    name
+                )
+
+        # Externe Referenzen bereits eingebundener COFF-Dateien.
+        for obj in self.coff_objects:
+            undefined.update(
+                obj.get_undefined_symbols()
+            )
+
+        return (
+            undefined
+            - self.collect_link_defined_symbols()
+        )
+
     def _coff_section_alignment(
         self,
         characteristics
@@ -1400,6 +1477,8 @@ class PE32Writer:
         )
 
     def resolve_archive_objects(self):
+        # self.archive_files enthält Strings.
+        # self.archives enthält danach ArArchiveReader-Objekte.
         self.load_archives()
 
         changed = True
@@ -1407,25 +1486,59 @@ class PE32Writer:
         while changed:
             changed = False
 
-            unresolved = self.collect_unresolved_symbols()
+            unresolved = (
+                self.collect_unresolved_symbols()
+            )
 
             if not unresolved:
                 break
 
             for archive in self.archives:
-                for symbol in list(unresolved):
-                    members = archive.find_members_for_symbol(symbol)
+                for symbol in sorted(
+                    unresolved
+                ):
+                    members = (
+                        archive.find_members_for_symbol(
+                            symbol
+                        )
+                    )
 
                     for member in members:
                         if member.loaded:
                             continue
 
-                        obj = Coff32Reader.from_bytes(member.data)
+                        obj = Coff32Reader.from_bytes(
+                            member.data
+                        )
 
-                        self.add_coff_object(obj)
+                        self.add_coff_object(
+                            obj
+                        )
 
                         member.loaded = True
                         changed = True
+
+                        if getattr(
+                            CDATA,
+                            "debug_mode",
+                            False
+                        ):
+                            print(
+                                "ARCHIVE MEMBER:",
+                                member.name,
+                                "resolves:",
+                                symbol
+                            )
+
+                        # Nach jedem geladenen Mitglied die Menge
+                        # der offenen Symbole neu bestimmen.
+                        break
+
+                    if changed:
+                        break
+
+                if changed:
+                    break
     
     def normalize_link_path(self, name):
         name = name.strip()
@@ -1458,12 +1571,26 @@ class PE32Writer:
         if filename not in CDATA.link_object_files:
             CDATA.link_object_files.append(filename)
 
-    def add_link_archive(self, name):
-        filename = self.resolve_link_archive_name(name)
+    def add_link_archive(
+        self,
+        name
+    ):
+        if (
+            os.path.isfile(name)
+            and os.path.splitext(name)[1].lower() == ".a"
+        ):
+            filename = os.path.abspath(
+                name
+            )
+        else:
+            filename = self.resolve_link_archive_name(
+                name
+            )
 
-        if filename not in CDATA.link_archive_files:
-            CDATA.link_archive_files.append(filename)
-            self.add_archive_file(filename)
+        if filename not in self.archive_files:
+            self.archive_files.append(
+                filename
+            )
     
     def add_archive_file(self, filename):
         self.archive_files.append(filename)
@@ -1507,9 +1634,9 @@ class PE32Writer:
         self.archives = []
 
         for filename in self.archive_files:
-            ar = ArArchiveReader.read(filename)
-            ar.build_symbol_index(Coff32Reader)
-            self.archives.append(ar)
+            archive = ArArchiveReader.read(filename)
+            archive.build_symbol_index(Coff32Reader)
+            self.archives.append(archive)
     
     def section_rva(self, name):
         if name == ".text":

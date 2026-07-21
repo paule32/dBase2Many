@@ -35,6 +35,15 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PascalParser#callingConvention.
+    def enterCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#callingConvention.
+    def exitCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+        pass
+
+
     # Enter a parse tree produced by PascalParser#externalRoutineDirective.
     def enterExternalRoutineDirective(self, ctx:PascalParser.ExternalRoutineDirectiveContext):
         pass
@@ -53,12 +62,21 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by PascalParser#callingConvention.
-    def enterCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+    # Enter a parse tree produced by PascalParser#externalNameClause.
+    def enterExternalNameClause(self, ctx:PascalParser.ExternalNameClauseContext):
         pass
 
-    # Exit a parse tree produced by PascalParser#callingConvention.
-    def exitCallingConvention(self, ctx:PascalParser.CallingConventionContext):
+    # Exit a parse tree produced by PascalParser#externalNameClause.
+    def exitExternalNameClause(self, ctx:PascalParser.ExternalNameClauseContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#externalOrdinalClause.
+    def enterExternalOrdinalClause(self, ctx:PascalParser.ExternalOrdinalClauseContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#externalOrdinalClause.
+    def exitExternalOrdinalClause(self, ctx:PascalParser.ExternalOrdinalClauseContext):
         pass
 
 

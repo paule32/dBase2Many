@@ -26,6 +26,20 @@ enum {
     DB_INFLATE_BAD_ADLER32      = -9
 };
 
+extern "C" int db_inflate_raw(
+    const unsigned char *source,
+    unsigned int source_size,
+    unsigned char *destination,
+    unsigned int destination_capacity,
+    unsigned int *destination_size
+);
+
+extern "C" unsigned int db_crc32(
+    const void *data,
+    unsigned int size
+);
+
+/*
 int db_inflate_raw(
     const uint8_t * source,
     size_t          source_size,
@@ -38,7 +52,7 @@ uint32_t db_crc32(
     const void * data,
     size_t       size
 );
-
+*/
 
 #ifdef __cplusplus
 }

@@ -67,34 +67,34 @@ enum {
 DLL_API void JIT_CDECL
 _jit_object_set_error_hook(JitObjectErrorHook hook);
 
-DLL_API int          JIT_CDECL _jit_object_error_last        (void);
-DLL_API const char * JIT_CDECL _jit_object_error_last_message(void);
-DLL_API void         JIT_CDECL _jit_object_error_clear       (void);
+DLL_API int          JIT_CDECL jit_object_error_last        (void);
+DLL_API const char * JIT_CDECL jit_object_error_last_message(void);
+DLL_API void         JIT_CDECL jit_object_error_clear       (void);
 
 // ---------------------------------------------------------------------------
 // Allocation and destruction
 // ---------------------------------------------------------------------------
-DLL_API void * JIT_CDECL _jit_object_new_instance(JitVmt *vmt);
+DLL_API void * JIT_CDECL jit_object_new_instance(JitVmt *vmt);
 
-DLL_API void   JIT_CDECL _jit_object_free_instance(void *instance);
-DLL_API void   JIT_CDECL _jit_object_free         (void *instance);
+DLL_API void   JIT_CDECL jit_object_free_instance(void *instance);
+DLL_API void   JIT_CDECL jit_object_free         (void *instance);
 
 // ---------------------------------------------------------------------------
 // Object and class information
 // ---------------------------------------------------------------------------
-DLL_API JitVmt     * JIT_CDECL _jit_object_class_type(void *instance);
-DLL_API JitVmt     * JIT_CDECL _jit_class_parent        (JitVmt *vmt);
-DLL_API const char * JIT_CDECL _jit_class_name          (JitVmt *vmt);
-DLL_API uint32_t     JIT_CDECL _jit_class_instance_size (JitVmt *vmt);
+DLL_API JitVmt     * JIT_CDECL jit_object_class_type(void *instance);
+DLL_API JitVmt     * JIT_CDECL jit_class_parent        (JitVmt *vmt);
+DLL_API const char * JIT_CDECL jit_class_name          (JitVmt *vmt);
+DLL_API uint32_t     JIT_CDECL jit_class_instance_size (JitVmt *vmt);
 
-DLL_API int JIT_CDECL _jit_inherits_from_class (JitVmt *current_class, JitVmt *expected_class);
-DLL_API int JIT_CDECL _jit_inherits_from_object(void   *instance,      JitVmt *expected_class);
+DLL_API int JIT_CDECL jit_inherits_from_class (JitVmt *current_class, JitVmt *expected_class);
+DLL_API int JIT_CDECL jit_inherits_from_object(void   *instance,      JitVmt *expected_class);
 
 // ---------------------------------------------------------------------------
 // Virtual method lookup
 // ---------------------------------------------------------------------------
-DLL_API void * JIT_CDECL _jit_get_virtual_vmt   (JitVmt  *vmt,      uint32_t slot_index);
-DLL_API void * JIT_CDECL _jit_get_virtual_object(void    *instance, uint32_t slot_index);
+DLL_API void * JIT_CDECL jit_get_virtual_vmt   (JitVmt  *vmt,      uint32_t slot_index);
+DLL_API void * JIT_CDECL jit_get_virtual_object(void    *instance, uint32_t slot_index);
 
 # ifdef __cplusplus
 };

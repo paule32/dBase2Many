@@ -21,24 +21,31 @@ routineCallingConvention
     : callingConvention SEMI
     ;
 
+callingConvention
+    : CDECL
+    | STDCALL
+    | PASCAL
+    ;
+
 externalRoutineDirective
-    : EXTERNAL
-      (
-          externalLibrary
-          (NAME (STRING | IDENT))?
+    : EXTERNAL 
+      ( externalLibrary
+        externalNameClause?
+        externalOrdinalClause?
       )?
       SEMI
     ;
 
 externalLibrary
-    : STRING
-    | IDENT
+    : STRING | IDENT
     ;
-    
-callingConvention
-    : CDECL
-    | STDCALL
-    | PASCAL
+
+externalNameClause
+    : NAME STRING
+    ;
+
+externalOrdinalClause
+    : ORDINAL NUMBER
     ;
 
 programFile

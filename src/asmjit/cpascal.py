@@ -615,7 +615,7 @@ def main():
     except AttributeError as e:
         print(f"{tr('Error')}: {tr('Attribute Error')}")
         print(f"Text : {str(e)}")
-        if CDATA.args_verbose:
+        if CDATA.args_verbose == False:
             import traceback
             traceback.print_exc()
         return 2

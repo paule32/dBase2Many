@@ -926,24 +926,71 @@ class NT32Writer:
     def validate_imports_complete(self):
         used = self.collect_used_external_symbols()
 
-        # Externe Symbole aus eingebundenen C-/C++-Objekten automatisch
-        # auf bekannte Runtime-Ordinale abbilden.
-        self.register_known_runtime_ordinal_imports(
-            used
-        )
+        imported = set()
 
-        known = set()
-        
         for dll_name, funcs in self.imports.items():
             for func in funcs:
-                known.add(self.import_internal_name(func))
+                imported.add(
+                    self.import_internal_name(
+                        func
+                    )
+                )
 
-        missing = used - known
+        linked = set()
+
+        # Definitionen aus dem Pascal-Hauptobjekt.
+        for symbol in self.coff.symbols:
+            if not isinstance(
+                symbol,
+                dict
+            ):
+                continue
+
+            name = symbol.get(
+                "name"
+            )
+
+            section = int(
+                symbol.get(
+                    "section",
+                    0
+                )
+            )
+
+            if name and section > 0:
+                linked.add(
+                    name
+                )
+
+        # Definitionen aus {$link} und {$linklib}.
+        for obj in self.coff.coff_objects:
+            linked.update(
+                obj.get_defined_symbols()
+            )
+
+        # Falls register_coff_symbols bereits ausgeführt wurde.
+        linked.update(
+            getattr(
+                self.coff,
+                "external_symbols",
+                {}
+            ).keys()
+        )
+
+        missing = (
+            used
+            - imported
+            - linked
+        )
 
         if missing:
             raise RuntimeError(
-                "external symbols not listed in imports: " +
-                ", ".join(sorted(missing))
+                "external symbols unresolved and not imported: "
+                + ", ".join(
+                    sorted(
+                        missing
+                    )
+                )
             )
     
     def register_coff_symbols(self, text_rva, data_rva):
@@ -1298,7 +1345,7 @@ class NT32Writer:
         self,
         used_symbols
     ):
-        dll_name = "libdbase2many.32.dll"
+        dll_name = "libruntime_mini.dll"
 
         imports = self.imports.setdefault(
             dll_name,
@@ -1519,12 +1566,21 @@ class NT32Writer:
 
         return data
 
+    @staticmethod
+    def _trim_trailing_zero_bytes(data):
+        end = len(data)
+
+        while end > 0 and data[end - 1] == 0:
+            end -= 1
+
+        return bytearray(data[:end])
+
     def write(self, filename):
         if CDATA.debug_mode:
             print(
-            "NT32Writer.write called:",
-            "DLL" if self.is_dll else "EXE",
-            filename
+                "NT32Writer.write called:",
+                "DLL" if self.is_dll else "EXE",
+                filename
             )
 
         if self.is_dll:
@@ -1549,11 +1605,24 @@ class NT32Writer:
         self.validate_imports_complete()
         self.imports = self.filtered_imports()
 
-        dos_header = bytearray(64)
-        dos_header[0:2] = b"MZ"
-        struct.pack_into("<I", dos_header, 0x3C, 0x80)
+        # ------------------------------------------------------------------
+        # Minimaler DOS-Header:
+        #
+        # e_lfanew liegt zwingend bei Offset 0x3C. Daher sind 0x40 Bytes
+        # die kleinste sinnvolle DOS-Headergröße. Ein DOS-Stub ist für das
+        # Windows-PE-Image nicht erforderlich.
+        # ------------------------------------------------------------------
+        pe_offset = 0x40
 
-        dos_stub = bytearray(0x80 - len(dos_header))
+        dos_header = bytearray(pe_offset)
+        dos_header[0:2] = b"MZ"
+        struct.pack_into(
+            "<I",
+            dos_header,
+            0x3C,
+            pe_offset
+        )
+
         pe_sig = b"PE\x00\x00"
 
         has_exports = self.is_dll and bool(
@@ -1562,11 +1631,19 @@ class NT32Writer:
 
         has_resources = bool(self.rsrc)
 
+        has_imports = any(
+            bool(functions)
+            for functions in self.imports.values()
+        )
+
+        # .text und .data werden immer erzeugt.
         number_of_sections = (
-            3
+            2
+            + (1 if has_imports else 0)
             + (1 if has_resources else 0)
             + (1 if has_exports else 0)
         )
+
         size_of_optional_header = 0xE0
         section_header_size = 40
 
@@ -1593,22 +1670,22 @@ class NT32Writer:
         )
 
         headers_size = self.align(
-            0x80 + 4 + 20 + size_of_optional_header +
-            number_of_sections * section_header_size,
+            pe_offset
+            + 4
+            + 20
+            + size_of_optional_header
+            + number_of_sections * section_header_size,
             self.FILE_ALIGNMENT
         )
 
+        # ------------------------------------------------------------------
+        # Virtuelles Layout
+        # ------------------------------------------------------------------
         text_image = self.build_text_with_import_thunks()
 
         self.text_rva = self.SECTION_ALIGN
         text_rva = self.text_rva
-
-        text_raw = headers_size
         text_virtual_size = max(1, len(text_image))
-        text_raw_size = self.align(
-            text_virtual_size,
-            self.FILE_ALIGNMENT
-        )
 
         self.data_rva = self.align(
             text_rva + text_virtual_size,
@@ -1616,48 +1693,54 @@ class NT32Writer:
         )
         data_rva = self.data_rva
 
-        data_raw = text_raw + text_raw_size
+        # data_virtual_size muss die vollständige Speicherausdehnung behalten.
         data_image = bytearray(self.data)
         data_virtual_size = max(1, len(data_image))
-        data_raw_size = self.align(
-            data_virtual_size,
-            self.FILE_ALIGNMENT
-        )
 
-        idata_rva = self.align(
+        next_rva = self.align(
             data_rva + data_virtual_size,
             self.SECTION_ALIGN
         )
-        idata_raw = data_raw + data_raw_size
-        idata = self.build_import_section_by_ord(idata_rva)
-        idata_virtual_size = max(1, len(idata))
-        idata_raw_size = self.align(
-            idata_virtual_size,
-            self.FILE_ALIGNMENT
-        )
 
-        rsrc_image = bytearray(self.rsrc)
-        rsrc_rva = 0
-        rsrc_raw = 0
-        rsrc_virtual_size = 0
-        rsrc_raw_size = 0
+        idata = bytearray()
+        idata_rva = 0
+        idata_virtual_size = 0
 
-        if has_resources:
-            rsrc_rva = self.align(
+        if has_imports:
+            idata_rva = next_rva
+            idata = self.build_import_section_by_ord(
+                idata_rva
+            )
+            idata_virtual_size = max(
+                1,
+                len(idata)
+            )
+
+            next_rva = self.align(
                 idata_rva + idata_virtual_size,
                 self.SECTION_ALIGN
             )
-            rsrc_raw = idata_raw + idata_raw_size
+
+        rsrc_image = bytearray(self.rsrc)
+        rsrc_rva = 0
+        rsrc_virtual_size = 0
+
+        if has_resources:
+            rsrc_rva = next_rva
             rsrc_virtual_size = len(rsrc_image)
-            rsrc_raw_size = self.align(
-                rsrc_virtual_size,
-                self.FILE_ALIGNMENT
+
+            next_rva = self.align(
+                rsrc_rva + rsrc_virtual_size,
+                self.SECTION_ALIGN
             )
 
         self.rsrc_rva = rsrc_rva
 
         # All Pascal and linked-object symbols now receive their final RVA.
-        self.register_coff_symbols(text_rva, data_rva)
+        self.register_coff_symbols(
+            text_rva,
+            data_rva
+        )
 
         self.patch_coff_relocations(
             text_image,
@@ -1667,95 +1750,191 @@ class NT32Writer:
             data_rva,
             rsrc_rva
         )
+
         self.patch_internal_relocations(
             text_image,
             data_image,
             text_rva,
             data_rva
         )
+
         self.patch_external_call_relocations(
             text_image,
             text_rva
         )
-        self.patch_import_thunks(text_image)
+
+        if has_imports:
+            self.patch_import_thunks(
+                text_image
+            )
 
         edata = bytearray()
         edata_rva = 0
-        edata_raw = 0
         edata_virtual_size = 0
-        edata_raw_size = 0
 
         if has_exports:
-            previous_rva_end = (
-                rsrc_rva + rsrc_virtual_size
-                if has_resources
-                else idata_rva + idata_virtual_size
+            edata_rva = next_rva
+            edata = self.build_export_section(
+                edata_rva
             )
+            edata_virtual_size = len(edata)
 
-            previous_raw_end = (
-                rsrc_raw + rsrc_raw_size
-                if has_resources
-                else idata_raw + idata_raw_size
-            )
-
-            edata_rva = self.align(
-                previous_rva_end,
+            next_rva = self.align(
+                edata_rva + edata_virtual_size,
                 self.SECTION_ALIGN
             )
-            edata_raw = previous_raw_end
-            edata = self.build_export_section(edata_rva)
-            edata_virtual_size = len(edata)
+
+        # ------------------------------------------------------------------
+        # Physisches Dateilayout
+        #
+        # Erst NACH allen Relocation-Patches dürfen trailing Nullbytes aus
+        # .data entfernt werden. Sonst könnten später gepatchte Werte fehlen.
+        # ------------------------------------------------------------------
+        data_file_image = self._trim_trailing_zero_bytes(
+            data_image
+        )
+
+        data_initialized_size = len(
+            data_file_image
+        )
+
+        text_raw = headers_size
+        text_raw_size = self.align(
+            len(text_image),
+            self.FILE_ALIGNMENT
+        )
+
+        raw_cursor = (
+            text_raw
+            + text_raw_size
+        )
+
+        # Bei einer vollständig nullinitialisierten .data-Section wird kein
+        # Dateiblock benötigt. PointerToRawData ist dann 0.
+        if data_initialized_size > 0:
+            data_raw = raw_cursor
+            data_raw_size = self.align(
+                data_initialized_size,
+                self.FILE_ALIGNMENT
+            )
+            raw_cursor += data_raw_size
+            data_characteristics = 0xC0000040
+        else:
+            data_raw = 0
+            data_raw_size = 0
+            data_characteristics = 0xC0000080
+
+        if has_imports:
+            idata_raw = raw_cursor
+            idata_raw_size = self.align(
+                idata_virtual_size,
+                self.FILE_ALIGNMENT
+            )
+            raw_cursor += idata_raw_size
+        else:
+            idata_raw = 0
+            idata_raw_size = 0
+
+        if has_resources:
+            rsrc_raw = raw_cursor
+            rsrc_raw_size = self.align(
+                rsrc_virtual_size,
+                self.FILE_ALIGNMENT
+            )
+            raw_cursor += rsrc_raw_size
+        else:
+            rsrc_raw = 0
+            rsrc_raw_size = 0
+
+        if has_exports:
+            edata_raw = raw_cursor
             edata_raw_size = self.align(
                 edata_virtual_size,
                 self.FILE_ALIGNMENT
             )
+            raw_cursor += edata_raw_size
+        else:
+            edata_raw = 0
+            edata_raw_size = 0
 
+        # ------------------------------------------------------------------
+        # Entry point
+        # ------------------------------------------------------------------
         if self.is_dll:
             entry_label = getattr(
                 self.coff,
                 "dll_entry_label",
                 None
             )
+
             entry_rva = (
                 self.resolve_label_rva(entry_label)
                 if entry_label
                 else 0
             )
         else:
-            entry_rva = text_rva + self.find_entrypoint()
+            entry_rva = (
+                text_rva
+                + self.find_entrypoint()
+            )
 
-        if has_exports:
-            image_end_rva = edata_rva + edata_virtual_size
-        elif has_resources:
-            image_end_rva = rsrc_rva + rsrc_virtual_size
-        else:
-            image_end_rva = idata_rva + idata_virtual_size
-
-        size_of_image = self.align(
-            image_end_rva,
-            self.SECTION_ALIGN
+        # next_rva ist bereits auf SECTION_ALIGN aufgerundet.
+        size_of_image = max(
+            self.SECTION_ALIGN,
+            next_rva
         )
 
         initialized_data_size = (
-            data_raw_size +
-            idata_raw_size +
-            rsrc_raw_size +
-            edata_raw_size
+            data_raw_size
+            + idata_raw_size
+            + rsrc_raw_size
+            + edata_raw_size
         )
 
+        # Nur eine vollständig dateilose .data-Section wird hier als echte
+        # uninitialisierte Section gezählt. Bei einer gemischten .data-Section
+        # genügt VirtualSize > SizeOfRawData für das Zero-Fill.
+        uninitialized_data_size = (
+            data_virtual_size
+            if data_raw_size == 0
+            else 0
+        )
+
+        # ------------------------------------------------------------------
+        # Optional Header
+        # ------------------------------------------------------------------
         optional_header = bytearray()
-        optional_header += struct.pack("<H", 0x10B)
-        optional_header += struct.pack("<BB", 6, 0)
+        optional_header += struct.pack(
+            "<H",
+            0x10B
+        )
+        optional_header += struct.pack(
+            "<BB",
+            6,
+            0
+        )
         optional_header += struct.pack(
             "<III",
             text_raw_size,
             initialized_data_size,
-            0
+            uninitialized_data_size
         )
-        optional_header += struct.pack("<I", entry_rva)
-        optional_header += struct.pack("<I", text_rva)
-        optional_header += struct.pack("<I", data_rva)
-        optional_header += struct.pack("<I", self.IMAGE_BASE)
+        optional_header += struct.pack(
+            "<I",
+            entry_rva
+        )
+        optional_header += struct.pack(
+            "<I",
+            text_rva
+        )
+        optional_header += struct.pack(
+            "<I",
+            data_rva
+        )
+        optional_header += struct.pack(
+            "<I",
+            self.IMAGE_BASE
+        )
         optional_header += struct.pack(
             "<II",
             self.SECTION_ALIGN,
@@ -1769,14 +1948,30 @@ class NT32Writer:
             3, 50
         )
 
-        optional_header += struct.pack("<I", 0)
-        optional_header += struct.pack("<I", size_of_image)
-        optional_header += struct.pack("<I", headers_size)
-        optional_header += struct.pack("<I", 0)
+        optional_header += struct.pack(
+            "<I",
+            0
+        )
+        optional_header += struct.pack(
+            "<I",
+            size_of_image
+        )
+        optional_header += struct.pack(
+            "<I",
+            headers_size
+        )
+        optional_header += struct.pack(
+            "<I",
+            0
+        )
 
         # Subsystem is largely irrelevant for a DLL. Keep console for
         # compatibility with the existing NT32 runtime.
-        optional_header += struct.pack("<HH", 3, 0)
+        optional_header += struct.pack(
+            "<HH",
+            3,
+            0
+        )
 
         optional_header += struct.pack(
             "<IIIIII",
@@ -1788,7 +1983,9 @@ class NT32Writer:
             16
         )
 
-        data_directories = bytearray(16 * 8)
+        data_directories = bytearray(
+            16 * 8
+        )
 
         if has_exports:
             struct.pack_into(
@@ -1799,13 +1996,14 @@ class NT32Writer:
                 len(edata)
             )
 
-        struct.pack_into(
-            "<II",
-            data_directories,
-            self.IMAGE_DIRECTORY_ENTRY_IMPORT * 8,
-            idata_rva,
-            len(idata)
-        )
+        if has_imports:
+            struct.pack_into(
+                "<II",
+                data_directories,
+                self.IMAGE_DIRECTORY_ENTRY_IMPORT * 8,
+                idata_rva,
+                len(idata)
+            )
 
         if has_resources:
             struct.pack_into(
@@ -1824,6 +2022,9 @@ class NT32Writer:
                 f"{len(optional_header)}"
             )
 
+        # ------------------------------------------------------------------
+        # Section Headers
+        # ------------------------------------------------------------------
         text_section_header = struct.pack(
             "<8sIIIIIIHHI",
             b".text\x00\x00\x00",
@@ -1843,24 +2044,24 @@ class NT32Writer:
             data_raw_size,
             data_raw,
             0, 0, 0, 0,
-            0xC0000040
-        )
-
-        idata_section_header = struct.pack(
-            "<8sIIIIIIHHI",
-            b".idata\x00\x00",
-            idata_virtual_size,
-            idata_rva,
-            idata_raw_size,
-            idata_raw,
-            0, 0, 0, 0,
-            0xC0000040
+            data_characteristics
         )
 
         section_headers = bytearray()
         section_headers += text_section_header
         section_headers += data_section_header
-        section_headers += idata_section_header
+
+        if has_imports:
+            section_headers += struct.pack(
+                "<8sIIIIIIHHI",
+                b".idata\x00\x00",
+                idata_virtual_size,
+                idata_rva,
+                idata_raw_size,
+                idata_raw,
+                0, 0, 0, 0,
+                0xC0000040
+            )
 
         if has_resources:
             section_headers += struct.pack(
@@ -1886,33 +2087,76 @@ class NT32Writer:
                 0x40000040
             )
 
+        # ------------------------------------------------------------------
+        # Image schreiben
+        # ------------------------------------------------------------------
         image = bytearray()
         image += dos_header
-        image += dos_stub
         image += pe_sig
         image += file_header
         image += optional_header
         image += section_headers
 
-        self.pad_to(image, text_raw)
+        self.pad_to(
+            image,
+            text_raw
+        )
 
         image += text_image
-        self.pad_to(image, text_raw + text_raw_size)
+        self.pad_to(
+            image,
+            text_raw + text_raw_size
+        )
 
-        image += data_image
-        self.pad_to(image, data_raw + data_raw_size)
+        if data_raw_size > 0:
+            self.pad_to(
+                image,
+                data_raw
+            )
+            image += data_file_image
+            self.pad_to(
+                image,
+                data_raw + data_raw_size
+            )
 
-        image += idata
-        self.pad_to(image, idata_raw + idata_raw_size)
+        if has_imports:
+            self.pad_to(
+                image,
+                idata_raw
+            )
+            image += idata
+            self.pad_to(
+                image,
+                idata_raw + idata_raw_size
+            )
 
         if has_resources:
+            self.pad_to(
+                image,
+                rsrc_raw
+            )
             image += rsrc_image
-            self.pad_to(image, rsrc_raw + rsrc_raw_size)
+            self.pad_to(
+                image,
+                rsrc_raw + rsrc_raw_size
+            )
 
         if has_exports:
+            self.pad_to(
+                image,
+                edata_raw
+            )
             image += edata
-            self.pad_to(image, edata_raw + edata_raw_size)
+            self.pad_to(
+                image,
+                edata_raw + edata_raw_size
+            )
 
-        with open(filename, "wb") as stream:
-            stream.write(image)
-
+        with open(
+            filename,
+            "wb"
+        ) as stream:
+            stream.write(
+                image
+            )
+        

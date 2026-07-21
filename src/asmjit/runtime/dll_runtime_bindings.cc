@@ -39,6 +39,26 @@ clear_runtime_table(void)
     }
 }
 
+unsigned int check_ordinal(unsigned int ordinal)
+{
+    if (ordinal >= 1 && ordinal <= 3)
+        return 1;
+
+    if (ordinal == 16)
+        return 1;
+
+    if (ordinal >= 31 && ordinal <= 98)
+        return 1;
+
+    if (ordinal >= 129 && ordinal <= 144)
+        return 1;
+
+    if (ordinal >= 150 && ordinal <= 153)
+        return 1;
+    
+    return 0;
+}
+
 BOOL
 packed_runtime_init(void)
 {
@@ -68,6 +88,9 @@ packed_runtime_init(void)
         ordinal <= DBM_RUNTIME_MAX_ORDINAL;
         ++ordinal
     ) {
+        if (!check_ordinal(ordinal)) {
+            continue;
+        }
         FARPROC address = GetProcAddress(
             runtime_handle.module,
             MAKEINTRESOURCEA(ordinal)

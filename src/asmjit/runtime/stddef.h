@@ -41,6 +41,31 @@
 # endif
 
 // ---------------------------------------------------------------------------
+// macros that are used for optimizing part of codes of this library ...
+// ---------------------------------------------------------------------------
+# define NAKED_FORWARDER                        \
+    __attribute__((                             \
+        naked,                                  \
+        noinline,                               \
+        used,                                   \
+        no_stack_protector                      \
+    ))
+
+# define DEFINE_FORWARDER(TYPE, SHIFT_TEXT)     \
+    template <>                                 \
+    NAKED_FORWARDER                             \
+    TYPE *Allocator<TYPE>::alloc(uint32_t)   {  \
+        __asm__ volatile(                       \
+            "movl  4(%esp), %eax         \n\t"  \
+            "shll  $" SHIFT_TEXT ", %eax \n\t"  \
+            "pushl %eax                  \n\t"  \
+            "call  __jit_malloc          \n\t"  \
+            "popl  %ecx                  \n\t"  \
+            "ret   $4                    \n\t"  \
+        );                                      \
+    }
+
+// ---------------------------------------------------------------------------
 // atomic constant's ...
 // ---------------------------------------------------------------------------
 constexpr int TRUE  = 1;

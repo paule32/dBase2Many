@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 IMPORTS_FILES = {
-    "libdbase2many.32.dll": [
+    "libruntime_all.dll": [
         "crypto",
         "diskio",
         "arrays",
