@@ -1,0 +1,83 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "System.Strings",
+        "normalized_name": "system_strings"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "System.Strings.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System.Types",
+            "System.Objects"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_SYSTEM_STRINGS$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [
+            {
+                "name": "IntToStr",
+                "scoped_name": "system_strings_IntToStr",
+                "symbol": "_SYSTEM_STRINGS$$_INTTOSTR$INTEGER",
+                "params": [
+                    {
+                        "name": "AValue",
+                        "type": "integer",
+                        "is_var": false
+                    }
+                ],
+                "return_type": "string",
+                "calling_convention": "cdecl"
+            },
+            {
+                "name": "StrToInt",
+                "scoped_name": "system_strings_StrToInt",
+                "symbol": "_SYSTEM_STRINGS$$_STRTOINT$ANSISTRING",
+                "params": [
+                    {
+                        "name": "S",
+                        "type": "string",
+                        "is_var": false
+                    }
+                ],
+                "return_type": "integer",
+                "calling_convention": "cdecl"
+            }
+        ],
+        "procedures": [],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [
+            "inttostr.o",
+            "strtoint.o"
+        ],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

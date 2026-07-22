@@ -10,10 +10,18 @@
 {$link dll_runtime_thunks.o}
 program testvmt;
 
-uses System.Objects;
+uses System.Objects, System.Strings;
 
 type
-    TFoo = class(TObject)
+    TFaz = class(TObject)
+    public
+        constructor Create;
+        destructor Destroy; override;
+        
+        procedure Show; virtual;
+    end;
+type
+    TFoo = class(TFaz)
     private
         FValue: Integer;
         FString: String;
@@ -23,12 +31,35 @@ type
         constructor Create(AValue: Integer);
         destructor Destroy; override;
         
-        procedure Show; virtual;
+        procedure Show; override;
     published
         property OnTest: String read FString write FString;
         property OnTest2: Double read FDouble write FDouble;
         property OnTest3: String read FName write FName;
     end;
+
+procedure PrintLn(S1: String; S2: String);
+begin
+    WriteLn(S1,s2);
+end;
+
+constructor TFaz.Create;
+begin
+    inherited Create;
+    WriteLn('TFaz Create');
+end;
+procedure TFaz.Show;
+begin
+    PrintLn('TFaz Show', '');
+    PrintLn('  Runtime class: ', ClassName);
+    PrintLn('  Method  owner: ', OwnerClassName());
+    PrintLn('  Size         : ', IntToStr(InstanceSize));
+end;
+destructor TFaz.Destroy;
+begin
+    PrintLn('TFaz Destroy','');
+    inherited Destroy;
+end;
 
 constructor TFoo.Create(AValue: Integer);
 begin
@@ -42,13 +73,17 @@ end;
 
 destructor TFoo.Destroy;
 begin
-    WriteLn('TFoo Destroy');
+    PrintLn('TFoo Destroy','');
     inherited Destroy;
 end;
 
 procedure TFoo.Show;
 begin
-    WriteLn('Value: ', FValue, ', ', FString, ', ', FDouble, ', ', FName);
+    PrintLn('TFoo Show','');
+    PrintLn('  Runtime class: ', ClassName);
+    PrintLn('  Method  owner: ', OwnerClassName );
+    PrintLn('  Size         : ', IntToStr(self.InstanceSize));
+    inherited Show;
 end;
 
 var
@@ -58,7 +93,6 @@ begin
     Foo := TFoo.Create(42);
     try
         Foo.Show;
-        WriteLn('Instance size: ', Foo.InstanceSize);
     finally
         Foo.Free;
     end;

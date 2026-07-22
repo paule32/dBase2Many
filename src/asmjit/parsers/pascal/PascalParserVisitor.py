@@ -384,11 +384,6 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by PascalParser#builtinHashFunctionName.
-    def visitBuiltinHashFunctionName(self, ctx:PascalParser.BuiltinHashFunctionNameContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by PascalParser#functionName.
     def visitFunctionName(self, ctx:PascalParser.FunctionNameContext):
         return self.visitChildren(ctx)

@@ -14,7 +14,7 @@ set "compiler=python cpascal.py"
 :: ----------------------------------------------------------------------------
 echo stage:  [  1 /  4] - System
 :: goto test0
-set "list=System.Types System.Objects"
+set "list=System.Types System.Objects System.Strings"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0
@@ -24,7 +24,7 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/System/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose -Us ^
-        -Fo runtime/pascal/crypto/objects ^
+        -Fo obj ^
         -Fo x32/pascal/System ^
         -Fo x32/pascal/Crypto -FE x32/pascal/System ^
         runtime/pascal/System/%%A.pas
@@ -35,14 +35,14 @@ for %%A in (%list%) do (
     )
 )
 echo.
-:: goto test2
+::goto test2
 :test0
 :: goto test2
 :: ----------------------------------------------------------------------------
-:: compile crypto files ...
+:: compile crypto files (with dll import functions)...
 :: ----------------------------------------------------------------------------
 echo stage:  [  2 /  4] - Crypto package
-set "list=crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
+set "list=blake2 crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0
@@ -51,10 +51,10 @@ for %%A in (%list%) do (
     set "lhs_pad=  !current!"
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/Crypto/Crypto.%%A.pas
-    python cpascal.py -Twin32 --backend obj --force --verbose ^
-        -Fo runtime/pascal/crypto/objects ^
+    python cpascal.py -Twin32 --backend obj --force --verbose -D DLL_API ^
+        -Fo obj ^
         -Fo x32/pascal/System ^
-        -Fo x32/pascal/Crypto -FE x32/pascal/Crypto ^
+        -FE x32/pascal/Crypto ^
         runtime/pascal/Crypto/Crypto.%%A.pas
     set "result=%errorlevel%"
     if !result! gtr 0 (
@@ -67,7 +67,7 @@ echo.
 :: test applications ...
 :: ----------------------------------------------------------------------------
 echo stage:  [  3 /  4] - Test Application's with external DLL
-set "list=crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
+set "list=blake2 crc16 crc32 crc32c crc64 md5 sha1 sha3 sha224 sha256 sha384 sha512"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0
@@ -77,6 +77,7 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/crypto/%%A.pas
     python cpascal.py -Twin32 --backend exe --force --verbose ^
+        -Fo runtime/win32     ^
         -Fo x32/pascal/System ^
         -Fo x32/pascal/Crypto ^
         -FE x32/pascal/tests/crypto testsrc/pascal/crypto/%%A.pas
@@ -86,6 +87,7 @@ for %%A in (%list%) do (
         goto error
     )
 )
+goto test2
 echo.
 :: ----------------------------------------------------------------------------
 :test1
@@ -120,8 +122,8 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/%%A.pas
     python cpascal.py -Twin32 --backend exe --force -Us ^
-        -Fo x32/pascal/System       ^
-        -Fo runtime/win32           ^
+        -Fo x32/pascal/System ^
+        -Fo obj ^
         -FE x32/pascal/tests/common/free_dll testsrc/pascal/common/%%A.pas
     set "result=%errorlevel%"
     if !result! gtr 1 (

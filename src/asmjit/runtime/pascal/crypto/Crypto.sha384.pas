@@ -3,7 +3,10 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{$L sha384.o}
+{$ifndef DLL_API}  // to go away from local linking, we use the DLL import
+{$L sha384.o}      // when -D DLL_API is given from the command line; else
+{$endif}           // link with a local copy of sha384.o
+
 unit Crypto.sha384;
 interface
 uses System.Types;

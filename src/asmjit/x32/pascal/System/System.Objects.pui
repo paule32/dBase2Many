@@ -136,6 +136,18 @@
                         "vmt_offset": null
                     },
                     {
+                        "name": "ClassName",
+                        "kind": "function",
+                        "symbol": "_SYSTEM_OBJECTS$$_$$_TOBJECT_$$_CLASSNAME",
+                        "params": [],
+                        "return_type": "string",
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
                         "name": "InstanceSize",
                         "kind": "function",
                         "symbol": "_SYSTEM_OBJECTS$$_$$_TOBJECT_$$_INSTANCESIZE",

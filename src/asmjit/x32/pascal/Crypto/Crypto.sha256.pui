@@ -63,9 +63,7 @@
     "link": {
         "objects": [],
         "archives": [],
-        "embedded_objects": [
-            "sha256.o"
-        ],
+        "embedded_objects": [],
         "base_directory": "pui"
     },
     "macros": {}

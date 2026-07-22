@@ -21,6 +21,7 @@ type
         function ClassType: TClass;
         function ClassParent: TClass;
         function ClassNameAddress: Pointer;
+        function ClassName: String;
         
         function InstanceSize: Integer;
         function InheritsFrom(AClass: TClass): Boolean;
@@ -39,6 +40,8 @@ function  _jit_class_instance_size (AVmt:    Pointer): Integer; cdecl; external 
 
 function  _jit_inherits_from_class (ACurrentClass: Pointer; AExpectedClass: Pointer): Integer; cdecl; external DLL_FILE name '_jit_inherits_from_class' ordinal 84;
 function  _jit_inherits_from_object(AObject:       Pointer; AExpectedClass: Pointer): Boolean; cdecl; external DLL_FILE name '_jit_inherits_from_object' ordinal 85;
+
+function _jit_dynstring_from_cstr(AText: Pointer): String; cdecl; external DLL_FILE name '_jit_dynstring_from_cstr' ordinal 52;
 
 implementation
 
@@ -79,6 +82,11 @@ begin
     Result := _jit_class_name(
         _jit_object_class_type(Pointer(Self))
     );
+end;
+
+function TObject.ClassName: String;
+begin
+    result := _jit_dynstring_from_cstr(ClassNameAddress);
 end;
 
 function TObject.InstanceSize: Integer;

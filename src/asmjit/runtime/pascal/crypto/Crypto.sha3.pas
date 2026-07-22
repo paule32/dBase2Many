@@ -3,7 +3,10 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{$L sha3.o}
+{$ifndef DLL_API}  // to go away from local linking, we use the DLL import
+{$L sha3.o}        // when -D DLL_API is given from the command line; else
+{$endif}           // link with a local copy of sha3.o
+
 unit Crypto.sha3;
 interface
 uses System.Types;

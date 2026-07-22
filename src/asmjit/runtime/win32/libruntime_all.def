@@ -106,36 +106,41 @@ EXPORTS
     _jit_vsnprintf @96 NONAME
     strlen @97 NONAME
     _jit_read_char @98 NONAME
-    crc16_init @99 NONAME
-    crc16_update @100 NONAME
-    crc16_final @101 NONAME
-    crc32_init @102 NONAME
-    crc32_update @103 NONAME
-    crc32_final @104 NONAME
-    crc32c_init @105 NONAME
-    crc32c_update @106 NONAME
-    crc32c_final @107 NONAME
-    _jit_md5_init @108 NONAME
-    _jit_md5_update @109 NONAME
-    _jit_md5_final @110 NONAME
-    sha1_init @111 NONAME
-    sha1_update @112 NONAME
-    sha1_final @113 NONAME
-    sha3_init @114 NONAME
-    sha3_update @115 NONAME
-    sha3_final @116 NONAME
-    sha224_init @117 NONAME
-    sha224_update @118 NONAME
-    sha224_final @119 NONAME
-    sha256_init @120 NONAME
-    sha256_update @121 NONAME
-    sha256_final @122 NONAME
-    sha384_init @123 NONAME
-    sha384_update @124 NONAME
-    sha384_final @125 NONAME
-    sha512_init @126 NONAME
-    sha512_update @127 NONAME
-    sha512_final @128 NONAME
+    
+    ;crc16_init @99 NONAME
+    ;crc16_update @100 NONAME
+    ;crc16_final @101 NONAME
+    ;crc32_init @102 NONAME
+    ;crc32_update @103 NONAME
+    ;crc32_final @104 NONAME
+    ;crc32c_init @105 NONAME
+    ;crc32c_update @106 NONAME
+    ;crc32c_final @107 NONAME
+    
+    ;_jit_md5_init @108 NONAME
+    ;_jit_md5_update @109 NONAME
+    ;_jit_md5_final @110 NONAME
+    
+    ;sha1_init @111 NONAME
+    ;sha1_update @112 NONAME
+    ;sha1_final @113 NONAME
+    ;sha3_init @114 NONAME
+    ;sha3_update @115 NONAME
+    ;sha3_final @116 NONAME
+    ;sha224_init @117 NONAME
+    ;sha224_update @118 NONAME
+    ;sha224_final @119 NONAME
+    ;sha256_init @120 NONAME
+    ;sha256_update @121 NONAME
+    ;sha256_final @122 NONAME
+    ;sha384_init @123 NONAME
+    ;sha384_update @124 NONAME
+    ;sha384_final @125 NONAME
+    
+    ;sha512_init @126 NONAME
+    ;sha512_update @127 NONAME
+    ;sha512_final @128 NONAME
+    
     ExitProcess@4 @129 NONAME
     GetCommandLineA@0 @130 NONAME
     GetDiskFreeSpaceA@20 @131 NONAME
@@ -152,11 +157,13 @@ EXPORTS
     WriteFile@20 @142 NONAME
     WNetGetConnectionA@12 @143 NONAME
     _jit_raise @144 NONAME
-    crc64_init @145 NONAME
-    crc64_update @146 NONAME
-    blake2s_init @147 NONAME
-    blake2s_update @148 NONAME
-    blake2s_final @149 NONAME
+    
+    ;crc64_init @145 NONAME
+    ;crc64_update @146 NONAME
+    ;blake2s_init @147 NONAME
+    ;blake2s_update @148 NONAME
+    ;blake2s_final @149 NONAME
+    
     _Z24_jit_error_out_of_memoryv @150 NONAME
     _Z23_jit_error_array_boundsPKciii @151 NONAME
     _Z22_jit_error_nil_pointerPKc @152 NONAME

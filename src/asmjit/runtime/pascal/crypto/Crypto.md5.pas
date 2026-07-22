@@ -3,7 +3,10 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{$L md5.o}
+{$ifndef DLL_API}  // to go away from local linking, we use the DLL import
+{$L md5.o}         // when -D DLL_API is given from the command line; else
+{$endif}           // link with a local copy of md5.o
+
 unit Crypto.md5;
 interface
 uses System.Types;

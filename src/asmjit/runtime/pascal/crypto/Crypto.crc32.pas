@@ -3,7 +3,10 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{$L crc32.o}
+{$ifndef DLL_API}  // to go away from local linking, we use the DLL import
+{$L crc32.o}       // when -D DLL_API is given from the command line; else
+{$endif}           // link with a local copy of crc32.o
+
 unit Crypto.crc32;
 interface
 uses System.Types;

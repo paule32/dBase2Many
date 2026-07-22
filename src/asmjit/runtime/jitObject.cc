@@ -3,6 +3,7 @@
 // Note: Copyright (c) 2026 by Jens Kallup - paule32
 //       all rights reserved.
 // ---------------------------------------------------------------------------
+# include "iostream.h"
 # include "stddef.h"
 # include "memory.h"
 # include "jitObject.h"
@@ -207,12 +208,16 @@ jit_class_parent(JitVmt *vmt)
 const char *JIT_CDECL
 jit_class_name(JitVmt *vmt)
 {
-    jit_object_error_clear();
+    if (!vmt) {
+        _jit_printf("vmt is nil\n");
+        return "";
+    }
 
-    if (!jit_valid_vmt(vmt))
-        return nullptr;
-
-    return vmt->class_name ? vmt->class_name : "";
+    if (vmt->class_name != nullptr) {
+        return vmt->class_name;
+    }   else {
+        return "<unknown>";
+    }
 }
 
 uint32_t JIT_CDECL

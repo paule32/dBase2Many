@@ -9951,7 +9951,7 @@ class AsmJitGenerator(PascalParserVisitor):
         typ    = var["type"]
         offset = var["offset"]
 
-        if typ in ("integer", "boolean"):
+        if typ in ("integer", "boolean", "pointer"):
             if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 self.emit_mov_dword_ptr("eax", "ebp", offset, comment=f"local {name}")
                 if typ == "boolean":
@@ -12875,8 +12875,8 @@ class AsmJitGenerator(PascalParserVisitor):
         typ    = var["type"]
         offset = var["offset"]
 
-        if typ == "integer":
-            if expr_type != "integer":
+        if typ == "integer" or typ == "pointer":
+            if expr_type not in ("integer", "pointer"):
                 raise CompileError(
                     ctx,
                     "E0005",
@@ -13845,12 +13845,24 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return None
     
-    def emit_self_method_call(self, ctx, method_name, actual_types=None):
+    def emit_self_method_call(
+        self,
+        ctx,
+        method_name,
+        actual_types=None
+    ):
         if actual_types is None:
             actual_types = []
 
         if self.current_class is None:
-            return None
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"{method_name} cannot be called through "
+                    "Self outside a class method"
+                )
+            )
 
         method, owner_cls = self.find_class_method_recursive(
             ctx,
@@ -13866,12 +13878,78 @@ class AsmJitGenerator(PascalParserVisitor):
                 text=f"{method_name} is not a function"
             )
 
-        self.emit_mov_qword_ptr("rcx", "rbp", -8, comment='Self')
-        self.emit_sub("rsp", 32)
-        self.emit_call_lbl(method.label, comment=f"Self.{method.name}")
-        self.emit_add("rsp", 32)
+        # ----------------------------------------------------------
+        # NT32
+        #
+        # Im Klassenmethoden-Prolog wird Self unter [ebp-4]
+        # gespeichert.
+        # ----------------------------------------------------------
+        if CDATA.args_target in ("nt35", "winnt", "win32"):
+            self.emit_mov_dword_ptr("eax", "ebp", -4, comment="load Self")
 
-        return self.resolve_type(method.return_type)
+            # cdecl-Klassenmethoden erwarten Self als ersten
+            # Stackparameter.
+            self.emit_push("eax", comment=f"Self for {method.name}")
+
+            # Unterstützt:
+            # - lokale Labels,
+            # - PUI-Symbole/Methoden
+            # - virtuelle Methoden über VMT
+            self.emit_class_method_call(
+                method,
+                comment=(
+                    f"{owner_cls.name}."
+                    f"{method.name}"
+                )
+            )
+
+            self.backend.emit_cleanup_stack(4)
+
+            # Laufzeitaufrufe oder fremde Units können ESI verändern.
+            if self.coff.find_symbol_index("ctx") is not None:
+                self.writer.emit_lea_reg_data_label(
+                    "esi",
+                    "ctx"
+                )
+
+            return self.resolve_type(
+                method.return_type
+            )
+
+        # ----------------------------------------------------------
+        # Win64
+        # ----------------------------------------------------------
+        else:
+            self.emit_mov_qword_ptr(
+                "rcx",
+                "rbp",
+                -8,
+                comment="load Self"
+            )
+
+            self.emit_sub(
+                "rsp",
+                32,
+                comment="method shadow space"
+            )
+
+            self.emit_class_method_direct_call(
+                method,
+                comment=(
+                    f"{owner_cls.name}."
+                    f"{method.name}"
+                )
+            )
+
+            self.emit_add(
+                "rsp",
+                32,
+                comment="remove method shadow space"
+            )
+
+            return self.resolve_type(
+                method.return_type
+            )
     
     def emit_init_array_var(self, ctx, name, info):
         array_type = info["type"]
@@ -21507,6 +21585,11 @@ class AsmJitGenerator(PascalParserVisitor):
                 return self.emit_builtin_commandline(
                     ctx
                 )
+            
+            if builtin_key == "ownerclassname":
+                return self.emit_builtin_owner_class_name(
+                    ctx
+                )
 
             # Parameterlose benutzerdefinierte Funktion ohne Klammern.
             func = self.find_function(
@@ -22193,6 +22276,61 @@ class AsmJitGenerator(PascalParserVisitor):
                         )
 
                 var_name = parts[0]
+
+                # ------------------------------------------------------------
+                # Expliziter Self-Zugriff:
+                #
+                #   Self.InstanceSize
+                #   Self.ClassName
+                #   Self.FValue
+                #
+                # Self ist keine lokale oder globale Variable. Der Objektzeiger
+                # wurde im Methodenprolog unter [ebp-4] gespeichert.
+                # ------------------------------------------------------------
+                if var_name.lower() == "self":
+                    if (
+                        self.current_class is None
+                        or self.current_method is None
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text="Self may only be used inside a class method"
+                        )
+
+                    if len(parts) != 2:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "nested Self member access is currently "
+                                "not implemented: "
+                                + ".".join(parts)
+                            )
+                        )
+
+                    member_name = parts[1]
+
+                    # Zuerst Klassenfeld prüfen:
+                    #
+                    #   Self.FValue
+                    field_type = self.emit_load_self_field(
+                        ctx,
+                        member_name
+                    )
+
+                    if field_type is not None:
+                        return field_type
+
+                    # Danach parameterlose Funktionsmethode:
+                    #
+                    #   Self.InstanceSize
+                    #   Self.ClassName
+                    return self.emit_self_method_call(
+                        ctx,
+                        member_name,
+                        []
+                    )
 
                 var_info = self.var_info(
                     ctx,
@@ -23152,6 +23290,124 @@ class AsmJitGenerator(PascalParserVisitor):
             text=f"unsupported explicit type cast: {target_name}({source_type})"
         )
 
+    def emit_compile_time_string(
+        self,
+        ctx,
+        value
+    ):
+        label = self.add_string_literal(
+            str(value)
+        )
+
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            self.backend.writer.emit_push_data_label32(
+                label
+            )
+
+            self.emit_call(
+                "_jit_dynstring_from_cstr"
+            )
+
+            self.backend.emit_cleanup_stack(
+                4
+            )
+
+            self.restore_nt32_context_after_runtime_call()
+
+            return "string"
+
+        if CDATA.args_target in (
+            "dos",
+            "dos16"
+        ):
+            self.backend.writer.emit_mov_dx_label(
+                label
+            )
+
+            return "string"
+
+        # Win64
+        self.emit_mov_imm(
+            "rcx",
+            label
+        )
+
+        self.emit_mov_imm(
+            "rax",
+            "&_jit_dynstring_from_cstr"
+        )
+
+        self.emit_call(
+            "rax"
+        )
+
+        return "string"
+
+    def emit_builtin_owner_class_name(
+        self,
+        ctx
+    ):
+        args = self.function_call_args(
+            ctx
+        )
+
+        if args:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=str(len(args)),
+                expected="0"
+            )
+
+        if (
+            self.current_class is None
+            or self.current_method is None
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "OwnerClassName may only be used "
+                    "inside a class method"
+                )
+            )
+
+        owner_key = getattr(
+            self.current_method,
+            "owner",
+            None
+        )
+
+        if not owner_key:
+            owner_key = self.current_class
+
+        owner_key = str(
+            owner_key
+        ).lower()
+
+        owner_class = self.classes.get(
+            owner_key
+        )
+
+        if owner_class is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "class method owner not found: "
+                    + str(owner_key)
+                )
+            )
+
+        return self.emit_compile_time_string(
+            ctx,
+            owner_class.name
+        )
+
     def visitFunctionCallExpr(self, ctx):
         names  = list(ctx.functionName())
 
@@ -23193,6 +23449,7 @@ class AsmJitGenerator(PascalParserVisitor):
             )
         
         self.builtin_functions = {
+            "ownerclassname": self.emit_builtin_owner_class_name,
             "assigned"      : self.emit_builtin_assigned,
             "length"        : self.emit_builtin_length,
             "low"           : self.emit_builtin_low,

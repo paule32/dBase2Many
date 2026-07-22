@@ -334,6 +334,13 @@ class Coff32Backend(CodeBackend):
         self.writer.emit_ret()
 
     def emit_call_lbl(self, label, comment=""):
+        if not isinstance(label, str) or not label:
+            raise RuntimeError(
+                "Coff32Backend.emit_call_lbl: "
+                f"invalid label {label!r}; "
+                f"comment={comment!r}"
+            )
+        
         if label in ["rax", "eax"]:
             self.asm_lines.append(f"call {label}")
             self.writer.emit_call_reg32("eax")

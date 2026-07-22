@@ -94,12 +94,6 @@ BOOLEAN             : [Bb][Oo][Oo][Ll][Ee][Aa][Nn] ;
 TRUE                : [Tt][Rr][Uu][Ee] ;
 FALSE               : [Ff][Aa][Ll][Ss][Ee] ;
 
-BLAKE2              : [Bb][Ll][Aa][Kk][Ee]'2' ;
-CRC16               : [Cc][Rc][Cc]'16' ;
-CRC32               : [Cc][Rc][Cc]'32' ;
-CRC32C              : [Cc][Rc][Cc]'32'[Cc] ;
-CRC64               : [Cc][Rc][Cc]'64' ;
-
 DISKFREE            : [dD][iI][sS][kK][fF][rR][eE][eE] ;
 DISKTOTAL           : [dD][iI][sS][kK][tT][oO][tT][aA][lL] ;
 DISKLABEL           : [dD][iI][sS][kK][lL][aA][bB][eE][lL] ;

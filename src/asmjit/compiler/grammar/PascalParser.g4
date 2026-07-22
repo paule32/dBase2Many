@@ -419,21 +419,6 @@ builtinDiskFunctionName
     | DISKSHARE
     ;
 
-builtinHashFunctionName
-    : BLAKE2
-    | CRC16
-    | CRC32
-    | CRC32C
-    | CRC64
-    | MD5
-    | SHA1
-    | SHA3
-    | SHA224
-    | SHA256
-    | SHA384
-    | SHA512
-    ;
-
 functionName
     : IDENT
     | LENGTH
@@ -441,7 +426,6 @@ functionName
     | HIGH
     | COPY
     | POS
-    | builtinHashFunctionName
     | builtinDiskFunctionName
     | ASSIGNED
     ;

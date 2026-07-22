@@ -683,15 +683,6 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by PascalParser#builtinHashFunctionName.
-    def enterBuiltinHashFunctionName(self, ctx:PascalParser.BuiltinHashFunctionNameContext):
-        pass
-
-    # Exit a parse tree produced by PascalParser#builtinHashFunctionName.
-    def exitBuiltinHashFunctionName(self, ctx:PascalParser.BuiltinHashFunctionNameContext):
-        pass
-
-
     # Enter a parse tree produced by PascalParser#functionName.
     def enterFunctionName(self, ctx:PascalParser.FunctionNameContext):
         pass

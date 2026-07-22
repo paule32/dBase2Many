@@ -66,6 +66,11 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "compile time error."
        exit 1
     fi
+    # tiny
+    if ! nasm -Ox -f win32 -o win32/obj/crypto/$dir/$dir.o crypto/$dir/$dir.asm ; then
+       echo "nasm assembler error."
+       exit 1
+    fi
   done
   
   RUNTIME_FILES=( jitObject
@@ -137,6 +142,13 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      exit 1
   fi
   strip win32/libruntime_mini.dll
+  
+  
+  if ! nasm -Ox -f win32 -o win32/obj/crypto/sha512/sha512.o crypto/sha512/sha512.asm ; then
+       echo "assemlber could not create object file: sha512.o."
+       exit 1
+  fi
+  ar rcs win32/libcrypto.a win32/obj/crypto/sha512/sha512.o
   
   echo "create ALL in One DLL..."
   if ! gcc -m32 -fPIC -shared -nostdlib -o win32/libruntime_all.dll \
@@ -314,10 +326,6 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      echo "gcc could not create db_inflate.o"
      exit 1
   fi
-  if ! nasm -f win32 -o win32/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
-     echo "assemlber could not create object file."
-     exit 1
-  fi
 
   echo "create packed dll loader..."
   if ! g++ -m32 -O1 \
@@ -354,6 +362,37 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      echo "PE32 dll could not be copied."
      exit 1
   fi
+
+  ###
+  if ! nasm -f win32 -o win32/dll_inflate.o dll_inflate.asm ; then
+       echo "gcc could not create db_inflate.o"
+       exit 1
+  fi
+  if ! nasm -f win32 -o win32/dll_loader.o dll_loader.asm ; then
+       echo "gcc could not create db_loader.o"
+       exit 1
+  fi
+  if ! nasm -f win32 -o win32/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
+       echo "assemlber could not create object file."
+       exit 1
+  fi
+  if ! nasm -f win32 -o win32/obj/inttostr.o pascal/inttostr.asm ; then
+       echo "assemlber could not create object file: inttostr.o."
+       exit 1
+  fi
+  if ! nasm -f win32 -o win32/obj/strtoint.o pascal/strtoint.asm ; then
+       echo "assemlber could not create object file: strtoint.o."
+       exit 1
+  fi
+    
+  ar rcs win32/libruntime.a        \
+      win32/dll_inflate.o \
+      win32/dll_loader.o  \
+      win32/dll_runtime_bindings.o \
+      win32/dll_runtime.o \
+      win32/dll_runtime_thunks.o
+  ###
+
   
   #echo "pre-compile python cpascal.py files..."
   #if ! python -m compileall cpascal.py ; then

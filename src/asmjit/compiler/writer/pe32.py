@@ -609,6 +609,19 @@ class PE32Writer:
         self.archive_files      = []
         self.archives           = []
 
+    def require_local_label(
+        self,
+        label,
+        operation
+    ):
+        if not isinstance(label, str) or not label:
+            raise RuntimeError(
+                f"{operation}: invalid local label "
+                f"{label!r} at text+0x{len(self.text):08X}"
+            )
+
+        return label
+
     def collect_link_defined_symbols(
         self
     ):
@@ -1604,31 +1617,118 @@ class PE32Writer:
         self.coff_objects.append(obj)
         return obj
     
-    def resolve_link_object_name(self, name):
-        name      = self.normalize_link_path(name)
-        root, ext = os.path.splitext(name)
+    def resolve_link_object_name(
+        self,
+        name
+    ):
+        if name is None:
+            raise RuntimeError(
+                "empty COFF object filename"
+            )
 
-        if not ext:
-            name = name + ".o"
+        name = self.normalize_link_path(
+            os.fspath(name)
+        )
 
-        if os.path.isfile(name):
-            return os.path.abspath(name)
+        if not name:
+            raise RuntimeError(
+                "empty COFF object filename"
+            )
 
-        # absolute oder explizite Pfadangabe
-        if os.path.isabs(name) or os.path.dirname(name):
-            if os.path.exists(name):
-                return name
+        root, extension = os.path.splitext(
+            name
+        )
 
-            raise RuntimeError(f"object file not found: {name}")
+        if not extension:
+            name += ".o"
 
-        # Suchpfade
-        for path in CDATA.link_object_paths:
-            candidate = os.path.join(path, name)
+        candidates = []
+        candidate_keys = set()
 
-            if os.path.exists(candidate):
+        def add_candidate(
+            candidate
+        ):
+            if not candidate:
+                return
+
+            candidate = os.path.abspath(
+                os.path.normpath(
+                    candidate
+                )
+            )
+
+            key = os.path.normcase(
+                candidate
+            )
+
+            if key in candidate_keys:
+                return
+
+            candidate_keys.add(
+                key
+            )
+
+            candidates.append(
+                candidate
+            )
+
+        # ------------------------------------------------------------
+        # Ein absoluter Dateiname ist eindeutig.
+        # ------------------------------------------------------------
+        if os.path.isabs(name):
+            add_candidate(
+                name
+            )
+
+        else:
+            # --------------------------------------------------------
+            # Zuerst die konfigurierten -Fo-Suchpfade.
+            #
+            # Das funktioniert sowohl für:
+            #
+            #   foo.o
+            #
+            # als auch für:
+            #
+            #   strings/foo.o
+            # --------------------------------------------------------
+            for search_path in (
+                getattr(
+                    CDATA,
+                    "link_object_paths",
+                    []
+                )
+                or []
+            ):
+                add_candidate(
+                    os.path.join(
+                        search_path,
+                        name
+                    )
+                )
+
+            # Aktuelles Verzeichnis als letzte Rückfallposition.
+            add_candidate(
+                name
+            )
+
+        for candidate in candidates:
+            if os.path.isfile(
+                candidate
+            ):
                 return candidate
 
-        raise RuntimeError(f"object file not found: {name}")
+        searched = "\n".join(
+            "  " + candidate
+            for candidate in candidates
+        )
+
+        raise RuntimeError(
+            "COFF32 object file not found: "
+            + name
+            + "\nsearched:\n"
+            + searched
+        )
     
     def load_archives(self):
         self.archives = []
@@ -2006,13 +2106,21 @@ class PE32Writer:
         self.text += stack_bytes.to_bytes(2, "little", signed=False)
 
     def emit_call_label(self, label):
+        label = self.require_local_label(
+            label,
+            "emit_call_label"
+        )
+
         self.text.append(0xE8)
 
         patch_pos = len(self.text)
         self.text += b"\x00\x00\x00\x00"
 
         if label in self.labels:
-            self.patch_rel32(patch_pos, self.labels[label])
+            self.patch_rel32(
+                patch_pos,
+                self.labels[label]
+            )
         else:
             self.fixups.append({
                 "patch_pos": patch_pos,
@@ -2028,13 +2136,21 @@ class PE32Writer:
         self.text.append(0xC0 | (dst_id << 3) | src_id)
     
     def emit_jmp(self, label):
+        label = self.require_local_label(
+            label,
+            "emit_jmp"
+        )
+
         self.text.append(0xE9)
 
         patch_pos = len(self.text)
         self.text += b"\x00\x00\x00\x00"
 
         if label in self.labels:
-            self.patch_rel32(patch_pos, self.labels[label])
+            self.patch_rel32(
+                patch_pos,
+                self.labels[label]
+            )
         else:
             self.fixups.append({
                 "patch_pos": patch_pos,
@@ -2125,6 +2241,11 @@ class PE32Writer:
 
         if cc not in opcodes:
             raise RuntimeError(f"{tr('unsupported PE32 condition jump')}: {cc}")
+            
+        label = self.require_local_label(
+            label,
+            f"emit_jcc({cc})"
+        )
 
         self.text += opcodes[cc]
 
@@ -3121,22 +3242,79 @@ class PE32Writer:
         return output_path
 
     def write(self, filename):
-        #self.add_coff_object("math.o")
-        #self.add_archive_file("libmath.a")
-        #self.add_archive_file("libruntime.a")
-        
-        # {$link foo.o}
-        for obj in CDATA.link_object_files:
-            self.add_coff_object(obj)
-        
-        # {$linklib libfoo.a}
-        for lib in CDATA.link_archive_files:
-            self.add_link_archive(lib)
-        
-        # 1. Archive nach offenen Symbolen durchsuchen
+        loaded_objects = set()
+
+        # ------------------------------------------------------------
+        # Explizite COFF32-Objekte:
+        #
+        #   {$link foo.o}
+        #   --link-object foo.o
+        #
+        # Jeder Name muss zuerst über die mit -Fo angegebenen
+        # Suchverzeichnisse aufgelöst werden.
+        # ------------------------------------------------------------
+        for object_name in (
+            getattr(
+                CDATA,
+                "link_object_files",
+                []
+            )
+            or []
+        ):
+            resolved_name = self.resolve_link_object_name(
+                object_name
+            )
+
+            object_key = os.path.normcase(
+                os.path.abspath(
+                    resolved_name
+                )
+            )
+
+            if object_key in loaded_objects:
+                continue
+
+            loaded_objects.add(
+                object_key
+            )
+
+            if getattr(
+                CDATA,
+                "debug_mode",
+                False
+            ):
+                print(
+                    "COFF32 object:",
+                    resolved_name
+                )
+
+            self.add_coff_object(
+                resolved_name
+            )
+
+        # ------------------------------------------------------------
+        # Statische Archive
+        # ------------------------------------------------------------
+        for archive_name in (
+            getattr(
+                CDATA,
+                "link_archive_files",
+                []
+            )
+            or []
+        ):
+            self.add_link_archive(
+                archive_name
+            )
+
+        # Archive nach noch offenen Symbolen durchsuchen.
         self.resolve_archive_objects()
-        
-        # 2. Alle gefundenen .o-Objekte einfügen
+
+        # Geladene COFF-Objekte in das PE-Image einfügen.
         self.include_coff_objects()
 
-        NT32Writer(self).write(filename)
+        NT32Writer(
+            self
+        ).write(
+            filename
+        )
