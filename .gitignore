@@ -366,3 +366,6 @@ src/asmjit/compiler/frontend/pascal/gen.patch
 src/asmjit/compiler/compiler.zip
 src/asmjit/libruntime.a
 src/asmjit/runtime/2
+src/asmjit/runtime/win32/libruntime.a
+src/asmjit/runtime/win32/libcrypto.a
+src/asmjit/obj/lib_runtime.a

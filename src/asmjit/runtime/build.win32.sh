@@ -181,13 +181,13 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      win32/obj/crypto/sha384/sha384.o \
      win32/obj/crypto/sha512/sha512.o \
      \
-     win32/obj/diskio/diskio.o        \
      \
      win32/libruntime_all.def   \
      -Wl,--out-implib,win32/libruntime_all.dll.a; then
      echo "relocation link error."
      exit 1
   fi
+  #win32/obj/diskio/diskio.o        \
   strip win32/libruntime_all.dll
     
   

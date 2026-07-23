@@ -21,21 +21,22 @@ EXPORTS
     _jit_sha384 @14 NONAME
     _jit_sha512 @15 NONAME
 
-    _jit_debug_break @16 NONAME
-    _jit_disk_free @17 NONAME
-    _jit_disk_total @18 NONAME
-    _jit_disk_label @19 NONAME
-    _jit_disk_serial @20 NONAME
-    _jit_disk_filesystem @21 NONAME
-    _jit_disk_type @22 NONAME
-    _jit_disk_share @23 NONAME
-    _jit_disk_used @24 NONAME
-    _jit_disk_exists @25 NONAME
-    _jit_disk_ready @26 NONAME
-    _jit_disk_is_cdrom @27 NONAME
-    _jit_disk_is_network @28 NONAME
-    _jit_disk_is_removable @29 NONAME
-    _jit_disk_is_fixed @30 NONAME
+;    _jit_debug_break @16 NONAME
+;    _jit_disk_free @17 NONAME
+;    _jit_disk_total @18 NONAME
+;    _jit_disk_label @19 NONAME
+;    _jit_disk_serial @20 NONAME
+;    _jit_disk_filesystem @21 NONAME
+;    _jit_disk_type @22 NONAME
+;    _jit_disk_share @23 NONAME
+;    _jit_disk_used @24 NONAME
+;    _jit_disk_exists @25 NONAME
+;    _jit_disk_ready @26 NONAME
+;    _jit_disk_is_cdrom @27 NONAME
+;    _jit_disk_is_network @28 NONAME
+;    _jit_disk_is_removable @29 NONAME
+;    _jit_disk_is_fixed @30 NONAME
+
     _jit_error_runtime @31 NONAME
     _jit_error_array_bounds @32 NONAME
     _jit_error_string_range @33 NONAME
@@ -141,21 +142,21 @@ EXPORTS
     ;sha512_update @127 NONAME
     ;sha512_final @128 NONAME
     
-    ExitProcess@4 @129 NONAME
-    GetCommandLineA@0 @130 NONAME
-    GetDiskFreeSpaceA@20 @131 NONAME
-    GetDiskFreeSpaceExA@16 @132 NONAME
-    GetDriveTypeA@4 @133 NONAME
-    GetVolumeInformationA@32 @134 NONAME
-    LoadLibraryA@4 @135 NONAME
-    MessageBoxA@16 @136 NONAME
-    SetLastError@4 @137 NONAME
-    GetLastError@0 @138 NONAME
-    GetProcAddress@8 @139 NONAME
-    GetStdHandle@4 @140 NONAME
-    ReadFile@20 @141 NONAME
-    WriteFile@20 @142 NONAME
-    WNetGetConnectionA@12 @143 NONAME
+;    ExitProcess@4 @129 NONAME
+;    GetCommandLineA@0 @130 NONAME
+;    GetDiskFreeSpaceA@20 @131 NONAME
+;    GetDiskFreeSpaceExA@16 @132 NONAME
+;    GetDriveTypeA@4 @133 NONAME
+;    GetVolumeInformationA@32 @134 NONAME
+;    LoadLibraryA@4 @135 NONAME
+;    MessageBoxA@16 @136 NONAME
+;    SetLastError@4 @137 NONAME
+;    GetLastError@0 @138 NONAME
+;    GetProcAddress@8 @139 NONAME
+;    GetStdHandle@4 @140 NONAME
+;    ReadFile@20 @141 NONAME
+;    WriteFile@20 @142 NONAME
+;    WNetGetConnectionA@12 @143 NONAME
     _jit_raise @144 NONAME
     
     ;crc64_init @145 NONAME
