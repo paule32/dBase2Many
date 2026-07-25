@@ -609,6 +609,24 @@ class PE32Writer:
         self.archive_files      = []
         self.archives           = []
 
+    def emit_movzx_r32_word_ptr(
+        self,
+        dst,
+        base,
+        offset=0
+    ):
+        dst_id  = self._reg_id(dst)
+        base_id = self._reg_id(base)
+
+        # MOVZX r32, r/m16
+        self.text += b"\x0F\xB7"
+
+        self._emit_modrm_mem32(
+            dst_id,
+            base_id,
+            int(offset)
+        )
+
     def require_local_label(
         self,
         label,

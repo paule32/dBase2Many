@@ -1,0 +1,237 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Http.Client",
+        "normalized_name": "http_client"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "Http.Client.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System",
+            "Windows"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_HTTP_CLIENT$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": [
+            {
+                "name": "THttpResponse",
+                "parent": "tobject",
+                "size": 4,
+                "vmt_symbol": "__vmt_http_client_thttpresponse",
+                "class_name_symbol": "__classname_http_client_thttpresponse",
+                "fields": [],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPRESPONSE_$$_CREATE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPRESPONSE_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 20
+                    }
+                ],
+                "properties": []
+            },
+            {
+                "name": "THttpClient",
+                "parent": "tobject",
+                "size": 14,
+                "vmt_symbol": "__vmt_http_client_thttpclient",
+                "class_name_symbol": "__classname_http_client_thttpclient",
+                "fields": [
+                    {
+                        "name": "FResponse",
+                        "type": "thttpresponse",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FAUrl",
+                        "type": "string",
+                        "offset": 8,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FAPort",
+                        "type": "word",
+                        "offset": 12,
+                        "size": 2,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_CREATE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_CREATE$ANSISTRING",
+                        "params": [
+                            {
+                                "name": "AUrl",
+                                "type": "string",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_CREATE$ANSISTRING$WORD",
+                        "params": [
+                            {
+                                "name": "AUrl",
+                                "type": "string",
+                                "is_var": false
+                            },
+                            {
+                                "name": "APort",
+                                "type": "word",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 20
+                    },
+                    {
+                        "name": "GetResponse",
+                        "kind": "function",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_GETRESPONSE",
+                        "params": [],
+                        "return_type": "thttpresponse",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "SetResponse",
+                        "kind": "procedure",
+                        "symbol": "_HTTP_CLIENT$$_$$_THTTPCLIENT_$$_SETRESPONSE$THTTPRESPONSE",
+                        "params": [
+                            {
+                                "name": "AObject",
+                                "type": "thttpresponse",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    }
+                ],
+                "properties": [
+                    {
+                        "name": "URL",
+                        "type": "string",
+                        "visibility": "published",
+                        "read": "FAUrl",
+                        "write": "FAUrl"
+                    },
+                    {
+                        "name": "Port",
+                        "type": "word",
+                        "visibility": "published",
+                        "read": "FAPort",
+                        "write": "FAPort"
+                    },
+                    {
+                        "name": "Response",
+                        "type": "thttpresponse",
+                        "visibility": "published",
+                        "read": "GetResponse",
+                        "write": "SetResponse"
+                    }
+                ]
+            }
+        ]
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

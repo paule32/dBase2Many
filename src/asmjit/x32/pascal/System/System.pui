@@ -1,0 +1,52 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "System",
+        "normalized_name": "system"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "System.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System.Types",
+            "System.Strings",
+            "System.Objects"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_SYSTEM$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

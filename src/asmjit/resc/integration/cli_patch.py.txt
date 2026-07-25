@@ -1,0 +1,37 @@
+# Add inside compiler/cli.py -> args_func():
+
+args_parser.add_argument(
+    "-Fr",
+    "--resource",
+    dest="resource_files",
+    action="append",
+    default=[],
+    metavar="FILE",
+    help=tr(
+        "Compile and link a Windows resource script (.rc). "
+        "The option may be specified more than once."
+    )
+)
+
+args_parser.add_argument(
+    "-FiR",
+    "--resource-include",
+    dest="resource_include_paths",
+    action="append",
+    default=[],
+    metavar="DIRECTORY",
+    help=tr(
+        "Add an RC include/resource search directory."
+    )
+)
+
+args_parser.add_argument(
+    "--resource-codepage",
+    dest="resource_codepage",
+    type=int,
+    default=65001,
+    metavar="CODEPAGE",
+    help=tr(
+        "Set the RC source codepage; default is UTF-8 (65001)."
+    )
+)

@@ -34,7 +34,72 @@ for %%A in (%list%) do (
         goto error
     )
 )
+echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/system/System.pas
+python cpascal.py -Twin32 --backend obj --force --verbose ^
+    -D WINDOWS32 -D WIN32 ^
+    -Fo x32/pascal/Win32  ^
+    -Fo obj ^
+    -Fo x32/pascal/System -FE x32/pascal/system ^
+    runtime/pascal/System/System.pas
+set "result=%errorlevel%"
+if !result! gtr 0 (
+    echo Python Error Code: %result%
+    goto error
+)
 echo.
+set "list=kernel user"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/win32/Windows.%%A.pas
+    python cpascal.py -Twin32 --backend obj --force --verbose ^
+        -D WINDOWS32 -D WIN32 ^
+        -Fo obj ^
+        -Fo x32/pascal/System -FE x32/pascal/win32 ^
+        runtime/pascal/Win32/Windows.%%A.pas
+    set "result=%errorlevel%"
+    if !result! gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+)
+echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/win32/Windows.pas
+python cpascal.py -Twin32 --backend obj --force --verbose ^
+    -D WINDOWS32 -D WIN32 ^
+    -Fo obj ^
+    -Fo x32/pascal/System -FE x32/pascal/Win32 ^
+    runtime/pascal/Win32/Windows.pas
+set "result=%errorlevel%"
+if !result! gtr 0 (
+    echo Python Error Code: %result%
+    goto error
+)
+echo.
+set "list=Http.Client"
+set /a total=0
+for %%A in (%list%) do ( set /a total += 1 )
+set /a current=0
+for %%A in (%list%) do (
+    set /a current+=1
+    set "lhs_pad=  !current!"
+    set "rhs_pad=  !total!"
+    echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/Http/%%A.pas
+    python cpascal.py -Twin32 --backend obj --force --verbose -Us ^
+        -Fo obj ^
+        -Fo x32/pascal/Win32 ^
+        -Fo x32/pascal/System -FE x32/pascal/Http ^
+        runtime/pascal/Http/%%A.pas
+    set "result=%errorlevel%"
+    if !result! gtr 0 (
+        echo Python Error Code: %result%
+        goto error
+    )
+)
+
 ::goto test2
 :test0
 :: goto test2
@@ -101,6 +166,7 @@ for /L %%A in (2,1,%total%) do (
     python cpascal.py -Twin32 --backend exe --force --verbose ^
         -Fo x32/pascal/System ^
         -Fo x32/pascal/Crypto ^
+        -Fo x32/pascal/Win32  ^
         -FE x32/pascal/tests/common/with_dll testsrc/pascal/common/test%%A.pas
     set "result=%errorlevel%"
     if %result% gtr 0 (
@@ -123,6 +189,8 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/%%A.pas
     python cpascal.py -Twin32 --backend exe --force -Us ^
         -Fo x32/pascal/System ^
+        -Fo x32/pascal/Http   ^
+        -Fo x32/pascal/Win32  ^
         -Fo obj ^
         -FE x32/pascal/tests/common/free_dll testsrc/pascal/common/%%A.pas
     set "result=%errorlevel%"

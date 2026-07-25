@@ -1,0 +1,81 @@
+#pragma code_page(65001)
+#include "resource.h"
+
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+
+1 VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040704E4"
+        BEGIN
+            VALUE "CompanyName", "dBase2Many\0"
+            VALUE "FileDescription", "ANTLR Resource Compiler Demo\0"
+            VALUE "FileVersion", "1.0.0.0\0"
+            VALUE "OriginalFilename", "resource_demo.exe\0"
+            VALUE "ProductName", "dBase2Many\0"
+            VALUE "ProductVersion", "1.0.0.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0407, 1252
+    END
+END
+
+STRINGTABLE
+BEGIN
+    IDS_APP_TITLE "ANTLR Resource Compiler"
+    IDS_HELLO     "Hallo aus der .rsrc-Sektion"
+END
+
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "&Datei"
+    BEGIN
+        MENUITEM "&Beenden", IDM_EXIT
+    END
+    POPUP "&Hilfe"
+    BEGIN
+        MENUITEM "&Über", IDM_ABOUT
+    END
+END
+
+IDR_ACCEL ACCELERATORS
+BEGIN
+    "Q", IDM_EXIT, VIRTKEY, CONTROL
+    "A", IDM_ABOUT, VIRTKEY, ALT
+END
+
+IDD_ABOUT DIALOGEX 0, 0, 180, 70
+STYLE WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SETFONT
+EXSTYLE WS_EX_DLGMODALFRAME
+CAPTION "Über dBase2Many"
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+    LTEXT "ANTLR-basierter Resource Compiler", IDC_STATIC, 8, 8, 160, 10
+    EDITTEXT IDC_NAME, 8, 24, 160, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON "OK", 1, 65, 48, 50, 14
+END
+
+200 RCDATA
+BEGIN
+    0x1234,
+    0x89ABCDEFL,
+    "ANSI",
+    L"Unicode"
+END
+
+MY_PRIVATE_RESOURCE 300
+BEGIN
+    1, 2, 3, 4L, "raw"
+END
+
+CUSTOM_FILE_TYPE MY_BINARY_TYPE "payload.bin"

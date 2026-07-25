@@ -21,7 +21,60 @@
         "interface": [],
         "implementation": []
     },
-    "imports": {},
+    "imports": {
+        "libruntime_mini.dll": [
+            {
+                "symbol": "__dllimp_0_libruntime_mini_dll__jit_object_instance_new",
+                "name": "_jit_object_instance_new",
+                "ordinal": 77
+            },
+            {
+                "symbol": "__dllimp_1_libruntime_mini_dll__jit_object_instance_free",
+                "name": "_jit_object_instance_free",
+                "ordinal": 78
+            },
+            {
+                "symbol": "__dllimp_2_libruntime_mini_dll__jit_object_free",
+                "name": "_jit_object_free",
+                "ordinal": 79
+            },
+            {
+                "symbol": "__dllimp_3_libruntime_mini_dll__jit_object_class_type",
+                "name": "_jit_object_class_type",
+                "ordinal": 80
+            },
+            {
+                "symbol": "__dllimp_4_libruntime_mini_dll__jit_class_parent",
+                "name": "_jit_class_parent",
+                "ordinal": 81
+            },
+            {
+                "symbol": "__dllimp_5_libruntime_mini_dll__jit_class_name",
+                "name": "_jit_class_name",
+                "ordinal": 82
+            },
+            {
+                "symbol": "__dllimp_6_libruntime_mini_dll__jit_class_instance_size",
+                "name": "_jit_class_instance_size",
+                "ordinal": 83
+            },
+            {
+                "symbol": "__dllimp_7_libruntime_mini_dll__jit_inherits_from_class",
+                "name": "_jit_inherits_from_class",
+                "ordinal": 84
+            },
+            {
+                "symbol": "__dllimp_8_libruntime_mini_dll__jit_inherits_from_object",
+                "name": "_jit_inherits_from_object",
+                "ordinal": 85
+            },
+            {
+                "symbol": "__dllimp_9_libruntime_mini_dll__jit_dynstring_from_cstr",
+                "name": "_jit_dynstring_from_cstr",
+                "ordinal": 52
+            }
+        ]
+    },
     "initialization": {
         "symbol": "_SYSTEM_OBJECTS$$_INIT"
     },
@@ -40,8 +93,208 @@
         "records": []
     },
     "symbols": {
-        "functions": [],
-        "procedures": [],
+        "functions": [
+            {
+                "name": "_jit_object_instance_new",
+                "scoped_name": "system_objects__jit_object_instance_new",
+                "symbol": "__dllimp_0_libruntime_mini_dll__jit_object_instance_new",
+                "params": [
+                    {
+                        "name": "AVmt",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_object_instance_new",
+                "ordinal": 77,
+                "return_type": "pointer"
+            },
+            {
+                "name": "_jit_object_class_type",
+                "scoped_name": "system_objects__jit_object_class_type",
+                "symbol": "__dllimp_3_libruntime_mini_dll__jit_object_class_type",
+                "params": [
+                    {
+                        "name": "AObject",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_object_class_type",
+                "ordinal": 80,
+                "return_type": "pointer"
+            },
+            {
+                "name": "_jit_class_parent",
+                "scoped_name": "system_objects__jit_class_parent",
+                "symbol": "__dllimp_4_libruntime_mini_dll__jit_class_parent",
+                "params": [
+                    {
+                        "name": "AVmt",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_class_parent",
+                "ordinal": 81,
+                "return_type": "pointer"
+            },
+            {
+                "name": "_jit_class_name",
+                "scoped_name": "system_objects__jit_class_name",
+                "symbol": "__dllimp_5_libruntime_mini_dll__jit_class_name",
+                "params": [
+                    {
+                        "name": "AVmt",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_class_name",
+                "ordinal": 82,
+                "return_type": "pointer"
+            },
+            {
+                "name": "_jit_class_instance_size",
+                "scoped_name": "system_objects__jit_class_instance_size",
+                "symbol": "__dllimp_6_libruntime_mini_dll__jit_class_instance_size",
+                "params": [
+                    {
+                        "name": "AVmt",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_class_instance_size",
+                "ordinal": 83,
+                "return_type": "integer"
+            },
+            {
+                "name": "_jit_inherits_from_class",
+                "scoped_name": "system_objects__jit_inherits_from_class",
+                "symbol": "__dllimp_7_libruntime_mini_dll__jit_inherits_from_class",
+                "params": [
+                    {
+                        "name": "ACurrentClass",
+                        "type": "pointer",
+                        "is_var": false
+                    },
+                    {
+                        "name": "AExpectedClass",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_inherits_from_class",
+                "ordinal": 84,
+                "return_type": "integer"
+            },
+            {
+                "name": "_jit_inherits_from_object",
+                "scoped_name": "system_objects__jit_inherits_from_object",
+                "symbol": "__dllimp_8_libruntime_mini_dll__jit_inherits_from_object",
+                "params": [
+                    {
+                        "name": "AObject",
+                        "type": "pointer",
+                        "is_var": false
+                    },
+                    {
+                        "name": "AExpectedClass",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_inherits_from_object",
+                "ordinal": 85,
+                "return_type": "boolean"
+            },
+            {
+                "name": "_jit_dynstring_from_cstr",
+                "scoped_name": "system_objects__jit_dynstring_from_cstr",
+                "symbol": "__dllimp_9_libruntime_mini_dll__jit_dynstring_from_cstr",
+                "params": [
+                    {
+                        "name": "AText",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_dynstring_from_cstr",
+                "ordinal": 52,
+                "return_type": "string"
+            }
+        ],
+        "procedures": [
+            {
+                "name": "_jit_object_instance_free",
+                "scoped_name": "system_objects__jit_object_instance_free",
+                "symbol": "__dllimp_1_libruntime_mini_dll__jit_object_instance_free",
+                "params": [
+                    {
+                        "name": "AObject",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_object_instance_free",
+                "ordinal": 78
+            },
+            {
+                "name": "_jit_object_free",
+                "scoped_name": "system_objects__jit_object_free",
+                "symbol": "__dllimp_2_libruntime_mini_dll__jit_object_free",
+                "params": [
+                    {
+                        "name": "AObject",
+                        "type": "pointer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_object_free",
+                "ordinal": 79
+            }
+        ],
         "classes": [
             {
                 "name": "TObject",

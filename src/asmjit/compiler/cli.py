@@ -30,10 +30,11 @@ def args_func():
     )
     
     args_parser.add_argument(
-        "-o",
-        "--output",
-        default = None,
-        help    = tr("Output directory")
+        "--codepage",
+        dest    = "code_page",
+        type    = int,
+        default = 65001,
+        help    = "source codepage; default: UTF-8 (65001)"
     )
     
     args_parser.add_argument(
@@ -197,11 +198,14 @@ def args_func():
         "--backend",
         dest     =  "backend",
         nargs    =  "?",
-        choices  = ["c++", "asmjit",
-                    "asm", "nasm",
-                    "obj", "objfile",
-                    "dll", "dllfile",
-                    "exe", "exefile",
+        choices  = ["c++", "asm", "obj", "res", "dll", "exe",
+                    # ------ #
+                    "asmjit",
+                    "nasm",
+                    "objfile",
+                    "resfile",
+                    "dllfile",
+                    "exefile",
         ],
         default  =  "asmjit",
         help     =  tr("Code backend: asmjit, nasm, obj, dll, exe.")
@@ -226,7 +230,9 @@ def args_func():
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-Fi",
-        dest    = "includepath",
+        "--include-path",
+        dest    = "include_path",
+        metavar = "DIRECTORY",
         action  = "append",
         default = [],
         help    = tr("Add include file search path.")
@@ -239,9 +245,9 @@ def args_func():
         "-Fu",
         "--unit-path",
         dest    = "unit_paths",
+        metavar = "DIRECTORY",
         action  = "append",
         default = [],
-        metavar = "DIRECTORY",
         help    = tr("Add Pascal unit search directory.")
     )
     
@@ -268,8 +274,8 @@ def args_func():
     # -------------------------------------------------------------
     args_parser.add_argument(
         "-FE",
-        "--output-directory",
-        dest    = "exe_output_dir",
+        "--output-path",
+        dest    = "output",
         default = ".",
         metavar = "DIRECTORY",
         help    = tr(
@@ -346,6 +352,7 @@ def args_func():
         "-i",
         "--info",
         dest    =   "information",
+        metavar =   "INFO",
         nargs   =   "?",
         const   =   "",
         choices = [ "",
@@ -475,6 +482,7 @@ def validate_output_path(
     CDATA.CurrentWorkingDir = output_path
     CDATA.ExeOutputDir      = output_path
     CDATA.output_dir        = output_path
+    CDATA.out_dir           = output_path
 
     # Kompatibilität mit vorhandenen Treiberversionen, die
     # CDATA.exe_file vorübergehend als Ausgabeverzeichnis behandeln.
@@ -718,20 +726,23 @@ def collect_link_search_paths(
     )
     
 def handle_args(args):
-    CDATA.IncludePaths = list(args.includepath or [])
-    CDATA.Defines      = list(args.define      or [])
+    CDATA.IncludePaths = list(args.include_path or [])
+    CDATA.Defines      = list(args.define       or [])
     
     CDATA.force_write  = args.forcewrite
+    CDATA.code_page    = args.code_page
+    
+    CDATA.inc_dir      = list(args.include_path or [])
     
     # -FE bezeichnet immer ein Ausgabeverzeichnis. Die Funktion
     # normalisiert auch relative Pfade und schreibt den absoluten
     # Pfad nach CDATA.ExeOutputDir, CDATA.output_dir und
     # CDATA.CurrentWorkingDir.
     result = validate_output_path(
-        args.exe_output_dir
+        args.output
     )
 
-    args.exe_output_dir = result[
+    args.output = result[
         "absolute_path"
     ]
 
@@ -765,25 +776,15 @@ def handle_args(args):
     )
 
     if CDATA.debug_mode:
-        print(
-            "COFF object search paths:"
-        )
+        print("COFF object search paths:")
 
         for path in CDATA.link_object_paths:
-            print(
-                "  ",
-                path
-            )
+            print("  ", path)
 
-        print(
-            "Archive search paths:"
-        )
+        print("Archive search paths:")
 
         for path in CDATA.link_library_paths:
-            print(
-                "  ",
-                path
-            )
+            print("  ", path)
 
     CDATA.args_backend = args.backend
     CDATA.UnitPaths = normalize_search_paths(

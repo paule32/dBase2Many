@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# cpascal.py integration
+# ---------------------------------------------------------------------------
+
+# Add import:
+from integration.pascal_resource import compile_pascal_resources
+
+# Preserve the original source before the Pascal preprocessor modifies it:
+raw_source = source
+
+# After CDATA.src_file/output_dir are known and before generator.visit(tree):
+resource_objects = compile_pascal_resources(
+    raw_pascal_source=raw_source,
+    source_file=CDATA.src_file,
+    output_directory=CDATA.output_dir,
+    command_line_resources=(
+        getattr(args, "resource_files", []) or []
+    ),
+    include_paths=(
+        list(getattr(args, "resource_include_paths", []) or [])
+        + list(getattr(args, "includepath", []) or [])
+    ),
+    defines=(getattr(args, "define", []) or []),
+    codepage=getattr(args, "resource_codepage", 65001),
+    verbose=bool(getattr(args, "verbose", False)),
+)
+
+if not hasattr(CDATA, "link_object_files"):
+    CDATA.link_object_files = []
+
+for resource_object in resource_objects:
+    filename = str(resource_object)
+    if filename not in CDATA.link_object_files:
+        CDATA.link_object_files.append(filename)
+
+# Recommended guard after generator.root_module_kind is known:
+if (
+    resource_objects
+    and getattr(generator, "root_module_kind", None) == "unit"
+):
+    raise RuntimeError(
+        "Windows resources can only be linked into a program or library"
+    )

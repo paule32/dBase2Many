@@ -41,6 +41,8 @@ class CommonData():
         self.BackEnd             = BackEndInfo()
         self.CurrentWorkingDir   : str  = ""
         
+        self.code_page           : int  = 65001
+        
         self.src_file            : str  = ""
         self.asm_file            : str  = ""
         self.cpp_file            : str  = ""
@@ -50,6 +52,9 @@ class CommonData():
         
         self.obj_file            : str  = ""
         self.pui_file            : str  = ""
+        
+        self.inc_file            : list = []
+        self.res_file            : str  = ""
         
         self.args_target         : str  = ""
         self.args_backend        : str  = ""

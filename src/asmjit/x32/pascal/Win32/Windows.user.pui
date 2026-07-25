@@ -1,0 +1,93 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Windows.User",
+        "normalized_name": "windows_user"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "Windows.user.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System.Types"
+        ],
+        "implementation": []
+    },
+    "imports": {
+        "libruntime_mini.dll": [
+            {
+                "symbol": "__dllimp_0_libruntime_mini_dll_MessageBoxA_16",
+                "name": "MessageBoxA@16",
+                "ordinal": 75
+            }
+        ]
+    },
+    "initialization": {
+        "symbol": "_WINDOWS_USER$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [
+            {
+                "name": "MessageBox",
+                "scoped_name": "windows_user_MessageBox",
+                "symbol": "__dllimp_0_libruntime_mini_dll_MessageBoxA_16",
+                "params": [
+                    {
+                        "name": "AHwnd",
+                        "type": "handle",
+                        "is_var": false
+                    },
+                    {
+                        "name": "ATitle",
+                        "type": "string",
+                        "is_var": false
+                    },
+                    {
+                        "name": "AMessage",
+                        "type": "string",
+                        "is_var": false
+                    },
+                    {
+                        "name": "AFlag",
+                        "type": "dword",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "MessageBoxA@16",
+                "ordinal": 75,
+                "return_type": "dword"
+            }
+        ],
+        "procedures": [],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

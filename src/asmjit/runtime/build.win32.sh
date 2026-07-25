@@ -198,12 +198,65 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      echo "PE32:mini compaction failed."
      exit 1
   fi
-  if ! python compact_pe32_dll.py   \
-     win32/libruntime_all.dll \
-     win32/libruntime_all.dll.c --drop-empty-idata ; then
-     echo "PE32:all compaction failed."
-     exit 1
+  #if ! python pe_nostub.py          \
+  #     win32/libruntime_mini.dll.c  \
+  #     win32/libruntime_mini.dll    \
+  #     --mode compact \
+  #     --overwrite    \
+  #     --backup       ; then
+  #     echo "PE32:mini modify error."
+  #     exit 1
+  #fi
+  if ! python pe_nostub.py          \
+       win32/libruntime_mini.dll.c  \
+       win32/libruntime_mini.dll    \
+       --mode compact \
+       --overwrite    \
+       --backup       ; then
+       echo "PE32:mini modify error."
+       exit 1
   fi
+  #cp win32/libruntime_mini.dll.c win32/libruntime_mini.dll
+  
+  #if ! python compact_pe32_dll.py   \
+  #   win32/libruntime_all.dll \
+  #   win32/libruntime_all.dll.c --drop-empty-idata ; then
+  #   echo "PE32:all compaction failed."
+  #   exit 1
+  #fi
+  #if ! python pe_nostub.py          \
+  #     win32/libruntime_all.dll.c   \
+  #     win32/libruntime_all.dll     \
+  #     --mode compact \
+  #     --overwrite    \
+  #     --backup       ; then
+  #     echo "PE32:all modify error."
+  #     exit 1
+  #fi
+  
+  ##cp win32/libruntime_mini.dll win32/libruntime_mini.0.dll
+  ##if ! nasm -f win32 -o win32/obj/crt0.o crt0.asm ; then
+  ##     echo "crt0.s: error."
+  ##     exit 1
+  ##fi
+  ##if ! gcc -shared -nostdlib -shared -fPIC -o win32/libruntime_mini.dll \
+  ##     win32/obj/crt0.o ; then
+  ##     echo "mini.0.dll error"
+  ##     exit 1
+  ##fi
+  ##strip win32/libruntime_mini.dll
+  ##if ! python pe_nostub.py         \
+  ##     win32/libruntime_mini.dll   \
+  ##     win32/libruntime_mini.0.dll \
+  ##     --mode compact \
+  ##     --overwrite    \
+  ##     --backup       ; then
+  ##     echo "PE32:all modify error."
+  ##     exit 1
+  ##fi
+  ##cp win32/libruntime_mini.0.dll win32/libruntime_mini.dll
+  #cp win32/libruntime_mini.dll.c win32/libruntime_mini.dll
+  
 
   #echo "create, and copy ordinals ..."
   #if ! python makedef.32.py --ignore --python ; then
@@ -384,13 +437,13 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "assemlber could not create object file: strtoint.o."
        exit 1
   fi
-    
-  ar rcs win32/libruntime.a        \
+  
+  ar rcs win32/lib_runtime.a       \
       win32/dll_inflate.o \
       win32/dll_loader.o  \
       win32/dll_runtime_bindings.o \
       win32/dll_runtime.o \
-      win32/dll_runtime_thunks.o
+      win32/dll_runtime_thunks_mini.o
   ###
 
   
@@ -402,73 +455,4 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   
   echo "done."
   exit 0
-  
-#  echo "compile: pascal/registry.pas"  ; ./pas2asmjit -Twinnt --backend exe pascal/registry.pas
-#  exit 0
-  
-  echo "compile: error.cc"  ; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/error.o   error.cc
-  
-  echo "compile: mapping.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/mapping.o mapping.cc
-  
-  echo "compile: misc.cc"   ; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/misc.o    misc.cc
-   
-  # ----------------------------------------------
-  # Windows 32-bit API stuff ...
-  # ----------------------------------------------
-  echo "compile: windows.cc"; g++ -O2 -m32 -std=c++20 -shared \
-  -IT:/GitHub/asmjit -DASMJIT_STATIC=OFF -DDLL_EXPORT -fPIC -c -o \
-  win32/obj/windows.o windows.cc
-
-  echo "create static .a rchive file"
-  ar rcs win32/libdbase2many.32.a \
-  win32/obj/*.o                \
-  win32/obj/crypto/md5/*.o     \
-  win32/obj/crypto/sha1/*.o
-
-  echo "create .dll file"
-  python makedef.32.py
-  g++ -m32 -shared -O2 -fPIC   \
-  win32/obj/*.o                \
-  win32/obj/crypto/blake2/*.o  \
-  win32/obj/crypto/blake3/*.o  \
-  win32/obj/crypto/crc16/*.o   \
-  win32/obj/crypto/crc32/*.o   \
-  win32/obj/crypto/crc32c/*.o  \
-  win32/obj/crypto/crc64/*.o   \
-  win32/obj/crypto/md5/*.o     \
-  win32/obj/crypto/sha1/*.o    \
-  win32/obj/crypto/sha3/*.o    \
-  win32/obj/crypto/sha224/*.o  \
-  win32/obj/crypto/sha256/*.o  \
-  win32/obj/crypto/sha384/*.o  \
-  win32/obj/crypto/sha512/*.o  \
-  win32/obj/diskio/*.o         \
-  libdbase2many.32.def -lmpr -o libdbase2many.32.dll
-
-  echo "create dynamic .a rchive file"
-  #gendef    libdbase2many.32.dll  > libdbase2many.32.dll.raw
-  dlltool -d libdbase2many.32.def -l libdbase2many.32.dll.a
-
-  echo "strip debug informations"
-  strip libdbase2many.32.dll
-
-  echo "copy files to win32/"
-  cp libdbase2many.32.def   win32/libdbase2many.32.def
-  cp libdbase2many.32.dll   win32/libdbase2many.32.dll
-  cp libdbase2many.32.dll.a win32/libdbase2many.32.dll.a
-
-  echo "clean up"
-  rm libdbase2many.32*
-  rm setjmp32.o
-  
-  echo "done."
-else
-  echo "No MingW32 Toolchain - aborted."
-  exit 2
 fi

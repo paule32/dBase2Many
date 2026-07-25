@@ -1,0 +1,77 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Windows.kernel",
+        "normalized_name": "windows_kernel"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "Windows.kernel.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System"
+        ],
+        "implementation": []
+    },
+    "imports": {
+        "libruntime_mini.dll": [
+            {
+                "symbol": "__dllimp_10_libruntime_mini_dll__jit_ExitProcess",
+                "name": "_jit_ExitProcess",
+                "ordinal": 75
+            }
+        ]
+    },
+    "initialization": {
+        "symbol": "_WINDOWS_KERNEL$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [
+            {
+                "name": "ExitProcess",
+                "scoped_name": "windows_kernel_ExitProcess",
+                "symbol": "__dllimp_10_libruntime_mini_dll__jit_ExitProcess",
+                "params": [
+                    {
+                        "name": "AValue",
+                        "type": "dword",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "cdecl",
+                "external": true,
+                "dll_import": true,
+                "dll": "libruntime_mini.dll",
+                "import_name": "_jit_ExitProcess",
+                "ordinal": 75
+            }
+        ],
+        "classes": []
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

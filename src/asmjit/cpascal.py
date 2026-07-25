@@ -42,7 +42,8 @@ from compiler.backend.dos16    import *
 from compiler.backend.asmjit   import *
 from compiler.backend.nasm     import *
 
-from compiler.frontend.pascal.generator  import *
+from compiler.frontend.pascal  .generator import *
+from compiler.frontend.resource.generator import *
 
 from compiler.writer.pe64coff    import *
 
@@ -54,7 +55,7 @@ from compiler.writer.pe64 import *
 from compiler.cli import *
 from antlr4       import *
 
-from compiler.frontend.pascal.preprocessor   import (
+from compiler.frontend.pascal.preprocessor  import (
     ConditionalExpressionError,
     PascalPreprocessorError,
     PascalDirectiveAbort,
@@ -63,6 +64,10 @@ from compiler.frontend.pascal.preprocessor   import (
 from parsers.pascal.PascalLexer          import PascalLexer
 from parsers.pascal.PascalParser         import PascalParser
 from parsers.pascal.PascalParserVisitor  import PascalParserVisitor
+
+from parsers.resrc.ResourceLexer         import ResourceLexer
+from parsers.resrc.ResourceParser        import ResourceParser
+from parsers.resrc.ResourceParserVisitor import ResourceParserVisitor
 
 COMMENT_REPL = ('-' * 77)
 
@@ -226,7 +231,16 @@ def main():
                 
             elif CDATA.args_target in ["win64"]:
                 pass
-                
+        
+        elif CDATA.args_backend in ["res", "resfile"]:
+            if CDATA.args_target in ["nt35", "winnt", "win32"]:
+                writer     = PE32Writer
+                target_obj = NT32Writer(writer)
+                backend    = Coff32Backend(writer)
+            else:
+                raise RuntimeError(tr(
+                "resource files only supported for Windows."))
+        
         elif CDATA.args_backend in ["exe", "exefile"]:
             if CDATA.args_target in ["nt35", "winnt", "win32"]:
                 writer     = PE32Writer()
@@ -254,7 +268,7 @@ def main():
         name, ext   = os.path.splitext(source_file)
         found       = False
         
-        if ext.lower() in [".pas", ".pp", ".c", ".cc", ".cpp"]:
+        if ext.lower() in [".pas", ".pp", ".c", ".cc", ".cpp", ".rc"]:
             CDATA.args_compilermode = args.compilermode
             source_file = name + ext
         else:
@@ -262,9 +276,14 @@ def main():
             if args.compilermode in ["pp", "pas", "pascal"]:
                 if not ext or len(ext) < 2:
                     source_file = name + ".pas"
+                    
             elif args.compilermode in ["c", "cc", "cpp"]:
                 if not ext or len(ext) < 2:
                     source_file = name + ".cc"
+                    
+            elif args.compilermode in ["rc", "res"]:
+                if not ext or len(ext) < 2:
+                    source_file = name + ".res"
             else:
                 raise Exception(tr("compiler mode unknown."))
         
@@ -284,6 +303,7 @@ def main():
         CDATA.cpp_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".cc" )
         CDATA.obj_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".o"  )
         CDATA.pui_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".pui")
+        CDATA.res_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".res")
         CDATA.dll_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".dll")
         CDATA.exe_file = PureWindowsPath(CDATA.CurrentWorkingDir) / (name + ".exe")
         
@@ -307,6 +327,30 @@ def main():
         with open(CDATA.src_file, "r", encoding="utf-8") as f:
             source = f.read()
             f.close()
+        
+        # -----------------------------------------
+        # handle Windows resource file ...
+        # -----------------------------------------
+        if CDATA.args_target.lower() in ["nt35", "winnt", "win32"]:
+            if CDATA.args_backend.lower() in ["res", "resfile"]:
+                stream  = InputStream(source)
+                lexer   = ResourceLexer(stream)
+                tokens  = CommonTokenStream(lexer)
+                parser  = ResourceParser(tokens)
+                tree    = parser.resourceScript()
+                
+                if parser.getNumberOfSyntaxErrors() > 0:
+                    raise Exception(tr("source code have syntax errors."))
+                
+                generator = ResourceGenerator(backend, writer=target_obj)
+                generator.source_file = os.path.abspath(source_file)
+                generator.source_dir  = os.path.dirname(generator.source_file)
+                
+                text = generator.visit(tree)
+                writer.write(CDATA.res_file)
+                
+                print("done.")
+                return 0
         
         # -----------------------------------------
         # 1. Makros verwendeter Units aus PUI laden
@@ -334,25 +378,10 @@ def main():
         #
         # Lokale Definitionen haben damit die höchste Priorität.
         # -----------------------------------------
-        pre = PascalPreprocessor(
-            defines=imported_unit_macros
-        )
+        pre = PascalPreprocessor(defines = imported_unit_macros)
 
-        pre.add_initial_defines(
-            getattr(
-                CDATA,
-                "Defines",
-                []
-            )
-        )
-
-        pre.add_initial_defines(
-            getattr(
-                args,
-                "define",
-                []
-            ) or []
-        )
+        pre.add_initial_defines(getattr(CDATA, "Defines", []))
+        pre.add_initial_defines(getattr(args, "define", []) or [])
 
         # -----------------------------------------
         # 3. Hauptdatei bzw. Unit präprozessieren
@@ -362,9 +391,7 @@ def main():
             filename=CDATA.src_file
         )
 
-        stream = InputStream(
-            source
-        )
+        stream = InputStream(source)
 
         # Nur die Makros speichern, die in der aktuellen Quelldatei
         # selbst durch {$DEFINE ...} definiert wurden.
@@ -390,7 +417,6 @@ def main():
         tree    = parser.sourceFile()
         
         if parser.getNumberOfSyntaxErrors() > 0:
-            return 1
             raise Exception(tr("source code have syntax errors."))
         
         # -----------------------------------------
@@ -418,7 +444,7 @@ def main():
         # -----------------------------------------
         # 5. finalize: create c++ output file ...
         # -----------------------------------------
-        overwrite = "exists. Overwrite? (Y/N): "
+        overwrite = tr("exists. Overwrite? (Y/N): ")
         
         if CDATA.args_target.lower() in ["dos", "dos16"]:
             if CDATA.args_backend.lower() == BACKEND_EXEFILE:
@@ -444,9 +470,9 @@ def main():
                     )
                 ).lower()
                 if module_kind == "unit" and requested_backend not in ("", "obj", "object"):
-                    raise RuntimeError(
-                        tr("Pascal units can only be compiled as COFF objects; "
-                        "use -Bobj")
+                    raise RuntimeError(tr(
+                        "Pascal units can only be compiled as COFF "
+                        "objects; use -Bobj")
                     )
                 outfile = Path(CDATA.exe_file)
                 check   = ['j','y']

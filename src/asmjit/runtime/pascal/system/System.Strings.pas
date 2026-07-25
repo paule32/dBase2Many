@@ -14,14 +14,14 @@ function StrToInt(S: String): Integer;
 
 implementation
 const DLL_FILE = 'libruntime_mini.dll';
-function _jit_dynstring_from_cstr(AText: Pointer): String; cdecl; external DLL_FILE name '_jit_dynstring_from_cstr' ordinal 52;
+function jit_dynstring_from_cstr(AText: Pointer): String; cdecl; external DLL_FILE name '_jit_dynstring_from_cstr' ordinal 52;
 
 function _IntToStr(AValue: Integer): Pointer; cdecl; external;
 function _StrToInt(S: String): Integer;       cdecl; external;
 
 function  IntToStr(AValue: Integer): String;
 begin
-    result := _jit_dynstring_from_cstr(_IntToStr(AValue));
+    result := jit_dynstring_from_cstr(_IntToStr(AValue));
 end;
 
 function  StrToInt(S: String): Integer;

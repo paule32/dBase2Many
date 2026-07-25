@@ -369,3 +369,7 @@ src/asmjit/runtime/2
 src/asmjit/runtime/win32/libruntime.a
 src/asmjit/runtime/win32/libcrypto.a
 src/asmjit/obj/lib_runtime.a
+src/asmjit/antlr_resource_compiler.zip
+src/asmjit/x32/pascal/tests/common/free_dll/libruntime_mini.dll
+src/asmjit/windres_pascal_integration.zip
+src/asmjit/resc/tools/antlr-4.13.2-complete.jar

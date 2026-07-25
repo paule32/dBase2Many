@@ -8,6 +8,22 @@ set PATH=%CD%;%PATH%
 set ANTLR_VERSION=4.13.2
 
 :: ----------------------------------------------------------------------------
+:: Windows Resource Compiler ...
+:: ----------------------------------------------------------------------------
+echo create: Lexer + Parser for Windows Resource Compiler
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/resource   ^
+    compiler/grammar/ResourceLexer.g4
+
+antlr4 -v %ANTLR_VERSION% ^
+    -Dlanguage=Python3    ^
+    -o parsers/resource   ^
+    -visitor              ^
+    -lib parsers/resource ^
+    compiler/grammar/ResourceParser.g4
+
+:: ----------------------------------------------------------------------------
 :: Pascal
 :: ----------------------------------------------------------------------------
 echo create: Lexer + Parser for Pascal
