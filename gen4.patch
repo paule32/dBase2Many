@@ -1,0 +1,112 @@
+diff --git a/src/asmjit/compiler/frontend/pascal/generator.py b/src/asmjit/compiler/frontend/pascal/generator.py
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -1211,9 +1211,22 @@
+             class_name.lower()
+         ]
+ 
+-        if cls.vmt_symbol in self.emitted_class_vmts:
++        # Der Cache darf nur dann als Treffer gelten, wenn das COFF-Symbol
++        # im aktuell verwendeten Writer wirklich vorhanden ist. Das ist
++        # wichtig, wenn ein Generator/Writer während mehrerer Unit-Schritte
++        # erneut verwendet wird.
++        if (
++            cls.vmt_symbol in self.emitted_class_vmts
++            and self.writer.find_symbol_index(
++                cls.vmt_symbol
++            ) is not None
++        ):
+             return
+ 
++        self.emitted_class_vmts.discard(
++            cls.vmt_symbol
++        )
++
+         self.emitted_class_vmts.add(
+             cls.vmt_symbol
+         )
+@@ -1319,6 +1332,67 @@
+                 f"got {actual_vmt_size} bytes"
+             )
+ 
++    def ensure_class_vmt_reference(
++        self,
++        ctx,
++        class_name
++    ):
++        class_key = str(
++            class_name
++        ).lower()
++
++        cls = self.classes[
++            class_key
++        ]
++
++        symbol = cls.vmt_symbol
++
++        if self.writer.find_symbol_index(
++            symbol
++        ) is None:
++            if class_key in self.pui_class_units:
++                # Die VMT gehört zu einer bereits kompilierten Unit.
++                # Ihr COFF-Objekt wird über die PUI eingebunden; hier wird
++                # deshalb nur ein undefiniertes externes Symbol für die
++                # DIR32-Relocation benötigt.
++                add_external = getattr(
++                    self.writer,
++                    "find_or_add_external",
++                    None
++                )
++
++                if add_external is None:
++                    raise CompileError(
++                        ctx,
++                        "E0019",
++                        text=(
++                            "backend cannot reference external "
++                            f"class VMT: {symbol}"
++                        )
++                    )
++
++                add_external(
++                    symbol
++                )
++            else:
++                # Lokale Klassen besitzen ihre VMT in der aktuellen
++                # Objektdatei. Falls der Deklarationsdurchlauf das Symbol
++                # nicht mehr im Writer hinterlassen hat, wird es hier vor
++                # dem ersten Konstruktorzugriff zuverlässig erzeugt.
++                self.emit_class_vmt_data(
++                    class_name
++                )
++
++        if self.writer.find_symbol_index(
++            symbol
++        ) is None:
++            raise RuntimeError(
++                "class VMT symbol was not registered: "
++                + symbol
++            )
++
++        return symbol
++
+     def method_directive_flags(
+         self,
+         declaration_ctx
+@@ -6828,8 +6902,15 @@
+             # VMT eintragen
+             # --------------------------------------------------------------
++            vmt_symbol = (
++                self.ensure_class_vmt_reference(
++                    ctx,
++                    class_name
++                )
++            )
++
+             self.writer.emit_lea_reg_data_label(
+                 "edx",
+-                cls.vmt_symbol
++                vmt_symbol
+             )
+ 
+             self.emit_mov_dword_ptr_store(

@@ -1,20 +1,717 @@
---- generator_boolean_fix_v2.py
-+++ generator_boolean_fix_v3.py
-@@ -21283,12 +21283,15 @@
-                 ctx.factor()
-             )
+--- a/generator.py
++++ b/generator.py
+@@ -10477,6 +10477,609 @@
+         self.emit_store_var(ctx, name, var_info)
+         return None
+     
++    def resolve_self_member_path(
++        self,
++        ctx,
++        parts
++    ):
++        """
++        Resolve an implicit Self member path.
++
++        Examples:
++
++            FAppForm
++            FAppForm.WndClass
++            FAppForm.WndClass.style
++
++        Class-valued fields contain an object pointer. Record-valued fields
++        are stored inline in their containing class or record.
++        """
++        if self.current_class is None or not parts:
++            return None
++
++        current_type = self.current_class
++        result = []
++
++        for index, member_name in enumerate(parts):
++            if current_type in self.classes:
++                fields = self.classes[current_type].fields
++
++            elif current_type in self.records:
++                fields = self.records[current_type].fields
++
++            else:
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=current_type,
++                    expected="class/record"
++                )
++
++            member_key = member_name.lower()
++
++            if member_key not in fields:
++                # A missing first member means that this is not an
++                # implicit Self path. Missing nested members are real
++                # compiler errors and must not fall through to var_info().
++                if index == 0:
++                    return None
++
++                raise CompileError(
++                    ctx,
++                    "E0001",
++                    name=".".join(parts[:index + 1])
++                )
++
++            field = fields[member_key]
++            field_type = self.resolve_type(field.type)
++
++            result.append((
++                field,
++                field_type
++            ))
++
++            if index + 1 < len(parts):
++                if (
++                    field_type not in self.classes
++                    and field_type not in self.records
++                ):
++                    raise CompileError(
++                        ctx,
++                        "E0005",
++                        got=field_type,
++                        expected="class/record"
++                    )
++
++                current_type = field_type
++
++        return result
++
++
++    def emit_self_member_address(
++        self,
++        ctx,
++        parts
++    ):
++        """
++        Load the address of the container of the last member into EAX/RAX.
++
++        The returned field offset is relative to that address.
++        """
++        resolved = self.resolve_self_member_path(
++            ctx,
++            parts
++        )
++
++        if resolved is None:
++            return None
++
++        is_nt32 = (
++            CDATA.args_target
++            in (
++                "nt35",
++                "winnt",
++                "win32"
++            )
++        )
++
++        if is_nt32:
++            self.emit_mov_dword_ptr(
++                "eax",
++                "ebp",
++                -4,
++                comment="Self"
++            )
++        else:
++            self.emit_mov_qword_ptr(
++                "rax",
++                "rbp",
++                -8,
++                comment="Self"
++            )
++
++        # Every member except the last one selects the container of the
++        # following member.
++        for index, (field, field_type) in enumerate(resolved[:-1]):
++            path = ".".join(parts[:index + 1])
++
++            if field_type in self.classes:
++                # A class field contains a pointer to another object.
++                if is_nt32:
++                    self.emit_mov_dword_ptr(
++                        "eax",
++                        "eax",
++                        field.offset,
++                        comment=path
++                    )
++                else:
++                    self.emit_mov_qword_ptr(
++                        "rax",
++                        "rax",
++                        field.offset,
++                        comment=path
++                    )
++
++                self.emit_nil_pointer_check(
++                    path
++                )
++                continue
++
++            if field_type in self.records:
++                # Records are embedded inline.
++                if field.offset:
++                    self.emit_add(
++                        "eax" if is_nt32 else "rax",
++                        field.offset,
++                        comment=path
++                    )
++                continue
++
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=field_type,
++                expected="class/record"
++            )
++
++        final_field, final_type = resolved[-1]
++
++        return (
++            final_field,
++            final_type
++        )
++
++
++    def emit_load_self_member_path(
++        self,
++        ctx,
++        parts
++    ):
++        target = self.emit_self_member_address(
++            ctx,
++            parts
++        )
++
++        if target is None:
++            return None
++
++        field, field_type = target
++        path = "Self." + ".".join(parts)
++
++        is_nt32 = (
++            CDATA.args_target
++            in (
++                "nt35",
++                "winnt",
++                "win32"
++            )
++        )
++
++        address_reg = (
++            "eax"
++            if is_nt32
++            else "rax"
++        )
++
++        range_info = self.subrange_info(
++            field_type
++        )
++
++        if (
++            range_info is not None
++            and self.scalar_base_type(field_type) == "integer"
++        ):
++            if range_info.size == 1:
++                self.backend.writer.emit_movzx_r32_byte_ptr(
++                    "eax",
++                    address_reg,
++                    field.offset
++                )
++
++            elif range_info.size == 2:
++                self.backend.writer.emit_movzx_r32_word_ptr(
++                    "eax",
++                    address_reg,
++                    field.offset
++                )
++
++            elif range_info.size == 4:
++                self.emit_mov_dword_ptr(
++                    "eax",
++                    address_reg,
++                    field.offset,
++                    comment=path
++                )
++
++            else:
++                raise CompileError(
++                    ctx,
++                    "E0013",
++                    var_type=field_type
++                )
++
++            return field_type
++
++        if field_type in (
++            "integer",
++            "boolean"
++        ):
++            self.emit_mov_dword_ptr(
++                "eax",
++                address_reg,
++                field.offset,
++                comment=path
++            )
++
++            if field_type == "boolean":
++                self.emit_and(
++                    "eax",
++                    1
++                )
++
++            return field_type
++
++        if field_type == "char":
++            self.backend.writer.emit_movzx_r32_byte_ptr(
++                "eax",
++                address_reg,
++                field.offset
++            )
++            return "char"
++
++        if field_type == "double":
++            self.emit_movsd_load(
++                "xmm0",
++                address_reg,
++                field.offset,
++                comment=path
++            )
++            return "double"
++
++        if (
++            field_type == "string"
++            or field_type in self.classes
++            or self.is_pointer_type(
++                field_type,
++                include_nil=False
++            )
++        ):
++            if is_nt32:
++                self.emit_mov_dword_ptr(
++                    "eax",
++                    "eax",
++                    field.offset,
++                    comment=path
++                )
++            else:
++                self.emit_mov_qword_ptr(
++                    "rax",
++                    "rax",
++                    field.offset,
++                    comment=path
++                )
++
++            return field_type
++
++        if field_type in self.records:
++            # The value of an inline record is represented by its address.
++            if field.offset:
++                self.emit_add(
++                    address_reg,
++                    field.offset,
++                    comment=path
++                )
++
++            return field_type
++
++        raise CompileError(
++            ctx,
++            "E0013",
++            var_type=field_type
++        )
++
++
++    def emit_store_self_member_path(
++        self,
++        ctx,
++        parts,
++        expr_type
++    ):
++        resolved = self.resolve_self_member_path(
++            ctx,
++            parts
++        )
++
++        if resolved is None:
++            return False
++
++        field, field_type = resolved[-1]
++        value_type = self.resolve_type(
++            expr_type
++        )
++
++        range_info = self.subrange_info(
++            field_type
++        )
++
++        if (
++            range_info is not None
++            and self.scalar_base_type(field_type) == "integer"
++        ):
++            if self.scalar_base_type(value_type) != "integer":
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected=field_type
++                )
++
++            self.emit_subrange_check(
++                ctx,
++                field_type,
++                value_reg="eax"
++            )
++
++        elif field_type == "double" and value_type == "integer":
++            self.emit_cvtsi2sd(
++                "xmm0",
++                "eax"
++            )
++            value_type = "double"
++
++        elif field_type == "boolean":
++            if value_type not in (
++                "boolean",
++                "integer"
++            ):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected="boolean"
++                )
++
++            self.emit_and(
++                "eax",
++                1
++            )
++            value_type = "boolean"
++
++        elif field_type in self.classes:
++            if value_type not in (
++                field_type,
++                "^nil"
++            ):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected=field_type
++                )
++
++        elif self.is_pointer_type(
++            field_type,
++            include_nil=False
++        ):
++            if (
++                value_type != "^nil"
++                and not self.is_pointer_type(
++                    value_type,
++                    include_nil=False
++                )
++            ):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected=field_type
++                )
++
++        elif field_type != value_type:
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=value_type,
++                expected=field_type
++            )
++
++        is_nt32 = (
++            CDATA.args_target
++            in (
++                "nt35",
++                "winnt",
++                "win32"
++            )
++        )
++
++        stack_reg = (
++            "esp"
++            if is_nt32
++            else "rsp"
++        )
++
++        # Preserve the right-hand value before EAX/RAX is reused for the
++        # Self/member address.
++        if field_type == "double":
++            self.emit_sub(
++                stack_reg,
++                8,
++                comment="save nested Self field double"
++            )
++
++            self.emit_movsd_store(
++                stack_reg,
++                0,
++                "xmm0"
++            )
++        else:
++            self.emit_push(
++                "eax" if is_nt32 else "rax",
++                comment="save nested Self field value"
++            )
++
++        target = self.emit_self_member_address(
++            ctx,
++            parts
++        )
++
++        if target is None:
++            return False
++
++        field, field_type = target
++        address_reg = (
++            "eax"
++            if is_nt32
++            else "rax"
++        )
++
++        path = "Self." + ".".join(parts)
++
++        if field_type == "double":
++            self.emit_movsd_load(
++                "xmm0",
++                stack_reg,
++                0
++            )
++
++            self.emit_add(
++                stack_reg,
++                8,
++                comment="restore nested Self field double"
++            )
++
++            self.emit_movsd_store(
++                address_reg,
++                field.offset,
++                "xmm0",
++                comment=path + " :="
++            )
++            return True
++
++        value_reg = (
++            "ebx"
++            if is_nt32
++            else "r11"
++        )
++
++        self.emit_pop(
++            value_reg,
++            comment="restore nested Self field value"
++        )
++
++        range_info = self.subrange_info(
++            field_type
++        )
++
++        if (
++            range_info is not None
++            and self.scalar_base_type(field_type) == "integer"
++        ):
++            if range_info.size == 1:
++                self.emit_mov_byte_ptr_store(
++                    address_reg,
++                    field.offset,
++                    "bl" if is_nt32 else "r11b",
++                    comment=path + " :="
++                )
++
++            elif range_info.size == 2:
++                self.emit_mov_word_ptr_store(
++                    address_reg,
++                    field.offset,
++                    "bx" if is_nt32 else "r11w",
++                    comment=path + " :="
++                )
++
++            elif range_info.size == 4:
++                self.emit_mov_dword_ptr_store(
++                    address_reg,
++                    field.offset,
++                    "ebx" if is_nt32 else "r11d",
++                    comment=path + " :="
++                )
++
++            else:
++                raise CompileError(
++                    ctx,
++                    "E0013",
++                    var_type=field_type
++                )
++
++            return True
++
++        if field_type in (
++            "integer",
++            "boolean"
++        ):
++            self.emit_mov_dword_ptr_store(
++                address_reg,
++                field.offset,
++                "ebx" if is_nt32 else "r11d",
++                comment=path + " :="
++            )
++            return True
++
++        if field_type == "char":
++            self.emit_mov_byte_ptr_store(
++                address_reg,
++                field.offset,
++                "bl" if is_nt32 else "r11b",
++                comment=path + " :="
++            )
++            return True
++
++        if (
++            field_type == "string"
++            or field_type in self.classes
++            or self.is_pointer_type(
++                field_type,
++                include_nil=False
++            )
++        ):
++            if is_nt32:
++                self.emit_mov_dword_ptr_store(
++                    "eax",
++                    field.offset,
++                    "ebx",
++                    comment=path + " :="
++                )
++            else:
++                self.emit_mov_qword_ptr_store(
++                    "rax",
++                    field.offset,
++                    "r11",
++                    comment=path + " :="
++                )
++
++            return True
++
++        raise CompileError(
++            ctx,
++            "E0013",
++            var_type=field_type
++        )
++
++
+     def emit_store_self_field(self, ctx, name, expr_type):
+         field = self.find_current_class_field(name)
  
--            if expr_type != "boolean":
-+            # Boolean aus System.Types ist ein Subrange 0..1 und wird
-+            # intern als Integer gespeichert. Beide Darstellungen sind
-+            # deshalb gültige Operanden für NOT.
-+            if expr_type not in ("boolean", "integer"):
-                 raise CompileError(
+@@ -20792,6 +21395,33 @@
+                     )
+ 
+                 var_name = parts[0]
++
++                # Impliziter beziehungsweise expliziter Self-Pfad:
++                #
++                #   FAppForm.WndClass.style := CS_REDRAW;
++                #   Self.FAppForm.WndClass.style := CS_REDRAW;
++                #
++                # FAppForm ist keine lokale/globale Variable. Der Pfad muss
++                # deshalb vor var_info() über die aktuelle Klasse aufgelöst
++                # werden.
++                if var_name.lower() == "self":
++                    if self.emit_store_self_member_path(
++                        ctx,
++                        parts[1:],
++                        expr_type
++                    ):
++                        return None
++
++                elif self.find_current_class_field(
++                    var_name
++                ) is not None:
++                    self.emit_store_self_member_path(
++                        ctx,
++                        parts,
++                        expr_type
++                    )
++                    return None
++
+                 var_info = self.var_info(ctx, var_name)
+                 var_type = self.resolve_type(var_info["type"])
+ 
+@@ -22909,40 +23539,55 @@
+                             text="Self may only be used inside a class method"
+                         )
+ 
++                    # Zuerst einen einfachen oder verschachtelten
++                    # Klassen-/Recordfeldpfad prüfen:
++                    #
++                    #   Self.FValue
++                    #   Self.FAppForm.WndClass.style
++                    field_type = self.emit_load_self_member_path(
++                        ctx,
++                        parts[1:]
++                    )
++
++                    if field_type is not None:
++                        return field_type
++
+                     if len(parts) != 2:
+                         raise CompileError(
+                             ctx,
+                             "E0019",
+                             text=(
+-                                "nested Self member access is currently "
+-                                "not implemented: "
++                                "unsupported nested Self member access: "
+                                 + ".".join(parts)
+                             )
+                         )
+ 
+-                    member_name = parts[1]
+-
+-                    # Zuerst Klassenfeld prüfen:
+-                    #
+-                    #   Self.FValue
+-                    field_type = self.emit_load_self_field(
+-                        ctx,
+-                        member_name
+-                    )
+-
+-                    if field_type is not None:
+-                        return field_type
+-
+                     # Danach parameterlose Funktionsmethode:
+                     #
+                     #   Self.InstanceSize
+                     #   Self.ClassName
++                    member_name = parts[1]
++
+                     return self.emit_self_method_call(
+                         ctx,
+                         member_name,
+                         []
+                     )
+ 
++                # Impliziter Self-Pfad:
++                #
++                #   FAppForm.WndClass.style
++                #
++                # Dieser Test muss vor var_info() erfolgen, weil FAppForm
++                # ein Feld der aktuellen Klasse und keine Variable ist.
++                if self.find_current_class_field(
++                    var_name
++                ) is not None:
++                    return self.emit_load_self_member_path(
++                        ctx,
++                        parts
++                    )
++
+                 var_info = self.var_info(
                      ctx,
-                     "E0005",
-                     got=expr_type,
--                    expected="boolean"
-+                    expected="boolean/integer"
-                 )
- 
-             true_label = self.new_named_label(
+                     var_name

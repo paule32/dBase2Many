@@ -13,7 +13,7 @@
         "calling_convention": "cdecl"
     },
     "object": {
-        "file": "Windows.kernel.o",
+        "file": "windows.kernel.o",
         "format": "coff32",
         "machine": "i386"
     },
@@ -24,11 +24,14 @@
         "implementation": []
     },
     "imports": {
-        "libruntime_mini.dll": [
+        "kernel32.dll": [
             {
-                "symbol": "__dllimp_10_libruntime_mini_dll__jit_ExitProcess",
-                "name": "_jit_ExitProcess",
-                "ordinal": 75
+                "symbol": "__dllimp_0_kernel32_dll_GetModuleHandleA",
+                "name": "GetModuleHandleA"
+            },
+            {
+                "symbol": "__dllimp_1_kernel32_dll_ExitProcess",
+                "name": "ExitProcess"
             }
         ]
     },
@@ -38,18 +41,46 @@
     "finalization": {
         "symbol": null
     },
+    "constants": [
+        {
+            "name": "DLL_KERNEL32",
+            "scoped_name": "windows_kernel_DLL_KERNEL32",
+            "type": "string",
+            "value": "kernel32.dll"
+        }
+    ],
     "types": {
         "aliases": [],
         "subranges": [],
         "records": []
     },
     "symbols": {
-        "functions": [],
+        "functions": [
+            {
+                "name": "GetModuleHandleA",
+                "scoped_name": "windows_kernel_GetModuleHandleA",
+                "symbol": "__dllimp_0_kernel32_dll_GetModuleHandleA",
+                "params": [
+                    {
+                        "name": "lpModuleName",
+                        "type": "^char",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "stdcall",
+                "external": true,
+                "dll_import": true,
+                "dll": "kernel32.dll",
+                "import_name": "GetModuleHandleA",
+                "ordinal": null,
+                "return_type": "hmodule"
+            }
+        ],
         "procedures": [
             {
                 "name": "ExitProcess",
                 "scoped_name": "windows_kernel_ExitProcess",
-                "symbol": "__dllimp_10_libruntime_mini_dll__jit_ExitProcess",
+                "symbol": "__dllimp_1_kernel32_dll_ExitProcess",
                 "params": [
                     {
                         "name": "AValue",
@@ -57,12 +88,12 @@
                         "is_var": false
                     }
                 ],
-                "calling_convention": "cdecl",
+                "calling_convention": "stdcall",
                 "external": true,
                 "dll_import": true,
-                "dll": "libruntime_mini.dll",
-                "import_name": "_jit_ExitProcess",
-                "ordinal": 75
+                "dll": "kernel32.dll",
+                "import_name": "ExitProcess",
+                "ordinal": null
             }
         ],
         "classes": []

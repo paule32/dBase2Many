@@ -2,8 +2,8 @@
     "format": "dBase2Many Pascal Unit Interface",
     "version": 1,
     "unit": {
-        "name": "Crypto.crc64",
-        "normalized_name": "crypto_crc64"
+        "name": "VCL",
+        "normalized_name": "vcl"
     },
     "target": {
         "target": "win32",
@@ -13,19 +13,19 @@
         "calling_convention": "cdecl"
     },
     "object": {
-        "file": "Crypto.crc64.o",
+        "file": "VCL.o",
         "format": "coff32",
         "machine": "i386"
     },
     "uses": {
         "interface": [
-            "System.Types"
+            "VCL.Windows"
         ],
         "implementation": []
     },
     "imports": {},
     "initialization": {
-        "symbol": "_CRYPTO_CRC64$$_INIT"
+        "symbol": "_VCL$$_INIT"
     },
     "finalization": {
         "symbol": null
@@ -37,27 +37,7 @@
         "records": []
     },
     "symbols": {
-        "functions": [
-            {
-                "name": "crypt",
-                "scoped_name": "crypto_crc64_crypt",
-                "symbol": "_CRYPTO_CRC64$$_CRYPT$ANSISTRING$INTEGER",
-                "params": [
-                    {
-                        "name": "S",
-                        "type": "string",
-                        "is_var": false
-                    },
-                    {
-                        "name": "Len",
-                        "type": "integer",
-                        "is_var": false
-                    }
-                ],
-                "return_type": "string",
-                "calling_convention": "cdecl"
-            }
-        ],
+        "functions": [],
         "procedures": [],
         "classes": []
     },

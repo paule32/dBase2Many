@@ -1,0 +1,75 @@
+diff --git a/src/asmjit/compiler/frontend/pascal/generator.py b/src/asmjit/compiler/frontend/pascal/generator.py
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -25202,64 +25202,23 @@ class AsmJitGenerator(PascalParserVisitor):
+         if target_is_pointer:
+             # PAnsiChar(StringValue) beziehungsweise PChar(StringValue):
+             #
+-            # Ein Pascal-String wird von der Runtime als DynStringHeader*
+-            # geliefert. Die Win32-API erwartet dagegen einen Zeiger auf
+-            # die nullterminierten Zeichendaten. Ein bloßes Ändern des
+-            # Ergebnistyps würde fälschlich den Headerzeiger übergeben.
++            # Das dBase2Many-String-ABI liefert bereits den Zeiger auf die
++            # nullterminierten Inline-Daten. Der 12-Byte-Header liegt direkt
++            # davor. Deshalb darf hier insbesondere nicht [eax+12] geladen
++            # werden: Das würde vier Zeichen des Strings als Adresse
++            # interpretieren.
+             if (
+                 source_type == "string"
+                 and self.is_char_pointer_type(
+                     target_type
+                 )
+             ):
+-                done_label = self.new_named_label(
+-                    "dynstring_to_pchar_done"
+-                )
+-
+                 if CDATA.args_target in (
+                     "nt35",
+                     "winnt",
+-                    "win32"
++                    "win32",
++                    "win64"
+                 ):
+-                    self.emit_test(
+-                        "eax",
+-                        "eax",
+-                        comment="DynStringHeader*"
+-                    )
+-                    self.emit_jz(
+-                        done_label
+-                    )
+-                    self.emit_mov_dword_ptr(
+-                        "eax",
+-                        "eax",
+-                        12,
+-                        comment="DynString.data"
+-                    )
+-                    self.emit_bind_label(
+-                        done_label
+-                    )
+-
+-                    return target_type
+-
+-                if CDATA.args_target == "win64":
+-                    self.emit_test(
+-                        "rax",
+-                        "rax",
+-                        comment="DynStringHeader*"
+-                    )
+-                    self.emit_jz(
+-                        done_label
+-                    )
+-                    self.emit_mov_qword_ptr(
+-                        "rax",
+-                        "rax",
+-                        16,
+-                        comment="DynString.data"
+-                    )
+-                    self.emit_bind_label(
+-                        done_label
+-                    )
+-
+                     return target_type
+ 
+                 raise CompileError(

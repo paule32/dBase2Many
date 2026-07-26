@@ -24,21 +24,14 @@
         ],
         "implementation": []
     },
-    "imports": {
-        "libruntime_mini.dll": [
-            {
-                "symbol": "__dllimp_9_libruntime_mini_dll__jit_dynstring_from_cstr",
-                "name": "_jit_dynstring_from_cstr",
-                "ordinal": 52
-            }
-        ]
-    },
+    "imports": {},
     "initialization": {
         "symbol": "_SYSTEM_STRINGS$$_INIT"
     },
     "finalization": {
         "symbol": null
     },
+    "constants": [],
     "types": {
         "aliases": [],
         "subranges": [],

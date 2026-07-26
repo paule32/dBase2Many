@@ -28,6 +28,7 @@
     "finalization": {
         "symbol": null
     },
+    "constants": [],
     "types": {
         "aliases": [
             {

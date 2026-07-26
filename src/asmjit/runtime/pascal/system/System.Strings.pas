@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// File:   IntToStr.pas
+// File:   System.Strings.pas
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
@@ -13,8 +13,10 @@ function IntToStr(AValue: Integer): String;
 function StrToInt(S: String): Integer;
 
 implementation
-const DLL_FILE = 'libruntime_mini.dll';
-function jit_dynstring_from_cstr(AText: Pointer): String; cdecl; external DLL_FILE name '_jit_dynstring_from_cstr' ordinal 52;
+//const DLL_FILE = 'libruntime_mini.dll';
+function jit_dynstring_from_cstr(AText: Pointer): String; cdecl; external;
+
+//DLL_FILE name '_jit_dynstring_from_cstr' ordinal 52;
 
 function _IntToStr(AValue: Integer): Pointer; cdecl; external;
 function _StrToInt(S: String): Integer;       cdecl; external;

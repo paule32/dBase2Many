@@ -1,0 +1,134 @@
+diff --git a/src/asmjit/compiler/frontend/pascal/generator.py b/src/asmjit/compiler/frontend/pascal/generator.py
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -14913,8 +14913,9 @@ class AsmJitGenerator(PascalParserVisitor):
+         else:
+             raise CompileError(ctx, "E0001", name=name)
+ 
+-        label     = self.functions[key]["label"]
+-        end_label = self.new_named_label("endfunc_" + name)
++        label      = self.functions[key]["label"]
++        exit_label = self.new_named_label("exitfunc_" + name)
++        skip_label = self.new_named_label("skipfunc_" + name)
+ 
+         self.functions[fkey]["label"] = label
+ 
+@@ -14957,7 +14958,10 @@ class AsmJitGenerator(PascalParserVisitor):
+                 )
+             )
+ 
+-        self.emit_jmp(end_label)
++        # Die Funktionsdefinition im normalen Programmfluss überspringen.
++        # Dieses Ziel darf nicht zugleich das Ziel von Pascal Exit sein:
++        # Exit muss zuerst Rückgabewert und Stack-Epilog durchlaufen.
++        self.emit_jmp(skip_label)
+         self.emit_bind_label(label)
+ 
+         # -------------------------------------------------
+@@ -15178,17 +15182,19 @@ class AsmJitGenerator(PascalParserVisitor):
+         # -------------------------------------------------
+         # Nur den ausführbaren Funktionskörper besuchen.
+         # -------------------------------------------------
+-        self.exit_label_stack.append(end_label)
++        self.exit_label_stack.append(exit_label)
+ 
+-        block_ctx = ctx.block()
++        try:
++            block_ctx = ctx.block()
+ 
+-        if block_ctx is not None:
+-            statement_list = block_ctx.statementList()
++            if block_ctx is not None:
++                statement_list = block_ctx.statementList()
+ 
+-            if statement_list is not None:
+-                self.visit(statement_list)
++                if statement_list is not None:
++                    self.visit(statement_list)
+ 
+-        self.exit_label_stack.pop()
++        finally:
++            self.exit_label_stack.pop()
+ 
+         self.pop_const_scope()
+         self.pop_local_scope()
+@@ -15197,6 +15203,11 @@ class AsmJitGenerator(PascalParserVisitor):
+         self.current_function = old_function
+         self.current_proc_params = old_params
+ 
++        # Gemeinsames Ziel für das normale Funktionsende und Pascal Exit.
++        # Ab hier wird Result geladen und anschließend der korrekte
++        # zielabhängige Stack-Epilog ausgeführt.
++        self.emit_bind_label(exit_label)
++
+         # -------------------------------------------------
+         # Return-Wert laden
+         # -------------------------------------------------
+@@ -15245,7 +15256,7 @@ class AsmJitGenerator(PascalParserVisitor):
+             self.backend.writer.emit_pop_reg16("bp")
+             self.backend.writer.emit_ret()
+ 
+-            self.emit_bind_label(end_label)
++            self.emit_bind_label(skip_label)
+             return
+ 
+         if CDATA.args_target in ["nt35", "winnt", "win32"]:
+@@ -15297,7 +15310,7 @@ class AsmJitGenerator(PascalParserVisitor):
+             else:
+                 self.emit_ret()
+ 
+-            self.emit_bind_label(end_label)
++            self.emit_bind_label(skip_label)
+             return
+ 
+         if rt in (
+@@ -15340,7 +15353,7 @@ class AsmJitGenerator(PascalParserVisitor):
+         self.emit_pop("rbp")
+         self.emit_ret()
+ 
+-        self.emit_bind_label(end_label)
++        self.emit_bind_label(skip_label)
+     
+     def emit_try_except_statement(self, ctx):
+         except_label = self.new_named_label("except")
+@@ -17464,9 +17477,13 @@ class AsmJitGenerator(PascalParserVisitor):
+ 
+         method.implemented = True
+         
+         skip_label = self.new_named_label(
+             "skip_class_" + class_name + "_" + method_name
+         )
++
++        exit_label = self.new_named_label(
++            "exit_class_" + class_name + "_" + method_name
++        )
+         
+         self.emit_jmp(skip_label)
+         self.emit_bind_label(method.label)
+@@ -17634,7 +17649,17 @@ class AsmJitGenerator(PascalParserVisitor):
+             result_var = self.find_local_var("Result")
+             result_off = result_var["offset"]
+         
+-        self.visit(ctx.block())
++        # Exit in Methoden, Konstruktoren und Destruktoren verlässt immer
++        # die komplette aktuelle Routine. Schleifen legen deshalb kein
++        # eigenes Exit-Ziel ab; auch aus FOR/WHILE/REPEAT wird dieses
++        # Methoden-Epilogziel verwendet.
++        self.exit_label_stack.append(exit_label)
++
++        try:
++            self.visit(ctx.block())
++
++        finally:
++            self.exit_label_stack.pop()
+ 
+         self.current_class    = old_class
+         self.current_method   = old_method
+@@ -17646,3 +17671,6 @@ class AsmJitGenerator(PascalParserVisitor):
+         self.current_proc_params = old_params
+-        
++
++        # Normales Ende und Pascal Exit laufen über denselben Epilog.
++        self.emit_bind_label(exit_label)
++
+         if method.kind == "function":

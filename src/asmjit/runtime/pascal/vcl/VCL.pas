@@ -1,19 +1,12 @@
 // ---------------------------------------------------------------------------
-// File:   Windows.pas
+// File:   VCL.pas
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-unit Windows;
-
+unit VCL;
 interface
-
-uses System,
-     Windows.Types,
-     Windows.Kernel,
-     Windows.User,
-     Windows.Application,
-     
-     VCL;
+uses VCL.Windows;
 
 implementation
+
 end.

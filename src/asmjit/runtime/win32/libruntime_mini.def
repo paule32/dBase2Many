@@ -78,21 +78,23 @@ EXPORTS
     _jit_vsnprintf @96 NONAME
     strlen @97 NONAME
     _jit_read_char @98 NONAME
-    ExitProcess@4 @129 NONAME
-    GetCommandLineA@0 @130 NONAME
-    GetDiskFreeSpaceA@20 @131 NONAME
-    GetDiskFreeSpaceExA@16 @132 NONAME
-    GetDriveTypeA@4 @133 NONAME
-    GetVolumeInformationA@32 @134 NONAME
-    LoadLibraryA@4 @135 NONAME
-    MessageBoxA@16 @136 NONAME
-    SetLastError@4 @137 NONAME
-    GetLastError@0 @138 NONAME
-    GetProcAddress@8 @139 NONAME
-    GetStdHandle@4 @140 NONAME
-    ReadFile@20 @141 NONAME
-    WriteFile@20 @142 NONAME
-    WNetGetConnectionA@12 @143 NONAME
+
+;    ExitProcess@4 @129 NONAME
+;    GetCommandLineA@0 @130 NONAME
+;    GetDiskFreeSpaceA@20 @131 NONAME
+;    GetDiskFreeSpaceExA@16 @132 NONAME
+;    GetDriveTypeA@4 @133 NONAME
+;    GetVolumeInformationA@32 @134 NONAME
+;    LoadLibraryA@4 @135 NONAME
+;    MessageBoxA@16 @136 NONAME
+;    SetLastError@4 @137 NONAME
+;    GetLastError@0 @138 NONAME
+;    GetProcAddress@8 @139 NONAME
+;    GetStdHandle@4 @140 NONAME
+;    ReadFile@20 @141 NONAME
+;    WriteFile@20 @142 NONAME
+;    WNetGetConnectionA@12 @143 NONAME
+
     _jit_raise @144 NONAME
     _Z24_jit_error_out_of_memoryv @150 NONAME
     _Z23_jit_error_array_boundsPKciii @151 NONAME

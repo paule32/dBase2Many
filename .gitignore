@@ -373,3 +373,14 @@ src/asmjit/antlr_resource_compiler.zip
 src/asmjit/x32/pascal/tests/common/free_dll/libruntime_mini.dll
 src/asmjit/windres_pascal_integration.zip
 src/asmjit/resc/tools/antlr-4.13.2-complete.jar
+src/asmjit/compiler/frontend/pascal/gen.patch
+src/asmjit/compiler/frontend/pascal/gen.patch
+src/asmjit/compiler/frontend/pascal/gen2.patch
+src/asmjit/compiler/frontend/pascal/gen3.patch
+src/asmjit/compiler/frontend/pascal/gen4.patch
+src/asmjit/compiler/frontend/pascal/gen5.patch
+src/asmjit/compiler/frontend/pascal/gen6.patch
+src/asmjit/compiler/frontend/pascal/gen7.patch
+src/asmjit/compiler/frontend/pascal/gener
+src/asmjit/compiler/frontend/pascal/new.py
+src/asmjit/compiler/frontend/pascal/old.py

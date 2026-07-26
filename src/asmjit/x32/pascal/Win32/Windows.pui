@@ -13,14 +13,18 @@
         "calling_convention": "cdecl"
     },
     "object": {
-        "file": "Windows.o",
+        "file": "windows.o",
         "format": "coff32",
         "machine": "i386"
     },
     "uses": {
         "interface": [
+            "System",
+            "Windows.Types",
             "Windows.Kernel",
-            "Windows.User"
+            "Windows.User",
+            "Windows.Application",
+            "VCL"
         ],
         "implementation": []
     },
@@ -31,6 +35,7 @@
     "finalization": {
         "symbol": null
     },
+    "constants": [],
     "types": {
         "aliases": [],
         "subranges": [],

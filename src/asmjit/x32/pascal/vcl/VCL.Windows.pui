@@ -1,0 +1,168 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "VCL.Windows",
+        "normalized_name": "vcl_windows"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "VCL.Windows.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System",
+            "Windows.Types",
+            "Windows.User"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_VCL_WINDOWS$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "constants": [],
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": [
+            {
+                "name": "TForm",
+                "parent": "tobject",
+                "size": 64,
+                "vmt_symbol": "__vmt_vcl_windows_tform",
+                "class_name_symbol": "__classname_vcl_windows_tform",
+                "fields": [
+                    {
+                        "name": "FWidth",
+                        "type": "integer",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FHeight",
+                        "type": "integer",
+                        "offset": 8,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FLeft",
+                        "type": "integer",
+                        "offset": 12,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FTop",
+                        "type": "integer",
+                        "offset": 16,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FCaption",
+                        "type": "string",
+                        "offset": 20,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "WndClass",
+                        "type": "twndclassa",
+                        "offset": 24,
+                        "size": 40,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_VCL_WINDOWS$$_$$_TFORM_$$_CREATE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_VCL_WINDOWS$$_$$_TFORM_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 20
+                    }
+                ],
+                "properties": [
+                    {
+                        "name": "Height",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FHeight",
+                        "write": "FHeight"
+                    },
+                    {
+                        "name": "Width",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FWidth",
+                        "write": "FWidth"
+                    },
+                    {
+                        "name": "Top",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FTop",
+                        "write": "FTop"
+                    },
+                    {
+                        "name": "Left",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FLeft",
+                        "write": "FLeft"
+                    },
+                    {
+                        "name": "Caption",
+                        "type": "string",
+                        "visibility": "published",
+                        "read": "FCaption",
+                        "write": "FCaption"
+                    }
+                ]
+            }
+        ]
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

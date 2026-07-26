@@ -90,13 +90,17 @@ end;
 
 var
     Foo: TFoo;
-    
+    Application: TApplication;
 begin
     Foo := TFoo.Create(42);
     try
         Foo.Show;
     finally
         Foo.Free;
-        ExitProcess(44);
     end;
+    
+    Application := TApplication.Create;
+    Application.Free;
+    
+    ExitProcess(0)
 end.

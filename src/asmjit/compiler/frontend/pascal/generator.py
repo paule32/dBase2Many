@@ -806,6 +806,35 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return False
 
+    def is_char_pointer_type(self, type_name):
+        """
+        True for PChar/PAnsiChar and aliases that resolve to ^Char.
+        """
+        resolved_type = self.resolve_type(
+            type_name
+        )
+
+        if resolved_type in (
+            "pchar",
+            "pansichar"
+        ):
+            return True
+
+        if (
+            isinstance(
+                resolved_type,
+                str
+            )
+            and resolved_type.startswith("^")
+        ):
+            pointed_type = self.resolve_type(
+                resolved_type[1:]
+            )
+
+            return pointed_type == "char"
+
+        return False
+
     def is_packed_runtime_library(self, dll_name):
         if not getattr(
             CDATA,
@@ -1182,8 +1211,21 @@ class AsmJitGenerator(PascalParserVisitor):
             class_name.lower()
         ]
 
-        if cls.vmt_symbol in self.emitted_class_vmts:
+        # Der Cache darf nur dann als Treffer gelten, wenn das COFF-Symbol
+        # im aktuell verwendeten Writer wirklich vorhanden ist. Das ist
+        # wichtig, wenn ein Generator/Writer während mehrerer Unit-Schritte
+        # erneut verwendet wird.
+        if (
+            cls.vmt_symbol in self.emitted_class_vmts
+            and self.writer.find_symbol_index(
+                cls.vmt_symbol
+            ) is not None
+        ):
             return
+
+        self.emitted_class_vmts.discard(
+            cls.vmt_symbol
+        )
 
         self.emitted_class_vmts.add(
             cls.vmt_symbol
@@ -1289,6 +1331,67 @@ class AsmJitGenerator(PascalParserVisitor):
                 f"expected {expected_vmt_size} bytes, "
                 f"got {actual_vmt_size} bytes"
             )
+
+    def ensure_class_vmt_reference(
+        self,
+        ctx,
+        class_name
+    ):
+        class_key = str(
+            class_name
+        ).lower()
+
+        cls = self.classes[
+            class_key
+        ]
+
+        symbol = cls.vmt_symbol
+
+        if self.writer.find_symbol_index(
+            symbol
+        ) is None:
+            if class_key in self.pui_class_units:
+                # Die VMT gehört zu einer bereits kompilierten Unit.
+                # Ihr COFF-Objekt wird über die PUI eingebunden; hier wird
+                # deshalb nur ein undefiniertes externes Symbol für die
+                # DIR32-Relocation benötigt.
+                add_external = getattr(
+                    self.writer,
+                    "find_or_add_external",
+                    None
+                )
+
+                if add_external is None:
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "backend cannot reference external "
+                            f"class VMT: {symbol}"
+                        )
+                    )
+
+                add_external(
+                    symbol
+                )
+            else:
+                # Lokale Klassen besitzen ihre VMT in der aktuellen
+                # Objektdatei. Falls der Deklarationsdurchlauf das Symbol
+                # nicht mehr im Writer hinterlassen hat, wird es hier vor
+                # dem ersten Konstruktorzugriff zuverlässig erzeugt.
+                self.emit_class_vmt_data(
+                    class_name
+                )
+
+        if self.writer.find_symbol_index(
+            symbol
+        ) is None:
+            raise RuntimeError(
+                "class VMT symbol was not registered: "
+                + symbol
+            )
+
+        return symbol
 
     def method_directive_flags(
         self,
@@ -2473,11 +2576,9 @@ class AsmJitGenerator(PascalParserVisitor):
 
         self.emit_bind_label(done_label)
 
-    def actual_param_variable_ref(self, ctx, arg):
-        expr = arg.expr()
-
+    def expression_variable_ref(self, ctx, expr):
         if expr is None:
-            raise CompileError(ctx, "E0005", got="empty", expected="pointer variable")
+            raise CompileError(ctx, "E0005", got="empty", expected="single variable")
 
         refs = []
 
@@ -2496,12 +2597,28 @@ class AsmJitGenerator(PascalParserVisitor):
         walk(expr)
 
         if len(refs) != 1:
-            raise CompileError(ctx, "E0005", got=expr.getText(), expected="single variable")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=expr.getText(),
+                expected="single variable"
+            )
 
         if refs[0].getText() != expr.getText():
-            raise CompileError(ctx, "E0005", got=expr.getText(), expected="single variable")
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=expr.getText(),
+                expected="single variable"
+            )
 
         return refs[0]
+    
+    def actual_param_variable_ref(self, ctx, arg):
+        return self.expression_variable_ref(
+            ctx,
+            arg.expr()
+        )
     
     def declare_record(
         self,
@@ -2561,7 +2678,6 @@ class AsmJitGenerator(PascalParserVisitor):
             packed=bool(packed),
             alignment=1
         )
-    
 
     def declare_class(
         self,
@@ -3930,18 +4046,22 @@ class AsmJitGenerator(PascalParserVisitor):
     
     def resolve_record_path(self, ctx, parts):
         var_name = parts[0]
-        var_key  = var_name.lower()
-
-        if var_key not in self.vars:
-            raise CompileError(ctx, "E0001", name=var_name)
-
-        var_info = self.vars[var_key]
-        current_type = var_info["type"]
+        (
+            source_kind,
+            var_info,
+            current_type
+        ) = self.resolve_named_storage(
+            ctx,
+            var_name
+        )
 
         if current_type not in self.records:
             raise CompileError(ctx, "E0005", got=current_type, expected="record")
 
-        offset = var_info["slot"]
+        # The base address is selected separately for local variables,
+        # formal parameters and globals. This value therefore contains
+        # only offsets inside the record, never a global record slot.
+        offset = 0
         field = None
 
         for field_name in parts[1:]:
@@ -3953,13 +4073,131 @@ class AsmJitGenerator(PascalParserVisitor):
 
             field = record.fields[field_key]
             offset += field.offset
-            current_type = field.type
+            current_type = self.resolve_type(
+                field.type
+            )
 
             if field_name != parts[-1]:
                 if current_type not in self.records:
                     raise CompileError(ctx, "E0005", got=current_type, expected="record")
 
-        return offset, field
+        return (
+            source_kind,
+            var_info,
+            offset,
+            field
+        )
+
+    def emit_record_base_address(
+        self,
+        ctx,
+        name,
+        source_kind,
+        info,
+        address_reg
+    ):
+        """
+        Load the address of a record variable without losing the value
+        currently held in EAX/RAX.
+
+        In particular, a VAR record parameter contains the address of the
+        caller's record in its stack slot. A local record lives inline in the
+        current frame and a global NT32 record has its own COFF data symbol.
+        """
+        is_nt32 = CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        )
+
+        if source_kind == "local":
+            self.emit_lea_byte(
+                address_reg,
+                "ebp" if is_nt32 else "rbp",
+                info["offset"],
+                comment=f"{name} record address"
+            )
+            return
+
+        if source_kind == "param":
+            offset = info.get(
+                "stack_offset"
+            )
+
+            if offset is None:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=f"parameter {name} has no stack offset"
+                )
+
+            if info.get("is_var", False):
+                if is_nt32:
+                    self.emit_mov_dword_ptr(
+                        address_reg,
+                        "ebp",
+                        offset,
+                        comment=f"var record parameter {name}"
+                    )
+                else:
+                    self.emit_mov_qword_ptr(
+                        address_reg,
+                        "rbp",
+                        offset,
+                        comment=f"var record parameter {name}"
+                    )
+            else:
+                self.emit_lea_byte(
+                    address_reg,
+                    "ebp" if is_nt32 else "rbp",
+                    offset,
+                    comment=f"record parameter {name}"
+                )
+
+            return
+
+        if source_kind == "global":
+            if is_nt32:
+                symbol = (
+                    info.get("symbol")
+                    or f"_var_{info['name']}"
+                )
+
+                info["symbol"] = symbol
+
+                self.writer.emit_lea_reg_data_label(
+                    address_reg,
+                    symbol
+                )
+                return
+
+            self.emit_mov_qword(
+                address_reg,
+                "r12",
+                "record_vars"
+            )
+
+            slot = int(
+                info.get("slot", 0)
+            )
+
+            if slot:
+                self.emit_add(
+                    address_reg,
+                    slot,
+                    comment=f"{name} record slot"
+                )
+
+            return
+
+        raise CompileError(
+            ctx,
+            "E0019",
+            text=(
+                f"unknown record storage kind for "
+                f"{name}: {source_kind}"
+            )
+        )
 
     def pascal_import_type(self, typ):
         typ = self.resolve_type(typ)
@@ -5961,6 +6199,12 @@ class AsmJitGenerator(PascalParserVisitor):
                 data
             )
 
+            self.register_pui_constants(
+                ctx,
+                unit_name,
+                data
+            )
+
             # Die eingebundene Unit-.o-Datei kann Relocations auf
             # synthetische DLL-Import-Symbole enthalten. Diese müssen
             # vor dem finalen PE-Link wieder in CDATA.imports stehen.
@@ -6171,11 +6415,17 @@ class AsmJitGenerator(PascalParserVisitor):
         for i in range(len(self.scope_stack), -1, -1):
             scoped = "_".join(self.scope_stack[:i] + [name])
             key = scoped.lower()
-
             if key in self.functions:
                 return self.functions[key]
-
         return None
+    
+    def find_procedure(self, name):
+        for i in range(len(self.scope_stack), -1, -1):
+            scoped = "_".join(self.scope_stack[:i] + [name])
+            key = scoped.lower()
+            if key in self.procedures:
+                return self.procedures[key]
+        return self.procedures.get(name.lower())
     
     def find_param(self, name):
         key = name.lower()
@@ -6774,9 +7024,16 @@ class AsmJitGenerator(PascalParserVisitor):
             # --------------------------------------------------------------
             # VMT eintragen
             # --------------------------------------------------------------
+            vmt_symbol = (
+                self.ensure_class_vmt_reference(
+                    ctx,
+                    class_name
+                )
+            )
+
             self.writer.emit_lea_reg_data_label(
                 "edx",
-                cls.vmt_symbol
+                vmt_symbol
             )
 
             self.emit_mov_dword_ptr_store(
@@ -8626,7 +8883,7 @@ class AsmJitGenerator(PascalParserVisitor):
     def emit_builtin_diskisremovable(self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_removable")
     def emit_builtin_diskisfixed    (self, ctx): return self.emit_builtin_disk_func(ctx, "_jit_disk_is_fixed")
 
-        
+    
     def add_double_literal(self, value):
         value_text = str(value)
 
@@ -8874,6 +9131,56 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_jg("error_array_bounds")
 
         self.emit_pop("rax")
+    
+    def emit_address_of_routine(self, ctx, name):
+        routine = self.find_function(name)
+
+        if routine is None:
+            routine = self.find_procedure(
+                name
+            )
+
+        if routine is None:
+            return None
+
+        target = (
+            routine.get("label")
+            or routine.get("mangled")
+            or routine.get("symbol")
+        )
+
+        if not target:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=f"routine {name} has no addressable symbol"
+            )
+
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "routine addresses are currently implemented "
+                    "only for NT32"
+                )
+            )
+
+        # Despite its historical name this writer operation emits an
+        # absolute IMAGE_REL_I386_DIR32 relocation. The referenced COFF
+        # symbol may therefore live in .text as well as in .data.
+        self.writer.emit_lea_reg_data_label(
+            "eax",
+            target
+        )
+
+        return "pointer"
+
+
     
     def emit_address_of_var(self, ctx, name):
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
@@ -9845,49 +10152,119 @@ class AsmJitGenerator(PascalParserVisitor):
         raise CompileError(ctx, "E0014", var_type=typ)
 
     def emit_load_record_field(self, ctx, parts):
-        field_offset, field = self.resolve_record_path(ctx, parts)
+        (
+            source_kind,
+            info,
+            field_offset,
+            field
+        ) = self.resolve_record_path(
+            ctx,
+            parts
+        )
+
         path = ".".join(parts)
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+        field_type = self.resolve_type(
+            field.type
+        )
+        address_reg = (
+            "edx"
+            if is_nt32
+            else "r11"
+        )
 
-        if is_nt32:
-            base_name = parts[0]
-            info = self.var_info(ctx, base_name)
-            symbol = info.get("symbol") or f"_var_{info['name']}"
-            info["symbol"] = symbol
+        self.emit_record_base_address(
+            ctx,
+            parts[0],
+            source_kind,
+            info,
+            address_reg
+        )
 
-            self.writer.emit_lea_reg_data_label("edx", symbol)
+        if field_type in ("integer", "boolean"):
+            self.emit_mov_dword_ptr(
+                "eax",
+                address_reg,
+                field_offset,
+                comment=path
+            )
 
-            if field.type in ("integer", "boolean"):
-                self.emit_mov_dword_ptr("eax", "edx", field_offset, comment=path)
-
-                if field.type == "boolean":
-                    self.emit_and("eax", 1)
-                    return "boolean"
-
-                return "integer"
-
-            raise CompileError(ctx, "E0014", var_type=field.type)
-
-        self.emit_mov_qword("r11", "r12", "record_vars")
-
-        if field.type in ("integer", "boolean"):
-            self.emit_mov_dword_ptr("eax", "r11", field_offset, comment=path)
-
-            if field.type == "boolean":
+            if field_type == "boolean":
                 self.emit_and("eax", 1)
                 return "boolean"
 
             return "integer"
 
-        if field.type == "double":
-            self.emit_movsd_load("xmm0", "r11", field_offset, comment=path)
+        if field_type == "char":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                field_offset
+            )
+            return "char"
+
+        if field_type == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                address_reg,
+                field_offset,
+                comment=path
+            )
             return "double"
 
-        if field.type == "string":
-            self.emit_mov_qword_ptr("rax", "r11", field_offset, comment=path)
-            return "string"
+        if (
+            field_type == "string"
+            or field_type in self.classes
+            or self.is_pointer_type(
+                field_type,
+                include_nil=False
+            )
+        ):
+            if is_nt32:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    field_offset,
+                    comment=path
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    address_reg,
+                    field_offset,
+                    comment=path
+                )
 
-        return field.type
+            return field_type
+
+        if field_type in self.records:
+            if is_nt32:
+                self.emit_mov(
+                    "eax",
+                    address_reg,
+                    comment=path + " address"
+                )
+            else:
+                self.emit_mov(
+                    "rax",
+                    address_reg,
+                    comment=path + " address"
+                )
+
+            if field_offset:
+                self.emit_add(
+                    "eax" if is_nt32 else "rax",
+                    field_offset,
+                    comment=path
+                )
+
+            return field_type
+
+        raise CompileError(
+            ctx,
+            "E0014",
+            var_type=field_type
+        )
     
     def emit_load_pointer_record_field(
         self,
@@ -10477,6 +10854,609 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_store_var(ctx, name, var_info)
         return None
     
+    def resolve_self_member_path(
+        self,
+        ctx,
+        parts
+    ):
+        """
+        Resolve an implicit Self member path.
+
+        Examples:
+
+            FAppForm
+            FAppForm.WndClass
+            FAppForm.WndClass.style
+
+        Class-valued fields contain an object pointer. Record-valued fields
+        are stored inline in their containing class or record.
+        """
+        if self.current_class is None or not parts:
+            return None
+
+        current_type = self.current_class
+        result = []
+
+        for index, member_name in enumerate(parts):
+            if current_type in self.classes:
+                fields = self.classes[current_type].fields
+
+            elif current_type in self.records:
+                fields = self.records[current_type].fields
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_type,
+                    expected="class/record"
+                )
+
+            member_key = member_name.lower()
+
+            if member_key not in fields:
+                # A missing first member means that this is not an
+                # implicit Self path. Missing nested members are real
+                # compiler errors and must not fall through to var_info().
+                if index == 0:
+                    return None
+
+                raise CompileError(
+                    ctx,
+                    "E0001",
+                    name=".".join(parts[:index + 1])
+                )
+
+            field = fields[member_key]
+            field_type = self.resolve_type(field.type)
+
+            result.append((
+                field,
+                field_type
+            ))
+
+            if index + 1 < len(parts):
+                if (
+                    field_type not in self.classes
+                    and field_type not in self.records
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=field_type,
+                        expected="class/record"
+                    )
+
+                current_type = field_type
+
+        return result
+
+
+    def emit_self_member_address(
+        self,
+        ctx,
+        parts
+    ):
+        """
+        Load the address of the container of the last member into EAX/RAX.
+
+        The returned field offset is relative to that address.
+        """
+        resolved = self.resolve_self_member_path(
+            ctx,
+            parts
+        )
+
+        if resolved is None:
+            return None
+
+        is_nt32 = (
+            CDATA.args_target
+            in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+        )
+
+        if is_nt32:
+            self.emit_mov_dword_ptr(
+                "eax",
+                "ebp",
+                -4,
+                comment="Self"
+            )
+        else:
+            self.emit_mov_qword_ptr(
+                "rax",
+                "rbp",
+                -8,
+                comment="Self"
+            )
+
+        # Every member except the last one selects the container of the
+        # following member.
+        for index, (field, field_type) in enumerate(resolved[:-1]):
+            path = ".".join(parts[:index + 1])
+
+            if field_type in self.classes:
+                # A class field contains a pointer to another object.
+                if is_nt32:
+                    self.emit_mov_dword_ptr(
+                        "eax",
+                        "eax",
+                        field.offset,
+                        comment=path
+                    )
+                else:
+                    self.emit_mov_qword_ptr(
+                        "rax",
+                        "rax",
+                        field.offset,
+                        comment=path
+                    )
+
+                self.emit_nil_pointer_check(
+                    path
+                )
+                continue
+
+            if field_type in self.records:
+                # Records are embedded inline.
+                if field.offset:
+                    self.emit_add(
+                        "eax" if is_nt32 else "rax",
+                        field.offset,
+                        comment=path
+                    )
+                continue
+
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=field_type,
+                expected="class/record"
+            )
+
+        final_field, final_type = resolved[-1]
+
+        return (
+            final_field,
+            final_type
+        )
+
+
+    def emit_load_self_member_path(
+        self,
+        ctx,
+        parts
+    ):
+        target = self.emit_self_member_address(
+            ctx,
+            parts
+        )
+
+        if target is None:
+            return None
+
+        field, field_type = target
+        path = "Self." + ".".join(parts)
+
+        is_nt32 = (
+            CDATA.args_target
+            in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+        )
+
+        address_reg = (
+            "eax"
+            if is_nt32
+            else "rax"
+        )
+
+        range_info = self.subrange_info(
+            field_type
+        )
+
+        if (
+            range_info is not None
+            and self.scalar_base_type(field_type) == "integer"
+        ):
+            if range_info.size == 1:
+                self.backend.writer.emit_movzx_r32_byte_ptr(
+                    "eax",
+                    address_reg,
+                    field.offset
+                )
+
+            elif range_info.size == 2:
+                self.backend.writer.emit_movzx_r32_word_ptr(
+                    "eax",
+                    address_reg,
+                    field.offset
+                )
+
+            elif range_info.size == 4:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    address_reg,
+                    field.offset,
+                    comment=path
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0013",
+                    var_type=field_type
+                )
+
+            return field_type
+
+        if field_type in (
+            "integer",
+            "boolean"
+        ):
+            self.emit_mov_dword_ptr(
+                "eax",
+                address_reg,
+                field.offset,
+                comment=path
+            )
+
+            if field_type == "boolean":
+                self.emit_and(
+                    "eax",
+                    1
+                )
+
+            return field_type
+
+        if field_type == "char":
+            self.backend.writer.emit_movzx_r32_byte_ptr(
+                "eax",
+                address_reg,
+                field.offset
+            )
+            return "char"
+
+        if field_type == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                address_reg,
+                field.offset,
+                comment=path
+            )
+            return "double"
+
+        if (
+            field_type == "string"
+            or field_type in self.classes
+            or self.is_pointer_type(
+                field_type,
+                include_nil=False
+            )
+        ):
+            if is_nt32:
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "eax",
+                    field.offset,
+                    comment=path
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rax",
+                    field.offset,
+                    comment=path
+                )
+
+            return field_type
+
+        if field_type in self.records:
+            # The value of an inline record is represented by its address.
+            if field.offset:
+                self.emit_add(
+                    address_reg,
+                    field.offset,
+                    comment=path
+                )
+
+            return field_type
+
+        raise CompileError(
+            ctx,
+            "E0013",
+            var_type=field_type
+        )
+
+
+    def emit_store_self_member_path(
+        self,
+        ctx,
+        parts,
+        expr_type
+    ):
+        resolved = self.resolve_self_member_path(
+            ctx,
+            parts
+        )
+
+        if resolved is None:
+            return False
+
+        field, field_type = resolved[-1]
+        value_type = self.resolve_type(
+            expr_type
+        )
+
+        range_info = self.subrange_info(
+            field_type
+        )
+
+        if (
+            range_info is not None
+            and self.scalar_base_type(field_type) == "integer"
+        ):
+            if self.scalar_base_type(value_type) != "integer":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected=field_type
+                )
+
+            self.emit_subrange_check(
+                ctx,
+                field_type,
+                value_reg="eax"
+            )
+
+        elif field_type == "double" and value_type == "integer":
+            self.emit_cvtsi2sd(
+                "xmm0",
+                "eax"
+            )
+            value_type = "double"
+
+        elif field_type == "boolean":
+            if value_type not in (
+                "boolean",
+                "integer"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected="boolean"
+                )
+
+            self.emit_and(
+                "eax",
+                1
+            )
+            value_type = "boolean"
+
+        elif field_type in self.classes:
+            if value_type not in (
+                field_type,
+                "^nil"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected=field_type
+                )
+
+        elif self.is_pointer_type(
+            field_type,
+            include_nil=False
+        ):
+            if (
+                value_type != "^nil"
+                and not self.is_pointer_type(
+                    value_type,
+                    include_nil=False
+                )
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected=field_type
+                )
+
+        elif field_type != value_type:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=value_type,
+                expected=field_type
+            )
+
+        is_nt32 = (
+            CDATA.args_target
+            in (
+                "nt35",
+                "winnt",
+                "win32"
+            )
+        )
+
+        stack_reg = (
+            "esp"
+            if is_nt32
+            else "rsp"
+        )
+
+        # Preserve the right-hand value before EAX/RAX is reused for the
+        # Self/member address.
+        if field_type == "double":
+            self.emit_sub(
+                stack_reg,
+                8,
+                comment="save nested Self field double"
+            )
+
+            self.emit_movsd_store(
+                stack_reg,
+                0,
+                "xmm0"
+            )
+        else:
+            self.emit_push(
+                "eax" if is_nt32 else "rax",
+                comment="save nested Self field value"
+            )
+
+        target = self.emit_self_member_address(
+            ctx,
+            parts
+        )
+
+        if target is None:
+            return False
+
+        field, field_type = target
+        address_reg = (
+            "eax"
+            if is_nt32
+            else "rax"
+        )
+
+        path = "Self." + ".".join(parts)
+
+        if field_type == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                stack_reg,
+                0
+            )
+
+            self.emit_add(
+                stack_reg,
+                8,
+                comment="restore nested Self field double"
+            )
+
+            self.emit_movsd_store(
+                address_reg,
+                field.offset,
+                "xmm0",
+                comment=path + " :="
+            )
+            return True
+
+        value_reg = (
+            "ebx"
+            if is_nt32
+            else "r11"
+        )
+
+        self.emit_pop(
+            value_reg,
+            comment="restore nested Self field value"
+        )
+
+        range_info = self.subrange_info(
+            field_type
+        )
+
+        if (
+            range_info is not None
+            and self.scalar_base_type(field_type) == "integer"
+        ):
+            if range_info.size == 1:
+                self.emit_mov_byte_ptr_store(
+                    address_reg,
+                    field.offset,
+                    "bl" if is_nt32 else "r11b",
+                    comment=path + " :="
+                )
+
+            elif range_info.size == 2:
+                self.emit_mov_word_ptr_store(
+                    address_reg,
+                    field.offset,
+                    "bx" if is_nt32 else "r11w",
+                    comment=path + " :="
+                )
+
+            elif range_info.size == 4:
+                self.emit_mov_dword_ptr_store(
+                    address_reg,
+                    field.offset,
+                    "ebx" if is_nt32 else "r11d",
+                    comment=path + " :="
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0013",
+                    var_type=field_type
+                )
+
+            return True
+
+        if field_type in (
+            "integer",
+            "boolean"
+        ):
+            self.emit_mov_dword_ptr_store(
+                address_reg,
+                field.offset,
+                "ebx" if is_nt32 else "r11d",
+                comment=path + " :="
+            )
+            return True
+
+        if field_type == "char":
+            self.emit_mov_byte_ptr_store(
+                address_reg,
+                field.offset,
+                "bl" if is_nt32 else "r11b",
+                comment=path + " :="
+            )
+            return True
+
+        if (
+            field_type == "string"
+            or field_type in self.classes
+            or self.is_pointer_type(
+                field_type,
+                include_nil=False
+            )
+        ):
+            if is_nt32:
+                self.emit_mov_dword_ptr_store(
+                    "eax",
+                    field.offset,
+                    "ebx",
+                    comment=path + " :="
+                )
+            else:
+                self.emit_mov_qword_ptr_store(
+                    "rax",
+                    field.offset,
+                    "r11",
+                    comment=path + " :="
+                )
+
+            return True
+
+        raise CompileError(
+            ctx,
+            "E0013",
+            var_type=field_type
+        )
+
+
     def emit_store_self_field(self, ctx, name, expr_type):
         field = self.find_current_class_field(name)
 
@@ -11820,50 +12800,151 @@ class AsmJitGenerator(PascalParserVisitor):
             return
         
     def emit_store_record_field(self, ctx, parts, expr_type):
-        field_offset, field = self.resolve_record_path(ctx, parts)
+        (
+            source_kind,
+            info,
+            field_offset,
+            field
+        ) = self.resolve_record_path(
+            ctx,
+            parts
+        )
+
         path = ".".join(parts)
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
+        field_type = self.resolve_type(
+            field.type
+        )
+        value_type = self.resolve_type(
+            expr_type
+        )
 
-        if field.type == "double" and expr_type == "integer":
+        if field_type == "double" and value_type == "integer":
             self.emit_cvtsi2sd("xmm0", "eax")
-            expr_type = "double"
+            value_type = "double"
 
-        if field.type == "boolean":
-            if expr_type != "boolean":
-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean")
+        if field_type == "boolean":
+            if value_type not in ("boolean", "integer"):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected="boolean"
+                )
+
             self.emit_and("eax", 1)
-        elif field.type != expr_type:
-            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
 
-        if is_nt32:
-            base_name = parts[0]
-            info = self.var_info(ctx, base_name)
-            symbol = info.get("symbol") or f"_var_{info['name']}"
-            info["symbol"] = symbol
+            value_type = "boolean"
 
-            self.writer.emit_lea_reg_data_label("edx", symbol)
+        elif field_type in self.classes:
+            if value_type not in (
+                field_type,
+                "^nil"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected=field_type
+                )
 
-            if field.type in ("integer", "boolean"):
-                self.emit_mov_dword_ptr_store("edx", field_offset, "eax", comment=path)
-                return
+        elif self.is_pointer_type(
+            field_type,
+            include_nil=False
+        ):
+            if (
+                value_type != "^nil"
+                and not self.is_pointer_type(
+                    value_type,
+                    include_nil=False
+                )
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected=field_type
+                )
 
-            raise CompileError(ctx, "E0013", var_type=field.type)
+        elif field_type != value_type:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=value_type,
+                expected=field_type
+            )
 
-        self.emit_mov_qword("r11", "r12", "record_vars")
+        address_reg = (
+            "edx"
+            if is_nt32
+            else "r11"
+        )
 
-        if field.type in ("integer", "boolean"):
-            self.emit_mov_dword_ptr_store("r11", field_offset, "eax", comment=path)
+        self.emit_record_base_address(
+            ctx,
+            parts[0],
+            source_kind,
+            info,
+            address_reg
+        )
+
+        if field_type in ("integer", "boolean"):
+            self.emit_mov_dword_ptr_store(
+                address_reg,
+                field_offset,
+                "eax",
+                comment=path
+            )
             return
 
-        if field.type == "double":
-            self.emit_movsd_store("r11", field_offset, "xmm0", comment=path)
+        if field_type == "char":
+            self.emit_mov_byte_ptr_store(
+                address_reg,
+                field_offset,
+                "al",
+                comment=path
+            )
             return
 
-        if field.type == "string":
-            self.emit_mov_qword_ptr_store("r11", field_offset, "rax", comment=path)
+        if field_type == "double":
+            self.emit_movsd_store(
+                address_reg,
+                field_offset,
+                "xmm0",
+                comment=path
+            )
             return
 
-        raise CompileError(ctx, "E0013", var_type=field.type)
+        if (
+            field_type == "string"
+            or field_type in self.classes
+            or self.is_pointer_type(
+                field_type,
+                include_nil=False
+            )
+        ):
+            if is_nt32:
+                self.emit_mov_dword_ptr_store(
+                    address_reg,
+                    field_offset,
+                    "eax",
+                    comment=path
+                )
+            else:
+                self.emit_mov_qword_ptr_store(
+                    address_reg,
+                    field_offset,
+                    "rax",
+                    comment=path
+                )
+
+            return
+
+        raise CompileError(
+            ctx,
+            "E0013",
+            var_type=field_type
+        )
     
     def emit_store_param(self, ctx, name, expr_type):
         param = self.find_param(name)
@@ -13913,8 +14994,9 @@ class AsmJitGenerator(PascalParserVisitor):
         else:
             raise CompileError(ctx, "E0001", name=name)
 
-        label     = self.functions[key]["label"]
-        end_label = self.new_named_label("endfunc_" + name)
+        label      = self.functions[key]["label"]
+        exit_label = self.new_named_label("exitfunc_" + name)
+        skip_label = self.new_named_label("skipfunc_" + name)
 
         self.functions[fkey]["label"] = label
 
@@ -13957,7 +15039,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             )
 
-        self.emit_jmp(end_label)
+        # Die Funktionsdefinition im normalen Programmfluss überspringen.
+        # Dieses Ziel darf nicht zugleich das Ziel von Pascal Exit sein:
+        # Exit muss zuerst Rückgabewert und Stack-Epilog durchlaufen.
+        self.emit_jmp(skip_label)
         self.emit_bind_label(label)
 
         # -------------------------------------------------
@@ -14178,17 +15263,19 @@ class AsmJitGenerator(PascalParserVisitor):
         # -------------------------------------------------
         # Nur den ausführbaren Funktionskörper besuchen.
         # -------------------------------------------------
-        self.exit_label_stack.append(end_label)
+        self.exit_label_stack.append(exit_label)
 
-        block_ctx = ctx.block()
+        try:
+            block_ctx = ctx.block()
 
-        if block_ctx is not None:
-            statement_list = block_ctx.statementList()
+            if block_ctx is not None:
+                statement_list = block_ctx.statementList()
 
-            if statement_list is not None:
-                self.visit(statement_list)
+                if statement_list is not None:
+                    self.visit(statement_list)
 
-        self.exit_label_stack.pop()
+        finally:
+            self.exit_label_stack.pop()
 
         self.pop_const_scope()
         self.pop_local_scope()
@@ -14196,6 +15283,11 @@ class AsmJitGenerator(PascalParserVisitor):
 
         self.current_function = old_function
         self.current_proc_params = old_params
+
+        # Gemeinsames Ziel für das normale Funktionsende und Pascal Exit.
+        # Ab hier wird Result geladen und anschließend der korrekte
+        # zielabhängige Stack-Epilog ausgeführt.
+        self.emit_bind_label(exit_label)
 
         # -------------------------------------------------
         # Return-Wert laden
@@ -14245,7 +15337,7 @@ class AsmJitGenerator(PascalParserVisitor):
             self.backend.writer.emit_pop_reg16("bp")
             self.backend.writer.emit_ret()
 
-            self.emit_bind_label(end_label)
+            self.emit_bind_label(skip_label)
             return
 
         if CDATA.args_target in ["nt35", "winnt", "win32"]:
@@ -14282,9 +15374,22 @@ class AsmJitGenerator(PascalParserVisitor):
 
             self.emit_mov("esp", "ebp")
             self.emit_pop("ebp")
-            self.emit_ret()
+            #self.emit_ret() ### hier
+            
+            convention = self.routine_calling_convention(
+                self.functions[fkey]
+            )
 
-            self.emit_bind_label(end_label)
+            stack_bytes = self.nt32_parameter_stack_bytes(
+                params
+            )
+
+            if convention in ("stdcall", "pascal") and stack_bytes:
+                self.writer.emit_ret_imm16(stack_bytes)
+            else:
+                self.emit_ret()
+
+            self.emit_bind_label(skip_label)
             return
 
         if rt in (
@@ -14327,7 +15432,7 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_pop("rbp")
         self.emit_ret()
 
-        self.emit_bind_label(end_label)
+        self.emit_bind_label(skip_label)
     
     def emit_try_except_statement(self, ctx):
         except_label = self.new_named_label("except")
@@ -16454,6 +17559,10 @@ class AsmJitGenerator(PascalParserVisitor):
         skip_label = self.new_named_label(
             "skip_class_" + class_name + "_" + method_name
         )
+
+        exit_label = self.new_named_label(
+            "exit_class_" + class_name + "_" + method_name
+        )
         
         self.emit_jmp(skip_label)
         self.emit_bind_label(method.label)
@@ -16621,7 +17730,17 @@ class AsmJitGenerator(PascalParserVisitor):
             result_var = self.find_local_var("Result")
             result_off = result_var["offset"]
         
-        self.visit(ctx.block())
+        # Exit in Methoden, Konstruktoren und Destruktoren verlässt immer
+        # die komplette aktuelle Routine. Schleifen legen deshalb kein
+        # eigenes Exit-Ziel ab; auch aus FOR/WHILE/REPEAT wird dieses
+        # Methoden-Epilogziel verwendet.
+        self.exit_label_stack.append(exit_label)
+
+        try:
+            self.visit(ctx.block())
+
+        finally:
+            self.exit_label_stack.pop()
 
         self.current_class    = old_class
         self.current_method   = old_method
@@ -16631,7 +17750,10 @@ class AsmJitGenerator(PascalParserVisitor):
         self.pop_local_scope()
         
         self.current_proc_params = old_params
-        
+
+        # Normales Ende und Pascal Exit laufen über denselben Epilog.
+        self.emit_bind_label(exit_label)
+
         if method.kind == "function":
             declared_rt = self.resolve_type(
                 method.return_type
@@ -17579,6 +18701,76 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return None
 
+    @staticmethod
+    def parse_pascal_integer_literal(value_text):
+        """
+        Wandelt eine ganzzahlige Pascal-Konstante in einen Python-Integer um.
+
+        Unterstützt werden neben Dezimalzahlen auch die Pascal-Präfixe:
+
+            $FF     hexadezimal
+            %1010   binär
+            &377    oktal
+
+        Ein vorangestelltes Plus- oder Minuszeichen ist ebenfalls erlaubt.
+        """
+        text = str(
+            value_text
+        ).strip().replace(
+            "_",
+            ""
+        )
+
+        if not text:
+            raise ValueError(
+                "empty Pascal integer literal"
+            )
+
+        sign = 1
+
+        if text[0] in (
+            "+",
+            "-"
+        ):
+            if text[0] == "-":
+                sign = -1
+
+            text = text[1:]
+
+        if not text:
+            raise ValueError(
+                "invalid Pascal integer literal"
+            )
+
+        if text.startswith("$"):
+            base = 16
+            text = text[1:]
+
+        elif text.startswith("%"):
+            base = 2
+            text = text[1:]
+
+        elif text.startswith("&"):
+            base = 8
+            text = text[1:]
+
+        elif text.lower().startswith("0x"):
+            base = 16
+            text = text[2:]
+
+        else:
+            base = 10
+
+        if not text:
+            raise ValueError(
+                "invalid Pascal integer literal"
+            )
+
+        return sign * int(
+            text,
+            base
+        )
+
     def parse_char_code(
         self,
         ctx,
@@ -17814,13 +19006,6 @@ class AsmJitGenerator(PascalParserVisitor):
             )
             typ = "char"
 
-        elif value_text.startswith("$"):
-            value = int(
-                value_text[1:],
-                16
-            )
-            typ = "integer"
-
         elif (
             value_text.startswith("'")
             and value_text.endswith("'")
@@ -17841,7 +19026,9 @@ class AsmJitGenerator(PascalParserVisitor):
             typ = "double"
 
         else:
-            value = int(value_text, 10)
+            value = self.parse_pascal_integer_literal(
+                value_text
+            )
             typ = "integer"
 
         self.declare_const(
@@ -17850,6 +19037,13 @@ class AsmJitGenerator(PascalParserVisitor):
             value,
             typ
         )
+
+        # Nur Konstanten aus dem Interface einer Root-Unit sind öffentlich.
+        # Konstanten aus dem Implementation-Teil bleiben unit-lokal.
+        if self.collect_pui_interface:
+            self.pui_add_constant(
+                name
+            )
 
         return None
     
@@ -18165,6 +19359,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 "symbol": None
             },
 
+            # Öffentliche Compile-Time-Konstanten aus dem Interface.
+            # Sie besitzen kein eigenes COFF-Symbol.
+            "constants": [],
+
             # Compile-Time-Typinformationen
             "types": {
                 "aliases": [],
@@ -18195,6 +19393,108 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
             },
         }
+
+    def pui_add_constant(
+        self,
+        name
+    ):
+        if self.pending_pui is None:
+            return
+
+        key = str(
+            name
+        ).lower()
+
+        info = self.constants.get(
+            key
+        )
+
+        if info is None:
+            raise RuntimeError(
+                f"constant not registered: {name}"
+            )
+
+        if info.get("kind") == "array":
+            raise RuntimeError(
+                f"PUI constant arrays are not supported: {name}"
+            )
+
+        typ = str(
+            info.get(
+                "type",
+                ""
+            )
+        ).lower()
+
+        value = info.get(
+            "value"
+        )
+
+        if typ == "integer":
+            value = int(
+                value
+            )
+
+        elif typ == "boolean":
+            value = (
+                1
+                if bool(value)
+                else 0
+            )
+
+        elif typ == "double":
+            # Text vermeidet unnötige zusätzliche Rundung beim JSON-
+            # Export und passt zu emit_load_double_literal().
+            value = str(
+                value
+            )
+
+        elif typ == "string":
+            value = str(
+                value
+            )
+
+        elif typ == "char":
+            value = str(
+                value
+            )
+
+            if len(value) != 1:
+                raise RuntimeError(
+                    f"invalid character constant: {name}"
+                )
+
+        else:
+            raise RuntimeError(
+                f"unsupported PUI constant type "
+                f"for {name}: {typ}"
+            )
+
+        entries = self.pending_pui.setdefault(
+            "constants",
+            []
+        )
+
+        for old_item in entries:
+            if (
+                str(
+                    old_item.get(
+                        "name",
+                        ""
+                    )
+                ).lower()
+                == key
+            ):
+                return
+
+        entries.append({
+            "name": info["name"],
+            "scoped_name": self.unit_scoped_name(
+                info["name"]
+            ),
+            "type": typ,
+            "value": value
+        })
 
     def pui_add_record(
         self,
@@ -19149,6 +20449,185 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return None
 
+    def register_pui_constants(
+        self,
+        ctx,
+        unit_name,
+        data
+    ):
+        items = data.get(
+            "constants",
+            []
+        )
+
+        # PUI-v1-Dateien ohne Konstantenbereich bleiben gültig.
+        if items is None:
+            items = []
+
+        if not isinstance(
+            items,
+            list
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"invalid constant section in "
+                    f"PUI for unit {unit_name}"
+                )
+            )
+
+        unit_prefix = self.normalize_unit_name(
+            unit_name
+        )
+
+        for item in items:
+            if not isinstance(
+                item,
+                dict
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid constant entry in "
+                        f"PUI for unit {unit_name}"
+                    )
+                )
+
+            name = str(
+                item.get(
+                    "name",
+                    ""
+                )
+            ).strip()
+
+            typ = str(
+                item.get(
+                    "type",
+                    ""
+                )
+            ).strip().lower()
+
+            if (
+                not name
+                or "value" not in item
+                or typ not in (
+                    "integer",
+                    "boolean",
+                    "double",
+                    "string",
+                    "char"
+                )
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid constant metadata in "
+                        f"PUI for unit {unit_name}"
+                    )
+                )
+
+            stored_value = item[
+                "value"
+            ]
+
+            try:
+                if typ == "integer":
+                    value = self.parse_pascal_integer_literal(
+                        stored_value
+                    )
+
+                elif typ == "boolean":
+                    value = int(
+                        stored_value
+                    )
+
+                    if value not in (
+                        0,
+                        1
+                    ):
+                        raise ValueError(
+                            "boolean constant must be 0 or 1"
+                        )
+
+                elif typ == "double":
+                    # Prüfen, aber in derselben Form wie lokale Double-
+                    # Konstanten an emit_load_double_literal() geben.
+                    float(
+                        stored_value
+                    )
+
+                    value = str(
+                        stored_value
+                    )
+
+                elif typ == "char":
+                    if (
+                        not isinstance(
+                            stored_value,
+                            str
+                        )
+                        or len(stored_value) != 1
+                    ):
+                        raise ValueError(
+                            "character constant must contain one character"
+                        )
+
+                    value = stored_value
+
+                else:
+                    if not isinstance(
+                        stored_value,
+                        str
+                    ):
+                        raise ValueError(
+                            "string constant must contain text"
+                        )
+
+                    value = stored_value
+
+            except (
+                TypeError,
+                ValueError
+            ) as error:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        f"invalid value for PUI constant "
+                        f"{unit_name}.{name}: {error}"
+                    )
+                )
+
+            scoped_name = str(
+                item.get(
+                    "scoped_name",
+                    unit_prefix + "_" + name
+                )
+            )
+
+            info = {
+                "name": name,
+                "scoped_name": scoped_name,
+                "type": typ,
+                "value": value,
+                "unit": unit_name,
+                "pui": True
+            }
+
+            # Wie bei PUI-Routinen bleibt der erste unqualifizierte
+            # Import sichtbar. Zusätzlich existiert der Unit-Schlüssel.
+            self.constants[
+                scoped_name.lower()
+            ] = info
+
+            self.constants.setdefault(
+                name.lower(),
+                info
+            )
+
     def register_pui_types(
         self,
         ctx,
@@ -19848,6 +21327,29 @@ class AsmJitGenerator(PascalParserVisitor):
             == "cdecl"
         )
     
+    def nt32_parameter_stack_bytes(self, params):
+        result = 0
+
+        for param in params:
+            if param.get("is_var", False):
+                result += 4
+                continue
+
+            if param.get("is_open_array", False):
+                result += 8
+                continue
+
+            param_type = self.resolve_type(
+                param["type"]
+            )
+
+            if param_type == "double":
+                result += 8
+            else:
+                result += 4
+
+        return result
+    
     def emit_nt32_routine_arguments(
         self,
         ctx,
@@ -20068,8 +21570,7 @@ class AsmJitGenerator(PascalParserVisitor):
         routine,
         arg_bytes
     ):
-        if (
-            arg_bytes
+        if (arg_bytes
             and self.nt32_caller_cleans_stack(routine)
         ):
             self.emit_add(
@@ -20792,24 +22293,71 @@ class AsmJitGenerator(PascalParserVisitor):
                     )
 
                 var_name = parts[0]
-                var_info = self.var_info(ctx, var_name)
-                var_type = self.resolve_type(var_info["type"])
 
-                if (
-                    isinstance(var_type, str)
-                    and var_type in self.classes
-                ):
-                    if self.emit_store_class_property(ctx, parts, expr_type):
+                # Impliziter beziehungsweise expliziter Self-Pfad:
+                #
+                #   FAppForm.WndClass.style := CS_REDRAW;
+                #   Self.FAppForm.WndClass.style := CS_REDRAW;
+                #
+                # FAppForm ist keine lokale/globale Variable. Der Pfad muss
+                # deshalb vor var_info() über die aktuelle Klasse aufgelöst
+                # werden.
+                if var_name.lower() == "self":
+                    if self.emit_store_self_member_path(
+                        ctx,
+                        parts[1:],
+                        expr_type
+                    ):
                         return None
 
-                    self.emit_store_class_field(ctx, parts, expr_type)
+                elif self.find_current_class_field(
+                    var_name
+                ) is not None:
+                    self.emit_store_self_member_path(
+                        ctx,
+                        parts,
+                        expr_type
+                    )
                     return None
+
+                (
+                    source_kind,
+                    var_info,
+                    var_type
+                ) = self.resolve_named_storage(
+                    ctx,
+                    var_name
+                )
 
                 if (
                     isinstance(var_type, str)
                     and var_type in self.records
                 ):
-                    self.emit_store_record_field(ctx, parts, expr_type)
+                    self.emit_store_record_field(
+                        ctx,
+                        parts,
+                        expr_type
+                    )
+                    return None
+
+                if (
+                    isinstance(var_type, str)
+                    and var_type in self.classes
+                ):
+                    if source_kind != "global":
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "class field assignment is not yet "
+                                f"implemented for {source_kind} variables"
+                            )
+                        )
+
+                    if self.emit_store_class_property(ctx, parts, expr_type):
+                        return None
+
+                    self.emit_store_class_field(ctx, parts, expr_type)
                     return None
 
                 raise CompileError(
@@ -22469,6 +24017,21 @@ class AsmJitGenerator(PascalParserVisitor):
                 ref.variableSuffix()
             )
 
+            if (name.lower() == "self"
+                and any(
+                    self.suffix_is_dot(suffix)
+                    for suffix in suffixes
+                )
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "an instance method cannot be used as a raw "
+                        "callback; declare a global stdcall callback"
+                    )
+                )
+
             if suffixes:
                 first = suffixes[0]
 
@@ -22515,6 +24078,19 @@ class AsmJitGenerator(PascalParserVisitor):
                         index_exprs
                     )
 
+            # Variables keep precedence over routines when both namespaces
+            # contain the same spelling.
+            if (self.find_local_var(name) is None
+                and name.lower() not in self.vars
+            ):
+                routine_type = self.emit_address_of_routine(
+                    ctx,
+                    name
+                )
+
+                if routine_type is not None:
+                    return routine_type
+
             return self.emit_address_of_var(
                 ctx,
                 name
@@ -22523,7 +24099,6 @@ class AsmJitGenerator(PascalParserVisitor):
         # ============================================================
         # Expliziter Funktionsaufruf
         # ============================================================
-
         if ctx.functionCallExpr():
             return self.visit(
                 ctx.functionCallExpr()
@@ -22909,53 +24484,87 @@ class AsmJitGenerator(PascalParserVisitor):
                             text="Self may only be used inside a class method"
                         )
 
-                    if len(parts) != 2:
-                        raise CompileError(
-                            ctx,
-                            "E0019",
-                            text=(
-                                "nested Self member access is currently "
-                                "not implemented: "
-                                + ".".join(parts)
-                            )
-                        )
-
-                    member_name = parts[1]
-
-                    # Zuerst Klassenfeld prüfen:
+                    # Zuerst einen einfachen oder verschachtelten
+                    # Klassen-/Recordfeldpfad prüfen:
                     #
                     #   Self.FValue
-                    field_type = self.emit_load_self_field(
+                    #   Self.FAppForm.WndClass.style
+                    field_type = self.emit_load_self_member_path(
                         ctx,
-                        member_name
+                        parts[1:]
                     )
 
                     if field_type is not None:
                         return field_type
 
+                    if len(parts) != 2:
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "unsupported nested Self member access: "
+                                + ".".join(parts)
+                            )
+                        )
+
                     # Danach parameterlose Funktionsmethode:
                     #
                     #   Self.InstanceSize
                     #   Self.ClassName
+                    member_name = parts[1]
+
                     return self.emit_self_method_call(
                         ctx,
                         member_name,
                         []
                     )
 
-                var_info = self.var_info(
+                # Impliziter Self-Pfad:
+                #
+                #   FAppForm.WndClass.style
+                #
+                # Dieser Test muss vor var_info() erfolgen, weil FAppForm
+                # ein Feld der aktuellen Klasse und keine Variable ist.
+                if self.find_current_class_field(
+                    var_name
+                ) is not None:
+                    return self.emit_load_self_member_path(
+                        ctx,
+                        parts
+                    )
+
+                (
+                    source_kind,
+                    var_info,
+                    var_type
+                ) = self.resolve_named_storage(
                     ctx,
                     var_name
                 )
 
-                var_type = self.resolve_type(
-                    var_info["type"]
-                )
+                if (
+                    isinstance(var_type, str)
+                    and var_type in self.records
+                ):
+                    return self.emit_load_record_field(
+                        ctx,
+                        parts
+                    )
 
                 if (
                     isinstance(var_type, str)
                     and var_type in self.classes
                 ):
+                    if source_kind != "global":
+                        raise CompileError(
+                            ctx,
+                            "E0019",
+                            text=(
+                                "class field loading is not yet "
+                                f"implemented for {source_kind} variables"
+                            )
+                        )
+
                     property_type = self.emit_load_class_property(
                         ctx,
                         parts
@@ -22991,9 +24600,11 @@ class AsmJitGenerator(PascalParserVisitor):
                         parts
                     )
 
-                return self.emit_load_record_field(
+                raise CompileError(
                     ctx,
-                    parts
+                    "E0005",
+                    got=var_type,
+                    expected="class/record"
                 )
 
             raise CompileError(
@@ -23698,6 +25309,36 @@ class AsmJitGenerator(PascalParserVisitor):
         source_is_nil = source_type in ("nil", "^nil")
 
         if target_is_pointer:
+            # PAnsiChar(StringValue) beziehungsweise PChar(StringValue):
+            #
+            # Das dBase2Many-String-ABI liefert bereits den Zeiger auf die
+            # nullterminierten Inline-Daten. Der 12-Byte-Header liegt direkt
+            # davor. Deshalb darf hier insbesondere nicht [eax+12] geladen
+            # werden: Das würde vier Zeichen des Strings als Adresse
+            # interpretieren.
+            if (
+                source_type == "string"
+                and self.is_char_pointer_type(
+                    target_type
+                )
+            ):
+                if CDATA.args_target in (
+                    "nt35",
+                    "winnt",
+                    "win32",
+                    "win64"
+                ):
+                    return target_type
+
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "String to PChar/PAnsiChar cast is not "
+                        f"implemented for target {CDATA.args_target}"
+                    )
+                )
+
             if not (
                 source_is_pointer
                 or source_is_class
@@ -24116,12 +25757,12 @@ class AsmJitGenerator(PascalParserVisitor):
 
             # --------------------------------------------------------
             # cdecl: Parameter rechts nach links auswerten und pushen
+            # cdecl/stdcall: rechts nach links; pascal: links nach rechts.
             # --------------------------------------------------------
-            for index in range(
-                len(actuals) - 1,
-                -1,
-                -1
-            ):
+            for index in self.nt32_argument_order(
+                func,
+                len(actuals)
+             ):
                 arg_expr = actuals[index]
                 formal   = params[index]
 
@@ -24132,6 +25773,59 @@ class AsmJitGenerator(PascalParserVisitor):
                 formal_type = self.resolve_type(
                     raw_formal_type
                 )
+
+                # ====================================================
+                # VAR-Parameter in Funktionsausdrücken
+                #
+                # GetMessageA(var Msg: TMsg; ...) erwartet die Adresse
+                # des lokalen Records. Der Ausdruck darf deshalb nicht
+                # über emit_load_local_var() als Record-Wert geladen
+                # werden.
+                # ====================================================
+                if formal.get("is_var", False):
+                    ref = self.expression_variable_ref(
+                        ctx,
+                        arg_expr
+                    )
+
+                    var_name = ref.IDENT().getText()
+                    info = self.find_local_var(
+                        var_name
+                    )
+
+                    if info is None:
+                        info = self.var_info(
+                            ctx,
+                            var_name
+                        )
+
+                    actual_type = self.resolve_type(
+                        info["type"]
+                    )
+
+                    if actual_type != formal_type:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=actual_type,
+                            expected=formal_type
+                        )
+
+                    self.emit_address_of_var(
+                        ctx,
+                        var_name
+                    )
+
+                    self.emit_push(
+                        "eax",
+                        comment=(
+                            f"function var parameter "
+                            f"{index + 1}"
+                        )
+                    )
+
+                    arg_bytes += 4
+                    continue
 
                 # Pascal-Deklaration und Maschinen-ABI getrennt behandeln.
                 # Beispiele:
@@ -24479,12 +26173,10 @@ class AsmJitGenerator(PascalParserVisitor):
                 func
             )
 
-            if arg_bytes:
-                self.emit_add(
-                    "esp",
-                    arg_bytes,
-                    comment="cdecl function cleanup"
-                )
+            self.finish_nt32_routine_call(
+                func,
+                arg_bytes
+            )
 
             return self.resolve_type(
                 func["return_type"]
@@ -24915,7 +26607,16 @@ class AsmJitGenerator(PascalParserVisitor):
             )
 
             self.emit_pop("ebp")
-            self.emit_ret()
+            #self.emit_ret() ### hier
+
+            stack_bytes = self.nt32_parameter_stack_bytes(
+                params
+            )
+
+            if convention in ("stdcall", "pascal") and stack_bytes:
+                self.writer.emit_ret_imm16(stack_bytes)
+            else:
+                self.emit_ret()
 
         elif target in ("dos", "dos16"):
             self.backend.writer.emit_mov_reg16_reg16(

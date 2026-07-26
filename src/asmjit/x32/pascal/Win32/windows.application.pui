@@ -1,0 +1,106 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "Windows.Application",
+        "normalized_name": "windows_application"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "windows.application.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System",
+            "Windows.Types",
+            "Windows.kernel",
+            "Windows.user",
+            "VCL.Windows"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_WINDOWS_APPLICATION$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "constants": [
+        {
+            "name": "ID_BUTTON_INFO",
+            "scoped_name": "windows_application_ID_BUTTON_INFO",
+            "type": "integer",
+            "value": 1001
+        }
+    ],
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": [
+            {
+                "name": "TApplication",
+                "parent": "tobject",
+                "size": 8,
+                "vmt_symbol": "__vmt_windows_application_tapplication",
+                "class_name_symbol": "__classname_windows_application_tapplication",
+                "fields": [
+                    {
+                        "name": "FAppForm",
+                        "type": "tform",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_WINDOWS_APPLICATION$$_$$_TAPPLICATION_$$_CREATE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_WINDOWS_APPLICATION$$_$$_TAPPLICATION_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 20
+                    }
+                ],
+                "properties": []
+            }
+        ]
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

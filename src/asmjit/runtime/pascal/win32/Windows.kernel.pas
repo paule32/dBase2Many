@@ -8,11 +8,17 @@ unit Windows.kernel;
 interface
 uses System;
 
-const DLL_FILE = 'libruntime_mini.dll';
+const DLL_KERNEL32 = 'kernel32.dll';
 
-procedure ExitProcess(AValue: DWord); cdecl;
-    external DLL_FILE name '_jit_ExitProcess'
-    ordinal 75;
+function GetModuleHandleA(
+    lpModuleName: PAnsiChar
+    ): HMODULE; stdcall; external
+    DLL_KERNEL32 name 'GetModuleHandleA';
+
+procedure ExitProcess(
+    AValue: DWord
+    ); stdcall; external
+    DLL_KERNEL32 name 'ExitProcess';
 
 implementation
 

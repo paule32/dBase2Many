@@ -3,10 +3,12 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-unit VCL.Windows.pas
+unit VCL.Windows;
 
 interface
-uses System, Windows;
+uses System,
+     Windows.Types,
+     Windows.User;
 
 type
     TForm = class(TObject)
@@ -16,6 +18,7 @@ type
         FLeft: Integer;
         FTop: Integer;
         FCaption: String;
+        WndClass: TWndClassA;
     public
         constructor Create;
         destructor Destroy; override;

@@ -6,13 +6,92 @@
 unit Windows.User;
 
 interface
-uses System.Types;
+uses System;
 
-const DLL_FILE = 'libruntime_mini.dll';
+const DLL_USER32 = 'user32.dll';
 
-function MessageBox(AHwnd: HANDLE; ATitle, AMessage: String; AFlag: DWORD): DWORD; cdecl;
-    external DLL_FILE name 'MessageBoxA@16'
-    ordinal 75;
+function LoadIconA(
+    hInstance:  HINSTANCE;
+    lpIconName: Integer
+    ):  HICON; stdcall; external
+    DLL_USER32 name 'LoadIconA';
+
+function LoadCursorA(
+    hInstance:    HINSTANCE;
+    lpCursorName: Integer
+    ): HCURSOR; stdcall; external
+    DLL_USER32 name 'LoadCursorA';
+
+function RegisterClassA(
+    var WndClass: TWndClassA
+    ): Integer; stdcall; external
+    DLL_USER32 name 'RegisterClassA';
+
+function CreateWindowExA(
+    dwExStyle:    DWORD;
+    lpClassName:  PAnsiChar;
+    lpWindowName: PAnsiChar;
+    dwStyle:      DWORD;
+    x:            Integer;
+    y:            Integer;
+    nWidth:       Integer;
+    nHeight:      Integer;
+    hWndParent:   HWND;
+    hMenu:        HMENU;
+    hInstance:    HINSTANCE;
+    lpParam:      Pointer
+    ): HWND; stdcall; external
+    DLL_USER32 name 'CreateWindowExA';
+
+function ShowWindow(
+    hWnd:     HWND;
+    nCmdShow: Integer
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'ShowWindow';
+
+function UpdateWindow(
+    hWnd: HWND
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'UpdateWindow';
+
+function GetMessageA(
+    var Msg:     TMsg;
+    hWnd:        HWND;
+    wMsgMin:     UINT;
+    wMsgMax:     UINT
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'GetMessageA';
+
+function TranslateMessage(
+    var Msg: TMsg
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'TranslateMessage';
+
+function DispatchMessageA(
+    var Msg: TMsg
+    ): LRESULT; stdcall; external
+    DLL_USER32 name 'DispatchMessageA';
+
+function DefWindowProcA(
+    hWnd:   HWND;
+    uMsg:   UINT;
+    wParam: WPARAM;
+    lParam: LPARAM
+    ): LRESULT; stdcall; external
+    DLL_USER32 name 'DefWindowProcA';
+
+procedure PostQuitMessage(
+    nExitCode: Integer
+    ); stdcall; external
+    DLL_USER32 name 'PostQuitMessage';
+
+function MessageBoxA(
+    hWnd:      HWND;
+    lpText:    PAnsiChar;
+    lpCaption: PAnsiChar;
+    uType:     UINT
+    ): Integer; stdcall; external
+    DLL_USER32 name 'MessageBoxA';
 
 implementation
 

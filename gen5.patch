@@ -1,0 +1,605 @@
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -3972,18 +3972,22 @@
+     
+     def resolve_record_path(self, ctx, parts):
+         var_name = parts[0]
+-        var_key  = var_name.lower()
+-
+-        if var_key not in self.vars:
+-            raise CompileError(ctx, "E0001", name=var_name)
+-
+-        var_info = self.vars[var_key]
+-        current_type = var_info["type"]
++        (
++            source_kind,
++            var_info,
++            current_type
++        ) = self.resolve_named_storage(
++            ctx,
++            var_name
++        )
+ 
+         if current_type not in self.records:
+             raise CompileError(ctx, "E0005", got=current_type, expected="record")
+ 
+-        offset = var_info["slot"]
++        # The base address is selected separately for local variables,
++        # formal parameters and globals. This value therefore contains
++        # only offsets inside the record, never a global record slot.
++        offset = 0
+         field = None
+ 
+         for field_name in parts[1:]:
+@@ -3995,13 +3999,131 @@
+ 
+             field = record.fields[field_key]
+             offset += field.offset
+-            current_type = field.type
++            current_type = self.resolve_type(
++                field.type
++            )
+ 
+             if field_name != parts[-1]:
+                 if current_type not in self.records:
+                     raise CompileError(ctx, "E0005", got=current_type, expected="record")
+ 
+-        return offset, field
++        return (
++            source_kind,
++            var_info,
++            offset,
++            field
++        )
++
++    def emit_record_base_address(
++        self,
++        ctx,
++        name,
++        source_kind,
++        info,
++        address_reg
++    ):
++        """
++        Load the address of a record variable without losing the value
++        currently held in EAX/RAX.
++
++        In particular, a VAR record parameter contains the address of the
++        caller's record in its stack slot. A local record lives inline in the
++        current frame and a global NT32 record has its own COFF data symbol.
++        """
++        is_nt32 = CDATA.args_target in (
++            "nt35",
++            "winnt",
++            "win32"
++        )
++
++        if source_kind == "local":
++            self.emit_lea_byte(
++                address_reg,
++                "ebp" if is_nt32 else "rbp",
++                info["offset"],
++                comment=f"{name} record address"
++            )
++            return
++
++        if source_kind == "param":
++            offset = info.get(
++                "stack_offset"
++            )
++
++            if offset is None:
++                raise CompileError(
++                    ctx,
++                    "E0019",
++                    text=f"parameter {name} has no stack offset"
++                )
++
++            if info.get("is_var", False):
++                if is_nt32:
++                    self.emit_mov_dword_ptr(
++                        address_reg,
++                        "ebp",
++                        offset,
++                        comment=f"var record parameter {name}"
++                    )
++                else:
++                    self.emit_mov_qword_ptr(
++                        address_reg,
++                        "rbp",
++                        offset,
++                        comment=f"var record parameter {name}"
++                    )
++            else:
++                self.emit_lea_byte(
++                    address_reg,
++                    "ebp" if is_nt32 else "rbp",
++                    offset,
++                    comment=f"record parameter {name}"
++                )
++
++            return
++
++        if source_kind == "global":
++            if is_nt32:
++                symbol = (
++                    info.get("symbol")
++                    or f"_var_{info['name']}"
++                )
++
++                info["symbol"] = symbol
++
++                self.writer.emit_lea_reg_data_label(
++                    address_reg,
++                    symbol
++                )
++                return
++
++            self.emit_mov_qword(
++                address_reg,
++                "r12",
++                "record_vars"
++            )
++
++            slot = int(
++                info.get("slot", 0)
++            )
++
++            if slot:
++                self.emit_add(
++                    address_reg,
++                    slot,
++                    comment=f"{name} record slot"
++                )
++
++            return
++
++        raise CompileError(
++            ctx,
++            "E0019",
++            text=(
++                f"unknown record storage kind for "
++                f"{name}: {source_kind}"
++            )
++        )
+ 
+     def pascal_import_type(self, typ):
+         typ = self.resolve_type(typ)
+@@ -9949,49 +10071,119 @@
+         raise CompileError(ctx, "E0014", var_type=typ)
+ 
+     def emit_load_record_field(self, ctx, parts):
+-        field_offset, field = self.resolve_record_path(ctx, parts)
++        (
++            source_kind,
++            info,
++            field_offset,
++            field
++        ) = self.resolve_record_path(
++            ctx,
++            parts
++        )
++
+         path = ".".join(parts)
+         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
++        field_type = self.resolve_type(
++            field.type
++        )
++        address_reg = (
++            "edx"
++            if is_nt32
++            else "r11"
++        )
+ 
+-        if is_nt32:
+-            base_name = parts[0]
+-            info = self.var_info(ctx, base_name)
+-            symbol = info.get("symbol") or f"_var_{info['name']}"
+-            info["symbol"] = symbol
+-
+-            self.writer.emit_lea_reg_data_label("edx", symbol)
++        self.emit_record_base_address(
++            ctx,
++            parts[0],
++            source_kind,
++            info,
++            address_reg
++        )
+ 
+-            if field.type in ("integer", "boolean"):
+-                self.emit_mov_dword_ptr("eax", "edx", field_offset, comment=path)
++        if field_type in ("integer", "boolean"):
++            self.emit_mov_dword_ptr(
++                "eax",
++                address_reg,
++                field_offset,
++                comment=path
++            )
+ 
+-                if field.type == "boolean":
+-                    self.emit_and("eax", 1)
+-                    return "boolean"
++            if field_type == "boolean":
++                self.emit_and("eax", 1)
++                return "boolean"
+ 
+-                return "integer"
++            return "integer"
+ 
+-            raise CompileError(ctx, "E0014", var_type=field.type)
++        if field_type == "char":
++            self.backend.writer.emit_movzx_r32_byte_ptr(
++                "eax",
++                address_reg,
++                field_offset
++            )
++            return "char"
+ 
+-        self.emit_mov_qword("r11", "r12", "record_vars")
++        if field_type == "double":
++            self.emit_movsd_load(
++                "xmm0",
++                address_reg,
++                field_offset,
++                comment=path
++            )
++            return "double"
+ 
+-        if field.type in ("integer", "boolean"):
+-            self.emit_mov_dword_ptr("eax", "r11", field_offset, comment=path)
++        if (
++            field_type == "string"
++            or field_type in self.classes
++            or self.is_pointer_type(
++                field_type,
++                include_nil=False
++            )
++        ):
++            if is_nt32:
++                self.emit_mov_dword_ptr(
++                    "eax",
++                    address_reg,
++                    field_offset,
++                    comment=path
++                )
++            else:
++                self.emit_mov_qword_ptr(
++                    "rax",
++                    address_reg,
++                    field_offset,
++                    comment=path
++                )
+ 
+-            if field.type == "boolean":
+-                self.emit_and("eax", 1)
+-                return "boolean"
++            return field_type
+ 
+-            return "integer"
++        if field_type in self.records:
++            if is_nt32:
++                self.emit_mov(
++                    "eax",
++                    address_reg,
++                    comment=path + " address"
++                )
++            else:
++                self.emit_mov(
++                    "rax",
++                    address_reg,
++                    comment=path + " address"
++                )
+ 
+-        if field.type == "double":
+-            self.emit_movsd_load("xmm0", "r11", field_offset, comment=path)
+-            return "double"
++            if field_offset:
++                self.emit_add(
++                    "eax" if is_nt32 else "rax",
++                    field_offset,
++                    comment=path
++                )
+ 
+-        if field.type == "string":
+-            self.emit_mov_qword_ptr("rax", "r11", field_offset, comment=path)
+-            return "string"
++            return field_type
+ 
+-        return field.type
++        raise CompileError(
++            ctx,
++            "E0014",
++            var_type=field_type
++        )
+     
+     def emit_load_pointer_record_field(
+         self,
+@@ -12527,50 +12719,151 @@
+             return
+         
+     def emit_store_record_field(self, ctx, parts, expr_type):
+-        field_offset, field = self.resolve_record_path(ctx, parts)
++        (
++            source_kind,
++            info,
++            field_offset,
++            field
++        ) = self.resolve_record_path(
++            ctx,
++            parts
++        )
++
+         path = ".".join(parts)
+         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
++        field_type = self.resolve_type(
++            field.type
++        )
++        value_type = self.resolve_type(
++            expr_type
++        )
+ 
+-        if field.type == "double" and expr_type == "integer":
++        if field_type == "double" and value_type == "integer":
+             self.emit_cvtsi2sd("xmm0", "eax")
+-            expr_type = "double"
++            value_type = "double"
++
++        if field_type == "boolean":
++            if value_type not in ("boolean", "integer"):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected="boolean"
++                )
+ 
+-        if field.type == "boolean":
+-            if expr_type != "boolean":
+-                raise CompileError(ctx, "E0005", got=expr_type, expected="boolean")
+             self.emit_and("eax", 1)
+-        elif field.type != expr_type:
+-            raise CompileError(ctx, "E0005", got=expr_type, expected=field.type)
+ 
+-        if is_nt32:
+-            base_name = parts[0]
+-            info = self.var_info(ctx, base_name)
+-            symbol = info.get("symbol") or f"_var_{info['name']}"
+-            info["symbol"] = symbol
++            value_type = "boolean"
++
++        elif field_type in self.classes:
++            if value_type not in (
++                field_type,
++                "^nil"
++            ):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected=field_type
++                )
+ 
+-            self.writer.emit_lea_reg_data_label("edx", symbol)
++        elif self.is_pointer_type(
++            field_type,
++            include_nil=False
++        ):
++            if (
++                value_type != "^nil"
++                and not self.is_pointer_type(
++                    value_type,
++                    include_nil=False
++                )
++            ):
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=value_type,
++                    expected=field_type
++                )
+ 
+-            if field.type in ("integer", "boolean"):
+-                self.emit_mov_dword_ptr_store("edx", field_offset, "eax", comment=path)
+-                return
++        elif field_type != value_type:
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=value_type,
++                expected=field_type
++            )
+ 
+-            raise CompileError(ctx, "E0013", var_type=field.type)
++        address_reg = (
++            "edx"
++            if is_nt32
++            else "r11"
++        )
+ 
+-        self.emit_mov_qword("r11", "r12", "record_vars")
++        self.emit_record_base_address(
++            ctx,
++            parts[0],
++            source_kind,
++            info,
++            address_reg
++        )
+ 
+-        if field.type in ("integer", "boolean"):
+-            self.emit_mov_dword_ptr_store("r11", field_offset, "eax", comment=path)
++        if field_type in ("integer", "boolean"):
++            self.emit_mov_dword_ptr_store(
++                address_reg,
++                field_offset,
++                "eax",
++                comment=path
++            )
+             return
+ 
+-        if field.type == "double":
+-            self.emit_movsd_store("r11", field_offset, "xmm0", comment=path)
++        if field_type == "char":
++            self.emit_mov_byte_ptr_store(
++                address_reg,
++                field_offset,
++                "al",
++                comment=path
++            )
+             return
+ 
+-        if field.type == "string":
+-            self.emit_mov_qword_ptr_store("r11", field_offset, "rax", comment=path)
++        if field_type == "double":
++            self.emit_movsd_store(
++                address_reg,
++                field_offset,
++                "xmm0",
++                comment=path
++            )
+             return
+ 
+-        raise CompileError(ctx, "E0013", var_type=field.type)
++        if (
++            field_type == "string"
++            or field_type in self.classes
++            or self.is_pointer_type(
++                field_type,
++                include_nil=False
++            )
++        ):
++            if is_nt32:
++                self.emit_mov_dword_ptr_store(
++                    address_reg,
++                    field_offset,
++                    "eax",
++                    comment=path
++                )
++            else:
++                self.emit_mov_qword_ptr_store(
++                    address_reg,
++                    field_offset,
++                    "rax",
++                    comment=path
++                )
++
++            return
++
++        raise CompileError(
++            ctx,
++            "E0013",
++            var_type=field_type
++        )
+     
+     def emit_store_param(self, ctx, name, expr_type):
+         param = self.find_param(name)
+@@ -21918,24 +22211,44 @@
+                     )
+                     return None
+ 
+-                var_info = self.var_info(ctx, var_name)
+-                var_type = self.resolve_type(var_info["type"])
++                (
++                    source_kind,
++                    var_info,
++                    var_type
++                ) = self.resolve_named_storage(
++                    ctx,
++                    var_name
++                )
+ 
+                 if (
+                     isinstance(var_type, str)
+-                    and var_type in self.classes
++                    and var_type in self.records
+                 ):
+-                    if self.emit_store_class_property(ctx, parts, expr_type):
+-                        return None
+-
+-                    self.emit_store_class_field(ctx, parts, expr_type)
++                    self.emit_store_record_field(
++                        ctx,
++                        parts,
++                        expr_type
++                    )
+                     return None
+ 
+                 if (
+                     isinstance(var_type, str)
+-                    and var_type in self.records
++                    and var_type in self.classes
+                 ):
+-                    self.emit_store_record_field(ctx, parts, expr_type)
++                    if source_kind != "global":
++                        raise CompileError(
++                            ctx,
++                            "E0019",
++                            text=(
++                                "class field assignment is not yet "
++                                f"implemented for {source_kind} variables"
++                            )
++                        )
++
++                    if self.emit_store_class_property(ctx, parts, expr_type):
++                        return None
++
++                    self.emit_store_class_field(ctx, parts, expr_type)
+                     return None
+ 
+                 raise CompileError(
+@@ -24111,19 +24424,38 @@
+                         parts
+                     )
+ 
+-                var_info = self.var_info(
++                (
++                    source_kind,
++                    var_info,
++                    var_type
++                ) = self.resolve_named_storage(
+                     ctx,
+                     var_name
+                 )
+ 
+-                var_type = self.resolve_type(
+-                    var_info["type"]
+-                )
++                if (
++                    isinstance(var_type, str)
++                    and var_type in self.records
++                ):
++                    return self.emit_load_record_field(
++                        ctx,
++                        parts
++                    )
+ 
+                 if (
+                     isinstance(var_type, str)
+                     and var_type in self.classes
+                 ):
++                    if source_kind != "global":
++                        raise CompileError(
++                            ctx,
++                            "E0019",
++                            text=(
++                                "class field loading is not yet "
++                                f"implemented for {source_kind} variables"
++                            )
++                        )
++
+                     property_type = self.emit_load_class_property(
+                         ctx,
+                         parts
+@@ -24159,9 +24491,11 @@
+                         parts
+                     )
+ 
+-                return self.emit_load_record_field(
++                raise CompileError(
+                     ctx,
+-                    parts
++                    "E0005",
++                    got=var_type,
++                    expected="class/record"
+                 )
+ 
+             raise CompileError(
