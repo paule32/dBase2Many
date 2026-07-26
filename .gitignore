@@ -384,3 +384,5 @@ src/asmjit/compiler/frontend/pascal/gen7.patch
 src/asmjit/compiler/frontend/pascal/gener
 src/asmjit/compiler/frontend/pascal/new.py
 src/asmjit/compiler/frontend/pascal/old.py
+src/asmjit/compiler/frontend/pascal/gen8.patch
+src/asmjit/gen8.patch

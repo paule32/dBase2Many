@@ -8,10 +8,32 @@ unit VCL.Windows;
 interface
 uses System,
      Windows.Types,
+     Windows.Kernel,
      Windows.User;
 
 type
-    TForm = class(TObject)
+    TWindow = class(TObject)
+    private
+        FWinRegisteredName: PAnsiChar;
+        FWinInstance: HINSTANCE;
+        FWinHandle: HWND;
+        FWinTitle: PAnsiChar;
+    public
+        constructor Create;
+        destructor Destroy; override;
+        
+        function GetHandle: HWND;
+        function DispatchMessage(
+            winhWnd: HWND;
+            Msg: UINT;
+            wParam: WPARAM;
+            lParam: LPARAM
+        ):  LRESULT;
+        
+    end;
+
+type
+    TForm = class(TWindow)
     private
         FWidth: Integer;
         FHeight: Integer;
@@ -31,6 +53,199 @@ type
     end;
 
 implementation
+
+{ TWindow }
+
+function GlobalWindowProc(
+    winHwnd: HWND;
+    uMsg:    UINT;
+    wParam:  WPARAM;
+    lParam:  LPARAM
+):  LRESULT; stdcall;
+var
+    AppForm: TForm;
+    CreateStruct: PCREATESTRUCTA;
+    ButtonWindow: HWND;
+begin
+    if uMsg = WM_NCCREATE then
+    begin
+        CreateStruct := PCREATESTRUCTA(lParam);
+        AppForm := TForm(CreateStruct^.lpCreateParams);
+        
+        if Assigned(AppForm) then
+        begin
+            AppForm.FWinHandle := winHwnd;
+            SetWindowLongA(
+                winhwnd,
+                GWL_USERDATA,
+                LongInt(AppForm)
+            );
+        end;
+    end else
+    begin
+        AppForm := TForm(
+            GetWindowLongA(
+                winhwnd,
+                GWL_USERDATA
+            )
+        );
+    end;
+    
+    if Assigned(AppForm) then
+    begin
+        result := AppForm.DispatchMessage(
+            winhwnd,
+            uMsg,
+            wParam,
+            lParam
+        );
+        
+        if uMsg = WM_NCDESTROY then
+        begin
+            SetWindowLongA(
+                winhwnd,
+                GWL_USERDATA,
+                0
+            );
+            AppForm.FWinHandle := nil;
+        end;
+        Exit;
+    end;
+(*
+    if uMsg = WM_CREATE then
+    begin
+        ButtonWindow := CreateWindowExA(
+            0,
+            PAnsiChar('BUTTON'),
+            PAnsiChar('Information'),
+            WS_BUTTON,
+            16,
+            16,
+            140,
+            32,
+            hWnd,
+            ID_BUTTON_INFO,
+            AppInstance,
+            nil
+        );
+        Result := 0;
+        Exit;
+    end;
+
+    if uMsg = WM_COMMAND then
+    begin
+        if wParam = ID_BUTTON_INFO then
+        begin
+            MessageBoxA(
+                hWnd,
+                PAnsiChar('Die Win32-GUI funktioniert.'),
+                PAnsiChar('dBase2Many Pascal'),
+                MB_OK + MB_ICONINFORMATION
+            );
+        end;
+
+        Result := 0;
+        Exit;
+    end;
+*)
+    if uMsg = WM_DESTROY then
+    begin
+        PostQuitMessage(0);
+        Result := 0;
+        Exit;
+    end;
+
+    Result := DefWindowProcA(
+        winhWnd,
+        uMsg,
+        wParam,
+        lParam
+    );
+end;
+
+constructor TWindow.Create;
+var
+    FWinClass: TWndClassA;
+    RegisterResult: Integer;
+begin
+    FWinRegisteredName      := PAnsiChar('Win32Gui.Window');
+    FWinInstance            := GetModuleHandleA(nil);
+    
+    FWinClass.style         := CS_REDRAW;
+    FWinClass.lpfnWndProc   := @GlobalWindowProc;
+    FWinClass.cbClsExtra    := 0;
+    FWinClass.cbWndExtra    := 0;
+    FWinClass.hInstance     := FWinInstance;
+    FWinClass.hIcon         := LoadIconA(0, IDI_APPLICATION);
+    FWinClass.hCursor       := LoadCursorA(0, IDC_ARROW);
+    FWinClass.hbrBackground := HBRUSH(COLOR_WINDOW + 1);
+    FWinClass.lpszMenuName  := nil;
+    FWinClass.lpszClassName := FWinRegisteredName;
+    
+    RegisterResult := RegisterClassA(FWinClass);
+    if RegisterResult = 0 then
+    begin
+        MessageBoxA(
+            nil,
+            PAnsiChar('Die Fensterklasse konnte nicht registriert werden.'),
+            PAnsiChar('Win32-Fehler'),
+            MB_OK + MB_ICONERROR
+        );
+        ExitProcess(3);
+    end;
+    
+    FWinHandle := CreateWindowExA(
+        0,                    { dwExStyle         }
+        FWinRegisteredName,   { lpClassName       }
+        FWinTitle,            { lpWindowName      }
+        WS_OVERLAPPEDWINDOW,  { dwStyle           }
+        CW_USEDEFAULT,        { X                 }
+        CW_USEDEFAULT,        { Y                 }
+        640,                  { nWidth            }
+        480,                  { nHeight           }
+        nil,                  { hWndParent        }
+        nil,                  { hMenu             }
+        FWinInstance,         { hInstance         }
+        self                  { lpParam -> Objekt }
+    );
+    
+    if FWinHandle = nil then
+    begin
+        MessageBoxA(
+            nil,
+            PAnsiChar('Das Hauptfenster konnte nicht erzeugt werden.'),
+            PAnsiChar('Win32-Fehler'),
+            MB_OK + MB_ICONERROR
+        );
+        ExitProcess(2);
+    end;
+end;
+destructor TWindow.Destroy;
+begin
+    inherited Destroy;
+end;
+
+function TWindow.DispatchMessage(
+    winhWnd: HWND;
+    Msg: UINT;
+    wParam: WPARAM;
+    lParam: LPARAM
+):  LRESULT;
+begin
+    result := DefWindowProcA(
+        winhWnd,
+        Msg,
+        wParam,
+        lParam
+    );
+end;
+
+function TWindow.GetHandle: HWND;
+begin
+    result := FWinHandle;
+end;
+
+{ TForm }
 
 constructor TForm.Create;
 begin

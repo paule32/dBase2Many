@@ -48,6 +48,11 @@
             },
             {
                 "kind": "alias",
+                "name": "LongWord",
+                "target_type": "dword"
+            },
+            {
+                "kind": "alias",
                 "name": "Real",
                 "target_type": "double"
             },

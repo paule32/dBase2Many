@@ -8,7 +8,7 @@ EXPORTS
     _jit_read_int @2 NONAME
     _jit_read_string @3 NONAME
 
-    _jit_blake2 @4 NONAME
+;    _jit_blake2 @4 NONAME
     _jit_crc16 @5 NONAME
     _jit_crc32 @6 NONAME
     _jit_crc32c @7 NONAME

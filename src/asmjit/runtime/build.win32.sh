@@ -73,8 +73,16 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
     fi
   done
   
+  nasm -f win32 -Ox \
+    -dDYNSTRING_MAGIC=0x44535452 \
+    -dJIT_RUNTIME_ERROR=5 \
+    -dJIT_RESOLVE_AUX=1 \
+    memory_nt32.asm \
+    -o win32/obj/memory.o
+    
+  ###args loader allocator diskio/diskio error exception iostream memory
   RUNTIME_FILES=( jitObject
-    args loader allocator diskio/diskio error exception iostream memory
+    args loader allocator error exception iostream
     print string vector locale windows
     dllmain
   )
@@ -136,7 +144,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      win32/obj/string.o    \
      win32/obj/vector.o    \
      win32/obj/windows.o   \
-     win32/libruntime_mini.def \
+     win32/libruntime_mini.def   \
      -Wl,--out-implib,win32/libruntime_mini.dll.a; then
      echo "relocation link error."
      exit 1
@@ -149,6 +157,8 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        exit 1
   fi
   ar rcs win32/libcrypto.a win32/obj/crypto/sha512/sha512.o
+  
+  nasm -f win32 -f win32 -o win32/obj/crypto/blake2/blake2.o crypto/blake2/blake2s.asm
   
   echo "create ALL in One DLL..."
   if ! gcc -m32 -fPIC -shared -nostdlib -o win32/libruntime_all.dll \
@@ -182,7 +192,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      win32/obj/crypto/sha512/sha512.o \
      \
      \
-     win32/libruntime_all.def   \
+     win32/libruntime_all.def    \
      -Wl,--out-implib,win32/libruntime_all.dll.a; then
      echo "relocation link error."
      exit 1
@@ -194,7 +204,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   echo "compact PE32 DLL sections..."
   if ! python compact_pe32_dll.py   \
      win32/libruntime_mini.dll \
-     win32/libruntime_mini.dll.c --drop-empty-idata ; then
+     win32/obj/libruntime_mini.dll.c --drop-empty-idata ; then
      echo "PE32:mini compaction failed."
      exit 1
   fi
@@ -207,32 +217,31 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   #     echo "PE32:mini modify error."
   #     exit 1
   #fi
-  if ! python pe_nostub.py          \
-       win32/libruntime_mini.dll.c  \
-       win32/libruntime_mini.dll    \
+  if ! python pe_nostub.py              \
+       win32/obj/libruntime_mini.dll.c  \
+       win32/libruntime_mini.dll        \
        --mode compact \
        --overwrite    \
        --backup       ; then
        echo "PE32:mini modify error."
        exit 1
   fi
-  #cp win32/libruntime_mini.dll.c win32/libruntime_mini.dll
+  cp win32/libruntime_mini.dll.c win32/libruntime_mini.dll
   
-  #if ! python compact_pe32_dll.py   \
-  #   win32/libruntime_all.dll \
-  #   win32/libruntime_all.dll.c --drop-empty-idata ; then
-  #   echo "PE32:all compaction failed."
-  #   exit 1
-  #fi
-  #if ! python pe_nostub.py          \
-  #     win32/libruntime_all.dll.c   \
-  #     win32/libruntime_all.dll     \
-  #     --mode compact \
-  #     --overwrite    \
-  #     --backup       ; then
-  #     echo "PE32:all modify error."
-  #     exit 1
-  #fi
+  if ! python compact_pe32_dll.py   \
+     win32/libruntime_all.dll \
+     win32/obj/libruntime_all.dll.c --drop-empty-idata ; then
+     echo "PE32:all compaction failed."
+     exit 1
+  fi
+  if ! python pe_nostub.py          \
+       win32/obj/libruntime_all.dll.c   \
+       win32/libruntime_all.dll     \
+       --mode compact \
+       --overwrite    ; then
+       echo "PE32:all modify error."
+       exit 1
+  fi
   
   ##cp win32/libruntime_mini.dll win32/libruntime_mini.0.dll
   ##if ! nasm -f win32 -o win32/obj/crt0.o crt0.asm ; then
@@ -282,41 +291,41 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
   
   echo "packaging PE32:all DLL per zip level 9"
   if ! python pack_dll.py       \
-     win32/libruntime_all.dll.c \
-     win32/libruntime_all.dll.z --level 9 ; then
+     win32/obj/libruntime_all.dll.c \
+     win32/obj/libruntime_all.dll.z --level 9 ; then
      echo "pack PE32 dll failed."
      exit 1
   fi
   echo "packaging PE32:mini DLL per zip level 9"
-  if ! python pack_dll.py        \
-     win32/libruntime_mini.dll \
-     win32/libruntime_mini.dll.z --level 9 ; then
+  if ! python pack_dll.py      \
+     win32/obj/libruntime_mini.dll.c \
+     win32/obj/libruntime_mini.dll.z --level 9 ; then
      echo "pack PE32 dll failed."
      exit 1
   fi
-  
+
   echo "create Windows coff32 .o resource"
   echo "#include <windows.h>"                > win32/obj/libruntime_all.rc
   echo "#define IDR_DBASE2MANY_RUNTIME 101" >> win32/obj/libruntime_all.rc
-  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/libruntime_all.dll.z\"" >> win32/obj/libruntime_all.rc
+  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/obj/libruntime_all.dll.z\"" >> win32/obj/libruntime_all.rc
   echo "#include <windows.h>"                > win32/obj/libruntime_mini.rc
   echo "#define IDR_DBASE2MANY_RUNTIME 101" >> win32/obj/libruntime_mini.rc
-  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/libruntime_mini.dll.z\"" >> win32/obj/libruntime_mini.rc
+  echo "IDR_DBASE2MANY_RUNTIME RCDATA \"win32/obj/libruntime_mini.dll.z\"" >> win32/obj/libruntime_mini.rc
   if ! windres \
      --input  win32/obj/libruntime_all.rc   \
-     --output win32/libruntime_all.o        \
+     --output win32/obj/libruntime_all.o    \
      --output-format=coff  ; then
      echo "error: windres could not create resource file."
      exit 1
   fi
   if ! windres \
      --input  win32/obj/libruntime_mini.rc  \
-     --output win32/libruntime_mini.o       \
+     --output win32/obj/libruntime_mini.o   \
      --output-format=coff  ; then
      echo "error: windres could not create resource file."
      exit 1
   fi
-  if ! cp win32/libruntime_mini.o win32/dll_runtime.o ; then
+  if ! cp win32/obj/libruntime_mini.o win32/obj/dll_runtime.o ; then
      echo "could not copy default (mini) runtime"
      exit 1
   fi
@@ -344,7 +353,7 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "sed error."
        exit 1
   fi
-  if ! gcc -o win32/dll_runtime_bindings.o -c win32/obj/dll_runtime_bindings.s ; then
+  if ! gcc -o win32/obj/dll_runtime_bindings.o -c win32/obj/dll_runtime_bindings.s ; then
        echo "gcc could not create dll_runtime_bindings.o"
        exit 1
   fi
@@ -375,8 +384,8 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "sed error."
        exit 1
   fi
-  if ! gcc -o win32/dll_inflate.o -c win32/obj/dll_inflate.s ; then
-     echo "gcc could not create db_inflate.o"
+  if ! gcc -o win32/obj/dll_inflate.o -c win32/obj/dll_inflate.s ; then
+     echo "gcc could not create dll_inflate.o"
      exit 1
   fi
 
@@ -405,27 +414,27 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "sed error."
        exit 1
   fi
-  if ! g++ -o win32/dll_loader.o -c win32/obj/dll_loader.s ; then
+  if ! g++ -o win32/obj/dll_loader.o -c win32/obj/dll_loader.s ; then
      echo "g++ could not create packed_dll_loader.o"
      exit 1
   fi
 
   echo "copy dll file..."
-  if ! cp win32/libruntime_all.dll.c ../x32/libruntime_all.dll ; then
+  if ! cp win32/obj/libruntime_all.dll.c ../x32/libruntime_all.dll ; then
      echo "PE32 dll could not be copied."
      exit 1
   fi
 
   ###
-  if ! nasm -f win32 -o win32/dll_inflate.o dll_inflate.asm ; then
-       echo "gcc could not create db_inflate.o"
+  if ! nasm -f win32 -o win32/obj/dll_inflate.o dll_inflate.asm ; then
+       echo "gcc could not create dll_inflate.o"
        exit 1
   fi
-  if ! nasm -f win32 -o win32/dll_loader.o dll_loader.asm ; then
-       echo "gcc could not create db_loader.o"
+  if ! nasm -f win32 -o win32/obj/dll_loader.o dll_loader.asm ; then
+       echo "gcc could not create dll_loader.o"
        exit 1
   fi
-  if ! nasm -f win32 -o win32/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
+  if ! nasm -f win32 -o win32/obj/dll_runtime_thunks.o dll_runtime_thunks.asm ; then
        echo "assemlber could not create object file."
        exit 1
   fi
@@ -438,12 +447,12 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        exit 1
   fi
   
-  ar rcs win32/lib_runtime.a       \
-      win32/dll_inflate.o \
-      win32/dll_loader.o  \
-      win32/dll_runtime_bindings.o \
-      win32/dll_runtime.o \
-      win32/dll_runtime_thunks_mini.o
+  ar rcs win32/libruntime_mini.a  \
+      win32/obj/dll_inflate.o \
+      win32/obj/dll_loader.o  \
+      win32/obj/dll_runtime_bindings.o \
+      win32/obj/dll_runtime.o \
+      win32/obj/dll_runtime_thunks_mini.o
   ###
 
   

@@ -6,10 +6,23 @@
 unit Windows.User;
 
 interface
-uses System;
+uses System, Windows.Types;
 
 const DLL_USER32 = 'user32.dll';
 
+function GetWindowLongA(
+    hWnd:   HWND;
+    nIndex: Integer
+    ): LongInt; stdcall; external
+    DLL_USER32 name 'GetWindowLongA';
+
+function SetWindowLongA(
+    hWnd:      HWND;
+    nIndex:    Integer;
+    dwNewLong: LongInt
+    ): LongInt; stdcall; external
+    DLL_USER32 name 'SetWindowLongA';
+    
 function LoadIconA(
     hInstance:  HINSTANCE;
     lpIconName: Integer

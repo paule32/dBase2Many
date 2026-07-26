@@ -19,9 +19,7 @@
     },
     "uses": {
         "interface": [
-            "System.Types",
-            "Windows.Kernel",
-            "Windows.User"
+            "System.Types"
         ],
         "implementation": []
     },
@@ -33,6 +31,18 @@
         "symbol": null
     },
     "constants": [
+        {
+            "name": "WM_NCCREATE",
+            "scoped_name": "windows_types_WM_NCCREATE",
+            "type": "integer",
+            "value": 129
+        },
+        {
+            "name": "WM_NCDESTROY",
+            "scoped_name": "windows_types_WM_NCDESTROY",
+            "type": "integer",
+            "value": 130
+        },
         {
             "name": "WM_CREATE",
             "scoped_name": "windows_types_WM_CREATE",
@@ -50,6 +60,12 @@
             "scoped_name": "windows_types_WM_COMMAND",
             "type": "integer",
             "value": 273
+        },
+        {
+            "name": "GWL_USERDATA",
+            "scoped_name": "windows_types_GWL_USERDATA",
+            "type": "integer",
+            "value": -21
         },
         {
             "name": "CS_REDRAW",
@@ -158,7 +174,7 @@
             {
                 "kind": "alias",
                 "name": "HANDLE",
-                "target_type": "integer"
+                "target_type": "pointer"
             },
             {
                 "kind": "alias",
@@ -173,7 +189,7 @@
             {
                 "kind": "alias",
                 "name": "HWND",
-                "target_type": "integer"
+                "target_type": "handle"
             },
             {
                 "kind": "alias",
@@ -193,7 +209,17 @@
             {
                 "kind": "alias",
                 "name": "HMENU",
-                "target_type": "integer"
+                "target_type": "handle"
+            },
+            {
+                "kind": "alias",
+                "name": "PCREATESTRUCTA",
+                "target_type": "^tcreatestructa"
+            },
+            {
+                "kind": "alias",
+                "name": "LPCREATESTRUCTA",
+                "target_type": "pcreatestructa"
             }
         ],
         "subranges": [],
@@ -228,7 +254,7 @@
                 "fields": [
                     {
                         "name": "hwnd",
-                        "type": "integer",
+                        "type": "pointer",
                         "offset": 0,
                         "size": 4
                     },
@@ -261,6 +287,87 @@
                         "type": "tpoint",
                         "offset": 20,
                         "size": 8
+                    }
+                ]
+            },
+            {
+                "kind": "record",
+                "name": "TCREATESTRUCTA",
+                "packed": false,
+                "alignment": 1,
+                "size": 48,
+                "fields": [
+                    {
+                        "name": "lpCreateParams",
+                        "type": "pointer",
+                        "offset": 0,
+                        "size": 4
+                    },
+                    {
+                        "name": "hInstance",
+                        "type": "integer",
+                        "offset": 4,
+                        "size": 4
+                    },
+                    {
+                        "name": "hMenu",
+                        "type": "pointer",
+                        "offset": 8,
+                        "size": 4
+                    },
+                    {
+                        "name": "hwndParent",
+                        "type": "pointer",
+                        "offset": 12,
+                        "size": 4
+                    },
+                    {
+                        "name": "cy",
+                        "type": "integer",
+                        "offset": 16,
+                        "size": 4
+                    },
+                    {
+                        "name": "cx",
+                        "type": "integer",
+                        "offset": 20,
+                        "size": 4
+                    },
+                    {
+                        "name": "y",
+                        "type": "integer",
+                        "offset": 24,
+                        "size": 4
+                    },
+                    {
+                        "name": "x",
+                        "type": "integer",
+                        "offset": 28,
+                        "size": 4
+                    },
+                    {
+                        "name": "style",
+                        "type": "int32",
+                        "offset": 32,
+                        "size": 4
+                    },
+                    {
+                        "name": "lpszName",
+                        "type": "^char",
+                        "offset": 36,
+                        "size": 4
+                    },
+                    {
+                        "name": "lpszClass",
+                        "type": "^char",
+                        "offset": 40,
+                        "size": 4
+                    },
+                    {
+                        "name": "dwExStyle",
+                        "type": "integer",
+                        "offset": 44,
+                        "size": 4
                     }
                 ]
             },

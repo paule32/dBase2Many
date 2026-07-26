@@ -19,58 +19,67 @@
     },
     "uses": {
         "interface": [
-            "System"
+            "System",
+            "Windows.Types"
         ],
         "implementation": []
     },
     "imports": {
         "user32.dll": [
             {
-                "symbol": "__dllimp_0_user32_dll_LoadIconA",
+                "symbol": "__dllimp_0_user32_dll_GetWindowLongA",
+                "name": "GetWindowLongA"
+            },
+            {
+                "symbol": "__dllimp_1_user32_dll_SetWindowLongA",
+                "name": "SetWindowLongA"
+            },
+            {
+                "symbol": "__dllimp_2_user32_dll_LoadIconA",
                 "name": "LoadIconA"
             },
             {
-                "symbol": "__dllimp_1_user32_dll_LoadCursorA",
+                "symbol": "__dllimp_3_user32_dll_LoadCursorA",
                 "name": "LoadCursorA"
             },
             {
-                "symbol": "__dllimp_2_user32_dll_RegisterClassA",
+                "symbol": "__dllimp_4_user32_dll_RegisterClassA",
                 "name": "RegisterClassA"
             },
             {
-                "symbol": "__dllimp_3_user32_dll_CreateWindowExA",
+                "symbol": "__dllimp_5_user32_dll_CreateWindowExA",
                 "name": "CreateWindowExA"
             },
             {
-                "symbol": "__dllimp_4_user32_dll_ShowWindow",
+                "symbol": "__dllimp_6_user32_dll_ShowWindow",
                 "name": "ShowWindow"
             },
             {
-                "symbol": "__dllimp_5_user32_dll_UpdateWindow",
+                "symbol": "__dllimp_7_user32_dll_UpdateWindow",
                 "name": "UpdateWindow"
             },
             {
-                "symbol": "__dllimp_6_user32_dll_GetMessageA",
+                "symbol": "__dllimp_8_user32_dll_GetMessageA",
                 "name": "GetMessageA"
             },
             {
-                "symbol": "__dllimp_7_user32_dll_TranslateMessage",
+                "symbol": "__dllimp_9_user32_dll_TranslateMessage",
                 "name": "TranslateMessage"
             },
             {
-                "symbol": "__dllimp_8_user32_dll_DispatchMessageA",
+                "symbol": "__dllimp_10_user32_dll_DispatchMessageA",
                 "name": "DispatchMessageA"
             },
             {
-                "symbol": "__dllimp_9_user32_dll_DefWindowProcA",
+                "symbol": "__dllimp_11_user32_dll_DefWindowProcA",
                 "name": "DefWindowProcA"
             },
             {
-                "symbol": "__dllimp_10_user32_dll_PostQuitMessage",
+                "symbol": "__dllimp_12_user32_dll_PostQuitMessage",
                 "name": "PostQuitMessage"
             },
             {
-                "symbol": "__dllimp_11_user32_dll_MessageBoxA",
+                "symbol": "__dllimp_13_user32_dll_MessageBoxA",
                 "name": "MessageBoxA"
             }
         ]
@@ -97,13 +106,66 @@
     "symbols": {
         "functions": [
             {
+                "name": "GetWindowLongA",
+                "scoped_name": "windows_user_GetWindowLongA",
+                "symbol": "__dllimp_0_user32_dll_GetWindowLongA",
+                "params": [
+                    {
+                        "name": "hWnd",
+                        "type": "pointer",
+                        "is_var": false
+                    },
+                    {
+                        "name": "nIndex",
+                        "type": "integer",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "stdcall",
+                "external": true,
+                "dll_import": true,
+                "dll": "user32.dll",
+                "import_name": "GetWindowLongA",
+                "ordinal": null,
+                "return_type": "int32"
+            },
+            {
+                "name": "SetWindowLongA",
+                "scoped_name": "windows_user_SetWindowLongA",
+                "symbol": "__dllimp_1_user32_dll_SetWindowLongA",
+                "params": [
+                    {
+                        "name": "hWnd",
+                        "type": "pointer",
+                        "is_var": false
+                    },
+                    {
+                        "name": "nIndex",
+                        "type": "integer",
+                        "is_var": false
+                    },
+                    {
+                        "name": "dwNewLong",
+                        "type": "int32",
+                        "is_var": false
+                    }
+                ],
+                "calling_convention": "stdcall",
+                "external": true,
+                "dll_import": true,
+                "dll": "user32.dll",
+                "import_name": "SetWindowLongA",
+                "ordinal": null,
+                "return_type": "int32"
+            },
+            {
                 "name": "LoadIconA",
                 "scoped_name": "windows_user_LoadIconA",
-                "symbol": "__dllimp_0_user32_dll_LoadIconA",
+                "symbol": "__dllimp_2_user32_dll_LoadIconA",
                 "params": [
                     {
                         "name": "hInstance",
-                        "type": "hinstance",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -118,16 +180,16 @@
                 "dll": "user32.dll",
                 "import_name": "LoadIconA",
                 "ordinal": null,
-                "return_type": "hicon"
+                "return_type": "integer"
             },
             {
                 "name": "LoadCursorA",
                 "scoped_name": "windows_user_LoadCursorA",
-                "symbol": "__dllimp_1_user32_dll_LoadCursorA",
+                "symbol": "__dllimp_3_user32_dll_LoadCursorA",
                 "params": [
                     {
                         "name": "hInstance",
-                        "type": "hinstance",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -142,12 +204,12 @@
                 "dll": "user32.dll",
                 "import_name": "LoadCursorA",
                 "ordinal": null,
-                "return_type": "hcursor"
+                "return_type": "integer"
             },
             {
                 "name": "RegisterClassA",
                 "scoped_name": "windows_user_RegisterClassA",
-                "symbol": "__dllimp_2_user32_dll_RegisterClassA",
+                "symbol": "__dllimp_4_user32_dll_RegisterClassA",
                 "params": [
                     {
                         "name": "WndClass",
@@ -166,11 +228,11 @@
             {
                 "name": "CreateWindowExA",
                 "scoped_name": "windows_user_CreateWindowExA",
-                "symbol": "__dllimp_3_user32_dll_CreateWindowExA",
+                "symbol": "__dllimp_5_user32_dll_CreateWindowExA",
                 "params": [
                     {
                         "name": "dwExStyle",
-                        "type": "dword",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -185,7 +247,7 @@
                     },
                     {
                         "name": "dwStyle",
-                        "type": "dword",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -210,17 +272,17 @@
                     },
                     {
                         "name": "hWndParent",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
                         "name": "hMenu",
-                        "type": "hmenu",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
                         "name": "hInstance",
-                        "type": "hinstance",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -235,16 +297,16 @@
                 "dll": "user32.dll",
                 "import_name": "CreateWindowExA",
                 "ordinal": null,
-                "return_type": "hwnd"
+                "return_type": "pointer"
             },
             {
                 "name": "ShowWindow",
                 "scoped_name": "windows_user_ShowWindow",
-                "symbol": "__dllimp_4_user32_dll_ShowWindow",
+                "symbol": "__dllimp_6_user32_dll_ShowWindow",
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
@@ -259,16 +321,16 @@
                 "dll": "user32.dll",
                 "import_name": "ShowWindow",
                 "ordinal": null,
-                "return_type": "bool"
+                "return_type": "integer"
             },
             {
                 "name": "UpdateWindow",
                 "scoped_name": "windows_user_UpdateWindow",
-                "symbol": "__dllimp_5_user32_dll_UpdateWindow",
+                "symbol": "__dllimp_7_user32_dll_UpdateWindow",
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     }
                 ],
@@ -278,12 +340,12 @@
                 "dll": "user32.dll",
                 "import_name": "UpdateWindow",
                 "ordinal": null,
-                "return_type": "bool"
+                "return_type": "integer"
             },
             {
                 "name": "GetMessageA",
                 "scoped_name": "windows_user_GetMessageA",
-                "symbol": "__dllimp_6_user32_dll_GetMessageA",
+                "symbol": "__dllimp_8_user32_dll_GetMessageA",
                 "params": [
                     {
                         "name": "Msg",
@@ -292,17 +354,17 @@
                     },
                     {
                         "name": "hWnd",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
                         "name": "wMsgMin",
-                        "type": "uint",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
                         "name": "wMsgMax",
-                        "type": "uint",
+                        "type": "integer",
                         "is_var": false
                     }
                 ],
@@ -312,12 +374,12 @@
                 "dll": "user32.dll",
                 "import_name": "GetMessageA",
                 "ordinal": null,
-                "return_type": "bool"
+                "return_type": "integer"
             },
             {
                 "name": "TranslateMessage",
                 "scoped_name": "windows_user_TranslateMessage",
-                "symbol": "__dllimp_7_user32_dll_TranslateMessage",
+                "symbol": "__dllimp_9_user32_dll_TranslateMessage",
                 "params": [
                     {
                         "name": "Msg",
@@ -331,12 +393,12 @@
                 "dll": "user32.dll",
                 "import_name": "TranslateMessage",
                 "ordinal": null,
-                "return_type": "bool"
+                "return_type": "integer"
             },
             {
                 "name": "DispatchMessageA",
                 "scoped_name": "windows_user_DispatchMessageA",
-                "symbol": "__dllimp_8_user32_dll_DispatchMessageA",
+                "symbol": "__dllimp_10_user32_dll_DispatchMessageA",
                 "params": [
                     {
                         "name": "Msg",
@@ -350,31 +412,31 @@
                 "dll": "user32.dll",
                 "import_name": "DispatchMessageA",
                 "ordinal": null,
-                "return_type": "lresult"
+                "return_type": "integer"
             },
             {
                 "name": "DefWindowProcA",
                 "scoped_name": "windows_user_DefWindowProcA",
-                "symbol": "__dllimp_9_user32_dll_DefWindowProcA",
+                "symbol": "__dllimp_11_user32_dll_DefWindowProcA",
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
                         "name": "uMsg",
-                        "type": "uint",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
                         "name": "wParam",
-                        "type": "wparam",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
                         "name": "lParam",
-                        "type": "lparam",
+                        "type": "integer",
                         "is_var": false
                     }
                 ],
@@ -384,16 +446,16 @@
                 "dll": "user32.dll",
                 "import_name": "DefWindowProcA",
                 "ordinal": null,
-                "return_type": "lresult"
+                "return_type": "integer"
             },
             {
                 "name": "MessageBoxA",
                 "scoped_name": "windows_user_MessageBoxA",
-                "symbol": "__dllimp_11_user32_dll_MessageBoxA",
+                "symbol": "__dllimp_13_user32_dll_MessageBoxA",
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "hwnd",
+                        "type": "pointer",
                         "is_var": false
                     },
                     {
@@ -408,7 +470,7 @@
                     },
                     {
                         "name": "uType",
-                        "type": "uint",
+                        "type": "integer",
                         "is_var": false
                     }
                 ],
@@ -425,7 +487,7 @@
             {
                 "name": "PostQuitMessage",
                 "scoped_name": "windows_user_PostQuitMessage",
-                "symbol": "__dllimp_10_user32_dll_PostQuitMessage",
+                "symbol": "__dllimp_12_user32_dll_PostQuitMessage",
                 "params": [
                     {
                         "name": "nExitCode",

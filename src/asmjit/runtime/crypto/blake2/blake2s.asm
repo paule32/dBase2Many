@@ -18,7 +18,7 @@ bits 32
 section .text
 
 ; Drop-in symbol used by dBase2Many's existing BLAKE2 builtin.
-global _jit_blake2
+global _jit_blake2, jit_blake2
 
 ; Optional aliases for direct external declarations.
 global Blake2sHex
@@ -47,6 +47,7 @@ global _Blake2sHex
 ; char * __cdecl _jit_blake2(const char *text, int length)
 ; ---------------------------------------------------------------------------
 _jit_blake2:
+jit_blacke2:
 Blake2sHex:
 _Blake2sHex:
     push ebp

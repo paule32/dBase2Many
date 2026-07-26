@@ -24,12 +24,12 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/system/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose -Us ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/system ^
         runtime/pascal/system/%%A.pas
     set "result=%errorlevel%"
@@ -39,7 +39,7 @@ for %%A in (%list%) do (
     )
 )
 echo.
-set "list=windows.kernel windows.user windows.types ../vcl/vcl.windows ../vcl/vcl windows.application windows"
+set "list=windows.kernel windows.types windows.user ../vcl/vcl.windows ../vcl/vcl windows.application windows"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0
@@ -50,12 +50,12 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/win32/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose ^
         -D WINDOWS32 -D WIN32 ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/win32  ^
         runtime/pascal/Win32/%%A.pas
     set "result=%errorlevel%"
@@ -77,12 +77,12 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/win32/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose ^
         -D WINDOWS32 -D WIN32 ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/win32  ^
         runtime/pascal/Win32/%%A.pas
     set "result=%errorlevel%"
@@ -104,12 +104,12 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: untime/pascal/vcl/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose ^
         -D WINDOWS32 -D WIN32 ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/vcl runtime/pascal/vcl/%%A.pas
     set "result=%errorlevel%"
     if !result! gtr 0 (
@@ -129,12 +129,12 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/win32/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose ^
         -D WINDOWS32 -D WIN32 ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/win32  ^
         runtime/pascal/Win32/%%A.pas
     set "result=%errorlevel%"
@@ -155,12 +155,12 @@ for %%A in (%list%) do (
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/Http/%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose -Us ^
         -D WINDOWS32 -D WIN32 ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/Http   ^
         runtime/pascal/Http/%%A.pas
     set "result=%errorlevel%"
@@ -187,12 +187,12 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: runtime/pascal/crypto/crypto.%%A.pas
     python cpascal.py -Twin32 --backend obj --force --verbose -D DLL_API ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/crypto ^
         runtime/pascal/crypto/crypto.%%A.pas
     set "result=%errorlevel%"
@@ -216,12 +216,12 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/crypto/%%A.pas
     python cpascal.py -Twin32 --backend exe --force --verbose ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/tests/crypto testsrc/pascal/crypto/%%A.pas
     set "result=%errorlevel%"
     if %result% gtr 0 (
@@ -241,12 +241,12 @@ for /L %%A in (2,1,%total%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/test%%A.pas
     python cpascal.py -Twin32 --backend exe --force --verbose ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/tests/common/with_dll testsrc/pascal/common/test%%A.pas
     set "result=%errorlevel%"
     if %result% gtr 0 (
@@ -268,12 +268,12 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/%%A.pas
     python cpascal.py -Twin32 --backend exe --force -Us ^
+        -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
-        -Fo obj               ^
         -FE x32/pascal/tests/common/free_dll testsrc/pascal/common/%%A.pas
     set "result=%errorlevel%"
     if !result! gtr 1 (

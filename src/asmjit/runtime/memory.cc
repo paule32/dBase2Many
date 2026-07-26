@@ -116,7 +116,7 @@ static int init_msvcrt(void)
     
     // kernel32t.dll
     ok = true;
-    h2 = LoadLibraryA("kernel32.dll");
+    h2 = p_LoadLibraryA("kernel32.dll");
     if (!h2) {
         MessageBoxA(0,
             "Error",
@@ -160,7 +160,7 @@ static int init_msvcrt(void)
     
     // user32.dll
     ok = true;
-    h4 = LoadLibraryA("mpr.dll");
+    h4 = p_LoadLibraryA("mpr.dll");
     if (!h4) {
         MessageBoxA(0,
             "Error",
@@ -584,9 +584,9 @@ int parse_integer(const char *s)
 DLL_API int  JIT_CDECL _jit_read_int() {
     char* buffer = (char*)_jit_malloc(256);
     DWORD bytesRead;
-    HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE h = p_GetStdHandle(STD_INPUT_HANDLE);
     
-    ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
+    p_ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
     while (bytesRead &&
       (buffer[  bytesRead-1] == '\r' ||
        buffer[  bytesRead-1] == '\n' )) {
@@ -599,7 +599,7 @@ DLL_API char*  JIT_CDECL _jit_read_string() {
     DWORD bytesRead;
     HANDLE h = p_GetStdHandle(STD_INPUT_HANDLE);
     
-    ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
+    p_ReadFile(h, buffer, sizeof(buffer)-1, &bytesRead, nullptr);
     while (bytesRead &&
       (buffer[  bytesRead-1] == '\r' ||
        buffer[  bytesRead-1] == '\n' )) {

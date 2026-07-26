@@ -21,6 +21,7 @@
         "interface": [
             "System",
             "Windows.Types",
+            "Windows.Kernel",
             "Windows.User"
         ],
         "implementation": []
@@ -43,51 +44,188 @@
         "procedures": [],
         "classes": [
             {
-                "name": "TForm",
+                "name": "TWindow",
                 "parent": "tobject",
-                "size": 64,
-                "vmt_symbol": "__vmt_vcl_windows_tform",
-                "class_name_symbol": "__classname_vcl_windows_tform",
+                "size": 20,
+                "vmt_symbol": "__vmt_vcl_windows_twindow",
+                "class_name_symbol": "__classname_vcl_windows_twindow",
                 "fields": [
                     {
-                        "name": "FWidth",
-                        "type": "integer",
+                        "name": "FWinRegisteredName",
+                        "type": "^char",
                         "offset": 4,
                         "size": 4,
                         "visibility": "private"
                     },
                     {
-                        "name": "FHeight",
+                        "name": "FWinInstance",
                         "type": "integer",
                         "offset": 8,
                         "size": 4,
                         "visibility": "private"
                     },
                     {
+                        "name": "FWinHandle",
+                        "type": "pointer",
+                        "offset": 12,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWinTitle",
+                        "type": "^char",
+                        "offset": 16,
+                        "size": 4,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_CREATE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 20
+                    },
+                    {
+                        "name": "GetHandle",
+                        "kind": "function",
+                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_GETHANDLE",
+                        "params": [],
+                        "return_type": "pointer",
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "DispatchMessage",
+                        "kind": "function",
+                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_DISPATCHMESSAGE$POINTER$INTEGER$INTEGER$INTEGER",
+                        "params": [
+                            {
+                                "name": "winhWnd",
+                                "type": "pointer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "Msg",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "wParam",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "lParam",
+                                "type": "integer",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": "integer",
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    }
+                ],
+                "properties": []
+            },
+            {
+                "name": "TForm",
+                "parent": "twindow",
+                "size": 80,
+                "vmt_symbol": "__vmt_vcl_windows_tform",
+                "class_name_symbol": "__classname_vcl_windows_tform",
+                "fields": [
+                    {
+                        "name": "FWinRegisteredName",
+                        "type": "^char",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWinInstance",
+                        "type": "integer",
+                        "offset": 8,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWinHandle",
+                        "type": "pointer",
+                        "offset": 12,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWinTitle",
+                        "type": "^char",
+                        "offset": 16,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWidth",
+                        "type": "integer",
+                        "offset": 20,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FHeight",
+                        "type": "integer",
+                        "offset": 24,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
                         "name": "FLeft",
                         "type": "integer",
-                        "offset": 12,
+                        "offset": 28,
                         "size": 4,
                         "visibility": "private"
                     },
                     {
                         "name": "FTop",
                         "type": "integer",
-                        "offset": 16,
+                        "offset": 32,
                         "size": 4,
                         "visibility": "private"
                     },
                     {
                         "name": "FCaption",
                         "type": "string",
-                        "offset": 20,
+                        "offset": 36,
                         "size": 4,
                         "visibility": "private"
                     },
                     {
                         "name": "WndClass",
                         "type": "twndclassa",
-                        "offset": 24,
+                        "offset": 40,
                         "size": 40,
                         "visibility": "private"
                     }

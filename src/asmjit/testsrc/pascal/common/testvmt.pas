@@ -3,13 +3,11 @@
 // Author: (c) 2026 Jens Kallup - paule32
 // All rights reserved
 // ---------------------------------------------------------------------------
-{ $ l ink dll_inflate.o}
-{ $ l ink dll_loader.o}
-{ $ l ink dll_runtime_bindings.o}
-{ $ l ink dll_runtime.o}
-{ $ l ink dll_runtime_thunks_mini.o}
-{$linklib lib_runtime.a}
-{$link    dll_runtime_mini.o}
+{$link dll_inflate.o}
+{$link dll_loader.o}
+{$link dll_runtime_bindings.o}
+{$link dll_runtime.o}
+{$link dll_runtime_thunks_mini.o}
 program testvmt;
 
 uses System, Windows;

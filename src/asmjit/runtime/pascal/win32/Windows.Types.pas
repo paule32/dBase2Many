@@ -5,13 +5,18 @@
 // ---------------------------------------------------------------------------
 unit Windows.Types;
 interface
-uses System.Types, Windows.Kernel, Windows.User;
+uses System.Types;
 
 const
     // Window messages
+    WM_NCCREATE         = $0081;
+    WM_NCDESTROY        = $0082;
+    
     WM_CREATE           = $0001;
     WM_DESTROY          = $0002;
     WM_COMMAND          = $0111;
+    
+    GWL_USERDATA        = -21;
 
     // Window class styles
     CS_REDRAW           = $0003;        // CS_VREDRAW or CS_HREDRAW
@@ -45,14 +50,14 @@ type
     LPARAM    = Integer;
     LRESULT   = Integer;
 
-    HANDLE    = Integer;
+    HANDLE    = Pointer;
     HINSTANCE = Integer;
     HMODULE   = Integer;
-    HWND      = Integer;
+    HWND      = HANDLE;
     HICON     = Integer;
     HCURSOR   = Integer;
     HBRUSH    = Integer;
-    HMENU     = Integer;
+    HMENU     = HANDLE;
 
     TPoint = record
         x: LONG;
@@ -66,6 +71,24 @@ type
         lParam:  LPARAM;
         time:    DWORD;
         pt:      TPoint;
+    end;
+
+    PCREATESTRUCTA  = ^TCREATESTRUCTA;
+    LPCREATESTRUCTA = PCREATESTRUCTA;
+
+    TCREATESTRUCTA = record
+        lpCreateParams: Pointer;
+        hInstance:      HINSTANCE;
+        hMenu:          HMENU;
+        hwndParent:     HWND;
+        cy:             Integer;
+        cx:             Integer;
+        y:              Integer;
+        x:              Integer;
+        style:          LongInt;
+        lpszName:       PAnsiChar;
+        lpszClass:      PAnsiChar;
+        dwExStyle:      LongWord;
     end;
 
     TWndClassA = record

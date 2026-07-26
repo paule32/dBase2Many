@@ -188,9 +188,7 @@ constItem
 constValue
     : STRING
     | CHARCODE
-    | HEXNUMBER
-    | FLOATNUMBER
-    | NUMBER
+    | (PLUS | MINUS)? (FLOATNUMBER | HEXNUMBER | NUMBER)
     ;
 
 typeSection

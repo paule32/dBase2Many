@@ -26,7 +26,9 @@ type
     Cardinal    = DWORD;
 
     UInt32      = DWord;
+    
     LongInt     = Int32;
+    LongWord    = DWORD;
     
     Real        = Double;  // todo !!
     Extended    = Double;  // todo !!
