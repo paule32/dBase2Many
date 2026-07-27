@@ -446,7 +446,6 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
        echo "assemlber could not create object file: strtoint.o."
        exit 1
   fi
-  
   ar rcs win32/libruntime_mini.a  \
       win32/obj/dll_inflate.o \
       win32/obj/dll_loader.o  \

@@ -174,7 +174,7 @@
             {
                 "kind": "alias",
                 "name": "HANDLE",
-                "target_type": "pointer"
+                "target_type": "integer"
             },
             {
                 "kind": "alias",
@@ -189,7 +189,7 @@
             {
                 "kind": "alias",
                 "name": "HWND",
-                "target_type": "handle"
+                "target_type": "integer"
             },
             {
                 "kind": "alias",
@@ -209,7 +209,7 @@
             {
                 "kind": "alias",
                 "name": "HMENU",
-                "target_type": "handle"
+                "target_type": "integer"
             },
             {
                 "kind": "alias",
@@ -254,7 +254,7 @@
                 "fields": [
                     {
                         "name": "hwnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "offset": 0,
                         "size": 4
                     },
@@ -311,13 +311,13 @@
                     },
                     {
                         "name": "hMenu",
-                        "type": "pointer",
+                        "type": "integer",
                         "offset": 8,
                         "size": 4
                     },
                     {
                         "name": "hwndParent",
-                        "type": "pointer",
+                        "type": "integer",
                         "offset": 12,
                         "size": 4
                     },

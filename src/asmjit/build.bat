@@ -268,6 +268,7 @@ for %%A in (%list%) do (
     set "rhs_pad=  !total!"
     echo compile [!lhs_pad:~-3! / !rhs_pad:~-2!]: testsrc/pascal/common/%%A.pas
     python cpascal.py -Twin32 --backend exe --force -Us ^
+        -Fo runtime/win32     ^
         -Fo runtime/win32/obj ^
         -Fo x32/pascal/system ^
         -Fo x32/pascal/win32  ^

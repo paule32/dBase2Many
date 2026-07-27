@@ -8041,161 +8041,200 @@ class AsmJitGenerator(PascalParserVisitor):
         return None
 
     def emit_class_free_call(self, ctx, obj_name):
-        #info = self.var_info(ctx, obj_name)
-        #class_type = info["type"]
-        
-        field = self.find_current_class_field(obj_name)
+        (
+            source_kind,
+            info,
+            class_type
+        ) = self.resolve_object_reference(
+            ctx,
+            obj_name
+        )
 
-        if field is not None:
-            source_kind = "self_field"
-            info        = field
-            class_type  = self.resolve_type(field.type)
+        if class_type not in self.classes:
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=class_type,
+                expected="class"
+            )
 
-        else:
-            source_kind = "global"
-            info        = self.var_info(ctx, obj_name)
-            class_type  = self.resolve_type(info["type"])
-        ###
+        cls = self.classes[class_type]
 
-        if CDATA.args_target in ["dos", "dos16"]:
-            if class_type not in self.classes:
-                raise CompileError(ctx, "E0005", got=class_type, expected="class")
+        # Auch einen geerbten Destruktor finden.
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            class_type,
+            "Destroy",
+            []
+        )
 
-            cls = self.classes[class_type]
+        # ==========================================================
+        # DOS16
+        # ==========================================================
+        if CDATA.args_target in ("dos", "dos16"):
+            # Die derzeitige DOS-Implementierung arbeitet mit
+            # globalen Far-Pointer-Symbolen.
+            if source_kind != "global":
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "DOS16 class Free currently supports "
+                        "global object variables only"
+                    )
+                )
+
             symbol = info.get("symbol")
 
             if not symbol:
                 symbol = f"_var_{info['name']}"
                 info["symbol"] = symbol
 
-            null_label = self.new_named_label("free_nil")
-            end_label  = self.new_named_label("free_end")
+            null_label = self.new_named_label(
+                "free_nil"
+            )
 
-            # AX = Offset, DX = Segment
-            self.backend.emit_load_far_pointer_var(symbol)
+            # AX = Offset
+            # DX = Segment
+            self.backend.emit_load_far_pointer_var(
+                symbol
+            )
 
-            # nil?
-            self.backend.writer.emit_cmp_reg16_imm16("dx", 0)
-            self.backend.writer.emit_je(null_label)
+            # nil-Prüfung entsprechend dem bestehenden
+            # Far-Pointer-Modell.
+            self.backend.writer.emit_cmp_reg16_imm16(
+                "dx",
+                0
+            )
+            self.backend.writer.emit_je(
+                null_label
+            )
 
-            self.backend.writer.emit_cmp_reg16_imm16("ax", 0)
-            self.backend.writer.emit_je(null_label)
+            self.backend.writer.emit_cmp_reg16_imm16(
+                "ax",
+                0
+            )
+            self.backend.writer.emit_je(
+                null_label
+            )
 
-            # Destructor mit Self in AX/DX aufrufen
-            if "destroy" in cls.methods:
-                method, owner_cls = self.find_class_method_recursive(
-                    ctx,
-                    cls,
-                    "Destroy",
-                    []
-                )
+            # Objektzeiger über den Destruktoraufruf retten.
+            self.backend.writer.emit_push_reg16(
+                "dx"
+            )
+            self.backend.writer.emit_push_reg16(
+                "ax"
+            )
 
-                self.backend.writer.emit_push_reg16("dx")
-                self.backend.writer.emit_push_reg16("ax")
+            # Self liegt in AX:DX.
+            self.backend.writer.emit_call_label(
+                method.label
+            )
 
-                self.backend.writer.emit_call_label(method.label)
+            self.backend.writer.emit_pop_reg16(
+                "ax"
+            )
+            self.backend.writer.emit_pop_reg16(
+                "dx"
+            )
 
-                self.backend.writer.emit_pop_reg16("ax")
-                self.backend.writer.emit_pop_reg16("dx")
+            # Speicher freigeben und Variable auf nil setzen.
+            self.backend.emit_dispose_pointer_far(
+                symbol
+            )
 
-            # Speicher vorerst nicht wirklich freigeben, nur NIL setzen
-            self.backend.emit_dispose_pointer_far(symbol)
-
-            self.backend.writer.emit_jmp(end_label)
-
-            self.emit_bind_label(null_label)
-            self.emit_bind_label(end_label)
+            self.emit_bind_label(
+                null_label
+            )
 
             return None
 
-        if CDATA.args_target in ["nt35", "winnt", "win32"]:
-            if class_type not in self.classes:
-                raise CompileError(
-                    ctx,
-                    "E0005",
-                    got=class_type,
-                    expected="class"
-                )
+        # ==========================================================
+        # NT32 / Win32
+        # ==========================================================
+        if CDATA.args_target in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            null_label = self.new_named_label(
+                "free_nil"
+            )
 
-            cls = self.classes[class_type]
+            # Unterstützt:
+            #
+            #   lokale Objektvariable
+            #   Objektparameter
+            #   Feld von Self
+            #   globale Objektvariable
+            #
+            # Ergebnis: EAX = Objektzeiger
+            self.emit_load_object_reference(
+                ctx,
+                obj_name,
+                source_kind,
+                info,
+                class_type
+            )
 
-            # ----------------------------------------------------------
-            # Objektzeiger laden
-            # ----------------------------------------------------------
-            if source_kind == "self_field":
-                self.emit_mov_dword_ptr(
-                    "eax",
-                    "ebp",
-                    -4,
-                    comment="Self"
-                )
+            self.emit_test(
+                "eax",
+                "eax"
+            )
 
-                self.emit_mov_dword_ptr(
-                    "eax",
-                    "eax",
-                    info.offset,
-                    comment=f"Self.{obj_name}"
-                )
+            self.emit_jz(
+                null_label
+            )
 
-            else:
-                self.emit_load_object_var(
-                    ctx,
-                    obj_name,
-                    info
-                )
-
-            null_label = self.new_named_label("free_nil")
-            end_label  = self.new_named_label("free_end")
-
-            self.emit_test("eax", "eax")
-
-            self.emit_jz(null_label)
-
-            # Objektpointer über Destructor-Aufruf retten.
+            # Objektzeiger unterhalb des Destructor-Self-Arguments
+            # auf dem Stack retten.
             self.emit_push(
                 "eax",
                 comment="save object for dispose"
             )
 
-            if "destroy" in cls.methods:
-                method, owner_cls = (
-                    self.find_class_method_recursive(
-                        ctx,
-                        class_type,
-                        "Destroy",
-                        []
-                    )
+            self.emit_push(
+                "eax",
+                comment="Destructor Self"
+            )
+
+            # emit_class_method_call() berücksichtigt auch virtuelle
+            # Destruktoren und den VMT-Slot.
+            self.emit_class_method_call(
+                method,
+                comment=(
+                    f"{owner_cls.name}."
+                    f"{method.name}"
                 )
+            )
 
-                self.emit_push(
-                    "eax",
-                    comment="Destructor Self"
-                )
+            # Destructor-Self entfernen.
+            self.backend.emit_cleanup_stack(
+                4
+            )
 
-                self.emit_class_method_call(
-                    method,
-                    comment=(
-                        f"{owner_cls.name}."
-                        f"{method.name}"
-                    )
-                )
-
-                self.backend.emit_cleanup_stack(4)
-
-            # Objektpointer wiederherstellen.
-            self.emit_pop("eax")
+            # Geretteten Objektzeiger wiederherstellen.
+            self.emit_pop(
+                "eax",
+                comment="restore object for dispose"
+            )
 
             self.emit_push(
                 "eax",
                 comment="object for dispose"
             )
 
-            self.emit_call("_jit_dispose_memory")
-            self.backend.emit_cleanup_stack(4)
+            self.emit_call(
+                "_jit_dispose_memory"
+            )
 
-            # ----------------------------------------------------------
-            # Objektvariable/Feld auf nil setzen
-            # ----------------------------------------------------------
+            self.backend.emit_cleanup_stack(
+                4
+            )
+
+            # ------------------------------------------------------
+            # Ursprüngliche Referenz auf nil setzen
+            # ------------------------------------------------------
             if source_kind == "self_field":
                 self.emit_xor(
                     "ebx",
@@ -8216,98 +8255,188 @@ class AsmJitGenerator(PascalParserVisitor):
                     comment=f"Self.{obj_name} := nil"
                 )
 
-            else:
+            elif source_kind in (
+                "local",
+                "global"
+            ):
                 self.emit_xor(
                     "eax",
                     "eax"
                 )
 
-                self.emit_store_object_var(
+                self.emit_store_named_value(
                     ctx,
                     obj_name,
-                    info
+                    source_kind,
+                    info,
+                    "nil"
                 )
 
-            self.emit_jmp(
-                end_label
-            )
+            elif source_kind == "param":
+                # Bei einem var-Parameter kann auch die Variable
+                # des Aufrufers auf nil gesetzt werden.
+                if info.get("is_var", False):
+                    self.emit_xor(
+                        "eax",
+                        "eax"
+                    )
+
+                    self.emit_store_named_value(
+                        ctx,
+                        obj_name,
+                        source_kind,
+                        info,
+                        "nil"
+                    )
 
             self.emit_bind_label(
                 null_label
             )
 
-            self.emit_bind_label(
-                end_label
-            )
-
             return None
 
-        if class_type not in self.classes:
-            raise CompileError(
-                ctx,
-                "E0005",
-                got=class_type,
-                expected="class"
+        # ==========================================================
+        # Win64
+        # ==========================================================
+        null_label = self.new_named_label(
+            "free_nil"
+        )
+
+        # Ergebnis: RAX = Objektzeiger
+        self.emit_load_object_reference(
+            ctx,
+            obj_name,
+            source_kind,
+            info,
+            class_type
+        )
+
+        self.emit_test(
+            "rax",
+            "rax"
+        )
+
+        self.emit_jz(
+            null_label
+        )
+
+        # Objektzeiger über den Destruktoraufruf retten.
+        self.emit_push(
+            "rax",
+            comment="save object for dispose"
+        )
+
+        self.emit_mov(
+            "rcx",
+            "rax",
+            comment="Destructor Self"
+        )
+
+        self.emit_sub(
+            "rsp",
+            32,
+            comment="destructor shadow space"
+        )
+
+        self.emit_class_method_call(
+            method,
+            comment=(
+                f"{owner_cls.name}."
+                f"{method.name}"
+            )
+        )
+
+        self.emit_add(
+            "rsp",
+            32,
+            comment="remove destructor shadow space"
+        )
+
+        # RCX = Zeiger für _jit_dispose_memory().
+        self.emit_pop(
+            "rcx",
+            comment="object for dispose"
+        )
+
+        self.emit_sub(
+            "rsp",
+            32,
+            comment="dispose shadow space"
+        )
+
+        self.emit_mov_imm(
+            "rax",
+            "&_jit_dispose_memory"
+        )
+
+        self.emit_call(
+            "rax"
+        )
+
+        self.emit_add(
+            "rsp",
+            32,
+            comment="remove dispose shadow space"
+        )
+
+        # ----------------------------------------------------------
+        # Ursprüngliche Referenz auf nil setzen
+        # ----------------------------------------------------------
+        if source_kind == "self_field":
+            self.emit_xor(
+                "r11",
+                "r11"
             )
 
-        cls = self.classes[class_type]
-
-        if source_kind == "self_field":
-            # EAX = Self
-            self.emit_mov_dword_ptr(
-                "eax",
-                "ebp",
-                -4,
+            self.emit_mov_qword_ptr(
+                "rax",
+                "rbp",
+                -8,
                 comment="Self"
             )
 
-            # EAX = Self.FResponse
-            self.emit_mov_dword_ptr(
-                "eax",
-                "eax",
+            self.emit_mov_qword_ptr_store(
+                "rax",
                 info.offset,
-                comment=f"Self.{obj_name}"
+                "r11",
+                comment=f"Self.{obj_name} := nil"
             )
 
-        else:
-            self.emit_load_object_var(
+        elif source_kind in (
+            "local",
+            "global"
+        ):
+            self.emit_xor(
+                "rax",
+                "rax"
+            )
+
+            self.emit_store_named_value(
                 ctx,
                 obj_name,
-                info
+                source_kind,
+                info,
+                "nil"
             )
 
-        null_label = self.new_named_label("free_nil")
-        end_label  = self.new_named_label("free_end")
+        elif source_kind == "param":
+            if info.get("is_var", False):
+                self.emit_xor(
+                    "rax",
+                    "rax"
+                )
 
-        self.emit_test("rax", "rax")
-        self.emit_jz(null_label)
+                self.emit_store_named_value(
+                    ctx,
+                    obj_name,
+                    source_kind,
+                    info,
+                    "nil"
+                )
 
-        self.emit_push("rax", comment='save object for dispose')
-
-        if "destroy" in cls.methods:
-            method, owner_cls = self.find_class_method_recursive(
-                ctx,
-                class_type,
-                "Destroy",
-                []
-            )
-            
-            self.emit_mov("rcx", "rax", comment='Self')
-            self.emit_sub("rsp", 32)
-            self.emit_call_lbl(method.label)
-            self.emit_add("rsp", 32)
-
-        self.emit_pop("rcx")
-        self.emit_mov_imm("rax", "&_jit_dispose_memory")
-        self.emit_call("rax")
-
-        # foo := nil
-        self.emit_xor("rax", "rax")
-        self.emit_store_object_var(ctx, obj_name, info)
-
-        self.emit_jmp(end_label)
-        self.emit_bind_label(null_label)
-        self.emit_bind_label(end_label)
+        self.emit_bind_label(
+            null_label
+        )
 
         return None
     
@@ -9525,7 +9654,33 @@ class AsmJitGenerator(PascalParserVisitor):
 
         return "pointer"
 
+    def addressable_name_type(
+        self,
+        ctx,
+        name
+    ):
+        info = self.find_local_var(name)
 
+        if info is not None:
+            return self.resolve_type(
+                info["type"]
+            )
+
+        field = self.find_current_class_field(name)
+
+        if field is not None:
+            return self.resolve_type(
+                field.type
+            )
+
+        info = self.var_info(
+            ctx,
+            name
+        )
+
+        return self.resolve_type(
+            info["type"]
+        )
     
     def emit_address_of_var(self, ctx, name):
         is_nt32 = CDATA.args_target in ["nt35", "winnt", "win32"]
@@ -9567,6 +9722,38 @@ class AsmJitGenerator(PascalParserVisitor):
                 return "^" + typ
 
             raise CompileError(ctx, "E0014", var_type=typ)
+
+        # Feld des impliziten Self-Objekts:
+        #
+        #     RegisterClassA(FWinClass)
+        #
+        self_field = self.find_current_class_field(
+            name
+        )
+
+        if self_field is not None:
+            target = self.emit_self_member_address(
+                ctx,
+                [name]
+            )
+
+            if target is None:
+                raise CompileError(
+                    ctx,
+                    "E0001",
+                    name=name
+                )
+
+            field, field_type = target
+
+            if field.offset:
+                self.emit_add(
+                    REG_A,
+                    field.offset,
+                    comment=f"@Self.{name}"
+                )
+
+            return "^" + field_type
 
         key = name.lower()
 
@@ -22402,16 +22589,9 @@ class AsmJitGenerator(PascalParserVisitor):
 
                 var_name = ref.IDENT().getText()
 
-                info = self.find_local_var(var_name)
-
-                if info is None:
-                    info = self.var_info(
-                        ctx,
-                        var_name
-                    )
-
-                actual_type = self.resolve_type(
-                    info["type"]
+                actual_type = self.addressable_name_type(
+                    ctx,
+                    var_name
                 )
 
                 if actual_type != formal_type:
@@ -28201,16 +28381,9 @@ class AsmJitGenerator(PascalParserVisitor):
 
                     var_name = ref.IDENT().getText()
 
-                    info = self.find_local_var(var_name)
-
-                    if info is None:
-                        info = self.var_info(
-                            ctx,
-                            var_name
-                        )
-
-                    actual_type = self.resolve_type(
-                        info["type"]
+                    actual_type = self.addressable_name_type(
+                        ctx,
+                        var_name
                     )
 
                     if actual_type != formal_type:
@@ -28521,16 +28694,9 @@ class AsmJitGenerator(PascalParserVisitor):
 
                 var_name = ref.IDENT().getText()
 
-                info = self.find_local_var(var_name)
-
-                if info is None:
-                    info = self.var_info(
-                        ctx,
-                        var_name
-                    )
-
-                actual_type = self.resolve_type(
-                    info["type"]
+                actual_type = self.addressable_name_type(
+                    ctx,
+                    var_name
                 )
 
                 if actual_type != formal_type:

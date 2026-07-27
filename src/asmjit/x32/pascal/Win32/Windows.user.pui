@@ -112,7 +112,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -136,7 +136,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -272,12 +272,12 @@
                     },
                     {
                         "name": "hWndParent",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
                         "name": "hMenu",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -297,7 +297,7 @@
                 "dll": "user32.dll",
                 "import_name": "CreateWindowExA",
                 "ordinal": null,
-                "return_type": "pointer"
+                "return_type": "integer"
             },
             {
                 "name": "ShowWindow",
@@ -306,7 +306,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -330,7 +330,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     }
                 ],
@@ -354,7 +354,7 @@
                     },
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -421,7 +421,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {
@@ -455,7 +455,7 @@
                 "params": [
                     {
                         "name": "hWnd",
-                        "type": "pointer",
+                        "type": "integer",
                         "is_var": false
                     },
                     {

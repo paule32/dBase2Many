@@ -16,9 +16,6 @@ uses System,
 const
     ID_BUTTON_INFO = 1001;
 
-var
-    MainWindow : HWND;
-    
 type
     TApplication = class(TObject)
     private
@@ -39,27 +36,31 @@ var
     msg: TMsg;
     status: Integer;
 begin
-    status := GetMessageA(msg, nil, 0, 0);
+    status := GetMessageA(msg, 0, 0, 0);
 
     while status > 0 do
     begin
         TranslateMessage(msg);
         DispatchMessageA(msg);
-        status := GetMessageA(msg, nil, 0, 0);
+        status := GetMessageA(msg, 0, 0, 0);
     end;
 end;
 
 constructor TApplication.Create;
 begin
     inherited Create;
+    writeln('TApp: Create');
+    FAppForm := TForm.Create;
     
-        ShowWindow(MainWindow, SW_SHOWDEFAULT);
-        UpdateWindow(MainWindow);
-        RunMessageLoop;
+    ShowWindow(FAppForm.FWinHandle, SW_SHOWDEFAULT);
+    UpdateWindow(FAppForm.FWinHandle);
+    RunMessageLoop;
 end;
 
 destructor TApplication.Destroy;
 begin
+    FAppForm.Free;
+    
     inherited Destroy;
 end;
 

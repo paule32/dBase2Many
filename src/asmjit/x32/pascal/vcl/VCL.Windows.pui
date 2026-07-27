@@ -66,7 +66,7 @@
                     },
                     {
                         "name": "FWinHandle",
-                        "type": "pointer",
+                        "type": "integer",
                         "offset": 12,
                         "size": 4,
                         "visibility": "private"
@@ -109,7 +109,7 @@
                         "kind": "function",
                         "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_GETHANDLE",
                         "params": [],
-                        "return_type": "pointer",
+                        "return_type": "integer",
                         "visibility": "public",
                         "calling_convention": "cdecl",
                         "is_virtual": false,
@@ -119,11 +119,11 @@
                     {
                         "name": "DispatchMessage",
                         "kind": "function",
-                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_DISPATCHMESSAGE$POINTER$INTEGER$INTEGER$INTEGER",
+                        "symbol": "_VCL_WINDOWS$$_$$_TWINDOW_$$_DISPATCHMESSAGE$INTEGER$INTEGER$INTEGER$INTEGER",
                         "params": [
                             {
                                 "name": "winhWnd",
-                                "type": "pointer",
+                                "type": "integer",
                                 "is_var": false
                             },
                             {
@@ -155,7 +155,7 @@
             {
                 "name": "TForm",
                 "parent": "twindow",
-                "size": 80,
+                "size": 40,
                 "vmt_symbol": "__vmt_vcl_windows_tform",
                 "class_name_symbol": "__classname_vcl_windows_tform",
                 "fields": [
@@ -175,7 +175,7 @@
                     },
                     {
                         "name": "FWinHandle",
-                        "type": "pointer",
+                        "type": "integer",
                         "offset": 12,
                         "size": 4,
                         "visibility": "private"
@@ -220,13 +220,6 @@
                         "type": "string",
                         "offset": 36,
                         "size": 4,
-                        "visibility": "private"
-                    },
-                    {
-                        "name": "WndClass",
-                        "type": "twndclassa",
-                        "offset": 40,
-                        "size": 40,
                         "visibility": "private"
                     }
                 ],

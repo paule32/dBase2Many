@@ -50,14 +50,14 @@ type
     LPARAM    = Integer;
     LRESULT   = Integer;
 
-    HANDLE    = Pointer;
+    HANDLE    = Integer;
     HINSTANCE = Integer;
     HMODULE   = Integer;
-    HWND      = HANDLE;
+    HWND      = Integer;
     HICON     = Integer;
     HCURSOR   = Integer;
     HBRUSH    = Integer;
-    HMENU     = HANDLE;
+    HMENU     = Integer;
 
     TPoint = record
         x: LONG;
