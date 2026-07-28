@@ -64,6 +64,7 @@
     "link": {
         "objects": [],
         "archives": [],
+        "resources": [],
         "embedded_objects": [],
         "base_directory": "pui"
     },

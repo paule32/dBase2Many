@@ -5,26 +5,26 @@
 # Target: Python 3.10+, NASM win32/COFF32, GNU ar
 # ---------------------------------------------------------------------------
 """
-Erzeugt aus dem EXPORTS-Abschnitt einer DEF-Datei kleine i386-Import-Thunks.
+Erzeugt aus dem EXPORTS-Abschnitt einer DEF-Datei kleine i386-Table-Thunks.
 
 Für jedes Funktionssymbol wird eine eigene NASM-Datei und daraus ein eigenes
 COFF32-Objekt erzeugt. Anschließend werden alle Objekte in das indexierte
 Archiv ``libthunks_mini.a`` geschrieben.
 
-Standardmäßig wird die 32-Bit-MinGW-Schreibweise verwendet:
+Jeder Thunk springt über einen Eintrag in ``_dbm_runtime_proc_table``:
 
-    DEF-Symbol:       LoadLibraryA@4
-    Thunk-Symbol:     _LoadLibraryA@4
-    IAT-Referenz:     __imp__LoadLibraryA@4
+    bits 32
+    section .text
 
-Der generierte Thunk besteht sinngemäß aus:
+    extern _dbm_runtime_proc_table
+    global _jit_print_int
 
-    _LoadLibraryA@4:
-        jmp dword [__imp__LoadLibraryA@4]
+    _jit_print_int:
+        jmp dword [_dbm_runtime_proc_table + 184]
 
-Wichtig: Das Archiv enthält absichtlich nur die kleinen Code-Thunks. Die
-jeweiligen __imp_-IAT-Symbole müssen vom PE-Linker beziehungsweise von einer
-separaten Import-Library bereitgestellt werden.
+Im normalen Reihenfolgemodus erhält das erste Funktionssymbol den Offset 0,
+das zweite den Offset 4 und so weiter. Mit ``--offset-mode ordinal`` können
+die DEF-Ordinale als feste Tabellen-Slots verwendet werden.
 """
 
 from __future__ import annotations
@@ -43,8 +43,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
-DEFAULT_ARCHIVE = "libthunks_mini.a"
-DEFAULT_OBJ_DIR = "obj"
+DEFAULT_ARCHIVE = "win32/libthunks_mini.a"
+DEFAULT_OBJ_DIR = "win32/obj"
 
 # NASM unterstützt für externe COFF-Symbole unter anderem die Zeichen, die
 # in stdcall- und Microsoft-C++-Dekorationen vorkommen.
@@ -94,7 +94,7 @@ class DefFile:
 class ThunkJob:
     source: DefExport
     public_symbol: str
-    iat_symbol: str
+    table_offset: int
     asm_path: Path
     object_path: Path
 
@@ -313,16 +313,6 @@ def parse_def_file(filename: Path) -> DefFile:
     )
 
 
-def decorate_public_symbol(symbol: str, symbol_style: str) -> str:
-    if symbol_style == "mingw":
-        return "_" + symbol
-
-    if symbol_style == "raw":
-        return symbol
-
-    raise AssertionError(f"unbekannter Symbolstil: {symbol_style}")
-
-
 def nasm_identifier(symbol: str, source: DefExport) -> str:
     if not NASM_IDENTIFIER_RE.fullmatch(symbol):
         raise BuildError(
@@ -331,9 +321,7 @@ def nasm_identifier(symbol: str, source: DefExport) -> str:
             f"DEF-Datei einen gültigen Alias."
         )
 
-    # Das $ zwingt NASM, auch Namen wie WAIT als Identifier statt als
-    # reserviertes Wort auszuwerten. Das $ gehört nicht zum COFF-Symbol.
-    return "$" + symbol
+    return symbol
 
 
 def filename_fragment(symbol: str) -> str:
@@ -348,14 +336,16 @@ def filename_fragment(symbol: str) -> str:
 def make_jobs(
     def_file: DefFile,
     obj_dir: Path,
-    symbol_style: str,
-    iat_prefix: str,
     include_private: bool,
+    offset_mode: str,
+    start_offset: int,
+    slot_size: int,
+    ordinal_base: int,
 ) -> tuple[list[ThunkJob], list[DefExport]]:
     jobs: list[ThunkJob] = []
     skipped: list[DefExport] = []
     seen_public: dict[str, DefExport] = {}
-    seen_iat: dict[str, DefExport] = {}
+    seen_offsets: dict[int, DefExport] = {}
 
     for export in def_file.exports:
         if export.is_data or export.is_constant:
@@ -366,14 +356,9 @@ def make_jobs(
             skipped.append(export)
             continue
 
-        public_symbol = decorate_public_symbol(
-            export.export_name,
-            symbol_style,
-        )
-        iat_symbol = iat_prefix + public_symbol
+        public_symbol = export.export_name
 
         nasm_identifier(public_symbol, export)
-        nasm_identifier(iat_symbol, export)
 
         if public_symbol in seen_public:
             previous = seen_public[public_symbol]
@@ -382,18 +367,38 @@ def make_jobs(
                 f"{previous.line_number} und {export.line_number}"
             )
 
-        if iat_symbol in seen_iat:
-            previous = seen_iat[iat_symbol]
+        if offset_mode == "ordinal":
+            if export.ordinal is None:
+                raise BuildError(
+                    f"DEF-Zeile {export.line_number}: Im Ordinalmodus "
+                    f"benötigt jedes Funktionssymbol eine Ordinalangabe"
+                )
+
+            slot_index = export.ordinal - ordinal_base
+
+            if slot_index < 0:
+                raise BuildError(
+                    f"DEF-Zeile {export.line_number}: Ordinal "
+                    f"{export.ordinal} liegt unter --ordinal-base "
+                    f"{ordinal_base}"
+                )
+
+            table_offset = start_offset + slot_index * slot_size
+        else:
+            table_offset = start_offset + len(jobs) * slot_size
+
+        if table_offset in seen_offsets:
+            previous = seen_offsets[table_offset]
             raise BuildError(
-                f"doppelte IAT-Referenz {iat_symbol!r} in DEF-Zeile "
+                f"doppelter Tabellenoffset {table_offset} in DEF-Zeile "
                 f"{previous.line_number} und {export.line_number}"
             )
 
         seen_public[public_symbol] = export
-        seen_iat[iat_symbol] = export
+        seen_offsets[table_offset] = export
 
         digest = hashlib.sha1(
-            public_symbol.encode("utf-8")
+            f"{public_symbol}:{table_offset}".encode("utf-8")
         ).hexdigest()[:10]
         base_name = (
             f"thunk_{len(jobs) + 1:04d}_"
@@ -404,7 +409,7 @@ def make_jobs(
             ThunkJob(
                 source=export,
                 public_symbol=public_symbol,
-                iat_symbol=iat_symbol,
+                table_offset=table_offset,
                 asm_path=obj_dir / f"{base_name}.asm",
                 object_path=obj_dir / f"{base_name}.o",
             )
@@ -419,9 +424,13 @@ def make_jobs(
     return jobs, skipped
 
 
-def render_assembly(job: ThunkJob, def_file: DefFile) -> str:
+def render_assembly(
+    job: ThunkJob,
+    def_file: DefFile,
+    table_symbol: str,
+) -> str:
     public = nasm_identifier(job.public_symbol, job.source)
-    iat = nasm_identifier(job.iat_symbol, job.source)
+    table = nasm_identifier(table_symbol, job.source)
     dll_name = def_file.library_name or "(in DEF nicht angegeben)"
 
     source_suffix = ""
@@ -439,26 +448,32 @@ def render_assembly(job: ThunkJob, def_file: DefFile) -> str:
         f"; DLL:        {dll_name}\n"
         f"; DEF-Export: {job.source.export_name}"
         f"{source_suffix}{ordinal_suffix}{noname_suffix}\n"
-        f"; COFF:       {job.public_symbol} -> [{job.iat_symbol}]\n"
+        f"; COFF:       {job.public_symbol} -> "
+        f"[{table_symbol} + {job.table_offset}]\n"
         "\n"
-        "BITS 32\n"
+        "bits 32\n"
+        "section .text\n"
         "\n"
-        "SECTION .text align=16\n"
-        f"GLOBAL {public}\n"
-        f"EXTERN {iat}\n"
+        f"extern {table}\n"
+        f"global {public}\n"
         "\n"
         f"{public}:\n"
-        f"    jmp dword [{iat}]\n"
+        f"    jmp dword [{table} + {job.table_offset}]\n"
     )
 
 
 def write_assembly_files(
     jobs: Sequence[ThunkJob],
     def_file: DefFile,
+    table_symbol: str,
 ) -> None:
     for job in jobs:
         job.asm_path.write_text(
-            render_assembly(job, def_file),
+            render_assembly(
+                job,
+                def_file,
+                table_symbol,
+            ),
             encoding="utf-8",
             newline="\n",
         )
@@ -662,10 +677,26 @@ def positive_integer(value: str) -> int:
     return number
 
 
+def non_negative_integer(value: str) -> int:
+    try:
+        number = int(value, 0)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            f"nichtnegative Ganzzahl erwartet: {value!r}"
+        ) from error
+
+    if number < 0:
+        raise argparse.ArgumentTypeError(
+            f"Wert darf nicht negativ sein: {number}"
+        )
+
+    return number
+
+
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Erzeugt je DEF-Funktionssymbol einen NASM-Import-Thunk, "
+            "Erzeugt je DEF-Funktionssymbol einen NASM-Table-Thunk, "
             "kompiliert ihn als win32/COFF32 und erstellt ein indexiertes "
             "Archiv."
         )
@@ -689,18 +720,46 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help=f"Zielarchiv (Standard: {DEFAULT_ARCHIVE})",
     )
     parser.add_argument(
-        "--symbol-style",
-        choices=("mingw", "raw"),
-        default="mingw",
+        "--table-symbol",
+        default="_dbm_runtime_proc_table",
         help=(
-            "mingw: führenden Unterstrich ergänzen; "
-            "raw: DEF-Namen unverändert verwenden (Standard: mingw)"
+            "Externes Symbol der Runtime-Prozedurtabelle "
+            "(Standard: _dbm_runtime_proc_table)"
         ),
     )
     parser.add_argument(
-        "--iat-prefix",
-        default="__imp_",
-        help="Präfix des externen IAT-Symbols (Standard: __imp_)",
+        "--offset-mode",
+        choices=("order", "ordinal"),
+        default="order",
+        help=(
+            "order: Offsets aus der DEF-Reihenfolge berechnen; "
+            "ordinal: DEF-Ordinale als Tabellen-Slots verwenden "
+            "(Standard: order)"
+        ),
+    )
+    parser.add_argument(
+        "--start-offset",
+        type=non_negative_integer,
+        default=0,
+        help=(
+            "Byte-Offset des ersten Tabellen-Slots; dezimal oder 0x... "
+            "(Standard: 0)"
+        ),
+    )
+    parser.add_argument(
+        "--slot-size",
+        type=positive_integer,
+        default=4,
+        help="Größe eines Tabelleneintrags in Bytes (Standard: 4)",
+    )
+    parser.add_argument(
+        "--ordinal-base",
+        type=positive_integer,
+        default=1,
+        help=(
+            "DEF-Ordinal des ersten Slots im Ordinalmodus "
+            "(Standard: 1)"
+        ),
     )
     parser.add_argument(
         "--include-private",
@@ -767,16 +826,31 @@ def main(argv: Sequence[str] | None = None) -> int:
         thunk_jobs, skipped = make_jobs(
             def_file=def_file,
             obj_dir=obj_dir,
-            symbol_style=args.symbol_style,
-            iat_prefix=args.iat_prefix,
             include_private=args.include_private,
+            offset_mode=args.offset_mode,
+            start_offset=args.start_offset,
+            slot_size=args.slot_size,
+            ordinal_base=args.ordinal_base,
         )
-        write_assembly_files(thunk_jobs, def_file)
+        nasm_identifier(
+            args.table_symbol,
+            thunk_jobs[0].source,
+        )
+        write_assembly_files(
+            thunk_jobs,
+            def_file,
+            args.table_symbol,
+        )
 
         print(f"DEF:      {def_file.filename}")
         if def_file.library_name:
             print(f"LIBRARY:  {def_file.library_name}")
         print(f"THUNKS:   {len(thunk_jobs)}")
+        print(f"TABELLE:  {args.table_symbol}")
+        print(
+            f"OFFSETS:  {args.offset_mode}, "
+            f"Start={args.start_offset}, Slot={args.slot_size}"
+        )
         print(f"OBJ-DIR:  {obj_dir}")
 
         if skipped:

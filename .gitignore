@@ -386,3 +386,9 @@ src/asmjit/compiler/frontend/pascal/new.py
 src/asmjit/compiler/frontend/pascal/old.py
 src/asmjit/compiler/frontend/pascal/gen8.patch
 src/asmjit/gen8.patch
+src/asmjit/compiler/writer/2
+src/asmjit/compiler/frontend/pascal/4
+src/asmjit/runtime/win32/1
+src/asmjit/runtime/win32/libruntime_mini.a
+src/asmjit/runtime/win32/libthunks_mini.a
+src/asmjit/runtime/win32/libruntime_mini.a

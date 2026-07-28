@@ -425,6 +425,8 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
      exit 1
   fi
 
+  python make_thunks_mini.py win32/libruntime_mini.def --offset-mode ordinal
+
   ###
   if ! nasm -f win32 -o win32/obj/dll_inflate.o dll_inflate.asm ; then
        echo "gcc could not create dll_inflate.o"
@@ -450,9 +452,9 @@ if [ "$TARGET" = "i686-w64-mingw32" ]; then
       win32/obj/dll_inflate.o \
       win32/obj/dll_loader.o  \
       win32/obj/dll_runtime_bindings.o \
-      win32/obj/dll_runtime.o \
-      win32/obj/dll_runtime_thunks_mini.o
-  ###
+      win32/obj/dll_runtime.o
+      
+  ### win32/obj/dll_runtime_thunks_mini.o
 
   
   #echo "pre-compile python cpascal.py files..."

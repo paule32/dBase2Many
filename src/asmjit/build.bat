@@ -275,6 +275,7 @@ for %%A in (%list%) do (
         -Fo x32/pascal/vcl    ^
         -Fo x32/pascal/crypto ^
         -Fo x32/pascal/http   ^
+        --resource libruntime_mini.a dll_runtime.o ^
         -FE x32/pascal/tests/common/free_dll testsrc/pascal/common/%%A.pas
     set "result=%errorlevel%"
     if !result! gtr 1 (
@@ -282,7 +283,6 @@ for %%A in (%list%) do (
         goto error
     )
 )
-
 goto ok
 
 :done

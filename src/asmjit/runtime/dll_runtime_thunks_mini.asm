@@ -51,16 +51,17 @@ global _jit_command_line_cstr
 global _jit_new_memory
 global _jit_dispose_memory
 global _jit_malloc
-global _jit_calloc
-global _jit_realloc
+
+;global _jit_calloc
+;global _jit_realloc
 global _jit_free
-global _jit_strdup
-global _jit_strlen
-global _jit_error_divide_by_zero
-global _jit_locale_user
-global _jit_locale_system
-global _jit_ExitProcess
-global _jit_GetCommandLineA
+;global _jit_strdup
+;global _jit_strlen
+;global _jit_error_divide_by_zero
+;global _jit_locale_user
+;global _jit_locale_system
+;global _jit_ExitProcess
+;global _jit_GetCommandLineA
 
 global _jit_object_instance_new
 global _jit_object_instance_free
@@ -78,12 +79,12 @@ global _jit_object_error_last
 global _jit_object_error_last_message
 global _jit_object_error_clear
 
-global _jit_strncpy
-global _jit_printf
-global _jit_snprintf
-global _jit_vprintf
-global _jit_vsnprintf
-global strlen
+;global _jit_strncpy
+;global _jit_printf
+;global _jit_snprintf
+;global _jit_vprintf
+;global _jit_vsnprintf
+;global strlen
 global _jit_read_char
 
 global _jit_raise
@@ -192,8 +193,8 @@ _jit_memmove:
 _jit_setlength_memory:
     jmp dword [_dbm_runtime_proc_table + 176]
 
-memset:
-    jmp dword [_dbm_runtime_proc_table + 180]
+;memset:
+;    jmp dword [_dbm_runtime_proc_table + 180]
 
 
 _jit_args_init:
@@ -220,35 +221,35 @@ _jit_dispose_memory:
 _jit_malloc:
     jmp dword [_dbm_runtime_proc_table + 264]
 
-_jit_calloc:
-    jmp dword [_dbm_runtime_proc_table + 268]
+;_jit_calloc:
+;    jmp dword [_dbm_runtime_proc_table + 268]
 
-_jit_realloc:
-    jmp dword [_dbm_runtime_proc_table + 272]
+;_jit_realloc:
+;    jmp dword [_dbm_runtime_proc_table + 272]
 
 _jit_free:
     jmp dword [_dbm_runtime_proc_table + 276]
 
-_jit_strdup:
-    jmp dword [_dbm_runtime_proc_table + 280]
+;_jit_strdup:
+;    jmp dword [_dbm_runtime_proc_table + 280]
 
-_jit_strlen:
-    jmp dword [_dbm_runtime_proc_table + 284]
+;_jit_strlen:
+;    jmp dword [_dbm_runtime_proc_table + 284]
 
 _jit_error_divide_by_zero:
     jmp dword [_dbm_runtime_proc_table + 288]
 
-_jit_locale_user:
-    jmp dword [_dbm_runtime_proc_table + 292]
+;_jit_locale_user:
+;    jmp dword [_dbm_runtime_proc_table + 292]
 
-_jit_locale_system:
-    jmp dword [_dbm_runtime_proc_table + 296]
+;_jit_locale_system:
+;    jmp dword [_dbm_runtime_proc_table + 296]
 
-_jit_ExitProcess:
-    jmp dword [_dbm_runtime_proc_table + 300]
+;_jit_ExitProcess:
+;    jmp dword [_dbm_runtime_proc_table + 300]
 
-_jit_GetCommandLineA:
-    jmp dword [_dbm_runtime_proc_table + 304]
+;_jit_GetCommandLineA:
+;    jmp dword [_dbm_runtime_proc_table + 304]
 
 _jit_object_instance_new:
     jmp dword [_dbm_runtime_proc_table + 308]
@@ -296,23 +297,23 @@ _jit_object_error_clear:
     jmp dword [_dbm_runtime_proc_table + 364]
 
 
-_jit_strncpy:
-    jmp dword [_dbm_runtime_proc_table + 368]
+;_jit_strncpy:
+;    jmp dword [_dbm_runtime_proc_table + 368]
 
-_jit_printf:
-    jmp dword [_dbm_runtime_proc_table + 372]
+;_jit_printf:
+;    jmp dword [_dbm_runtime_proc_table + 372]
 
-_jit_snprintf:
-    jmp dword [_dbm_runtime_proc_table + 376]
+;_jit_snprintf:
+;    jmp dword [_dbm_runtime_proc_table + 376]
 
-_jit_vprintf:
-    jmp dword [_dbm_runtime_proc_table + 380]
+;_jit_vprintf:
+;    jmp dword [_dbm_runtime_proc_table + 380]
 
-_jit_vsnprintf:
-    jmp dword [_dbm_runtime_proc_table + 384]
+;_jit_vsnprintf:
+;    jmp dword [_dbm_runtime_proc_table + 384]
 
-strlen:
-    jmp dword [_dbm_runtime_proc_table + 388]
+;strlen:
+;    jmp dword [_dbm_runtime_proc_table + 388]
 
 _jit_read_char:
     jmp dword [_dbm_runtime_proc_table + 392]

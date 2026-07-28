@@ -74,6 +74,7 @@
     "link": {
         "objects": [],
         "archives": [],
+        "resources": [],
         "embedded_objects": [
             "inttostr.o",
             "strtoint.o"

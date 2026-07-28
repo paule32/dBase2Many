@@ -65,6 +65,28 @@ def args_func():
     )
     
     # -------------------------------------------------------------
+    # Ressourcenobjekt aus einem .a-Archiv erzwingen.
+    # Beispiel:
+    #   --resource resources.a app_resources.o
+    # -------------------------------------------------------------
+    args_parser.add_argument(
+        "-R",
+        "--resource",
+        dest    = "resource_members",
+        action  = "append",
+        nargs   = 2,
+        default = [],
+        metavar = (
+            "ARCHIVE",
+            "MEMBER"
+        ),
+        help    = tr(
+            "Include a COFF resource object from an archive. "
+            "May be specified more than once."
+        )
+    )
+    
+    # -------------------------------------------------------------
     # emitter for nasm compatible assembly code
     # -------------------------------------------------------------
     args_parser.add_argument(
@@ -170,6 +192,7 @@ def args_func():
     # 10 / 11 |   10  |  0
     # -------------------------------------------------------------
     args_parser.add_argument(
+        "-Lv",
         "--linkerversion",
         dest    = "linkerversion",
         help    = tr("Sets the minimum OS version fields in the "
@@ -733,6 +756,10 @@ def handle_args(args):
     CDATA.code_page    = args.code_page
     
     CDATA.inc_dir      = list(args.include_path or [])
+    
+    CDATA.resource_archive_members = [
+        ( item[0], item[1] )
+        for item in getattr( args , "resource_members", [] ) or [] ]
     
     # -FE bezeichnet immer ein Ausgabeverzeichnis. Die Funktion
     # normalisiert auch relative Pfade und schreibt den absoluten

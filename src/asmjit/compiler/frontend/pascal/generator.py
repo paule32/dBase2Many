@@ -728,8 +728,9 @@ class AsmJitGenerator(PascalParserVisitor):
         self.root_module_kind = None
         self.root_unit_name   = None
 
-        self.root_link_objects  = []
-        self.root_link_archives = []
+        self.root_link_objects   = []
+        self.root_link_archives  = []
+        self.root_resource_files = []
         
         # COFF-Dateien, die physisch in die erzeugte Unit-.o-Datei
         # übernommen werden sollen.
@@ -5480,6 +5481,29 @@ class AsmJitGenerator(PascalParserVisitor):
 
         CDATA.link_archive_files.append(filename)
 
+    def add_pui_resource_file(self, filename):
+        filename = os.path.abspath(filename)
+        wanted   = os.path.normcase(os.path.normpath(filename))
+
+        resource_files = getattr(
+            CDATA,
+            "link_resource_files",
+            None
+        )
+
+        if resource_files is None:
+            resource_files = []
+            CDATA.link_resource_files = resource_files
+
+        for old in resource_files:
+            old_abs = os.path.abspath(os.fspath(old))
+            old_key = os.path.normcase(os.path.normpath(old_abs))
+
+            if old_key == wanted:
+                return
+
+        resource_files.append(filename)
+
     def resolve_pui_path(self, pui_directory, filename):
         filename = os.fspath(filename)
 
@@ -6474,6 +6498,47 @@ class AsmJitGenerator(PascalParserVisitor):
                     )
 
                 self.add_pui_link_archive(path)
+
+            for resource_name in link.get("resources", []):
+                path = self.resolve_pui_path(
+                    pui_directory,
+                    resource_name
+                )
+
+                if not os.path.isfile(path):
+                    # Eine PUI darf einen unveränderten {$R}-Dateinamen
+                    # enthalten. Beim späteren Link werden daher zusätzlich
+                    # die mit -Fo angegebenen Objektpfade durchsucht.
+                    for search_directory in (
+                        getattr(
+                            CDATA,
+                            "link_object_paths",
+                            []
+                        )
+                        or []
+                    ):
+                        candidate = os.path.abspath(
+                            os.path.join(
+                                search_directory,
+                                os.fspath(resource_name)
+                            )
+                        )
+
+                        if os.path.isfile(candidate):
+                            path = candidate
+                            break
+
+                if not os.path.isfile(path):
+                    raise CompileError(
+                        ctx,
+                        "E0019",
+                        text=(
+                            "PUI resource file not found: "
+                            + str(resource_name)
+                        )
+                    )
+
+                self.add_pui_resource_file(path)
 
             self.register_pui_types(
                 ctx,
@@ -17480,6 +17545,42 @@ class AsmJitGenerator(PascalParserVisitor):
             if arg not in CDATA.link_archive_files:
                 CDATA.link_archive_files.append(arg)
 
+        elif cmd == "resource":
+            target = str(
+                getattr(
+                    CDATA,
+                    "args_target",
+                    ""
+                )
+            ).lower()
+
+            if target not in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "{$R} resources require a COFF32 "
+                        "Windows target"
+                    )
+                )
+
+            resource_files = getattr(
+                CDATA,
+                "link_resource_files",
+                None
+            )
+
+            if resource_files is None:
+                resource_files = []
+                CDATA.link_resource_files = resource_files
+
+            if arg not in resource_files:
+                resource_files.append(arg)
+
         return None
     
     def visitLocalDeclaration(self, ctx):
@@ -17807,6 +17908,10 @@ class AsmJitGenerator(PascalParserVisitor):
                     elif cmd == "linklib":
                         if arg not in self.root_link_archives:
                             self.root_link_archives.append(arg)
+
+                    elif cmd == "resource":
+                        if arg not in self.root_resource_files:
+                            self.root_resource_files.append(arg)
 
                 self.visit(directive)
 
@@ -20442,6 +20547,7 @@ class AsmJitGenerator(PascalParserVisitor):
 
         # {$link foo.o}
         # {$linklib libfoo.a}
+        # {$R foo.res}
         text = text[2:-1].strip()
 
         parts = text.split(None, 1)
@@ -20460,6 +20566,16 @@ class AsmJitGenerator(PascalParserVisitor):
         # erzeugte Unit-Objektdatei eingebettet werden.
         if cmd == "l":
             cmd = "embed"
+
+        # Win32-Ressourcenobjekt im COFF32-Format:
+        #
+        #   {$R application.res}
+        #
+        # Die Kurzform wird intern von {$L ...} getrennt behandelt,
+        # weil die .rsrc-Sektion erst beim finalen EXE-/DLL-Link in
+        # das PE-Image aufgenommen werden darf.
+        elif cmd == "r":
+            cmd = "resource"
 
         # Optional gesetzte Anführungszeichen entfernen
         if (
@@ -20573,6 +20689,10 @@ class AsmJitGenerator(PascalParserVisitor):
 
                 "archives": list(
                     self.root_link_archives
+                ),
+
+                "resources": list(
+                    self.root_resource_files
                 ),
 
                 # Nur Information; diese Dateien sind bereits physisch in

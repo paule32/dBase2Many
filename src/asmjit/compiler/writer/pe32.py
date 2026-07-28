@@ -140,6 +140,36 @@ class ArArchiveReader:
     def find_members_for_symbol(self, symbol):
         return self.symbol_index.get(symbol, [])
 
+    @staticmethod
+    def normalize_member_name(name):
+        return (
+            str(name)
+            .strip()
+            .replace("\\", "/")
+            .lstrip("./")
+            .casefold()
+        )
+
+    def find_member(self, name):
+        wanted = self.normalize_member_name(name)
+
+        matches = [
+            member
+            for member in self.members
+            if self.normalize_member_name(member.name) == wanted
+        ]
+
+        if len(matches) == 1:
+            return matches[0]
+
+        if len(matches) > 1:
+            raise RuntimeError(
+                f"ambiguous archive member: "
+                f"{name} in {self.filename}"
+            )
+
+        return None
+
 # ---------------------------------------------------------------------------
 # members used to include external coff32 .o bject files into exe image link:
 # ---------------------------------------------------------------------------
@@ -590,6 +620,9 @@ class PE32Writer:
         self.exports: list[PE32Export] = []
         
         self.runtime_symbol_aliases = {}
+        
+        # Explizit aus Archiven zu ladende Ressourcenobjekte.
+        self.resource_archive_members = []
 
         # Optionaler DLL-Einstiegspunkt.
         # None bedeutet AddressOfEntryPoint = 0.
@@ -609,6 +642,165 @@ class PE32Writer:
         self.archive_files      = []
         self.archives           = []
 
+    @staticmethod
+    def is_resource_object(
+        obj
+    ):
+        return any(
+            section.name == ".rsrc"
+            or section.name.startswith(".rsrc$")
+            or section.name.startswith(".rsrc.")
+            for section in obj.sections
+        )
+
+    def add_resource_object(
+        self,
+        name
+    ):
+        filename = self.resolve_link_object_name(
+            name
+        )
+
+        obj = Coff32Reader(
+            filename
+        ).read()
+
+        if not self.is_resource_object(
+            obj
+        ):
+            section_names = ", ".join(
+                section.name
+                for section in obj.sections
+            )
+
+            if not section_names:
+                section_names = "<none>"
+
+            raise RuntimeError(
+                "COFF32 resource file contains no "
+                ".rsrc section: "
+                + filename
+                + "\nsections: "
+                + section_names
+            )
+
+        self.add_coff_object(
+            obj
+        )
+
+        return filename
+
+    def add_resource_archive_member(
+        self,
+        archive_name,
+        member_name
+    ):
+        archive_filename = (
+            self.resolve_link_archive_name(
+                archive_name
+            )
+        )
+
+        archive_filename = os.path.abspath(
+            archive_filename
+        )
+
+        self.add_link_archive(
+            archive_filename
+        )
+
+        item = (
+            os.path.normcase(
+                archive_filename
+            ),
+            str(member_name)
+        )
+
+        if item not in self.resource_archive_members:
+            self.resource_archive_members.append(
+                item
+            )
+
+    def load_resource_archive_members(
+        self
+    ):
+        archive_map = {
+            os.path.normcase(
+                os.path.abspath(
+                    archive.filename
+                )
+            ): archive
+            for archive in self.archives
+        }
+
+        for (
+            archive_filename,
+            member_name
+        ) in self.resource_archive_members:
+            archive = archive_map.get(
+                archive_filename
+            )
+
+            if archive is None:
+                raise RuntimeError(
+                    "resource archive was not loaded: "
+                    + archive_filename
+                )
+
+            member = archive.find_member(
+                member_name
+            )
+
+            if member is None:
+                available = "\n".join(
+                    "  " + item.name
+                    for item in archive.members
+                )
+
+                raise RuntimeError(
+                    f"resource member not found: "
+                    f"{member_name} in "
+                    f"{archive.filename}\n"
+                    f"available members:\n"
+                    f"{available}"
+                )
+
+            if member.loaded:
+                continue
+
+            obj = Coff32Reader.from_bytes(
+                member.data
+            )
+
+            if not self.is_resource_object(
+                obj
+            ):
+                raise RuntimeError(
+                    f"archive member contains no "
+                    f".rsrc section: "
+                    f"{archive.filename}:"
+                    f"{member.name}"
+                )
+
+            self.add_coff_object(
+                obj
+            )
+
+            # Verhindert eine zweite Aufnahme durch die normale
+            # Symbolauflösung.
+            member.loaded = True
+
+            if getattr(
+                CDATA,
+                "debug_mode",
+                False
+            ):
+                print(
+                    "RESOURCE MEMBER:",
+                    archive.filename,
+                    member.name
+                )
+                
     def emit_movzx_r32_word_ptr(
         self,
         dst,
@@ -1508,9 +1700,11 @@ class PE32Writer:
         )
 
     def resolve_archive_objects(self):
-        # self.archive_files enthält Strings.
-        # self.archives enthält danach ArArchiveReader-Objekte.
         self.load_archives()
+
+        # Ressourcenobjekte werden unabhängig von offenen Symbolen
+        # aus ihren Archiven geladen.
+        self.load_resource_archive_members()
 
         changed = True
 
@@ -3263,6 +3457,109 @@ class PE32Writer:
         loaded_objects = set()
 
         # ------------------------------------------------------------
+        # Direkt eingebundene Win32-Ressourcenobjekte:
+        #
+        #   {$R application.res}
+        #
+        # Die Datei ist ein relocatables i386-COFF-Objekt, auch wenn
+        # die übliche Dateiendung ".res" lautet. Ihre .rsrc-Sektion
+        # wird getrennt in das PE-Image übernommen.
+        #
+        # Die Auflösung verwendet dieselbe -Fo-Suchpfadliste wie
+        # {$link ...}. Der aktuelle Ressourcenlinker kann genau einen
+        # vollständigen Ressourcenbaum übernehmen.
+        # ------------------------------------------------------------
+        resource_files = []
+        resource_keys  = set()
+
+        for resource_name in (
+            getattr(
+                CDATA,
+                "link_resource_files",
+                []
+            )
+            or []
+        ):
+            resolved_name = self.resolve_link_object_name(
+                resource_name
+            )
+
+            resource_key = os.path.normcase(
+                os.path.abspath(
+                    resolved_name
+                )
+            )
+
+            if resource_key in resource_keys:
+                continue
+
+            resource_keys.add(
+                resource_key
+            )
+
+            resource_files.append(
+                resolved_name
+            )
+
+        archive_resource_specs = {
+            (
+                os.path.normcase(
+                    os.fspath(
+                        resource_spec[0]
+                    )
+                ),
+                ArArchiveReader.normalize_member_name(
+                    resource_spec[1]
+                )
+            )
+            for resource_spec in (
+                getattr(
+                    CDATA,
+                    "resource_archive_members",
+                    []
+                )
+                or []
+            )
+            if len(resource_spec) == 2
+        }
+
+        if (
+            len(resource_files)
+            + len(archive_resource_specs)
+            > 1
+        ):
+            raise RuntimeError(
+                "the PE32 resource linker currently supports "
+                "one resource COFF object; combine resources "
+                "into one .rc/.res file before linking"
+            )
+
+        for resolved_name in resource_files:
+            object_key = os.path.normcase(
+                os.path.abspath(
+                    resolved_name
+                )
+            )
+
+            if getattr(
+                CDATA,
+                "debug_mode",
+                False
+            ):
+                print(
+                    "COFF32 resource:",
+                    resolved_name
+                )
+
+            self.add_resource_object(
+                resolved_name
+            )
+
+            loaded_objects.add(
+                object_key
+            )
+
+        # ------------------------------------------------------------
         # Explizite COFF32-Objekte:
         #
         #   {$link foo.o}
@@ -3308,6 +3605,33 @@ class PE32Writer:
 
             self.add_coff_object(
                 resolved_name
+            )
+
+        # ------------------------------------------------------------
+        # Erzwungene Ressourcenmitglieder
+        #   --resource resources.a app_resources.o
+        # ------------------------------------------------------------
+        for resource_spec in (
+            getattr(
+                CDATA,
+                "resource_archive_members",
+                []
+            )
+            or []
+        ):
+            if len(resource_spec) != 2:
+                raise RuntimeError(
+                    "invalid resource specification: "
+                    + repr(resource_spec)
+                )
+
+            archive_name, member_name = (
+                resource_spec
+            )
+
+            self.add_resource_archive_member(
+                archive_name,
+                member_name
             )
 
         # ------------------------------------------------------------

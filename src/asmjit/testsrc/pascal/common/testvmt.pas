@@ -7,7 +7,7 @@
 { $ l ink dll_loader.o}
 { $ l ink dll_runtime_bindings.o}
 { $ l ink dll_runtime.o}
-{ $ l ink dll_runtime_thunks_mini.o}
+{$link dll_runtime_thunks_mini.o}
 {$linklib libruntime_mini.a}
 program testvmt;
 
