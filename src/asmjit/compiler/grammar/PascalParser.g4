@@ -267,6 +267,10 @@ inheritedStatement
     : INHERITED IDENT? actualParamList?
     ;
 
+inheritedExpression
+    : INHERITED IDENT? actualParamList?
+    ;
+
 constructorDeclaration
     : CONSTRUCTOR IDENT formalParamList?
       SEMI
@@ -646,13 +650,14 @@ factor
     : PLUS factor
     | MINUS factor
     | NOT factor
-    | FALSE
-    | TRUE
+    | inheritedExpression
     | AT variableRef
     | variableRef
     | functionCallExpr
     | arrayConstructor
     | NIL
+    | FALSE
+    | TRUE
     | CHARCODE
     | HEXNUMBER
     | NUMBER

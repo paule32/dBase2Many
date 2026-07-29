@@ -93,7 +93,7 @@ for %%A in (%list%) do (
 )
 echo.
 
-set "list=VCL.Windows VCL"
+set "list=VCL.Controls VCL.Windows VCL"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0
@@ -143,6 +143,7 @@ for %%A in (%list%) do (
         goto error
     )
 )
+goto test2
 echo.
 set "list=Http.Client"
 set /a total=0

@@ -18650,6 +18650,11 @@ class AsmJitGenerator(PascalParserVisitor):
             if (self.coff.find_symbol_index("ctx") is not None):
                 self.writer.emit_lea_reg_data_label("esi", "ctx")
                 
+            if method.kind == "function":
+                return self.resolve_type(
+                    method.return_type
+                )
+
             return None
             
         # Windows 64-bit
@@ -18808,6 +18813,12 @@ class AsmJitGenerator(PascalParserVisitor):
                 32,
                 comment="remove inherited shadow space"
             )
+            
+            if method.kind == "function":
+                return self.resolve_type(
+                    method.return_type
+                )
+
             return None
     
     def visitClassMethodImplementation(self, ctx):
@@ -24874,6 +24885,22 @@ class AsmJitGenerator(PascalParserVisitor):
             f"open_array:{element_type}"
         )
     
+    def visitInheritedExpression(self, ctx):
+        result_type = self.visitInheritedStatement(
+            ctx
+        )
+
+        if result_type is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(tr("inherited expression requires "
+                    "a parent function")
+                )
+            )
+
+        return result_type
+    
     def visitFactor(self, ctx):
         text = ctx.getText()
 
@@ -25469,6 +25496,16 @@ class AsmJitGenerator(PascalParserVisitor):
             return self.emit_address_of_var(
                 ctx,
                 name
+            )
+
+        # ============================================================
+        # Geerbter Funktionsaufruf:
+        #
+        #   Result := inherited GetWindowStyle;
+        # ============================================================
+        if (hasattr(ctx, "inheritedExpression") and ctx.inheritedExpression() is not None):
+            return self.visit(
+                ctx.inheritedExpression()
             )
 
         # ============================================================

@@ -27,15 +27,15 @@ type
         FVisible: Boolean;
         FEnabled: Boolean;
     protected
-        function GetWindowClass  : DWORD; virtual;
-        function GetWindowStyle  : DWORD; virtual;
-        function GetWindowExStyle: DWORD; virtual;
+        function GetWindowClass  : String; virtual;
+        function GetWindowStyle  : DWORD ; virtual;
+        function GetWindowExStyle: DWORD ; virtual;
         
         procedure CreateHandle ; virtual;
         procedure DestroyHandle; virtual;
     public
         constructor Create(AParent: HWND; AControlID: Integer);
-        destrzctir Destroy;
+        destructor Destroy;
         
         procedure SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
         procedure SetCaption(const ACaption: String);
@@ -44,7 +44,7 @@ type
         procedure Hide;
         
         procedure Enable;
-        procedure Disaple;
+        procedure Disable;
         
     published
         property Handle: HWND read FHandle;
@@ -257,7 +257,7 @@ begin
     
     CreateHandle;
 end;
-destructor TButtin.Destroy;
+destructor TButton.Destroy;
 begin
     inherited Destroy;
 end;
@@ -271,7 +271,7 @@ function TButton.GetWindowStyle: DWORD;
 begin
     result := inherited GetWindowStyle or
         WS_TABSTOP or
-        BS_PUSHBUTTON;;
+        BS_PUSHBUTTON;
 end;
 
 procedure TButton.Click;
