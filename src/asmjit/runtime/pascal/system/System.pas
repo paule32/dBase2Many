@@ -5,7 +5,10 @@
 // ---------------------------------------------------------------------------
 unit System;
 interface
-uses System.Types, System.Strings, System.Objects;
+uses System.Types,
+     System.Strings,
+     System.SysUtils,
+     System.Objects;
 
 implementation
 end.

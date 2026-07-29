@@ -69,6 +69,7 @@ EXIT                : [eE][xX][iI][tT] ;
 TRY                 : [Tt][Rr][Yy];
 FINALLY             : [Ff][Ii][Nn][Aa][Ll][Ll][Yy];
 EXCEPT              : [Ee][Xx][Cc][Ee][Pp][Tt];
+RAISE               : [Rr][Aa][Ii][Ss][Ee];
 
 CLASS               : [Cc][Ll][Aa][Ss][Ss] ;
 CONSTRUCTOR         : [Cc][Oo][Nn][Ss][Tt][Rr][Uu][Cc][Tt][Oo][Rr] ;

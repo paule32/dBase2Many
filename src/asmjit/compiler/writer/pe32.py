@@ -653,6 +653,28 @@ class PE32Writer:
             for section in obj.sections
         )
 
+    @staticmethod
+    def encode_imm32(value):
+        value = int(value)
+
+        if not (
+            -0x80000000
+            <= value
+            <= 0xFFFFFFFF
+        ):
+            raise OverflowError(
+                f"immediate value does not fit "
+                f"into 32 bits: {value}"
+            )
+
+        return (
+            value & 0xFFFFFFFF
+        ).to_bytes(
+            4,
+            "little",
+            signed=False
+        )
+
     def add_resource_object(
         self,
         name
@@ -2265,7 +2287,7 @@ class PE32Writer:
 
     def emit_push_imm32(self, value):
         self.text.append(0x68)
-        self.text += int(value).to_bytes(4, "little", signed=True)
+        self.text += self.encode_imm32(value)
         
     def emit_mov_data_label_r8(self, label, reg8):
         if reg8.lower() != "al":
@@ -2295,8 +2317,9 @@ class PE32Writer:
 
     def emit_mov_reg_imm32(self, reg, value):
         reg_id = self._reg_id(reg)
+        
         self.text.append(0xB8 + reg_id)
-        self.text += int(value).to_bytes(4, "little", signed=True)
+        self.text += self.encode_imm32(value)
 
     def emit_xor_reg_reg(self, dst, src):
         dst_id = self._reg_id(dst)
@@ -2830,10 +2853,10 @@ class PE32Writer:
     def emit_cmp_reg_imm32(self, reg, value):
         reg_id = self._reg_id(reg)
 
-        # cmp r/m32, imm32
+        # CMP r/m32, imm32
         self.text.append(0x81)
         self.text.append(0xF8 | reg_id)
-        self.text += int(value).to_bytes(4, "little", signed=True)
+        self.text += self.encode_imm32(value)
     
     def emit_setne(self, reg):
         if reg != "al":

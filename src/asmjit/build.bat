@@ -14,7 +14,7 @@ set "compiler=python cpascal.py"
 :: ----------------------------------------------------------------------------
 echo stage:  [  1 /  4] - System
 :: goto test0
-set "list=System.Types System.Objects System.Strings System"
+set "list=System.Types System.Objects System.Strings System.SysUtils System"
 set /a total=0
 for %%A in (%list%) do ( set /a total += 1 )
 set /a current=0

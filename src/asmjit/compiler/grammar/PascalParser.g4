@@ -456,6 +456,7 @@ varSection
 
 varDeclaration
     : identList COLON varType SEMI
+    | IDENT ASSIGN conditionalExpression SEMI
     ;
 
 varType
@@ -497,6 +498,7 @@ statement
     | caseStatement
     | procedureCallStatement
     | inheritedStatement
+    | raiseStatement
     | exitStatement
     | compoundStatement
     ;
@@ -541,6 +543,10 @@ continueStatement
 tryStatement
     : TRY statementList FINALLY statementList END
     | TRY statementList EXCEPT  statementList END
+    ;
+
+raiseStatement
+    : RAISE expr
     ;
 
 exitStatement
@@ -618,6 +624,10 @@ expr
     : boolOrExpr
     ;
 
+conditionalExpression
+    : IF addExpr compareOp addExpr ELSE expr
+    ;
+
 boolOrExpr
     : boolXorExpr (OR boolXorExpr)*
     ;
@@ -650,6 +660,7 @@ factor
     : PLUS factor
     | MINUS factor
     | NOT factor
+    | conditionalExpression
     | inheritedExpression
     | AT variableRef
     | variableRef

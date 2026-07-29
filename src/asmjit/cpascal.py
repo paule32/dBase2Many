@@ -602,7 +602,6 @@ def main():
         return 1
         
     except ConditionalExpressionError as e:
-        print("-------------------------------------")
         print(e)
         return 1
     
@@ -611,7 +610,7 @@ def main():
         return 1
         
     except PascalDirectiveAbort as e:
-        #print(e)
+        print(e)
         return 1
         
     except CompileError as e:
@@ -661,6 +660,16 @@ def main():
         if CDATA.args_verbose:
             import traceback
             traceback.print_exc()
+        return 2
+    
+    except ZeroDivisionError as e:
+        print(tr("Error: Division through zero."))
+        print(e)
+        return 2
+        
+    except OverflowError as e:
+        print(tr("Error: overflow error."))
+        print(e)
         return 2
         
     except ArithmeticError as e:

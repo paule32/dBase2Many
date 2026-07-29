@@ -11,18 +11,19 @@ if (-not (Test-Path $Jar -PathType Leaf)) {
     throw "ANTLR jar not found: $Jar"
 }
 
-java -jar tools\antlr-4.13.2-complete.jar ^
-    -Dlanguage=Python3 ^
-    -Xexact-output-dir ^
-    -o parsers\pascal  ^
-    compiler\grammar\PascalLexer.g4
+java -jar $Jar `
+    -Dlanguage=Python3 `
+    -Xexact-output-dir `
+    -o $Out `
+    (Join-Path $Root "grammar\ResourceLexer.g4")
 
-java -jar tools\antlr-4.13.2-complete.jar ^
-    -Dlanguage=Python3  ^
-    -visitor            ^
-    -Xexact-output-dir  ^
-    -lib parsers\pascal ^
-    -o   parsers\pascal ^
-    compiler\grammar\PascalParser.g4
+java -jar $Jar `
+    -Dlanguage=Python3 `
+    -visitor `
+    -no-listener `
+    -Xexact-output-dir `
+    -lib $Out `
+    -o $Out `
+    (Join-Path $Root "grammar\ResourceParser.g4")
 
 Write-Host "Generated parser in $Out"

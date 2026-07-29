@@ -1,0 +1,534 @@
+{
+    "format": "dBase2Many Pascal Unit Interface",
+    "version": 1,
+    "unit": {
+        "name": "VCL.Controls",
+        "normalized_name": "vcl_controls"
+    },
+    "target": {
+        "target": "win32",
+        "object_format": "coff32",
+        "machine": "i386",
+        "pointer_size": 4,
+        "calling_convention": "cdecl"
+    },
+    "object": {
+        "file": "VCL.Controls.o",
+        "format": "coff32",
+        "machine": "i386"
+    },
+    "uses": {
+        "interface": [
+            "System",
+            "Windows.Types",
+            "Windows.Kernel",
+            "Windows.User"
+        ],
+        "implementation": []
+    },
+    "imports": {},
+    "initialization": {
+        "symbol": "_VCL_CONTROLS$$_INIT"
+    },
+    "finalization": {
+        "symbol": null
+    },
+    "constants": [],
+    "types": {
+        "aliases": [],
+        "subranges": [],
+        "records": []
+    },
+    "symbols": {
+        "functions": [],
+        "procedures": [],
+        "classes": [
+            {
+                "name": "TControl",
+                "parent": "tobject",
+                "size": 38,
+                "vmt_symbol": "__vmt_vcl_controls_tcontrol",
+                "class_name_symbol": "__classname_vcl_controls_tcontrol",
+                "fields": [
+                    {
+                        "name": "FHandle",
+                        "type": "integer",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FParent",
+                        "type": "integer",
+                        "offset": 8,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FControlId",
+                        "type": "integer",
+                        "offset": 12,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FLeft",
+                        "type": "integer",
+                        "offset": 16,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FTop",
+                        "type": "integer",
+                        "offset": 20,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWidth",
+                        "type": "integer",
+                        "offset": 24,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FHeight",
+                        "type": "integer",
+                        "offset": 28,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FCaption",
+                        "type": "string",
+                        "offset": 32,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FVisible",
+                        "type": "boolean",
+                        "offset": 36,
+                        "size": 1,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FEnabled",
+                        "type": "boolean",
+                        "offset": 37,
+                        "size": 1,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_CREATE$INTEGER$INTEGER",
+                        "params": [
+                            {
+                                "name": "AParent",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "AControlID",
+                                "type": "integer",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "GetWindowClass",
+                        "kind": "function",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_GETWINDOWCLASS",
+                        "params": [],
+                        "return_type": "string",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": false,
+                        "vmt_offset": 24
+                    },
+                    {
+                        "name": "GetWindowStyle",
+                        "kind": "function",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_GETWINDOWSTYLE",
+                        "params": [],
+                        "return_type": "integer",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": false,
+                        "vmt_offset": 28
+                    },
+                    {
+                        "name": "GetWindowExStyle",
+                        "kind": "function",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_GETWINDOWEXSTYLE",
+                        "params": [],
+                        "return_type": "integer",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": false,
+                        "vmt_offset": 32
+                    },
+                    {
+                        "name": "CreateHandle",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_CREATEHANDLE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": false,
+                        "vmt_offset": 36
+                    },
+                    {
+                        "name": "DestroyHandle",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_DESTROYHANDLE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": false,
+                        "vmt_offset": 40
+                    },
+                    {
+                        "name": "SetBounds",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_SETBOUNDS$INTEGER$INTEGER$INTEGER$INTEGER",
+                        "params": [
+                            {
+                                "name": "ALeft",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "ATop",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "AWidth",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "AHeight",
+                                "type": "integer",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "SetCaption",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_SETCAPTION$ANSISTRING",
+                        "params": [
+                            {
+                                "name": "ACaption",
+                                "type": "string",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Show",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_SHOW",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Hide",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_HIDE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Enable",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_ENABLE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Disable",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TCONTROL_$$_DISABLE",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    }
+                ],
+                "properties": [
+                    {
+                        "name": "Handle",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FHandle",
+                        "write": null
+                    },
+                    {
+                        "name": "ParentHandle",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FParent",
+                        "write": null
+                    },
+                    {
+                        "name": "ControlId",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FControlId",
+                        "write": null
+                    }
+                ]
+            },
+            {
+                "name": "TButton",
+                "parent": "tcontrol",
+                "size": 38,
+                "vmt_symbol": "__vmt_vcl_controls_tbutton",
+                "class_name_symbol": "__classname_vcl_controls_tbutton",
+                "fields": [
+                    {
+                        "name": "FHandle",
+                        "type": "integer",
+                        "offset": 4,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FParent",
+                        "type": "integer",
+                        "offset": 8,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FControlId",
+                        "type": "integer",
+                        "offset": 12,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FLeft",
+                        "type": "integer",
+                        "offset": 16,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FTop",
+                        "type": "integer",
+                        "offset": 20,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FWidth",
+                        "type": "integer",
+                        "offset": 24,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FHeight",
+                        "type": "integer",
+                        "offset": 28,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FCaption",
+                        "type": "string",
+                        "offset": 32,
+                        "size": 4,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FVisible",
+                        "type": "boolean",
+                        "offset": 36,
+                        "size": 1,
+                        "visibility": "private"
+                    },
+                    {
+                        "name": "FEnabled",
+                        "type": "boolean",
+                        "offset": 37,
+                        "size": 1,
+                        "visibility": "private"
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "Create",
+                        "kind": "constructor",
+                        "symbol": "_VCL_CONTROLS$$_$$_TBUTTON_$$_CREATE$INTEGER$INTEGER$ANSISTRING",
+                        "params": [
+                            {
+                                "name": "AParent",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "AControlID",
+                                "type": "integer",
+                                "is_var": false
+                            },
+                            {
+                                "name": "ACaption",
+                                "type": "string",
+                                "is_var": false
+                            }
+                        ],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "Destroy",
+                        "kind": "destructor",
+                        "symbol": "_VCL_CONTROLS$$_$$_TBUTTON_$$_DESTROY",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    },
+                    {
+                        "name": "GetWindowClass",
+                        "kind": "function",
+                        "symbol": "_VCL_CONTROLS$$_$$_TBUTTON_$$_GETWINDOWCLASS",
+                        "params": [],
+                        "return_type": "string",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 24
+                    },
+                    {
+                        "name": "GetWindowStyle",
+                        "kind": "function",
+                        "symbol": "_VCL_CONTROLS$$_$$_TBUTTON_$$_GETWINDOWSTYLE",
+                        "params": [],
+                        "return_type": "integer",
+                        "visibility": "protected",
+                        "calling_convention": "cdecl",
+                        "is_virtual": true,
+                        "is_override": true,
+                        "vmt_offset": 28
+                    },
+                    {
+                        "name": "Click",
+                        "kind": "procedure",
+                        "symbol": "_VCL_CONTROLS$$_$$_TBUTTON_$$_CLICK",
+                        "params": [],
+                        "return_type": null,
+                        "visibility": "public",
+                        "calling_convention": "cdecl",
+                        "is_virtual": false,
+                        "is_override": false,
+                        "vmt_offset": null
+                    }
+                ],
+                "properties": [
+                    {
+                        "name": "Handle",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FHandle",
+                        "write": null
+                    },
+                    {
+                        "name": "ParentHandle",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FParent",
+                        "write": null
+                    },
+                    {
+                        "name": "ControlId",
+                        "type": "integer",
+                        "visibility": "published",
+                        "read": "FControlId",
+                        "write": null
+                    }
+                ]
+            }
+        ]
+    },
+    "link": {
+        "objects": [],
+        "archives": [],
+        "resources": [],
+        "embedded_objects": [],
+        "base_directory": "pui"
+    },
+    "macros": {}
+}

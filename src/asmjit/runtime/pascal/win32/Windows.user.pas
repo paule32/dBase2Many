@@ -67,6 +67,38 @@ function UpdateWindow(
     ): BOOL; stdcall; external
     DLL_USER32 name 'UpdateWindow';
 
+function IsWindow(
+    hWnd: HWND
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'IsWindow';
+
+function EnableWindow(
+    hWnd: HWND;
+    bEnable: BOOL
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'EnableWindow';
+
+function MoveWindow(
+    hWnd: HWND;
+    X: Integer;
+    Y: Integer;
+    nWidth: Integer;
+    nHeight: Integer;
+    bRepaint: BOOL
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'MoveWindow';
+
+function SetWindowTextA(
+    hWnd: HWND;
+    lpString: String
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'SetWindowTextA';
+
+function DestroyWindow(
+    hWnd: HWND
+    ): BOOL; stdcall; external
+    DLL_USER32 name 'DestroyWindow';
+
 function GetMessageA(
     var Msg:     TMsg;
     hWnd:        HWND;

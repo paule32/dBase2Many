@@ -56,6 +56,8 @@ JIT_VARIANT_KIND_OFFSET = 0
 JIT_VARIANT_LOW_OFFSET  = 4
 JIT_VARIANT_HIGH_OFFSET = 8
 
+JIT_USER_EXCEPTION = 7
+
 class PropertyInfo:
     def __init__(self, name, ptype, visibility, read_name=None, write_name=None):
         self.name       = name
@@ -687,6 +689,7 @@ class AsmJitGenerator(PascalParserVisitor):
         
         self.local_var_stack    = []
         self.local_const_stack  = []
+        self.global_var_initializers = []
         self.exit_label_stack   = []
         self.try_except_stack   = []
         
@@ -2469,7 +2472,8 @@ class AsmJitGenerator(PascalParserVisitor):
     def push_local_scope(self):
         self.local_var_stack.append({
             "vars": {},
-            "next_offset": 0
+            "next_offset": 0,
+            "initializers": []
         })
 
     def pop_local_scope(self):
@@ -2671,19 +2675,55 @@ class AsmJitGenerator(PascalParserVisitor):
         if info is None:
             return
 
-        fail_label = self.new_named_label("subrange_fail")
-        done_label = self.new_named_label("subrange_ok")
+        # Ein Register enthält bei NT32 ohnehin exakt 32 Bits.
+        # Deshalb kann ein Wert in EAX den vollständigen DWORD-Bereich
+        # 0..$FFFFFFFF niemals verlassen.
+        if (
+            not info.signed
+            and info.min_value == 0
+            and info.max_value == 0xFFFFFFFF
+        ):
+            return
 
-        self.emit_cmp(value_reg, info.min_value)
-        self.emit_jl(fail_label)
+        fail_label = self.new_named_label(
+            "subrange_fail"
+        )
+        done_label = self.new_named_label(
+            "subrange_ok"
+        )
 
-        self.emit_cmp(value_reg, info.max_value)
-        self.emit_jg(fail_label)
-        
+        if info.signed:
+            # Vorzeichenbehafteter Vergleich.
+            self.emit_cmp(
+                value_reg,
+                info.min_value
+            )
+            self.emit_jl(fail_label)
+
+            self.emit_cmp(
+                value_reg,
+                info.max_value
+            )
+            self.emit_jg(fail_label)
+
+        else:
+            # Vorzeichenloser Vergleich.
+            if info.min_value != 0:
+                self.emit_cmp(
+                    value_reg,
+                    info.min_value
+                )
+                self.emit_jb(fail_label)
+
+            if info.max_value != 0xFFFFFFFF:
+                self.emit_cmp(
+                    value_reg,
+                    info.max_value
+                )
+                self.emit_ja(fail_label)
+
         self.emit_jmp(done_label)
-
         self.emit_bind_label(fail_label)
-
         self.emit_soft_runtime_error(
             f"Range check error: value for "
             f"{info.name} must be in "
@@ -2691,6 +2731,209 @@ class AsmJitGenerator(PascalParserVisitor):
         )
 
         self.emit_bind_label(done_label)
+
+    def emit_exception_message(
+        self,
+        ctx,
+        exception_type
+    ):
+        cls = self.classes[
+            exception_type
+        ]
+
+        prop = getattr(
+            cls,
+            "properties",
+            {}
+        ).get(
+            "message"
+        )
+
+        if prop is None:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"class {cls.name} must publish a "
+                    "String property named Message"
+                )
+            )
+
+        if self.resolve_type(
+            prop.ptype
+        ) != "string":
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=self.resolve_type(prop.ptype),
+                expected="string"
+            )
+
+        read_name = prop.read_name
+
+        if not read_name:
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    f"property {cls.name}.Message "
+                    "has no read accessor"
+                )
+            )
+
+        read_key = read_name.lower()
+        field = cls.fields.get(
+            read_key
+        )
+
+        # property Message: String read FMessage;
+        if field is not None:
+            field_type = self.resolve_type(
+                field.type
+            )
+
+            if field_type != "string":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=field_type,
+                    expected="string"
+                )
+
+            self.emit_mov_dword_ptr(
+                "eax",
+                "eax",
+                field.offset,
+                comment=f"{cls.name}.Message"
+            )
+
+            return "string"
+
+        # property Message: String read GetMessage;
+        method, owner_cls = self.find_class_method_recursive(
+            ctx,
+            exception_type,
+            read_name,
+            []
+        )
+
+        if (
+            method.kind != "function"
+            or self.resolve_type(
+                method.return_type
+            ) != "string"
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=(
+                    self.resolve_type(
+                        method.return_type
+                    )
+                    if method.return_type
+                    else method.kind
+                ),
+                expected="string function"
+            )
+
+        self.emit_push(
+            "eax",
+            comment="Exception Self"
+        )
+
+        self.emit_class_method_call(
+            method,
+            comment=(
+                f"{owner_cls.name}."
+                f"{method.name}"
+            )
+        )
+
+        self.backend.emit_cleanup_stack(
+            4
+        )
+
+        return "string"
+
+    def visitRaiseStatement(
+        self,
+        ctx
+    ):
+        if CDATA.args_target not in (
+            "nt35",
+            "winnt",
+            "win32"
+        ):
+            raise CompileError(
+                ctx,
+                "E0019",
+                text=(
+                    "raise is currently implemented "
+                    "only for NT32/Win32"
+                )
+            )
+
+        exception_type = self.resolve_type(
+            self.visit(
+                ctx.expr()
+            )
+        )
+
+        if (
+            "exception" not in self.classes
+            or not self.is_class_type(
+                exception_type
+            )
+            or not self.class_is_descendant(
+                exception_type,
+                "exception"
+            )
+        ):
+            raise CompileError(
+                ctx,
+                "E0005",
+                got=exception_type,
+                expected="Exception"
+            )
+
+        # The constructor/function result is the exception object in EAX.
+        self.emit_nil_pointer_check(
+            "raise expression"
+        )
+
+        # Replaces EAX with the null-terminated dynamic string data pointer.
+        self.emit_exception_message(
+            ctx,
+            exception_type
+        )
+
+        # cdecl:
+        #
+        #   _jit_raise(JIT_USER_EXCEPTION, message)
+        #
+        # Arguments are pushed from right to left.
+        self.emit_push(
+            "eax",
+            comment="exception message"
+        )
+
+        self.backend.writer.emit_push_imm32(
+            JIT_USER_EXCEPTION
+        )
+
+        self.emit_call(
+            "_jit_raise"
+        )
+
+        # _jit_raise normally does not return.  Keep the generated stack
+        # balanced for runtimes that return after reporting an unhandled
+        # exception.
+        self.backend.emit_cleanup_stack(
+            8
+        )
+
+        return None
+
 
     def expression_variable_ref(self, ctx, expr):
         if expr is None:
@@ -3964,7 +4207,7 @@ class AsmJitGenerator(PascalParserVisitor):
                         alignment=1
                     )
         
-        elif typ == "integer":
+        elif typ in ("integer", "boolean"):
             slot = self.next_int_slot
             self.next_int_slot += 1
             
@@ -7595,6 +7838,17 @@ class AsmJitGenerator(PascalParserVisitor):
         ctx,
         obj_name
     ):
+        # --------------------------------------------------------------
+        # Aktuelles Objekt innerhalb einer Klassenmethode
+        # --------------------------------------------------------------
+        if obj_name.lower() == "self":
+            if (self.current_class is None or self.current_method is None):
+                raise CompileError(ctx,
+                    "E0019",
+                    text="Self may only be used inside a class method"
+                )
+            return ("self", None, self.current_class)
+
         local_info = self.find_local_var(obj_name)
 
         if local_info is not None:
@@ -7696,6 +7950,28 @@ class AsmJitGenerator(PascalParserVisitor):
         info,
         class_type
     ):
+        if source_kind == "self":
+            if CDATA.args_target in (
+                "nt35",
+                "winnt",
+                "win32"
+            ):
+                self.emit_mov_dword_ptr(
+                    "eax",
+                    "ebp",
+                    -4,
+                    comment="load Self"
+                )
+            else:
+                self.emit_mov_qword_ptr(
+                    "rax",
+                    "rbp",
+                    -8,
+                    comment="load Self"
+                )
+
+            return class_type
+            
         if source_kind == "local":
             offset = info["offset"]
 
@@ -11349,6 +11625,15 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.emit_and("eax", 1)
 
             return typ
+
+        if typ == "double":
+            self.emit_movsd_load(
+                "xmm0",
+                "ebp" if CDATA.args_target in ("nt35", "winnt", "win32") else "rbp",
+                offset,
+                comment=f"local double {name}"
+            )
+            return "double"
 
         if typ == "char":
             self.backend.writer.emit_movzx_r32_byte_ptr(
@@ -15720,6 +16005,33 @@ class AsmJitGenerator(PascalParserVisitor):
 
             return
 
+        if typ == "double":
+            if self.conditional_integer_like_type(
+                value_type
+            ):
+                self.emit_cvtsi2sd(
+                    "xmm0",
+                    "eax"
+                )
+
+                value_type = "double"
+
+            if value_type != "double":
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=value_type,
+                    expected="double"
+                )
+
+            self.emit_movsd_store(
+                "ebp" if CDATA.args_target in ("nt35", "winnt", "win32") else "rbp",
+                offset,
+                "xmm0",
+                comment=f"local double {name} :="
+            )
+            return
+
         if self.is_pointer_type(typ, include_nil=False):
             if not self.pointer_assignment_compatible(
                 value_type,
@@ -15776,7 +16088,7 @@ class AsmJitGenerator(PascalParserVisitor):
         if CDATA.args_target in ["dos", "dos16"]:
             var_type = self.resolve_type(info["type"])
 
-            if var_type == "integer":
+            if var_type in ("integer", "boolean"):
                 symbol = info.get("symbol")
 
                 if not symbol:
@@ -15784,7 +16096,14 @@ class AsmJitGenerator(PascalParserVisitor):
                     info["symbol"] = symbol
 
                 self.backend.emit_load_word_var("ax", symbol)
-                return "integer"
+
+                if var_type == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
+                return var_type
             
             if isinstance(var_type, str) and var_type.startswith("^"):
                 symbol = info.get("symbol")
@@ -15836,7 +16155,7 @@ class AsmJitGenerator(PascalParserVisitor):
                 )
                 return "string"
 
-            if var_type == "integer":
+            if var_type in ("integer", "boolean"):
                 symbol = info.get("symbol")
                 if not symbol:
                     symbol = f"_var_{info['name']}"
@@ -15850,7 +16169,14 @@ class AsmJitGenerator(PascalParserVisitor):
                     "eax",
                     symbol
                 )
-                return "integer"
+
+                if var_type == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
+                return var_type
 
             if var_type == "double":
                 symbol = info.get("symbol")
@@ -15878,8 +16204,15 @@ class AsmJitGenerator(PascalParserVisitor):
         if hasattr(self, "coff") and "symbol" in info:
             symbol = info["symbol"]
 
-            if typ == "integer":
+            if typ in ("integer", "boolean"):
                 self.coff.emit_mov_r32_data_label("eax", symbol)
+
+                if typ == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
                 return
 
             if typ == "double":
@@ -15919,9 +16252,16 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.emit_mov_qword_ptr("rax", "rax", slot * self.pointer_slot_size(), comment=f"dynamic array {name}")
                 return
         
-        if typ == "integer":
+        if typ in ("integer", "boolean"):
             self.emit_mov_qword("rax", "r12", "int_vars")
             self.emit_mov_dword_ptr("eax", "rax", slot * self.pointer_slot_size(), comment=f"{name}")
+
+            if typ == "boolean":
+                self.emit_and(
+                    "eax",
+                    1
+                )
+
             return
         
         if typ == "double":
@@ -16062,7 +16402,13 @@ class AsmJitGenerator(PascalParserVisitor):
         if hasattr(self, "coff") and "symbol" in info:
             symbol = info["symbol"]
 
-            if typ == "integer":
+            if typ in ("integer", "boolean"):
+                if typ == "boolean":
+                    self.emit_and(
+                        "eax",
+                        1
+                    )
+
                 self.coff.emit_mov_data_label_r32(symbol, "eax")
                 return
 
@@ -16111,12 +16457,18 @@ class AsmJitGenerator(PascalParserVisitor):
                 self.emit_mov_qword_ptr_store("r11", slot * self.pointer_slot_size(), "rax", comment=f"dynamic array {name}")
                 return
                 
-        if typ == "integer":
+        if typ in ("integer", "boolean"):
+            if typ == "boolean":
+                self.emit_and(
+                    "eax",
+                    1
+                )
+
             if CDATA.args_backend in ["exefile"]:
                 if CDATA.args_target in ["dos", "dos16"]:
                     var_type = self.resolve_type(info["type"])
 
-                    if var_type == "integer":
+                    if var_type in ("integer", "boolean"):
                         symbol = info.get("symbol")
 
                         if not symbol:
@@ -16281,6 +16633,28 @@ class AsmJitGenerator(PascalParserVisitor):
 
             "scoped_name": scoped
         }
+
+        # Für die statische Typinferenz lokaler Initialisierer müssen
+        # Parametertypen bereits vor der endgültigen ABI-Offsetzuweisung
+        # sichtbar sein. Die Einträge werden weiter unten mit den echten
+        # Registern beziehungsweise Stackoffsets ersetzt.
+        for param in params:
+            self.current_proc_params[
+                param["name"].lower()
+            ] = {
+                "type": param["type"],
+                "reg": None,
+                "stack_offset": None,
+                "is_var": param.get("is_var", False),
+                "is_const": param.get("is_const", False),
+                "is_open_array": param.get(
+                    "is_open_array",
+                    False
+                ),
+                "element_type": param.get(
+                    "element_type"
+                )
+            }
 
         # -------------------------------------------------
         # Lokalen Scope zuerst anlegen
@@ -16466,6 +16840,9 @@ class AsmJitGenerator(PascalParserVisitor):
             self.visit(
                 declaration
             )
+
+        self.emit_local_var_initializers()
+
         # -------------------------------------------------
         # Nur den ausführbaren Funktionskörper besuchen.
         # -------------------------------------------------
@@ -18065,6 +18442,7 @@ class AsmJitGenerator(PascalParserVisitor):
             self.writer.emit_jne(done_label)
 
             self.emit_unit_initializers()
+            self.emit_global_var_initializers()
 
             for name, info in self.vars.items():
                 if info["type"] in self.arrays:
@@ -18094,6 +18472,7 @@ class AsmJitGenerator(PascalParserVisitor):
         self.emit_mov("r12", "rcx", comment="ctx")
 
         self.emit_unit_initializers()
+        self.emit_global_var_initializers()
 
         for name, info in self.vars.items():
             if info["type"] in self.arrays:
@@ -18187,6 +18566,8 @@ class AsmJitGenerator(PascalParserVisitor):
 
             self.emit_jmp(skip_label)
             self.emit_bind_label(init_label)
+
+            self.emit_global_var_initializers()
 
             if ctx.unitInitBlock():
                 self.visit(ctx.unitInitBlock())
@@ -19344,6 +19725,9 @@ class AsmJitGenerator(PascalParserVisitor):
                 if decl is not None:
                     self.visit(decl)
 
+        if self.current_local_scope() is not None:
+            self.emit_local_var_initializers()
+
         stmt_list = ctx.statementList()
 
         if stmt_list is not None:
@@ -19868,6 +20252,634 @@ class AsmJitGenerator(PascalParserVisitor):
         )
 
         return "boolean"
+
+    def convert_conditional_value(
+        self,
+        ctx,
+        value_type,
+        result_type
+    ):
+        value_type = self.resolve_type(
+            value_type
+        )
+
+        result_type = self.resolve_type(
+            result_type
+        )
+
+        if value_type == result_type:
+            return result_type
+
+        if (
+            result_type == "integer"
+            and self.conditional_integer_like_type(
+                value_type
+            )
+        ):
+            return result_type
+
+        if (
+            result_type == "double"
+            and self.conditional_integer_like_type(
+                value_type
+            )
+        ):
+            self.emit_cvtsi2sd(
+                "xmm0",
+                "eax"
+            )
+
+            return result_type
+
+        if (
+            self.is_class_type(
+                result_type
+            )
+            and self.class_assignment_compatible(
+                value_type,
+                result_type
+            )
+        ):
+            return result_type
+
+        if (
+            self.is_pointer_type(
+                result_type,
+                include_nil=False
+            )
+            and self.pointer_assignment_compatible(
+                value_type,
+                result_type
+            )
+        ):
+            return result_type
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=value_type,
+            expected=result_type
+        )
+
+    def visitConditionalExpression(self, ctx):
+        """
+        Erzeugt einen wertliefernden IF-Ausdruck:
+
+            if Left <= Right else Fallback
+
+        Bei wahrer Bedingung ist Right das Ergebnis, andernfalls Fallback.
+        Right wird genau einmal ausgewertet und während des Vergleichs in
+        EDX/RDX beziehungsweise XMM2 erhalten.
+        """
+        operands = list(
+            ctx.addExpr()
+        )
+
+        if len(operands) != 2:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text=ctx.getText()
+            )
+
+        result_type = self.infer_expression_type(
+            ctx
+        )
+
+        operator = (
+            ctx.compareOp()
+            .getText()
+            .lower()
+        )
+
+        target = CDATA.args_target.lower()
+        is_nt32 = target in (
+            "nt35",
+            "winnt",
+            "win32"
+        )
+
+        is_dos = target in (
+            "dos",
+            "dos16"
+        )
+
+        value_reg = (
+            "eax"
+            if is_nt32 or is_dos
+            else "rax"
+        )
+
+        preserved_reg = (
+            "edx"
+            if is_nt32 or is_dos
+            else "rdx"
+        )
+
+        compare_reg = (
+            "ebx"
+            if is_nt32 or is_dos
+            else "rbx"
+        )
+
+        stack_reg = (
+            "sp"
+            if is_dos
+            else (
+                "esp"
+                if is_nt32
+                else "rsp"
+            )
+        )
+
+        left_type = self.visit(
+            operands[0]
+        )
+
+        if left_type == "double":
+            if is_dos:
+                raise CompileError(
+                    ctx,
+                    "E0019",
+                    text=(
+                        "double conditional comparisons are "
+                        "not implemented for DOS16"
+                    )
+                )
+
+            self.emit_sub(
+                stack_reg,
+                8,
+                comment="save conditional left double"
+            )
+
+            self.emit_movsd_store(
+                stack_reg,
+                0,
+                "xmm0"
+            )
+        else:
+            self.emit_push(
+                value_reg,
+                comment="save conditional left value"
+            )
+
+        right_type = self.visit(
+            operands[1]
+        )
+
+        if right_type == "double":
+            self.emit_movapd(
+                "xmm2",
+                "xmm0",
+                comment="preserve conditional true value"
+            )
+        else:
+            self.emit_mov(
+                preserved_reg,
+                value_reg,
+                comment="preserve conditional true value"
+            )
+
+        # ----------------------------------------------------------
+        # Double-Vergleich, auch gemischt mit Integerwerten.
+        # ----------------------------------------------------------
+        if (
+            left_type == "double"
+            or right_type == "double"
+        ):
+            if right_type == "double":
+                self.emit_movapd(
+                    "xmm1",
+                    "xmm0"
+                )
+
+            elif self.conditional_integer_like_type(
+                right_type
+            ):
+                self.emit_cvtsi2sd(
+                    "xmm1",
+                    "eax"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=right_type,
+                    expected="integer/double"
+                )
+
+            if left_type == "double":
+                self.emit_movsd_load(
+                    "xmm0",
+                    stack_reg,
+                    0
+                )
+
+                self.emit_add(
+                    stack_reg,
+                    8,
+                    comment="restore conditional left double"
+                )
+
+            elif self.conditional_integer_like_type(
+                left_type
+            ):
+                self.emit_pop(
+                    value_reg,
+                    comment="restore conditional left integer"
+                )
+
+                self.emit_cvtsi2sd(
+                    "xmm0",
+                    "eax"
+                )
+
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=left_type,
+                    expected="integer/double"
+                )
+
+            self.emit_ucomisd(
+                "xmm0",
+                "xmm1"
+            )
+
+            compare_true = self.new_named_label(
+                "conditional_compare_true"
+            )
+
+            compare_done = self.new_named_label(
+                "conditional_compare_done"
+            )
+
+            jump_map = {
+                "=": self.emit_je,
+                "<>": self.emit_jne,
+                "<": self.emit_jb,
+                "<=": self.emit_jbe,
+                ">": self.emit_ja,
+                ">=": self.emit_jae
+            }
+
+            jump = jump_map.get(
+                operator
+            )
+
+            if jump is None:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text=(
+                        "unsupported comparison operator: "
+                        + operator
+                    )
+                )
+
+            self.emit_xor(
+                "eax",
+                "eax",
+                comment="conditional comparison false"
+            )
+
+            jump(
+                compare_true
+            )
+
+            self.emit_jmp(
+                compare_done
+            )
+
+            self.emit_bind_label(
+                compare_true
+            )
+
+            self.emit_mov_imm(
+                "eax",
+                1,
+                comment="conditional comparison true"
+            )
+
+            self.emit_bind_label(
+                compare_done
+            )
+
+        else:
+            # ------------------------------------------------------
+            # Integer-, Pointer- und Klassenvergleich.
+            # ------------------------------------------------------
+            self.emit_mov(
+                compare_reg,
+                value_reg,
+                comment="conditional right comparison operand"
+            )
+
+            self.emit_pop(
+                value_reg,
+                comment="restore conditional left operand"
+            )
+
+            left_resolved = self.resolve_type(
+                left_type
+            )
+
+            right_resolved = self.resolve_type(
+                right_type
+            )
+
+            left_reference = (
+                self.is_pointer_type(
+                    left_resolved,
+                    include_nil=False
+                )
+                or self.is_class_type(
+                    left_resolved
+                )
+            )
+
+            right_reference = (
+                self.is_pointer_type(
+                    right_resolved,
+                    include_nil=False
+                )
+                or self.is_class_type(
+                    right_resolved
+                )
+            )
+
+            left_nil = left_type in (
+                "nil",
+                "^nil"
+            )
+
+            right_nil = right_type in (
+                "nil",
+                "^nil"
+            )
+
+            reference_comparison = (
+                (
+                    left_reference
+                    and (
+                        right_reference
+                        or right_nil
+                    )
+                )
+                or (
+                    left_nil
+                    and right_reference
+                )
+            )
+
+            if reference_comparison:
+                if operator not in (
+                    "=",
+                    "<>"
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=operator,
+                        expected="= or <> for pointer comparison"
+                    )
+
+            elif not (
+                self.conditional_integer_like_type(
+                    left_type
+                )
+                and self.conditional_integer_like_type(
+                    right_type
+                )
+            ):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=f"{left_type}/{right_type}",
+                    expected="integer/double/pointer/class"
+                )
+
+            self.emit_cmp(
+                value_reg,
+                compare_reg
+            )
+
+            if operator == "=":
+                self.emit_sete(
+                    "al"
+                )
+            elif operator == "<>":
+                self.emit_setne(
+                    "al"
+                )
+            elif operator == "<":
+                self.emit_setl(
+                    "al"
+                )
+            elif operator == "<=":
+                self.emit_setle(
+                    "al"
+                )
+            elif operator == ">":
+                self.emit_setg(
+                    "al"
+                )
+            elif operator == ">=":
+                self.emit_setge(
+                    "al"
+                )
+            else:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text=(
+                        "unsupported comparison operator: "
+                        + operator
+                    )
+                )
+
+            self.emit_movzx(
+                "eax",
+                "al"
+            )
+
+        false_label = self.new_named_label(
+            "conditional_false"
+        )
+
+        done_label = self.new_named_label(
+            "conditional_done"
+        )
+
+        self.emit_cmp(
+            "eax",
+            0
+        )
+
+        self.emit_je(
+            false_label
+        )
+
+        if right_type == "double":
+            self.emit_movapd(
+                "xmm0",
+                "xmm2",
+                comment="conditional true result"
+            )
+        else:
+            self.emit_mov(
+                value_reg,
+                preserved_reg,
+                comment="conditional true result"
+            )
+
+        self.convert_conditional_value(
+            ctx,
+            right_type,
+            result_type
+        )
+
+        self.emit_jmp(
+            done_label
+        )
+
+        self.emit_bind_label(
+            false_label
+        )
+
+        false_type = self.visit(
+            ctx.expr()
+        )
+
+        self.convert_conditional_value(
+            ctx,
+            false_type,
+            result_type
+        )
+
+        self.emit_bind_label(
+            done_label
+        )
+
+        return result_type
+
+    def emit_var_initializers(
+        self,
+        items,
+        local
+    ):
+        pending = list(
+            items
+        )
+
+        items.clear()
+
+        for item in pending:
+            name = item["name"]
+            initializer_ctx = item["ctx"]
+
+            expr_type = self.visit(
+                initializer_ctx
+            )
+
+            if local:
+                self.emit_store_local_var(
+                    initializer_ctx,
+                    name,
+                    expr_type
+                )
+                continue
+
+            info = self.var_info(
+                initializer_ctx,
+                name
+            )
+
+            target_type = self.resolve_type(
+                info["type"]
+            )
+
+            expr_type = self.resolve_type(
+                expr_type
+            )
+
+            if self.is_class_type(
+                target_type
+            ):
+                if not self.class_assignment_compatible(
+                    expr_type,
+                    target_type
+                ):
+                    raise CompileError(
+                        initializer_ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=target_type
+                    )
+
+                self.emit_store_object_var(
+                    initializer_ctx,
+                    name,
+                    info
+                )
+                continue
+
+            if (
+                target_type == "double"
+                and self.conditional_integer_like_type(
+                    expr_type
+                )
+            ):
+                self.emit_cvtsi2sd(
+                    "xmm0",
+                    "eax"
+                )
+
+                expr_type = "double"
+
+            if target_type != expr_type:
+                if not (
+                    target_type == "integer"
+                    and self.conditional_integer_like_type(
+                        expr_type
+                    )
+                ):
+                    raise CompileError(
+                        initializer_ctx,
+                        "E0005",
+                        got=expr_type,
+                        expected=target_type
+                    )
+
+            self.emit_store_var(
+                initializer_ctx,
+                name,
+                info
+            )
+
+    def emit_local_var_initializers(
+        self
+    ):
+        scope = self.current_local_scope()
+
+        if scope is None:
+            return
+
+        self.emit_var_initializers(
+            scope["initializers"],
+            local=True
+        )
+
+    def emit_global_var_initializers(
+        self
+    ):
+        self.emit_var_initializers(
+            self.global_var_initializers,
+            local=False
+        )
 
     def visitRecordDeclaration(self, ctx):
         record_name = ctx.IDENT().getText()
@@ -20517,6 +21529,9 @@ class AsmJitGenerator(PascalParserVisitor):
         
         if ctx.tryStatement():
             return self.visit(ctx.tryStatement())
+        
+        if ctx.raiseStatement():
+            return self.visit(ctx.raiseStatement())
         
         if ctx.assignment():
             return self.visit(ctx.assignment())
@@ -21386,9 +22401,946 @@ class AsmJitGenerator(PascalParserVisitor):
         for decl in ctx.varDeclaration():
             self.visit(decl)
         return None
+
+    def conditional_integer_like_type(self, type_name):
+        resolved = self.resolve_type(type_name)
+
+        return (
+            resolved in (
+                "integer",
+                "boolean",
+                "char"
+            )
+            or self.scalar_base_type(resolved)
+            in (
+                "integer",
+                "boolean",
+                "char"
+            )
+        )
+
+    def merge_conditional_types(
+        self,
+        ctx,
+        true_type,
+        false_type
+    ):
+        """
+        Bestimmt den gemeinsamen Typ beider Ergebniszweige.
+
+        Der Ausdruck besitzt absichtlich keinen Variant-Typ. Dadurch bleibt
+        eine mit ``var Name := ...`` deklarierte Variable statisch typisiert.
+        """
+        true_type = self.resolve_type(true_type)
+        false_type = self.resolve_type(false_type)
+
+        if true_type == false_type:
+            if true_type in ("nil", "^nil"):
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=true_type,
+                    expected="typed pointer or class"
+                )
+
+            return true_type
+
+        true_integer = self.conditional_integer_like_type(
+            true_type
+        )
+
+        false_integer = self.conditional_integer_like_type(
+            false_type
+        )
+
+        if true_integer and false_integer:
+            return "integer"
+
+        if (
+            true_type == "double"
+            and false_integer
+        ) or (
+            false_type == "double"
+            and true_integer
+        ):
+            return "double"
+
+        if true_type in ("nil", "^nil"):
+            if (
+                self.is_pointer_type(
+                    false_type,
+                    include_nil=False
+                )
+                or self.is_class_type(
+                    false_type
+                )
+            ):
+                return false_type
+
+        if false_type in ("nil", "^nil"):
+            if (
+                self.is_pointer_type(
+                    true_type,
+                    include_nil=False
+                )
+                or self.is_class_type(
+                    true_type
+                )
+            ):
+                return true_type
+
+        if (
+            self.is_class_type(true_type)
+            and self.is_class_type(false_type)
+        ):
+            if self.class_assignment_compatible(
+                true_type,
+                false_type
+            ):
+                return false_type
+
+            if self.class_assignment_compatible(
+                false_type,
+                true_type
+            ):
+                return true_type
+
+        if (
+            self.is_pointer_type(
+                true_type,
+                include_nil=False
+            )
+            and self.is_pointer_type(
+                false_type,
+                include_nil=False
+            )
+        ):
+            if self.pointer_assignment_compatible(
+                true_type,
+                false_type
+            ):
+                return false_type
+
+            if self.pointer_assignment_compatible(
+                false_type,
+                true_type
+            ):
+                return true_type
+
+        raise CompileError(
+            ctx,
+            "E0005",
+            got=f"{true_type}/{false_type}",
+            expected="compatible conditional result types"
+        )
+
+    def infer_plain_identifier_type(
+        self,
+        ctx,
+        name
+    ):
+        local_var = self.find_local_var(
+            name
+        )
+
+        if local_var is not None:
+            return self.resolve_type(
+                local_var["type"]
+            )
+
+        param = self.find_param(
+            name
+        )
+
+        if param is not None:
+            return self.resolve_type(
+                param["type"]
+            )
+
+        field = self.find_current_class_field(
+            name
+        )
+
+        if field is not None:
+            return self.resolve_type(
+                field.type
+            )
+
+        const_info = self.find_const(
+            name
+        )
+
+        if const_info is not None:
+            return self.resolve_type(
+                const_info["type"]
+            )
+
+        var_info = self.vars.get(
+            name.lower()
+        )
+
+        if var_info is not None:
+            return self.resolve_type(
+                var_info["type"]
+            )
+
+        if (
+            name.lower() == "self"
+            and self.current_class is not None
+        ):
+            return self.current_class
+
+        function = self.find_function(
+            name
+        )
+
+        if (
+            function is not None
+            and not function.get(
+                "params",
+                []
+            )
+        ):
+            return self.resolve_type(
+                function["return_type"]
+            )
+
+        if self.current_class is not None:
+            try:
+                method, _ = self.find_class_method_recursive(
+                    ctx,
+                    self.current_class,
+                    name,
+                    []
+                )
+
+                if method.return_type is not None:
+                    return self.resolve_type(
+                        method.return_type
+                    )
+
+            except CompileError:
+                pass
+
+        raise CompileError(
+            ctx,
+            "E0001",
+            name=name
+        )
+
+    def infer_variable_ref_type(
+        self,
+        ctx,
+        ref
+    ):
+        name = self.variable_ref_name(
+            ctx,
+            ref
+        )
+
+        suffixes = list(
+            ref.variableSuffix()
+        )
+
+        # Parameterloser Klassenkonstruktor ohne Klammern:
+        #
+        #     TFoo.Create
+        if (
+            name.lower() in self.classes
+            and suffixes
+            and self.suffix_is_dot(
+                suffixes[0]
+            )
+            and self.suffix_identifier_name(
+                ctx,
+                suffixes[0]
+            ).lower() == "create"
+        ):
+            return name.lower()
+
+        current_type = self.infer_plain_identifier_type(
+            ctx,
+            name
+        )
+
+        for suffix in suffixes:
+            current_type = self.resolve_type(
+                current_type
+            )
+
+            if self.suffix_is_caret(
+                suffix
+            ):
+                if not self.is_pointer_type(
+                    current_type,
+                    include_nil=False
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=current_type,
+                        expected="pointer"
+                    )
+
+                if current_type == "pointer":
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got=current_type,
+                        expected="typed pointer"
+                    )
+
+                current_type = self.resolve_type(
+                    current_type[1:]
+                )
+                continue
+
+            if self.suffix_is_index(
+                suffix
+            ):
+                if current_type == "string":
+                    current_type = "char"
+                    continue
+
+                if (
+                    isinstance(current_type, str)
+                    and current_type in self.arrays
+                ):
+                    current_type = self.resolve_type(
+                        self.arrays[
+                            current_type
+                        ].element_type
+                    )
+                    continue
+
+                if self.is_pointer_type(
+                    current_type,
+                    include_nil=False
+                ):
+                    current_type = self.resolve_type(
+                        current_type[1:]
+                    )
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_type,
+                    expected="array/string/pointer"
+                )
+
+            if self.suffix_is_dot(
+                suffix
+            ):
+                member_name = self.suffix_identifier_name(
+                    ctx,
+                    suffix
+                )
+
+                if current_type in self.classes:
+                    cls = self.classes[
+                        current_type
+                    ]
+
+                    field = cls.fields.get(
+                        member_name.lower()
+                    )
+
+                    if field is not None:
+                        current_type = self.resolve_type(
+                            field.type
+                        )
+                        continue
+
+                    method, _ = self.find_class_method_recursive(
+                        ctx,
+                        current_type,
+                        member_name,
+                        []
+                    )
+
+                    if method.return_type is None:
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got="procedure",
+                            expected="function"
+                        )
+
+                    current_type = self.resolve_type(
+                        method.return_type
+                    )
+                    continue
+
+                if current_type in self.records:
+                    field = self.records[
+                        current_type
+                    ].fields.get(
+                        member_name.lower()
+                    )
+
+                    if field is None:
+                        raise CompileError(
+                            ctx,
+                            "E0001",
+                            name=member_name
+                        )
+
+                    current_type = self.resolve_type(
+                        field.type
+                    )
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=current_type,
+                    expected="class/record"
+                )
+
+        return self.resolve_type(
+            current_type
+        )
+
+    def infer_function_call_type(
+        self,
+        ctx,
+        call_ctx
+    ):
+        names = list(
+            call_ctx.functionName()
+        )
+
+        if not names:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text=call_ctx.getText()
+            )
+
+        name = names[0].getText()
+        actuals = (
+            list(
+                call_ctx
+                .argumentList()
+                .expr()
+            )
+            if call_ctx.argumentList()
+            else []
+        )
+
+        actual_types = [
+            self.infer_expression_type(
+                actual
+            )
+            for actual in actuals
+        ]
+
+        if len(names) >= 2:
+            left_name = names[0].getText()
+            method_name = names[1].getText()
+
+            if (
+                method_name.lower() == "create"
+                and left_name.lower() in self.classes
+            ):
+                # Die Overload-Prüfung erfolgt weiterhin im normalen
+                # Codegenerierungspfad.
+                return left_name.lower()
+
+            object_type = self.infer_plain_identifier_type(
+                ctx,
+                left_name
+            )
+
+            if object_type in self.classes:
+                method, _ = self.find_class_method_recursive(
+                    ctx,
+                    object_type,
+                    method_name,
+                    [
+                        self.resolve_type(item)
+                        for item in actual_types
+                    ]
+                )
+
+                if method.return_type is None:
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got="procedure",
+                        expected="function"
+                    )
+
+                return self.resolve_type(
+                    method.return_type
+                )
+
+            name = method_name
+
+        key = name.lower()
+
+        builtin_types = {
+            "assigned": "boolean",
+            "length": "integer",
+            "low": "integer",
+            "high": "integer",
+            "paramcount": "integer",
+            "pos": "integer",
+            "diskfree": "integer",
+            "disktotal": "integer",
+            "disktype": "integer",
+            "ownerclassname": "string",
+            "paramstr": "string",
+            "commandline": "string",
+            "copy": "string",
+            "disklabel": "string",
+            "diskfilesystem": "string",
+            "diskshare": "string",
+            "blake2": "string",
+            "blake3": "string",
+            "crc16": "string",
+            "crc32": "string",
+            "crc32c": "string",
+            "crc64": "string",
+            "md5": "string",
+            "sha1": "string",
+            "sha3": "string",
+            "sha224": "string",
+            "sha256": "string",
+            "sha384": "string",
+            "sha512": "string"
+        }
+
+        if key in builtin_types:
+            return builtin_types[
+                key
+            ]
+
+        if (
+            len(names) == 1
+            and self.is_known_type_name(
+                name
+            )
+        ):
+            return self.resolve_type(
+                name
+            )
+
+        function = self.find_function(
+            name
+        )
+
+        if function is None:
+            raise CompileError(
+                ctx,
+                "E0001",
+                name=name
+            )
+
+        return self.resolve_type(
+            function["return_type"]
+        )
+
+    def infer_expression_type(
+        self,
+        ctx
+    ):
+        if ctx is None:
+            raise CompileError(
+                ctx,
+                "E0015",
+                text="missing expression"
+            )
+
+        context_name = type(
+            ctx
+        ).__name__
+
+        if context_name == "ConditionalExpressionContext":
+            add_exprs = list(
+                ctx.addExpr()
+            )
+
+            if len(add_exprs) != 2:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text=ctx.getText()
+                )
+
+            true_type = self.infer_expression_type(
+                add_exprs[1]
+            )
+
+            false_type = self.infer_expression_type(
+                ctx.expr()
+            )
+
+            return self.merge_conditional_types(
+                ctx,
+                true_type,
+                false_type
+            )
+
+        if context_name == "ExprContext":
+            return self.infer_expression_type(
+                ctx.boolOrExpr()
+            )
+
+        if context_name == "BoolOrExprContext":
+            operands = list(
+                ctx.boolXorExpr()
+            )
+
+            if len(operands) > 1:
+                return "boolean"
+
+            return self.infer_expression_type(
+                operands[0]
+            )
+
+        if context_name == "BoolXorExprContext":
+            operands = list(
+                ctx.boolAndExpr()
+            )
+
+            if len(operands) > 1:
+                return "boolean"
+
+            return self.infer_expression_type(
+                operands[0]
+            )
+
+        if context_name == "BoolAndExprContext":
+            operands = list(
+                ctx.compareExpr()
+            )
+
+            if len(operands) > 1:
+                return "boolean"
+
+            return self.infer_expression_type(
+                operands[0]
+            )
+
+        if context_name == "CompareExprContext":
+            operands = list(
+                ctx.addExpr()
+            )
+
+            if len(operands) > 1:
+                return "boolean"
+
+            return self.infer_expression_type(
+                operands[0]
+            )
+
+        if context_name == "AddExprContext":
+            operands = list(
+                ctx.shiftExpr()
+            )
+
+            result_type = self.infer_expression_type(
+                operands[0]
+            )
+
+            for operand in operands[1:]:
+                right_type = self.infer_expression_type(
+                    operand
+                )
+
+                if (
+                    result_type == "string"
+                    and right_type == "string"
+                ):
+                    result_type = "string"
+                    continue
+
+                if (
+                    result_type == "double"
+                    and self.conditional_integer_like_type(
+                        right_type
+                    )
+                ) or (
+                    right_type == "double"
+                    and self.conditional_integer_like_type(
+                        result_type
+                    )
+                ):
+                    result_type = "double"
+                    continue
+
+                if (
+                    self.conditional_integer_like_type(
+                        result_type
+                    )
+                    and self.conditional_integer_like_type(
+                        right_type
+                    )
+                ):
+                    result_type = "integer"
+                    continue
+
+                if result_type == right_type == "double":
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=f"{result_type}/{right_type}",
+                    expected="numeric or string expression"
+                )
+
+            return self.resolve_type(
+                result_type
+            )
+
+        if context_name == "ShiftExprContext":
+            operands = list(
+                ctx.term()
+            )
+
+            if len(operands) > 1:
+                return "integer"
+
+            return self.infer_expression_type(
+                operands[0]
+            )
+
+        if context_name == "TermContext":
+            operands = list(
+                ctx.factor()
+            )
+
+            result_type = self.infer_expression_type(
+                operands[0]
+            )
+
+            for operand in operands[1:]:
+                right_type = self.infer_expression_type(
+                    operand
+                )
+
+                if (
+                    result_type == "double"
+                    or right_type == "double"
+                ):
+                    if not (
+                        (
+                            result_type == "double"
+                            or self.conditional_integer_like_type(
+                                result_type
+                            )
+                        )
+                        and (
+                            right_type == "double"
+                            or self.conditional_integer_like_type(
+                                right_type
+                            )
+                        )
+                    ):
+                        raise CompileError(
+                            ctx,
+                            "E0005",
+                            got=f"{result_type}/{right_type}",
+                            expected="numeric expression"
+                        )
+
+                    result_type = "double"
+                    continue
+
+                if (
+                    self.conditional_integer_like_type(
+                        result_type
+                    )
+                    and self.conditional_integer_like_type(
+                        right_type
+                    )
+                ):
+                    result_type = "integer"
+                    continue
+
+                raise CompileError(
+                    ctx,
+                    "E0005",
+                    got=f"{result_type}/{right_type}",
+                    expected="numeric expression"
+                )
+
+            return result_type
+
+        if context_name == "FactorContext":
+            nested_factor = ctx.factor()
+
+            if nested_factor is not None:
+                if ctx.NOT():
+                    return "boolean"
+
+                return self.infer_expression_type(
+                    nested_factor
+                )
+
+            conditional_accessor = getattr(
+                ctx,
+                "conditionalExpression",
+                None
+            )
+
+            if callable(
+                conditional_accessor
+            ):
+                conditional = conditional_accessor()
+
+                if conditional is not None:
+                    return self.infer_expression_type(
+                        conditional
+                    )
+
+            if ctx.TRUE() or ctx.FALSE():
+                return "boolean"
+
+            if ctx.CHARCODE():
+                return "char"
+
+            if ctx.HEXNUMBER() or ctx.NUMBER():
+                return "integer"
+
+            if ctx.FLOATNUMBER():
+                return "double"
+
+            if ctx.STRING():
+                return "string"
+
+            if ctx.NIL():
+                return "^nil"
+
+            if ctx.AT():
+                ref_type = self.infer_variable_ref_type(
+                    ctx,
+                    ctx.variableRef()
+                )
+
+                return "^" + ref_type
+
+            inherited_accessor = getattr(
+                ctx,
+                "inheritedExpression",
+                None
+            )
+
+            if callable(
+                inherited_accessor
+            ) and inherited_accessor() is not None:
+                if (
+                    self.current_method is None
+                    or self.current_method.return_type is None
+                ):
+                    raise CompileError(
+                        ctx,
+                        "E0005",
+                        got="inherited procedure",
+                        expected="inherited function"
+                    )
+
+                return self.resolve_type(
+                    self.current_method.return_type
+                )
+
+            if ctx.functionCallExpr():
+                return self.infer_function_call_type(
+                    ctx,
+                    ctx.functionCallExpr()
+                )
+
+            if ctx.variableRef():
+                return self.infer_variable_ref_type(
+                    ctx,
+                    ctx.variableRef()
+                )
+
+            if ctx.expr():
+                return self.infer_expression_type(
+                    ctx.expr()
+                )
+
+        raise CompileError(
+            ctx,
+            "E0015",
+            text=(
+                "cannot infer expression type: "
+                + ctx.getText()
+            )
+        )
+
+    def queue_var_initializer(
+        self,
+        name,
+        initializer_ctx
+    ):
+        item = {
+            "name": name,
+            "ctx": initializer_ctx
+        }
+
+        scope = self.current_local_scope()
+
+        if scope is not None:
+            scope["initializers"].append(
+                item
+            )
+            return
+
+        self.global_var_initializers.append(
+            item
+        )
     
     def visitVarDeclaration(self, ctx):
         vtype_ctx = ctx.varType()
+
+        if vtype_ctx is None:
+            initializer_ctx = ctx.conditionalExpression()
+
+            if initializer_ctx is None:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text=ctx.getText()
+                )
+
+            ident = ctx.IDENT()
+
+            if ident is None:
+                raise CompileError(
+                    ctx,
+                    "E0015",
+                    text="inferred variable requires one identifier"
+                )
+
+            name = ident.getText()
+            inferred_type = self.infer_expression_type(
+                initializer_ctx
+            )
+
+            if self.local_var_stack:
+                self.declare_local_var(
+                    ctx,
+                    name,
+                    inferred_type
+                )
+            else:
+                self.declare_var(
+                    ctx,
+                    name,
+                    inferred_type
+                )
+
+            self.queue_var_initializer(
+                name,
+                initializer_ctx
+            )
+
+            return None
 
         if vtype_ctx.arrayType():
             array_type = self.visit(vtype_ctx.arrayType())
@@ -24904,6 +26856,22 @@ class AsmJitGenerator(PascalParserVisitor):
     def visitFactor(self, ctx):
         text = ctx.getText()
 
+        conditional_accessor = getattr(
+            ctx,
+            "conditionalExpression",
+            None
+        )
+
+        if callable(
+            conditional_accessor
+        ):
+            conditional = conditional_accessor()
+
+            if conditional is not None:
+                return self.visit(
+                    conditional
+                )
+
         # ------------------------------------------------------------
         # Identifier einer variableRef sicher ermitteln.
         #
@@ -28109,6 +30077,8 @@ class AsmJitGenerator(PascalParserVisitor):
         for declaration in nested_declarations:
             self.visit(declaration)
 
+        self.emit_local_var_initializers()
+
         # Nur ausführbare Statements besuchen. Die Deklarationen wurden
         # bereits verarbeitet und dürfen nicht doppelt besucht werden.
         statement_list = block_ctx.statementList()
@@ -28302,6 +30272,37 @@ class AsmJitGenerator(PascalParserVisitor):
 
         if key == "__debug_break":
             return self.emit_builtin_debug_break()
+            
+        # ------------------------------------------------------------------
+        # Impliziter Methodenaufruf über Self:
+        #
+        #     DestroyHandle;
+        #     SetCaption(ACaption);
+        #     SetBounds(10, 10, 100, 32);
+        # ------------------------------------------------------------------
+        if self.current_class is not None:
+            cls = self.classes.get(
+                self.current_class
+            )
+
+            if (
+                cls is not None
+                and key in cls.methods
+            ):
+                actuals = []
+
+                if ctx.actualParamList():
+                    actuals = list(
+                        ctx.actualParamList().actualParam()
+                    )
+
+                return self.emit_object_method_call(
+                    ctx,
+                    "Self",
+                    name,
+                    actuals=actuals,
+                    require_function=False
+                )
 
         # ------------------------------------------------------------------
         # Funktion oder Prozedur suchen
@@ -30012,6 +32013,7 @@ class PascalGenerator(AsmJitGenerator):
 
         # Unit-Initialisierungen müssen innerhalb von _main liegen.
         self.emit_unit_initializers()
+        self.emit_global_var_initializers()
 
         for name, info in self.vars.items():
             if info["type"] in self.arrays:

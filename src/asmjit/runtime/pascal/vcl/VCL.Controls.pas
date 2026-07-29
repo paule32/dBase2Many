@@ -62,6 +62,7 @@ type
             AParent: HWND;
             AControlID: Integer;
             const ACaption: String);
+        destructor Destroy;
             
         procedure Click;
     end;
@@ -76,7 +77,7 @@ constructor TControl.Create(
 begin
     inherited Create;
     
-    FHandle    := nil;
+    FHandle    := 0;
     FParent    := AParent;
     FControlId := AControlId;
     
@@ -115,7 +116,7 @@ procedure TControl.CreateHandle;
 var
     Style: DWORD;
 begin
-    if FHandle <> nil then
+    if FHandle <> 0 then
         Exit;
 
     Style := GetWindowStyle;
@@ -128,8 +129,8 @@ begin
 
     FHandle := CreateWindowExA(
         GetWindowExStyle,
-        GetWindowClass,
-        FCaption,
+        PAnsiChar(GetWindowClass),
+        PAnsiChar(FCaption),
         Style,
         FLeft,
         FTop,
@@ -144,22 +145,22 @@ begin
         Self
     );
     
-    if FHandle = nil then
+    if FHandle = 0 then
     begin
-        _jit_error_runtime(
+        raise Exception.Create(
         'TControl.CreateHandle: CreateWindowExA failed.');
     end;
 end;
 
 procedure TControl.DestroyHandle;
 begin
-    if FHandle = nil then
+    if FHandle = 0 then
     Exit;
 
     if IsWindow(FHandle) then
     DestroyWindow(FHandle);
 
-    FHandle := nil;
+    FHandle := 0;
 end;
 
 procedure TControl.SetBounds(
@@ -173,7 +174,7 @@ begin
     FWidth  := AWidth;
     FHeight := AHeight;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         MoveWindow(
             FHandle,
             FLeft,
@@ -188,7 +189,7 @@ procedure TControl.SetCaption(const ACaption: String);
 begin
     FCaption := ACaption;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         SetWindowTextA(
             FHandle,
             FCaption
@@ -199,7 +200,7 @@ procedure TControl.Show;
 begin
     FVisible := True;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         ShowWindow(
             FHandle,
             SW_SHOW
@@ -210,7 +211,7 @@ procedure TControl.Hide;
 begin
     FVisible := False;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         ShowWindow(
             FHandle,
             SW_HIDE
@@ -221,7 +222,7 @@ procedure TControl.Enable;
 begin
     FEnabled := True;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         EnableWindow(
             FHandle,
             True
@@ -232,7 +233,7 @@ procedure TControl.Disable;
 begin
     FEnabled := False;
 
-    if FHandle <> nil then
+    if FHandle <> 0 then
         EnableWindow(
             FHandle,
             False

@@ -23,6 +23,12 @@ const
 
     // Window/control styles
     WS_OVERLAPPEDWINDOW = $00CF0000;
+    
+    WS_TABSTOP          = $00010000;
+    WS_CLIPSIBLINGS     = $04000000;
+    WS_DISABLED         = $08000000;
+    WS_VISIBLE          = $10000000;
+    WS_CHILD            = $40000000;
     WS_BUTTON           = $50010000;    // WS_CHILD | WS_VISIBLE | WS_TABSTOP
 
     // CreateWindow defaults
@@ -34,6 +40,8 @@ const
     COLOR_WINDOW        = 5;
 
     // ShowWindow
+    SW_HIDE             =  0;
+    SW_SHOW             =  5;
     SW_SHOWDEFAULT      = 10;
 
     // MessageBox
@@ -41,6 +49,9 @@ const
     MB_ICONERROR        = $00000010;
     MB_ICONINFORMATION  = $00000040;
 
+    // PushButton style
+    BS_PUSHBUTTON       = $00000000;
+    
 type
     BOOL      = Integer;
     UINT      = Integer;

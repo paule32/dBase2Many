@@ -440,6 +440,15 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PascalParser#inheritedExpression.
+    def enterInheritedExpression(self, ctx:PascalParser.InheritedExpressionContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#inheritedExpression.
+    def exitInheritedExpression(self, ctx:PascalParser.InheritedExpressionContext):
+        pass
+
+
     # Enter a parse tree produced by PascalParser#constructorDeclaration.
     def enterConstructorDeclaration(self, ctx:PascalParser.ConstructorDeclarationContext):
         pass
@@ -890,6 +899,15 @@ class PascalParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by PascalParser#raiseStatement.
+    def enterRaiseStatement(self, ctx:PascalParser.RaiseStatementContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#raiseStatement.
+    def exitRaiseStatement(self, ctx:PascalParser.RaiseStatementContext):
+        pass
+
+
     # Enter a parse tree produced by PascalParser#exitStatement.
     def enterExitStatement(self, ctx:PascalParser.ExitStatementContext):
         pass
@@ -1040,6 +1058,15 @@ class PascalParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by PascalParser#expr.
     def exitExpr(self, ctx:PascalParser.ExprContext):
+        pass
+
+
+    # Enter a parse tree produced by PascalParser#conditionalExpression.
+    def enterConditionalExpression(self, ctx:PascalParser.ConditionalExpressionContext):
+        pass
+
+    # Exit a parse tree produced by PascalParser#conditionalExpression.
+    def exitConditionalExpression(self, ctx:PascalParser.ConditionalExpressionContext):
         pass
 
 

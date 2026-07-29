@@ -80,6 +80,36 @@
             "value": 13565952
         },
         {
+            "name": "WS_TABSTOP",
+            "scoped_name": "windows_types_WS_TABSTOP",
+            "type": "integer",
+            "value": 65536
+        },
+        {
+            "name": "WS_CLIPSIBLINGS",
+            "scoped_name": "windows_types_WS_CLIPSIBLINGS",
+            "type": "integer",
+            "value": 67108864
+        },
+        {
+            "name": "WS_DISABLED",
+            "scoped_name": "windows_types_WS_DISABLED",
+            "type": "integer",
+            "value": 134217728
+        },
+        {
+            "name": "WS_VISIBLE",
+            "scoped_name": "windows_types_WS_VISIBLE",
+            "type": "integer",
+            "value": 268435456
+        },
+        {
+            "name": "WS_CHILD",
+            "scoped_name": "windows_types_WS_CHILD",
+            "type": "integer",
+            "value": 1073741824
+        },
+        {
             "name": "WS_BUTTON",
             "scoped_name": "windows_types_WS_BUTTON",
             "type": "integer",
@@ -110,6 +140,18 @@
             "value": 5
         },
         {
+            "name": "SW_HIDE",
+            "scoped_name": "windows_types_SW_HIDE",
+            "type": "integer",
+            "value": 0
+        },
+        {
+            "name": "SW_SHOW",
+            "scoped_name": "windows_types_SW_SHOW",
+            "type": "integer",
+            "value": 5
+        },
+        {
             "name": "SW_SHOWDEFAULT",
             "scoped_name": "windows_types_SW_SHOWDEFAULT",
             "type": "integer",
@@ -132,6 +174,12 @@
             "scoped_name": "windows_types_MB_ICONINFORMATION",
             "type": "integer",
             "value": 64
+        },
+        {
+            "name": "BS_PUSHBUTTON",
+            "scoped_name": "windows_types_BS_PUSHBUTTON",
+            "type": "integer",
+            "value": 0
         }
     ],
     "types": {

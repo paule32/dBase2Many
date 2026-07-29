@@ -21,6 +21,7 @@
         "interface": [
             "System.Types",
             "System.Strings",
+            "System.SysUtils",
             "System.Objects"
         ],
         "implementation": []

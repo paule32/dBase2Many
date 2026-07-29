@@ -249,6 +249,11 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PascalParser#inheritedExpression.
+    def visitInheritedExpression(self, ctx:PascalParser.InheritedExpressionContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PascalParser#constructorDeclaration.
     def visitConstructorDeclaration(self, ctx:PascalParser.ConstructorDeclarationContext):
         return self.visitChildren(ctx)
@@ -499,6 +504,11 @@ class PascalParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by PascalParser#raiseStatement.
+    def visitRaiseStatement(self, ctx:PascalParser.RaiseStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by PascalParser#exitStatement.
     def visitExitStatement(self, ctx:PascalParser.ExitStatementContext):
         return self.visitChildren(ctx)
@@ -581,6 +591,11 @@ class PascalParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by PascalParser#expr.
     def visitExpr(self, ctx:PascalParser.ExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by PascalParser#conditionalExpression.
+    def visitConditionalExpression(self, ctx:PascalParser.ConditionalExpressionContext):
         return self.visitChildren(ctx)
 
 

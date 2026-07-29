@@ -1,0 +1,327 @@
+diff --git a/src/asmjit/compiler/frontend/pascal/PascalLexer.g4 b/src/asmjit/compiler/frontend/pascal/PascalLexer.g4
+--- a/src/asmjit/compiler/frontend/pascal/PascalLexer.g4
++++ b/src/asmjit/compiler/frontend/pascal/PascalLexer.g4
+@@ -69,5 +69,6 @@
+ TRY                 : [Tt][Rr][Yy];
+ FINALLY             : [Ff][Ii][Nn][Aa][Ll][Ll][Yy];
+ EXCEPT              : [Ee][Xx][Cc][Ee][Pp][Tt];
++RAISE               : [Rr][Aa][Ii][Ss][Ee];
+ 
+ CLASS               : [Cc][Ll][Aa][Ss][Ss] ;
+diff --git a/src/asmjit/compiler/frontend/pascal/PascalParser.g4 b/src/asmjit/compiler/frontend/pascal/PascalParser.g4
+--- a/src/asmjit/compiler/frontend/pascal/PascalParser.g4
++++ b/src/asmjit/compiler/frontend/pascal/PascalParser.g4
+@@ -493,6 +493,7 @@
+     | caseStatement
+     | procedureCallStatement
+     | inheritedStatement
++    | raiseStatement
+     | exitStatement
+     | compoundStatement
+     ;
+@@ -537,8 +537,12 @@
+ tryStatement
+     : TRY statementList FINALLY statementList END
+     | TRY statementList EXCEPT  statementList END
+     ;
+ 
++raiseStatement
++    : RAISE expr
++    ;
++
+ exitStatement
+     : EXIT SEMI?
+     ;
+diff --git a/src/asmjit/compiler/frontend/pascal/generator.py b/src/asmjit/compiler/frontend/pascal/generator.py
+--- a/src/asmjit/compiler/frontend/pascal/generator.py
++++ b/src/asmjit/compiler/frontend/pascal/generator.py
+@@ -56,4 +56,7 @@
+ JIT_VARIANT_LOW_OFFSET  = 4
+ JIT_VARIANT_HIGH_OFFSET = 8
+ 
++# Must match JIT_USER_EXCEPTION in the NT32 runtime.
++JIT_USER_EXCEPTION = 7
++
+ class PropertyInfo:
+@@ -20372,1 +20375,210 @@
+         return None
++
++    def emit_exception_message(
++        self,
++        ctx,
++        exception_type
++    ):
++        """
++        Load Exception.Message for an exception object currently held in EAX.
++
++        The property may read a String field directly or use a parameterless
++        String getter.  This also works for descendants because class metadata
++        contains inherited fields, methods, and properties.
++        """
++        cls = self.classes[
++            exception_type
++        ]
++
++        prop = getattr(
++            cls,
++            "properties",
++            {}
++        ).get(
++            "message"
++        )
++
++        if prop is None:
++            raise CompileError(
++                ctx,
++                "E0019",
++                text=(
++                    f"class {cls.name} must publish a "
++                    "String property named Message"
++                )
++            )
++
++        if self.resolve_type(
++            prop.ptype
++        ) != "string":
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=self.resolve_type(prop.ptype),
++                expected="string"
++            )
++
++        read_name = prop.read_name
++
++        if not read_name:
++            raise CompileError(
++                ctx,
++                "E0019",
++                text=(
++                    f"property {cls.name}.Message "
++                    "has no read accessor"
++                )
++            )
++
++        read_key = read_name.lower()
++        field = cls.fields.get(
++            read_key
++        )
++
++        # property Message: String read FMessage;
++        if field is not None:
++            field_type = self.resolve_type(
++                field.type
++            )
++
++            if field_type != "string":
++                raise CompileError(
++                    ctx,
++                    "E0005",
++                    got=field_type,
++                    expected="string"
++                )
++
++            self.emit_mov_dword_ptr(
++                "eax",
++                "eax",
++                field.offset,
++                comment=f"{cls.name}.Message"
++            )
++
++            return "string"
++
++        # property Message: String read GetMessage;
++        method, owner_cls = self.find_class_method_recursive(
++            ctx,
++            exception_type,
++            read_name,
++            []
++        )
++
++        if (
++            method.kind != "function"
++            or self.resolve_type(
++                method.return_type
++            ) != "string"
++        ):
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=(
++                    self.resolve_type(
++                        method.return_type
++                    )
++                    if method.return_type
++                    else method.kind
++                ),
++                expected="string function"
++            )
++
++        self.emit_push(
++            "eax",
++            comment="Exception Self"
++        )
++
++        self.emit_class_method_call(
++            method,
++            comment=(
++                f"{owner_cls.name}."
++                f"{method.name}"
++            )
++        )
++
++        self.backend.emit_cleanup_stack(
++            4
++        )
++
++        return "string"
++
++    def visitRaiseStatement(
++        self,
++        ctx
++    ):
++        if CDATA.args_target not in (
++            "nt35",
++            "winnt",
++            "win32"
++        ):
++            raise CompileError(
++                ctx,
++                "E0019",
++                text=(
++                    "raise is currently implemented "
++                    "only for NT32/Win32"
++                )
++            )
++
++        exception_type = self.resolve_type(
++            self.visit(
++                ctx.expr()
++            )
++        )
++
++        if (
++            "exception" not in self.classes
++            or not self.is_class_type(
++                exception_type
++            )
++            or not self.class_is_descendant(
++                exception_type,
++                "exception"
++            )
++        ):
++            raise CompileError(
++                ctx,
++                "E0005",
++                got=exception_type,
++                expected="Exception"
++            )
++
++        # The constructor/function result is the exception object in EAX.
++        self.emit_nil_pointer_check(
++            "raise expression"
++        )
++
++        # Replaces EAX with the null-terminated dynamic string data pointer.
++        self.emit_exception_message(
++            ctx,
++            exception_type
++        )
++
++        # cdecl:
++        #
++        #   _jit_raise(JIT_USER_EXCEPTION, message)
++        #
++        # Arguments are pushed from right to left.
++        self.emit_push(
++            "eax",
++            comment="exception message"
++        )
++
++        self.backend.writer.emit_push_imm32(
++            JIT_USER_EXCEPTION
++        )
++
++        self.emit_call(
++            "_jit_raise"
++        )
++
++        # _jit_raise normally does not return.  Keep the generated stack
++        # balanced for runtimes that return after reporting an unhandled
++        # exception.
++        self.backend.emit_cleanup_stack(
++            8
++        )
++
++        return None
+@@ -20507,5 +20719,8 @@
+         if ctx.tryStatement():
+             return self.visit(ctx.tryStatement())
++
++        if ctx.raiseStatement():
++            return self.visit(ctx.raiseStatement())
+         
+         if ctx.assignment():
+             return self.visit(ctx.assignment())
+diff --git a/src/asmjit/lib/pascal/System.SysUtils.pas b/src/asmjit/lib/pascal/System.SysUtils.pas
+new file mode 100644
+--- /dev/null
++++ b/src/asmjit/lib/pascal/System.SysUtils.pas
+@@ -0,0 +1,32 @@
++// ---------------------------------------------------------------------------
++// File:   System.SysUtils.pas
++// Author: (c) 2026 Jens Kallup - paule32
++// All rights reserved
++// ---------------------------------------------------------------------------
++unit System.SysUtils;
++
++interface
++
++uses System.Objects;
++
++type
++    Exception = class(TObject)
++    private
++        FMessage: String;
++    public
++        constructor Create(const AMessage: String);
++    published
++        property Message: String read FMessage;
++    end;
++
++implementation
++
++constructor Exception.Create(
++    const AMessage: String
++);
++begin
++    inherited Create;
++    FMessage := AMessage;
++end;
++
++end.
+diff --git a/src/asmjit/testsrc/pascal/test_raise.pas b/src/asmjit/testsrc/pascal/test_raise.pas
+new file mode 100644
+--- /dev/null
++++ b/src/asmjit/testsrc/pascal/test_raise.pas
+@@ -0,0 +1,20 @@
++// ---------------------------------------------------------------------------
++// File:   test_raise.pas
++// Author: (c) 2026 Jens Kallup - paule32
++// All rights reserved
++// ---------------------------------------------------------------------------
++program test_raise;
++
++uses System.SysUtils;
++
++begin
++    try
++        WriteLn('before raise');
++        raise Exception.Create('fuzz');
++        WriteLn('unreachable');
++    except
++        WriteLn('exception caught');
++    end;
++
++    WriteLn('after except');
++end.

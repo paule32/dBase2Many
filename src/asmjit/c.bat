@@ -10,6 +10,7 @@ set ANTLR_VERSION=4.13.2
 :: ----------------------------------------------------------------------------
 :: Windows Resource Compiler ...
 :: ----------------------------------------------------------------------------
+goto pascal
 echo create: Lexer + Parser for Windows Resource Compiler
 antlr4 -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
@@ -26,19 +27,23 @@ antlr4 -v %ANTLR_VERSION% ^
 :: ----------------------------------------------------------------------------
 :: Pascal
 :: ----------------------------------------------------------------------------
+:pascal
 echo create: Lexer + Parser for Pascal
-antlr4 -v %ANTLR_VERSION% ^
+antlr4.exe -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
-    -o parsers/pascal     ^
-    compiler/grammar/PascalLexer.g4
+    -Xexact-output-dir    ^
+    -o parsers\pascal     ^
+    compiler\grammar\PascalLexer.g4
 
-antlr4 -v %ANTLR_VERSION% ^
+antlr4.exe -v %ANTLR_VERSION% ^
     -Dlanguage=Python3    ^
-    -o parsers/pascal     ^
+    -Xexact-output-dir    ^
+    -o parsers\pascal     ^
     -visitor              ^
-    -lib parsers/pascal   ^
-    compiler/grammar/PascalParser.g4
+    -lib parsers\pascal   ^
+    compiler\grammar\PascalParser.g4
 
+exit 0
 :: ----------------------------------------------------------------------------
 :: ELAN / EUMEL
 :: ----------------------------------------------------------------------------
